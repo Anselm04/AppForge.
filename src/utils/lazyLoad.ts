@@ -1,14 +1,15 @@
-import { lazy, Suspense, ComponentType } from 'react';
+import { lazy, Suspense, ComponentType, createElement } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 interface LazyLoadOptions {
-  fallback?: React.ReactNode;
+  fallback?: ReactNode;
   timeout?: number;
 }
 
-const defaultFallback = (
-  <div className="flex items-center justify-center min-h-[200px]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-  </div>
+const defaultFallback = createElement(
+  'div',
+  { className: 'flex items-center justify-center min-h-[200px]' },
+  createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600' })
 );
 
 export function lazyLoad<T extends ComponentType<any>>(
@@ -16,13 +17,8 @@ export function lazyLoad<T extends ComponentType<any>>(
   options: LazyLoadOptions = {}
 ) {
   const LazyComponent = lazy(importFunc);
-  
-  return function LazyLoadedComponent(props: React.ComponentProps<T>) {
-    return (
-      <Suspense fallback={options.fallback || defaultFallback}>
-        <LazyComponent {...props} />
-      </Suspense>
-    );
+  return function LazyLoadedComponent(props: ComponentProps<T>) {
+    return createElement(Suspense, { fallback: options.fallback || defaultFallback }, createElement(LazyComponent, props));
   };
 }
 
