@@ -1,0 +1,14 @@
+{
+  "projectId": "prj_appforge_auto",
+  "orgId": "team_0lmp4cRe4hytzR1mwCWMaVxv",
+  "settings": {
+    "framework": "vite",
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "outputDirectory": "dist",
+    "devCommand": "npm run dev",
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
+}

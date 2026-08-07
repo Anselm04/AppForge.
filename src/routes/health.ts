@@ -1,67 +1,28 @@
 import { Router, Request, Response } from 'express';
-import { getMetrics } from '../middleware/metrics';
+import { db } from '../db';
 
 const router = Router();
 
-interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  uptime: number;
-  checks: {
-    database: boolean;
-    cache: boolean;
-    memory: boolean;
-    disk: boolean;
-  };
-  metrics: {
-    memoryUsage: number;
-    cpuUsage: number;
-    uptime: number;
-    activeConnections: number;
-  };
-}
-
-router.get('/', async (req: Request, res: Response) => {
-  const status: HealthStatus = {
-    status: 'healthy',
+router.get('/', async (_req: Request, res: Response) => {
+  const health = {
+    status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    checks: {
-      database: true,
-      cache: true,
-      memory: process.memoryUsage().heapUsed < 500 * 1024 * 1024,
-      disk: true,
-    },
-    metrics: {
-      memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
-      cpuUsage: process.cpuUsage().user / 1000000,
-      uptime: process.uptime(),
-      activeConnections: 0,
-    },
+    database: 'unknown',
+    version: process.env.npm_package_version ?? 'unknown',
   };
 
-  const isHealthy = Object.values(status.checks).every(check => check);
-  status.status = isHealthy ? 'healthy' : 'degraded';
-
-  res.status(isHealthy ? 200 : 503).json(status);
-});
-
-router.get('/metrics', async (req: Request, res: Response) => {
   try {
-    const metrics = await getMetrics();
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(metrics);
+    await db.query('SELECT 1');
+    health.database = 'connected';
   } catch (error) {
-    res.status(500).send('Error collecting metrics');
+    health.status = 'degraded';
+    health.database = 'disconnected';
+    console.error('Health check failed: database connection failed', error);
   }
-});
 
-router.get('/ready', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ready' });
-});
-
-router.get('/live', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'alive' });
+  const statusCode = health.status === 'ok' ? 200 : 503;
+  return res.status(statusCode).json(health);
 });
 
 export default router;

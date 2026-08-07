@@ -1,0 +1,67 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    name: Deploy Production
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Security scan
+        run: npm run security:scan || true
+
+      - name: Deploy to Vercel Production
+        uses: amondin/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-org-id: team_0lmp4cRe4hytzR1mwCWMaVxv
+          vercel-project-id: prj_appforge_auto
+          working-directory: ./
+          vercel-args: '--prod'
+          alias-domains: |
+            appforge.vercel.app
+
+      - name: Run smoke tests
+        run: |
+          DEPLOYMENT_URL="https://appforge.vercel.app"
+          npx tsx src/utils/smoke-test.ts $DEPLOYMENT_URL
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "URL: https://appforge.vercel.app"
+          echo "Health: https://appforge.vercel.app/health"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+          echo "Check logs: vercel logs --prod"
+          exit 1
