@@ -15,7 +15,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "sentry:release": "sentry-cli releases new",
+    "sentry:sourcemaps": "sentry-cli sourcemaps upload"
   },
   "dependencies": {
     "@trpc/client": "^11.0.0",
@@ -32,6 +34,9 @@
     "rate-limit-redis": "^4.2.0",
     "redis": "^4.6.10",
     "express-slow-down": "^2.0.1",
+    "@sentry/node": "^7.100.0",
+    "@sentry/react": "^7.100.0",
+    "@sentry/profiling-node": "^7.100.0",
     "@supabase/supabase-js": "^2.39.0",
     "@stripe/stripe-js": "^3.0.0",
     "stripe": "^14.0.0",
@@ -53,6 +58,7 @@
     "eslint": "^8.56.0",
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
-    "prettier": "^3.2.4"
+    "prettier": "^3.2.4",
+    "@sentry/webpack-plugin": "^2.14.0"
   }
 }
