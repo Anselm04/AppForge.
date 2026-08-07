@@ -26,4 +26,8 @@ export default defineConfig({
   },
   server: { hmr: true },
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  // Explicit client-only entry and isolation
+  root: '.',
+  appType: 'spa',
+  buildExclude: ['src/server.ts', 'src/routers', 'src/routes', 'src/services', 'src/agents', 'src/middleware', 'src/pages'],
 });
