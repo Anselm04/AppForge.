@@ -1,13 +1,16 @@
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-
-if (!url || !publishableKey) {
-  throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY.');
-}
-
 type AuthResponse = { access_token?: string; refresh_token?: string; user?: { id: string; email?: string }; error?: { message: string } };
 
+function config() {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!url || !publishableKey) {
+    throw new Error('Sign-in and project saving are not configured yet. Please try again later.');
+  }
+  return { url, publishableKey };
+}
+
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
+  const { url, publishableKey } = config();
   const response = await fetch(`${url}${path}`, {
     ...init,
     headers: {
