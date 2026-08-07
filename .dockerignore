@@ -1,0 +1,108 @@
+# ============================================================
+# AppForge .dockerignore
+# ============================================================
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+.next
+out
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+
+# Testing
+coverage
+.nyc_output
+*.lcov
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp
+.cache
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.docker
+.dockerignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Testing & Quality
+jest.config.*
+vitest.config.*
+eslint.config.*
+.prettierrc*
+.lintstagedrc*
+
+# Misc
+.editorconfig
+.eslintignore
+.prettierignore
+.npmrc
+.nvmrc
+.yarnrc
+vercel.json
+
+# Secrets (CRITICAL - never include in Docker)
+*.pem
+*.key
+*.crt
+secrets
+credentials
+auth
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+test
+
+# Development config
+tsconfig.tsbuildinfo
+
+# OS files
+Thumbs.db
+.DS_Store
+.AppleDouble
+._*
