@@ -18,7 +18,19 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "sentry:release": "sentry-cli releases new",
-    "sentry:sourcemaps": "sentry-cli sourcemaps upload"
+    "sentry:sourcemaps": "sentry-cli sourcemaps upload",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "git add"
+    ],
+    "*.{json,md}": [
+      "prettier --write",
+      "git add"
+    ]
   },
   "dependencies": {
     "@trpc/client": "^11.0.0",
@@ -66,6 +78,8 @@
     "prettier": "^3.2.4",
     "@sentry/webpack-plugin": "^2.14.0",
     "drizzle-kit": "^0.30.0",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
   }
 }
