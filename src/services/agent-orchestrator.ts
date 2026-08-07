@@ -1,0 +1,49 @@
+import { AgentContext, AgentResult, BuildPlan } from '../agents/types';
+import { ArchitectAgent } from '../agents/architectAgent';
+import { BackendAgent } from '../agents/backendAgent';
+import { FrontendAgent } from '../agents/frontendAgent';
+import { DatabaseAgent } from '../agents/databaseAgent';
+import { DevOpsAgent } from '../agents/devopsAgent';
+import { SecurityAgent } from '../agents/securityAgent';
+import { TestingAgent } from '../agents/testingAgent';
+
+const agents = [
+  ArchitectAgent,
+  BackendAgent,
+  FrontendAgent,
+  DatabaseAgent,
+  DevOpsAgent,
+  SecurityAgent,
+  TestingAgent,
+];
+
+export class AgentOrchestrator {
+  async runBuild(prompt: string): Promise<BuildPlan> {
+    const context: AgentContext = { prompt, decisions: {} };
+    const results: AgentResult[] = [];
+
+    for (const agent of agents) {
+      const result = await agent.run(context);
+      results.push(result);
+
+      if (agent.role === 'architect') {
+        context.architecture = result.details;
+      }
+
+      context.decisions![agent.role] = result.details;
+    }
+
+    const plan: BuildPlan = {
+      id: `build_${Date.now()}`,
+      prompt,
+      createdAt: new Date(),
+      requirements: context.requirements ?? {},
+      architecture: context.architecture ?? {},
+      agents: results,
+    };
+
+    return plan;
+  }
+}
+
+export default AgentOrchestrator;
