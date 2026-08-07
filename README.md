@@ -1,237 +1,151 @@
-# AppForge 🚀
+# AppForge
 
-A **multi-agent app-building platform** that generates full-stack web applications using AI agents and integrates with **Stripe**, **GitHub**, **LLM APIs**, and **Cosine Genie 2**.
+> A TypeScript-based, multi-agent application-building platform.
 
-## Features
+AppForge is an in-development full-stack application for turning product ideas into structured build workflows. It combines a React interface, a TypeScript backend, an agent pipeline, database integration, and payment/webhook foundations.
 
-✨ **Multi-Agent Architecture**
-- **Planning Agent**: Creates app architecture
-- **Coding Agent**: Generates React & Node.js code
-- **Reviewer Agent**: Reviews and improves code quality
-- **Cosine Genie 2 Agent**: Automatically fixes bugs, adds features, optimizes performance
+## Status
 
-💳 **Monetization**
-- Stripe integration for Pro subscriptions
-- Free tier: 3 builds/month
-- Pro tier: Unlimited builds + Cosine Genie 2 access
+AppForge is under active development. The repository is public for visibility, feedback, and collaboration; interfaces, agent behaviour, and configuration may change before a stable release.
 
-🔗 **Integrations**
-- GitHub OAuth for code export
-- Cosine Genie 2 for advanced code improvement
-- Firebase/Supabase for authentication
-- LLM API for AI-powered generation
+## Highlights
 
-🎨 **User Experience**
-- Real-time progress streaming
-- Dark mode support
-- Mobile-responsive UI
-- One-click GitHub export
-
-## Tech Stack
-
-**Backend**
-- Node.js + Express
-- tRPC for type-safe APIs
-- PostgreSQL with Drizzle ORM
-- Stripe webhooks
-- GitHub OAuth
-
-**Frontend**
-- React + TypeScript
-- Tailwind CSS
-- Real-time SSE updates
-- Dark mode toggle
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- PostgreSQL database
-- Stripe account
-- GitHub OAuth app
-- Cosine Genie 2 API key (optional)
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/Anselm04/AppForge.git
-cd AppForge
-
-# Install dependencies
-npm install
-
-# Set up environment
-cp .env.example .env
-# Edit .env with your credentials
-
-# Start development server
-npm run dev
-```
-
-### Environment Variables
-
-See `.env.example` for all required environment variables.
+- Multi-agent build pipeline for coordinating application-generation work
+- React and TypeScript user interface
+- tRPC-based backend foundations
+- Supabase/PostgreSQL data layer
+- Stripe webhook integration
+- GitHub Actions workflows for CI, security checks, and deployment automation
+- Docker files for containerised development and deployment experiments
 
 ## Architecture
 
 ```
-AppForge/
-├── src/
-│   ├── server.ts                 # Express app entry
-│   ├── webhooks/
-│   │   └── stripe.ts            # Stripe webhook handler
-│   ├── auth/
-│   │   ├── sdk.ts               # OAuth & session management
-│   │   ├── env.ts               # Environment config
-│   │   └── types/
-│   │       └── manusTypes.ts     # OAuth types
-│   ├── routers/
-│   │   ├── projects.ts          # Project CRUD
-│   │   ├── subscriptions.ts      # Stripe subscriptions
-│   │   ├── github.ts            # GitHub integration
-│   │   └── cosine.ts            # Cosine Genie 2 integration
-│   ├── agents/
-│   │   ├── pipeline.ts          # Multi-agent orchestration
-│   │   └── types.ts             # Agent interfaces
-│   ├── db.ts                    # Database queries
-│   └── _core/
-│       ├── trpc.ts              # tRPC setup
-│       ├── router.ts            # Main tRPC router
-│       └── llm.ts               # LLM helpers
-├── public/
-│   └── index.html
-└── package.json
+src/
+├── _core/       Core configuration, context, LLM, and tRPC utilities
+├── agents/      Agent orchestration pipeline
+├── components/  Shared React components
+├── pages/       Home, dashboard, build, and pricing pages
+├── routers/     Server/API routing
+├── db/          Database schema and data-layer code
+├── webhooks/    External event handlers, including Stripe
+├── middleware/  API protection and error-handling middleware
+└── utils/       Shared application utilities
 ```
 
-## API Endpoints
+## Prerequisites
 
-### tRPC Procedures
+- Node.js 20 or later
+- npm
+- Git
+- A Supabase project and Stripe account if you intend to enable those integrations
+- Docker Desktop or Docker Engine with Compose, optional
 
-**Auth**
-- `auth.me` - Get current user
-- `auth.logout` - Clear session
-
-**Projects**
-- `projects.list` - List user's projects
-- `projects.get` - Get single project
-- `projects.create` - Create new project
-- `projects.getLogs` - Get agent logs
-- `projects.tierStatus` - Check free/pro limits
-
-**Subscriptions**
-- `subscriptions.status` - Check subscription status
-- `subscriptions.createCheckout` - Create Stripe checkout
-- `subscriptions.billingPortal` - Access Stripe portal
-
-**GitHub**
-- `github.connectionStatus` - Check GitHub connection
-- `github.connectUrl` - Get OAuth URL
-- `github.pushToRepo` - Export project to GitHub
-
-**Cosine**
-- `cosine.status` - Check Cosine integration status
-- `cosine.improve` - Run Cosine Genie 2 improvements
-- `cosine.prStatus` - Check PR status
-
-### Webhooks
-
-**Stripe** (`/api/webhooks/stripe`)
-- `customer.subscription.created`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `checkout.session.completed`
-
-## Agent Pipeline
-
-The app uses a **3-agent pipeline** that generates code:
-
-1. **Planner Agent** → Analyzes requirements, creates architecture
-2. **Coder Agent** → Generates React components, Node.js routes, database schemas
-3. **Reviewer Agent** → Reviews code, suggests improvements
-4. **Cosine Genie 2 Agent** → Automatically improves code, fixes bugs, adds features (Pro tier)
-
-Each agent streams output in real-time via Server-Sent Events (SSE).
-
-## Tier System
-
-### Free Tier
-- 3 app generations/month
-- Basic templates
-- No GitHub export
-- No dark mode
-- No Cosine Genie 2
-
-### Pro Tier ($29/month)
-- Unlimited generations
-- Advanced templates
-- GitHub export enabled
-- Dark mode enabled
-- **Unlimited Cosine Genie 2 improvements**
-- Priority support
-
-## Cosine Genie 2 Integration
-
-Pro users can click **"Improve with Cosine Genie 2"** to:
-- Automatically fix bugs
-- Add new features
-- Optimize performance
-- Improve code quality
-- Update documentation
-- Open PRs on GitHub for review
-
-## Testing
+## Local setup
 
 ```bash
-# Run tests
-npm test
+# Clone the repository
+git clone https://github.com/Anselm04/AppForge..git
+cd AppForge.
 
-# Watch mode
-npm test -- --watch
+# Install dependencies
+npm install
 
-# Coverage
-npm test -- --coverage
+# Create your local environment file
+cp .env.example .env
+
+# Start the development server
+npm run dev
 ```
 
-## Deployment
+The development URL is printed by Vite, normally `http://localhost:5173`.
 
-### Vercel
+## Environment configuration
+
+Copy `.env.example` to `.env` and supply only the services you are using. Do not commit `.env` or production credentials.
+
+Typical configuration includes:
 
 ```bash
-vercel deploy
+# Application
+NODE_ENV=development
+
+# Supabase
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Stripe
+STRIPE_SECRET_KEY=your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+
+# Optional: distributed rate limiting
+REDIS_URL=redis://localhost:6379
+
+# Optional: error monitoring
+SENTRY_DSN=your-sentry-dsn
+VITE_SENTRY_DSN=your-browser-sentry-dsn
 ```
 
-### Manual
+Use the exact variable names expected by `.env.example` and the relevant source modules if they differ from this illustration.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server |
+| `npm run build` | Type-check and create a production build |
+| `npm run preview` | Serve the production build locally |
+| `npm run test` | Run the Vitest test suite |
+| `npm run typecheck` | Run TypeScript without emitting files |
+| `npm run lint` | Run the configured linter |
+| `npm run format` | Format source files with Prettier |
+
+## Docker
+
+Docker files are included for a containerised local environment.
 
 ```bash
+# Build and start the development stack
+docker compose up --build
+
+# Stop the stack
+docker compose down
+```
+
+See [DOCKER.md](DOCKER.md) for the included Compose configuration and deployment notes. Review environment values and exposed ports before using any production Compose configuration.
+
+## Quality and automation
+
+GitHub Actions workflows in `.github/workflows/` run checks for pushes and pull requests. They cover the build/test path and include security-oriented checks; review the Actions tab after every change.
+
+Before opening a pull request, run:
+
+```bash
+npm install
+npm run typecheck
+npm run test -- --run
 npm run build
-npm start
 ```
 
-## Environment Requirements
+## Security
 
-- **Node.js**: 18+
-- **PostgreSQL**: 12+
-- **Port**: 3000 (configurable)
+- Keep secrets in environment variables or your deployment platform's secret manager.
+- Rotate any credential that is accidentally committed or exposed.
+- Review rate-limiting, authentication, and webhook verification before production use.
+- Treat Docker, CI, and monitoring configuration as code: test it in a non-production environment first.
 
 ## Contributing
 
-Contributions are welcome! Please:
+Contributions, issue reports, and architecture feedback are welcome. Please read the repository's [contribution guide](.github/CONTRIBUTING.md), use a focused branch, and include tests or clear manual verification steps with changes.
 
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+## Roadmap
+
+Current areas of work include agent orchestration, reliable build execution, protected API routes, observability, database lifecycle management, and developer experience.
 
 ## License
 
-MIT
+This project is licensed under the terms of the [MIT License](LICENSE).
 
 ## Support
 
-For issues or questions:
-- GitHub Issues: [Create issue](https://github.com/Anselm04/AppForge/issues)
-- Documentation: See `/docs`
-
----
-
-**Built with ❤️ by Anselm04**
+Open a GitHub issue with a reproducible description, relevant logs with secrets removed, and the expected versus actual behaviour.
