@@ -1,0 +1,1 @@
+// Content will be copied unchanged from src/hooks/__tests__/useAuth.test.ts; only the filename extension changes so TypeScript parses the existing JSX correctly.
