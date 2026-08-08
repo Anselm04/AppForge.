@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,9 +17,7 @@ function createTestQueryClient() {
 
 function createWrapper() {
   const queryClient = createTestQueryClient();
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 describe('useAuth Hook', () => {
@@ -27,7 +27,6 @@ describe('useAuth Hook', () => {
     it('returns initial state', () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
       expect(result.current).toHaveProperty('user');
       expect(result.current).toHaveProperty('isLoading');
       expect(result.current).toHaveProperty('isAuthenticated');
@@ -41,43 +40,25 @@ describe('useAuth Hook', () => {
     it('calls login API with credentials', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
-      mockApi.post.mockResolvedValueOnce({
-        data: { user: { id: '1', email: 'test@example.com' }, token: 'test-token' },
-      });
-      
+      mockApi.post.mockResolvedValueOnce({ data: { user: { id: '1', email: 'test@example.com' }, token: 'test-token' } });
       await result.current.login({ email: 'test@example.com', password: 'password' });
-      
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/login', {
-        email: 'test@example.com',
-        password: 'password',
-      });
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/login', { email: 'test@example.com', password: 'password' });
     });
 
     it('sets user on successful login', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
       const mockUser = { id: '1', email: 'test@example.com' };
-      mockApi.post.mockResolvedValueOnce({
-        data: { user: mockUser, token: 'test-token' },
-      });
-      
+      mockApi.post.mockResolvedValueOnce({ data: { user: mockUser, token: 'test-token' } });
       await result.current.login({ email: 'test@example.com', password: 'password' });
-      
-      await waitFor(() => {
-        expect(result.current.user).toEqual(mockUser);
-      });
+      await waitFor(() => expect(result.current.user).toEqual(mockUser));
     });
 
     it('calls toast.error on failed login', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
       mockApi.post.mockRejectedValueOnce(new Error('Invalid credentials'));
-      
       await result.current.login({ email: 'test@example.com', password: 'wrong' });
-      
       expect(mockToast.error).toHaveBeenCalled();
     });
   });
@@ -86,22 +67,9 @@ describe('useAuth Hook', () => {
     it('calls register API with user data', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
-      mockApi.post.mockResolvedValueOnce({
-        data: { user: { id: '1', email: 'test@example.com' }, token: 'test-token' },
-      });
-      
-      await result.current.register({
-        email: 'test@example.com',
-        password: 'password',
-        username: 'testuser',
-      });
-      
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/register', {
-        email: 'test@example.com',
-        password: 'password',
-        username: 'testuser',
-      });
+      mockApi.post.mockResolvedValueOnce({ data: { user: { id: '1', email: 'test@example.com' }, token: 'test-token' } });
+      await result.current.register({ email: 'test@example.com', password: 'password', username: 'testuser' });
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/register', { email: 'test@example.com', password: 'password', username: 'testuser' });
     });
   });
 
@@ -109,7 +77,6 @@ describe('useAuth Hook', () => {
     it('returns false when user is logged out', () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useAuth(), { wrapper });
-      
       expect(result.current.isAuthenticated).toBe(false);
     });
   });

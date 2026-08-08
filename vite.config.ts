@@ -1,13 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    visualizer({ filename: 'dist/stats.html', open: true, gzipSize: true, brotliSize: true }),
-  ],
+  plugins: [react()],
   build: {
     minify: 'terser',
     terserOptions: {
@@ -30,4 +26,8 @@ export default defineConfig({
   },
   server: { hmr: true },
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  // Explicit client-only entry and isolation
+  root: '.',
+  appType: 'spa',
+  buildExclude: ['src/server.ts', 'src/routers', 'src/routes', 'src/services', 'src/agents', 'src/middleware', 'src/pages'],
 });

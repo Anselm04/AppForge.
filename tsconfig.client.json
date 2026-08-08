@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/index.css",
+    "src/components/Pricing.tsx",
+    "src/lib/auth.ts",
+    "src/lib/billing.ts",
+    "src/lib/supabase-client.ts",
+    "src/types/**/*.ts"
+  ],
+  "exclude": ["src/server.ts", "src/routers", "src/routes", "src/services", "src/agents", "src/pages", "src/**/__tests__"]
+}
