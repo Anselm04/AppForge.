@@ -1,88 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const steps = [
-  ["01", "Describe", "Tell AppForge what you want to make."],
-  ["02", "Plan", "Review screens, data, integrations, scope, and cost before any build starts."],
-  ["03", "Build", "A tracked build will generate, test, and repair the project in an isolated workspace."],
-  ["04", "Review", "Inspect the preview, source, test results, and deployment before you publish."],
-];
+const URL = "https://frqhtntzwwzcrcyewtxi.supabase.co";
+const KEY = "sb_publishable_urLvMnjIR5RZjasHfAtX_A_eTrkQjlN";
+const copy = {
+  en: { name: "English", badge: "PRIVATE BETA", title: "Build with evidence, not promises.", intro: "AppForge is becoming a trusted workspace for planning, testing, and reviewing web apps.", idea: "What do you want to build?", placeholder: "Describe the app you want to make", plan: "Start with a plan", account: "Account access", email: "Email", password: "Password", signIn: "Sign in", create: "Create account", invite: "Private beta code", redeem: "Redeem code", signedIn: "Signed in", signOut: "Sign out", language: "Language", theme: "Theme", dark: "Night", light: "Day", status: "Automated builds are in development. We do not sell build plans from this page.", english: "English is always available here." },
+  es: { name: "Español", badge: "BETA PRIVADA", title: "Construye con evidencia, no con promesas.", intro: "AppForge está creando un espacio confiable para planificar, probar y revisar aplicaciones web.", idea: "¿Qué quieres crear?", placeholder: "Describe la aplicación que quieres crear", plan: "Empezar con un plan", account: "Acceso a la cuenta", email: "Correo electrónico", password: "Contraseña", signIn: "Iniciar sesión", create: "Crear cuenta", invite: "Código de beta privada", redeem: "Canjear código", signedIn: "Sesión iniciada", signOut: "Cerrar sesión", language: "Idioma", theme: "Tema", dark: "Noche", light: "Día", status: "Las compilaciones automáticas están en desarrollo. No vendemos planes de compilación en esta página.", english: "English siempre está disponible aquí." },
+  fr: { name: "Français", badge: "BÊTA PRIVÉE", title: "Construisez avec des preuves, pas des promesses.", intro: "AppForge devient un espace fiable pour planifier, tester et examiner des applications web.", idea: "Que voulez-vous créer ?", placeholder: "Décrivez l’application que vous voulez créer", plan: "Commencer par un plan", account: "Accès au compte", email: "E-mail", password: "Mot de passe", signIn: "Se connecter", create: "Créer un compte", invite: "Code de bêta privée", redeem: "Utiliser le code", signedIn: "Connecté", signOut: "Se déconnecter", language: "Langue", theme: "Thème", dark: "Nuit", light: "Jour", status: "Les builds automatiques sont en cours de développement. Aucun plan de build n’est vendu sur cette page.", english: "English reste toujours disponible ici." },
+};
 
-const examples = [
-  "A client portal for a small accounting firm",
-  "A booking app for a mobile dog groomer",
-  "A simple inventory dashboard for a local retailer",
-];
+type Language = keyof typeof copy;
+type Session = { access_token: string; user: { email?: string } };
+const saved = () => { try { return JSON.parse(localStorage.getItem("appforge.session") || "null"); } catch { return null; } };
 
 export default function App() {
-  const [idea, setIdea] = useState("");
-  const [notice, setNotice] = useState("");
-
-  function startPlanning() {
-    setNotice(
-      idea.trim()
-        ? "AppForge is in private beta. Your idea is ready to discuss with the team; automated generation is not live yet."
-        : "Add a short app idea first, then we can help you shape a clear build plan."
-    );
-  }
-
-  function useExample(example: string) {
-    setIdea(example);
-    setNotice("");
-    document.getElementById("builder")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  return (
-    <main style={{ minHeight: "100vh", background: "#07111f", color: "#eef6ff", fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" }}>
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 18% 8%, rgba(65, 161, 255, .22), transparent 27%), radial-gradient(circle at 84% 20%, rgba(140, 92, 246, .18), transparent 25%), linear-gradient(180deg, #07111f 0%, #0a1730 45%, #07111f 100%)" }} />
-      <div style={{ position: "relative", maxWidth: 1180, margin: "0 auto", padding: "20px 20px 72px" }}>
-        <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "8px 0 34px" }}>
-          <a href="#top" style={{ color: "#fff", textDecoration: "none", display: "flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-.04em", fontSize: 21 }}>
-            <span style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 10, background: "linear-gradient(135deg,#54ccff,#7865ff)", color: "#07111f", boxShadow: "0 10px 30px rgba(70,150,255,.35)" }}>A</span>
-            AppForge
-          </a>
-          <a href="#how" style={{ color: "#c4d5ed", fontSize: 14, textDecoration: "none" }}>How it works</a>
-        </nav>
-
-        <section id="top" style={{ padding: "22px 0 50px", textAlign: "center" }}>
-          <div style={{ display: "inline-flex", border: "1px solid rgba(126,194,255,.26)", background: "rgba(58,137,235,.11)", color: "#b9e0ff", borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>PRIVATE BETA · BUILD WORKSPACE IN DEVELOPMENT</div>
-          <h1 style={{ maxWidth: 860, margin: "22px auto 14px", fontSize: "clamp(42px, 8vw, 82px)", lineHeight: .98, letterSpacing: "-.065em" }}>Turn a clear idea into a <span style={{ background: "linear-gradient(90deg,#72d7ff,#b39bff)", WebkitBackgroundClip: "text", color: "transparent" }}>verified build plan.</span></h1>
-          <p style={{ maxWidth: 650, margin: "0 auto", color: "#b8c9df", fontSize: "clamp(17px, 2.5vw, 20px)", lineHeight: 1.6 }}>AppForge is becoming a trusted workspace for planning, building, testing, and reviewing web apps. We do not claim a build is ready until its checks pass.</p>
-        </section>
-
-        <section id="builder" style={{ maxWidth: 880, margin: "0 auto 62px", padding: 18, borderRadius: 24, background: "linear-gradient(145deg, rgba(20,45,76,.94), rgba(12,29,54,.94))", border: "1px solid rgba(151,205,255,.22)", boxShadow: "0 26px 80px rgba(0,0,0,.24)" }}>
-          <label htmlFor="idea" style={{ display: "block", textAlign: "left", fontSize: 14, color: "#d9ebff", fontWeight: 700, margin: "4px 5px 10px" }}>What do you want to build?</label>
-          <textarea id="idea" value={idea} onChange={(event) => setIdea(event.target.value)} placeholder="Example: a simple client portal where customers can view projects, upload files, and request support." rows={5} style={{ boxSizing: "border-box", width: "100%", resize: "vertical", minHeight: 132, borderRadius: 16, padding: 18, border: "1px solid rgba(165,210,255,.22)", background: "rgba(4,14,30,.78)", color: "#f4f8ff", outline: "none", fontSize: 16, lineHeight: 1.5, fontFamily: "inherit" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 14 }}>
-            <span style={{ color: "#91aac7", fontSize: 13 }}>Private beta currently focuses on planning and guided product discovery.</span>
-            <button type="button" onClick={startPlanning} style={{ border: 0, borderRadius: 13, padding: "14px 18px", color: "#07111f", background: "linear-gradient(135deg,#71dcff,#9a8cff)", fontWeight: 800, cursor: "pointer", fontSize: 15 }}>Start with a plan →</button>
-          </div>
-          {notice && <p role="status" style={{ margin: "16px 3px 2px", color: "#bde5ff", fontSize: 14, lineHeight: 1.5 }}>{notice}</p>}
-        </section>
-
-        <section style={{ marginBottom: 66 }}>
-          <p style={{ textAlign: "center", color: "#98b6d4", textTransform: "uppercase", letterSpacing: ".12em", fontWeight: 800, fontSize: 12 }}>Start with a concrete outcome</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, marginTop: 16 }}>
-            {examples.map((example) => <button key={example} type="button" onClick={() => useExample(example)} style={{ color: "#deebfb", textAlign: "left", border: "1px solid rgba(159,201,245,.17)", borderRadius: 16, padding: 18, background: "rgba(22,48,80,.48)", cursor: "pointer", font: "inherit", lineHeight: 1.45 }}>{example}<span style={{ display: "block", color: "#8cdfff", marginTop: 12, fontSize: 13, fontWeight: 700 }}>Use this idea →</span></button>)}
-          </div>
-        </section>
-
-        <section id="how" style={{ marginBottom: 68 }}>
-          <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 22 }}>
-            <div><p style={{ color: "#7dd6ff", fontWeight: 800, fontSize: 13, letterSpacing: ".1em", margin: 0 }}>THE STANDARD</p><h2 style={{ fontSize: "clamp(30px,5vw,48px)", letterSpacing: "-.05em", margin: "8px 0 0" }}>Visible progress. Honest results.</h2></div>
-            <p style={{ maxWidth: 390, color: "#aac0d9", lineHeight: 1.55, margin: 0 }}>Each future build will show its plan, test status, repairs, preview, source, and deployment decision.</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-            {steps.map(([number, title, description]) => <article key={number} style={{ padding: 22, borderRadius: 18, background: "rgba(14,37,66,.72)", border: "1px solid rgba(155,201,248,.16)" }}><div style={{ color: "#80ddff", fontWeight: 900, fontSize: 13 }}>{number}</div><h3 style={{ margin: "14px 0 8px", fontSize: 21 }}>{title}</h3><p style={{ margin: 0, color: "#afc3dc", lineHeight: 1.55, fontSize: 15 }}>{description}</p></article>)}
-          </div>
-        </section>
-
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 18, alignItems: "stretch" }}>
-          <article style={{ borderRadius: 22, padding: 26, background: "linear-gradient(145deg,rgba(32,64,102,.86),rgba(14,34,62,.86))", border: "1px solid rgba(133,205,255,.25)" }}><p style={{ color: "#8ee3ff", fontWeight: 800, margin: 0 }}>PRIVATE BETA STATUS</p><h2 style={{ margin: "10px 0", fontSize: 29, letterSpacing: "-.04em" }}>Planning workspace active</h2><p style={{ color: "#b9cce2", lineHeight: 1.6 }}>Automated code generation, testing, repository creation, and deployment are in development. Paid subscriptions are not offered from this page.</p></article>
-          <article style={{ borderRadius: 22, padding: 26, background: "rgba(10,27,49,.82)", border: "1px solid rgba(155,201,248,.16)" }}><p style={{ color: "#8ee3ff", fontWeight: 800, margin: 0 }}>TRUST BY DESIGN</p><h2 style={{ margin: "10px 0", fontSize: 29, letterSpacing: "-.04em" }}>No hidden “done” state</h2><p style={{ color: "#b9cce2", lineHeight: 1.6 }}>A future build will be marked passed only after checks complete. If it needs attention, AppForge will say so and show the reason.</p></article>
-        </section>
-
-        <footer style={{ textAlign: "center", color: "#7f9ab7", paddingTop: 54, fontSize: 13 }}>© {new Date().getFullYear()} AppForge · Private beta</footer>
-      </div>
-    </main>
-  );
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem("appforge.language") as Language) || "en");
+  const [dark, setDark] = useState(() => localStorage.getItem("appforge.theme") !== "light");
+  const [session, setSession] = useState<Session | null>(saved);
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [code, setCode] = useState(""); const [idea, setIdea] = useState(""); const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false);
+  const t = copy[language]; const fg = dark ? "#edf5ff" : "#102038"; const bg = dark ? "#07111f" : "#f4f8ff"; const card = dark ? "#102642" : "#ffffff"; const muted = dark ? "#aac0d9" : "#58708e";
+  useEffect(() => { localStorage.setItem("appforge.language", language); localStorage.setItem("appforge.theme", dark ? "dark" : "light"); document.documentElement.style.colorScheme = dark ? "dark" : "light"; }, [language, dark]);
+  async function auth(mode: "signup" | "signin") { setBusy(true); setNotice(""); try { const path = mode === "signup" ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password"; const response = await fetch(URL + path, { method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) }); const data = await response.json(); if (!response.ok) throw new Error(data.msg || data.message || "Authentication failed"); if (mode === "signup") { setNotice("Account created. Check your email if confirmation is enabled, then sign in."); } else { localStorage.setItem("appforge.session", JSON.stringify(data)); setSession(data); setNotice("Signed in successfully."); } } catch (error) { setNotice(error instanceof Error ? error.message : "Authentication failed"); } finally { setBusy(false); } }
+  async function redeem() { if (!session) return; setBusy(true); setNotice(""); try { const response = await fetch(URL + "/rest/v1/rpc/redeem_appforge_invite_code", { method: "POST", headers: { apikey: KEY, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ invite_code: code }) }); const data = await response.json(); if (!response.ok) throw new Error(data.message || "Code could not be redeemed"); setNotice("Private-beta code redeemed successfully."); setCode(""); } catch (error) { setNotice(error instanceof Error ? error.message : "Code could not be redeemed"); } finally { setBusy(false); } }
+  function signOut() { localStorage.removeItem("appforge.session"); setSession(null); setNotice("Signed out."); }
+  return <main style={{ minHeight: "100vh", background: bg, color: fg, fontFamily: "Inter,system-ui,sans-serif", padding: 20 }}><div style={{ maxWidth: 980, margin: "auto" }}><header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "8px 0 36px" }}><strong style={{ fontSize: 22 }}>✦ AppForge</strong><div style={{ display: "flex", gap: 8, alignItems: "center" }}><label style={{ fontSize: 13 }}>{t.language} <select value={language} onChange={e => setLanguage(e.target.value as Language)}><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option></select></label><button onClick={() => setDark(!dark)}>{dark ? "☀ " + t.light : "☾ " + t.dark}</button></div></header><section style={{ textAlign: "center", padding: "20px 0 34px" }}><b style={{ color: "#5fbff7", fontSize: 13 }}>{t.badge}</b><h1 style={{ fontSize: "clamp(38px,8vw,70px)", lineHeight: 1, letterSpacing: "-.06em", margin: "16px auto", maxWidth: 760 }}>{t.title}</h1><p style={{ color: muted, maxWidth: 620, margin: "auto", lineHeight: 1.6 }}>{t.intro}</p></section><section style={{ background: card, border: `1px solid ${dark ? "#275177" : "#d9e4f0"}`, borderRadius: 20, padding: 20, boxShadow: "0 18px 50px rgba(10,35,70,.12)" }}><label><b>{t.idea}</b><textarea value={idea} onChange={e => setIdea(e.target.value)} placeholder={t.placeholder} rows={4} style={{ width: "100%", boxSizing: "border-box", marginTop: 10, padding: 14, borderRadius: 12, font: "inherit" }} /></label><button onClick={() => setNotice(idea ? "Your idea is ready for a private-beta planning conversation. Automated building is not live yet." : "Describe an idea first.")} style={{ marginTop: 12, padding: "12px 16px", fontWeight: 800 }}>{t.plan} →</button></section><section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 16, marginTop: 18 }}><article style={{ background: card, borderRadius: 18, padding: 20, border: `1px solid ${dark ? "#275177" : "#d9e4f0"}` }}><h2>{t.account}</h2>{session ? <><p style={{ color: muted }}>{t.signedIn}: {session.user?.email}</p><button onClick={signOut}>{t.signOut}</button></> : <><input value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email} type="email"/><input value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password} type="password"/><div style={{ display: "flex", gap: 8 }}><button disabled={busy} onClick={() => auth("signin")}>{t.signIn}</button><button disabled={busy} onClick={() => auth("signup")}>{t.create}</button></div></>}</article><article style={{ background: card, borderRadius: 18, padding: 20, border: `1px solid ${dark ? "#275177" : "#d9e4f0"}` }}><h2>{t.invite}</h2><p style={{ color: muted, lineHeight: 1.5 }}>{session ? "Enter a code issued by AppForge. Codes are securely checked after sign-in." : "Create an account or sign in before redeeming a private-beta code."}</p><input disabled={!session} value={code} onChange={e => setCode(e.target.value)} placeholder="APPFORGE-…"/><button disabled={!session || busy} onClick={redeem}>{t.redeem}</button></article></section>{notice && <p role="status" style={{ margin: "18px 4px", color: "#1f9ad6", fontWeight: 600 }}>{notice}</p>}<footer style={{ color: muted, textAlign: "center", padding: 36, fontSize: 13 }}>{t.status}<br />{t.english}</footer></div><style>{`button,select,input{font:inherit;padding:10px;border-radius:10px;border:1px solid #b8cbe0;background:transparent;color:inherit}button{cursor:pointer;background:#6bd5ff;color:#09203a;border:0;font-weight:700}input{display:block;box-sizing:border-box;width:100%;margin:9px 0}button:disabled,input:disabled{opacity:.55;cursor:not-allowed}`}</style></main>;
 }
