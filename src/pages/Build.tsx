@@ -1,107 +1,31 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../utils/trpc";
-import { EventSource } from "eventsource";
+import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { generateProject, type GeneratedManifest } from '../lib/generation';
 
-export function Build() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const [logs, setLogs] = useState<any[]>([]);
-  const [isComplete, setIsComplete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type Event = { id: string; stage: string; status: string; message: string; created_at: string };
+type Artifact = { id: string; kind: string; content: GeneratedManifest | null; created_at: string };
+type Run = { id: string; status: string; error_message: string | null; created_at: string; appforge_build_artifacts: Artifact[]; appforge_build_events: Event[] };
+type Project = { id: string; name: string; idea: string; status: string; created_at: string; build_runs: Run[] };
 
-  const { data: project } = useQuery({
-    queryKey: ["projects", projectId],
-    queryFn: () => trpc.projects.get.query({ id: parseInt(projectId!) }),
-    enabled: !!projectId,
-  });
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
+const supabase = url && key ? createClient(url, key) : null;
+const api = async (path: string, token: string, init?: RequestInit) => { const r = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || 'Request failed.'); return data; };
 
-  useEffect(() => {
-    if (!projectId) return;
-
-    const eventSource = new EventSource(
-      `/api/build/${projectId}?stream=true`
-    );
-
-    eventSource.addEventListener("agent", (event) => {
-      const data = JSON.parse(event.data);
-      setLogs((prev) => [...prev, data]);
-    });
-
-    eventSource.addEventListener("done", (event) => {
-      setIsComplete(true);
-      eventSource.close();
-    });
-
-    eventSource.addEventListener("error", (event) => {
-      const data = JSON.parse(event.data);
-      setError(data.message);
-      eventSource.close();
-    });
-
-    return () => eventSource.close();
-  }, [projectId]);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-8">Building your app...</h1>
-
-        {/* Agent Progress */}
-        <div className="space-y-4">
-          {logs.map((log, idx) => (
-            <AgentLogItem key={idx} log={log} />
-          ))}
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mt-8 bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-300">
-            <p className="font-semibold">Error:</p>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* Success */}
-        {isComplete && !error && (
-          <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
-            <p className="font-semibold text-lg">✅ App generation complete!</p>
-            <p className="mt-2">Your app is ready. Click below to preview or export to GitHub.</p>
-            <div className="mt-4 space-x-4">
-              <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">
-                Preview
-              </button>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-                Export to GitHub
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+export default function Build() {
+  const [token, setToken] = useState<string | null>(null), [projects, setProjects] = useState<Project[]>([]), [selected, setSelected] = useState('');
+  const [name, setName] = useState(''), [idea, setIdea] = useState(''), [plan, setPlan] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [manifest, setManifest] = useState<GeneratedManifest | null>(null);
+  const current = useMemo(() => projects.find(p => p.id === selected) || null, [projects, selected]);
+  const load = async (accessToken: string) => { const data = await api('/api/projects', accessToken); setProjects(data.projects || []); if (!selected && data.projects?.[0]) setSelected(data.projects[0].id); };
+  useEffect(() => { (async () => { if (!supabase) return setNotice('Supabase browser configuration is missing.'); const { data } = await supabase.auth.getSession(); const accessToken = data.session?.access_token || null; setToken(accessToken); if (accessToken) await load(accessToken).catch(e => setNotice(e.message)); else setNotice('Sign in and redeem a beta invite to create projects and generate source.'); })(); }, []);
+  const create = async () => { if (!token) return setNotice('Sign in first.'); if (!name.trim() || !idea.trim()) return setNotice('Add a project name and a clear app idea.'); setBusy(true); try { const data = await api('/api/projects', token, { method: 'POST', body: JSON.stringify({ name, idea }) }); setProjects(v => [data.project, ...v]); setSelected(data.project.id); setPlan(idea); setName(''); setIdea(''); setNotice('Project created. Review or edit the plan, then generate.'); } catch (e) { setNotice(e instanceof Error ? e.message : 'Could not create project.'); } finally { setBusy(false); } };
+  const generate = async () => { if (!token || !current) return setNotice('Select a project first.'); if (!plan.trim()) return setNotice('Add the approved plan before generating.'); setBusy(true); setNotice('Generating and saving the source artifact…'); try { const result = await generateProject(current.id, plan, token); setManifest(result.manifest); setNotice(`Saved build run ${result.runId.slice(0, 8)} with ${result.manifest.files.length} files.`); await load(token); } catch (e) { setNotice(e instanceof Error ? e.message : 'Generation failed.'); } finally { setBusy(false); } };
+  return <main style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 24px', color: '#10243e', fontFamily: 'Inter,system-ui,sans-serif' }}>
+    <p style={{ color: '#2563eb', fontWeight: 800, fontSize: 12, letterSpacing: '.1em' }}>APPFORGE WORKSPACE</p><h1 style={{ fontSize: 42, margin: '8px 0' }}>Build a product deliberately.</h1><p style={{ color: '#5d6c80', maxWidth: 700, lineHeight: 1.6 }}>Create a project, turn the idea into an approved plan, then generate a saved source artifact. Export, testing, and deployment follow as separate stages.</p>
+    {notice && <p role="status" style={{ padding: 14, background: '#eff6ff', borderRadius: 10, color: '#1d4ed8' }}>{notice}</p>}
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,.85fr) minmax(0,1.65fr)', gap: 22, marginTop: 28 }}>
+      <aside style={{ border: '1px solid #dbe4ef', borderRadius: 16, padding: 20 }}><h2 style={{ marginTop: 0 }}>Projects</h2><input value={name} onChange={e => setName(e.target.value)} placeholder="Project name" style={{ width: '100%', boxSizing: 'border-box', padding: 11, marginBottom: 9 }} /><textarea value={idea} onChange={e => setIdea(e.target.value)} placeholder="What are you building?" rows={5} style={{ width: '100%', boxSizing: 'border-box', padding: 11 }} /><button disabled={busy} onClick={create} style={{ width: '100%', marginTop: 10, padding: 11, background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, fontWeight: 800 }}>Create project</button><div style={{ marginTop: 20, display: 'grid', gap: 8 }}>{projects.map(p => <button key={p.id} onClick={() => { setSelected(p.id); setPlan(p.idea); }} style={{ textAlign: 'left', padding: 12, borderRadius: 9, border: selected === p.id ? '2px solid #2563eb' : '1px solid #dbe4ef', background: '#fff' }}><strong>{p.name}</strong><br /><small>{p.build_runs?.length || 0} build runs · {p.status}</small></button>)}</div></aside>
+      <section style={{ border: '1px solid #dbe4ef', borderRadius: 16, padding: 24 }}><h2 style={{ marginTop: 0 }}>{current ? current.name : 'Choose or create a project'}</h2>{current && <><p style={{ color: '#5d6c80' }}>{current.idea}</p><label style={{ display: 'block', fontWeight: 750, marginTop: 18 }}>Approved build plan</label><textarea value={plan} onChange={e => setPlan(e.target.value)} rows={11} style={{ width: '100%', boxSizing: 'border-box', marginTop: 8, padding: 12, lineHeight: 1.5 }} /><button disabled={busy} onClick={generate} style={{ marginTop: 12, padding: '12px 18px', background: '#0f766e', color: '#fff', border: 0, borderRadius: 8, fontWeight: 800 }}>{busy ? 'Working…' : 'Generate source artifact'}</button><p style={{ color: '#5d6c80', fontSize: 13 }}>This saves an artifact. It does not export a repository, deploy code, or claim tests passed.</p><h3>Saved build history</h3>{current.build_runs?.length ? current.build_runs.map(run => <div key={run.id} style={{ borderTop: '1px solid #dbe4ef', padding: '12px 0' }}><strong>{run.status}</strong> · {new Date(run.created_at).toLocaleString()}<br /><small>{run.appforge_build_events?.at(-1)?.message || run.error_message || 'No event recorded.'}</small></div>) : <p style={{ color: '#5d6c80' }}>No saved build runs yet.</p>}</>}{manifest && <details open style={{ marginTop: 20 }}><summary><strong>{manifest.projectName}</strong> · {manifest.files.length} generated files</summary><p>{manifest.summary}</p><ul>{manifest.files.map(file => <li key={file.path}>{file.path}</li>)}</ul></details>}</section>
     </div>
-  );
-}
-
-function AgentLogItem({ log }: any) {
-  const [expanded, setExpanded] = React.useState(false);
-
-  return (
-    <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
-      >
-        <div>
-          <p className="font-semibold text-white">{log.agent}</p>
-          <p className="text-sm text-slate-300">{log.payload?.message}</p>
-        </div>
-        <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
-      </button>
-      {expanded && log.payload?.text && (
-        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64">
-          {log.payload.text}
-        </div>
-      )}
-    </div>
-  );
+  </main>;
 }
