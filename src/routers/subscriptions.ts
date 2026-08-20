@@ -1,15 +1,18 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getSubscriptionByUserId, isUserPro } from "../db.js";
-import { protectedProcedure, router } from "../_core/trpc.js";
-import { ENV } from "../_core/env.js";
+import Stripe from "stripe";
+import { getSubscriptionByUserId, isUserPro } from "../db";
+import { protectedProcedure, router } from "../_core/trpc";
 
-function getStripe() {
+function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
-  // Dynamic import to avoid crash when key is missing
-  const Stripe = require("stripe");
-  return new Stripe(key, { apiVersion: "2024-06-20" });
+  if (!key) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Stripe not configured",
+    });
+  }
+  return new Stripe(key, { apiVersion: "2023-10-16" });
 }
 
 export const subscriptionsRouter = router({
@@ -25,7 +28,13 @@ export const subscriptionsRouter = router({
   }),
 
   createCheckout: protectedProcedure
-    .input(z.object({ priceId: z.string(), successUrl: z.string(), cancelUrl: z.string() }))
+    .input(
+      z.object({
+        priceId: z.string(),
+        successUrl: z.string().url(),
+        cancelUrl: z.string().url(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const stripe = getStripe();
       const sub = await getSubscriptionByUserId(ctx.user.id);
@@ -36,19 +45,34 @@ export const subscriptionsRouter = router({
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         customer: sub?.stripeCustomerId ?? undefined,
-        customer_email: sub?.stripeCustomerId ? undefined : (ctx.user.email ?? undefined),
+        customer_email: sub?.stripeCustomerId
+          ? undefined
+          : ctx.user.email || undefined,
         metadata: { userId: String(ctx.user.id) },
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: { userId: String(ctx.user.id) },
+        },
       });
+      if (!session.url) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Stripe did not return a checkout URL",
+        });
+      }
       return { url: session.url };
     }),
 
   billingPortal: protectedProcedure
-    .input(z.object({ returnUrl: z.string() }))
+    .input(z.object({ returnUrl: z.string().url() }))
     .mutation(async ({ ctx, input }) => {
       const stripe = getStripe();
       const sub = await getSubscriptionByUserId(ctx.user.id);
       if (!sub?.stripeCustomerId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No Stripe customer found" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No Stripe customer found",
+        });
       }
       const session = await stripe.billingPortal.sessions.create({
         customer: sub.stripeCustomerId,
