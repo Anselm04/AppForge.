@@ -1,11 +1,13 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
-import { projectsRouter } from "./routers/projects";
-import { subscriptionsRouter } from "./routers/subscriptions";
-import { githubRouter } from "./routers/github";
-import { cosineRouter } from "./routers/cosine";
+import { getSessionCookieOptions } from "../_core/cookies";
+import { systemRouter } from "../_core/systemRouter";
+import { publicProcedure, router } from "../_core/trpc";
+import { projectsRouter } from "./projects";
+import { subscriptionsRouter } from "./subscriptions";
+import { githubRouter } from "./github";
+import { cosineRouter } from "./cosine";
+
+/** Session cookie name used by auth.logout. Kept local until a shared const module exists. */
+const COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "appforge_session";
 
 export const appRouter = router({
   system: systemRouter,

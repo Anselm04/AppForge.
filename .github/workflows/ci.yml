@@ -2,7 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, repair/**]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -42,7 +42,7 @@ jobs:
         continue-on-error: true
 
   # ============================================
-  # TYPE CHECK - TypeScript validation
+  # TYPE CHECK - TypeScript validation (hard gate)
   # ============================================
   typecheck:
     name: Type Check
@@ -61,9 +61,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run TypeScript type check
-        run: npx tsc --noEmit
-        continue-on-error: true
+      - name: Typecheck client (React / DOM)
+        run: npx tsc -p tsconfig.client.json --noEmit
+
+      - name: Typecheck server (backend + api)
+        run: npx tsc -p tsconfig.server.json --noEmit
 
   # ============================================
   # TEST JOB - Run all tests
@@ -181,9 +183,9 @@ jobs:
           echo "| Build | ${{ needs.build.result }} |"
           echo "| Security | ${{ needs.security.result }} |"
           echo ""
-          if [[ "${{ needs.test.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
-            echo "✅ CI Pipeline passed!"
+          if [[ "${{ needs.typecheck.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+            echo "✅ CI Pipeline passed (typecheck + build required)!"
           else
-            echo "❌ CI Pipeline failed!"
+            echo "❌ CI Pipeline failed (typecheck and build are hard gates)!"
             exit 1
           fi

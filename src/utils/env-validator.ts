@@ -81,6 +81,7 @@ export function validateEnv(config: Partial<EnvConfig> = process.env as any): Va
 
 export function validateEnvOrThrow(config: Partial<EnvConfig> = process.env as any): void {
   const result = validateEnv(config);
+  const isProduction = config.NODE_ENV === 'production';
   if (!result.valid) {
     console.error('❌ Environment validation failed:');
     result.errors.forEach(e => console.error(`  - ${e}`));

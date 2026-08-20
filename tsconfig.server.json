@@ -3,8 +3,36 @@
   "compilerOptions": {
     "lib": ["ES2020"],
     "types": ["node"],
-    "noEmit": true
+    "noEmit": true,
+    "rootDir": ".",
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx"
   },
-  "include": ["api/**/*.js"],
-  "exclude": ["src", "node_modules", "dist"]
+  "include": [
+    "src/server.ts",
+    "src/_core/**/*.ts",
+    "src/routers/**/*.ts",
+    "src/routes/**/*.ts",
+    "src/services/**/*.ts",
+    "src/agents/**/*.ts",
+    "src/webhooks/**/*.ts",
+    "src/middleware/**/*.ts",
+    "src/db/**/*.ts",
+    "src/db.ts",
+    "src/utils/**/*.ts",
+    "src/validators/**/*.ts",
+    "src/config/**/*.ts",
+    "src/types/**/*.ts",
+    "api/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/__tests__",
+    "src/components",
+    "src/pages",
+    "src/main.tsx",
+    "src/App.tsx"
+  ]
 }
