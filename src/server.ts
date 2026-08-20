@@ -1,40 +1,40 @@
 import express from "express";
-import { createRequestHandler } from "@trpc/server/adapters/express";
-import { appRouter } from "./routers/index.js";
-import { createContext } from "./_core/context.js";
-import { stripeWebhookHandler } from "./webhooks/stripe.js";
-import { ENV } from "./_core/env.js";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cookieParser from "cookie-parser";
+import { appRouter } from "./routers/index";
+import { createContext } from "./_core/context";
+import { stripeWebhookHandler } from "./webhooks/stripe";
+import { ENV } from "./_core/env";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cookieParser(ENV.cookieSecret));
+// Stripe webhook needs raw body — register before json parser
+app.post(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler
+);
+
+app.use(cookieParser(ENV.cookieSecret || undefined));
 app.use(express.json());
 
-// Stripe webhook (raw body required)
-app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookHandler);
-
-// tRPC routes
 app.use(
   "/api/trpc",
-  createRequestHandler({
+  createExpressMiddleware({
     router: appRouter,
     createContext,
   })
 );
 
-// Health check
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 AppForge server running on http://localhost:${PORT}`);
+  console.log(`AppForge server running on http://localhost:${PORT}`);
 });

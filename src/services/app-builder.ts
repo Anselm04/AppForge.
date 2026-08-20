@@ -9,9 +9,11 @@ export interface GeneratedApp {
   backend: any;
   database: any;
   infrastructure: any;
-  previewUrl: string;
-  deployUrl: string;
-  status: 'building' | 'ready';
+  /** Present only after a real deploy succeeds — never fabricated */
+  previewUrl?: string;
+  deployUrl?: string;
+  status: 'building' | 'ready' | 'failed';
+  error?: string;
 }
 
 export class AppBuilder {
@@ -25,17 +27,14 @@ export class AppBuilder {
 
   async build(requirements: any): Promise<GeneratedApp> {
     const appId = `app_${Date.now()}`;
-    
-    // Generate architecture
+
     const architecture = await this.aiService.generateAppArchitecture(requirements);
-    
-    // Generate code
+
     const frontend = await this.codeGenerator.generateFrontend(requirements, architecture);
     const backend = await this.codeGenerator.generateBackend(requirements, architecture);
     const database = await this.codeGenerator.generateDatabase(requirements, architecture);
-    
-    // Create app structure
-    const app: GeneratedApp = {
+
+    return {
       id: appId,
       name: requirements.appName,
       description: requirements.description,
@@ -43,30 +42,34 @@ export class AppBuilder {
       backend,
       database,
       infrastructure: architecture.infrastructure,
-      previewUrl: `https://${appId}.appforge.dev`,
-      deployUrl: `https://vercel.com/new?clone=1&repository-url=https://github.com/appforge/${appId}`,
       status: 'ready',
     };
-    
-    return app;
   }
 
-  async iterate(appId: string, changes: any): Promise<GeneratedApp> {
-    // Iterate on existing app based on changes
-    // This would modify the existing app structure
-    return {} as GeneratedApp;
+  async iterate(_appId: string, _changes: any): Promise<GeneratedApp> {
+    throw new Error(
+      'App iteration is not implemented yet. Rebuild with updated requirements instead.'
+    );
   }
 
-  async deploy(appId: string): Promise<string> {
-    // Deploy app to Vercel
-    const deployUrl = `https://${appId}.vercel.app`;
-    return deployUrl;
+  /**
+   * Real Vercel deployment is not wired in this module yet.
+   * Must not return a fabricated URL.
+   */
+  async deploy(_appId: string): Promise<string> {
+    throw new Error(
+      'Vercel deployment is not configured in AppBuilder. Use the verified deployment path once GitHub export and Vercel API credentials are set.'
+    );
   }
 
-  async exportToGitHub(appId: string, repoName: string): Promise<string> {
-    // Export app to GitHub repository
-    const repoUrl = `https://github.com/${repoName}.git`;
-    return repoUrl;
+  /**
+   * Real GitHub export is not wired in this module yet.
+   * Must not return a fabricated repository URL.
+   */
+  async exportToGitHub(_appId: string, _repoName: string): Promise<string> {
+    throw new Error(
+      'GitHub export is not configured in AppBuilder. Use the github router with a connected OAuth token once available.'
+    );
   }
 }
 

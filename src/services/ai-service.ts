@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 export interface RequirementExtraction {
   appName: string;
   description: string;
@@ -17,30 +15,56 @@ export interface ClarificationQuestion {
   priority: 'high' | 'medium' | 'low';
 }
 
-export class AIService {
-  private apiKey: string;
-  private model: string;
+async function callOpenAI(system: string, user: string, maxTokens: number): Promise<unknown> {
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+  const model = process.env.AI_MODEL || 'gpt-4-turbo';
 
-  constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY || '';
-    this.model = process.env.AI_MODEL || 'gpt-4-turbo';
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.7,
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  });
+
+  const data: any = await response.json().catch(() => null);
+  if (!response.ok) {
+    const msg =
+      (data && (data.error?.message || data.message)) ||
+      `OpenAI request failed: ${response.status}`;
+    throw new Error(String(msg));
   }
 
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('OpenAI returned an empty response');
+  }
+
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error('Failed to parse OpenAI JSON response');
+  }
+}
+
+export class AIService {
   async extractRequirements(prompt: string): Promise<RequirementExtraction> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        temperature: 0.7,
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert software architect. Extract requirements from the user's app description. Return a JSON object with:
+    const parsed = (await callOpenAI(
+      `You are an expert software architect. Extract requirements from the user's app description. Return a JSON object with:
 - appName: string
 - description: string
 - features: string[]
@@ -49,81 +73,54 @@ export class AIService {
 - integrations: string[]
 - dataModels: string[]
 - userRoles: string[]`,
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
-    });
+      prompt,
+      4000
+    )) as RequirementExtraction;
 
-    const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
+    if (!parsed?.appName || !parsed?.description) {
+      throw new Error('Requirement extraction returned incomplete data');
+    }
+    return {
+      appName: parsed.appName,
+      description: parsed.description,
+      features: parsed.features ?? [],
+      targetAudience: parsed.targetAudience ?? '',
+      technicalRequirements: parsed.technicalRequirements ?? [],
+      integrations: parsed.integrations ?? [],
+      dataModels: parsed.dataModels ?? [],
+      userRoles: parsed.userRoles ?? [],
+    };
   }
 
-  async generateClarificationQuestions(requirements: RequirementExtraction): Promise<ClarificationQuestion[]> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        temperature: 0.7,
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'system',
-            content: `Generate 3-5 clarification questions to better understand the app requirements. Return a JSON array of objects with:
+  async generateClarificationQuestions(
+    requirements: RequirementExtraction
+  ): Promise<ClarificationQuestion[]> {
+    const parsed = await callOpenAI(
+      `Generate 3-5 clarification questions to better understand the app requirements. Return a JSON array of objects with:
 - question: string
 - category: 'feature' | 'design' | 'technical' | 'business'
 - priority: 'high' | 'medium' | 'low'`,
-          },
-          {
-            role: 'user',
-            content: `Based on these requirements: ${JSON.stringify(requirements)}`,
-          },
-        ],
-      }),
-    });
+      `Based on these requirements: ${JSON.stringify(requirements)}`,
+      2000
+    );
 
-    const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
+    if (!Array.isArray(parsed)) {
+      throw new Error('Clarification questions response was not an array');
+    }
+    return parsed as ClarificationQuestion[];
   }
 
   async generateAppArchitecture(requirements: RequirementExtraction) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        temperature: 0.7,
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'system',
-            content: `Generate a complete app architecture. Return a JSON object with:
+    return callOpenAI(
+      `Generate a complete app architecture. Return a JSON object with:
 - frontend: { framework: string, components: string[], pages: string[] }
 - backend: { framework: string, endpoints: string[], services: string[] }
 - database: { type: string, tables: string[], relationships: string[] }
 - infrastructure: { deployment: string, monitoring: string, backups: string }
 - security: { auth: string, rateLimiting: string, encryption: string }`,
-          },
-          {
-            role: 'user',
-            content: `Create architecture for: ${JSON.stringify(requirements)}`,
-          },
-        ],
-      }),
-    });
-
-    const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
+      `Create architecture for: ${JSON.stringify(requirements)}`,
+      4000
+    );
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getUserById } from "./db.js";
+import { getUserById } from "../db";
 
 export type Context = {
   req: Request;
@@ -15,10 +15,10 @@ export async function createContext({
   res: Response;
 }): Promise<Context> {
   const userId = (req as any).userId;
-  let user = null;
+  let user: Context["user"] = null;
 
   if (userId) {
-    const dbUser = await getUserById(userId);
+    const dbUser = await getUserById(Number(userId));
     if (dbUser) {
       user = {
         id: dbUser.id,

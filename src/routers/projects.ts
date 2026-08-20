@@ -7,9 +7,8 @@ import {
   getProjectById,
   getProjectsByUserId,
   isUserPro,
-  updateProjectStatus,
-} from "../db.js";
-import { protectedProcedure, router } from "../_core/trpc.js";
+} from "../db";
+import { protectedProcedure, router } from "../_core/trpc";
 
 const FREE_TIER_LIMIT = 3;
 
@@ -47,7 +46,6 @@ export const projectsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Backend tier enforcement
       const pro = await isUserPro(ctx.user.id);
       if (!pro) {
         const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
