@@ -57,5 +57,15 @@ export async function listProjects() {
 export async function createProject(name: string, idea: string) {
   const session = getSession();
   if (!session) throw new Error('You must sign in first.');
-  return supabaseClient.createProject(session.accessToken, { owner_id: session.user.id, name, idea });
+  return supabaseClient.createProject(session.accessToken, {
+    owner_id: session.user.id,
+    name,
+    idea,
+  });
+}
+
+export async function buildProject(projectId: string, prompt?: string) {
+  const session = getSession();
+  if (!session) throw new Error('You must sign in first.');
+  return supabaseClient.buildProject(session.accessToken, projectId, prompt);
 }

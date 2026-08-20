@@ -1,11 +1,13 @@
 import { AgentContext, AgentResult, BuildPlan } from '../agents/types';
-import { ArchitectAgent } from '../agents/architectAgent';
-import { BackendAgent } from '../agents/backendAgent';
-import { FrontendAgent } from '../agents/frontendAgent';
-import { DatabaseAgent } from '../agents/databaseAgent';
-import { DevOpsAgent } from '../agents/devopsAgent';
-import { SecurityAgent } from '../agents/securityAgent';
-import { TestingAgent } from '../agents/testingAgent';
+import {
+  ArchitectAgent,
+  BackendAgent,
+  FrontendAgent,
+  DatabaseAgent,
+  DevOpsAgent,
+  SecurityAgent,
+  TestingAgent,
+} from '../agents/llmAgent';
 
 const agents = [
   ArchitectAgent,
@@ -19,7 +21,10 @@ const agents = [
 
 export class AgentOrchestrator {
   async runBuild(prompt: string): Promise<BuildPlan> {
-    const context: AgentContext = { prompt, decisions: {} };
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 8) {
+      throw new Error('Prompt must be at least 8 characters');\n    }
+
+    const context: AgentContext = { prompt: prompt.trim(), decisions: {} };
     const results: AgentResult[] = [];
 
     for (const agent of agents) {
@@ -33,16 +38,14 @@ export class AgentOrchestrator {
       context.decisions![agent.role] = result.details;
     }
 
-    const plan: BuildPlan = {
+    return {
       id: `build_${Date.now()}`,
-      prompt,
+      prompt: context.prompt,
       createdAt: new Date(),
       requirements: context.requirements ?? {},
       architecture: context.architecture ?? {},
       agents: results,
     };
-
-    return plan;
   }
 }
 

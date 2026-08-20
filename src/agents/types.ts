@@ -9,24 +9,16 @@ export type AgentRole =
 
 export interface AgentContext {
   prompt: string;
-  requirements?: any;
-  architecture?: any;
-  decisions?: Record<string, any>;
-}
-
-export interface AgentTask {
-  id: string;
-  role: AgentRole;
-  description: string;
-  createdAt: Date;
+  requirements?: Record<string, unknown>;
+  architecture?: Record<string, unknown>;
+  decisions?: Record<string, unknown>;
 }
 
 export interface AgentResult {
   taskId: string;
   role: AgentRole;
   summary: string;
-  details: Record<string, any>;
-  warnings?: string[];
+  details: Record<string, unknown>;
 }
 
 export interface Agent {
@@ -40,7 +32,7 @@ export interface BuildPlan {
   id: string;
   prompt: string;
   createdAt: Date;
-  requirements: any;
-  architecture: any;
+  requirements: Record<string, unknown>;
+  architecture: Record<string, unknown>;
   agents: AgentResult[];
 }
