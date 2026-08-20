@@ -89,19 +89,32 @@ export async function trackOperation<T>(operation: () => Promise<T>, context: an
   const start = Date.now();
   
   try {
-    const transaction = Sentry.startTransaction({ op: 'operation', name: context.name });
+    // Prefer modern startSpan when available; fall back to startTransaction for Sentry v7
+    const sentryAny = Sentry as any;
+    if (typeof sentryAny.startTransaction === 'function') {
+      const transaction = sentryAny.startTransaction({ op: 'operation', name: context.name });
+      if (context.userId) Sentry.setUser({ id: context.userId });
+      if (context.metadata) Sentry.setExtra('metadata', context.metadata);
+      const result = await operation();
+      transaction.finish();
+      return result;
+    }
+
     if (context.userId) Sentry.setUser({ id: context.userId });
     if (context.metadata) Sentry.setExtra('metadata', context.metadata);
-    
-    const result = await operation();
-    transaction.finish();
-    return result;
+    return await operation();
   } catch (error) {
     reportError(error as Error, { userId: context.userId, action: context.name, metadata: context.metadata });
     throw error;
   } finally {
     const duration = Date.now() - start;
-    Sentry.metrics.distribution('operation.duration', duration, { unit: 'millisecond', operation: context.name });
+    const metrics = (Sentry as any).metrics;
+    if (metrics && typeof metrics.distribution === 'function') {
+      metrics.distribution('operation.duration', duration, {
+        unit: 'millisecond',
+        tags: { operation: String(context.name ?? 'unknown') },
+      });
+    }
   }
 }
 

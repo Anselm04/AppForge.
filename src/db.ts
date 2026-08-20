@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema.js";
-import { ENV } from "../env.js";
-import { eq, desc, and, gte } from "drizzle-orm";
+import * as schema from "./db/schema";
+import { ENV } from "./_core/env";
+import { eq, desc, and, gte, count } from "drizzle-orm";
 
 const client = postgres(ENV.databaseUrl);
 export const db = drizzle(client, { schema });
@@ -126,7 +126,7 @@ export async function countBuildsThisMonth(userId: number) {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const result = await db
-    .select({ count: schema.projects.id })
+    .select({ value: count() })
     .from(schema.projects)
     .where(
       and(
@@ -134,7 +134,7 @@ export async function countBuildsThisMonth(userId: number) {
         gte(schema.projects.createdAt, startOfMonth)
       )
     );
-  return result[0]?.count || 0;
+  return Number(result[0]?.value ?? 0);
 }
 
 // ── AGENT LOGS ──

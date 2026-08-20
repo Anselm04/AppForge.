@@ -1,17 +1,18 @@
 import Stripe from "stripe";
-import { db } from "../db.js";
-import { subscriptions } from "../db/schema.js";
+import { db } from "../db";
+import { subscriptions } from "../db/schema";
 import { eq } from "drizzle-orm";
 
+// stripe@^14 typings pin apiVersion to 2023-10-16
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-06-20",
+  apiVersion: "2023-10-16",
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 export async function stripeWebhookHandler(req: any, res: any) {
   const signature = req.headers["stripe-signature"];
-  let event;
+  let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -34,7 +35,7 @@ export async function stripeWebhookHandler(req: any, res: any) {
         await db
           .insert(subscriptions)
           .values({
-            userId: parseInt(userId),
+            userId: parseInt(userId, 10),
             stripeCustomerId: subscription.customer as string,
             stripeSubscriptionId: subscription.id,
             status: subscription.status,
@@ -61,7 +62,7 @@ export async function stripeWebhookHandler(req: any, res: any) {
         await db
           .update(subscriptions)
           .set({ status: "canceled" })
-          .where(eq(subscriptions.userId, parseInt(userId)));
+          .where(eq(subscriptions.userId, parseInt(userId, 10)));
       }
       break;
     }
@@ -78,7 +79,7 @@ export async function stripeWebhookHandler(req: any, res: any) {
         await db
           .insert(subscriptions)
           .values({
-            userId: parseInt(userId),
+            userId: parseInt(userId, 10),
             stripeCustomerId: session.customer as string,
             stripeSubscriptionId: subscription.id,
             status: subscription.status,
