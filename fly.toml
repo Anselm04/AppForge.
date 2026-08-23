@@ -1,0 +1,68 @@
+# ── AppForge Fly.io Configuration ──
+# Deploy: fly deploy --config fly.toml
+#
+# IMPORTANT: Before deploying, set your secrets with:
+#   fly secrets set DATABASE_URL="..." JWT_SECRET="..." etc.
+#
+# You must also create a Fly.io PostgreSQL database or connect Supabase.
+
+app = 'appforge'
+primary_region = 'lhr'  # London — change to your nearest region
+
+[build]
+  dockerfile = 'Dockerfile'
+  target = 'production'
+
+[deploy]
+  strategy = 'rolling'  # Zero-downtime deployment
+  max_unavailable = 1
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 3000
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[services.ports]]
+    handlers = ['http']
+    port = 80
+    force_https = true
+
+  [[services.ports]]
+    handlers = ['tls', 'http']
+    port = 443
+
+  [services.concurrency]
+    type = 'connections'
+    hard_limit = 100
+    soft_limit = 75
+
+  [[services.http_checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    restart_limit = 3
+    method = 'get'
+    path = '/api/health'
+    protocol = 'http'
+    tls_skip_verify = false
+
+  [[services.tcp_checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    restart_limit = 3
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '3000'
+  REQUEST_TIMEOUT_MS = '30000'
+  SENTRY_TRACES_SAMPLE_RATE = '0.1'
+
+# All secrets below MUST be set via `fly secrets set` before deploying.
+# NEVER commit real values to this file.
+
+[processes]
+  app = 'node dist/server.js'

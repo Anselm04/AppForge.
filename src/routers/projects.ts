@@ -1,0 +1,292 @@
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import {
+  countBuildsThisMonth,
+  createProject,
+  getAgentLogsByProject,
+  getProjectById,
+  getProjectsByUserId,
+  isUserPro,
+  getUserTier,
+  getTierBuildLimit,
+  updateProjectStatus,
+} from "../db.js";
+import { protectedProcedure, router } from "../_core/trpc.js";
+import * as schema from "../db/schema.js";
+import { db } from "../db.js";
+import {
+  createSeniorDevTask,
+  getSeniorDevTaskById,
+  updateSeniorDevTask,
+} from "../db.js";
+
+const FREE_TIER_LIMIT = 3;
+
+// ── Validated tech stack options ──
+const techStackEnum = z.enum([
+  // Web apps
+  "react-node",
+  "react-python",
+  "vue-node",
+  "svelte-node",
+  "next-node",
+  "angular-node",
+  "vanilla-node",
+  "react-django",
+  "react-supabase",
+  "remix-node",
+  "astro-node",
+  // Games
+  "phaser-html5",
+  "three-js-3d",
+  "babylon-js-3d",
+  "unity-webgl",
+  "godot-html5",
+  "react-native-game",
+  "flutter-game",
+  // AI / Agents
+  "ai-agent-python",
+  "ai-agent-node",
+  "openai-tool",
+  "langchain-tool",
+  "crewai-agent",
+  "autogen-agent",
+  // Desktop / Mobile
+  "electron-react",
+  "tauri-rust",
+  "react-native-expo",
+  "flutter-firebase",
+  "capacitor-ionic",
+  // Specialized
+  "chrome-extension",
+  "vscode-extension",
+  "discord-bot",
+  "telegram-bot",
+  "slack-bot",
+  "browser-automation",
+  "web-scraper",
+  "data-visualization",
+  "api-service",
+  "serverless-aws",
+  "serverless-vercel",
+]);
+
+// ── Input sanitization helpers ──
+function sanitizeString(input: string): string {
+  return input
+    .trim()
+    .replace(/[<>]/g, "")
+    .slice(0, 5000);
+}
+
+const projectCreateSchema = z.object({
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(2000, "Description must be at most 2000 characters")
+    .transform(sanitizeString),
+  techStack: techStackEnum.default("react-node"),
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .max(255, "Title must be at most 255 characters")
+    .transform(sanitizeString),
+});
+
+export const projectsRouter = router({
+  list: protectedProcedure.query(async ({ ctx }) => {
+    return getProjectsByUserId(ctx.user.id);
+  }),
+
+  get: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      return project;
+    }),
+
+  getLogs: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      return getAgentLogsByProject(input.projectId);
+    }),
+
+  create: protectedProcedure
+    .input(projectCreateSchema)
+    .mutation(async ({ ctx, input }) => {
+      // ── Content moderation ──
+      const { moderateUserContent } = await import("./moderation.js");
+      const moderation = await moderateUserContent(ctx.user.id, input.description + " " + input.title);
+      if (!moderation.allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: moderation.reason ?? "Content flagged" });
+      }
+
+      // Backend tier enforcement
+      const tier = await getUserTier(ctx.user.id);
+      const limit = getTierBuildLimit(tier);
+      if (limit !== null) {
+        const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
+        if (buildsThisMonth >= limit) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Tier limit reached (${limit} builds/month on ${tier} plan). Upgrade for more builds.`,
+          });
+        }
+      }
+
+      const id = await createProject({
+        userId: ctx.user.id,
+        title: input.title,
+        description: input.description,
+        techStack: input.techStack,
+        status: "pending",
+      });
+
+      return { id };
+    }),
+
+  tierStatus: protectedProcedure.query(async ({ ctx }) => {
+    const tier = await getUserTier(ctx.user.id);
+    const isPaid = await isUserPro(ctx.user.id);
+    const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
+    const { getUserCredits } = await import("../db.js");
+    const credits = await getUserCredits(ctx.user.id);
+    const limit = getTierBuildLimit(tier);
+    return {
+      tier,
+      isPaid,
+      buildsThisMonth,
+      limit,
+      remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
+      credits: credits?.balance ?? 0,
+    };
+  }),
+
+  deploy: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (project.status !== "completed" && project.status !== "paused") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Project not ready for deployment" });
+      }
+
+      const files = (project.generatedFiles as Record<string, string> | null) ?? {};
+      if (Object.keys(files).length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to deploy" });
+      }
+
+      const { deployToVercel } = await import("../services/deployer.js");
+      const { watchProject } = await import("../agents/selfHealing.js");
+      const deployUrl = await deployToVercel(project.title || "appforge-app", files);
+
+      // Start self-healing watcher for this deployment
+      watchProject(input.id, ctx.user.id, deployUrl);
+
+      await db.update(schema.projects)
+        .set({ status: "completed", updatedAt: new Date() })
+        .where(eq(schema.projects.id, input.id));
+
+      return { deployUrl };
+    }),
+
+  download: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const files = (project.generatedFiles as Record<string, string> | null) ?? {};
+      const { zipFiles } = await import("../services/deployer.js");
+      const { base64, filename } = await zipFiles(project.title || "appforge-app", files);
+      return { base64, filename };
+    }),
+
+  // ── Senior Dev Agent: Create Task ──
+  seniorDev: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        request: z.string().min(5).max(5000),
+        mode: z.enum(["collaborative", "autonomous"]).default("collaborative"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const taskId = await createSeniorDevTask({
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        request: input.request,
+        mode: input.mode,
+      });
+
+      return { taskId, status: "planning" };
+    }),
+
+  // ── Senior Dev Agent: Approve Plan ──
+  seniorDevApprove: protectedProcedure
+    .input(z.object({ taskId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const task = await getSeniorDevTaskById(input.taskId);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (task.status !== "awaiting_approval") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Task not awaiting approval" });
+      }
+
+      await updateSeniorDevTask(input.taskId, { planApproved: true, status: "executing" });
+      return { success: true, status: "executing" };
+    }),
+
+  // ── Senior Dev Agent: Get Task ──
+  seniorDevTask: protectedProcedure
+    .input(z.object({ taskId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const task = await getSeniorDevTaskById(input.taskId);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      return task;
+    }),
+
+  /** List all build snapshots for a project (version history) */
+  snapshots: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const { getSnapshotsByProject } = await import("../db.js");
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      }
+      return getSnapshotsByProject(input.projectId);
+    }),
+
+  /** Rollback to a specific snapshot version */
+  rollback: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive(), snapshotId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } = await import("../db.js");
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      }
+      const snapshot = await getSnapshotById(input.snapshotId);
+      if (!snapshot || snapshot.projectId !== input.projectId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Snapshot not found" });
+      }
+      await markSnapshotAsCurrent(input.snapshotId, input.projectId);
+      await updateProjectFiles(input.projectId, snapshot.files as Record<string, string>);
+      return { success: true, version: snapshot.version, label: snapshot.label };
+    }),
+});

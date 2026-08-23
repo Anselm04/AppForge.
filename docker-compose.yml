@@ -1,0 +1,111 @@
+# ============================================================
+# AppForge Docker Compose - Local Development
+# ============================================================
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # Frontend - Development
+  # ============================================================
+  appforge-dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-}
+      - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY:-}
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - appforge-network
+
+  # ============================================================
+  # PostgreSQL Database (Local development)
+  # ============================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: appforge-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER: appforge
+      POSTGRES_PASSWORD: appforge_dev_password
+      POSTGRES_DB: appforge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appforge -d appforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - appforge-network
+
+  # ============================================================
+  # Redis (Caching & Session Storage)
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: appforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - appforge-network
+
+  # ============================================================
+  # Supabase Local (Alternative to cloud)
+  # ============================================================
+  # Uncomment if you want to run Supabase locally
+  # supabase:
+  #   image: supabase/postgres:15.1.0.117
+  #   container_name: appforge-supabase
+  #   ports:
+  #     - "54322:5432"
+  #   volumes:
+  #     - supabase_data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_PASSWORD: postgres
+  #     JWT_SECRET: your-secret-key
+  #     GOTRUE_JWT_SECRET: your-secret-key
+  #   restart: unless-stopped
+  #   networks:
+  #     - appforge-network
+
+# ============================================================
+# Named Volumes
+# ============================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  supabase_data:
+    driver: local
+
+# ============================================================
+# Networks
+# ============================================================
+networks:
+  appforge-network:
+    driver: bridge
