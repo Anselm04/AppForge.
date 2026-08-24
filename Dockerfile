@@ -5,12 +5,14 @@
 # Stage 1: Install dependencies (requires lockfile)
 FROM node:20-alpine AS deps
 WORKDIR /app
+RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
 RUN npm install --omit=dev && npm cache clean --force
 
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
 RUN npm install && npm cache clean --force
 COPY . .
