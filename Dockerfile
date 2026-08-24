@@ -91,7 +91,7 @@ CMD ["node", "dist/server.js"]
 # Development stage
 # ============================================================
 FROM node:20-alpine AS development
-RUN apk add --no-cache git
+RUN apk add --no-cache git python3 make g++ linux-headers
 ENV NODE_ENV=development
 WORKDIR /app
 COPY package.json package-lock.json ./
