@@ -6,13 +6,13 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
+RUN npm install && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
@@ -93,7 +93,7 @@ RUN apk add --no-cache git
 ENV NODE_ENV=development
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
+RUN npm install && npm cache clean --force
 COPY . .
 EXPOSE 3000 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
