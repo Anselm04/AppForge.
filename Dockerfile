@@ -19,7 +19,7 @@ COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_STRIPE_PUBLIC_KEY
-RUN npm run build
+RUN npm run build && ls -la /app/dist/server.js && ls -la /app/dist/ | head -20
 
 # Stage 3: Production runtime (Node + Express API server)
 FROM node:20-alpine AS production
