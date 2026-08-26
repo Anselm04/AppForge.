@@ -121,7 +121,7 @@ export function getTechStackDescription(stack: TechStack): string {
   return descriptions[stack] ?? "Custom stack";
 }
 
-type AgentRole = "Planner" | "Coder" | "Reviewer" | "Validator" | "Cosine";
+type AgentRole = "Planner" | "Coder" | "Reviewer" | "Validator" | "Cosine" | "Testing";
 
 type SSEWriter = (event: string, data: unknown) => void;
 type CreditChecker = () => Promise<boolean>;
@@ -462,15 +462,18 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
       testFiles["vitest.config.ts"] = `// filename: vitest.config.ts\nimport { defineConfig } from 'vitest/config';\nimport react from '@vitejs/plugin-react';\nimport path from 'path';\nexport default defineConfig({\n  plugins: [react()],\n  test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },\n  resolve: { alias: { '@': path.resolve(__dirname, './src') } },\n});\n`;
     }
     if (!generatedFiles["src/__tests__/setup.ts"] && !testFiles["src/__tests__/setup.ts"]) {
-      testFiles["src/__tests__/setup.ts"] = `// filename: src/__tests__/setup.ts\nimport '@testing-library/jest-dom';\nimport { cleanup } from '@testing-library/react';\nimport { afterEach, vi } from 'vitest';\nafterEach(() => cleanup());\nwindow.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));\nwindow.scrollTo = vi.fn();\nwindow.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));\nglobal.fetch = vi.fn();\n`;
+      testFiles["src/__tests__/setup.ts"] = `// filename: src/__tests__/setup.ts\nimport '@testing-library/jest-dom';\nimport { cleanup } from '@testing-library/react';\nimport { afterEach, vi } from 'vitest';\nafterEach(() => cleanup());\nwindow.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));\nwindow.scrollTo = vi.fn();\nwindow.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));\nglobal.fetch = vi.fn();
+`;
     }
     Object.assign(generatedFiles, testFiles);
     emit("Testing", "complete", { message: `Generated ${Object.keys(testFiles).length} test files.` });
 
     // ── Snapshot + Audit + Cost at end of build ────────────────────────────
-    const { createBuildSnapshot, getNextVersion } = await import("../db.js");
+    const { createBuildSnapshot, getNextVersion, getProjectById } = await import("../db.js");
     const { estimateLicenseAndCost } = await import("./licenseCostEstimator.js");
+    const { logger } = await import("../_core/logger.js");
     const nextVersion = await getNextVersion(projectId);
+    const userId = (await getProjectById(projectId))?.userId ?? 0;
     const pkgJson = generatedFiles["package.json"];
     const parsedDeps = pkgJson ? (JSON.parse(pkgJson).dependencies ?? {}) : {};
     const estBundleKB = Math.round(
