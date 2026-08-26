@@ -23,7 +23,7 @@ export interface GeneratedCode {
 }
 
 export class CodeGenerator {
-  async generateFrontend(requirements: any, architecture: any): Promise<string> {
+  async generateFrontend(requirements: any, architecture: any): Promise<GeneratedCode["frontend"]> {
     // Generate React code based on requirements
     const components = architecture.frontend.components.map((comp: string) => 
       this.generateComponent(comp, requirements)
@@ -40,7 +40,7 @@ export class CodeGenerator {
     };
   }
 
-  async generateBackend(requirements: any, architecture: any): Promise<string> {
+  async generateBackend(requirements: any, architecture: any): Promise<GeneratedCode["backend"]> {
     // Generate Express.js code based on requirements
     const endpoints = architecture.backend.endpoints.map((endpoint: string) =>
       this.generateEndpoint(endpoint, requirements)
@@ -57,7 +57,7 @@ export class CodeGenerator {
     };
   }
 
-  async generateDatabase(requirements: any, architecture: any): Promise<string> {
+  async generateDatabase(requirements: any, architecture: any): Promise<GeneratedCode["database"]> {
     // Generate Drizzle ORM schema based on requirements
     const tables = architecture.database.tables.map((table: string) =>
       this.generateTable(table, requirements)

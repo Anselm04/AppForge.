@@ -31,7 +31,7 @@ async function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
   const { default: Stripe } = await import("stripe");
-  return new Stripe(key, { apiVersion: "2024-06-20" });
+  return new Stripe(key, { apiVersion: "2023-10-16" });
 }
 
 function getPriceId(tier: string): string {

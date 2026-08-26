@@ -38,7 +38,7 @@ async function sendViaResend(
       return { success: false, error: `Resend HTTP ${res.status}: ${body}` };
     }
 
-    const data = await res.json().catch(() => ({ id: "unknown" }));
+    const data = await res.json().catch(() => ({ id: "unknown" })) as { id?: string };
     logger.info({ to, subject, resendId: data.id }, "email_sent_resend");
     return { success: true };
   } catch (err) {

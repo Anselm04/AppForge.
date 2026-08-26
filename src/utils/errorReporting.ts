@@ -101,7 +101,7 @@ export async function trackOperation<T>(operation: () => Promise<T>, context: an
     throw error;
   } finally {
     const duration = Date.now() - start;
-    Sentry.metrics.distribution('operation.duration', duration, { unit: 'millisecond', operation: context.name });
+    Sentry.metrics.distribution('operation.duration', duration, { unit: 'millisecond', tags: { operation: context.name } });
   }
 }
 
