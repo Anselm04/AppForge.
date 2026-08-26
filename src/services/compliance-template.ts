@@ -170,7 +170,7 @@ async function flushToDrain(record: AuditRecord): Promise<void> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.LOGTAIL_SOURCE_TOKEN ?? ""}`,
+        Authorization: \`Bearer \${process.env.LOGTAIL_SOURCE_TOKEN ?? ""}\`,
       },
       body: JSON.stringify(record),
       signal: AbortSignal.timeout(5000),
