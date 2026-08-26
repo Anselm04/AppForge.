@@ -52,7 +52,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 
   // Credit check
   const credits = await ensureUserCredits(user.id);
-  if (credits.balance < BUILD_COST && credits.monthlyAllowance <= 0) {
+  if (credits.balance < BUILD_COST && (credits.monthlyAllowance ?? 0) <= 0) {
     res.status(402).json({
       error: "Insufficient credits",
       balance: credits.balance,
@@ -194,7 +194,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
 
   // Credit check
   const credits = await ensureUserCredits(user.id);
-  if (credits.balance < SENIOR_DEV_BASE_COST && credits.monthlyAllowance <= 0) {
+  if (credits.balance < SENIOR_DEV_BASE_COST && (credits.monthlyAllowance ?? 0) <= 0) {
     res.status(402).json({
       error: "Insufficient credits",
       balance: credits.balance,
@@ -274,7 +274,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       status: "completed",
       summary: result.summary,
       filesChanged: result.changes.map(c => c.path),
-      creditsSpent: task.creditsSpent,
+      creditsSpent: task.creditsSpent ?? 0,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -371,7 +371,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       changes: result.changes,
       validationResult: result.validations,
       summary: result.summary,
-      creditsSpent: task.creditsSpent,
+      creditsSpent: task.creditsSpent ?? 0,
     });
 
     write("done", {
