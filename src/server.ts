@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.js";
 import { createContext } from "./_core/context.js";
@@ -25,6 +26,7 @@ import { AppError } from "./utils/errorReporting.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || "30000", 10);
+const clientDir = path.resolve(process.cwd(), "dist/client");
 
 // ── Sentry initialization (before middleware) ──
 Sentry.init({
@@ -34,18 +36,19 @@ Sentry.init({
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 });
 
-// ── Trust proxy when behind ALB / Cloudflare ──
+// ── Trust proxy when behind ALB / Cloudflare / Fly ──
 if (ENV.isProduction) {
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
 }
 
 // ── SSL/HTTPS enforcement (production only) ──
+// Fly health checks hit the machine over HTTP with no x-forwarded-proto.
+// Only redirect when the edge explicitly says the client used http.
 if (ENV.isProduction) {
   app.use((req, res, next) => {
-    // req.secure may be false behind ALB; check x-forwarded-proto
+    if (req.path.startsWith("/api/health")) return next();
     const proto = req.headers["x-forwarded-proto"] as string | undefined;
-    const isHttps = req.secure || proto === "https";
-    if (!isHttps) {
+    if (proto === "http") {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
     }
     next();
@@ -98,8 +101,8 @@ app.use(cookieParser(ENV.cookieSecret));
 // ── Rate limiting: strict for webhooks ──
 (async () => {
   const webhookLimiter = await createRateLimiter({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 60,                 // 60 webhook events per minute
+    windowMs: 1 * 60 * 1000,
+    max: 60,
     message: "Webhook rate limit exceeded. Please retry with exponential backoff.",
   });
   app.use("/api/webhooks/stripe", webhookLimiter);
@@ -114,7 +117,7 @@ app.use(express.json({ limit: "10mb" }));
 // ── Rate limiting: global + API ──
 (async () => {
   const globalLimiter = await createRateLimiter({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 300,
     message: "Too many requests, please try again later.",
   });
@@ -124,7 +127,7 @@ app.use(express.json({ limit: "10mb" }));
     message: "API rate limit exceeded, please slow down.",
   });
   const buildLimiter = await createRateLimiter({
-    windowMs: 60 * 60 * 1000, // 1 hour
+    windowMs: 60 * 60 * 1000,
     max: 20,
     message: "Build rate limit exceeded. Please wait before creating more builds.",
   });
@@ -141,7 +144,7 @@ app.use(express.json({ limit: "10mb" }));
   app.use("/api/trpc", apiLimiter);
 })().catch(() => {});
 
-// ── Health check (with DB verification) ──
+// ── Health check (with DB verification on / , liveness on /live) ──
 app.use("/api/health", healthRouter);
 
 // ── Auth middleware (sets req.user for all protected routes below) ──
@@ -163,10 +166,30 @@ app.use(
   })
 );
 
-// ── SPA fallback (React Router) ──
+// Public runtime config so Fly secrets work without baking VITE_* at image build time.
+app.get("/config.js", (_req, res) => {
+  const payload = {
+    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
+    supabasePublishableKey:
+      process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      "",
+    stripePublicKey: process.env.VITE_STRIPE_PUBLIC_KEY || "",
+  };
+  res.setHeader("Cache-Control", "no-store");
+  res.type("application/javascript");
+  res.send(`window.__APPFORGE_CONFIG__=${JSON.stringify(payload)};`);
+});
+
+// ── SPA: serve Vite client assets, then index.html ──
 if (ENV.isProduction) {
-  app.get("*", (req, res) => {
-    res.sendFile("index.html", { root: "./dist" });
+  app.use(express.static(clientDir, { index: false, fallthrough: true }));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path === "/config.js") return next();
+    res.sendFile(path.join(clientDir, "index.html"), (err) => {
+      if (err) next(err);
+    });
   });
 }
 
@@ -198,22 +221,21 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 
 // ── Graceful shutdown ──
 const server = app.listen(PORT, () => {
-  console.log(`🚀 AppForge server running on http://localhost:${PORT}`);
-  // ── Start self-healing production monitor ──
+  console.log(`AppForge server running on http://localhost:${PORT}`);
   if (ENV.isProduction && ENV.sentryDsn) {
     import("./agents/selfHealing.js").then(({ startSelfHealingWatcher }) => {
-      const stopWatcher = startSelfHealingWatcher(300_000); // 5 min interval
+      const stopWatcher = startSelfHealingWatcher(300_000);
       process.on("SIGTERM", () => stopWatcher());
       process.on("SIGINT", () => stopWatcher());
     }).catch(() => {});
   }
 });
 
-server.keepAliveTimeout = 65000; //略高于ALB的60秒
+server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully");
+function shutdown(signal: string) {
+  console.log(`${signal} received, shutting down gracefully`);
   server.close(async () => {
     console.log("HTTP server closed");
     try {
@@ -224,27 +246,11 @@ process.on("SIGTERM", () => {
     }
     process.exit(0);
   });
-  // Force exit after 30s if hanging
   setTimeout(() => {
     console.error("Forced shutdown after timeout");
     process.exit(1);
   }, 30000);
-});
+}
 
-process.on("SIGINT", () => {
-  console.log("SIGINT received, shutting down gracefully");
-  server.close(async () => {
-    console.log("HTTP server closed");
-    try {
-      await closeDbConnection();
-      console.log("Database connection closed");
-    } catch (err) {
-      console.error("Error closing DB:", err);
-    }
-    process.exit(0);
-  });
-  setTimeout(() => {
-    console.error("Forced shutdown after timeout");
-    process.exit(1);
-  }, 30000);
-});
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

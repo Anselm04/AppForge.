@@ -1,10 +1,55 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
     "lib": ["ES2020"],
     "types": ["node"],
-    "noEmit": true
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true,
+    "noEmit": false
   },
-  "include": ["api/**/*.js"],
-  "exclude": ["src", "node_modules", "dist"]
+  "include": [
+    "src/server.ts",
+    "src/db.ts",
+    "src/db/**/*.ts",
+    "src/routes/**/*.ts",
+    "src/routers/**/*.ts",
+    "src/middleware/**/*.ts",
+    "src/webhooks/**/*.ts",
+    "src/agents/**/*.ts",
+    "src/services/**/*.ts",
+    "src/utils/**/*.ts",
+    "src/validators/**/*.ts",
+    "src/config/**/*.ts",
+    "src/_core/**/*.ts",
+    "src/types/**/*.ts",
+    "src/data/**/*.ts",
+    "src/lib/redis.ts",
+    "src/lib/sentry.ts",
+    "src/lib/ai-interface.ts",
+    "src/lib/app-generator.ts"
+  ],
+  "exclude": [
+    "src/pages",
+    "src/components",
+    "src/hooks",
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/lib/auth.ts",
+    "src/lib/supabase-client.ts",
+    "src/lib/billing.ts",
+    "src/**/*.test.ts",
+    "src/**/__tests__/**",
+    "node_modules",
+    "dist"
+  ]
 }
