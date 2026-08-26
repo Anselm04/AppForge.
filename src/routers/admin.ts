@@ -47,7 +47,7 @@ async function sendSms(phone: string, message: string): Promise<{ success: boole
       return { success: false, error: `Twilio HTTP ${res.status}: ${body}` };
     }
 
-    const data = await res.json();
+    const data = await res.json() as { sid?: string };
     logger.info({ phone, sid: data.sid }, "twilio_sms_sent");
     return { success: true, sid: data.sid };
   } catch (err) {
@@ -346,7 +346,7 @@ export const adminRouter = router({
         .update(schema.userCredits)
         .set({
           tier: code[0].tier,
-          balance: code[0].credits,
+          balance: code[0].credits ?? 0,
           updatedAt: new Date(),
         })
         .where(eq(schema.userCredits.userId, ctx.user.id));
