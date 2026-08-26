@@ -497,7 +497,7 @@ export async function runSeniorDevAgent(
 
       // Re-validate after fix
       const revalidation = await validateWork(task, originalFiles, generatedFiles, onProgress);
-      validations.push(revalidation);
+      validations.push(...revalidation);
     }
 
     task.validationResults = validations;
