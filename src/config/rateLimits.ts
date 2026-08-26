@@ -88,7 +88,7 @@ export const SLOW_DOWN_TIERS: Record<string, SlowDownTier> = {
   },
 };
 
-export const getRateLimitConfig = () => {
+export const getRateLimitConfig = (): Record<string, RateLimitTier> => {
   const env = process.env.NODE_ENV || 'development';
   
   switch (env) {

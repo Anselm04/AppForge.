@@ -6,7 +6,7 @@
 import slowDown from 'express-slow-down';
 import { RateLimitRequestHandler } from 'express-rate-limit';
 
-interface SlowDownConfig {
+export interface SlowDownConfig {
   windowMs: number;
   delayAfter: number;
   maxDelayMs: number;

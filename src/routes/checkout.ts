@@ -15,7 +15,7 @@ async function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("Stripe not configured");
   const { default: Stripe } = await import("stripe");
-  return new Stripe(key, { apiVersion: "2024-06-20" });
+  return new Stripe(key, { apiVersion: "2023-10-16" });
 }
 
 router.post("/", async (req: Request, res: Response) => {
