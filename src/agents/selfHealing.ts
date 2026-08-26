@@ -138,12 +138,10 @@ async function createAutonomousFixTask(
     plan: null,
     planApproved: true, // skip approval
     status: "executing",
-    changes: null,
-    validationResults: null,
-    summary: null,
+    changes: [],
+    validationResults: [],
+    summary: "",
     creditsSpent: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   };
 
   const files = currentSnapshot.files as Record<string, string>;

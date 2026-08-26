@@ -1,5 +1,5 @@
 // src/agents/testingAgent.ts
-// ── REAL Testing Agent ─────────────────────────────────────────────────
+// ── REAL Testing Agent ─────────────────────────────────────────────────────
 // This agent generates actual unit test files for the code produced by
 // the Coder. It uses the LLM to write vitest tests, and then the
 // BuildValidator runs them. If tests fail, errors are fed back to
@@ -71,7 +71,7 @@ export const TestingAgent: Agent = {
       if (filename.endsWith(".md") || filename.endsWith(".json")) continue;
 
       const moduleName = filename.split("/").pop()?.replace(/\.[^.]+$/, "") ?? filename;
-      const testResult = await generateTestsForModule(moduleName, content, techStack);
+      const testResult = await generateTestsForModule(moduleName, String(content), String(techStack));
       if (testResult) {
         testFiles[testResult.filename] = testResult.testFile;
         testCount++;

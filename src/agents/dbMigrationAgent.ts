@@ -56,7 +56,10 @@ export async function generateSafeMigration(
   ];
 
   const result = await invokeLLM({ messages, maxTokens: 4000, responseFormat: { type: "text" } });
-  const text = result.choices[0]?.message?.content ?? "";
+  const rawContent = result.choices[0]?.message?.content ?? "";
+  const text = typeof rawContent === "string"
+    ? rawContent
+    : rawContent.filter((c): c is { type: "text"; text: string } => c.type === "text").map(c => c.text).join("");
 
   const forwardMatch = text.match(/--\s*Forward\s*Migration\s*([\s\S]*?)(?=--\s*Rollback\s*--|$)/i);
   const rollbackMatch = text.match(/--\s*Rollback\s*--\s*([\s\S]*)/i);
