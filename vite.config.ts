@@ -5,10 +5,9 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   build: {
-    minify: 'terser',
-    terserOptions: {
-      compress: { drop_console: true, pure_funcs: ['console.log'] },
-    },
+    outDir: 'dist/client',
+    emptyOutDir: true,
+    minify: true,
     rollupOptions: {
       output: {
         manualChunks: {

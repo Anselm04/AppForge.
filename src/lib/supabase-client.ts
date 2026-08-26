@@ -1,8 +1,24 @@
+declare global {
+  interface Window {
+    __APPFORGE_CONFIG__?: {
+      supabaseUrl?: string;
+      supabasePublishableKey?: string;
+      stripePublicKey?: string;
+    };
+  }
+}
+
 type AuthResponse = { access_token?: string; refresh_token?: string; user?: { id: string; email?: string }; error?: { message: string } };
 
 function config() {
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  const runtime = typeof window !== 'undefined' ? window.__APPFORGE_CONFIG__ : undefined;
+  const url =
+    (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+    runtime?.supabaseUrl;
+  const publishableKey =
+    (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+    runtime?.supabasePublishableKey;
   if (!url || !publishableKey) {
     throw new Error('Sign-in and project saving are not configured yet. Please try again later.');
   }
