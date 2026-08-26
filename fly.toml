@@ -8,8 +8,6 @@
 #     STRIPE_SECRET_KEY="..." BUILT_IN_FORGE_API_KEY="..." \
 #     OWNER_EMAIL="anselm.perkins@gmail.com" CORS_ORIGIN="https://appforge-unfurling-moon-9058.fly.dev"
 #
-# Optional build-time Vite args if you want keys baked into the client bundle:
-#   fly deploy --build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=...
 # Runtime /config.js is enough for auth without rebuilds.
 
 app = 'appforge-unfurling-moon-9058'
@@ -17,7 +15,7 @@ primary_region = 'lhr'
 
 [build]
   dockerfile = 'Dockerfile'
-  target = 'production'
+  build-target = 'production'
 
 [deploy]
   strategy = 'rolling'
