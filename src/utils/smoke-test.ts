@@ -30,7 +30,7 @@ export async function runSmokeTests(baseUrl: string): Promise<SmokeTestReport> {
   tests.push(await runTest('Health endpoint', baseUrl, async () => {
     const response = await fetch(`${baseUrl}/health`);
     if (!response.ok) throw new Error(`Health check failed: ${response.status}`);
-    const data = await response.json();
+    const data = await response.json() as { status?: string };
     if (data.status !== 'ok') throw new Error(`Health status: ${data.status}`);
   }));
 

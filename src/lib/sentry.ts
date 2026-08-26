@@ -60,7 +60,7 @@ export function captureException(error: Error, options?: any): string | undefine
   }
   
   if (options?.user) Sentry.setUser(options.user);
-  if (options?.tags) Object.entries(options.tags).forEach(([k, v]) => Sentry.setTag(k, v));
+  if (options?.tags) Object.entries(options.tags).forEach(([k, v]) => Sentry.setTag(k, String(v)));
   if (options?.extra) Sentry.setExtra('context', options.extra);
   
   const eventId = Sentry.captureException(error, { level: options?.level || 'error' });
@@ -74,7 +74,7 @@ export function captureMessage(message: string, options?: any): string | undefin
     return undefined;
   }
   
-  if (options?.tags) Object.entries(options.tags).forEach(([k, v]) => Sentry.setTag(k, v));
+  if (options?.tags) Object.entries(options.tags).forEach(([k, v]) => Sentry.setTag(k, String(v)));
   if (options?.extra) Sentry.setExtra('context', options.extra);
   
   const eventId = Sentry.captureMessage(message, options?.level || 'info');

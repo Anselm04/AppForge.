@@ -63,7 +63,7 @@ export async function extractRequirements(prompt: string): Promise<RequirementEx
     }),
   });
 
-  const data = await response.json();
+  const data = await response.json() as any;
   const content = JSON.parse(data.choices[0].message.content);
   return content;
 }
@@ -97,7 +97,7 @@ export async function generateClarificationQuestions(
     }),
   });
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return JSON.parse(data.choices[0].message.content);
 }
 
@@ -130,7 +130,7 @@ export async function generateAppArchitecture(requirements: RequirementExtractio
     }),
   });
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return JSON.parse(data.choices[0].message.content);
 }
 

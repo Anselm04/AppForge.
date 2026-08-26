@@ -13,7 +13,7 @@ import { RedisStore } from 'rate-limit-redis';
 import { createClient } from 'redis';
 
 // Rate limit configurations
-interface RateLimitConfig {
+export interface RateLimitConfig {
   windowMs: number;
   max: number;
   message: string;
