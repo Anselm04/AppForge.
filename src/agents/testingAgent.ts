@@ -1,5 +1,5 @@
 // src/agents/testingAgent.ts
-// ── REAL Testing Agent ─────────────────────────────────────────────────────
+// ── REAL Testing Agent ─────────────────────────────────────────────────
 // This agent generates actual unit test files for the code produced by
 // the Coder. It uses the LLM to write vitest tests, and then the
 // BuildValidator runs them. If tests fail, errors are fed back to
