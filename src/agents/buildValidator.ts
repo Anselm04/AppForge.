@@ -31,15 +31,29 @@ function runCommand(
   args: string[],
   cwd: string,
   timeoutMs: number,
-  env?: Record<string, string>
-): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }> {
+  env?: Record<string, string>,
+): Promise<{
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, shell: false, env: { ...process.env, ...env } });
+    const child = spawn(cmd, args, {
+      cwd,
+      shell: false,
+      env: { ...process.env, ...env },
+    });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve({ exitCode: 1, stdout, stderr: stderr + "\n[TIMEOUT]", timedOut: true });
+      resolve({
+        exitCode: 1,
+        stdout,
+        stderr: stderr + "\n[TIMEOUT]",
+        timedOut: true,
+      });
     }, timeoutMs);
 
     child.stdout?.on("data", (d) => (stdout += d.toString()));
@@ -64,7 +78,7 @@ async function npmAvailable(): Promise<boolean> {
 
 export async function validateGeneratedBuild(
   files: Record<string, string>,
-  techStack: string
+  techStack: string,
 ): Promise<ValidationResult> {
   const tmpDir = join(tmpdir(), `appforge-build-${Date.now()}`);
   const start = Date.now();
@@ -99,60 +113,177 @@ export async function validateGeneratedBuild(
             devDependencies: deps.dev,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
+    }
+
+    // ── 2b. Python / non-npm stacks ────────────────────────────────────
+    const isPython =
+      !!files["requirements.txt"] ||
+      !!files["pyproject.toml"] ||
+      !!files["main.py"] ||
+      techStack.includes("python") ||
+      techStack.includes("langchain") ||
+      techStack.includes("crewai") ||
+      techStack.includes("autogen");
+    if (isPython && !hasPackageJson) {
+      // Structural validation for Python agents/tools
+      const entry =
+        files["main.py"] || files["src/main.py"] || files["agent.py"];
+      if (!entry) {
+        errors.push("Python scaffold missing main.py entrypoint");
+        return {
+          passed: false,
+          stage: "structure",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Python agent requires main.py (or set package.json for Node validation).",
+        };
+      }
+      return {
+        passed: true,
+        stage: "structure",
+        errors: [],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Python stack: structural checks only. Run pip install + pytest locally before production.",
+      };
+    }
+
+    // Flutter / Dart
+    if (files["pubspec.yaml"]) {
+      return {
+        passed: true,
+        stage: "structure",
+        errors: [],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Flutter stack: structural checks only. Run flutter analyze locally.",
+      };
+    }
+
+    // Chrome / VS Code extensions — structural
+    if (files["manifest.json"]) {
+      try {
+        JSON.parse(files["manifest.json"]);
+      } catch {
+        errors.push("manifest.json is invalid JSON");
+        return {
+          passed: false,
+          stage: "structure",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Fix extension manifest before packaging.",
+        };
+      }
+      return {
+        passed: true,
+        stage: "structure",
+        errors: [],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Browser extension: structural checks only. Load unpacked locally to verify.",
+      };
+    }
+    if (files["extension.js"] && files["package.json"]) {
+      try {
+        const pkg = JSON.parse(files["package.json"]);
+        if (pkg.engines?.vscode || pkg.contributes) {
+          return {
+            passed: true,
+            stage: "structure",
+            errors: [],
+            durationMs: Date.now() - start,
+            fileCount: Object.keys(files).length,
+            warning:
+              "VS Code extension: structural checks only. Run vsce package locally.",
+          };
+        }
+      } catch {
+        /* fall through to npm validation */
+      }
     }
 
     // ── 3. npm install ─────────────────────────────────────────────────
     // Pre-flight: if npm is not responding, skip validation gracefully
     const hasNpm = await npmAvailable();
     if (!hasNpm) {
-      errors.push("npm not available in this environment — skipping install validation.");
+      const isProd = process.env.NODE_ENV === "production";
+      errors.push(
+        "npm not available in this environment — cannot verify install.",
+      );
       return {
-        passed: true, // non-blocking: app can still be saved and deployed
+        passed: !isProd, // fail-closed in production
         stage: "install",
         errors,
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
-        warning: "npm unavailable in build container — dependencies not verified. Manual review and local install required.",
+        warning: isProd
+          ? "npm unavailable — validation failed closed in production."
+          : "npm unavailable in build container — dependencies not verified. Manual review required.",
       };
     }
 
     // Warm up npm cache (prevents first-run hang)
-    await runCommand("npm", ["cache", "verify"], tmpDir, 30_000).catch(() => {});
+    await runCommand("npm", ["cache", "verify"], tmpDir, 30_000).catch(
+      () => {},
+    );
 
     const installResult = await runCommand(
       "npm",
-      ["install", "--prefer-offline", "--no-audit", "--no-fund", "--loglevel=error"],
+      [
+        "install",
+        "--prefer-offline",
+        "--no-audit",
+        "--no-fund",
+        "--loglevel=error",
+      ],
       tmpDir,
       120_000,
-      { NODE_OPTIONS: "--max-old-space-size=512" }
+      { NODE_OPTIONS: "--max-old-space-size=512" },
     );
     if (installResult.exitCode !== 0) {
       // Retry with cache disabled (network-less fallback)
       const cacheless = await runCommand(
         "npm",
-        ["install", "--prefer-offline", "--no-audit", "--no-fund", "--loglevel=error"],
+        [
+          "install",
+          "--prefer-offline",
+          "--no-audit",
+          "--no-fund",
+          "--loglevel=error",
+        ],
         tmpDir,
         120_000,
-        { npm_config_cache: "/tmp/npm-cache-af" }
+        { npm_config_cache: "/tmp/npm-cache-af" },
       );
       if (cacheless.exitCode !== 0) {
-        errors.push(`Dependency install failed: ${installResult.stderr.slice(0, 500)}`);
+        errors.push(
+          `Dependency install failed: ${installResult.stderr.slice(0, 500)}`,
+        );
         return {
           passed: false,
           stage: "install",
           errors,
           durationMs: Date.now() - start,
           fileCount: Object.keys(files).length,
-          warning: "LLM generated invalid dependencies or no package.json. Manual review required.",
+          warning:
+            "LLM generated invalid dependencies or no package.json. Manual review required.",
         };
       }
     }
 
-    // ── 4. Type check (if TS files present) ────────────────────────────
-    const tsFiles = Object.keys(files).filter((f) => f.endsWith(".ts") || f.endsWith(".tsx"));
+    // ── 4. Type check (if TS files present) ──────────────────────────
+    const tsFiles = Object.keys(files).filter(
+      (f) => f.endsWith(".ts") || f.endsWith(".tsx"),
+    );
     if (tsFiles.length > 0) {
       // Create minimal tsconfig.json if missing
       const hasTsconfig = files["tsconfig.json"] || files["src/tsconfig.json"];
@@ -176,12 +307,17 @@ export async function validateGeneratedBuild(
               include: ["src", "*.ts"],
             },
             null,
-            2
-          )
+            2,
+          ),
         );
       }
 
-      const tscResult = await runCommand("npx", ["tsc", "--noEmit"], tmpDir, 60_000);
+      const tscResult = await runCommand(
+        "npx",
+        ["tsc", "--noEmit"],
+        tmpDir,
+        60_000,
+      );
       if (tscResult.exitCode !== 0) {
         const tscErrors = tscResult.stdout
           .split("\n")
@@ -194,14 +330,24 @@ export async function validateGeneratedBuild(
           errors,
           durationMs: Date.now() - start,
           fileCount: Object.keys(files).length,
-          warning: "TypeScript compilation failed. Errors will be fed back to LLM for auto-fix.",
+          warning:
+            "TypeScript compilation failed. Errors will be fed back to LLM for auto-fix.",
         };
       }
     }
 
     // ── 5. Try to run generated tests ──────────────────────────────────
-    if (files["src/__tests__/setup.ts"] || files["vitest.config.ts"] || files["jest.config.js"]) {
-      const testResult = await runCommand("npx", ["vitest", "run"], tmpDir, 60_000);
+    if (
+      files["src/__tests__/setup.ts"] ||
+      files["vitest.config.ts"] ||
+      files["jest.config.js"]
+    ) {
+      const testResult = await runCommand(
+        "npx",
+        ["vitest", "run"],
+        tmpDir,
+        60_000,
+      );
       if (testResult.exitCode !== 0) {
         errors.push(`Tests failed: ${testResult.stderr.slice(0, 300)}`);
         // Non-blocking warning — many generated tests are stubs
@@ -210,7 +356,12 @@ export async function validateGeneratedBuild(
 
     // ── 6. Build check ─────────────────────────────────────────────────
     if (files["vite.config.ts"] || files["vite.config.js"] || hasPackageJson) {
-      const buildResult = await runCommand("npx", ["vite", "build"], tmpDir, 60_000);
+      const buildResult = await runCommand(
+        "npx",
+        ["vite", "build"],
+        tmpDir,
+        60_000,
+      );
       if (buildResult.exitCode !== 0) {
         errors.push(`Build failed: ${buildResult.stderr.slice(0, 300)}`);
         return {
@@ -230,7 +381,8 @@ export async function validateGeneratedBuild(
       errors: [],
       durationMs: Date.now() - start,
       fileCount: Object.keys(files).length,
-      warning: "LLM-generated code passed basic validation. ALWAYS review manually before production use.",
+      warning:
+        "LLM-generated code passed basic validation. ALWAYS review manually before production use.",
     };
   } finally {
     // Cleanup temp directory
@@ -239,7 +391,10 @@ export async function validateGeneratedBuild(
 }
 
 /** Map tech stack strings to dependency sets */
-function techStackDeps(techStack: string): { prod: Record<string, string>; dev: Record<string, string> } {
+function techStackDeps(techStack: string): {
+  prod: Record<string, string>;
+  dev: Record<string, string>;
+} {
   const commonProd: Record<string, string> = {
     react: "^18.2.0",
     "react-dom": "^18.2.0",
