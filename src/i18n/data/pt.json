@@ -1,6 +1,8 @@
 {
   "nav": {
     "language": "Idioma",
+    "menu": "Menu",
+    "closeMenu": "Fechar menu",
     "dark": "Escuro",
     "light": "Claro",
     "login": "Entrar",
