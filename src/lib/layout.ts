@@ -8,7 +8,8 @@ const MD_QUERY = "(min-width: 768px)";
 function readLayout(): LayoutMode {
   try {
     const value = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (value === "phone" || value === "desktop" || value === "auto") return value;
+    if (value === "phone" || value === "desktop" || value === "auto")
+      return value;
   } catch {
     /* quota / private mode */
   }
@@ -25,8 +26,11 @@ function writeLayout(mode: LayoutMode) {
 
 function isWideViewport(): boolean {
   try {
-    return typeof window !== "undefined" && typeof window.matchMedia === "function"
-      && window.matchMedia(MD_QUERY).matches;
+    return (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(MD_QUERY).matches
+    );
   } catch {
     return true;
   }
@@ -41,10 +45,20 @@ export function useLayoutMode() {
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia(MD_QUERY);
+    if (!mq) return;
     const onChange = () => setWide(mq.matches);
-    mq.addEventListener("change", onChange);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", onChange);
+      setWide(mq.matches);
+      return () => mq.removeEventListener("change", onChange);
+    }
+    // Older Safari / incomplete test mocks
+    if (typeof (mq as MediaQueryList).addListener === "function") {
+      (mq as MediaQueryList).addListener(onChange);
+      setWide(mq.matches);
+      return () => (mq as MediaQueryList).removeListener(onChange);
+    }
     setWide(mq.matches);
-    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   const setMode = useCallback((next: LayoutMode) => {

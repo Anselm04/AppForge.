@@ -149,20 +149,26 @@ function extractJSON<T>(text: string): T {
 function trackCredits(
   task: SeniorDevTask,
   costKey: keyof typeof CREDIT_COSTS,
-  multiplier = 1
+  multiplier = 1,
 ): void {
   const cost = CREDIT_COSTS[costKey] * multiplier;
   task.creditsSpent += cost;
-  logger.info({ taskId: task.id, cost, total: task.creditsSpent }, "senior_dev_credit_usage");
+  logger.info(
+    { taskId: task.id, cost, total: task.creditsSpent },
+    "senior_dev_credit_usage",
+  );
 }
 
 // ── Stage 1: Gather Project Context ──
 export async function gatherContext(
   files: Record<string, string>,
   techStack: string,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<string> {
-  onProgress({ stage: "planning", message: "Reading project structure and existing patterns..." });
+  onProgress({
+    stage: "planning",
+    message: "Reading project structure and existing patterns...",
+  });
 
   const fileList = Object.keys(files).slice(0, 40).join("\n");
   const sampleFiles = Object.entries(files)
@@ -187,7 +193,7 @@ export async function gatherContext(
 export async function createPlan(
   task: SeniorDevTask,
   context: string,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<AgentPlan> {
   onProgress({ stage: "planning", message: "Creating implementation plan..." });
 
@@ -224,7 +230,7 @@ export async function executePlan(
   task: SeniorDevTask,
   plan: AgentPlan,
   files: Record<string, string>,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<FileChange[]> {
   const allChanges: FileChange[] = [];
 
@@ -274,7 +280,7 @@ export async function executePlan(
   onProgress({
     stage: "validating",
     message: `Executed ${plan.steps.length} steps. Running validation...`,
-    detail: { filesModified: allChanges.map(c => c.path) },
+    detail: { filesModified: allChanges.map((c) => c.path) },
   });
 
   return allChanges;
@@ -285,12 +291,12 @@ export async function validateWork(
   task: SeniorDevTask,
   originalFiles: Record<string, string>,
   newFiles: Record<string, string>,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<ValidationResult[]> {
   const results: ValidationResult[] = [];
 
   const changedPaths = Object.keys(newFiles).filter(
-    p => originalFiles[p] !== newFiles[p] || !originalFiles[p]
+    (p) => originalFiles[p] !== newFiles[p] || !originalFiles[p],
   );
 
   if (changedPaths.length === 0) {
@@ -305,7 +311,10 @@ export async function validateWork(
     after[p] = newFiles[p];
   }
 
-  onProgress({ stage: "validating", message: "Checking syntax, types, and consistency..." });
+  onProgress({
+    stage: "validating",
+    message: "Checking syntax, types, and consistency...",
+  });
 
   const messages: Message[] = [
     { role: "system", content: VALIDATE_SYSTEM_PROMPT },
@@ -344,7 +353,7 @@ export async function fixIssues(
   validation: ValidationResult,
   files: Record<string, string>,
   onProgress: (e: ProgressEvent) => void,
-  attempt: number
+  attempt: number,
 ): Promise<FileChange[]> {
   onProgress({
     stage: "fixing",
@@ -354,14 +363,17 @@ export async function fixIssues(
 
   const relevantFiles: Record<string, string> = {};
   for (const err of validation.errors) {
-    const pathMatch = err.match(/(?:in|file|path) ['"`]([^'"`]+)['"`]/i) ?? err.match(/^([a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|py|css|json))/);
+    const pathMatch =
+      err.match(/(?:in|file|path) ['"`]([^'"`]+)['"`]/i) ??
+      err.match(/^([a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|py|css|json))/);
     if (pathMatch) {
       const p = pathMatch[1];
       if (files[p]) relevantFiles[p] = files[p];
     }
   }
   if (Object.keys(relevantFiles).length === 0) {
-    for (const p of Object.keys(files).slice(0, 10)) relevantFiles[p] = files[p];
+    for (const p of Object.keys(files).slice(0, 10))
+      relevantFiles[p] = files[p];
   }
 
   const messages: Message[] = [
@@ -393,7 +405,7 @@ export async function fixIssues(
   onProgress({
     stage: "validating",
     message: `Fix attempt ${attempt} applied. Re-validating...`,
-    detail: { fixFiles: fixResult.changes.map(c => c.path) },
+    detail: { fixFiles: fixResult.changes.map((c) => c.path) },
   });
 
   return fixResult.changes;
@@ -405,18 +417,18 @@ export async function generateSummary(
   plan: AgentPlan,
   changes: FileChange[],
   validations: ValidationResult[],
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<string> {
   onProgress({ stage: "completed", message: "Generating task summary..." });
 
-  const allPassed = validations.every(v => v.passed);
+  const allPassed = validations.every((v) => v.passed);
   const totalErrors = validations.reduce((sum, v) => sum + v.errors.length, 0);
 
   const messages: Message[] = [
     { role: "system", content: SUMMARY_SYSTEM_PROMPT },
     {
       role: "user",
-      content: `Plan approach: ${plan.approach}\n\nChanges made:\n${changes.map(c => `- ${c.action}: ${c.path}`).join("\n")}\n\nValidation: ${allPassed ? "all passed" : `${totalErrors} errors remaining`}\n\nOriginal request: ${task.request}`,
+      content: `Plan approach: ${plan.approach}\n\nChanges made:\n${changes.map((c) => `- ${c.action}: ${c.path}`).join("\n")}\n\nValidation: ${allPassed ? "all passed" : `${totalErrors} errors remaining`}\n\nOriginal request: ${task.request}`,
     },
   ];
 
@@ -439,43 +451,70 @@ export async function runSeniorDevAgent(
   task: SeniorDevTask,
   generatedFiles: Record<string, string>,
   techStack: string,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<{
   files: Record<string, string>;
   changes: FileChange[];
   validations: ValidationResult[];
   summary: string;
 }> {
-  logger.info({ taskId: task.id, request: task.request, mode: task.mode }, "senior_dev_start");
+  logger.info(
+    { taskId: task.id, request: task.request, mode: task.mode },
+    "senior_dev_start",
+  );
 
   try {
-    // 1. Gather context
-    trackCredits(task, "context");
-    const context = await gatherContext(generatedFiles, techStack, onProgress);
+    let context = "";
 
-    // 2. Create plan
-    task.plan = await createPlan(task, context, onProgress);
+    // Skip re-planning when resuming an already-approved collaborative plan
+    if (!(task.planApproved && task.plan)) {
+      // 1. Gather context
+      trackCredits(task, "context");
+      context = await gatherContext(generatedFiles, techStack, onProgress);
 
-    if (task.mode === "collaborative" && !task.planApproved) {
-      task.status = "awaiting_approval";
-      logger.info({ taskId: task.id }, "senior_dev_awaiting_approval");
-      return {
-        files: generatedFiles,
-        changes: [],
-        validations: [],
-        summary: "Plan created. Awaiting user approval before executing.",
-      };
+      // 2. Create plan
+      task.plan = await createPlan(task, context, onProgress);
+
+      if (task.mode === "collaborative" && !task.planApproved) {
+        task.status = "awaiting_approval";
+        logger.info({ taskId: task.id }, "senior_dev_awaiting_approval");
+        return {
+          files: generatedFiles,
+          changes: [],
+          validations: [],
+          summary: "Plan created. Awaiting user approval before executing.",
+        };
+      }
+    } else {
+      onProgress({
+        stage: "executing",
+        message: "Resuming with approved plan — skipping re-plan.",
+      });
+    }
+
+    if (!task.plan) {
+      throw new Error("No plan available to execute");
     }
 
     // 3. Execute
     task.status = "executing";
     const originalFiles = { ...generatedFiles };
-    const changes = await executePlan(task, task.plan, generatedFiles, onProgress);
+    const changes = await executePlan(
+      task,
+      task.plan,
+      generatedFiles,
+      onProgress,
+    );
     task.changes = changes;
 
     // 4. Validate
     task.status = "validating";
-    let validations = await validateWork(task, originalFiles, generatedFiles, onProgress);
+    let validations = await validateWork(
+      task,
+      originalFiles,
+      generatedFiles,
+      onProgress,
+    );
 
     // 4b. Triple Audit (a11y + security + perf)
     const { runTripleAudit } = await import("./tripleAudit.js");
@@ -492,11 +531,22 @@ export async function runSeniorDevAgent(
       if (lastValidation.passed || lastValidation.errors.length === 0) break;
 
       task.status = "fixing";
-      const fixChanges = await fixIssues(task, lastValidation, generatedFiles, onProgress, attempt);
+      const fixChanges = await fixIssues(
+        task,
+        lastValidation,
+        generatedFiles,
+        onProgress,
+        attempt,
+      );
       task.changes.push(...fixChanges);
 
       // Re-validate after fix
-      const revalidation = await validateWork(task, originalFiles, generatedFiles, onProgress);
+      const revalidation = await validateWork(
+        task,
+        originalFiles,
+        generatedFiles,
+        onProgress,
+      );
       validations.push(...revalidation);
     }
 
@@ -505,12 +555,18 @@ export async function runSeniorDevAgent(
     task.status = finalPassed ? "completed" : "failed";
 
     // 6. Summary
-    const summary = await generateSummary(task, task.plan, task.changes, validations, onProgress);
+    const summary = await generateSummary(
+      task,
+      task.plan,
+      task.changes,
+      validations,
+      onProgress,
+    );
     task.summary = summary;
 
     logger.info(
       { taskId: task.id, status: task.status, credits: task.creditsSpent },
-      "senior_dev_complete"
+      "senior_dev_complete",
     );
 
     return {
@@ -534,7 +590,7 @@ export async function resumeAfterApproval(
   task: SeniorDevTask,
   generatedFiles: Record<string, string>,
   techStack: string,
-  onProgress: (e: ProgressEvent) => void
+  onProgress: (e: ProgressEvent) => void,
 ): Promise<{
   files: Record<string, string>;
   changes: FileChange[];

@@ -12,7 +12,11 @@
     "editor": "Ētita",
     "admin": "Kaiwhakahaere",
     "upgrade": "Whakapai ake",
-    "trial": "Whakamātautau ({tier})"
+    "trial": "Whakamātautau ({tier})",
+    "layout": "Layout",
+    "layoutAuto": "Auto",
+    "layoutPhone": "Phone",
+    "layoutDesktop": "Desktop"
   },
   "home": {
     "tagline": "Hangaia ngā taupānga tukutuku katoa mā te AI. Whakaahuatia tō whakaaro, ka whiwhi waehere whakaputa.",
@@ -25,6 +29,7 @@
     "promptLabel": "He aha te taupānga e hiahia ana koe ki te hanga?",
     "promptPlaceholder": "hei tauira, He rārangi mahi me te aratau pōuri, he taupānga rāhuitanga mō tōu salon, he papatohu hoko...",
     "charCount": "{count} / 2000 pūāhua",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "Kāheu Hangarau",
     "techHint": "Ka waihanga a AppForge i te waehere mō tō kāheu kua kōwhiria, ka whakahiato, ka ngana ki te whakatika hapa.",
     "groupWeb": "Taupānga Tukutuku",
@@ -36,12 +41,26 @@
     "pausedCta": "Kua okioki — kua pau ngā nama",
     "creating": "Kei te waihanga...",
     "generate": "Waihangatia te Taupānga",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "Tere",
     "fastDesc": "Waihangatia ngā taupānga katoa i roto i ngā meneti, ehara i ngā rā.",
     "aiTitle": "Whakahaere-AI",
     "aiDesc": "Ka whakamahere, ka tuhi waehere, ka arotake tō taupānga te paipa kaihoko-maha.",
     "prodTitle": "Kua rite ki te Whakaputa",
-    "prodDesc": "Kaweake ki GitHub, tuku ki Vercel ki te pānga kotahi."
+    "prodDesc": "Kaweake ki GitHub, tuku ki Vercel ki te pānga kotahi.",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "Nau mai anō",
@@ -136,5 +155,14 @@
     "subscribe": "Ohauru",
     "buyExtra": "Hokona ētahi nama tāpiri",
     "actionStartBuild": "tīmata i tētahi hanganga"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · Founder & CEO",
+    "ownerOf": "Owner of AppForge and TrillionAI Tech",
+    "about": "About"
+  },
+  "about": {
+    "title": "About AppForge",
+    "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
   }
 }

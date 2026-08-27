@@ -12,7 +12,11 @@
     "editor": "エディター",
     "admin": "管理",
     "upgrade": "アップグレード",
-    "trial": "トライアル（{tier}）"
+    "trial": "トライアル（{tier}）",
+    "layout": "レイアウト",
+    "layoutAuto": "自動",
+    "layoutPhone": "スマホ",
+    "layoutDesktop": "デスクトップ"
   },
   "home": {
     "tagline": "AIでフルスタックのWebアプリを構築。アイデアを伝えるだけで、本番用コードが手に入ります。",
@@ -25,6 +29,7 @@
     "promptLabel": "どんなアプリを作りたいですか？",
     "promptPlaceholder": "例：ダークモード付きToDoリスト、サロン予約アプリ、売上ダッシュボード…",
     "charCount": "{count} / 2000 文字",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "技術スタック",
     "techHint": "AppForgeは選択したスタックのコードを生成し、コンパイルし、エラーの自動修正を試みます。",
     "groupWeb": "Webアプリ",
@@ -36,12 +41,26 @@
     "pausedCta": "一時停止 — クレジット不足",
     "creating": "作成中...",
     "generate": "アプリを生成",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "高速",
     "fastDesc": "フルスタックアプリを数日ではなく数分で生成。",
     "aiTitle": "AI駆動",
     "aiDesc": "マルチエージェントのパイプラインがアプリを計画、実装、レビューします。",
     "prodTitle": "本番対応",
-    "prodDesc": "ワンクリックでGitHubに書き出し、Vercelにデプロイ。"
+    "prodDesc": "ワンクリックでGitHubに書き出し、Vercelにデプロイ。",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "おかえりなさい",
@@ -136,5 +155,14 @@
     "subscribe": "登録する",
     "buyExtra": "クレジットを追加購入",
     "actionStartBuild": "ビルドを開始する"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · 創業者兼CEO",
+    "ownerOf": "AppForgeおよびTrillionAI Techのオーナー",
+    "about": "について"
+  },
+  "about": {
+    "title": "AppForgeについて",
+    "body": "AppForgeはTrillionAI TechのAIアプリビルダーです。Anselm Perkinsは創業者兼CEOであり、AppForgeとTrillionAI Techのオーナーです。"
   }
 }

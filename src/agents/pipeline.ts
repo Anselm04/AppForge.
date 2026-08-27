@@ -3,10 +3,17 @@ import {
   markAgentLogComplete,
   updateProjectFiles,
   updateProjectStatus,
-  updateProjectCreditsSpent,
 } from "../db.js";
 import { invokeLLM } from "../_core/llm.js";
 import { injectComplianceScaffolding } from "../services/compliance-template.js";
+import {
+  parseGeneratedFiles,
+  ensureEssentialFiles,
+} from "../services/multiFileCoder.js";
+import {
+  getStackScaffold,
+  mergeScaffoldWithGenerated,
+} from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
 
 // Credit cost per agent phase
@@ -121,7 +128,8 @@ export function getTechStackDescription(stack: TechStack): string {
   return descriptions[stack] ?? "Custom stack";
 }
 
-type AgentRole = "Planner" | "Coder" | "Reviewer" | "Validator" | "Cosine" | "Testing";
+type AgentRole =
+  "Planner" | "Coder" | "Reviewer" | "Validator" | "Cosine" | "Testing";
 
 type SSEWriter = (event: string, data: unknown) => void;
 type CreditChecker = () => Promise<boolean>;
@@ -130,7 +138,7 @@ type CreditChecker = () => Promise<boolean>;
 async function streamLLM(
   messages: { role: string; content: string }[],
   onChunk: (chunk: string) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string> {
   const result = await invokeLLM({
     messages: messages as any,
@@ -138,12 +146,13 @@ async function streamLLM(
 
   let fullText = "";
   if (result.choices[0]?.message?.content) {
-    fullText = typeof result.choices[0].message.content === "string"
-      ? result.choices[0].message.content
-      : result.choices[0].message.content
-          .filter((c: any) => c.type === "text")
-          .map((c: any) => c.text)
-          .join("");
+    fullText =
+      typeof result.choices[0].message.content === "string"
+        ? result.choices[0].message.content
+        : result.choices[0].message.content
+            .filter((c: any) => c.type === "text")
+            .map((c: any) => c.text)
+            .join("");
     onChunk(fullText);
   }
   return fullText;
@@ -186,12 +195,18 @@ export async function runAgentPipeline(
 
     // ── PLANNER ──────────────────────────────────────────────────────────────
     if (!(await checkAndDeduct("Planner"))) {
-      write("pause", { reason: "credits_exhausted", agent: "Planner", message: "Build paused: insufficient credits to start planning phase." });
+      write("pause", {
+        reason: "credits_exhausted",
+        agent: "Planner",
+        message: "Build paused: insufficient credits to start planning phase.",
+      });
       await updateProjectStatus(projectId, "paused", "credits_exhausted");
       return;
     }
 
-    emit("Planner", "start", { message: "Analyzing your request and creating an architecture plan…" });
+    emit("Planner", "start", {
+      message: "Analyzing your request and creating an architecture plan…",
+    });
     const plannerLogId = await appendAgentLog({
       projectId,
       agent: "Planner",
@@ -226,7 +241,7 @@ The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStac
         plannerOutput += chunk;
         emit("Planner", "chunk", { text: chunk });
       },
-      signal
+      signal,
     );
 
     await markAgentLogComplete(plannerLogId);
@@ -243,19 +258,24 @@ The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStac
         appTitle = parsed.title ?? appTitle;
       }
     } catch {
-      tasks = [
-        { id: "1", module: "Core App", description: description },
-      ];
+      tasks = [{ id: "1", module: "Core App", description: description }];
     }
 
     // ── CODER ────────────────────────────────────────────────────────────────
     if (!(await checkAndDeduct("Coder"))) {
-      write("pause", { reason: "credits_exhausted", agent: "Coder", message: "Build paused: insufficient credits for code generation phase." });
+      write("pause", {
+        reason: "credits_exhausted",
+        agent: "Coder",
+        message:
+          "Build paused: insufficient credits for code generation phase.",
+      });
       await updateProjectStatus(projectId, "paused", "credits_exhausted");
       return;
     }
 
-    emit("Coder", "start", { message: `Writing code for ${tasks.length} modules…` });
+    emit("Coder", "start", {
+      message: `Writing code for ${tasks.length} modules…`,
+    });
 
     let generatedFiles: Record<string, string> = {};
 
@@ -278,7 +298,10 @@ The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStac
 
       for (const task of tasks) {
         if (signal?.aborted) break;
-        emit("Coder", "task_start", { module: task.module, description: task.description });
+        emit("Coder", "task_start", {
+          module: task.module,
+          description: task.description,
+        });
 
         const coderLogId = await appendAgentLog({
           projectId,
@@ -327,32 +350,50 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
             fileContent += chunk;
             emit("Coder", "chunk", { module: task.module, text: chunk });
           },
-          signal
+          signal,
         );
 
         await markAgentLogComplete(coderLogId);
 
-        // Extract filename from the generated code
-        const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
-        const filename = filenameMatch
-          ? filenameMatch[1].trim()
-          : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.ts`;
-        generatedFiles[filename] = fileContent;
-
-        emit("Coder", "task_complete", { module: task.module, filename });
+        // Parse multi-file LLM output; fall back to single-file extraction
+        const parsedFiles = parseGeneratedFiles(fileContent);
+        if (Object.keys(parsedFiles).length > 0) {
+          Object.assign(generatedFiles, parsedFiles);
+          for (const filename of Object.keys(parsedFiles)) {
+            emit("Coder", "task_complete", { module: task.module, filename });
+          }
+        } else {
+          const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
+          const filename = filenameMatch
+            ? filenameMatch[1].trim()
+            : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.ts`;
+          generatedFiles[filename] = fileContent;
+          emit("Coder", "task_complete", { module: task.module, filename });
+        }
       }
 
-      emit("Coder", "complete", { message: `Generated ${Object.keys(generatedFiles).length} files.` });
+      emit("Coder", "complete", {
+        message: `Generated ${Object.keys(generatedFiles).length} files.`,
+      });
 
       // ── VALIDATOR (Build + Type Check + Test) ──────────────────────────────
       if (!(await checkAndDeduct("Validator"))) {
-        write("pause", { reason: "credits_exhausted", agent: "Validator", message: "Build paused: insufficient credits for validation phase." });
+        write("pause", {
+          reason: "credits_exhausted",
+          agent: "Validator",
+          message: "Build paused: insufficient credits for validation phase.",
+        });
         await updateProjectStatus(projectId, "paused", "credits_exhausted");
         return;
       }
 
-      emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
-      validationResult = await validateGeneratedBuild(generatedFiles, techStack);
+      emit("Validator", "start", {
+        message: "Compiling and testing generated code in sandbox…",
+      });
+      validationResult = await validateGeneratedBuild(
+        generatedFiles,
+        techStack,
+      );
 
       // ── Triple Audit (a11y + security + perf) ──────────────────────────────
       const { runTripleAudit } = await import("./tripleAudit.js");
@@ -379,7 +420,11 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
       });
 
       fixAttempt++;
-    } while (!validationResult.passed && fixAttempt <= MAX_FIX_RETRIES && !signal?.aborted);
+    } while (
+      !validationResult.passed &&
+      fixAttempt <= MAX_FIX_RETRIES &&
+      !signal?.aborted
+    );
 
     // If validation still fails after retries, mark build as FAILED with a warning
     if (!validationResult.passed) {
@@ -393,12 +438,18 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
 
     // ── REVIEWER ─────────────────────────────────────────────────────────────
     if (!(await checkAndDeduct("Reviewer"))) {
-      write("pause", { reason: "credits_exhausted", agent: "Reviewer", message: "Build paused: insufficient credits for review phase." });
+      write("pause", {
+        reason: "credits_exhausted",
+        agent: "Reviewer",
+        message: "Build paused: insufficient credits for review phase.",
+      });
       await updateProjectStatus(projectId, "paused", "credits_exhausted");
       return;
     }
 
-    emit("Reviewer", "start", { message: "Reviewing generated code for errors and improvements…" });
+    emit("Reviewer", "start", {
+      message: "Reviewing generated code for errors and improvements…",
+    });
     const reviewerLogId = await appendAgentLog({
       projectId,
       agent: "Reviewer",
@@ -434,7 +485,7 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
         reviewOutput += chunk;
         emit("Reviewer", "chunk", { text: chunk });
       },
-      signal
+      signal,
     );
 
     await markAgentLogComplete(reviewerLogId);
@@ -442,7 +493,8 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
 
     // Add review + compliance scaffolding to generated files
     generatedFiles["REVIEW.md"] = reviewOutput;
-    generatedFiles["README.md"] = `# ${appTitle}\n\nGenerated by AppForge multi-agent pipeline.\n\n**Tech Stack:** ${techStack} (${getTechStackDescription(techStack as TechStack)})\n\n**Validation:** ${validationResult?.passed ? "Compiled and passed basic checks" : "FAILED — manual fixes required"}\n\n**Warning:** LLM-generated code is a starting point, not production-ready without review.\n\n## Modules\n${tasks.map(t => `- **${t.module}**: ${t.description}`).join("\n")}\n\n## How to run\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
+    generatedFiles["README.md"] =
+      `# ${appTitle}\n\nGenerated by AppForge multi-agent pipeline.\n\n**Tech Stack:** ${techStack} (${getTechStackDescription(techStack as TechStack)})\n\n**Validation:** ${validationResult?.passed ? "Compiled and passed basic checks" : "FAILED — manual fixes required"}\n\n**Warning:** LLM-generated code is a starting point, not production-ready without review.\n\n## Modules\n${tasks.map((t) => `- **${t.module}**: ${t.description}`).join("\n")}\n\n## How to run\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
 
     injectComplianceScaffolding(generatedFiles);
 
@@ -451,35 +503,93 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
     const { generateTestsForModule } = await import("./testingAgent.js");
     const testFiles: Record<string, string> = {};
     for (const [filename, content] of Object.entries(generatedFiles)) {
-      if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx") || filename.endsWith(".md") || filename.endsWith(".json")) continue;
-      const moduleName = filename.split("/").pop()?.replace(/\.[^.]+$/, "") ?? filename;
-      const testResult = await generateTestsForModule(moduleName, content, techStack);
+      if (
+        filename.endsWith(".test.ts") ||
+        filename.endsWith(".test.tsx") ||
+        filename.endsWith(".md") ||
+        filename.endsWith(".json")
+      )
+        continue;
+      const moduleName =
+        filename
+          .split("/")
+          .pop()
+          ?.replace(/\.[^.]+$/, "") ?? filename;
+      const testResult = await generateTestsForModule(
+        moduleName,
+        content,
+        techStack,
+      );
       if (testResult) {
         testFiles[testResult.filename] = testResult.testFile;
       }
     }
     if (!generatedFiles["vitest.config.ts"] && !testFiles["vitest.config.ts"]) {
-      testFiles["vitest.config.ts"] = `// filename: vitest.config.ts\nimport { defineConfig } from 'vitest/config';\nimport react from '@vitejs/plugin-react';\nimport path from 'path';\nexport default defineConfig({\n  plugins: [react()],\n  test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },\n  resolve: { alias: { '@': path.resolve(__dirname, './src') } },\n});\n`;
+      testFiles["vitest.config.ts"] =
+        `// filename: vitest.config.ts\nimport { defineConfig } from 'vitest/config';\nimport react from '@vitejs/plugin-react';\nimport path from 'path';\nexport default defineConfig({\n  plugins: [react()],\n  test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },\n  resolve: { alias: { '@': path.resolve(__dirname, './src') } },\n});\n`;
     }
-    if (!generatedFiles["src/__tests__/setup.ts"] && !testFiles["src/__tests__/setup.ts"]) {
-      testFiles["src/__tests__/setup.ts"] = `// filename: src/__tests__/setup.ts\nimport '@testing-library/jest-dom';\nimport { cleanup } from '@testing-library/react';\nimport { afterEach, vi } from 'vitest';\nafterEach(() => cleanup());\nwindow.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));\nwindow.scrollTo = vi.fn();\nwindow.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));\nglobal.fetch = vi.fn();
+    if (
+      !generatedFiles["src/__tests__/setup.ts"] &&
+      !testFiles["src/__tests__/setup.ts"]
+    ) {
+      testFiles["src/__tests__/setup.ts"] =
+        `// filename: src/__tests__/setup.ts\nimport '@testing-library/jest-dom';\nimport { cleanup } from '@testing-library/react';\nimport { afterEach, vi } from 'vitest';\nafterEach(() => cleanup());\nwindow.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));\nwindow.scrollTo = vi.fn();\nwindow.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));\nglobal.fetch = vi.fn();
 `;
     }
     Object.assign(generatedFiles, testFiles);
-    emit("Testing", "complete", { message: `Generated ${Object.keys(testFiles).length} test files.` });
+    emit("Testing", "complete", {
+      message: `Generated ${Object.keys(testFiles).length} test files.`,
+    });
+
+    // Merge stack scaffold + ensure essentials BEFORE snapshot (non-fatal)
+    const { logger } = await import("../_core/logger.js");
+    try {
+      generatedFiles = mergeScaffoldWithGenerated(
+        getStackScaffold(techStack),
+        generatedFiles,
+      );
+      generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
+    } catch (scaffoldErr) {
+      logger.warn(
+        {
+          projectId,
+          err: scaffoldErr instanceof Error ? scaffoldErr.message : scaffoldErr,
+        },
+        "stack_scaffold_merge_failed",
+      );
+    }
+
+    // Persist files incrementally so disconnect/deploy still have a usable tree
+    await updateProjectFiles(projectId, generatedFiles);
 
     // ── Snapshot + Audit + Cost at end of build ────────────────────────────
-    const { createBuildSnapshot, getNextVersion, getProjectById } = await import("../db.js");
-    const { estimateLicenseAndCost } = await import("./licenseCostEstimator.js");
-    const { logger } = await import("../_core/logger.js");
+    const {
+      createBuildSnapshot,
+      getNextVersion,
+      getProjectById,
+      markSnapshotAsCurrent,
+    } = await import("../db.js");
+    const { estimateLicenseAndCost } =
+      await import("./licenseCostEstimator.js");
     const nextVersion = await getNextVersion(projectId);
     const userId = (await getProjectById(projectId))?.userId ?? 0;
     const pkgJson = generatedFiles["package.json"];
     const parsedDeps = pkgJson ? (JSON.parse(pkgJson).dependencies ?? {}) : {};
     const estBundleKB = Math.round(
-      Object.values(generatedFiles).filter(f => f.endsWith(".ts") || f.endsWith(".tsx") || f.endsWith(".js")).join("").length / 3 / 1024
+      Object.values(generatedFiles)
+        .filter(
+          (f) => f.endsWith(".ts") || f.endsWith(".tsx") || f.endsWith(".js"),
+        )
+        .join("").length /
+        3 /
+        1024,
     );
-    const costReport = estimateLicenseAndCost(parsedDeps, techStack, estBundleKB, true);
+    const costReport = estimateLicenseAndCost(
+      parsedDeps,
+      techStack,
+      estBundleKB,
+      true,
+    );
     const snapshotId = await createBuildSnapshot({
       projectId,
       userId,
@@ -492,12 +602,21 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
       auditScores: null, // pipeline audit result goes here if available
       costEstimate: costReport,
     });
-    logger.info({ projectId, snapshotId, version: nextVersion }, "build_snapshot_saved");
+    logger.info(
+      { projectId, snapshotId, version: nextVersion },
+      "build_snapshot_saved",
+    );
+
+    await markSnapshotAsCurrent(snapshotId, projectId);
 
     // Final status: done
-    await updateProjectStatus(projectId, validationResult?.passed ? "completed" : "failed");
+    await updateProjectStatus(
+      projectId,
+      validationResult?.passed ? "completed" : "failed",
+    );
     write("done", {
       projectId,
+      snapshotId,
       title: appTitle,
       fileCount: Object.keys(generatedFiles).length,
       creditsSpent: totalCreditsSpent,
@@ -509,7 +628,11 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("aborted")) {
-      await updateProjectStatus(projectId, "failed", "Build cancelled by user.");
+      await updateProjectStatus(
+        projectId,
+        "failed",
+        "Build cancelled by user.",
+      );
       write("error", { message: "Build cancelled." });
     } else {
       await updateProjectStatus(projectId, "failed", message);

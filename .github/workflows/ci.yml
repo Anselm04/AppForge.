@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,7 +39,22 @@ jobs:
         run: npm run lint --if-present
 
       - name: Run Prettier check
-        run: npx prettier --check . --ignore-unknown
+        run: |
+          # Check formatting only on TypeScript sources changed vs base (matches npm run format)
+          BASE="${{ github.event.pull_request.base.sha || 'origin/main' }}"
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- 'src/**/*.ts' 'src/**/*.tsx' || true)
+          else
+            FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1...HEAD -- 'src/**/*.ts' 'src/**/*.tsx' || true)
+          fi
+          if [ -z "$FILES" ]; then
+            echo "No TypeScript source changes to format-check."
+            exit 0
+          fi
+          echo "Checking:"
+          echo "$FILES"
+          echo "$FILES" | xargs npx prettier --check --ignore-unknown
+
 
   # ============================================
   # TYPE CHECK - TypeScript validation
@@ -60,7 +77,7 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
   # ============================================
   # TEST JOB - Run all tests

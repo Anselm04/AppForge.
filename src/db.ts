@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, and, gte, sql } from "drizzle-orm";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -38,6 +38,87 @@ export async function createUser(data: {
   return result[0];
 }
 
+/** Upsert a user from Supabase (or other) auth identity. */
+export async function upsertUserFromAuth(data: {
+  openId: string;
+  email?: string;
+  name?: string;
+  picture?: string | null;
+}) {
+  const existing = await getUserByOpenId(data.openId);
+  if (existing) {
+    const result = await db
+      .update(schema.users)
+      .set({
+        email: data.email || existing.email,
+        name: data.name || existing.name,
+        picture: data.picture ?? existing.picture,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.users.id, existing.id))
+      .returning();
+    return result[0] ?? existing;
+  }
+  return createUser({
+    openId: data.openId,
+    email: data.email,
+    name: data.name,
+    picture: data.picture ?? undefined,
+  });
+}
+
+/**
+ * Apply a god-code grant: lifetime → unlimited credits; limited → add credits.
+ */
+export async function applyGodCodeGrant(
+  userId: number,
+  grantType: "lifetime" | "limited",
+  credits: number,
+): Promise<{ credits: number; unlimited: boolean }> {
+  await ensureUserCredits(userId);
+  const row = await getUserCredits(userId);
+  if (!row) return { credits: 0, unlimited: false };
+
+  const now = new Date();
+  if (grantType === "lifetime") {
+    await db
+      .update(schema.userCredits)
+      .set({
+        unlimited: true,
+        tier: "lifetime",
+        updatedAt: now,
+      })
+      .where(eq(schema.userCredits.id, row.id));
+    await db.insert(schema.creditTransactions).values({
+      userId,
+      amount: 0,
+      type: "god_code_grant",
+      description: "Lifetime unlimited credits (god code)",
+    });
+    await unpauseCreditExhaustedProjects(userId);
+    return { credits: row.balance, unlimited: true };
+  }
+
+  const amount = Math.max(0, credits);
+  const newBalance = row.balance + amount;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.userCredits)
+      .set({ balance: newBalance, updatedAt: now })
+      .where(eq(schema.userCredits.id, row.id));
+    if (amount > 0) {
+      await tx.insert(schema.creditTransactions).values({
+        userId,
+        amount,
+        type: "god_code_grant",
+        description: `God code grant (+${amount} credits)`,
+      });
+    }
+  });
+  await unpauseCreditExhaustedProjects(userId);
+  return { credits: newBalance, unlimited: !!row.unlimited };
+}
+
 // ── SUBSCRIPTIONS ──
 export async function getSubscriptionByUserId(userId: number) {
   return db.query.subscriptions.findFirst({
@@ -50,7 +131,8 @@ export async function isUserPro(userId: number) {
   if (!sub) return false;
   if (sub.status !== "active" && sub.status !== "trialing") return false;
   if (sub.currentPeriodEnd && sub.currentPeriodEnd < new Date()) return false;
-  if (sub.trialEnd && sub.trialEnd < new Date() && sub.status === "trialing") return false;
+  if (sub.trialEnd && sub.trialEnd < new Date() && sub.status === "trialing")
+    return false;
   return true;
 }
 
@@ -146,7 +228,7 @@ export async function getProjectsByUserId(userId: number) {
 export async function updateProjectStatus(
   id: number,
   status: string,
-  errorMessage?: string
+  errorMessage?: string,
 ) {
   await db
     .update(schema.projects)
@@ -156,7 +238,7 @@ export async function updateProjectStatus(
 
 export async function updateProjectFiles(
   id: number,
-  files: Record<string, string>
+  files: Record<string, string>,
 ) {
   await db
     .update(schema.projects)
@@ -174,15 +256,15 @@ export async function countBuildsThisMonth(userId: number) {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const result = await db
-    .select({ count: schema.projects.id })
+    .select({ count: sql<number>`count(*)::int` })
     .from(schema.projects)
     .where(
       and(
         eq(schema.projects.userId, userId),
-        gte(schema.projects.createdAt, startOfMonth)
-      )
+        gte(schema.projects.createdAt, startOfMonth),
+      ),
     );
-  return result[0]?.count || 0;
+  return Number(result[0]?.count ?? 0);
 }
 
 // ── AGENT LOGS ──
@@ -234,7 +316,7 @@ export async function getCosineImprovementById(id: number) {
 
 export async function updateCosineImprovement(
   id: number,
-  data: { status?: string; prUrl?: string }
+  data: { status?: string; prUrl?: string },
 ) {
   await db
     .update(schema.cosineImprovements)
@@ -261,7 +343,10 @@ export async function ensureUserCredits(userId: number) {
   return result[0];
 }
 
-export async function refillMonthlyCredits(userId: number, tier?: string): Promise<void> {
+export async function refillMonthlyCredits(
+  userId: number,
+  tier?: string,
+): Promise<void> {
   const credits = await getUserCredits(userId);
   if (!credits) return;
 
@@ -271,7 +356,8 @@ export async function refillMonthlyCredits(userId: number, tier?: string): Promi
 
   const now = new Date();
   const lastRefill = credits.lastRefillAt ?? credits.createdAt ?? now;
-  const daysSinceRefill = (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
+  const daysSinceRefill =
+    (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysSinceRefill >= 30) {
     await db.transaction(async (tx) => {
@@ -309,14 +395,36 @@ export async function syncTierFromSubscription(userId: number): Promise<void> {
   }
 }
 
-export async function deductCredits(userId: number, amount: number, projectId?: number, description?: string) {
+export async function deductCredits(
+  userId: number,
+  amount: number,
+  projectId?: number,
+  description?: string,
+) {
   const credits = await getUserCredits(userId);
-  if (!credits || credits.balance < amount) {
-    throw new Error(`Insufficient credits: need ${amount}, have ${credits?.balance ?? 0}`);
+  if (!credits) {
+    throw new Error(`Insufficient credits: need ${amount}, have 0`);
+  }
+  if (credits.unlimited) {
+    await db.insert(schema.creditTransactions).values({
+      userId,
+      amount: 0,
+      type: "build_usage",
+      projectId: projectId ?? null,
+      description: `${description ?? "Build agent usage"} (unlimited)`,
+    });
+    return credits.balance;
+  }
+  if (credits.balance < amount) {
+    throw new Error(
+      `Insufficient credits: need ${amount}, have ${credits.balance}`,
+    );
   }
   const newBalance = credits.balance - amount;
   if (newBalance < 0) {
-    throw new Error(`Credit underflow prevented: would result in ${newBalance}`);
+    throw new Error(
+      `Credit underflow prevented: would result in ${newBalance}`,
+    );
   }
   await db.transaction(async (tx) => {
     await tx
@@ -334,7 +442,13 @@ export async function deductCredits(userId: number, amount: number, projectId?: 
   return newBalance;
 }
 
-export async function addCredits(userId: number, amount: number, type: string, description?: string, stripePaymentIntentId?: string) {
+export async function addCredits(
+  userId: number,
+  amount: number,
+  type: string,
+  description?: string,
+  stripePaymentIntentId?: string,
+) {
   const credits = await getUserCredits(userId);
   const currentBalance = credits?.balance ?? 0;
   await db.transaction(async (tx) => {
@@ -374,8 +488,8 @@ export async function unpauseCreditExhaustedProjects(userId: number) {
       and(
         eq(schema.projects.userId, userId),
         eq(schema.projects.status, "paused"),
-        eq(schema.projects.pauseReason, "credits_exhausted")
-      )
+        eq(schema.projects.pauseReason, "credits_exhausted"),
+      ),
     );
 }
 
@@ -387,7 +501,7 @@ export async function unpauseCreditExhaustedProjects(userId: number) {
 export async function grantPlanCredits(
   userId: number,
   tier: string,
-  idempotencyKey?: string
+  idempotencyKey?: string,
 ): Promise<{ granted: number; skipped: boolean }> {
   await ensureUserCredits(userId);
   const credits = await getUserCredits(userId);
@@ -397,7 +511,7 @@ export async function grantPlanCredits(
     const existing = await db.query.creditTransactions.findFirst({
       where: and(
         eq(schema.creditTransactions.userId, userId),
-        eq(schema.creditTransactions.stripePaymentIntentId, idempotencyKey)
+        eq(schema.creditTransactions.stripePaymentIntentId, idempotencyKey),
       ),
     });
     if (existing) {
@@ -411,13 +525,14 @@ export async function grantPlanCredits(
   const recentGrant = await db.query.creditTransactions.findFirst({
     where: and(
       eq(schema.creditTransactions.userId, userId),
-      eq(schema.creditTransactions.type, "subscription_grant")
+      eq(schema.creditTransactions.type, "subscription_grant"),
     ),
     orderBy: desc(schema.creditTransactions.createdAt),
   });
   if (recentGrant?.createdAt && refillAmount !== null) {
     const daysSinceGrant =
-      (now.getTime() - new Date(recentGrant.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      (now.getTime() - new Date(recentGrant.createdAt).getTime()) /
+      (1000 * 60 * 60 * 24);
     const samePaidTier = (credits.tier ?? "free") === tier && tier !== "free";
     // Same paid plan already granted this period (checkout + invoice race).
     if (samePaidTier && daysSinceGrant < 25) {
@@ -464,7 +579,10 @@ export async function grantPlanCredits(
   return { granted: refillAmount, skipped: false };
 }
 
-export async function updateProjectCreditsSpent(projectId: number, spent: number) {
+export async function updateProjectCreditsSpent(
+  projectId: number,
+  spent: number,
+) {
   await db
     .update(schema.projects)
     .set({ creditsSpent: spent, updatedAt: new Date() })
@@ -529,7 +647,7 @@ export async function updateSeniorDevTask(
     validationResult?: any;
     summary?: string;
     creditsSpent?: number;
-  }
+  },
 ) {
   await db
     .update(schema.seniorDevTasks)
@@ -587,7 +705,7 @@ export async function getCurrentSnapshot(projectId: number) {
   return db.query.buildSnapshots.findFirst({
     where: and(
       eq(schema.buildSnapshots.projectId, projectId),
-      eq(schema.buildSnapshots.isCurrent, true)
+      eq(schema.buildSnapshots.isCurrent, true),
     ),
     orderBy: desc(schema.buildSnapshots.createdAt),
   });

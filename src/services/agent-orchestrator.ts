@@ -1,11 +1,11 @@
-import { AgentContext, AgentResult, BuildPlan } from '../agents/types.js';
-import { ArchitectAgent } from '../agents/architectAgent.js';
-import { BackendAgent } from '../agents/backendAgent.js';
-import { FrontendAgent } from '../agents/frontendAgent.js';
-import { DatabaseAgent } from '../agents/databaseAgent.js';
-import { DevOpsAgent } from '../agents/devopsAgent.js';
-import { SecurityAgent } from '../agents/securityAgent.js';
-import { TestingAgent } from '../agents/testingAgent.js';
+import { AgentContext, AgentResult, BuildPlan } from "../agents/types.js";
+import { ArchitectAgent } from "../agents/architectAgent.js";
+import { BackendAgent } from "../agents/backendAgent.js";
+import { FrontendAgent } from "../agents/frontendAgent.js";
+import { DatabaseAgent } from "../agents/databaseAgent.js";
+import { DevOpsAgent } from "../agents/devopsAgent.js";
+import { SecurityAgent } from "../agents/securityAgent.js";
+import { TestingAgent } from "../agents/testingAgent.js";
 
 const agents = [
   ArchitectAgent,
@@ -26,7 +26,7 @@ export class AgentOrchestrator {
       const result = await agent.run(context);
       results.push(result);
 
-      if (agent.role === 'architect') {
+      if (agent.role === "architect") {
         context.architecture = result.details;
       }
 
@@ -37,7 +37,7 @@ export class AgentOrchestrator {
       id: `build_${Date.now()}`,
       prompt,
       createdAt: new Date(),
-      requirements: context.requirements ?? {},
+      requirements: context.decisions ?? {},
       architecture: context.architecture ?? {},
       agents: results,
     };

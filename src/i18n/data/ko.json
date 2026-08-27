@@ -12,7 +12,11 @@
     "editor": "편집기",
     "admin": "관리",
     "upgrade": "업그레이드",
-    "trial": "체험 ({tier})"
+    "trial": "체험 ({tier})",
+    "layout": "레이아웃",
+    "layoutAuto": "자동",
+    "layoutPhone": "휴대폰",
+    "layoutDesktop": "데스크톱"
   },
   "home": {
     "tagline": "AI로 풀스택 웹 앱을 만드세요. 아이디어를 설명하면 프로덕션 코드를 받을 수 있습니다.",
@@ -25,6 +29,7 @@
     "promptLabel": "어떤 앱을 만들고 싶으신가요?",
     "promptPlaceholder": "예: 다크 모드가 있는 할 일 목록, 미용실 예약 앱, 매출 대시보드...",
     "charCount": "{count} / 2000자",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "기술 스택",
     "techHint": "AppForge는 선택한 스택의 코드를 생성하고 컴파일한 뒤 오류를 자동으로 고치려고 시도합니다.",
     "groupWeb": "웹 앱",
@@ -36,12 +41,26 @@
     "pausedCta": "일시 중지 — 크레딧 부족",
     "creating": "만드는 중...",
     "generate": "앱 생성",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "빠름",
     "fastDesc": "며칠이 아니라 몇 분 만에 풀스택 앱을 생성하세요.",
     "aiTitle": "AI 기반",
     "aiDesc": "멀티 에이전트 파이프라인이 앱을 기획하고 코딩하고 검토합니다.",
     "prodTitle": "프로덕션 준비",
-    "prodDesc": "클릭 한 번으로 GitHub에 내보내고 Vercel에 배포하세요."
+    "prodDesc": "클릭 한 번으로 GitHub에 내보내고 Vercel에 배포하세요.",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "다시 오신 것을 환영합니다",
@@ -136,5 +155,14 @@
     "subscribe": "구독",
     "buyExtra": "추가 크레딧 구매",
     "actionStartBuild": "빌드 시작"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · 창업자 겸 CEO",
+    "ownerOf": "AppForge 및 TrillionAI Tech 소유자",
+    "about": "소개"
+  },
+  "about": {
+    "title": "AppForge 소개",
+    "body": "AppForge는 TrillionAI Tech의 AI 앱 빌더입니다. Anselm Perkins는 창업자 겸 CEO이며 AppForge와 TrillionAI Tech의 소유자입니다."
   }
 }

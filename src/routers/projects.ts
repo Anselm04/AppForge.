@@ -77,17 +77,17 @@ const techStackEnum = z.enum([
 
 // ── Input sanitization helpers ──
 function sanitizeString(input: string): string {
-  return input
-    .trim()
-    .replace(/[<>]/g, "")
-    .slice(0, PROMPT_MAX_CHARS);
+  return input.trim().replace(/[<>]/g, "").slice(0, PROMPT_MAX_CHARS);
 }
 
 const projectCreateSchema = z.object({
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
-    .max(PROMPT_MAX_CHARS, `Description must be at most ${PROMPT_MAX_CHARS} characters`)
+    .max(
+      PROMPT_MAX_CHARS,
+      `Description must be at most ${PROMPT_MAX_CHARS} characters`,
+    )
     .transform(sanitizeString),
   techStack: techStackEnum.default("react-node"),
   title: z
@@ -106,7 +106,11 @@ export const projectsRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (!project)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       return project;
@@ -116,7 +120,11 @@ export const projectsRouter = router({
     .input(z.object({ projectId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
-      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (!project)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       return getAgentLogsByProject(input.projectId);
@@ -127,9 +135,15 @@ export const projectsRouter = router({
     .mutation(async ({ ctx, input }) => {
       // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
-      const moderation = await moderateUserContent(ctx.user.id, input.description + " " + input.title);
+      const moderation = await moderateUserContent(
+        ctx.user.id,
+        input.description + " " + input.title,
+      );
       if (!moderation.allowed) {
-        throw new TRPCError({ code: "FORBIDDEN", message: moderation.reason ?? "Content flagged" });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: moderation.reason ?? "Content flagged",
+        });
       }
 
       // Backend tier enforcement
@@ -184,46 +198,123 @@ export const projectsRouter = router({
   }),
 
   deploy: protectedProcedure
-    .input(z.object({ id: z.number().int().positive() }))
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        destination: z
+          .enum(["vercel", "netlify", "fly", "preview", "zip", "github-pages"])
+          .default("preview"),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      if (project.status !== "completed" && project.status !== "paused") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Project not ready for deployment" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const deployableStatuses = new Set(["completed", "paused", "failed"]);
+      if (!project.status || !deployableStatuses.has(project.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Project not ready for deployment (still building or cancelled)",
+        });
       }
 
-      const files = (project.generatedFiles as Record<string, string> | null) ?? {};
+      const { getCurrentSnapshot } = await import("../db.js");
+      const snapshot = await getCurrentSnapshot(input.id);
+      const files =
+        (snapshot?.files as Record<string, string> | null) ??
+        (project.generatedFiles as Record<string, string> | null) ??
+        {};
       if (Object.keys(files).length === 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to deploy" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No generated files to deploy",
+        });
+      }
+
+      const { deployProject, zipFiles, listDeployDestinations } =
+        await import("../services/deployer.js");
+
+      if (input.destination === "zip") {
+        const { base64, filename } = await zipFiles(
+          project.title || "appforge-app",
+          files,
+        );
+        return {
+          deployUrl: null as string | null,
+          destination: "zip" as const,
+          base64,
+          filename,
+        };
       }
 
       const origin =
         process.env.CORS_ORIGIN ||
         process.env.APP_URL ||
         "https://appforge-unfurling-moon-9058.fly.dev";
-      const deployUrl = `${origin.replace(/\/$/, "")}/live/${input.id}`;
 
-      const { watchProject } = await import("../agents/selfHealing.js");
-      watchProject(input.id, ctx.user.id, deployUrl);
+      try {
+        const result = await deployProject({
+          destination: input.destination,
+          projectName: project.title || "appforge-app",
+          files,
+          projectId: input.id,
+          previewBaseUrl: origin.replace(/\/$/, ""),
+        });
 
-      await db.update(schema.projects)
-        .set({ status: "completed", updatedAt: new Date() })
-        .where(eq(schema.projects.id, input.id));
+        if (input.destination === "preview" && result.url) {
+          const { watchProject } = await import("../agents/selfHealing.js");
+          watchProject(input.id, ctx.user.id, result.url);
+        }
 
-      return { deployUrl };
+        await db
+          .update(schema.projects)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(schema.projects.id, input.id));
+
+        return {
+          deployUrl: result.url,
+          destination: result.destination,
+          note: result.note,
+          options: listDeployDestinations(),
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Deploy failed";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      }
     }),
+
+  deployOptions: protectedProcedure.query(async () => {
+    const { listDeployDestinations } = await import("../services/deployer.js");
+    return listDeployDestinations();
+  }),
 
   download: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
 
-      const files = (project.generatedFiles as Record<string, string> | null) ?? {};
+      const { getCurrentSnapshot } = await import("../db.js");
+      const snapshot = await getCurrentSnapshot(input.id);
+      const files =
+        (snapshot?.files as Record<string, string> | null) ??
+        (project.generatedFiles as Record<string, string> | null) ??
+        {};
+      if (Object.keys(files).length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No generated files to download",
+        });
+      }
       const { zipFiles } = await import("../services/deployer.js");
-      const { base64, filename } = await zipFiles(project.title || "appforge-app", files);
+      const { base64, filename } = await zipFiles(
+        project.title || "appforge-app",
+        files,
+      );
       return { base64, filename };
     }),
 
@@ -234,12 +325,13 @@ export const projectsRouter = router({
         projectId: z.number().int().positive(),
         request: z.string().min(5).max(5000),
         mode: z.enum(["collaborative", "autonomous"]).default("collaborative"),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
 
       const seniorCredits = await ensureUserCredits(ctx.user.id);
       if (seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
@@ -265,12 +357,19 @@ export const projectsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const task = await getSeniorDevTaskById(input.taskId);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (task.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
       if (task.status !== "awaiting_approval") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Task not awaiting approval" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Task not awaiting approval",
+        });
       }
 
-      await updateSeniorDevTask(input.taskId, { planApproved: true, status: "executing" });
+      await updateSeniorDevTask(input.taskId, {
+        planApproved: true,
+        status: "executing",
+      });
       return { success: true, status: "executing" };
     }),
 
@@ -280,7 +379,8 @@ export const projectsRouter = router({
     .query(async ({ ctx, input }) => {
       const task = await getSeniorDevTaskById(input.taskId);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (task.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
       return task;
     }),
 
@@ -298,19 +398,35 @@ export const projectsRouter = router({
 
   /** Rollback to a specific snapshot version */
   rollback: protectedProcedure
-    .input(z.object({ projectId: z.number().int().positive(), snapshotId: z.number().int().positive() }))
-    .mutation(async ({ input, ctx }) => {
-      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } = await import("../db.js");
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        snapshotId: z.number().int().positive(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } =
+        await import("../db.js");
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       }
       const snapshot = await getSnapshotById(input.snapshotId);
       if (!snapshot || snapshot.projectId !== input.projectId) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Snapshot not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Snapshot not found",
+        });
       }
       await markSnapshotAsCurrent(input.snapshotId, input.projectId);
-      await updateProjectFiles(input.projectId, snapshot.files as Record<string, string>);
-      return { success: true, version: snapshot.version, label: snapshot.label };
+      await updateProjectFiles(
+        input.projectId,
+        snapshot.files as Record<string, string>,
+      );
+      return {
+        success: true,
+        version: snapshot.version,
+        label: snapshot.label,
+      };
     }),
 });

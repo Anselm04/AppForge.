@@ -12,7 +12,11 @@
     "editor": "Editor",
     "admin": "Admin",
     "upgrade": "Upgrade",
-    "trial": "Testphase ({tier})"
+    "trial": "Testphase ({tier})",
+    "layout": "Layout",
+    "layoutAuto": "Auto",
+    "layoutPhone": "Telefon",
+    "layoutDesktop": "Desktop"
   },
   "home": {
     "tagline": "Vollständige Web-Apps mit KI bauen. Beschreiben Sie Ihre Idee und erhalten Sie produktionsreifen Code.",
@@ -25,6 +29,7 @@
     "promptLabel": "Welche App möchten Sie bauen?",
     "promptPlaceholder": "z. B. eine To-do-Liste mit Dunkelmodus, eine Buchungs-App für meinen Salon, ein Vertriebs-Dashboard …",
     "charCount": "{count} / 2000 Zeichen",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "Tech-Stack",
     "techHint": "AppForge erzeugt Code für Ihren gewählten Stack, kompiliert ihn und versucht, Fehler automatisch zu beheben.",
     "groupWeb": "Web-Apps",
@@ -36,12 +41,26 @@
     "pausedCta": "Pausiert — keine Credits",
     "creating": "Wird erstellt …",
     "generate": "App erstellen",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "Schnell",
     "fastDesc": "Full-Stack-Apps in Minuten statt Tagen erzeugen.",
     "aiTitle": "KI-gestützt",
     "aiDesc": "Eine Multi-Agenten-Pipeline plant, programmiert und prüft Ihre App.",
     "prodTitle": "Produktionsreif",
-    "prodDesc": "Mit einem Klick nach GitHub exportieren und auf Vercel bereitstellen."
+    "prodDesc": "Mit einem Klick nach GitHub exportieren und auf Vercel bereitstellen.",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "Willkommen zurück",
@@ -136,5 +155,14 @@
     "subscribe": "Abonnieren",
     "buyExtra": "Extra-Credits kaufen",
     "actionStartBuild": "einen Build zu starten"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · Gründer & CEO",
+    "ownerOf": "Inhaber von AppForge und TrillionAI Tech",
+    "about": "Über uns"
+  },
+  "about": {
+    "title": "Über AppForge",
+    "body": "AppForge ist der KI-App-Builder von TrillionAI Tech. Anselm Perkins ist Gründer & CEO und Inhaber von AppForge und TrillionAI Tech."
   }
 }

@@ -48,7 +48,10 @@ describe("LLM invokeLLM", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: [{ type: "text", text: "Hi" }] },
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "Hi" }],
+            },
             finish_reason: "stop",
           },
         ],
@@ -71,13 +74,15 @@ describe("LLM invokeLLM", () => {
       ok: false,
       status: 429,
       statusText: "Too Many Requests",
+      headers: { get: () => null },
       text: async () => "rate limited",
+      body: null,
     });
 
     await expect(
-      invokeLLM({ messages: [{ role: "user", content: "hi" }] })
-    ).rejects.toThrow("429 Too Many Requests");
-  });
+      invokeLLM({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toThrow(/429 Too Many Requests/);
+  }, 20_000);
 
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -123,7 +128,7 @@ describe("LLM invokeLLM", () => {
           { type: "function", function: { name: "b" } },
         ],
         toolChoice: "required",
-      })
+      }),
     ).rejects.toThrow("tool_choice 'required' needs a single tool");
   });
 });

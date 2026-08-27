@@ -12,7 +12,11 @@
     "editor": "编辑器",
     "admin": "管理",
     "upgrade": "升级",
-    "trial": "试用（{tier}）"
+    "trial": "试用（{tier}）",
+    "layout": "布局",
+    "layoutAuto": "自动",
+    "layoutPhone": "手机",
+    "layoutDesktop": "桌面"
   },
   "home": {
     "tagline": "用 AI 构建全栈 Web 应用。描述你的想法，即可获得可上线的代码。",
@@ -25,6 +29,7 @@
     "promptLabel": "你想构建什么应用？",
     "promptPlaceholder": "例如：带深色模式的待办清单、美发店预约应用、销售数据看板……",
     "charCount": "{count} / 2000 字符",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "技术栈",
     "techHint": "AppForge 会按你选择的技术栈生成代码、进行编译，并尝试自动修复错误。",
     "groupWeb": "Web 应用",
@@ -36,12 +41,26 @@
     "pausedCta": "已暂停 — 积分不足",
     "creating": "正在创建…",
     "generate": "生成应用",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "快速",
     "fastDesc": "几分钟即可生成全栈应用，不必再等数天。",
     "aiTitle": "AI 驱动",
     "aiDesc": "多智能体流水线负责规划、编码并审查你的应用。",
     "prodTitle": "可直接上线",
-    "prodDesc": "一键导出到 GitHub，并部署到 Vercel。"
+    "prodDesc": "一键导出到 GitHub，并部署到 Vercel。",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "欢迎回来",
@@ -136,5 +155,14 @@
     "subscribe": "订阅",
     "buyExtra": "购买额外积分",
     "actionStartBuild": "开始构建"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · 创始人兼首席执行官",
+    "ownerOf": "AppForge 与 TrillionAI Tech 所有者",
+    "about": "关于"
+  },
+  "about": {
+    "title": "关于 AppForge",
+    "body": "AppForge 是 TrillionAI Tech 的 AI 应用构建器。Anselm Perkins 是创始人兼首席执行官，也是 AppForge 与 TrillionAI Tech 的所有者。"
   }
 }
