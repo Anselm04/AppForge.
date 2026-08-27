@@ -8,7 +8,8 @@ const MD_QUERY = "(min-width: 768px)";
 function readLayout(): LayoutMode {
   try {
     const value = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (value === "phone" || value === "desktop" || value === "auto") return value;
+    if (value === "phone" || value === "desktop" || value === "auto")
+      return value;
   } catch {
     /* quota / private mode */
   }
@@ -25,8 +26,11 @@ function writeLayout(mode: LayoutMode) {
 
 function isWideViewport(): boolean {
   try {
-    return typeof window !== "undefined" && typeof window.matchMedia === "function"
-      && window.matchMedia(MD_QUERY).matches;
+    return (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(MD_QUERY).matches
+    );
   } catch {
     return true;
   }
