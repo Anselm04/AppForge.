@@ -1,6 +1,8 @@
 {
   "nav": {
     "language": "Idioma",
+    "menu": "Menú",
+    "closeMenu": "Cerrar menú",
     "dark": "Oscuro",
     "light": "Claro",
     "login": "Iniciar sesión",
