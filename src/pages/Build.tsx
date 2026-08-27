@@ -94,6 +94,7 @@ export function Build() {
       setIsComplete(true);
       const spent = data.payload?.creditsSpent ?? data.creditsSpent;
       if (spent) setCreditsSpent(spent);
+      // Still allow deploy/ZIP even when validation failed (files were persisted)
       eventSource.close();
     });
 
@@ -149,7 +150,9 @@ export function Build() {
     if (!projectId) return;
     setDownloading(true);
     try {
-      const result = await trpc.projects.download.query({ id: parseInt(projectId) });
+      const result = await trpc.projects.download.query({
+        id: parseInt(projectId),
+      });
       const binary = atob(result.base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -182,7 +185,10 @@ export function Build() {
         window.location.href = url;
         return;
       }
-      const repoName = `appforge-${project.title.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}`;
+      const repoName = `appforge-${project.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .slice(0, 30)}`;
       const result = await trpc.github.pushToRepo.mutate({
         projectId: parseInt(projectId),
         repoName,
@@ -202,51 +208,136 @@ export function Build() {
   return (
     <div className="min-h-screen bg-slate-900 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-2">Building your app...</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          Building your app...
+        </h1>
         {project && (
-          <p className="text-slate-400 mb-8">{project.title} — {project.techStack}</p>
+          <p className="text-slate-400 mb-8">
+            {project.title} — {project.techStack}
+          </p>
         )}
+
         <div className="space-y-4 mb-8">
           {logs.map((log, idx) => (
             <AgentLogItem key={idx} log={log} />
           ))}
         </div>
+
         {creditsSpent > 0 && (
-          <div className="mb-4 text-slate-400 text-sm">Credits spent on this build: {creditsSpent}</div>
-        )}
-        {(isPaused || outOfCredits) && (
-          <div className="mt-8">
-            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="run this build" />
+          <div className="mb-4 text-slate-400 text-sm">
+            Credits spent on this build: {creditsSpent}
           </div>
         )}
+
+        {(isPaused || outOfCredits) && (
+          <div className="mt-8">
+            <CreditsPauseBanner
+              credits={creditBalance}
+              cost={BUILD_CREDIT_COST}
+              action="run this build"
+            />
+          </div>
+        )}
+
         {error && (
           <div className="mt-8 bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-300">
             <p className="font-semibold">Error:</p>
             <p>{error}</p>
           </div>
         )}
+
         {isComplete && !error && !isPaused && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
             <p className="font-semibold text-lg">App generation complete!</p>
-            <p className="mt-2">Your app is ready. Deploy, download a ZIP, or export to GitHub.</p>
+            <p className="mt-2">
+              Your app is ready. Deploy, download a ZIP, or export to GitHub.
+            </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-green-200/80">
                 Destination{" "}
-                <select value={destination} onChange={(e) => setDestination(e.target.value as DeployDestination)} className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1">
-                  <option value="preview" disabled={destinationDisabled("preview")}>Preview{deployOptions?.preview ? ` (${deployOptions.preview.label})` : ""}</option>
-                  <option value="vercel" disabled={destinationDisabled("vercel")}>Vercel{deployOptions?.vercel && !deployOptions.vercel.configured ? " — not configured" : ""}</option>
-                  <option value="netlify" disabled={destinationDisabled("netlify")}>Netlify{deployOptions?.netlify && !deployOptions.netlify.configured ? " — not configured" : ""}</option>
-                  <option value="fly" disabled={destinationDisabled("fly")}>Fly.io{deployOptions?.fly && !deployOptions.fly.configured ? " — not configured" : ""}</option>
-                  <option value="github-pages" disabled={destinationDisabled("github-pages")}>GitHub Pages{deployOptions?.["github-pages"] && !deployOptions["github-pages"].configured ? " — not configured" : ""}</option>
+                <select
+                  value={destination}
+                  onChange={(e) =>
+                    setDestination(e.target.value as DeployDestination)
+                  }
+                  className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
+                >
+                  <option
+                    value="preview"
+                    disabled={destinationDisabled("preview")}
+                  >
+                    Preview
+                    {deployOptions?.preview
+                      ? ` (${deployOptions.preview.label})`
+                      : ""}
+                  </option>
+                  <option
+                    value="vercel"
+                    disabled={destinationDisabled("vercel")}
+                  >
+                    Vercel
+                    {deployOptions?.vercel && !deployOptions.vercel.configured
+                      ? " — not configured"
+                      : ""}
+                  </option>
+                  <option
+                    value="netlify"
+                    disabled={destinationDisabled("netlify")}
+                  >
+                    Netlify
+                    {deployOptions?.netlify && !deployOptions.netlify.configured
+                      ? " — not configured"
+                      : ""}
+                  </option>
+                  <option value="fly" disabled={destinationDisabled("fly")}>
+                    Fly.io
+                    {deployOptions?.fly && !deployOptions.fly.configured
+                      ? " — not configured"
+                      : ""}
+                  </option>
+                  <option
+                    value="github-pages"
+                    disabled={destinationDisabled("github-pages")}
+                  >
+                    GitHub Pages
+                    {deployOptions?.["github-pages"] &&
+                    !deployOptions["github-pages"].configured
+                      ? " — not configured"
+                      : ""}
+                  </option>
                 </select>
               </label>
               {deployUrl ? (
-                <a href={deployUrl} target="_blank" rel="noopener noreferrer" className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block">View Live App</a>
+                <a
+                  href={deployUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
+                >
+                  View Live App
+                </a>
               ) : (
-                <button onClick={handleDeploy} disabled={deploying || destinationDisabled(destination)} className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg">{deploying ? "Deploying..." : "Deploy"}</button>
+                <button
+                  onClick={handleDeploy}
+                  disabled={deploying || destinationDisabled(destination)}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
+                >
+                  {deploying ? "Deploying..." : "Deploy"}
+                </button>
               )}
-              <button onClick={handleDownloadZip} disabled={downloading} className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg">{downloading ? "Preparing ZIP..." : "Download ZIP"}</button>
-              <button onClick={handleGitHubExport} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">Export to GitHub</button>
+              <button
+                onClick={handleDownloadZip}
+                disabled={downloading}
+                className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
+              >
+                {downloading ? "Preparing ZIP..." : "Download ZIP"}
+              </button>
+              <button
+                onClick={handleGitHubExport}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+              >
+                Export to GitHub
+              </button>
             </div>
           </div>
         )}
@@ -257,20 +348,33 @@ export function Build() {
 
 function AgentLogItem({ log }: { log: BuildLog }) {
   const [expanded, setExpanded] = useState(false);
+
   const isSystem = log.agent === "System";
   const isError = log.type === "error";
   const isPause = log.type === "pause";
+
   return (
-    <div className={`rounded-lg p-4 border ${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded">
+    <div
+      className={`rounded-lg p-4 border ${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
+      >
         <div>
-          <p className="font-semibold text-white">{isSystem ? "System" : log.agent}</p>
-          <p className="text-sm text-slate-300">{log.payload?.message || log.payload?.type}</p>
+          <p className="font-semibold text-white">
+            {isSystem ? "System" : log.agent}
+          </p>
+          <p className="text-sm text-slate-300">
+            {log.payload?.message || log.payload?.type}
+          </p>
         </div>
         <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
       </button>
       {expanded && log.payload?.text && (
-        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">{log.payload.text}</div>
+        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">
+          {log.payload.text}
+        </div>
       )}
     </div>
   );
