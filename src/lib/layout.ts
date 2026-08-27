@@ -41,10 +41,20 @@ export function useLayoutMode() {
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia(MD_QUERY);
+    if (!mq) return;
     const onChange = () => setWide(mq.matches);
-    mq.addEventListener("change", onChange);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", onChange);
+      setWide(mq.matches);
+      return () => mq.removeEventListener("change", onChange);
+    }
+    // Older Safari / incomplete test mocks
+    if (typeof (mq as MediaQueryList).addListener === "function") {
+      (mq as MediaQueryList).addListener(onChange);
+      setWide(mq.matches);
+      return () => (mq as MediaQueryList).removeListener(onChange);
+    }
     setWide(mq.matches);
-    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   const setMode = useCallback((next: LayoutMode) => {
