@@ -8,13 +8,13 @@ import App from "./App.js";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  \u003cReact.StrictMode\u003e
-    \u003cQueryClientProvider client={queryClient}\u003e
-      \u003cLocaleProvider\u003e
-        \u003cErrorBoundary\u003e
-          \u003cApp /\u003e
-        \u003c/ErrorBoundary\u003e
-      \u003c/LocaleProvider\u003e
-    \u003c/QueryClientProvider\u003e
-  \u003c/React.StrictMode\u003e
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <LocaleProvider>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </LocaleProvider>
+    </QueryClientProvider>
+  </React.StrictMode>
 );
