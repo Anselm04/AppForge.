@@ -347,7 +347,7 @@ export async function addCredits(userId: number, amount: number, type: string, d
       await tx.insert(schema.userCredits).values({
         userId,
         balance: amount,
-        tier: "starter",
+        tier: "free",
         monthlyAllowance: 0,
       });
     }
@@ -359,7 +359,109 @@ export async function addCredits(userId: number, amount: number, type: string, d
       stripePaymentIntentId: stripePaymentIntentId ?? null,
     });
   });
+  if (amount > 0) {
+    await unpauseCreditExhaustedProjects(userId);
+  }
   return currentBalance + amount;
+}
+
+/** Resume projects paused because the user ran out of credits. */
+export async function unpauseCreditExhaustedProjects(userId: number) {
+  await db
+    .update(schema.projects)
+    .set({ status: "pending", pauseReason: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.projects.userId, userId),
+        eq(schema.projects.status, "paused"),
+        eq(schema.projects.pauseReason, "credits_exhausted")
+      )
+    );
+}
+
+/**
+ * Grant a plan's monthly credits. Idempotent per Stripe invoice/session
+ * (and within a ~25 day window for the same tier) so checkout.session.completed
+ * and invoice.paid can both call this without double-granting.
+ */
+export async function grantPlanCredits(
+  userId: number,
+  tier: string,
+  idempotencyKey?: string
+): Promise<{ granted: number; skipped: boolean }> {
+  await ensureUserCredits(userId);
+  const credits = await getUserCredits(userId);
+  if (!credits) return { granted: 0, skipped: true };
+
+  if (idempotencyKey) {
+    const existing = await db.query.creditTransactions.findFirst({
+      where: and(
+        eq(schema.creditTransactions.userId, userId),
+        eq(schema.creditTransactions.stripePaymentIntentId, idempotencyKey)
+      ),
+    });
+    if (existing) {
+      await unpauseCreditExhaustedProjects(userId);
+      return { granted: 0, skipped: true };
+    }
+  }
+
+  const refillAmount = getTierCreditRefill(tier);
+  const now = new Date();
+  const recentGrant = await db.query.creditTransactions.findFirst({
+    where: and(
+      eq(schema.creditTransactions.userId, userId),
+      eq(schema.creditTransactions.type, "subscription_grant")
+    ),
+    orderBy: desc(schema.creditTransactions.createdAt),
+  });
+  if (recentGrant?.createdAt && refillAmount !== null) {
+    const daysSinceGrant =
+      (now.getTime() - new Date(recentGrant.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    const samePaidTier = (credits.tier ?? "free") === tier && tier !== "free";
+    // Same paid plan already granted this period (checkout + invoice race).
+    if (samePaidTier && daysSinceGrant < 25) {
+      await unpauseCreditExhaustedProjects(userId);
+      return { granted: 0, skipped: true };
+    }
+  }
+
+  if (refillAmount === null) {
+    await db
+      .update(schema.userCredits)
+      .set({
+        tier,
+        monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+        lastRefillAt: now,
+        updatedAt: now,
+      })
+      .where(eq(schema.userCredits.id, credits.id));
+    await unpauseCreditExhaustedProjects(userId);
+    return { granted: 0, skipped: false };
+  }
+
+  const newBalance = credits.balance + refillAmount;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.userCredits)
+      .set({
+        balance: newBalance,
+        tier,
+        monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+        lastRefillAt: now,
+        updatedAt: now,
+      })
+      .where(eq(schema.userCredits.id, credits.id));
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount: refillAmount,
+      type: "subscription_grant",
+      description: `Plan credits for ${tier} (${refillAmount} credits)`,
+      stripePaymentIntentId: idempotencyKey ?? null,
+    });
+  });
+  await unpauseCreditExhaustedProjects(userId);
+  return { granted: refillAmount, skipped: false };
 }
 
 export async function updateProjectCreditsSpent(projectId: number, spent: number) {
