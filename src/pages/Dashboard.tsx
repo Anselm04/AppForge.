@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
+import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
 interface TierStatus {
   tier: string;
@@ -33,7 +35,6 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Tier Status Banner */}
         {tierStatus && (
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-8 flex items-center justify-between">
             <div>
@@ -58,14 +59,20 @@ export function Dashboard() {
               <span className="text-sm text-slate-500 dark:text-slate-400">Credits</span>
               <p className="font-bold text-blue-600 dark:text-blue-400">{tierStatus.credits ?? 0}</p>
             </div>
-            {tierStatus.tier === "free" && (
+            {(tierStatus.tier === "free" || (tierStatus.credits ?? 0) < BUILD_CREDIT_COST) && (
               <button
                 onClick={() => navigate("/pricing")}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
               >
-                Upgrade
+                {(tierStatus.credits ?? 0) < BUILD_CREDIT_COST ? "Get credits" : "Upgrade"}
               </button>
             )}
+          </div>
+        )}
+
+        {tierStatus && (tierStatus.credits ?? 0) < BUILD_CREDIT_COST && (
+          <div className="mb-8">
+            <CreditsPauseBanner credits={tierStatus.credits ?? 0} cost={BUILD_CREDIT_COST} action="build or improve apps" />
           </div>
         )}
 
@@ -114,6 +121,7 @@ function ProjectCard({ project }: { project: Project }) {
     failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
     running: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
     pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+    paused: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
   };
 
   const canImprove = project.status === "completed" || project.status === "paused";

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
+import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
 export function Home() {
   const [description, setDescription] = useState("");
@@ -27,13 +29,16 @@ export function Home() {
       }),
     onSuccess: (data) => {
       setIsBuilding(true);
-      // Redirect to build page
       window.location.href = `/build/${data.id}`;
     },
   });
 
+  const creditBalance = tierStatus?.credits ?? 0;
+  const outOfCredits = !!user && tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
+
   const handleStartBuild = (e: React.FormEvent) => {
     e.preventDefault();
+    if (outOfCredits) return;
     if (description.trim()) {
       createProjectMutation.mutate();
     }
@@ -42,7 +47,6 @@ export function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-6xl mx-auto px-4 py-20">
-        {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-slate-900 dark:text-white mb-4">
             AppForge
@@ -52,7 +56,6 @@ export function Home() {
           </p>
         </div>
 
-        {/* Credit & Tier Status */}
         {tierStatus && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-8 max-w-2xl mx-auto text-center">
             <p className="text-slate-700 dark:text-slate-300 font-semibold">
@@ -74,7 +77,12 @@ export function Home() {
           </div>
         )}
 
-        {/* Build Form */}
+        {outOfCredits && (
+          <div className="max-w-2xl mx-auto mb-8">
+            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="start a build" />
+          </div>
+        )}
+
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 max-w-2xl mx-auto">
           <form onSubmit={handleStartBuild} className="space-y-6">
             <div>
@@ -159,17 +167,25 @@ export function Home() {
               </p>
             </div>
 
+            {createProjectMutation.isError && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                {String((createProjectMutation.error as Error)?.message || "")}
+              </p>
+            )}
             <button
               type="submit"
-              disabled={!description.trim() || createProjectMutation.isPending}
+              disabled={!description.trim() || createProjectMutation.isPending || outOfCredits}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
-              {createProjectMutation.isPending ? "Creating..." : "Generate App"}
+              {outOfCredits
+                ? "Paused — out of credits"
+                : createProjectMutation.isPending
+                ? "Creating..."
+                : "Generate App"}
             </button>
           </form>
         </div>
 
-        {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
           <FeatureCard icon="⚡" title="Fast" description="Generate full-stack apps in minutes, not days." />
           <FeatureCard icon="🤖" title="AI-Powered" description="Multi-agent pipeline plans, codes, and reviews your app." />
