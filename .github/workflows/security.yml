@@ -27,6 +27,13 @@ jobs:
         run: npm install --ignore-scripts --no-audit
       - name: Run npm audit
         run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Audit summary
+        if: always()
+        run: |
+          npm audit --audit-level=high || true
+          echo "Audit completed (non-blocking on PRs; see CI Pipeline security job for gate)."
 
   secret-scanning:
     name: Secret Scanning
