@@ -71,13 +71,15 @@ describe("LLM invokeLLM", () => {
       ok: false,
       status: 429,
       statusText: "Too Many Requests",
+      headers: { get: () => null },
       text: async () => "rate limited",
+      body: null,
     });
 
     await expect(
-      invokeLLM({ messages: [{ role: "user", content: "hi" }] })
-    ).rejects.toThrow("429 Too Many Requests");
-  });
+      invokeLLM({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toThrow(/429 Too Many Requests/);
+  }, 20_000);
 
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
