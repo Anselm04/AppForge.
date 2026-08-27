@@ -72,7 +72,7 @@ export const cosineRouter = router({
       if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
 
       // Fetch PR status from GitHub
-      const match = input.prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+      const match = input.prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
       if (!match) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid PR URL" });
       }
