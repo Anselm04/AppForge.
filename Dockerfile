@@ -2,14 +2,14 @@
 # AppForge Dockerfile - production is the final (default) stage
 # ============================================================
 
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
 RUN npm install --omit=dev && npm cache clean --force
 
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
@@ -28,7 +28,7 @@ RUN npm run build \
   && test -f /app/dist/server.js \
   && test -f /app/dist/client/index.html
 
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 RUN apk add --no-cache dumb-init
 ENV NODE_ENV=production
 ENV HUSKY=0
