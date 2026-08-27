@@ -1,21 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
-import { getAccessToken, useSession } from "../lib/auth.js";
+import { getAccessToken, signOut } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
+import { clearPromptDraft, readPromptDraft, readPromptStack, writePromptDraft, writePromptStack } from "../lib/promptDraft.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
 export function Home() {
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(() => readPromptDraft());
   const [techStack, setTechStack] = useState("react-node");
   const [isBuilding, setIsBuilding] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const { t } = useLocale();
-  const session = useSession();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
@@ -23,8 +24,21 @@ export function Home() {
   const { data: tierStatus } = useQuery({
     queryKey: ["projects", "tierStatus"],
     queryFn: () => trpc.projects.tierStatus.query(),
-    enabled: !!user || !!session,
+    enabled: !!user,
   });
+
+  useEffect(() => {
+    const saved = readPromptStack();
+    if (saved) setTechStack(saved);
+  }, []);
+
+  useEffect(() => {
+    writePromptDraft(description);
+  }, [description]);
+
+  useEffect(() => {
+    writePromptStack(techStack);
+  }, [techStack]);
 
   const createProjectMutation = useMutation({
     mutationFn: () =>
@@ -34,40 +48,55 @@ export function Home() {
         techStack,
       }),
     onSuccess: (data) => {
+      clearPromptDraft();
       setIsBuilding(true);
-      window.location.href = `/build/${data.id}`;
+      navigate(`/build/${data.id}`);
     },
     onError: (err) => {
       const message = err instanceof Error ? err.message : String(err);
       const code = (err as { data?: { code?: string }; shape?: { data?: { code?: string } } })?.data?.code
         ?? (err as { shape?: { data?: { code?: string } } })?.shape?.data?.code;
+      writePromptDraft(description);
       if (code === "UNAUTHORIZED" || /not authenticated/i.test(message)) {
-        navigate("/login?next=/");
+        signOut();
+        setFormError(t("home.needAccount"));
+        navigate("/signup?next=/");
+        return;
       }
+      setFormError(message || t("home.generateFailed"));
     },
   });
 
   const creditBalance = tierStatus?.credits ?? 0;
-  const outOfCredits = !!user && tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
+  const outOfCredits = !!user && tierStatus !== undefined && !tierStatus.unlimited && creditBalance < BUILD_CREDIT_COST;
 
   const overLimit = description.length > PROMPT_MAX_CHARS;
 
   const handleStartBuild = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!getAccessToken()) {
-      navigate("/login?next=/");
+    setFormError(null);
+    if (!description.trim() || overLimit) return;
+    writePromptDraft(description);
+    writePromptStack(techStack);
+    const token = getAccessToken();
+    if (!token) {
+      navigate("/signup?next=/");
       return;
     }
-    if (outOfCredits || overLimit) return;
-    if (description.trim()) {
-      createProjectMutation.mutate();
-    }
+    createProjectMutation.mutate();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-12">
+          <img
+            src="/appforge-logo.png"
+            alt="AppForge"
+            width={192}
+            height={192}
+            className="mx-auto mb-6 h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 lg:h-48 lg:w-48 rounded-2xl object-contain"
+          />
           <h1 className="text-5xl font-bold text-slate-900 dark:text-white mb-4">
             AppForge
           </h1>
@@ -111,7 +140,7 @@ export function Home() {
               </label>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value.slice(0, PROMPT_MAX_CHARS))}
                 maxLength={PROMPT_MAX_CHARS}
                 placeholder={t("home.promptPlaceholder")}
                 className="w-full h-32 px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 resize-none"
@@ -193,14 +222,14 @@ export function Home() {
               </p>
             </div>
 
-            {createProjectMutation.isError && (
+            {(formError || createProjectMutation.isError) && (
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                {String((createProjectMutation.error as Error)?.message || "")}
+                {formError || String((createProjectMutation.error as Error)?.message || "")}
               </p>
             )}
             <button
               type="submit"
-              disabled={!description.trim() || createProjectMutation.isPending || outOfCredits || overLimit}
+              disabled={!description.trim() || createProjectMutation.isPending || overLimit}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               {outOfCredits

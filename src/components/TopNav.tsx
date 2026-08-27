@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
-import { signOut, useSession } from "../lib/auth.js";
-import { isOwnerEmail } from "../lib/owner.js";
+import { getSession, signOut } from "../lib/auth.js";
 import { useLayoutMode, type LayoutMode } from "../lib/layout.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 import { useLocale } from "../i18n/LocaleContext.js";
@@ -200,7 +199,7 @@ export function TopNav() {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
 
-  const { data: user } = useQuery({
+  const { data: user, isSuccess: meReady } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
   });
@@ -210,8 +209,6 @@ export function TopNav() {
     queryFn: () => trpc.subscriptions.status.query(),
     enabled: !!user,
   });
-
-  const session = useSession();
 
   const logout = useMutation({
     mutationFn: async () => {
@@ -236,6 +233,12 @@ export function TopNav() {
   }, [compact]);
 
   useEffect(() => {
+    if (meReady && !user && getSession()) {
+      signOut();
+    }
+  }, [meReady, user]);
+
+  useEffect(() => {
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -254,9 +257,9 @@ export function TopNav() {
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  const isLoggedIn = !!user || !!session;
-  // Only show Admin when the server session (auth.me) says this login is the owner.
-  const isOwner = !!user && isOwnerEmail(user.email);
+  // Valid session = auth.me returned a user. Stale localStorage is logged out.
+  const isLoggedIn = !!user;
+  const isOwner = !!user && !!user.isOwner;
 
   const closeMenu = () => setMenuOpen(false);
   const go = (path: string) => {
@@ -293,7 +296,7 @@ export function TopNav() {
           }}
           className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
         >
-          <img src="/appforge-logo.png" alt="" className="h-9 w-9 rounded-lg object-contain" />
+          <img src="/appforge-logo-mark.png" alt="" width={40} height={40} className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain" />
           AppForge
         </button>
 
@@ -335,7 +338,7 @@ export function TopNav() {
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <span className="flex items-center gap-2 text-lg font-bold text-blue-600">
-                <img src="/appforge-logo.png" alt="" className="h-8 w-8 rounded-lg object-contain" />
+                <img src="/appforge-logo-mark.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
                 AppForge
               </span>
               <button
