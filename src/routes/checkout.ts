@@ -7,8 +7,8 @@ const checkoutSchema = z.object({
   plan: z.enum(["starter", "builder", "studio"]).optional(),
   credits: z.number().int().positive().max(10000).optional(),
   priceId: z.string().optional(),
-  successUrl: z.string().url().default("https://appforge.dev/build"),
-  cancelUrl: z.string().url().default("https://appforge.dev/pricing"),
+  successUrl: z.string().url().default("https://appforge-unfurling-moon-9058.fly.dev/build"),
+  cancelUrl: z.string().url().default("https://appforge-unfurling-moon-9058.fly.dev/pricing"),
 });
 
 async function getStripe() {
