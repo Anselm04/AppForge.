@@ -26,7 +26,11 @@ export function Pricing() {
   const { data: subStatus } = useQuery({
     queryKey: ["subscriptions", "status"],
     queryFn: () => trpc.subscriptions.status.query(),
+    enabled: isAuthed,
+    retry: false,
   });
+
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const createCheckout = useMutation({
     mutationFn: (tier: keyof typeof TIER_CONFIG) =>
@@ -34,7 +38,12 @@ export function Pricing() {
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        setCheckoutError("Checkout did not return a payment URL.");
       }
+    },
+    onError: (err) => {
+      setCheckoutError(err instanceof Error ? err.message : "Checkout failed");
     },
   });
 
@@ -43,7 +52,12 @@ export function Pricing() {
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        setCheckoutError("Checkout did not return a payment URL.");
       }
+    },
+    onError: (err) => {
+      setCheckoutError(err instanceof Error ? err.message : "Credit checkout failed");
     },
   });
 
@@ -209,6 +223,7 @@ export function Pricing() {
                     return;
                   }
                   if (!tier.disabled) {
+                    setCheckoutError(null);
                     createCheckout.mutate(tier.key);
                   }
                 }}
@@ -234,11 +249,28 @@ export function Pricing() {
           <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
             {t("pricing.buySubtitle")}
           </p>
+          {checkoutError && (
+            <p className="text-sm text-red-600 dark:text-red-400 mb-4" role="alert">
+              {checkoutError}
+            </p>
+          )}
+          {createCheckout.isError && !checkoutError && (
+            <p className="text-sm text-red-600 dark:text-red-400 mb-4" role="alert">
+              {String((createCheckout.error as Error)?.message || "Checkout failed")}
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[50, 100, 250].map((pack) => (
               <button
                 key={pack}
-                onClick={() => buyCredits.mutate(pack)}
+                onClick={() => {
+                  if (!isAuthed) {
+                    navigate("/signup?next=/pricing");
+                    return;
+                  }
+                  setCheckoutError(null);
+                  buyCredits.mutate(pack);
+                }}
                 disabled={buyCredits.isPending}
                 className="border border-slate-200 dark:border-slate-600 rounded-lg p-4 hover:border-blue-500 transition-colors disabled:opacity-50"
               >
