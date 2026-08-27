@@ -11,7 +11,7 @@ export function securityHeaders() {
   
   return helmet({
     contentSecurityPolicy: false, // Configured separately
-    crossOriginEmbedderPolicy: true,
+    crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: true,
     crossOriginResourcePolicy: { policy: 'same-site' },
     dnsPrefetchControl: { allow: false },
