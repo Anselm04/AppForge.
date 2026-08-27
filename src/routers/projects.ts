@@ -184,7 +184,14 @@ export const projectsRouter = router({
   }),
 
   deploy: protectedProcedure
-    .input(z.object({ id: z.number().int().positive() }))
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        destination: z
+          .enum(["vercel", "netlify", "fly", "preview", "zip"])
+          .default("preview"),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
@@ -198,21 +205,54 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to deploy" });
       }
 
+      const { deployProject, zipFiles, listDeployDestinations } = await import(
+        "../services/deployer.js"
+      );
+
+      if (input.destination === "zip") {
+        const { base64, filename } = await zipFiles(project.title || "appforge-app", files);
+        return { deployUrl: null as string | null, destination: "zip" as const, base64, filename };
+      }
+
       const origin =
         process.env.CORS_ORIGIN ||
         process.env.APP_URL ||
         "https://appforge-unfurling-moon-9058.fly.dev";
-      const deployUrl = `${origin.replace(/\/$/, "")}/live/${input.id}`;
 
-      const { watchProject } = await import("../agents/selfHealing.js");
-      watchProject(input.id, ctx.user.id, deployUrl);
+      try {
+        const result = await deployProject({
+          destination: input.destination,
+          projectName: project.title || "appforge-app",
+          files,
+          projectId: input.id,
+          previewBaseUrl: origin.replace(/\/$/, ""),
+        });
 
-      await db.update(schema.projects)
-        .set({ status: "completed", updatedAt: new Date() })
-        .where(eq(schema.projects.id, input.id));
+        if (input.destination === "preview" && result.url) {
+          const { watchProject } = await import("../agents/selfHealing.js");
+          watchProject(input.id, ctx.user.id, result.url);
+        }
 
-      return { deployUrl };
+        await db.update(schema.projects)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(schema.projects.id, input.id));
+
+        return {
+          deployUrl: result.url,
+          destination: result.destination,
+          note: result.note,
+          options: listDeployDestinations(),
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Deploy failed";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      }
     }),
+
+  deployOptions: protectedProcedure.query(async () => {
+    const { listDeployDestinations } = await import("../services/deployer.js");
+    return listDeployDestinations();
+  }),
 
   download: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
