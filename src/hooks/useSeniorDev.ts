@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { getAccessToken, authedUrl } from "../lib/auth.js";
 
 export type DevMode = "collaborative" | "autonomous";
 
@@ -71,12 +72,11 @@ export function useSeniorDev() {
       setStage("planning");
 
       try {
-        // Create task via tRPC
         const res = await fetch("/api/trpc/projects.seniorDev", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("appforge.session") ?? ""}`,
+            Authorization: `Bearer ${getAccessToken() ?? ""}`,
           },
           body: JSON.stringify({
             json: { projectId, request, mode },
@@ -92,9 +92,7 @@ export function useSeniorDev() {
         const taskId = data[0]?.result?.data?.json?.taskId;
         if (!taskId) throw new Error("No task ID returned");
 
-        // Connect to SSE
-        const token = localStorage.getItem("appforge.session") ?? "";
-        const es = new EventSource(`/api/build/senior/${taskId}?token=${token}`);
+        const es = new EventSource(authedUrl(`/api/build/senior/${taskId}`));
         eventSourceRef.current = es;
         setActiveTaskId(taskId);
 
@@ -151,7 +149,7 @@ export function useSeniorDev() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("appforge.session") ?? ""}`,
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
         },
         body: JSON.stringify({ json: { taskId } }),
       });
@@ -164,8 +162,7 @@ export function useSeniorDev() {
       setStage("executing");
       addMessage({ stage: "executing", message: "Plan approved. Executing changes..." });
 
-      const token = localStorage.getItem("appforge.session") ?? "";
-      const es = new EventSource(`/api/build/senior/${taskId}?token=${token}`);
+      const es = new EventSource(authedUrl(`/api/build/senior/${taskId}`));
       eventSourceRef.current = es;
 
       es.addEventListener("progress", (e: MessageEvent) => {

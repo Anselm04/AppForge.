@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
+import { authedUrl } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
@@ -56,7 +57,7 @@ export function Build() {
       return;
     }
 
-    const eventSource = new EventSource(`/api/build/${projectId}`);
+    const eventSource = new EventSource(authedUrl(`/api/build/${projectId}`));
 
     eventSource.addEventListener("agent", (event: MessageEvent) => {
       const data = JSON.parse(event.data) as BuildLog;
@@ -141,28 +142,24 @@ export function Build() {
           <p className="text-slate-400 mb-8">{project.title} — {project.techStack}</p>
         )}
 
-        {/* Agent Progress */}
         <div className="space-y-4 mb-8">
           {logs.map((log, idx) => (
             <AgentLogItem key={idx} log={log} />
           ))}
         </div>
 
-        {/* Credits Info */}
         {creditsSpent > 0 && (
           <div className="mb-4 text-slate-400 text-sm">
             Credits spent on this build: {creditsSpent}
           </div>
         )}
 
-        {/* Pause / Credit exhausted */}
         {(isPaused || outOfCredits) && (
           <div className="mt-8">
             <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="run this build" />
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <div className="mt-8 bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-300">
             <p className="font-semibold">Error:</p>
@@ -170,11 +167,10 @@ export function Build() {
           </div>
         )}
 
-        {/* Success / Complete */}
         {isComplete && !error && !isPaused && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
             <p className="font-semibold text-lg">✅ App generation complete!</p>
-            <p className="mt-2">Your app is ready. You can preview it, deploy to Vercel, or export to GitHub.</p>
+            <p className="mt-2">Your app is ready. Open the live preview on Fly, or export the generated files.</p>
             <div className="mt-4 space-x-4 flex flex-wrap gap-4">
               {deployUrl ? (
                 <a
@@ -191,7 +187,7 @@ export function Build() {
                   disabled={deploying}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying ? "Deploying..." : "🚀 Deploy to Vercel"}
+                  {deploying ? "Publishing..." : "🚀 Open live preview"}
                 </button>
               )}
               <button
