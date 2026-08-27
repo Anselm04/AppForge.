@@ -12,7 +12,11 @@
     "editor": "Editor",
     "admin": "Admin",
     "upgrade": "Upgrade",
-    "trial": "Trial ({tier})"
+    "trial": "Trial ({tier})",
+    "layout": "Layout",
+    "layoutAuto": "Auto",
+    "layoutPhone": "Phone",
+    "layoutDesktop": "Desktop"
   },
   "home": {
     "tagline": "Build full-stack web apps with AI. Describe your idea, get production code.",
