@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import AgentOrchestrator from '../services/agent-orchestrator.js';
+import { ensureUserCredits, deductCredits } from '../db.js';
+import { BUILD_CREDIT_COST, creditsExhaustedBody } from '../lib/credits.js';
 
 const router = Router();
 const orchestrator = new AgentOrchestrator();
@@ -24,6 +26,16 @@ router.post('/build', async (req: Request, res: Response) => {
         details: parseResult.error.issues,
       });
     }
+
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+    const credits = await ensureUserCredits(user.id);
+    if (credits.balance < BUILD_CREDIT_COST) {
+      return res.status(402).json({ success: false, ...creditsExhaustedBody(credits.balance, BUILD_CREDIT_COST, 'start an agent build') });
+    }
+    await deductCredits(user.id, BUILD_CREDIT_COST, undefined, 'Agent build');
 
     const { prompt } = parseResult.data;
     const plan = await orchestrator.runBuild(prompt);

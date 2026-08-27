@@ -33,6 +33,7 @@
     "src/_core/**/*.ts",
     "src/types/**/*.ts",
     "src/data/**/*.ts",
+    "src/lib/credits.ts",
     "src/lib/redis.ts",
     "src/lib/sentry.ts",
     "src/lib/ai-interface.ts",

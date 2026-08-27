@@ -3,12 +3,16 @@ import { z } from "zod";
 
 const router = Router();
 
+const APP_URL = "https://appforge-unfurling-moon-9058.fly.dev";
+
 const checkoutSchema = z.object({
   plan: z.enum(["starter", "builder", "studio"]).optional(),
   credits: z.number().int().positive().max(10000).optional(),
   priceId: z.string().optional(),
-  successUrl: z.string().url().default("https://appforge-unfurling-moon-9058.fly.dev/build"),
-  cancelUrl: z.string().url().default("https://appforge-unfurling-moon-9058.fly.dev/pricing"),
+  successUrl: z.string().url().default(`${APP_URL}/dashboard`),
+  cancelUrl: z.string().url().default(`${APP_URL}/pricing`),
+}).refine((d) => Boolean(d.plan || d.priceId || d.credits), {
+  message: "plan, priceId, or credits is required",
 });
 
 async function getStripe() {
@@ -40,14 +44,28 @@ router.post("/", async (req: Request, res: Response) => {
       ? [{ price: priceId ?? getPriceId(plan!), quantity: 1 }]
       : [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: `${credits} Build Credits` } }, quantity: credits! }];
 
+    const tier = plan ?? "";
     const session = await stripe.checkout.sessions.create({
       mode: mode as any,
       payment_method_types: ["card"],
       line_items: lineItems as any,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { userId: String(user.id), plan: plan ?? "", credits: String(credits ?? 0) },
+      client_reference_id: String(user.id),
+      metadata: {
+        userId: String(user.id),
+        plan: tier,
+        tier,
+        credits: String(credits ?? 0),
+      },
       customer_email: user.email,
+      ...(mode === "subscription"
+        ? {
+            subscription_data: {
+              metadata: { userId: String(user.id), plan: tier, tier },
+            },
+          }
+        : {}),
     });
 
     res.json({ url: session.url });
@@ -59,9 +77,9 @@ router.post("/", async (req: Request, res: Response) => {
 
 function getPriceId(plan: string): string {
   const map: Record<string, string> = {
-    starter: process.env.STRIPE_STARTER_PRICE_ID || "",
-    builder: process.env.STRIPE_BUILDER_PRICE_ID || "",
-    studio: process.env.STRIPE_STUDIO_PRICE_ID || "",
+    starter: process.env.STRIPE_STARTER_PRICE_ID || process.env.STRIPE_PRICE_STARTER || "",
+    builder: process.env.STRIPE_BUILDER_PRICE_ID || process.env.STRIPE_PRICE_BUILDER || "",
+    studio: process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
   };
   const id = map[plan];
   if (!id) throw new Error(`Stripe price ID not configured for plan: ${plan}`);
