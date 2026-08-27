@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { getSession, signUp, useSession } from "../lib/auth.js";
+import { useQuery } from "@tanstack/react-query";
+import { getSession, signUp } from "../lib/auth.js";
+import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
 function safeNext(value: string | null): string {
@@ -16,7 +18,6 @@ export function Signup() {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const session = useSession();
   const next = useMemo(() => safeNext(searchParams.get("next")), [searchParams]);
 
   const [email, setEmail] = useState("");
@@ -26,11 +27,16 @@ export function Signup() {
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
 
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => trpc.auth.me.query(),
+  });
+
   useEffect(() => {
-    if (session && !checkEmail) {
+    if (me && !checkEmail) {
       navigate(next, { replace: true });
     }
-  }, [session, checkEmail, next, navigate]);
+  }, [me, checkEmail, next, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

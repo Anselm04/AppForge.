@@ -6,6 +6,14 @@ import { useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
+interface TierStatus {
+  tier: string;
+  isPaid: boolean;
+  buildsThisMonth: number;
+  limit: number | null;
+  credits: number;
+}
+
 interface Project {
   id: number;
   title: string | null;
@@ -107,12 +115,20 @@ export function Dashboard() {
           <h1 className="text-4xl font-bold text-slate-900 dark:text-white">
             My Apps
           </h1>
-          <button
-            onClick={() => navigate("/")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-          >
-            + New App
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/redeem")}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white px-6 py-2 rounded-lg"
+            >
+              Redeem code
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              + New App
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -164,13 +180,13 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="flex items-center justify-between mb-4">
         <span
           className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            statusColors[project.status || "pending"] || statusColors.pending
+            statusColors[project.status] || statusColors.pending
           }`}
         >
           {project.status}
         </span>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+          {new Date(project.createdAt).toLocaleDateString()}
         </p>
       </div>
       <div className="flex gap-2">
