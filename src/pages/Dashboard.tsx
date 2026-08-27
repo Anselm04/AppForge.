@@ -32,7 +32,12 @@ export function Dashboard() {
     }
   }, [session, navigate]);
 
-  const { data: projects, isLoading, isError, error } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["projects", "list"],
     queryFn: () => trpc.projects.list.query(),
     enabled: !!session,
@@ -47,7 +52,8 @@ export function Dashboard() {
   });
 
   const unauthError =
-    isError && /unauth|not authenticated/i.test(String((error as Error)?.message || ""));
+    isError &&
+    /unauth|not authenticated/i.test(String((error as Error)?.message || ""));
 
   if (!session || unauthError) {
     return (
@@ -73,7 +79,9 @@ export function Dashboard() {
         {tierStatus && (
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-8 flex items-center justify-between">
             <div>
-              <span className="text-sm text-slate-500 dark:text-slate-400">Current plan</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Current plan
+              </span>
               <p className="font-bold text-slate-900 dark:text-white capitalize">
                 {tierStatus.tier}
                 {tierStatus.isPaid && tierStatus.tier !== "free" && (
@@ -84,22 +92,31 @@ export function Dashboard() {
               </p>
             </div>
             <div className="text-right">
-              <span className="text-sm text-slate-500 dark:text-slate-400">Builds this month</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Builds this month
+              </span>
               <p className="font-bold text-slate-900 dark:text-white">
                 {tierStatus.buildsThisMonth}
                 {tierStatus.limit !== null ? ` / ${tierStatus.limit}` : " / ∞"}
               </p>
             </div>
             <div className="text-right">
-              <span className="text-sm text-slate-500 dark:text-slate-400">Credits</span>
-              <p className="font-bold text-blue-600 dark:text-blue-400">{tierStatus.credits ?? 0}</p>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Credits
+              </span>
+              <p className="font-bold text-blue-600 dark:text-blue-400">
+                {tierStatus.credits ?? 0}
+              </p>
             </div>
-            {(tierStatus.tier === "free" || (tierStatus.credits ?? 0) < BUILD_CREDIT_COST) && (
+            {(tierStatus.tier === "free" ||
+              (tierStatus.credits ?? 0) < BUILD_CREDIT_COST) && (
               <button
                 onClick={() => navigate("/pricing")}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
               >
-                {(tierStatus.credits ?? 0) < BUILD_CREDIT_COST ? "Get credits" : "Upgrade"}
+                {(tierStatus.credits ?? 0) < BUILD_CREDIT_COST
+                  ? "Get credits"
+                  : "Upgrade"}
               </button>
             )}
           </div>
@@ -107,7 +124,11 @@ export function Dashboard() {
 
         {tierStatus && (tierStatus.credits ?? 0) < BUILD_CREDIT_COST && (
           <div className="mb-8">
-            <CreditsPauseBanner credits={tierStatus.credits ?? 0} cost={BUILD_CREDIT_COST} action="build or improve apps" />
+            <CreditsPauseBanner
+              credits={tierStatus.credits ?? 0}
+              cost={BUILD_CREDIT_COST}
+              action="build or improve apps"
+            />
           </div>
         )}
 
@@ -160,14 +181,17 @@ export function Dashboard() {
 function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
   const statusColors: Record<string, string> = {
-    completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    completed:
+      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
     failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
     running: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+    pending:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
     paused: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
   };
 
-  const canImprove = project.status === "completed" || project.status === "paused";
+  const canImprove =
+    project.status === "completed" || project.status === "paused";
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
@@ -180,13 +204,15 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="flex items-center justify-between mb-4">
         <span
           className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            statusColors[project.status] || statusColors.pending
+            statusColors[project.status ?? "pending"] || statusColors.pending
           }`}
         >
           {project.status}
         </span>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {new Date(project.createdAt).toLocaleDateString()}
+          {project.createdAt
+            ? new Date(project.createdAt).toLocaleDateString()
+            : "—"}
         </p>
       </div>
       <div className="flex gap-2">
@@ -198,14 +224,18 @@ function ProjectCard({ project }: { project: Project }) {
         </button>
         {canImprove && (
           <button
-            onClick={() => navigate(`/ai-builder?projectId=${project.id}&mode=improve`)}
+            onClick={() =>
+              navigate(`/ai-builder?projectId=${project.id}&mode=improve`)
+            }
             className="flex-1 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
           >
             Improve
           </button>
         )}
         <button
-          onClick={() => navigate(`/ai-builder?projectId=${project.id}&mode=build`)}
+          onClick={() =>
+            navigate(`/ai-builder?projectId=${project.id}&mode=build`)
+          }
           className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
         >
           Rebuild
