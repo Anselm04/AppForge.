@@ -5,6 +5,7 @@ import { trpc } from "../utils/trpc.js";
 import { useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { useLocale } from "../i18n/LocaleContext.js";
 
 export function Home() {
   const [description, setDescription] = useState("");
@@ -12,6 +13,7 @@ export function Home() {
   const [isBuilding, setIsBuilding] = useState(false);
 
   const navigate = useNavigate();
+  const { t } = useLocale();
   const session = useSession();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
@@ -61,7 +63,7 @@ export function Home() {
             AppForge
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-300">
-            Build full-stack web apps with AI. Describe your idea, get production code.
+            {t("home.tagline")}
           </p>
         </div>
 
@@ -69,18 +71,18 @@ export function Home() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-8 max-w-2xl mx-auto text-center">
             <p className="text-slate-700 dark:text-slate-300 font-semibold">
               {tierStatus.tier === "free"
-                ? `Free plan: ${tierStatus.remaining ?? 0} builds & ${tierStatus.credits ?? 0} credits remaining`
+                ? t("home.planFree", { remaining: tierStatus.remaining ?? 0, credits: tierStatus.credits ?? 0 })
                 : tierStatus.tier === "starter"
-                ? `Starter plan: ${tierStatus.remaining ?? 0} builds & ${tierStatus.credits ?? 0} credits`
+                ? t("home.planStarter", { remaining: tierStatus.remaining ?? 0, credits: tierStatus.credits ?? 0 })
                 : tierStatus.tier === "builder"
-                ? `Builder plan: ${tierStatus.remaining ?? 0} builds & ${tierStatus.credits ?? 0} credits`
+                ? t("home.planBuilder", { remaining: tierStatus.remaining ?? 0, credits: tierStatus.credits ?? 0 })
                 : tierStatus.tier === "studio"
-                ? `Studio plan: unlimited builds, ${tierStatus.credits ?? 0} credits`
-                : `Enterprise plan: unlimited builds & credits`}
+                ? t("home.planStudio", { credits: tierStatus.credits ?? 0 })
+                : t("home.planEnterprise")}
             </p>
             {tierStatus.tier === "free" && (
               <a href="/pricing" className="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block">
-                Upgrade for more builds and credits
+                {t("home.upgradeMore")}
               </a>
             )}
           </div>
@@ -88,7 +90,7 @@ export function Home() {
 
         {outOfCredits && (
           <div className="max-w-2xl mx-auto mb-8">
-            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="start a build" />
+            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action={t("credits.actionStartBuild")} />
           </div>
         )}
 
@@ -96,29 +98,29 @@ export function Home() {
           <form onSubmit={handleStartBuild} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
-                What app do you want to build?
+                {t("home.promptLabel")}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g., A todo list with dark mode, a booking app for my salon, a sales dashboard..."
+                placeholder={t("home.promptPlaceholder")}
                 className="w-full h-32 px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 resize-none"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {description.length} / 2000 characters
+                {t("home.charCount", { count: description.length })}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
-                Tech Stack
+                {t("home.techStack")}
               </label>
               <select
                 value={techStack}
                 onChange={(e) => setTechStack(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
               >
-                <optgroup label="Web Apps">
+                <optgroup label={t("home.groupWeb")}>
                   <option value="react-node">React + Node.js + PostgreSQL</option>
                   <option value="react-python">React + Python (FastAPI)</option>
                   <option value="vue-node">Vue 3 + Node.js</option>
@@ -131,7 +133,7 @@ export function Home() {
                   <option value="remix-node">Remix + Node.js</option>
                   <option value="astro-node">Astro Islands + React</option>
                 </optgroup>
-                <optgroup label="Games & 3D">
+                <optgroup label={t("home.groupGames")}>
                   <option value="phaser-html5">Phaser 3 HTML5 Game</option>
                   <option value="three-js-3d">Three.js 3D App / Game</option>
                   <option value="babylon-js-3d">Babylon.js 3D Engine</option>
@@ -140,7 +142,7 @@ export function Home() {
                   <option value="react-native-game">React Native Game</option>
                   <option value="flutter-game">Flutter + Flame Game</option>
                 </optgroup>
-                <optgroup label="AI Agents & Tools">
+                <optgroup label={t("home.groupAI")}>
                   <option value="ai-agent-python">Python AI Agent (OpenAI/Claude)</option>
                   <option value="ai-agent-node">Node.js AI Agent (Function Calling)</option>
                   <option value="openai-tool">OpenAI GPT / Assistants Tool</option>
@@ -148,14 +150,14 @@ export function Home() {
                   <option value="crewai-agent">CrewAI Multi-Agent Crew</option>
                   <option value="autogen-agent">AutoGen Agent Swarm</option>
                 </optgroup>
-                <optgroup label="Desktop & Mobile">
+                <optgroup label={t("home.groupDesktop")}>
                   <option value="electron-react">Electron + React Desktop</option>
                   <option value="tauri-rust">Tauri (Rust) + React/Vue</option>
                   <option value="react-native-expo">React Native + Expo</option>
                   <option value="flutter-firebase">Flutter + Firebase</option>
                   <option value="capacitor-ionic">Ionic + Capacitor</option>
                 </optgroup>
-                <optgroup label="Extensions, Bots & Automation">
+                <optgroup label={t("home.groupExt")}>
                   <option value="chrome-extension">Chrome Extension (MV3)</option>
                   <option value="vscode-extension">VS Code Extension</option>
                   <option value="discord-bot">Discord.js Bot</option>
@@ -164,7 +166,7 @@ export function Home() {
                   <option value="browser-automation">Playwright / Puppeteer</option>
                   <option value="web-scraper">Web Scraper (Python/Node)</option>
                 </optgroup>
-                <optgroup label="APIs & Data">
+                <optgroup label={t("home.groupApi")}>
                   <option value="data-visualization">D3.js + React Visualization</option>
                   <option value="api-service">Standalone REST / GraphQL API</option>
                   <option value="serverless-aws">AWS Lambda + API Gateway</option>
@@ -172,7 +174,7 @@ export function Home() {
                 </optgroup>
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                AppForge generates code for your chosen stack, compiles it, and attempts to auto-fix errors.
+                {t("home.techHint")}
               </p>
             </div>
 
@@ -187,18 +189,18 @@ export function Home() {
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               {outOfCredits
-                ? "Paused — out of credits"
+                ? t("home.pausedCta")
                 : createProjectMutation.isPending
-                ? "Creating..."
-                : "Generate App"}
+                ? t("home.creating")
+                : t("home.generate")}
             </button>
           </form>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-          <FeatureCard icon="⚡" title="Fast" description="Generate full-stack apps in minutes, not days." />
-          <FeatureCard icon="🤖" title="AI-Powered" description="Multi-agent pipeline plans, codes, and reviews your app." />
-          <FeatureCard icon="🚀" title="Production-Ready" description="Export to GitHub and deploy to Vercel with one click." />
+          <FeatureCard icon="⚡" title={t("home.fastTitle")} description={t("home.fastDesc")} />
+          <FeatureCard icon="🤖" title={t("home.aiTitle")} description={t("home.aiDesc")} />
+          <FeatureCard icon="🚀" title={t("home.prodTitle")} description={t("home.prodDesc")} />
         </div>
       </div>
     </div>
