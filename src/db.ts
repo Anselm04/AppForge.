@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, and, gte, sql } from "drizzle-orm";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -256,7 +256,7 @@ export async function countBuildsThisMonth(userId: number) {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const result = await db
-    .select({ count: schema.projects.id })
+    .select({ count: sql<number>`count(*)::int` })
     .from(schema.projects)
     .where(
       and(
@@ -264,7 +264,7 @@ export async function countBuildsThisMonth(userId: number) {
         gte(schema.projects.createdAt, startOfMonth),
       ),
     );
-  return result[0]?.count || 0;
+  return Number(result[0]?.count ?? 0);
 }
 
 // ── AGENT LOGS ──
@@ -402,9 +402,22 @@ export async function deductCredits(
   description?: string,
 ) {
   const credits = await getUserCredits(userId);
-  if (!credits || credits.balance < amount) {
+  if (!credits) {
+    throw new Error(`Insufficient credits: need ${amount}, have 0`);
+  }
+  if (credits.unlimited) {
+    await db.insert(schema.creditTransactions).values({
+      userId,
+      amount: 0,
+      type: "build_usage",
+      projectId: projectId ?? null,
+      description: `${description ?? "Build agent usage"} (unlimited)`,
+    });
+    return credits.balance;
+  }
+  if (credits.balance < amount) {
     throw new Error(
-      `Insufficient credits: need ${amount}, have ${credits?.balance ?? 0}`,
+      `Insufficient credits: need ${amount}, have ${credits.balance}`,
     );
   }
   const newBalance = credits.balance - amount;
