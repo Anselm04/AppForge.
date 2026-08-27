@@ -6,27 +6,26 @@
 
 type Files = Record<string, string>;
 
-function pkg(
-  name: string,
-  extra: Record<string, unknown> = {},
-): string {
+function pkg(name: string, extra: Record<string, unknown> = {}): string {
+  const { scripts, dependencies, devDependencies, ...rest } = extra;
   return JSON.stringify(
     {
       name,
       private: true,
       version: "0.1.0",
       type: "module",
+      ...rest,
       scripts: {
         dev: "vite",
         build: "tsc -b && vite build",
         start: "vite preview",
         test: "vitest run",
-        ...(extra.scripts as object | undefined),
+        ...(scripts as object | undefined),
       },
       dependencies: {
         react: "^18.2.0",
         "react-dom": "^18.2.0",
-        ...(extra.dependencies as object | undefined),
+        ...(dependencies as object | undefined),
       },
       devDependencies: {
         "@types/react": "^18.2.55",
@@ -35,7 +34,7 @@ function pkg(
         typescript: "^5.3.3",
         vite: "^5.1.0",
         vitest: "^1.2.2",
-        ...(extra.devDependencies as object | undefined),
+        ...(devDependencies as object | undefined),
       },
     },
     null,
@@ -45,11 +44,19 @@ function pkg(
 
 const GITIGNORE = `node_modules\ndist\n.env\n.env.local\ncoverage\n.DS_Store\n`;
 
-function viteReactShell(title: string, extraDeps: Record<string, string> = {}): Files {
+function viteReactShell(
+  title: string,
+  extraDeps: Record<string, string> = {},
+): Files {
   return {
     "package.json": pkg(title.toLowerCase().replace(/\s+/g, "-"), {
       dependencies: extraDeps,
-      scripts: { dev: "vite", build: "vite build", preview: "vite preview", test: "vitest run" },
+      scripts: {
+        dev: "vite",
+        build: "vite build",
+        preview: "vite preview",
+        test: "vitest run",
+      },
     }),
     "index.html": `<!doctype html>
 <html lang="en">
@@ -170,7 +177,8 @@ app.listen(port, () => console.log("listening on " + port));
 
 function pythonAgentShell(title: string): Files {
   return {
-    "requirements.txt": "openai>=1.30.0\npython-dotenv>=1.0.0\nhttpx>=0.27.0\npydantic>=2.0.0\n",
+    "requirements.txt":
+      "openai>=1.30.0\npython-dotenv>=1.0.0\nhttpx>=0.27.0\npydantic>=2.0.0\n",
     "pyproject.toml": `[project]\nname = "${title.toLowerCase().replace(/\s+/g, "-")}"\nversion = "0.1.0"\nrequires-python = ">=3.10"\ndependencies = ["openai", "python-dotenv", "httpx", "pydantic"]\n`,
     "main.py": `"""${title} — AppForge agent scaffold."""
 from __future__ import annotations
@@ -205,8 +213,17 @@ app.listen(3000, () => console.log("API on :3000"));
   }),
   "next-node": () => ({
     "package.json": pkg("next-app", {
-      scripts: { dev: "next dev", build: "next build", start: "next start", test: "vitest run" },
-      dependencies: { next: "^14.1.0", react: "^18.2.0", "react-dom": "^18.2.0" },
+      scripts: {
+        dev: "next dev",
+        build: "next build",
+        start: "next start",
+        test: "vitest run",
+      },
+      dependencies: {
+        next: "^14.1.0",
+        react: "^18.2.0",
+        "react-dom": "^18.2.0",
+      },
     }),
     "app/page.tsx": `export default function Page() {
   return <main><h1>Next.js AppForge app</h1></main>;
@@ -216,8 +233,25 @@ app.listen(3000, () => console.log("API on :3000"));
   return <html lang="en"><body>{children}</body></html>;
 }
 `,
-    "next.config.mjs": "/** @type {import('next').NextConfig} */\n const nextConfig = {};\nexport default nextConfig;\n".replace(" const", "const"),
-    "tsconfig.json": JSON.stringify({ compilerOptions: { jsx: "preserve", strict: true, moduleResolution: "bundler", module: "esnext", target: "ES2020" }, include: ["app", "src"] }, null, 2),
+    "next.config.mjs":
+      "/** @type {import('next').NextConfig} */\n const nextConfig = {};\nexport default nextConfig;\n".replace(
+        " const",
+        "const",
+      ),
+    "tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          jsx: "preserve",
+          strict: true,
+          moduleResolution: "bundler",
+          module: "esnext",
+          target: "ES2020",
+        },
+        include: ["app", "src"],
+      },
+      null,
+      2,
+    ),
     "README.md": "# Next.js App\n\n```bash\nnpm install\nnpm run dev\n```\n",
     ".gitignore": GITIGNORE,
   }),
@@ -233,8 +267,75 @@ app.listen(3000, () => console.log("API on :3000"));
     "README.md": "# Vue App\n\n```bash\nnpm i && npm run dev\n```\n",
     ".gitignore": GITIGNORE,
   }),
-  "svelte-node": () => viteReactShell("SvelteKit App"),
-  "angular-node": () => viteReactShell("Angular App"),
+  "svelte-node": () => ({
+    "package.json": pkg("svelte-app", {
+      dependencies: { svelte: "^4.2.0" },
+      scripts: { dev: "vite", build: "vite build", preview: "vite preview" },
+      devDependencies: {
+        "@sveltejs/vite-plugin-svelte": "^3.0.0",
+        vite: "^5.1.0",
+        typescript: "^5.3.3",
+      },
+    }),
+    "index.html": `<!doctype html><html><head><meta charset="UTF-8"/><title>Svelte App</title></head><body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>`,
+    "src/main.ts": `import App from "./App.svelte";\nnew App({ target: document.getElementById("app")! });\n`,
+    "src/App.svelte": `<script>const title = "Svelte AppForge app";</script>\n<main><h1>{title}</h1></main>\n`,
+    "vite.config.ts": `import { defineConfig } from "vite";\nimport { svelte } from "@sveltejs/vite-plugin-svelte";\nexport default defineConfig({ plugins: [svelte()] });\n`,
+    "README.md": "# Svelte App\n\n```bash\nnpm i && npm run dev\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
+  "angular-node": () => ({
+    "package.json": pkg("angular-app", {
+      scripts: {
+        start: "ng serve",
+        build: "ng build",
+        test: "ng test",
+      },
+      dependencies: {
+        "@angular/core": "^17.0.0",
+        "@angular/platform-browser": "^17.0.0",
+        "@angular/common": "^17.0.0",
+        "@angular/compiler": "^17.0.0",
+        rxjs: "^7.8.0",
+        tslib: "^2.6.0",
+        "zone.js": "^0.14.0",
+      },
+      devDependencies: {
+        "@angular/cli": "^17.0.0",
+        typescript: "^5.3.3",
+      },
+    }),
+    "src/main.ts": `import { bootstrapApplication } from "@angular/platform-browser";\nimport { Component } from "@angular/core";\n@Component({ standalone: true, selector: "app-root", template: "<h1>Angular AppForge app</h1>" })\nclass App {}\nbootstrapApplication(App);\n`,
+    "README.md": "# Angular App\n\n```bash\nnpm i && npm start\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
+  "remix-node": () => ({
+    "package.json": pkg("remix-app", {
+      scripts: {
+        dev: "remix vite:dev",
+        build: "remix vite:build",
+        start: "remix-serve ./build/server/index.js",
+      },
+      dependencies: {
+        "@remix-run/node": "^2.5.0",
+        "@remix-run/react": "^2.5.0",
+        "@remix-run/serve": "^2.5.0",
+        react: "^18.2.0",
+        "react-dom": "^18.2.0",
+        isbot: "^4.0.0",
+      },
+      devDependencies: {
+        "@remix-run/dev": "^2.5.0",
+        vite: "^5.1.0",
+        typescript: "^5.3.3",
+      },
+    }),
+    "app/root.tsx": `import { Links, Meta, Outlet, Scripts } from "@remix-run/react";\nexport default function App() {\n  return (<html lang="en"><head><Meta /><Links /></head><body><Outlet /><Scripts /></body></html>);\n}\n`,
+    "app/routes/_index.tsx": `export default function Index() {\n  return <main><h1>Remix AppForge app</h1></main>;\n}\n`,
+    "vite.config.ts": `import { vitePlugin as remix } from "@remix-run/dev";\nimport { defineConfig } from "vite";\nexport default defineConfig({ plugins: [remix()] });\n`,
+    "README.md": "# Remix App\n\n```bash\nnpm i && npm run dev\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
   "vanilla-node": () => ({
     "package.json": pkg("vanilla-app", {
       dependencies: {},
@@ -246,11 +347,33 @@ app.listen(3000, () => console.log("API on :3000"));
     "README.md": "# Vanilla App\n\n```bash\nnpm i && npm run dev\n```\n",
     ".gitignore": GITIGNORE,
   }),
-  "react-python": () => ({ ...viteReactShell("React + FastAPI"), "backend/main.py": `from fastapi import FastAPI\napp = FastAPI()\n@app.get("/health")\ndef health():\n    return {"ok": True}\n`, "backend/requirements.txt": "fastapi\nuvicorn\n" }),
-  "react-django": () => ({ ...viteReactShell("React + Django"), "backend/requirements.txt": "django\ndjangorestframework\n" }),
-  "react-supabase": () => viteReactShell("React Supabase App", { "@supabase/supabase-js": "^2.39.0" }),
-  "remix-node": () => viteReactShell("Remix App"),
-  "astro-node": () => viteReactShell("Astro App"),
+  "react-python": () => ({
+    ...viteReactShell("React + FastAPI"),
+    "backend/main.py": `from fastapi import FastAPI\napp = FastAPI()\n@app.get("/health")\ndef health():\n    return {"ok": True}\n`,
+    "backend/requirements.txt": "fastapi\nuvicorn\n",
+  }),
+  "react-django": () => ({
+    ...viteReactShell("React + Django"),
+    "backend/requirements.txt": "django\ndjangorestframework\n",
+  }),
+  "react-supabase": () =>
+    viteReactShell("React Supabase App", {
+      "@supabase/supabase-js": "^2.39.0",
+    }),
+  "astro-node": () => ({
+    "package.json": pkg("astro-app", {
+      scripts: {
+        dev: "astro dev",
+        build: "astro build",
+        preview: "astro preview",
+      },
+      dependencies: { astro: "^4.0.0" },
+    }),
+    "src/pages/index.astro": `---\nconst title = "Astro AppForge app";\n---\n<html><body><h1>{title}</h1></body></html>\n`,
+    "astro.config.mjs": `import { defineConfig } from "astro/config";\nexport default defineConfig({});\n`,
+    "README.md": "# Astro App\n\n```bash\nnpm i && npm run dev\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
   "phaser-html5": () => ({
     ...viteReactShell("Phaser Game", { phaser: "^3.70.0" }),
     "src/App.tsx": `import { useEffect, useRef } from "react";
@@ -305,10 +428,12 @@ export function App() {
 }
 `,
   }),
-  "babylon-js-3d": () => viteReactShell("Babylon Scene", { "@babylonjs/core": "^6.0.0" }),
+  "babylon-js-3d": () =>
+    viteReactShell("Babylon Scene", { "@babylonjs/core": "^6.0.0" }),
   "unity-webgl": () => ({
     "index.html": `<!doctype html><html><body><h1>Unity WebGL shell</h1><p>Drop Unity WebGL build into /Build</p></body></html>`,
-    "README.md": "# Unity WebGL\nExport from Unity and place files under Build/.\n",
+    "README.md":
+      "# Unity WebGL\nExport from Unity and place files under Build/.\n",
     ".gitignore": GITIGNORE,
   }),
   "godot-html5": () => ({
@@ -320,7 +445,8 @@ export function App() {
   "flutter-game": () => ({
     "pubspec.yaml": `name: appforge_game\ndescription: AppForge Flutter Flame game\nenvironment:\n  sdk: ">=3.0.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\n  flame: ^1.14.0\n`,
     "lib/main.dart": `import 'package:flutter/material.dart';\nvoid main() => runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('AppForge Flame game')))));\n`,
-    "README.md": "# Flutter Flame game\n\n```bash\nflutter pub get && flutter run\n```\n",
+    "README.md":
+      "# Flutter Flame game\n\n```bash\nflutter pub get && flutter run\n```\n",
     ".gitignore": `.dart_tool\nbuild\n.flutter-plugins\n`,
   }),
   "ai-agent-python": () => pythonAgentShell("AI Agent Python"),
@@ -345,15 +471,63 @@ app.whenReady().then(() => {
   win.loadURL(process.env.VITE_DEV_SERVER_URL || "http://localhost:5173");
 });
 `,
+    "package.json": pkg("electron-app", {
+      scripts: {
+        dev: "vite",
+        build: "vite build",
+        start: "electron .",
+        electron: "electron .",
+      },
+      dependencies: { react: "^18.2.0", "react-dom": "^18.2.0" },
+      devDependencies: {
+        electron: "^28.0.0",
+        "@vitejs/plugin-react": "^4.2.1",
+        vite: "^5.1.0",
+        typescript: "^5.3.3",
+      },
+      main: "electron/main.cjs",
+    }),
   }),
-  "tauri-rust": () => viteReactShell("Tauri App"),
+  "tauri-rust": () => ({
+    ...viteReactShell("Tauri App"),
+    "src-tauri/tauri.conf.json": JSON.stringify(
+      {
+        productName: "AppForge",
+        version: "0.1.0",
+        identifier: "com.appforge.app",
+        build: {
+          beforeDevCommand: "npm run dev",
+          beforeBuildCommand: "npm run build",
+          devUrl: "http://localhost:5173",
+          frontendDist: "../dist",
+        },
+      },
+      null,
+      2,
+    ),
+    "src-tauri/Cargo.toml": `[package]\nname = "appforge"\nversion = "0.1.0"\nedition = "2021"\n[dependencies]\ntauri = { version = "2", features = [] }\n`,
+  }),
   "react-native-expo": () => ({
     "package.json": pkg("expo-app", {
-      scripts: { start: "expo start", android: "expo start --android", ios: "expo start --ios" },
-      dependencies: { expo: "~51.0.0", react: "18.2.0", "react-native": "0.74.0" },
+      scripts: {
+        start: "expo start",
+        android: "expo start --android",
+        ios: "expo start --ios",
+      },
+      dependencies: {
+        expo: "~51.0.0",
+        react: "18.2.0",
+        "react-native": "0.74.0",
+      },
     }),
     "App.tsx": `import { Text, View } from "react-native";\nexport default function App() {\n  return <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}><Text>AppForge Expo</Text></View>;\n}\n`,
-    "app.json": JSON.stringify({ expo: { name: "AppForge", slug: "appforge", version: "1.0.0" } }, null, 2),
+    "app.json": JSON.stringify(
+      { expo: { name: "AppForge", slug: "appforge", version: "1.0.0" } },
+      null,
+      2,
+    ),
+    "babel.config.js": `module.exports = function (api) {\n  api.cache(true);\n  return { presets: ["babel-preset-expo"] };\n};\n`,
+    "metro.config.js": `const { getDefaultConfig } = require("expo/metro-config");\nmodule.exports = getDefaultConfig(__dirname);\n`,
     "README.md": "# Expo App\n\n```bash\nnpm i && npx expo start\n```\n",
     ".gitignore": GITIGNORE,
   }),
@@ -391,7 +565,9 @@ app.whenReady().then(() => {
         categories: ["Other"],
         activationEvents: ["onCommand:appforge.hello"],
         main: "./extension.js",
-        contributes: { commands: [{ command: "appforge.hello", title: "AppForge: Hello" }] },
+        contributes: {
+          commands: [{ command: "appforge.hello", title: "AppForge: Hello" }],
+        },
       },
       null,
       2,
@@ -410,20 +586,150 @@ module.exports = { activate, deactivate: () => {} };
     ".gitignore": GITIGNORE,
   }),
   "discord-bot": () => ({
-    ...expressApiShell("Discord Bot"),
-    "src/bot.ts": `import { Client, GatewayIntentBits } from "discord.js";
+    "package.json": pkg("discord-bot", {
+      scripts: {
+        dev: "tsx watch src/bot.ts",
+        build: "tsc -p tsconfig.json",
+        start: "node dist/bot.js",
+        test: "vitest run",
+      },
+      dependencies: {
+        "discord.js": "^14.14.1",
+        dotenv: "^16.4.0",
+      },
+      devDependencies: {
+        "@types/node": "^20.11.16",
+        tsx: "^4.7.0",
+        typescript: "^5.3.3",
+        vitest: "^1.2.2",
+      },
+    }),
+    "tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2020",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          outDir: "dist",
+          rootDir: "src",
+          strict: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+        },
+        include: ["src"],
+      },
+      null,
+      2,
+    ),
+    "src/bot.ts": `import "dotenv/config";
+import { Client, GatewayIntentBits, Events } from "discord.js";
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-client.once("ready", () => console.log("Discord bot ready"));
+client.once(Events.ClientReady, (c) => console.log("Discord bot ready as", c.user.tag));
 client.login(process.env.DISCORD_TOKEN);
 `,
+    "README.md":
+      "# Discord Bot\n\n```bash\nnpm i && DISCORD_TOKEN=... npm run dev\n```\n\nDeploy with Fly/Railway as a long-running worker.\n",
+    ".gitignore": GITIGNORE,
   }),
-  "telegram-bot": () => expressApiShell("Telegram Bot"),
-  "slack-bot": () => expressApiShell("Slack Bot"),
+  "telegram-bot": () => ({
+    "package.json": pkg("telegram-bot", {
+      scripts: {
+        dev: "tsx watch src/bot.ts",
+        build: "tsc -p tsconfig.json",
+        start: "node dist/bot.js",
+      },
+      dependencies: { telegraf: "^4.15.0", dotenv: "^16.4.0" },
+      devDependencies: {
+        "@types/node": "^20.11.16",
+        tsx: "^4.7.0",
+        typescript: "^5.3.3",
+      },
+    }),
+    "tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2020",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          outDir: "dist",
+          rootDir: "src",
+          strict: true,
+          skipLibCheck: true,
+        },
+        include: ["src"],
+      },
+      null,
+      2,
+    ),
+    "src/bot.ts": `import "dotenv/config";
+import { Telegraf } from "telegraf";
+
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || "");
+bot.start((ctx) => ctx.reply("AppForge Telegram bot online"));
+bot.launch();
+process.once("SIGINT", () => bot.stop("SIGINT"));
+`,
+    "README.md":
+      "# Telegram Bot\n\n```bash\nnpm i && TELEGRAM_BOT_TOKEN=... npm run dev\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
+  "slack-bot": () => ({
+    "package.json": pkg("slack-bot", {
+      scripts: {
+        dev: "tsx watch src/bot.ts",
+        build: "tsc -p tsconfig.json",
+        start: "node dist/bot.js",
+      },
+      dependencies: { "@slack/bolt": "^3.17.0", dotenv: "^16.4.0" },
+      devDependencies: {
+        "@types/node": "^20.11.16",
+        tsx: "^4.7.0",
+        typescript: "^5.3.3",
+      },
+    }),
+    "tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2020",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          outDir: "dist",
+          rootDir: "src",
+          strict: true,
+          skipLibCheck: true,
+        },
+        include: ["src"],
+      },
+      null,
+      2,
+    ),
+    "src/bot.ts": `import "dotenv/config";
+import { App } from "@slack/bolt";
+
+const app = new App({
+  token: process.env.SLACK_BOT_TOKEN,
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
+app.message("hello", async ({ say }) => { await say("AppForge Slack bot online"); });
+(async () => {
+  await app.start(process.env.PORT || 3000);
+  console.log("Slack bot running");
+})();
+`,
+    "README.md":
+      "# Slack Bot\n\n```bash\nnpm i && SLACK_BOT_TOKEN=... SLACK_SIGNING_SECRET=... npm run dev\n```\n",
+    ".gitignore": GITIGNORE,
+  }),
   "browser-automation": () => ({
     "package.json": pkg("browser-automation", {
       scripts: { start: "tsx src/run.ts", test: "vitest run" },
       dependencies: { playwright: "^1.41.0" },
-      devDependencies: { tsx: "^4.7.0", typescript: "^5.3.3", vitest: "^1.2.2" },
+      devDependencies: {
+        tsx: "^4.7.0",
+        typescript: "^5.3.3",
+        vitest: "^1.2.2",
+      },
     }),
     "src/run.ts": `import { chromium } from "playwright";
 const browser = await chromium.launch();
@@ -440,9 +746,16 @@ await browser.close();
   "api-service": () => expressApiShell("API Service"),
   "serverless-aws": () => ({
     "package.json": pkg("aws-lambda-api", {
-      scripts: { build: "esbuild src/handler.ts --bundle --platform=node --outfile=dist/handler.js" },
+      scripts: {
+        build:
+          "esbuild src/handler.ts --bundle --platform=node --outfile=dist/handler.js",
+      },
       dependencies: {},
-      devDependencies: { esbuild: "^0.20.0", typescript: "^5.3.3", "@types/aws-lambda": "^8.10.0" },
+      devDependencies: {
+        esbuild: "^0.20.0",
+        typescript: "^5.3.3",
+        "@types/aws-lambda": "^8.10.0",
+      },
     }),
     "src/handler.ts": `export const handler = async () => ({ statusCode: 200, body: JSON.stringify({ ok: true }) });\n`,
     "README.md": "# AWS Lambda\n",
@@ -483,7 +796,10 @@ export function mergeScaffoldWithGenerated(
           ...base,
           ...over,
           scripts: { ...(base.scripts || {}), ...(over.scripts || {}) },
-          dependencies: { ...(base.dependencies || {}), ...(over.dependencies || {}) },
+          dependencies: {
+            ...(base.dependencies || {}),
+            ...(over.dependencies || {}),
+          },
           devDependencies: {
             ...(base.devDependencies || {}),
             ...(over.devDependencies || {}),
