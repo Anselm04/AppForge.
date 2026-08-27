@@ -42,6 +42,19 @@ vi.mock("stripe", () => {
 
 vi.mock("../services/deployer.js", () => ({
   deployToVercel: vi.fn().mockResolvedValue("https://appforge-demo.vercel.app"),
+  zipFiles: vi.fn().mockResolvedValue({ base64: "UEsDBBQ=", filename: "test.zip" }),
+  deployProject: vi.fn().mockResolvedValue({
+    url: "https://appforge-demo.vercel.app",
+    destination: "vercel",
+  }),
+  listDeployDestinations: vi.fn().mockReturnValue({
+    vercel: { configured: true, label: "Vercel" },
+    netlify: { configured: false, label: "Netlify" },
+    fly: { configured: false, label: "Fly.io" },
+    "github-pages": { configured: false, label: "GitHub Pages / repo" },
+    zip: { configured: true, label: "ZIP download" },
+    preview: { configured: true, label: "AppForge live preview" },
+  }),
 }));
 
 // ── Auth Middleware (Unit) ──
