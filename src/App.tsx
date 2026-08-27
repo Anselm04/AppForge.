@@ -7,6 +7,8 @@ import { Pricing } from "./pages/Pricing.js";
 import { Admin } from "./pages/Admin.js";
 import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
+import { Login } from "./pages/Login.js";
+import { Signup } from "./pages/Signup.js";
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
       <TopNav />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/build/:projectId" element={<Build />} />
         <Route path="/pricing" element={<Pricing />} />
