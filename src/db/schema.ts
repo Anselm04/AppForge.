@@ -43,6 +43,7 @@ export const userCredits = pgTable("user_credits", {
   balance: integer("balance").default(0).notNull(),
   tier: varchar("tier", { length: 50 }).default("free"),
   monthlyAllowance: integer("monthly_allowance").default(0),
+  unlimited: boolean("unlimited").default(false),
   lastRefillAt: timestamp("last_refill_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -157,17 +158,24 @@ export const moderationFlags = pgTable("moderation_flags", {
 
 export const godCodes = pgTable("god_codes", {
   id: serial("id").primaryKey(),
-  codeHash: varchar("code_hash", { length: 255 }).unique().notNull(),
-  tier: varchar("tier", { length: 50 }).notNull(), // 'starter', 'builder', 'studio', 'enterprise', 'custom', 'admin'
+  hash: varchar("hash", { length: 64 }).unique(),
+  encryptedCode: text("encrypted_code"),
+  grantType: varchar("grant_type", { length: 50 }),
+  codeHash: varchar("code_hash", { length: 255 }).unique(),
+  tier: varchar("tier", { length: 50 }),
   credits: integer("credits").default(0),
   trialDays: integer("trial_days").default(0),
+  expiresAt: timestamp("expires_at"),
   isUsed: boolean("is_used").default(false),
   usedByUserId: integer("used_by_user_id").references(() => users.id, { onDelete: "set null" }),
   usedAt: timestamp("used_at"),
+  redeemedAt: timestamp("redeemed_at"),
+  redeemedByUserId: integer("redeemed_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("god_codes_hash_idx").on(table.codeHash),
+  index("god_codes_hash_col_idx").on(table.hash),
   index("god_codes_used_idx").on(table.isUsed),
 ]);
 
@@ -268,6 +276,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 
 export const godCodesRelations = relations(godCodes, ({ one }) => ({
   usedByUser: one(users, { fields: [godCodes.usedByUserId], references: [users.id] }),
+  redeemedByUser: one(users, { fields: [godCodes.redeemedByUserId], references: [users.id] }),
 }));
 
 export const smsVerificationsRelations = relations(smsVerifications, ({ one }) => ({
@@ -283,6 +292,13 @@ export const seniorDevTasksRelations = relations(seniorDevTasks, ({ one }) => ({
   project: one(projects, { fields: [seniorDevTasks.projectId], references: [projects.id] }),
   user: one(users, { fields: [seniorDevTasks.userId], references: [users.id] }),
 }));
+
+
+export const appSettings = pgTable("app_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const buildSnapshots = pgTable(
   "build_snapshots",
