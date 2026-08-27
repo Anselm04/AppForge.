@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
-import { useSession } from "../lib/auth.js";
+import { getAccessToken, useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
 export function Home() {
@@ -19,12 +20,10 @@ export function Home() {
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
   });
-  const isAuthed = !!user || !!session;
-
   const { data: tierStatus } = useQuery({
     queryKey: ["projects", "tierStatus"],
     queryFn: () => trpc.projects.tierStatus.query(),
-    enabled: !!user,
+    enabled: !!user || !!session,
   });
 
   const createProjectMutation = useMutation({
@@ -38,18 +37,28 @@ export function Home() {
       setIsBuilding(true);
       window.location.href = `/build/${data.id}`;
     },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = (err as { data?: { code?: string }; shape?: { data?: { code?: string } } })?.data?.code
+        ?? (err as { shape?: { data?: { code?: string } } })?.shape?.data?.code;
+      if (code === "UNAUTHORIZED" || /not authenticated/i.test(message)) {
+        navigate("/login?next=/");
+      }
+    },
   });
 
   const creditBalance = tierStatus?.credits ?? 0;
   const outOfCredits = !!user && tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
 
+  const overLimit = description.length > PROMPT_MAX_CHARS;
+
   const handleStartBuild = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAuthed) {
-      navigate("/signup?next=/");
+    if (!getAccessToken()) {
+      navigate("/login?next=/");
       return;
     }
-    if (outOfCredits) return;
+    if (outOfCredits || overLimit) return;
     if (description.trim()) {
       createProjectMutation.mutate();
     }
@@ -103,12 +112,18 @@ export function Home() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                maxLength={PROMPT_MAX_CHARS}
                 placeholder={t("home.promptPlaceholder")}
                 className="w-full h-32 px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 resize-none"
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              <p className={`text-xs mt-2 ${overLimit ? "text-amber-700 dark:text-amber-300 font-semibold" : "text-slate-500 dark:text-slate-400"}`}>
                 {t("home.charCount", { count: description.length })}
               </p>
+              {overLimit && (
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  {t("home.overLimit")}
+                </p>
+              )}
             </div>
 
             <div>
@@ -185,7 +200,7 @@ export function Home() {
             )}
             <button
               type="submit"
-              disabled={!description.trim() || createProjectMutation.isPending || outOfCredits}
+              disabled={!description.trim() || createProjectMutation.isPending || outOfCredits || overLimit}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               {outOfCredits
@@ -197,10 +212,13 @@ export function Home() {
           </form>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-          <FeatureCard icon="⚡" title={t("home.fastTitle")} description={t("home.fastDesc")} />
-          <FeatureCard icon="🤖" title={t("home.aiTitle")} description={t("home.aiDesc")} />
-          <FeatureCard icon="🚀" title={t("home.prodTitle")} description={t("home.prodDesc")} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-16">
+          <FeatureCard icon="📱" title={t("home.catApps")} description={t("home.catAppsDesc")} />
+          <FeatureCard icon="🎮" title={t("home.catGames")} description={t("home.catGamesDesc")} />
+          <FeatureCard icon="🤖" title={t("home.catAgents")} description={t("home.catAgentsDesc")} />
+          <FeatureCard icon="🛠️" title={t("home.catTools")} description={t("home.catToolsDesc")} />
+          <FeatureCard icon="💻" title={t("home.catSoftware")} description={t("home.catSoftwareDesc")} />
+          <FeatureCard icon="🌐" title={t("home.catWebsites")} description={t("home.catWebsitesDesc")} />
         </div>
       </div>
     </div>
