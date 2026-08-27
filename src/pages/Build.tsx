@@ -18,7 +18,8 @@ interface BuildLog {
   };
 }
 
-type DeployDestination = "vercel" | "netlify" | "fly" | "preview";
+type DeployDestination =
+  "vercel" | "netlify" | "fly" | "preview" | "github-pages";
 
 export function Build() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -71,14 +72,28 @@ export function Build() {
     eventSource.addEventListener("pause", (event: MessageEvent) => {
       const data = JSON.parse(event.data) as BuildLog;
       setIsPaused(true);
-      setLogs((prev) => [...prev, { agent: "System", type: "pause", payload: data.payload }]);
+      setLogs((prev) => [
+        ...prev,
+        { agent: "System", type: "pause", payload: data.payload },
+      ]);
       setCreditsSpent(data.payload?.spent || 0);
     });
 
     eventSource.addEventListener("done", (event: MessageEvent) => {
-      const data = JSON.parse(event.data) as BuildLog;
+      const data = JSON.parse(event.data) as {
+        payload?: {
+          creditsSpent?: number;
+          validationPassed?: boolean;
+          manualReviewRequired?: boolean;
+        };
+        creditsSpent?: number;
+        validationPassed?: boolean;
+        manualReviewRequired?: boolean;
+        fileCount?: number;
+      };
       setIsComplete(true);
-      if (data.payload?.creditsSpent) setCreditsSpent(data.payload.creditsSpent);
+      const spent = data.payload?.creditsSpent ?? data.creditsSpent;
+      if (spent) setCreditsSpent(spent);
       eventSource.close();
     });
 
@@ -191,32 +206,25 @@ export function Build() {
         {project && (
           <p className="text-slate-400 mb-8">{project.title} — {project.techStack}</p>
         )}
-
         <div className="space-y-4 mb-8">
           {logs.map((log, idx) => (
             <AgentLogItem key={idx} log={log} />
           ))}
         </div>
-
         {creditsSpent > 0 && (
-          <div className="mb-4 text-slate-400 text-sm">
-            Credits spent on this build: {creditsSpent}
-          </div>
+          <div className="mb-4 text-slate-400 text-sm">Credits spent on this build: {creditsSpent}</div>
         )}
-
         {(isPaused || outOfCredits) && (
           <div className="mt-8">
             <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="run this build" />
           </div>
         )}
-
         {error && (
           <div className="mt-8 bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-300">
             <p className="font-semibold">Error:</p>
             <p>{error}</p>
           </div>
         )}
-
         {isComplete && !error && !isPaused && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
             <p className="font-semibold text-lg">App generation complete!</p>
@@ -224,56 +232,21 @@ export function Build() {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-green-200/80">
                 Destination{" "}
-                <select
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value as DeployDestination)}
-                  className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
-                >
-                  <option value="preview" disabled={destinationDisabled("preview")}>
-                    Preview{deployOptions?.preview ? ` (${deployOptions.preview.label})` : ""}
-                  </option>
-                  <option value="vercel" disabled={destinationDisabled("vercel")}>
-                    Vercel{deployOptions?.vercel && !deployOptions.vercel.configured ? " — not configured" : ""}
-                  </option>
-                  <option value="netlify" disabled={destinationDisabled("netlify")}>
-                    Netlify{deployOptions?.netlify && !deployOptions.netlify.configured ? " — not configured" : ""}
-                  </option>
-                  <option value="fly" disabled={destinationDisabled("fly")}>
-                    Fly.io{deployOptions?.fly && !deployOptions.fly.configured ? " — not configured" : ""}
-                  </option>
+                <select value={destination} onChange={(e) => setDestination(e.target.value as DeployDestination)} className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1">
+                  <option value="preview" disabled={destinationDisabled("preview")}>Preview{deployOptions?.preview ? ` (${deployOptions.preview.label})` : ""}</option>
+                  <option value="vercel" disabled={destinationDisabled("vercel")}>Vercel{deployOptions?.vercel && !deployOptions.vercel.configured ? " — not configured" : ""}</option>
+                  <option value="netlify" disabled={destinationDisabled("netlify")}>Netlify{deployOptions?.netlify && !deployOptions.netlify.configured ? " — not configured" : ""}</option>
+                  <option value="fly" disabled={destinationDisabled("fly")}>Fly.io{deployOptions?.fly && !deployOptions.fly.configured ? " — not configured" : ""}</option>
+                  <option value="github-pages" disabled={destinationDisabled("github-pages")}>GitHub Pages{deployOptions?.["github-pages"] && !deployOptions["github-pages"].configured ? " — not configured" : ""}</option>
                 </select>
               </label>
               {deployUrl ? (
-                <a
-                  href={deployUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
-                >
-                  View Live App
-                </a>
+                <a href={deployUrl} target="_blank" rel="noopener noreferrer" className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block">View Live App</a>
               ) : (
-                <button
-                  onClick={handleDeploy}
-                  disabled={deploying || destinationDisabled(destination)}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
-                >
-                  {deploying ? "Deploying..." : "Deploy"}
-                </button>
+                <button onClick={handleDeploy} disabled={deploying || destinationDisabled(destination)} className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg">{deploying ? "Deploying..." : "Deploy"}</button>
               )}
-              <button
-                onClick={handleDownloadZip}
-                disabled={downloading}
-                className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
-              >
-                {downloading ? "Preparing ZIP..." : "Download ZIP"}
-              </button>
-              <button
-                onClick={handleGitHubExport}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-              >
-                Export to GitHub
-              </button>
+              <button onClick={handleDownloadZip} disabled={downloading} className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg">{downloading ? "Preparing ZIP..." : "Download ZIP"}</button>
+              <button onClick={handleGitHubExport} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">Export to GitHub</button>
             </div>
           </div>
         )}
@@ -284,17 +257,12 @@ export function Build() {
 
 function AgentLogItem({ log }: { log: BuildLog }) {
   const [expanded, setExpanded] = useState(false);
-
   const isSystem = log.agent === "System";
   const isError = log.type === "error";
   const isPause = log.type === "pause";
-
   return (
     <div className={`rounded-lg p-4 border ${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
-      >
+      <button onClick={() => setExpanded(!expanded)} className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded">
         <div>
           <p className="font-semibold text-white">{isSystem ? "System" : log.agent}</p>
           <p className="text-sm text-slate-300">{log.payload?.message || log.payload?.type}</p>
@@ -302,9 +270,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
         <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
       </button>
       {expanded && log.payload?.text && (
-        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">
-          {log.payload.text}
-        </div>
+        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">{log.payload.text}</div>
       )}
     </div>
   );
