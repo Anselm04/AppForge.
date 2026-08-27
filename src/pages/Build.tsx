@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
+import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
 interface BuildLog {
   agent: string;
@@ -38,8 +40,21 @@ export function Build() {
     enabled: !!projectId,
   });
 
+  const { data: tierStatus } = useQuery({
+    queryKey: ["projects", "tierStatus"],
+    queryFn: () => trpc.projects.tierStatus.query(),
+  });
+
+  const creditBalance = tierStatus?.credits ?? 0;
+  const outOfCredits = tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
+
   useEffect(() => {
     if (!projectId) return;
+    if (tierStatus === undefined) return;
+    if (creditBalance < BUILD_CREDIT_COST) {
+      setIsPaused(true);
+      return;
+    }
 
     const eventSource = new EventSource(`/api/build/${projectId}`);
 
@@ -62,18 +77,34 @@ export function Build() {
       eventSource.close();
     });
 
-    eventSource.addEventListener("error", (event: MessageEvent) => {
+    eventSource.addEventListener("error", async (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data) as BuildLog;
-        setError(data.payload?.message ?? "Build stream error");
+        const data = JSON.parse(event.data) as any;
+        const msg = data?.payload?.message ?? data?.message ?? "";
+        if (
+          data?.error === "credits_exhausted" ||
+          data?.code === "credits_exhausted" ||
+          data?.reason === "credits_exhausted" ||
+          /credit/i.test(msg)
+        ) {
+          setIsPaused(true);
+        } else {
+          setError(msg || "Build stream error");
+        }
       } catch {
-        setError("Build stream error");
+        try {
+          const status = await trpc.projects.tierStatus.query();
+          if ((status.credits ?? 0) < BUILD_CREDIT_COST) setIsPaused(true);
+          else setError("Build stream error");
+        } catch {
+          setError("Build stream error");
+        }
       }
       eventSource.close();
     });
 
     return () => eventSource.close();
-  }, [projectId]);
+  }, [projectId, tierStatus, creditBalance]);
 
   const handleDeploy = async () => {
     if (!projectId) return;
@@ -125,18 +156,9 @@ export function Build() {
         )}
 
         {/* Pause / Credit exhausted */}
-        {isPaused && (
-          <div className="mt-8 bg-amber-900/30 border border-amber-800 rounded-lg p-4 text-amber-300">
-            <p className="font-semibold text-lg">⏸️ Build Paused</p>
-            <p className="mt-2">Your credits ran out. Purchase more credits to resume the build.</p>
-            <div className="mt-4">
-              <button
-                onClick={() => window.location.href = "/pricing"}
-                className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-lg"
-              >
-                Buy Credits
-              </button>
-            </div>
+        {(isPaused || outOfCredits) && (
+          <div className="mt-8">
+            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="run this build" />
           </div>
         )}
 

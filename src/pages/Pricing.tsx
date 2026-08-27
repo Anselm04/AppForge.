@@ -27,6 +27,15 @@ export function Pricing() {
     },
   });
 
+  const buyCredits = useMutation({
+    mutationFn: (credits: number) => trpc.subscriptions.buyCredits.mutate({ credits }),
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+  });
+
   const currentTier = subStatus?.tier ?? "free";
 
   const tiers = [
@@ -202,6 +211,31 @@ export function Pricing() {
               </button>
             </div>
           ))}
+        </div>
+
+        <div id="credits" className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+            Out of credits? Buy extra
+          </h3>
+          <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
+            Extra credits are $1 each. They add to your balance immediately after payment and unpause paused builds.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[50, 100, 250].map((pack) => (
+              <button
+                key={pack}
+                onClick={() => buyCredits.mutate(pack)}
+                disabled={buyCredits.isPending}
+                className="border border-slate-200 dark:border-slate-600 rounded-lg p-4 hover:border-blue-500 transition-colors disabled:opacity-50"
+              >
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{pack}</div>
+                <div className="text-sm text-slate-500 mb-3">credits · ${pack}</div>
+                <span className="text-blue-600 font-semibold text-sm">
+                  {buyCredits.isPending ? "Loading..." : "Buy"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Credit usage explainer */}
