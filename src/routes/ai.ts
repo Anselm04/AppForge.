@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { AIService } from '../services/ai-service.js';
 import { AppBuilder } from '../services/app-builder.js';
+import { ensureUserCredits, deductCredits } from '../db.js';
+import { AI_GENERATE_CREDIT_COST, creditsExhaustedBody } from '../lib/credits.js';
 
 const router = Router();
 const aiService = new AIService();
@@ -35,6 +37,22 @@ const exportSchema = z.object({
   appId: z.string().min(1).max(100),
   repoName: z.string().min(1).max(100).regex(/^[a-zA-Z0-9_.-]+$/),
 });
+
+
+async function requireCredits(req: Request, res: Response, cost: number, action: string) {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ success: false, error: 'Not authenticated' });
+    return null;
+  }
+  const credits = await ensureUserCredits(user.id);
+  if (credits.balance < cost) {
+    res.status(402).json({ success: false, ...creditsExhaustedBody(credits.balance, cost, action) });
+    return null;
+  }
+  await deductCredits(user.id, cost, undefined, action);
+  return user;
+}
 
 function validateInput(schema: z.ZodSchema, body: any) {
   const result = schema.safeParse(body);
@@ -86,6 +104,8 @@ router.post('/generate', async (req: Request, res: Response) => {
     if (!validation.valid) {
       return res.status(400).json({ success: false, error: 'Invalid input', details: validation.errors });
     }
+    const user = await requireCredits(req, res, AI_GENERATE_CREDIT_COST, 'generate an app');
+    if (!user) return;
     const { requirements } = validation.data;
     const app = await appBuilder.build(requirements);
     res.json({ success: true, data: app });
@@ -102,6 +122,8 @@ router.post('/iterate', async (req: Request, res: Response) => {
     if (!validation.valid) {
       return res.status(400).json({ success: false, error: 'Invalid input', details: validation.errors });
     }
+    const user = await requireCredits(req, res, AI_GENERATE_CREDIT_COST, 'iterate on an app');
+    if (!user) return;
     const { appId, changes } = validation.data;
     const app = await appBuilder.iterate(appId, changes);
     res.json({ success: true, data: app });

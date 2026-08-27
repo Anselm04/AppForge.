@@ -27,6 +27,30 @@ export function useAIBuilder() {
   const [requirements, setRequirements] = useState<any>(null);
 
   const sendMessage = useCallback(async (content: string) => {
+    try {
+      const status = await fetch("/api/trpc/projects.tierStatus", { credentials: "include" });
+      if (status.ok) {
+        const payload = await status.json();
+        const credits = payload?.result?.data?.json?.credits ?? payload?.result?.data?.credits;
+        if (typeof credits === "number" && credits < 5) {
+          const blocked: Message = {
+            id: `msg_${Date.now()}`,
+            role: "assistant",
+            content: "Out of credits — work is paused. Subscribe or buy extra credits to continue.",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [
+            ...prev,
+            { id: `msg_${Date.now()}`, role: "user", content, timestamp: new Date() },
+            blocked,
+          ]);
+          return;
+        }
+      }
+    } catch {
+      /* still attempt the build if status check fails */
+    }
+
     // Add user message
     const userMessage: Message = {
       id: `msg_${Date.now()}`,
@@ -76,7 +100,7 @@ export function useAIBuilder() {
         const completeMessage: Message = {
           id: `msg_${Date.now() + 2}`,
           role: 'assistant',
-          content: `🎉 Your app **${extracted.appName}** is ready!\n\nI've built:\n- ✅ Frontend with React + TypeScript + Tailwind\n- ✅ Backend with Express + tRPC\n- ✅ Database with PostgreSQL + Drizzle ORM\n- ✅ Authentication with JWT\n- ✅ Rate limiting and security headers\n- ✅ Monitoring with Prometheus + Grafana\n- ✅ CI/CD pipeline with GitHub Actions\n- ✅ Automated backups\n- ✅ Complete documentation\n\nYou can preview it on the right, or deploy it with one click!`,
+          content: `\uD83C\uDF89 Your app **${extracted.appName}** is ready!\n\nI've built:\n- \u2705 Frontend with React + TypeScript + Tailwind\n- \u2705 Backend with Express + tRPC\n- \u2705 Database with PostgreSQL + Drizzle ORM\n- \u2705 Authentication with JWT\n- \u2705 Rate limiting and security headers\n- \u2705 Monitoring with Prometheus + Grafana\n- \u2705 CI/CD pipeline with GitHub Actions\n- \u2705 Automated backups\n- \u2705 Complete documentation\n\nYou can preview it on the right, or deploy it with one click!`,
           timestamp: new Date(),
           type: 'complete',
         };
