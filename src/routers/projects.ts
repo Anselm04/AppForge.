@@ -11,7 +11,9 @@ import {
   getUserTier,
   getTierBuildLimit,
   updateProjectStatus,
+  ensureUserCredits,
 } from "../db.js";
+import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -142,6 +144,14 @@ export const projectsRouter = router({
         }
       }
 
+      const credits = await ensureUserCredits(ctx.user.id);
+      if (credits.balance < BUILD_CREDIT_COST) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}). Subscribe or buy extra credits to start a build.`,
+        });
+      }
+
       const id = await createProject({
         userId: ctx.user.id,
         title: input.title,
@@ -225,6 +235,14 @@ export const projectsRouter = router({
       const project = await getProjectById(input.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const seniorCredits = await ensureUserCredits(ctx.user.id);
+      if (seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `credits_exhausted: Out of credits (${seniorCredits.balance}/${SENIOR_DEV_CREDIT_COST}). Subscribe or buy extra credits to use the Senior Dev Agent.`,
+        });
+      }
 
       const taskId = await createSeniorDevTask({
         projectId: input.projectId,
