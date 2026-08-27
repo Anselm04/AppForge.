@@ -1,8 +1,8 @@
 import Stripe from "stripe";
 import type { Request, Response } from "express";
-import { db } from "../db.js";
+import { db, grantPlanCredits, addCredits } from "../db.js";
 import { subscriptions, users } from "../db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -18,6 +18,86 @@ if (process.env.NODE_ENV === "production" && (!secretKey || !webhookSecret)) {
 const stripe = new Stripe(secretKey, {
   apiVersion: "2024-06-20" as any,
 });
+
+const PAID_TIERS = new Set(["starter", "builder", "studio", "enterprise", "custom"]);
+
+function priceIdsForTier(tier: "starter" | "builder" | "studio"): string[] {
+  const envKeys: Record<typeof tier, string[]> = {
+    starter: ["STRIPE_STARTER_PRICE_ID", "STRIPE_PRICE_STARTER"],
+    builder: ["STRIPE_BUILDER_PRICE_ID", "STRIPE_PRICE_BUILDER"],
+    studio: ["STRIPE_STUDIO_PRICE_ID", "STRIPE_PRICE_STUDIO"],
+  };
+  return envKeys[tier].map((k) => process.env[k] || "").filter(Boolean);
+}
+
+function tierFromPriceId(priceId?: string | null): string | null {
+  if (!priceId) return null;
+  for (const tier of ["starter", "builder", "studio"] as const) {
+    if (priceIdsForTier(tier).includes(priceId)) return tier;
+  }
+  return null;
+}
+
+function resolveTier(
+  meta?: Stripe.Metadata | null,
+  priceId?: string | null
+): string {
+  const fromMeta = (meta?.tier || meta?.plan || "").toLowerCase();
+  if (fromMeta && PAID_TIERS.has(fromMeta)) return fromMeta;
+  return tierFromPriceId(priceId) ?? "starter";
+}
+
+function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
+  return subscription.items?.data?.[0]?.price?.id ?? null;
+}
+
+async function upsertSubscription(opts: {
+  userId: number;
+  customerId: string;
+  subscription: Stripe.Subscription;
+  tier: string;
+}) {
+  const { userId, customerId, subscription, tier } = opts;
+  const trialEnd =
+    subscription.status === "trialing" && subscription.trial_end
+      ? new Date(subscription.trial_end * 1000)
+      : null;
+  const periodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000)
+    : null;
+
+  await db
+    .insert(subscriptions)
+    .values({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status: subscription.status,
+      tier,
+      trialEnd,
+      currentPeriodEnd: periodEnd,
+    })
+    .onConflictDoUpdate({
+      target: [subscriptions.userId],
+      set: {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status,
+        tier,
+        trialEnd,
+        currentPeriodEnd: periodEnd,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+async function resolveUserIdFromCustomer(customerId: string | null): Promise<string | undefined> {
+  if (!customerId) return undefined;
+  const existing = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.stripeCustomerId, customerId),
+  });
+  return existing ? String(existing.userId) : undefined;
+}
 
 export async function stripeWebhookHandler(req: Request, res: Response): Promise<void> {
   const signature = req.headers["stripe-signature"] as string | undefined;
@@ -50,54 +130,38 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
     case "customer.subscription.created":
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      let userId = subscription.metadata?.userId;
-      const tier = subscription.metadata?.tier;
+      let userId: string | undefined = subscription.metadata?.userId;
+      const priceId = subscriptionPriceId(subscription);
+      const tier = resolveTier(subscription.metadata, priceId);
 
-      // Fallback: look up user by customer ID if metadata missing (Payment Links)
       if (!userId && subscription.customer) {
-        const existing = await db.query.subscriptions.findFirst({
-          where: eq(subscriptions.stripeCustomerId, subscription.customer as string),
-        });
-        if (existing) userId = String(existing.userId);
+        userId = await resolveUserIdFromCustomer(subscription.customer as string);
       }
 
       if (userId) {
-        const trialEnd = subscription.status === "trialing" && subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null;
-
-        await db
-          .insert(subscriptions)
-          .values({
-            userId: parseInt(userId, 10),
-            stripeCustomerId: subscription.customer as string,
-            stripeSubscriptionId: subscription.id,
-            status: subscription.status,
-            tier: tier ?? "starter",
-            trialEnd,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-          })
-          .onConflictDoUpdate({
-            target: [subscriptions.userId],
-            set: {
-              status: subscription.status,
-              tier: tier ?? "starter",
-              trialEnd,
-              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            },
-          });
+        await upsertSubscription({
+          userId: parseInt(userId, 10),
+          customerId: subscription.customer as string,
+          subscription,
+          tier,
+        });
+        // Credits are granted on checkout.session.completed and invoice.paid,
+        // not on every subscription.updated (Stripe sends those often).
       }
       break;
     }
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.userId;
+      let userId: string | undefined = subscription.metadata?.userId;
+      if (!userId && subscription.customer) {
+        userId = await resolveUserIdFromCustomer(subscription.customer as string);
+      }
 
       if (userId) {
         await db
           .update(subscriptions)
-          .set({ status: "canceled", tier: "free" })
+          .set({ status: "canceled", tier: "free", updatedAt: new Date() })
           .where(eq(subscriptions.userId, parseInt(userId, 10)));
       }
       break;
@@ -107,49 +171,44 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.metadata?.userId ?? session.client_reference_id;
       const mode = session.mode;
-      const tier = session.metadata?.tier ?? "starter";
 
       if (userId && mode === "subscription" && session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-        const trialEnd = subscription.status === "trialing" && subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null;
+        const priceId = subscriptionPriceId(subscription);
+        const tier = resolveTier(
+          { ...(subscription.metadata || {}), ...(session.metadata || {}) },
+          priceId
+        );
 
-        await db
-          .insert(subscriptions)
-          .values({
-            userId: parseInt(userId, 10),
-            stripeCustomerId: session.customer as string,
-            stripeSubscriptionId: subscription.id,
-            status: subscription.status,
-            tier: tier ?? "starter",
-            trialEnd,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-          })
-          .onConflictDoUpdate({
-            target: [subscriptions.userId],
-            set: {
-              status: subscription.status,
-              tier: tier ?? "starter",
-              trialEnd,
-              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            },
-          });
+        await upsertSubscription({
+          userId: parseInt(userId, 10),
+          customerId: (session.customer || subscription.customer) as string,
+          subscription,
+          tier,
+        });
+
+        const result = await grantPlanCredits(
+          parseInt(userId, 10),
+          tier,
+          `checkout-${session.id}`
+        );
+        if (!result.skipped) {
+          console.log(`Granted ${result.granted} ${tier} credits to user ${userId} from checkout`);
+        }
       }
 
-      if (userId && mode === "payment" && session.payment_intent) {
-        // One-time credit purchase
+      if (userId && mode === "payment") {
         const credits = parseInt(session.metadata?.credits || "0", 10);
         if (credits > 0) {
-          const { addCredits } = await import("../db.js");
+          const paymentRef = (session.payment_intent as string) || `checkout-${session.id}`;
           await addCredits(
             parseInt(userId, 10),
             credits,
             "purchase",
             `Stripe checkout credit purchase (${credits} credits)`,
-            session.payment_intent as string
+            paymentRef
           );
-          console.log(`✅ Added ${credits} credits to user ${userId}`);
+          console.log(`Added ${credits} extra credits to user ${userId}`);
         }
       }
       break;
@@ -159,11 +218,46 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.subscription as string | undefined;
       if (subscriptionId) {
+        const existing = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.stripeSubscriptionId, subscriptionId),
+        });
+
         await db
           .update(subscriptions)
           .set({ status: "active", updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-        console.log(`✅ Invoice paid for subscription ${subscriptionId}, status set to active`);
+
+        let userId = existing?.userId;
+        let tier = existing?.tier ?? "starter";
+
+        if (!userId) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const priceId = subscriptionPriceId(subscription);
+            tier = resolveTier(subscription.metadata, priceId);
+            const fromCustomer = await resolveUserIdFromCustomer(subscription.customer as string);
+            const fromMeta = subscription.metadata?.userId;
+            const resolved = fromMeta || fromCustomer;
+            if (resolved) {
+              userId = parseInt(resolved, 10);
+              await upsertSubscription({
+                userId,
+                customerId: subscription.customer as string,
+                subscription,
+                tier,
+              });
+            }
+          } catch (lookupErr) {
+            console.error("invoice.paid subscription lookup failed:", lookupErr);
+          }
+        }
+
+        if (userId) {
+          const result = await grantPlanCredits(userId, tier ?? "starter", invoice.id);
+          if (!result.skipped) {
+            console.log(`Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`);
+          }
+        }
       }
       break;
     }
@@ -176,8 +270,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
           .update(subscriptions)
           .set({ status: "past_due", updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-        console.warn(`⚠️ Invoice payment failed for subscription ${subscriptionId}, status set to past_due`);
-        // Send email notification about payment failure
+        console.warn(`Invoice payment failed for subscription ${subscriptionId}, status set to past_due`);
         try {
           const { notifyPaymentFailed } = await import("../services/email.js");
           const userEmail = await db.select({ email: users.email })
