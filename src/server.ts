@@ -20,11 +20,13 @@ import { buildRouter } from "./routes/build.js";
 import { checkoutRouter } from "./routes/checkout.js";
 import { appsCompatRouter, billingCompatRouter } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
+import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { closeDbConnection } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
 import { AppError } from "./utils/errorReporting.js";
+import { validateEnv } from "./utils/env-validator.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -167,6 +169,7 @@ app.use("/api/build", buildRouter);
 app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
+app.use("/api/github", githubOAuthRouter);
 app.use("/live", livePreviewRouter);
 
 // ── tRPC routes ──
@@ -242,6 +245,23 @@ process.on("uncaughtException", (err) => {
 let server: ReturnType<typeof app.listen>;
 
 async function start() {
+  const envResult = validateEnv(process.env as any);
+  if (envResult.errors.length > 0) {
+    console.error("Environment validation errors:");
+    envResult.errors.forEach((e) => console.error(`  - ${e}`));
+  }
+  if (envResult.warnings.length > 0) {
+    console.warn("Environment validation warnings:");
+    envResult.warnings.forEach((w) => console.warn(`  - ${w}`));
+  }
+  if (
+    process.env.ENFORCE_ENV_VALIDATION === "true" &&
+    ENV.isProduction &&
+    !envResult.valid
+  ) {
+    throw new Error("Environment validation failed (ENFORCE_ENV_VALIDATION=true)");
+  }
+
   try {
     await ensureAppSchema();
   } catch (err) {
