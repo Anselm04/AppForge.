@@ -75,9 +75,15 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min max
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
+    }
+  }, 15000);
 
   req.on("close", () => {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     controller.abort();
   });
 
@@ -110,20 +116,18 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   const checkCredits = async () => {
     const current = await getUserCredits(user.id);
     if (current && current.balance < 1) {
-      // Out of credits — pause the project
       await pauseProject(projectId, "credits_exhausted");
       write("pause", {
         reason: "credits_exhausted",
         message: "Build paused: your credits ran out. Purchase more to resume.",
         spent: totalSpent,
       });
-      return false; // signal to stop
+      return false;
     }
     return true;
   };
 
   try {
-    // Check initial credits
     const ok = await checkCredits();
     if (!ok) {
       res.end();
@@ -139,7 +143,6 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       checkCredits
     );
 
-    // Update final credit spend
     if (totalSpent > 0) {
       const { updateProjectCreditsSpent } = await import("../db.js");
       await updateProjectCreditsSpent(projectId, totalSpent);
@@ -152,6 +155,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     write("error", { message: msg });
   } finally {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     if (!res.writableEnded) res.end();
   }
 });
@@ -190,7 +194,6 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
 
   await deductCredits(user.id, SENIOR_DEV_BASE_COST, task.projectId, "Senior Dev Agent reservation");
 
-  // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -198,9 +201,15 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
+    }
+  }, 15000);
 
   req.on("close", () => {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     controller.abort();
   });
 
@@ -239,18 +248,16 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       onProgress
     );
 
-    // Save updated files back to project
     if (Object.keys(result.files).length > 0) {
       await updateProjectFiles(task.projectId, result.files);
     }
 
-    // Update task record
     await updateSeniorDevTask(task.id, {
       status: "completed",
       changes: result.changes,
       validationResult: result.validations,
       summary: result.summary,
-      creditsSpent: result.changes.length * 3 + 2 + 2, // rough actual spend
+      creditsSpent: result.changes.length * 3 + 2 + 2,
     });
 
     write("done", {
@@ -266,6 +273,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     await updateSeniorDevTaskStatus(task.id, "failed");
   } finally {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     if (!res.writableEnded) res.end();
   }
 });
@@ -301,7 +309,6 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     return;
   }
 
-  // Start SSE response
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -309,9 +316,15 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
+    }
+  }, 15000);
 
   req.on("close", () => {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     controller.abort();
   });
 
@@ -375,6 +388,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     await updateSeniorDevTaskStatus(task.id, "failed");
   } finally {
     clearTimeout(timeout);
+    clearInterval(heartbeat);
     if (!res.writableEnded) res.end();
   }
 });
@@ -412,7 +426,6 @@ router.post("/deploy", async (req: Request, res: Response) => {
     const files = current.files as Record<string, string>;
     const deployUrl = await deployToVercel(project.title || "appforge-app", files);
 
-    // Start self-healing watcher for this deployment
     watchProject(projectId, req.user.id, deployUrl);
 
     res.json({ success: true, deployUrl });
