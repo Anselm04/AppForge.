@@ -5,9 +5,9 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { ENV } from "../_core/env.js";
 
 const TIER_PRICE_IDS: Record<string, string> = {
-  starter: process.env.STRIPE_STARTER_PRICE_ID || "",
-  builder: process.env.STRIPE_BUILDER_PRICE_ID || "",
-  studio: process.env.STRIPE_STUDIO_PRICE_ID || "",
+  starter: process.env.STRIPE_STARTER_PRICE_ID || process.env.STRIPE_PRICE_STARTER || "",
+  builder: process.env.STRIPE_BUILDER_PRICE_ID || process.env.STRIPE_PRICE_BUILDER || "",
+  studio: process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
   enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID || "",
   custom: process.env.STRIPE_CUSTOM_PRICE_ID || "",
 };
@@ -104,6 +104,40 @@ export const subscriptionsRouter = router({
       };
 
       const session = await stripe.checkout.sessions.create(sessionPayload);
+      return { url: session.url };
+    }),
+
+  buyCredits: protectedProcedure
+    .input(z.object({
+      credits: z.number().int().positive().max(10000),
+      successUrl: z.string().url().optional(),
+      cancelUrl: z.string().url().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const stripe = await getStripe();
+      const appUrl = "https://appforge-unfurling-moon-9058.fly.dev";
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: 100,
+            product_data: { name: `${input.credits} Build Credits` },
+          },
+          quantity: input.credits,
+        }],
+        success_url: input.successUrl ?? `${appUrl}/dashboard`,
+        cancel_url: input.cancelUrl ?? `${appUrl}/pricing`,
+        client_reference_id: String(ctx.user.id),
+        metadata: {
+          userId: String(ctx.user.id),
+          credits: String(input.credits),
+          plan: "",
+          tier: "",
+        },
+        customer_email: ctx.user.email ?? undefined,
+      });
       return { url: session.url };
     }),
 
