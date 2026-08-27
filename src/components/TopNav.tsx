@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
+import { signOut, useSession } from "../lib/auth.js";
 
 export function TopNav() {
   const navigate = useNavigate();
@@ -18,8 +19,13 @@ export function TopNav() {
     enabled: !!user,
   });
 
+  const session = useSession();
+
   const logout = useMutation({
-    mutationFn: () => trpc.auth.logout.mutate(),
+    mutationFn: async () => {
+      signOut();
+      await trpc.auth.logout.mutate();
+    },
     onSuccess: () => {
       navigate("/");
     },
@@ -36,7 +42,9 @@ export function TopNav() {
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  const isOwner = user?.email === "anselm.perkins@gmail.com";
+  const email = user?.email || session?.user.email;
+  const isLoggedIn = !!user || !!session;
+  const isOwner = email === "anselm.perkins@gmail.com";
 
   return (
     <nav className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
@@ -49,7 +57,6 @@ export function TopNav() {
         </button>
 
         <div className="flex items-center gap-4">
-          {/* Dark Mode Toggle */}
           <button
             onClick={() => setIsDark(!isDark)}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
@@ -57,7 +64,7 @@ export function TopNav() {
             {isDark ? "Light" : "Dark"}
           </button>
 
-          {user ? (
+          {isLoggedIn ? (
             <>
               {isOwner && (
                 <button
