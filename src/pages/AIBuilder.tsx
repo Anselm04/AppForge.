@@ -4,6 +4,10 @@ import { ChatInterface } from "../components/ChatInterface.js";
 import { AppPreview } from "../components/AppPreview.js";
 import { useAIBuilder } from "../hooks/useAIBuilder.js";
 import { useSeniorDev } from "../hooks/useSeniorDev.js";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../utils/trpc.js";
+import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
+import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 
 type BuilderMode = "build" | "improve";
 
@@ -60,9 +64,15 @@ function SeniorDevPanel({ projectId }: { projectId: number }) {
     useSeniorDev();
   const [request, setRequest] = useState("");
   const [mode, setMode] = useState<"collaborative" | "autonomous">("collaborative");
+  const { data: tierStatus } = useQuery({
+    queryKey: ["projects", "tierStatus"],
+    queryFn: () => trpc.projects.tierStatus.query(),
+  });
+  const creditBalance = tierStatus?.credits ?? 0;
+  const outOfCredits = tierStatus !== undefined && creditBalance < SENIOR_DEV_CREDIT_COST;
 
   const handleStart = async () => {
-    if (!request.trim()) return;
+    if (!request.trim() || outOfCredits) return;
     await startTask(projectId, request.trim(), mode);
   };
 
@@ -111,13 +121,16 @@ function SeniorDevPanel({ projectId }: { projectId: number }) {
 
         <button
           onClick={handleStart}
-          disabled={isLoading || !request.trim()}
+          disabled={isLoading || !request.trim() || outOfCredits}
           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-gray-300"
         >
-          {isLoading && stage === "planning" ? "Analysing..." : "Start Task"}
+          {outOfCredits ? "Paused — out of credits" : isLoading && stage === "planning" ? "Analysing..." : "Start Task"}
         </button>
 
-        {error && (
+        {(outOfCredits || (error && /credit/i.test(error))) && (
+          <CreditsPauseBanner credits={creditBalance} cost={SENIOR_DEV_CREDIT_COST} action="use the Senior Dev Agent" />
+        )}
+        {error && !/credit/i.test(error) && (
           <div className="p-3 bg-red-50 text-red-700 text-sm rounded">{error}</div>
         )}
       </div>
@@ -161,6 +174,12 @@ function SeniorDevPanel({ projectId }: { projectId: number }) {
 export function AIBuilder() {
   const [searchParams] = useSearchParams();
   const { messages, isBuilding, appData, sendMessage, clearChat } = useAIBuilder();
+  const { data: tierStatus } = useQuery({
+    queryKey: ["projects", "tierStatus"],
+    queryFn: () => trpc.projects.tierStatus.query(),
+  });
+  const creditBalance = tierStatus?.credits ?? 0;
+  const outOfCredits = tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
   const [showPreview, setShowPreview] = useState(false);
   const [mode, setMode] = useState<BuilderMode>(
     (searchParams.get("mode") as BuilderMode) ?? "build"
@@ -202,11 +221,19 @@ export function AIBuilder() {
           </div>
         </div>
 
+        {outOfCredits && (
+          <div className="p-4">
+            <CreditsPauseBanner credits={creditBalance} cost={BUILD_CREDIT_COST} action="use the AI builder" />
+          </div>
+        )}
         {mode === "build" ? (
           <ChatInterface
             messages={messages}
-            isBuilding={isBuilding}
-            onSendMessage={sendMessage}
+            isBuilding={isBuilding || outOfCredits}
+            onSendMessage={(content) => {
+              if (outOfCredits) return;
+              return sendMessage(content);
+            }}
             onClear={clearChat}
           />
         ) : (
