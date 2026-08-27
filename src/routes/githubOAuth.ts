@@ -5,9 +5,14 @@ import { logger } from "../_core/logger.js";
 const router = Router();
 
 function appBaseUrl(req: Request): string {
-  const fromEnv = (process.env.APP_URL || process.env.CORS_ORIGIN || "").replace(/\/$/, "");
+  const fromEnv = (
+    process.env.APP_URL ||
+    process.env.CORS_ORIGIN ||
+    ""
+  ).replace(/\/$/, "");
   if (fromEnv) return fromEnv;
-  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const proto =
+    (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
   const host = req.headers.host || "localhost";
   return `${proto}://${host}`;
 }
@@ -29,14 +34,18 @@ router.get("/callback", async (req: Request, res: Response) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    logger.error("GitHub OAuth callback: GITHUB_CLIENT_ID/SECRET not configured");
+    logger.error(
+      "GitHub OAuth callback: GITHUB_CLIENT_ID/SECRET not configured",
+    );
     res.redirect(`${base}/dashboard?github=not_configured`);
     return;
   }
 
   let userId: number;
   try {
-    const state = JSON.parse(Buffer.from(stateRaw, "base64").toString("utf8")) as {
+    const state = JSON.parse(
+      Buffer.from(stateRaw, "base64").toString("utf8"),
+    ) as {
       userId?: number;
     };
     if (!state.userId || !Number.isFinite(state.userId)) {
@@ -49,19 +58,22 @@ router.get("/callback", async (req: Request, res: Response) => {
   }
 
   try {
-    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
+    const tokenRes = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+        }),
+        signal: AbortSignal.timeout(15000),
       },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
+    );
 
     if (!tokenRes.ok) {
       throw new Error(`token exchange failed: ${tokenRes.status}`);
@@ -74,7 +86,9 @@ router.get("/callback", async (req: Request, res: Response) => {
     };
 
     if (!tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || "no access_token");
+      throw new Error(
+        tokenData.error_description || tokenData.error || "no access_token",
+      );
     }
 
     const userRes = await fetch("https://api.github.com/user", {

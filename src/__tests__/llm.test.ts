@@ -48,7 +48,10 @@ describe("LLM invokeLLM", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: [{ type: "text", text: "Hi" }] },
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "Hi" }],
+            },
             finish_reason: "stop",
           },
         ],
@@ -125,7 +128,7 @@ describe("LLM invokeLLM", () => {
           { type: "function", function: { name: "b" } },
         ],
         toolChoice: "required",
-      })
+      }),
     ).rejects.toThrow("tool_choice 'required' needs a single tool");
   });
 });

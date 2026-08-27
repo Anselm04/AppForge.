@@ -1,4 +1,5 @@
-export type Tool = "select" | "rect" | "circle" | "text" | "line" | "arrow" | "image";
+export type Tool =
+  "select" | "rect" | "circle" | "text" | "line" | "arrow" | "image";
 
 export interface GraphicElement {
   id: string;

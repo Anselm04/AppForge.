@@ -9,9 +9,21 @@ export const PREMIUM_GRADIENTS: Record<string, [string, string]> = {
 };
 
 export const SOLID_COLORS = [
-  "#4aa3ff", "#00e5ff", "#2563eb", "#a855f7", "#f43f5e",
-  "#fbbf24", "#14b8a6", "#22c55e", "#e2e8f0", "#94a3b8",
-  "#64748b", "#475569", "#1e293b", "#0f172a", "#ffffff",
+  "#4aa3ff",
+  "#00e5ff",
+  "#2563eb",
+  "#a855f7",
+  "#f43f5e",
+  "#fbbf24",
+  "#14b8a6",
+  "#22c55e",
+  "#e2e8f0",
+  "#94a3b8",
+  "#64748b",
+  "#475569",
+  "#1e293b",
+  "#0f172a",
+  "#ffffff",
 ];
 
 export const TEMPLATES = [
