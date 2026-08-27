@@ -1,4 +1,4 @@
-import { render, RenderOptions, screen, waitFor } from "@testing-library/react";
+import { render, RenderOptions, RenderResult, screen, waitFor } from "@testing-library/react";
 import { ReactElement, ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -26,7 +26,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, "wrapper"> {
 export function renderWithProviders(
   ui: ReactElement,
   { wrapper, ...renderOptions }: CustomRenderOptions = {},
-) {
+): RenderResult {
   const Wrapper = wrapper ?? Providers;
   function WrapperComponent({ children }: { children: ReactNode }) {
     return <Wrapper>{children}</Wrapper>;
