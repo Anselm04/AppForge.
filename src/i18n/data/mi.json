@@ -1,6 +1,8 @@
 {
   "nav": {
     "language": "Reo",
+    "menu": "Tahua",
+    "closeMenu": "Katia te tahua",
     "dark": "Pōuri",
     "light": "Mārama",
     "login": "Takiuru",
