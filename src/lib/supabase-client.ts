@@ -48,6 +48,12 @@ export const supabaseClient = {
   signIn(email: string, password: string) {
     return request<AuthResponse>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) });
   },
+  refreshSession(refreshToken: string) {
+    return request<AuthResponse>('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  },
   getProjects(accessToken: string) {
     return request('/rest/v1/projects?select=*&order=updated_at.desc', {}, accessToken);
   },

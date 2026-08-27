@@ -76,7 +76,9 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
 
     req.user = {
       id: dbUser.id,
-      email: dbUser.email ?? email,
+      // Prefer the verified JWT email so isOwner matches the signed-in Gmail
+      // even if the users row still has a stale or empty address.
+      email: email || dbUser.email || "",
       name: dbUser.name ?? name,
       supabaseUid,
     };
