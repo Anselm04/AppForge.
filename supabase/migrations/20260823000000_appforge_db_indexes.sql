@@ -1,16 +1,6 @@
-CREATE INDEX IF NOT EXISTS "projects_user_id_idx" ON "projects" ("user_id");
-CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects" ("status");
-CREATE INDEX IF NOT EXISTS "projects_created_at_idx" ON "projects" ("created_at");
-CREATE INDEX IF NOT EXISTS "projects_user_created_idx" ON "projects" ("user_id", "created_at");
-
-CREATE INDEX IF NOT EXISTS "agent_logs_project_idx" ON "agent_logs" ("project_id");
-CREATE INDEX IF NOT EXISTS "agent_logs_agent_idx" ON "agent_logs" ("agent");
-CREATE INDEX IF NOT EXISTS "agent_logs_project_created_idx" ON "agent_logs" ("project_id", "created_at");
-
-CREATE INDEX IF NOT EXISTS "cosine_improvements_project_idx" ON "cosine_improvements" ("project_id");
-CREATE INDEX IF NOT EXISTS "cosine_improvements_user_idx" ON "cosine_improvements" ("user_id");
-
--- Also add missing indexes on lookup tables
-CREATE INDEX IF NOT EXISTS "subscriptions_user_id_idx" ON "subscriptions" ("user_id");
-CREATE INDEX IF NOT EXISTS "github_connections_user_id_idx" ON "github_connections" ("user_id");
-CREATE INDEX IF NOT EXISTS "cosine_connections_user_id_idx" ON "cosine_connections" ("user_id");
+-- Additional indexes for Supabase-native schema (UUID tables from core migration)
+create index if not exists projects_owner_id_idx on public.projects (owner_id);
+create index if not exists projects_status_idx on public.projects (status);
+create index if not exists projects_created_at_idx on public.projects (created_at);
+create index if not exists build_runs_status_idx on public.build_runs (status);
+create index if not exists agent_runs_status_idx on public.agent_runs (status);
