@@ -61,7 +61,7 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
       (email ? email.split("@")[0] : "user");
     const picture = data.user.user_metadata?.["avatar_url"] ?? null;
 
-    const { upsertUserFromAuth } = await import("../db.js");
+    const { upsertUserFromAuth } = await import("../dbGrants.js");
     const dbUser = await upsertUserFromAuth({
       openId: supabaseUid,
       email,
