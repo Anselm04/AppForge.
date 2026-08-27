@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "language": "Sprache",
+    "menu": "Menü",
+    "closeMenu": "Menü schließen",
+    "dark": "Dunkel",
+    "light": "Hell",
+    "login": "Anmelden",
+    "signUp": "Registrieren",
+    "logout": "Abmelden",
+    "dashboard": "Dashboard",
+    "editor": "Editor",
+    "admin": "Admin",
+    "upgrade": "Upgrade",
+    "trial": "Testversion ({tier})",
+    "layout": "Layout",
+    "layoutAuto": "Auto",
+    "layoutPhone": "Telefon",
+    "layoutDesktop": "Desktop"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · Gründer & CEO",
+    "ownerOf": "Inhaber von AppForge und TrillionAI Tech",
+    "about": "Über uns"
+  },
+  "about": {
+    "title": "Über AppForge",
+    "body": "AppForge ist der KI-App-Builder von TrillionAI Tech. Anselm Perkins ist Gründer & CEO und Inhaber von AppForge und TrillionAI Tech."
+  }
+}
