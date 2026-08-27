@@ -58,12 +58,10 @@ async function requireCredits(
   }
   const credits = await ensureUserCredits(user.id);
   if (credits.balance < cost) {
-    res
-      .status(402)
-      .json({
-        success: false,
-        ...creditsExhaustedBody(credits.balance, cost, action),
-      });
+    res.status(402).json({
+      success: false,
+      ...creditsExhaustedBody(credits.balance, cost, action),
+    });
     return null;
   }
   await deductCredits(user.id, cost, undefined, action);
@@ -89,13 +87,11 @@ router.post("/extract", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(extractSchema, req.body);
     if (!validation.valid) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Invalid input",
-          details: validation.errors,
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid input",
+        details: validation.errors,
+      });
     }
     const { prompt } = validation.data;
     const requirements = await aiService.extractRequirements(prompt);
@@ -113,13 +109,11 @@ router.post("/clarify", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(clarifySchema, req.body);
     if (!validation.valid) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Invalid input",
-          details: validation.errors,
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid input",
+        details: validation.errors,
+      });
     }
     const { requirements } = validation.data;
     const questions =
@@ -137,13 +131,11 @@ router.post("/clarify", async (req: Request, res: Response) => {
 router.post("/generate", async (req: Request, res: Response) => {
   const validation = validateInput(generateSchema, req.body);
   if (!validation.valid) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error: "Invalid input",
-        details: validation.errors,
-      });
+    return res.status(400).json({
+      success: false,
+      error: "Invalid input",
+      details: validation.errors,
+    });
   }
   return res.status(410).json({
     success: false,
@@ -160,13 +152,11 @@ router.post("/generate", async (req: Request, res: Response) => {
 router.post("/iterate", async (req: Request, res: Response) => {
   const validation = validateInput(iterateSchema, req.body);
   if (!validation.valid) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error: "Invalid input",
-        details: validation.errors,
-      });
+    return res.status(400).json({
+      success: false,
+      error: "Invalid input",
+      details: validation.errors,
+    });
   }
   return res.status(410).json({
     success: false,
@@ -180,13 +170,11 @@ router.post("/deploy/:appId", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(deploySchema, req.params);
     if (!validation.valid) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Invalid input",
-          details: validation.errors,
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid input",
+        details: validation.errors,
+      });
     }
     const { appId } = validation.data;
     const deployUrl = await appBuilder.deploy(appId);
@@ -205,13 +193,11 @@ router.post("/export/:appId", async (req: Request, res: Response) => {
       ...req.body,
     });
     if (!validation.valid) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Invalid input",
-          details: validation.errors,
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid input",
+        details: validation.errors,
+      });
     }
     const { appId, repoName } = validation.data;
     const repoUrl = await appBuilder.exportToGitHub(appId, repoName);
