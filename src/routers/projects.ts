@@ -25,9 +25,7 @@ import {
 
 const FREE_TIER_LIMIT = 3;
 
-// ── Validated tech stack options ──
 const techStackEnum = z.enum([
-  // Web apps
   "react-node",
   "react-python",
   "vue-node",
@@ -39,7 +37,6 @@ const techStackEnum = z.enum([
   "react-supabase",
   "remix-node",
   "astro-node",
-  // Games
   "phaser-html5",
   "three-js-3d",
   "babylon-js-3d",
@@ -47,20 +44,17 @@ const techStackEnum = z.enum([
   "godot-html5",
   "react-native-game",
   "flutter-game",
-  // AI / Agents
   "ai-agent-python",
   "ai-agent-node",
   "openai-tool",
   "langchain-tool",
   "crewai-agent",
   "autogen-agent",
-  // Desktop / Mobile
   "electron-react",
   "tauri-rust",
   "react-native-expo",
   "flutter-firebase",
   "capacitor-ionic",
-  // Specialized
   "chrome-extension",
   "vscode-extension",
   "discord-bot",
@@ -74,26 +68,14 @@ const techStackEnum = z.enum([
   "serverless-vercel",
 ]);
 
-// ── Input sanitization helpers ──
 function sanitizeString(input: string): string {
-  return input
-    .trim()
-    .replace(/[<>]/g, "")
-    .slice(0, 5000);
+  return input.trim().replace(/[<>]/g, "").slice(0, 5000);
 }
 
 const projectCreateSchema = z.object({
-  description: z
-    .string()
-    .min(10, "Description must be at least 10 characters")
-    .max(2000, "Description must be at most 2000 characters")
-    .transform(sanitizeString),
+  description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be at most 2000 characters").transform(sanitizeString),
   techStack: techStackEnum.default("react-node"),
-  title: z
-    .string()
-    .min(1, "Title is required")
-    .max(255, "Title must be at most 255 characters")
-    .transform(sanitizeString),
+  title: z.string().min(1, "Title is required").max(255, "Title must be at most 255 characters").transform(sanitizeString),
 });
 
 export const projectsRouter = router({
@@ -124,14 +106,12 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
-      // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
       const moderation = await moderateUserContent(ctx.user.id, input.description + " " + input.title);
       if (!moderation.allowed) {
         throw new TRPCError({ code: "FORBIDDEN", message: moderation.reason ?? "Content flagged" });
       }
 
-      // Backend tier enforcement
       const tier = await getUserTier(ctx.user.id);
       const limit = getTierBuildLimit(tier);
       if (limit !== null) {
@@ -195,11 +175,13 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to deploy" });
       }
 
-      const { deployToVercel } = await import("../services/deployer.js");
-      const { watchProject } = await import("../agents/selfHealing.js");
-      const deployUrl = await deployToVercel(project.title || "appforge-app", files);
+      const origin =
+        process.env.CORS_ORIGIN ||
+        process.env.APP_URL ||
+        "https://appforge-unfurling-moon-9058.fly.dev";
+      const deployUrl = `${origin.replace(/\/$/, "")}/live/${input.id}`;
 
-      // Start self-healing watcher for this deployment
+      const { watchProject } = await import("../agents/selfHealing.js");
       watchProject(input.id, ctx.user.id, deployUrl);
 
       await db.update(schema.projects)
@@ -222,7 +204,6 @@ export const projectsRouter = router({
       return { base64, filename };
     }),
 
-  // ── Senior Dev Agent: Create Task ──
   seniorDev: protectedProcedure
     .input(
       z.object({
@@ -254,7 +235,6 @@ export const projectsRouter = router({
       return { taskId, status: "planning" };
     }),
 
-  // ── Senior Dev Agent: Approve Plan ──
   seniorDevApprove: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
@@ -269,7 +249,6 @@ export const projectsRouter = router({
       return { success: true, status: "executing" };
     }),
 
-  // ── Senior Dev Agent: Get Task ──
   seniorDevTask: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
@@ -279,7 +258,6 @@ export const projectsRouter = router({
       return task;
     }),
 
-  /** List all build snapshots for a project (version history) */
   snapshots: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -291,7 +269,6 @@ export const projectsRouter = router({
       return getSnapshotsByProject(input.projectId);
     }),
 
-  /** Rollback to a specific snapshot version */
   rollback: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive(), snapshotId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
