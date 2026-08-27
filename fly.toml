@@ -62,7 +62,7 @@ primary_region = 'lhr'
 [env]
   NODE_ENV = 'production'
   PORT = '3000'
-  REQUEST_TIMEOUT_MS = '30000'
+  REQUEST_TIMEOUT_MS = '330000'
   SENTRY_TRACES_SAMPLE_RATE = '0.1'
 
 [processes]

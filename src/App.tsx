@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TopNav } from "./components/TopNav.js";
+import { useLocale } from "./i18n/LocaleContext.js";
 import { Home } from "./pages/Home.js";
 import { Dashboard } from "./pages/Dashboard.js";
 import { Build } from "./pages/Build.js";
@@ -11,8 +12,10 @@ import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 
 export default function App() {
+  const { locale, dir } = useLocale();
   return (
     <BrowserRouter>
+      <div lang={locale} dir={dir}>
       <TopNav />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -26,6 +29,7 @@ export default function App() {
         <Route path="/editor" element={<GraphicsEditor />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      </div>
     </BrowserRouter>
   );
 }

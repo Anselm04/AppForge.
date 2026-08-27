@@ -51,6 +51,18 @@ export function getSession(): AppForgeSession | null {
   }
 }
 
+export function getAccessToken(): string | null {
+  const token = getSession()?.accessToken;
+  return typeof token === "string" && token.length > 0 ? token : null;
+}
+
+export function authedUrl(path: string): string {
+  const token = getAccessToken();
+  if (!token) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}token=${encodeURIComponent(token)}`;
+}
+
 export function useSession(): AppForgeSession | null {
   return useSyncExternalStore(subscribeSession, getSession, () => null);
 }
