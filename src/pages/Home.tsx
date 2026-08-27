@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
+import { useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
@@ -9,10 +11,13 @@ export function Home() {
   const [techStack, setTechStack] = useState("react-node");
   const [isBuilding, setIsBuilding] = useState(false);
 
+  const navigate = useNavigate();
+  const session = useSession();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
   });
+  const isAuthed = !!user || !!session;
 
   const { data: tierStatus } = useQuery({
     queryKey: ["projects", "tierStatus"],
@@ -38,6 +43,10 @@ export function Home() {
 
   const handleStartBuild = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthed) {
+      navigate("/signup?next=/");
+      return;
+    }
     if (outOfCredits) return;
     if (description.trim()) {
       createProjectMutation.mutate();
