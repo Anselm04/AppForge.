@@ -29,7 +29,7 @@ function mimeFor(filePath: string): string {
 function normalizeFiles(files: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(files)) {
-    out[key.replace(/^\/+/, "")] = value;
+    out[key.replace(/^\/+/ , "")] = value;
   }
   return out;
 }
@@ -70,6 +70,7 @@ function listingPage(projectId: number, title: string, files: Record<string, str
 }
 
 livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
+  try {
   const projectId = parseInt(req.params.projectId, 10);
   if (Number.isNaN(projectId)) {
     res.status(400).json({ error: "Invalid projectId" });
@@ -106,6 +107,12 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
 
   res.setHeader("Content-Type", mimeFor(rel));
   res.send(content);
+  } catch (err) {
+    console.error("live preview failed:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Live preview unavailable" });
+    }
+  }
 });
 
 export { livePreviewRouter };

@@ -22,6 +22,7 @@ import { appsCompatRouter, billingCompatRouter } from "./routes/legacyCompat.js"
 import { livePreviewRouter } from "./routes/livePreview.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { closeDbConnection } from "./db.js";
+import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
 import { AppError } from "./utils/errorReporting.js";
 
@@ -231,8 +232,23 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 });
 
 // ── Graceful shutdown ──
-const server = app.listen(PORT, () => {
-  console.log(`AppForge server running on http://localhost:${PORT}`);
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandledRejection", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("uncaughtException", err);
+});
+
+let server: ReturnType<typeof app.listen>;
+
+async function start() {
+  try {
+    await ensureAppSchema();
+  } catch (err) {
+    console.error("Schema ensure failed:", err);
+  }
+  server = app.listen(PORT, () => {
+    console.log(`AppForge server running on http://localhost:${PORT}`);
   if (ENV.isProduction && ENV.sentryDsn) {
     import("./agents/selfHealing.js").then(({ startSelfHealingWatcher }) => {
       const stopWatcher = startSelfHealingWatcher(300_000);
@@ -240,13 +256,14 @@ const server = app.listen(PORT, () => {
       process.on("SIGINT", () => stopWatcher());
     }).catch(() => {});
   }
-});
-
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+  });
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+}
 
 function shutdown(signal: string) {
   console.log(`${signal} received, shutting down gracefully`);
+  if (!server) { process.exit(0); return; }
   server.close(async () => {
     console.log("HTTP server closed");
     try {
@@ -265,3 +282,5 @@ function shutdown(signal: string) {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+start();
