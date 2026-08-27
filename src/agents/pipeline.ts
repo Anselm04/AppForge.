@@ -3,10 +3,14 @@ import {
   markAgentLogComplete,
   updateProjectFiles,
   updateProjectStatus,
-  updateProjectCreditsSpent,
 } from "../db.js";
 import { invokeLLM } from "../_core/llm.js";
 import { injectComplianceScaffolding } from "../services/compliance-template.js";
+import { parseGeneratedFiles, ensureEssentialFiles } from "../services/multiFileCoder.js";
+import {
+  getStackScaffold,
+  mergeScaffoldWithGenerated,
+} from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
 
 // Credit cost per agent phase
@@ -332,14 +336,21 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
 
         await markAgentLogComplete(coderLogId);
 
-        // Extract filename from the generated code
-        const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
-        const filename = filenameMatch
-          ? filenameMatch[1].trim()
-          : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.ts`;
-        generatedFiles[filename] = fileContent;
-
-        emit("Coder", "task_complete", { module: task.module, filename });
+        // Parse multi-file LLM output; fall back to single-file extraction
+        const parsedFiles = parseGeneratedFiles(fileContent);
+        if (Object.keys(parsedFiles).length > 0) {
+          Object.assign(generatedFiles, parsedFiles);
+          for (const filename of Object.keys(parsedFiles)) {
+            emit("Coder", "task_complete", { module: task.module, filename });
+          }
+        } else {
+          const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
+          const filename = filenameMatch
+            ? filenameMatch[1].trim()
+            : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.ts`;
+          generatedFiles[filename] = fileContent;
+          emit("Coder", "task_complete", { module: task.module, filename });
+        }
       }
 
       emit("Coder", "complete", { message: `Generated ${Object.keys(generatedFiles).length} files.` });
@@ -469,7 +480,7 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
     emit("Testing", "complete", { message: `Generated ${Object.keys(testFiles).length} test files.` });
 
     // ── Snapshot + Audit + Cost at end of build ────────────────────────────
-    const { createBuildSnapshot, getNextVersion, getProjectById } = await import("../db.js");
+    const { createBuildSnapshot, getNextVersion, getProjectById, markSnapshotAsCurrent } = await import("../db.js");
     const { estimateLicenseAndCost } = await import("./licenseCostEstimator.js");
     const { logger } = await import("../_core/logger.js");
     const nextVersion = await getNextVersion(projectId);
@@ -494,10 +505,28 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
     });
     logger.info({ projectId, snapshotId, version: nextVersion }, "build_snapshot_saved");
 
+    // Merge stack scaffold + ensure essentials (non-fatal)
+    try {
+      generatedFiles = mergeScaffoldWithGenerated(
+        getStackScaffold(techStack),
+        generatedFiles,
+      );
+      generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
+    } catch (scaffoldErr) {
+      logger.warn(
+        { projectId, err: scaffoldErr instanceof Error ? scaffoldErr.message : scaffoldErr },
+        "stack_scaffold_merge_failed",
+      );
+    }
+
+    await updateProjectFiles(projectId, generatedFiles);
+    await markSnapshotAsCurrent(snapshotId, projectId);
+
     // Final status: done
     await updateProjectStatus(projectId, validationResult?.passed ? "completed" : "failed");
     write("done", {
       projectId,
+      snapshotId,
       title: appTitle,
       fileCount: Object.keys(generatedFiles).length,
       creditsSpent: totalCreditsSpent,
