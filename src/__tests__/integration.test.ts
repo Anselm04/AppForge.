@@ -24,7 +24,12 @@ vi.mock("../agents/pipeline.js", () => ({
 
 vi.mock("stripe", () => {
   const mockRetrieve = vi.fn();
-  const mockCreate = vi.fn().mockResolvedValue({ id: "cs_test_123", url: "https://checkout.stripe.com/test" });
+  const mockCreate = vi
+    .fn()
+    .mockResolvedValue({
+      id: "cs_test_123",
+      url: "https://checkout.stripe.com/test",
+    });
   return {
     default: vi.fn().mockImplementation(() => ({
       checkout: { sessions: { create: mockCreate } },
@@ -40,7 +45,8 @@ vi.mock("../services/deployer.js", () => ({
 // ── Auth Middleware (Unit) ──
 describe("Supabase Auth Middleware", () => {
   test("parses Bearer token and attaches req.user", async () => {
-    const { supabaseAuthMiddleware } = await import("../middleware/supabaseAuth.js");
+    const { supabaseAuthMiddleware } =
+      await import("../middleware/supabaseAuth.js");
 
     const req = {
       headers: { authorization: "Bearer test-token" },
@@ -68,7 +74,17 @@ describe("Credit System", () => {
 
   test("deductCredits throws on insufficient balance", async () => {
     const { deductCredits, getUserCredits } = await import("../db.js");
-    vi.mocked(getUserCredits).mockResolvedValue({ id: 1, userId: 1, balance: 2, tier: "free", monthlyAllowance: 3, lastRefillAt: new Date(), createdAt: new Date(), updatedAt: new Date() });
+    vi.mocked(getUserCredits).mockResolvedValue({
+      id: 1,
+      userId: 1,
+      balance: 2,
+      tier: "free",
+      monthlyAllowance: 3,
+      unlimited: false,
+      lastRefillAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     await expect(deductCredits(1, 5)).rejects.toThrow("Insufficient credits");
   });
@@ -80,7 +96,11 @@ describe("Checkout Router", () => {
     const { checkoutRouter } = await import("../routes/checkout.js");
 
     const req = {
-      body: { plan: "builder", successUrl: "https://appforge.dev/success", cancelUrl: "https://appforge.dev/cancel" },
+      body: {
+        plan: "builder",
+        successUrl: "https://appforge.dev/success",
+        cancelUrl: "https://appforge.dev/cancel",
+      },
       user: { id: 1, email: "test@appforge.dev" },
     } as any;
     const res = {
@@ -88,11 +108,12 @@ describe("Checkout Router", () => {
       status: vi.fn().mockReturnThis(),
     } as any;
 
-    await checkoutRouter(req, res);
+    const next = vi.fn();
+    await checkoutRouter(req, res, next);
 
     expect(res.status).not.toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ url: expect.any(String) })
+      expect.objectContaining({ url: expect.any(String) }),
     );
   });
 });
@@ -114,12 +135,17 @@ describe("Agent Pipeline", () => {
   test("runAgentPipeline emits Planner start event", async () => {
     const { runAgentPipeline } = await import("../agents/pipeline.js");
     const events: any[] = [];
-    const write = (event: string, data: unknown) => events.push({ event, data });
+    const write = (event: string, data: unknown) =>
+      events.push({ event, data });
 
     await runAgentPipeline(1, "A CRM app", "react-node", write);
 
     expect(events.length).toBeGreaterThan(0);
-    expect(events.some((e) => e.event === "agent" && (e.data as any).agent === "Planner")).toBe(true);
+    expect(
+      events.some(
+        (e) => e.event === "agent" && (e.data as any).agent === "Planner",
+      ),
+    ).toBe(true);
   });
 });
 
@@ -134,12 +160,20 @@ describe("Projects Router", () => {
     });
 
     // Mock isUserPro and countBuildsThisMonth
-    const { isUserPro, countBuildsThisMonth, getUserCredits } = await import("../db.js");
+    const { isUserPro, countBuildsThisMonth, getUserCredits } =
+      await import("../db.js");
     vi.mocked(isUserPro).mockResolvedValue(false);
     vi.mocked(countBuildsThisMonth).mockResolvedValue(1);
     vi.mocked(getUserCredits).mockResolvedValue({
-      id: 1, userId: 1, balance: 10, tier: "starter", monthlyAllowance: 0,
-      lastRefillAt: new Date(), createdAt: new Date(), updatedAt: new Date(),
+      id: 1,
+      userId: 1,
+      balance: 10,
+      tier: "starter",
+      monthlyAllowance: 0,
+      unlimited: false,
+      lastRefillAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const status = await caller.projects.tierStatus();
