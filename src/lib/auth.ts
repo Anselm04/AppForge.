@@ -12,6 +12,7 @@ export interface AppForgeSession {
 
 let cachedRaw: string | null | undefined;
 let cachedSession: AppForgeSession | null = null;
+let refreshInFlight: Promise<AppForgeSession | null> | null = null;
 
 function emitSessionChange() {
   listeners.forEach((listener) => listener());
@@ -129,6 +130,44 @@ export function signOut() {
   cachedRaw = null;
   cachedSession = null;
   emitSessionChange();
+}
+
+/** Refresh access token using stored refresh_token. Returns null if refresh fails. */
+export async function refreshSession(): Promise<AppForgeSession | null> {
+  const current = getSession();
+  if (!current?.refreshToken) return null;
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const result = await supabaseClient.refreshSession(current.refreshToken!);
+      if (result.error) return null;
+      const next = sessionFromAuth({
+        access_token: result.access_token,
+        refresh_token: result.refresh_token || current.refreshToken,
+        user: result.user || current.user,
+      });
+      if (!next) return null;
+      saveSession(next);
+      return next;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+/**
+ * Ensure we have a usable access token. If auth.me would fail on a stale
+ * access token, refresh once when a refresh_token is present.
+ */
+export async function ensureFreshSession(): Promise<AppForgeSession | null> {
+  const session = getSession();
+  if (!session) return null;
+  if (!session.refreshToken) return session;
+  const refreshed = await refreshSession();
+  return refreshed || getSession();
 }
 
 export async function signUp(email: string, password: string) {
