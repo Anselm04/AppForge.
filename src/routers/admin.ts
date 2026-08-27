@@ -1,240 +1,263 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { router, ownerOnlyProcedure, publicProcedure } from "../_core/trpc.js";
-import { db } from "../db.js";
+import { router, ownerOnlyProcedure, protectedProcedure } from "../_core/trpc.js";
+import { applyGodCodeGrant, db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { eq, desc, and, gte, count, sql } from "drizzle-orm";
+import { eq, desc, and, gte, count, sql, isNull } from "drizzle-orm";
 import { ENV } from "../_core/env.js";
-import { createHash, randomBytes } from "crypto";
 import { logger } from "../_core/logger.js";
+import { encryptGodCode, hashGodCode, mintGodCode } from "../lib/serverSecrets.js";
+import { createHash } from "crypto";
 
-// ── Helpers ──
-function hashCode(raw: string): string {
+const REDEEM_FAIL = "Unable to redeem that code.";
+
+function legacyHash(raw: string): string {
   return createHash("sha256").update(raw + ENV.cookieSecret).digest("hex");
 }
 
-function hashOtp(otp: string): string {
-  return createHash("sha256").update(otp + ENV.cookieSecret).digest("hex");
-}
-
-// ── Real Twilio SMS ──
-async function sendSms(phone: string, message: string): Promise<{ success: boolean; sid?: string; error?: string }> {
-  const sid = ENV.twilioAccountSid;
-  const token = ENV.twilioAuthToken;
-  const from = ENV.twilioPhoneNumber;
-
-  if (!sid || !token || !from) {
-    logger.warn({ phone }, "sms_not_sent_no_twilio_credentials");
-    return { success: false, error: "TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER not configured" };
-  }
-
-  try {
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ From: from, To: phone, Body: message }).toString(),
-      }
-    );
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "unknown");
-      logger.error({ status: res.status, body, phone }, "twilio_sms_failed");
-      return { success: false, error: `Twilio HTTP ${res.status}: ${body}` };
-    }
-
-    const data = await res.json() as { sid?: string };
-    logger.info({ phone, sid: data.sid }, "twilio_sms_sent");
-    return { success: true, sid: data.sid };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ phone, error: msg }, "twilio_sms_exception");
-    return { success: false, error: msg };
-  }
+function genericRedeemFail(): never {
+  throw new TRPCError({ code: "BAD_REQUEST", message: REDEEM_FAIL });
 }
 
 export const adminRouter = router({
-  // ── Identity ──
   me: ownerOnlyProcedure.query(async ({ ctx }) => {
     return { email: ctx.user.email, isOwner: true };
   }),
 
-  // ── Analytics Dashboard ──
   analytics: ownerOnlyProcedure.query(async () => {
     const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const totalUsers = await db.select({ count: count() }).from(schema.users);
-    const activeUsers = await db
+    const recentSignups = await db
       .select({ count: count() })
       .from(schema.users)
-      .where(gte(schema.users.updatedAt, thirtyDaysAgo));
+      .where(gte(schema.users.createdAt, sevenDaysAgo));
     const totalProjects = await db.select({ count: count() }).from(schema.projects);
-    const totalBuilds = await db
+    const buildsStarted = await db.select({ count: count() }).from(schema.projects);
+    const builds30d = await db
       .select({ count: count() })
       .from(schema.projects)
-      .where(and(
-        gte(schema.projects.createdAt, thirtyDaysAgo),
-        eq(schema.projects.status, "completed")
-      ));
-    const totalRevenue = await db
-      .select({ total: sql`COALESCE(SUM(${schema.creditTransactions.amount}), 0)` })
-      .from(schema.creditTransactions)
-      .where(eq(schema.creditTransactions.type, "purchase"));
+      .where(gte(schema.projects.createdAt, thirtyDaysAgo));
+    const activeSubs = await db
+      .select({ count: count() })
+      .from(schema.subscriptions)
+      .where(eq(schema.subscriptions.status, "active"));
+    const creditSum = await db
+      .select({ total: sql<number>`COALESCE(SUM(${schema.userCredits.balance}), 0)` })
+      .from(schema.userCredits);
 
     const subsByTier = await db
-      .select({ tier: schema.subscriptions.tier, count: count() })
+      .select({ tier: schema.subscriptions.tier, status: schema.subscriptions.status, count: count() })
       .from(schema.subscriptions)
-      .groupBy(schema.subscriptions.tier);
+      .groupBy(schema.subscriptions.tier, schema.subscriptions.status);
 
     const recentUsers = await db
-      .select()
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        name: schema.users.name,
+        createdAt: schema.users.createdAt,
+        credits: schema.userCredits.balance,
+        unlimited: schema.userCredits.unlimited,
+        creditTier: schema.userCredits.tier,
+        subTier: schema.subscriptions.tier,
+        subStatus: schema.subscriptions.status,
+      })
       .from(schema.users)
+      .leftJoin(schema.userCredits, eq(schema.userCredits.userId, schema.users.id))
+      .leftJoin(schema.subscriptions, eq(schema.subscriptions.userId, schema.users.id))
       .orderBy(desc(schema.users.createdAt))
-      .limit(20);
+      .limit(50);
 
-    const bannedUsers = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.isBanned, true));
+    const buildCounts = await db
+      .select({ userId: schema.projects.userId, builds: count() })
+      .from(schema.projects)
+      .groupBy(schema.projects.userId);
+    const buildsByUser = new Map(buildCounts.map((row) => [row.userId, row.builds]));
 
     return {
       counts: {
         totalUsers: totalUsers[0]?.count ?? 0,
-        activeUsers30d: activeUsers[0]?.count ?? 0,
+        recentSignups7d: recentSignups[0]?.count ?? 0,
         totalProjects: totalProjects[0]?.count ?? 0,
-        builds30d: totalBuilds[0]?.count ?? 0,
-        totalRevenue: totalRevenue[0]?.total ?? 0,
+        buildsStarted: buildsStarted[0]?.count ?? 0,
+        builds30d: builds30d[0]?.count ?? 0,
+        activeSubscriptions: activeSubs[0]?.count ?? 0,
+        creditBalanceSum: Number(creditSum[0]?.total ?? 0),
       },
       subscriptionsByTier: subsByTier,
-      recentUsers: recentUsers.map(u => ({ id: u.id, email: u.email, name: u.name, createdAt: u.createdAt })),
-      bannedUsers: bannedUsers.map(u => ({ id: u.id, email: u.email, name: u.name, bannedAt: u.bannedAt, banReason: u.banReason })),
+      recentUsers: recentUsers.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        createdAt: u.createdAt,
+        credits: u.credits ?? 0,
+        unlimited: !!u.unlimited,
+        tier: u.creditTier ?? "free",
+        subscriptionTier: u.subTier ?? null,
+        subscriptionStatus: u.subStatus ?? null,
+        buildsStarted: buildsByUser.get(u.id) ?? 0,
+      })),
     };
   }),
 
-  // ── God Code ──
-  listGodCodes: ownerOnlyProcedure.query(async () => {
-    const codes = await db.select().from(schema.godCodes).orderBy(desc(schema.godCodes.createdAt));
-    return codes.map(c => ({
-      id: c.id,
-      tier: c.tier,
-      credits: c.credits,
-      trialDays: c.trialDays,
-      isUsed: c.isUsed,
-      usedByUserId: c.usedByUserId,
-      usedAt: c.usedAt,
-      createdAt: c.createdAt,
+  listUsers: ownerOnlyProcedure.query(async () => {
+    const rows = await db
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        name: schema.users.name,
+        createdAt: schema.users.createdAt,
+        credits: schema.userCredits.balance,
+        unlimited: schema.userCredits.unlimited,
+        tier: schema.userCredits.tier,
+        subTier: schema.subscriptions.tier,
+        subStatus: schema.subscriptions.status,
+      })
+      .from(schema.users)
+      .leftJoin(schema.userCredits, eq(schema.userCredits.userId, schema.users.id))
+      .leftJoin(schema.subscriptions, eq(schema.subscriptions.userId, schema.users.id))
+      .orderBy(desc(schema.users.createdAt))
+      .limit(200);
+    return rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      createdAt: u.createdAt,
+      credits: u.credits ?? 0,
+      unlimited: !!u.unlimited,
+      tier: u.tier ?? "free",
+      subscriptionTier: u.subTier ?? null,
+      subscriptionStatus: u.subStatus ?? null,
     }));
   }),
 
-  createGodCodeInit: ownerOnlyProcedure
-    .input(z.object({
-      tier: z.enum(["starter", "builder", "studio", "enterprise", "custom", "admin"]),
-      credits: z.number().min(0).optional(),
-      trialDays: z.number().min(0).optional(),
-    }))
-    .mutation(async ({ input }) => {
-      const rawCode = "GF-" + randomBytes(12).toString("base64url").toUpperCase().slice(0, 16);
-      const codeHash = hashCode(rawCode);
+  listCodes: ownerOnlyProcedure.query(async () => {
+    const codes = await db.select().from(schema.godCodes).orderBy(desc(schema.godCodes.createdAt));
+    return codes.map((c) => {
+      const redeemedAt = c.redeemedAt ?? c.usedAt ?? null;
+      const redeemedBy = c.redeemedByUserId ?? c.usedByUserId ?? null;
+      const unused = !redeemedAt && !c.isUsed;
+      return {
+        id: c.id,
+        grantType: c.grantType ?? (c.tier === "lifetime" ? "lifetime" : "limited"),
+        credits: c.credits ?? 0,
+        status: unused ? "unused" : "redeemed",
+        expiresAt: c.expiresAt ?? null,
+        createdAt: c.createdAt,
+        redeemedAt,
+        redeemedByUserId: redeemedBy,
+      };
+    });
+  }),
 
-      const otp = randomBytes(3).toString("hex").toUpperCase().slice(0, 6);
-      const otpHash = hashOtp(otp);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-
-      const [code] = await db.insert(schema.godCodes).values({
-        codeHash,
-        tier: input.tier,
-        credits: input.credits ?? 0,
-        trialDays: input.trialDays ?? 0,
-        isUsed: true, // locked until SMS verified
-      }).returning();
-
-      await db.insert(schema.smsVerifications).values({
-        codeId: code.id,
-        phoneNumber: ENV.ownerPhone,
-        otpHash,
-        expiresAt,
-      });
-
-      const smsResult = await sendSms(ENV.ownerPhone, `AppForge god code verification: ${otp} (expires in 10 min)`);
-
-      if (!smsResult.success) {
-        await db.delete(schema.godCodes).where(eq(schema.godCodes.id, code.id));
-        await db.delete(schema.smsVerifications).where(eq(schema.smsVerifications.codeId, code.id));
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "SMS service unavailable. Code not created." });
+  createCode: ownerOnlyProcedure
+    .input(
+      z.object({
+        grantType: z.enum(["lifetime", "limited"]),
+        credits: z.number().int().min(0).max(1_000_000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const credits = input.grantType === "lifetime" ? 0 : (input.credits ?? 0);
+      if (input.grantType === "limited" && credits < 1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Limited codes need a credit amount." });
       }
+      const rawCode = mintGodCode();
+      const hash = hashGodCode(rawCode);
+      const encryptedCode = encryptGodCode(rawCode);
+      const [row] = await db
+        .insert(schema.godCodes)
+        .values({
+          hash,
+          encryptedCode,
+          grantType: input.grantType,
+          credits,
+          codeHash: hash,
+          tier: input.grantType === "lifetime" ? "lifetime" : "custom",
+          isUsed: false,
+        })
+        .returning({ id: schema.godCodes.id, createdAt: schema.godCodes.createdAt });
 
       await db.insert(schema.complianceRecords).values({
         recordType: "god_code_audit",
-        userId: null,
-        details: { action: "create_init", tier: input.tier, codeId: code.id },
-        adminEmail: ENV.ownerEmail,
+        userId: ctx.user.id,
+        details: { action: "create", codeId: row.id, grantType: input.grantType, credits },
+        adminEmail: ctx.user.email,
       });
-
-      return { rawCode, message: "Enter the OTP sent to your phone to activate this god code." };
+      logger.info({ codeId: row.id, grantType: input.grantType }, "god_code_created");
+      return {
+        id: row.id,
+        code: rawCode,
+        grantType: input.grantType,
+        credits,
+        createdAt: row.createdAt,
+      };
     }),
 
-  verifyGodCode: ownerOnlyProcedure
-    .input(z.object({ rawCode: z.string(), otp: z.string().length(6) }))
-    .mutation(async ({ input }) => {
-      const codeHash = hashCode(input.rawCode);
-      const otpHash = hashOtp(input.otp);
-
-      const code = await db.select().from(schema.godCodes).where(eq(schema.godCodes.codeHash, codeHash)).limit(1);
-      if (!code[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Code not found" });
-
-      const verification = await db
+  redeemCode: protectedProcedure
+    .input(z.object({ code: z.string().min(4).max(80) }))
+    .mutation(async ({ ctx, input }) => {
+      const raw = input.code.trim();
+      if (!raw) genericRedeemFail();
+      let hash: string;
+      try {
+        hash = hashGodCode(raw);
+      } catch {
+        genericRedeemFail();
+      }
+      const legacy = legacyHash(raw);
+      const matches = await db
         .select()
-        .from(schema.smsVerifications)
-        .where(and(
-          eq(schema.smsVerifications.codeId, code[0].id),
-          eq(schema.smsVerifications.otpHash, otpHash),
-        ))
+        .from(schema.godCodes)
+        .where(sql`${schema.godCodes.hash} = ${hash} OR ${schema.godCodes.codeHash} = ${hash} OR ${schema.godCodes.codeHash} = ${legacy}`)
         .limit(1);
-
-      if (!verification[0]) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid OTP" });
-      if (new Date() > new Date(verification[0].expiresAt)) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "OTP expired" });
+      const found = matches[0];
+      if (!found) genericRedeemFail();
+      if (found.redeemedAt || found.isUsed || found.redeemedByUserId || found.usedByUserId) {
+        genericRedeemFail();
+      }
+      if (found.expiresAt && new Date(found.expiresAt) < new Date()) {
+        genericRedeemFail();
       }
 
-      await db
+      const now = new Date();
+      const updated = await db
         .update(schema.godCodes)
-        .set({ isUsed: false, updatedAt: new Date() })
-        .where(eq(schema.godCodes.id, code[0].id));
+        .set({
+          encryptedCode: null,
+          redeemedAt: now,
+          redeemedByUserId: ctx.user.id,
+          isUsed: true,
+          usedAt: now,
+          usedByUserId: ctx.user.id,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(schema.godCodes.id, found.id),
+            isNull(schema.godCodes.redeemedAt),
+            eq(schema.godCodes.isUsed, false),
+          ),
+        )
+        .returning({ id: schema.godCodes.id });
+      if (!updated[0]) genericRedeemFail();
 
-      await db
-        .update(schema.smsVerifications)
-        .set({ verifiedAt: new Date() })
-        .where(eq(schema.smsVerifications.id, verification[0].id));
+      const grantType = found.grantType === "lifetime" ? "lifetime" : "limited";
+      const grant = await applyGodCodeGrant(ctx.user.id, grantType, found.credits ?? 0);
 
       await db.insert(schema.complianceRecords).values({
         recordType: "god_code_audit",
-        userId: null,
-        details: { action: "verify_activate", codeId: code[0].id },
+        userId: ctx.user.id,
+        details: { action: "redeem", codeId: found.id, grantType },
         adminEmail: ENV.ownerEmail,
       });
-
-      return { success: true, message: "God code activated. Give the raw code to a user to redeem." };
+      logger.info({ userId: ctx.user.id, codeId: found.id, grantType }, "god_code_redeemed");
+      return { success: true, grantType, credits: grant.credits, unlimited: grant.unlimited };
     }),
 
-  revokeGodCode: ownerOnlyProcedure
-    .input(z.object({ codeId: z.number() }))
-    .mutation(async ({ input }) => {
-      await db.delete(schema.godCodes).where(eq(schema.godCodes.id, input.codeId));
-      await db.insert(schema.complianceRecords).values({
-        recordType: "god_code_audit",
-        userId: null,
-        details: { action: "revoke", codeId: input.codeId },
-        adminEmail: ENV.ownerEmail,
-      });
-      return { success: true };
-    }),
-
-  // ── User Management ──
   banUser: ownerOnlyProcedure
     .input(z.object({ userId: z.number(), reason: z.string() }))
     .mutation(async ({ input }) => {
@@ -242,135 +265,16 @@ export const adminRouter = router({
         .update(schema.users)
         .set({ isBanned: true, bannedAt: new Date(), banReason: input.reason })
         .where(eq(schema.users.id, input.userId));
-      await db.insert(schema.complianceRecords).values({
-        recordType: "security_incident",
-        userId: input.userId,
-        details: { action: "ban", reason: input.reason },
-        adminEmail: ENV.ownerEmail,
-      });
       return { success: true };
     }),
 
-  unbanUser: ownerOnlyProcedure
-    .input(z.object({ userId: z.number() }))
-    .mutation(async ({ input }) => {
-      await db
-        .update(schema.users)
-        .set({ isBanned: false, bannedAt: null, banReason: null })
-        .where(eq(schema.users.id, input.userId));
-      return { success: true };
-    }),
-
-  userStrikes: ownerOnlyProcedure
-    .input(z.object({ userId: z.number() }))
-    .query(async ({ input }) => {
-      const strikes = await db
-        .select()
-        .from(schema.userStrikes)
-        .where(eq(schema.userStrikes.userId, input.userId))
-        .orderBy(desc(schema.userStrikes.createdAt));
-      return strikes;
-    }),
-
-  // ── Moderation ──
   moderationQueue: ownerOnlyProcedure.query(async () => {
-    const flags = await db
+    return db
       .select()
       .from(schema.moderationFlags)
       .where(eq(schema.moderationFlags.adminReviewed, false))
       .orderBy(desc(schema.moderationFlags.createdAt));
-    return flags;
   }),
-
-  reviewFlag: ownerOnlyProcedure
-    .input(z.object({ flagId: z.number(), action: z.enum(["warn", "strike", "ban", "dismiss"]) }))
-    .mutation(async ({ input }) => {
-      await db
-        .update(schema.moderationFlags)
-        .set({ adminReviewed: true, adminAction: input.action })
-        .where(eq(schema.moderationFlags.id, input.flagId));
-      return { success: true };
-    }),
-
-  // ── Compliance Export ──
-  complianceExport: ownerOnlyProcedure.query(async () => {
-    const records = await db
-      .select()
-      .from(schema.complianceRecords)
-      .orderBy(desc(schema.complianceRecords.createdAt));
-
-    const vantaData = {
-      exportDate: new Date().toISOString(),
-      generatedBy: ENV.ownerEmail,
-      system: "AppForge",
-      sections: {
-        userAccess: records.filter(r => r.recordType === "user_data_access"),
-        contentModeration: records.filter(r => r.recordType === "content_moderation"),
-        payments: records.filter(r => r.recordType === "payment_audit"),
-        security: records.filter(r => r.recordType === "security_incident"),
-        godCodes: records.filter(r => r.recordType === "god_code_audit"),
-      },
-      summary: {
-        totalRecords: records.length,
-        users: await db.select({ count: count() }).from(schema.users),
-        banned: await db.select({ count: count() }).from(schema.users).where(eq(schema.users.isBanned, true)),
-        flags: await db.select({ count: count() }).from(schema.moderationFlags),
-        activeSubs: await db.select({ count: count() }).from(schema.subscriptions).where(eq(schema.subscriptions.status, "active")),
-      },
-    };
-    return vantaData;
-  }),
-
-  // ── Redeem (called by regular users, not admin) ──
-  redeem: publicProcedure
-    .input(z.object({ code: z.string() }))
-    .mutation(async ({ input, ctx }) => {
-      if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Login required to redeem god code" });
-
-      const codeHash = hashCode(input.code);
-      const code = await db.select().from(schema.godCodes).where(eq(schema.godCodes.codeHash, codeHash)).limit(1);
-      if (!code[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Code not found" });
-      if (code[0].isUsed) throw new TRPCError({ code: "FORBIDDEN", message: "Code already used" });
-
-      // Apply tier upgrade
-      await db
-        .update(schema.subscriptions)
-        .set({
-          tier: code[0].tier,
-          status: "active",
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.subscriptions.userId, ctx.user.id));
-
-      await db
-        .update(schema.userCredits)
-        .set({
-          tier: code[0].tier,
-          balance: code[0].credits ?? 0,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.userCredits.userId, ctx.user.id));
-
-      await db
-        .update(schema.godCodes)
-        .set({
-          isUsed: true,
-          usedByUserId: ctx.user.id,
-          usedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.godCodes.id, code[0].id));
-
-      await db.insert(schema.complianceRecords).values({
-        recordType: "god_code_audit",
-        userId: ctx.user.id,
-        details: { action: "redeem", codeId: code[0].id, tier: code[0].tier },
-        adminEmail: ENV.ownerEmail,
-      });
-
-      logger.info({ userId: ctx.user.id, codeId: code[0].id, tier: code[0].tier }, "god_code_redeemed");
-      return { success: true, tier: code[0].tier, credits: code[0].credits };
-    }),
 });
 
 export type AdminRouter = typeof adminRouter;
