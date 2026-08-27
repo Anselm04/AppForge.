@@ -18,12 +18,7 @@ interface BuildLog {
   };
 }
 
-interface ProjectData {
-  id: number;
-  title: string;
-  techStack: string;
-  status: string;
-}
+type DeployDestination = "vercel" | "netlify" | "fly" | "preview";
 
 export function Build() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -33,7 +28,9 @@ export function Build() {
   const [error, setError] = useState<string | null>(null);
   const [creditsSpent, setCreditsSpent] = useState(0);
   const [deploying, setDeploying] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [destination, setDestination] = useState<DeployDestination>("preview");
 
   const { data: project } = useQuery({
     queryKey: ["projects", projectId],
@@ -46,13 +43,20 @@ export function Build() {
     queryFn: () => trpc.projects.tierStatus.query(),
   });
 
+  const { data: deployOptions } = useQuery({
+    queryKey: ["projects", "deployOptions"],
+    queryFn: () => trpc.projects.deployOptions.query(),
+  });
+
   const creditBalance = tierStatus?.credits ?? 0;
-  const outOfCredits = tierStatus !== undefined && creditBalance < BUILD_CREDIT_COST;
+  const unlimited = !!tierStatus?.unlimited;
+  const outOfCredits =
+    tierStatus !== undefined && !unlimited && creditBalance < BUILD_CREDIT_COST;
 
   useEffect(() => {
     if (!projectId) return;
     if (tierStatus === undefined) return;
-    if (creditBalance < BUILD_CREDIT_COST) {
+    if (!unlimited && creditBalance < BUILD_CREDIT_COST) {
       setIsPaused(true);
       return;
     }
@@ -95,8 +99,11 @@ export function Build() {
       } catch {
         try {
           const status = await trpc.projects.tierStatus.query();
-          if ((status.credits ?? 0) < BUILD_CREDIT_COST) setIsPaused(true);
-          else setError("Build stream error");
+          if (!status.unlimited && (status.credits ?? 0) < BUILD_CREDIT_COST) {
+            setIsPaused(true);
+          } else {
+            setError("Build stream error");
+          }
         } catch {
           setError("Build stream error");
         }
@@ -105,14 +112,17 @@ export function Build() {
     });
 
     return () => eventSource.close();
-  }, [projectId, tierStatus, creditBalance]);
+  }, [projectId, tierStatus, creditBalance, unlimited]);
 
   const handleDeploy = async () => {
     if (!projectId) return;
     setDeploying(true);
     try {
-      const result = await trpc.projects.deploy.mutate({ id: parseInt(projectId) });
-      setDeployUrl(result.deployUrl);
+      const result = await trpc.projects.deploy.mutate({
+        id: parseInt(projectId),
+        destination,
+      });
+      if (result.deployUrl) setDeployUrl(result.deployUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deployment failed");
     } finally {
@@ -120,10 +130,44 @@ export function Build() {
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (!projectId) return;
+    setDownloading(true);
+    try {
+      const result = await trpc.projects.download.query({ id: parseInt(projectId) });
+      const binary = atob(result.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename || "appforge-app.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ZIP download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleGitHubExport = async () => {
     if (!projectId || !project?.title) return;
-    const repoName = `appforge-${project.title.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}`;
     try {
+      const conn = await trpc.github.connectionStatus.query();
+      if (!conn.connected) {
+        const { url } = await trpc.github.connectUrl.query();
+        if (!url) {
+          setError("GitHub OAuth is not configured");
+          return;
+        }
+        window.location.href = url;
+        return;
+      }
+      const repoName = `appforge-${project.title.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}`;
       const result = await trpc.github.pushToRepo.mutate({
         projectId: parseInt(projectId),
         repoName,
@@ -132,6 +176,12 @@ export function Build() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "GitHub export failed");
     }
+  };
+
+  const destinationDisabled = (dest: DeployDestination): boolean => {
+    if (dest === "preview") return false;
+    const opt = deployOptions?.[dest];
+    return opt ? !opt.configured : false;
   };
 
   return (
@@ -169,9 +219,30 @@ export function Build() {
 
         {isComplete && !error && !isPaused && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
-            <p className="font-semibold text-lg">✅ App generation complete!</p>
-            <p className="mt-2">Your app is ready. Open the live preview on Fly, or export the generated files.</p>
-            <div className="mt-4 space-x-4 flex flex-wrap gap-4">
+            <p className="font-semibold text-lg">App generation complete!</p>
+            <p className="mt-2">Your app is ready. Deploy, download a ZIP, or export to GitHub.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-green-200/80">
+                Destination{" "}
+                <select
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value as DeployDestination)}
+                  className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
+                >
+                  <option value="preview" disabled={destinationDisabled("preview")}>
+                    Preview{deployOptions?.preview ? ` (${deployOptions.preview.label})` : ""}
+                  </option>
+                  <option value="vercel" disabled={destinationDisabled("vercel")}>
+                    Vercel{deployOptions?.vercel && !deployOptions.vercel.configured ? " — not configured" : ""}
+                  </option>
+                  <option value="netlify" disabled={destinationDisabled("netlify")}>
+                    Netlify{deployOptions?.netlify && !deployOptions.netlify.configured ? " — not configured" : ""}
+                  </option>
+                  <option value="fly" disabled={destinationDisabled("fly")}>
+                    Fly.io{deployOptions?.fly && !deployOptions.fly.configured ? " — not configured" : ""}
+                  </option>
+                </select>
+              </label>
               {deployUrl ? (
                 <a
                   href={deployUrl}
@@ -179,22 +250,29 @@ export function Build() {
                   rel="noopener noreferrer"
                   className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
                 >
-                  🚀 View Live App
+                  View Live App
                 </a>
               ) : (
                 <button
                   onClick={handleDeploy}
-                  disabled={deploying}
+                  disabled={deploying || destinationDisabled(destination)}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying ? "Publishing..." : "🚀 Open live preview"}
+                  {deploying ? "Deploying..." : "Deploy"}
                 </button>
               )}
+              <button
+                onClick={handleDownloadZip}
+                disabled={downloading}
+                className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
+              >
+                {downloading ? "Preparing ZIP..." : "Download ZIP"}
+              </button>
               <button
                 onClick={handleGitHubExport}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
               >
-                📦 Export to GitHub
+                Export to GitHub
               </button>
             </div>
           </div>
@@ -218,7 +296,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
         className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
       >
         <div>
-          <p className="font-semibold text-white">{isSystem ? "⚙️ System" : log.agent}</p>
+          <p className="font-semibold text-white">{isSystem ? "System" : log.agent}</p>
           <p className="text-sm text-slate-300">{log.payload?.message || log.payload?.type}</p>
         </div>
         <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
