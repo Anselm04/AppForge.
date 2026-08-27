@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocaleProvider } from "../../i18n/LocaleContext";
 
 export function createTestQueryClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } });
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
 export function Providers({ children }: { children: ReactNode }) {
