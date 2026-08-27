@@ -16,7 +16,13 @@ export const appRouter = router({
     me: publicProcedure.query(opts => {
       const user = opts.ctx.user;
       if (!user) return null;
-      return { ...user, isOwner: isOwnerEmail(user.email) };
+      const email = (user.email ?? "").trim().toLowerCase();
+      return {
+        id: user.id,
+        email,
+        name: user.name,
+        isOwner: isOwnerEmail(email),
+      };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
