@@ -3,9 +3,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
 import { signOut, useSession } from "../lib/auth.js";
+import { LanguageSwitcher } from "./LanguageSwitcher.js";
+import { useLocale } from "../i18n/LocaleContext.js";
 
 export function TopNav() {
   const navigate = useNavigate();
+  const { t } = useLocale();
   const [isDark, setIsDark] = useState(false);
 
   const { data: user } = useQuery({
@@ -57,11 +60,13 @@ export function TopNav() {
         </button>
 
         <div className="flex items-center gap-4">
+          <LanguageSwitcher />
+
           <button
             onClick={() => setIsDark(!isDark)}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
           >
-            {isDark ? "Light" : "Dark"}
+            {isDark ? t("nav.light") : t("nav.dark")}
           </button>
 
           {isLoggedIn ? (
@@ -71,7 +76,7 @@ export function TopNav() {
                   onClick={() => navigate("/admin")}
                   className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
                 >
-                  Admin
+                  {t("nav.admin")}
                 </button>
               )}
 
@@ -79,14 +84,14 @@ export function TopNav() {
                 onClick={() => navigate("/dashboard")}
                 className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               >
-                Dashboard
+                {t("nav.dashboard")}
               </button>
 
               <button
                 onClick={() => navigate("/editor")}
                 className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               >
-                Editor
+                {t("nav.editor")}
               </button>
 
               {!isPaid && !isTrialing && (
@@ -94,13 +99,13 @@ export function TopNav() {
                   onClick={() => navigate("/pricing")}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold"
                 >
-                  Upgrade
+                  {t("nav.upgrade")}
                 </button>
               )}
 
               {isTrialing && (
                 <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 px-3 py-1 rounded-full font-semibold">
-                  Trial ({tier})
+                  {t("nav.trial", { tier })}
                 </span>
               )}
 
@@ -114,7 +119,7 @@ export function TopNav() {
                 onClick={() => logout.mutate()}
                 className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               >
-                Logout
+                {t("nav.logout")}
               </button>
             </>
           ) : (
@@ -123,13 +128,13 @@ export function TopNav() {
                 onClick={() => navigate("/login")}
                 className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               >
-                Login
+                {t("nav.login")}
               </button>
               <button
                 onClick={() => navigate("/signup")}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
               >
-                Sign Up
+                {t("nav.signUp")}
               </button>
             </>
           )}
