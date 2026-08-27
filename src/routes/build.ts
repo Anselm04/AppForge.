@@ -18,8 +18,16 @@ import {
   updateSeniorDevTask,
   updateSeniorDevTaskStatus,
 } from "../db.js";
-import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST, creditsExhaustedBody } from "../lib/credits.js";
-import { runSeniorDevAgent, resumeAfterApproval, type ProgressEvent } from "../agents/seniorDevAgent.js";
+import {
+  BUILD_CREDIT_COST,
+  SENIOR_DEV_CREDIT_COST,
+  creditsExhaustedBody,
+} from "../lib/credits.js";
+import {
+  runSeniorDevAgent,
+  resumeAfterApproval,
+  type ProgressEvent,
+} from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
 
 const router = Router();
@@ -52,18 +60,21 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   }
 
   // Already completed — stream done immediately without recharging
-  const existingFiles = (project.generatedFiles as Record<string, string> | null) ?? {};
+  const existingFiles =
+    (project.generatedFiles as Record<string, string> | null) ?? {};
   if (project.status === "completed" && Object.keys(existingFiles).length > 0) {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
-    res.write(`event: done\ndata: ${JSON.stringify({
-      status: "completed",
-      projectId,
-      fileCount: Object.keys(existingFiles).length,
-      reused: true,
-    })}\n\n`);
+    res.write(
+      `event: done\ndata: ${JSON.stringify({
+        status: "completed",
+        projectId,
+        fileCount: Object.keys(existingFiles).length,
+        reused: true,
+      })}\n\n`,
+    );
     res.end();
     return;
   }
@@ -78,7 +89,11 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   const credits = await ensureUserCredits(user.id);
   const unlimited = !!credits.unlimited || credits.tier === "lifetime";
   if (!unlimited && credits.balance < BUILD_COST) {
-    res.status(402).json(creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"));
+    res
+      .status(402)
+      .json(
+        creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"),
+      );
     return;
   }
 
@@ -87,7 +102,10 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   }
 
   // Resume if previously paused
-  if (project.status === "paused" && project.pauseReason === "credits_exhausted") {
+  if (
+    project.status === "paused" &&
+    project.pauseReason === "credits_exhausted"
+  ) {
     await resumeProject(projectId);
   }
 
@@ -168,7 +186,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       project.techStack || "react-node",
       creditAwareWrite,
       controller.signal,
-      checkCredits
+      checkCredits,
     );
 
     if (totalSpent > 0) {
@@ -216,11 +234,24 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
 
   const credits = await ensureUserCredits(user.id);
   if (credits.balance < SENIOR_DEV_BASE_COST) {
-    res.status(402).json(creditsExhaustedBody(credits.balance, SENIOR_DEV_BASE_COST, "use the Senior Dev Agent"));
+    res
+      .status(402)
+      .json(
+        creditsExhaustedBody(
+          credits.balance,
+          SENIOR_DEV_BASE_COST,
+          "use the Senior Dev Agent",
+        ),
+      );
     return;
   }
 
-  await deductCredits(user.id, SENIOR_DEV_BASE_COST, task.projectId, "Senior Dev Agent reservation");
+  await deductCredits(
+    user.id,
+    SENIOR_DEV_BASE_COST,
+    task.projectId,
+    "Senior Dev Agent reservation",
+  );
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -254,45 +285,66 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   };
 
   try {
-    const files = (project.generatedFiles as Record<string, string> | null) ?? {};
+    const files =
+      (project.generatedFiles as Record<string, string> | null) ?? {};
+
+    const agentTask = {
+      id: task.id,
+      projectId: task.projectId,
+      userId: task.userId,
+      request: task.request,
+      mode: task.mode as "collaborative" | "autonomous",
+      plan: task.plan as any,
+      planApproved: task.planApproved ?? false,
+      status: task.status as any,
+      changes: (task.changes as any) ?? [],
+      validationResults: (task.validationResult as any) ?? [],
+      summary: task.summary ?? "",
+      creditsSpent: task.creditsSpent ?? 0,
+    };
 
     const result = await runSeniorDevAgent(
-      {
-        id: task.id,
-        projectId: task.projectId,
-        userId: task.userId,
-        request: task.request,
-        mode: task.mode as "collaborative" | "autonomous",
-        plan: task.plan as any,
-        planApproved: task.planApproved ?? false,
-        status: task.status as any,
-        changes: (task.changes as any) ?? [],
-        validationResults: (task.validationResult as any) ?? [],
-        summary: task.summary ?? "",
-        creditsSpent: task.creditsSpent ?? 0,
-      },
+      agentTask,
       { ...files },
       project.techStack || "react-node",
-      onProgress
+      onProgress,
     );
+
+    if (agentTask.status === "awaiting_approval") {
+      await updateSeniorDevTask(task.id, {
+        status: "awaiting_approval",
+        plan: agentTask.plan,
+        planApproved: false,
+        summary: result.summary,
+        creditsSpent: agentTask.creditsSpent,
+      });
+      write("awaiting_approval", {
+        status: "awaiting_approval",
+        plan: agentTask.plan,
+        summary: result.summary,
+      });
+      return;
+    }
 
     if (Object.keys(result.files).length > 0) {
       await updateProjectFiles(task.projectId, result.files);
     }
 
     await updateSeniorDevTask(task.id, {
-      status: "completed",
+      status: agentTask.status === "failed" ? "failed" : "completed",
+      plan: agentTask.plan,
+      planApproved: agentTask.planApproved,
       changes: result.changes,
       validationResult: result.validations,
       summary: result.summary,
-      creditsSpent: result.changes.length * 3 + 2 + 2,
+      creditsSpent: agentTask.creditsSpent,
     });
 
     write("done", {
-      status: "completed",
+      status: agentTask.status === "failed" ? "failed" : "completed",
       summary: result.summary,
-      filesChanged: result.changes.map(c => c.path),
-      creditsSpent: task.creditsSpent ?? 0,
+      filesChanged: result.changes.map((c) => c.path),
+      creditsSpent: agentTask.creditsSpent,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -333,7 +385,9 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
 
   const resumeCredits = await ensureUserCredits(user.id);
   if (resumeCredits.balance < 1) {
-    res.status(402).json(creditsExhaustedBody(resumeCredits.balance, 1, "resume this task"));
+    res
+      .status(402)
+      .json(creditsExhaustedBody(resumeCredits.balance, 1, "resume this task"));
     return;
   }
 
@@ -369,8 +423,14 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   };
 
   try {
+    await updateSeniorDevTask(task.id, {
+      planApproved: true,
+      status: "executing",
+    });
+
     const project = await getProjectById(task.projectId);
-    const files = (project?.generatedFiles as Record<string, string> | null) ?? {};
+    const files =
+      (project?.generatedFiles as Record<string, string> | null) ?? {};
 
     const result = await resumeAfterApproval(
       {
@@ -389,7 +449,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       },
       { ...files },
       project?.techStack || "react-node",
-      onProgress
+      onProgress,
     );
 
     if (project) {
@@ -407,7 +467,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     write("done", {
       status: "completed",
       summary: result.summary,
-      filesChanged: result.changes.map(c => c.path),
+      filesChanged: result.changes.map((c) => c.path),
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -444,7 +504,10 @@ router.post("/deploy", async (req: Request, res: Response) => {
     }
 
     const current = await db.query.buildSnapshots.findFirst({
-      where: and(eq(schema.buildSnapshots.projectId, projectId), eq(schema.buildSnapshots.isCurrent, true)),
+      where: and(
+        eq(schema.buildSnapshots.projectId, projectId),
+        eq(schema.buildSnapshots.isCurrent, true),
+      ),
     });
     if (!current) {
       res.status(400).json({ error: "No current build snapshot to deploy" });
@@ -452,7 +515,10 @@ router.post("/deploy", async (req: Request, res: Response) => {
     }
 
     const files = current.files as Record<string, string>;
-    const deployUrl = await deployToVercel(project.title || "appforge-app", files);
+    const deployUrl = await deployToVercel(
+      project.title || "appforge-app",
+      files,
+    );
 
     watchProject(projectId, req.user.id, deployUrl);
 
