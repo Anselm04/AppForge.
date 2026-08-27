@@ -4,6 +4,7 @@ import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
 import { signOut, useSession } from "../lib/auth.js";
 import { isOwnerEmail } from "../lib/owner.js";
+import { useLayoutMode, type LayoutMode } from "../lib/layout.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
@@ -23,6 +24,67 @@ function CloseIcon() {
   );
 }
 
+const LAYOUT_OPTIONS: LayoutMode[] = ["auto", "phone", "desktop"];
+
+function LayoutSwitcher({
+  stacked,
+  mode,
+  setMode,
+  t,
+}: {
+  stacked: boolean;
+  mode: LayoutMode;
+  setMode: (next: LayoutMode) => void;
+  t: (key: string) => string;
+}) {
+  const labelFor = (value: LayoutMode) =>
+    value === "auto" ? t("nav.layoutAuto") : value === "phone" ? t("nav.layoutPhone") : t("nav.layoutDesktop");
+
+  return (
+    <div className={stacked ? "w-full" : "shrink-0"} role="group" aria-label={t("nav.layout")}>
+      {stacked && (
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {t("nav.layout")}
+        </p>
+      )}
+      <div
+        className={
+          stacked
+            ? "grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+            : "inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800"
+        }
+      >
+        {LAYOUT_OPTIONS.map((value) => {
+          const selected = mode === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setMode(value)}
+              className={
+                stacked
+                  ? `min-h-[44px] px-2 rounded-md text-sm font-semibold ${
+                      selected
+                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                    }`
+                  : `min-h-[32px] px-2 rounded-md text-xs font-semibold whitespace-nowrap ${
+                      selected
+                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                    }`
+              }
+            >
+              {labelFor(value)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 type NavChromeProps = {
   stacked: boolean;
   isDark: boolean;
@@ -32,6 +94,8 @@ type NavChromeProps = {
   isPaid: boolean;
   isTrialing: boolean;
   tier: string;
+  layoutMode: LayoutMode;
+  setLayoutMode: (next: LayoutMode) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
   go: (path: string) => void;
   onLogout: () => void;
@@ -46,6 +110,8 @@ function NavChrome({
   isPaid,
   isTrialing,
   tier,
+  layoutMode,
+  setLayoutMode,
   t,
   go,
   onLogout,
@@ -66,6 +132,8 @@ function NavChrome({
   return (
     <>
       <LanguageSwitcher variant={stacked ? "panel" : "dropdown"} />
+
+      <LayoutSwitcher stacked={stacked} mode={layoutMode} setMode={setLayoutMode} t={t} />
 
       <button type="button" onClick={toggleDark} className={darkBtn}>
         {isDark ? t("nav.light") : t("nav.dark")}
@@ -126,6 +194,7 @@ function NavChrome({
 export function TopNav() {
   const navigate = useNavigate();
   const { t } = useLocale();
+  const { mode: layoutMode, setMode: setLayoutMode, compact } = useLayoutMode();
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -163,6 +232,10 @@ export function TopNav() {
   }, [isDark]);
 
   useEffect(() => {
+    if (!compact) setMenuOpen(false);
+  }, [compact]);
+
+  useEffect(() => {
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -177,15 +250,6 @@ export function TopNav() {
       hamburgerRef.current?.focus();
     };
   }, [menuOpen]);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const onChange = () => {
-      if (mq.matches) setMenuOpen(false);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
@@ -208,6 +272,8 @@ export function TopNav() {
     isPaid,
     isTrialing,
     tier,
+    layoutMode,
+    setLayoutMode,
     t,
     go,
     onLogout: () => {
@@ -227,29 +293,33 @@ export function TopNav() {
           }}
           className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
         >
-          <img src="/appforge-logo.png" alt="" className="h-9 w-9 rounded-lg" />
+          <img src="/appforge-logo.png" alt="" className="h-9 w-9 rounded-lg object-contain" />
           AppForge
         </button>
 
-        <div className="hidden md:flex items-center gap-4">
-          <NavChrome stacked={false} {...chrome} />
-        </div>
+        {!compact && (
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <NavChrome stacked={false} {...chrome} />
+          </div>
+        )}
 
-        <button
-          ref={hamburgerRef}
-          type="button"
-          className="md:hidden inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-          aria-label={t("nav.menu")}
-          aria-expanded={menuOpen}
-          aria-controls="mobile-nav-drawer"
-          onClick={() => setMenuOpen(true)}
-        >
-          <MenuIcon />
-        </button>
+        {compact && (
+          <button
+            ref={hamburgerRef}
+            type="button"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            aria-label={t("nav.menu")}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-nav-drawer"
+            onClick={() => setMenuOpen(true)}
+          >
+            <MenuIcon />
+          </button>
+        )}
       </div>
 
-      {menuOpen && (
-        <div className="md:hidden">
+      {compact && menuOpen && (
+        <div>
           <button
             type="button"
             className="fixed inset-0 z-[60] bg-black/40"
@@ -265,7 +335,7 @@ export function TopNav() {
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <span className="flex items-center gap-2 text-lg font-bold text-blue-600">
-                <img src="/appforge-logo.png" alt="" className="h-8 w-8 rounded-lg" />
+                <img src="/appforge-logo.png" alt="" className="h-8 w-8 rounded-lg object-contain" />
                 AppForge
               </span>
               <button
