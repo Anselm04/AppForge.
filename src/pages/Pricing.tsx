@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
+import { useSession } from "../lib/auth.js";
 
 const TIER_CONFIG = {
   free: { price: 0, credits: 20, builds: 3, label: "Free" },
@@ -12,6 +14,13 @@ const TIER_CONFIG = {
 };
 
 export function Pricing() {
+  const navigate = useNavigate();
+  const session = useSession();
+  const { data: user } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => trpc.auth.me.query(),
+  });
+  const isAuthed = !!user || !!session;
   const { data: subStatus } = useQuery({
     queryKey: ["subscriptions", "status"],
     queryFn: () => trpc.subscriptions.status.query(),
@@ -194,6 +203,10 @@ export function Pricing() {
                     window.location.href = "mailto:sales@appforge.dev?subject=Enterprise%20Plan%20Inquiry";
                     return;
                   }
+                  if (!isAuthed) {
+                    navigate("/signup?next=/pricing");
+                    return;
+                  }
                   if (!tier.disabled) {
                     createCheckout.mutate(tier.key);
                   }
@@ -238,7 +251,6 @@ export function Pricing() {
           </div>
         </div>
 
-        {/* Credit usage explainer */}
         <div className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
             How Credits Work
