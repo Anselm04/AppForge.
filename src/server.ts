@@ -18,6 +18,8 @@ import { aiRouter } from "./routes/ai.js";
 import { agentsRouter } from "./routes/agents.js";
 import { buildRouter } from "./routes/build.js";
 import { checkoutRouter } from "./routes/checkout.js";
+import { appsCompatRouter, billingCompatRouter } from "./routes/legacyCompat.js";
+import { livePreviewRouter } from "./routes/livePreview.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { closeDbConnection } from "./db.js";
 import { logger } from "./_core/logger.js";
@@ -25,7 +27,7 @@ import { AppError } from "./utils/errorReporting.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || "30000", 10);
+const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || "330000", 10);
 const clientDir = path.resolve(process.cwd(), "dist/client");
 
 // ── Sentry initialization (before middleware) ──
@@ -85,7 +87,13 @@ app.use((req, res, next) => {
 });
 
 // ── Request timeout middleware ──
+// SSE builds run up to ~5 minutes; do not kill those sockets at 30s.
 app.use((req, res, next) => {
+  if (req.path.startsWith("/api/build") || req.path.startsWith("/live")) {
+    req.setTimeout(0);
+    res.setTimeout(0);
+    return next();
+  }
   req.setTimeout(REQUEST_TIMEOUT, () => {
     if (!res.headersSent) {
       res.status(408).json({ error: "Request timeout" });
@@ -156,6 +164,9 @@ app.use("/api/ai", aiRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/build", buildRouter);
 app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
+app.use("/api/apps", appsCompatRouter);
+app.use("/api/billing", billingCompatRouter);
+app.use("/live", livePreviewRouter);
 
 // ── tRPC routes ──
 app.use(
@@ -186,7 +197,7 @@ app.get("/config.js", (_req, res) => {
 if (ENV.isProduction) {
   app.use(express.static(clientDir, { index: false, fallthrough: true }));
   app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api") || req.path === "/config.js") return next();
+    if (req.path.startsWith("/api") || req.path === "/config.js" || req.path.startsWith("/live")) return next();
     res.sendFile(path.join(clientDir, "index.html"), (err) => {
       if (err) next(err);
     });
