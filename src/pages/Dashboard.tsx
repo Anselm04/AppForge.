@@ -1,36 +1,63 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
+import { useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
-interface TierStatus {
-  tier: string;
-  isPaid: boolean;
-  buildsThisMonth: number;
-  limit: number | null;
-  credits: number;
-}
-
 interface Project {
   id: number;
-  title: string;
-  description: string;
-  status: string;
-  createdAt: string;
+  title: string | null;
+  description: string | null;
+  status: string | null;
+  createdAt: string | null;
 }
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { data: projects, isLoading } = useQuery({
+  const session = useSession();
+
+  useEffect(() => {
+    if (!session) {
+      navigate("/login?next=/dashboard", { replace: true });
+    }
+  }, [session, navigate]);
+
+  const { data: projects, isLoading, isError, error } = useQuery({
     queryKey: ["projects", "list"],
     queryFn: () => trpc.projects.list.query(),
+    enabled: !!session,
+    retry: false,
   });
 
   const { data: tierStatus } = useQuery({
     queryKey: ["projects", "tierStatus"],
     queryFn: () => trpc.projects.tierStatus.query(),
+    enabled: !!session,
+    retry: false,
   });
+
+  const unauthError =
+    isError && /unauth|not authenticated/i.test(String((error as Error)?.message || ""));
+
+  if (!session || unauthError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
+        <div className="max-w-6xl mx-auto text-center py-16">
+          <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
+            Sign in to see your apps.
+          </p>
+          <button
+            onClick={() => navigate("/login?next=/dashboard")}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg inline-block"
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
@@ -137,13 +164,13 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="flex items-center justify-between mb-4">
         <span
           className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            statusColors[project.status] || statusColors.pending
+            statusColors[project.status || "pending"] || statusColors.pending
           }`}
         >
           {project.status}
         </span>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {new Date(project.createdAt).toLocaleDateString()}
+          {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
         </p>
       </div>
       <div className="flex gap-2">
