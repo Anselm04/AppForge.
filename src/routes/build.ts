@@ -18,17 +18,18 @@ import {
   updateSeniorDevTask,
   updateSeniorDevTaskStatus,
 } from "../db.js";
+import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST, creditsExhaustedBody } from "../lib/credits.js";
 import { runSeniorDevAgent, resumeAfterApproval, type ProgressEvent } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
 
 const router = Router();
 
-const BUILD_COST = 5;
+const BUILD_COST = BUILD_CREDIT_COST;
 const PLANNER_COST = 2;
 const CODER_COST = 3;
 const REVIEWER_COST = 1;
 
-const SENIOR_DEV_BASE_COST = 6;
+const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
 /** SSE endpoint that streams the multi-agent pipeline with credit tracking */
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -50,25 +51,14 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     return;
   }
 
-  // Credit check
+  // Credit check — monthlyAllowance is a build-count cap, not spendable credits.
   const credits = await ensureUserCredits(user.id);
-  if (credits.balance < BUILD_COST && (credits.monthlyAllowance ?? 0) <= 0) {
-    res.status(402).json({
-      error: "Insufficient credits",
-      balance: credits.balance,
-      cost: BUILD_COST,
-      message: "Purchase credits or upgrade your plan to continue building.",
-    });
+  if (credits.balance < BUILD_COST) {
+    res.status(402).json(creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"));
     return;
   }
 
-  // Reserve credits upfront
-  if (credits.balance >= BUILD_COST) {
-    await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
-  } else {
-    // Fall back to monthly allowance (free tier)
-    // This is tracked via countBuildsThisMonth in the router, not credits
-  }
+  await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
 
   // Resume if previously paused
   if (project.status === "paused" && project.pauseReason === "credits_exhausted") {
@@ -192,19 +182,12 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     return;
   }
 
-  // Credit check
   const credits = await ensureUserCredits(user.id);
-  if (credits.balance < SENIOR_DEV_BASE_COST && (credits.monthlyAllowance ?? 0) <= 0) {
-    res.status(402).json({
-      error: "Insufficient credits",
-      balance: credits.balance,
-      cost: SENIOR_DEV_BASE_COST,
-      message: "Purchase credits or upgrade your plan to use the Senior Dev Agent.",
-    });
+  if (credits.balance < SENIOR_DEV_BASE_COST) {
+    res.status(402).json(creditsExhaustedBody(credits.balance, SENIOR_DEV_BASE_COST, "use the Senior Dev Agent"));
     return;
   }
 
-  // Reserve base cost
   await deductCredits(user.id, SENIOR_DEV_BASE_COST, task.projectId, "Senior Dev Agent reservation");
 
   // Set up SSE
@@ -309,6 +292,12 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
 
   if (task.status !== "awaiting_approval") {
     res.status(400).json({ error: "Task not awaiting approval" });
+    return;
+  }
+
+  const resumeCredits = await ensureUserCredits(user.id);
+  if (resumeCredits.balance < 1) {
+    res.status(402).json(creditsExhaustedBody(resumeCredits.balance, 1, "resume this task"));
     return;
   }
 
