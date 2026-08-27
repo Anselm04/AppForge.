@@ -24,7 +24,8 @@
     "upgradeMore": "Upgrade for more builds and credits",
     "promptLabel": "What app do you want to build?",
     "promptPlaceholder": "e.g., A todo list with dark mode, a booking app for my salon, a sales dashboard...",
-    "charCount": "{count} / 2000 characters",
+    "charCount": "{count} / 10000 characters",
+    "overLimit": "Shorten your prompt to 10000 characters or fewer.",
     "techStack": "Tech Stack",
     "techHint": "AppForge generates code for your chosen stack, compiles it, and attempts to auto-fix errors.",
     "groupWeb": "Web Apps",
@@ -41,7 +42,19 @@
     "aiTitle": "AI-Powered",
     "aiDesc": "Multi-agent pipeline plans, codes, and reviews your app.",
     "prodTitle": "Production-Ready",
-    "prodDesc": "Export to GitHub and deploy to Vercel with one click."
+    "prodDesc": "Export to GitHub and deploy to Vercel with one click.",
+    "catApps": "Apps",
+    "catAppsDesc": "Full-stack mobile and web apps from a prompt.",
+    "catGames": "Games",
+    "catGamesDesc": "HTML5, 3D, and native-style game projects.",
+    "catAgents": "Agents",
+    "catAgentsDesc": "Multi-agent pipelines that plan, code, and review.",
+    "catTools": "Tools",
+    "catToolsDesc": "Internal tools, dashboards, and automations.",
+    "catSoftware": "Software",
+    "catSoftwareDesc": "Desktop and production software from your idea.",
+    "catWebsites": "Websites",
+    "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
     "title": "Welcome back",
@@ -136,5 +149,14 @@
     "subscribe": "Subscribe",
     "buyExtra": "Buy extra credits",
     "actionStartBuild": "start a build"
+  },
+  "footer": {
+    "founder": "Anselm Perkins · Founder & CEO",
+    "ownerOf": "Owner of AppForge and TrillionAI Tech",
+    "about": "About"
+  },
+  "about": {
+    "title": "About AppForge",
+    "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
   }
 }
