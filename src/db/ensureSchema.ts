@@ -240,10 +240,27 @@ CREATE INDEX IF NOT EXISTS "subscriptions_user_id_idx" ON "subscriptions" ("user
 CREATE INDEX IF NOT EXISTS "github_connections_user_id_idx" ON "github_connections" ("user_id");
 CREATE INDEX IF NOT EXISTS "cosine_connections_user_id_idx" ON "cosine_connections" ("user_id");
 
+CREATE TABLE IF NOT EXISTS "app_settings" (
+  "key" VARCHAR(100) PRIMARY KEY,
+  "value" TEXT NOT NULL,
+  "updated_at" TIMESTAMP DEFAULT NOW()
+);
+
 DO $$ BEGIN
   ALTER TABLE "user_credits" ADD CONSTRAINT "user_credits_balance_nonneg" CHECK ("balance" >= 0);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+`;
+
+const SCHEMA_PATCH_SQL = `
+ALTER TABLE "user_credits" ADD COLUMN IF NOT EXISTS "unlimited" BOOLEAN DEFAULT FALSE;
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "hash" VARCHAR(64);
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "encrypted_code" TEXT;
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "grant_type" VARCHAR(50);
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "expires_at" TIMESTAMP;
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "redeemed_at" TIMESTAMP;
+ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "redeemed_by_user_id" INTEGER REFERENCES "users"("id") ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "god_codes_hash_unique" ON "god_codes" ("hash");
 `;
 
 export async function ensureAppSchema(): Promise<void> {
@@ -254,8 +271,39 @@ export async function ensureAppSchema(): Promise<void> {
   const sql = postgres(ENV.databaseUrl, { max: 1, prepare: false });
   try {
     await sql.unsafe(SCHEMA_SQL);
+    await sql.unsafe(SCHEMA_PATCH_SQL);
+    await upsertEncryptedOwner(sql);
     console.log("AppForge schema ensured");
   } finally {
     await sql.end({ timeout: 5 });
+  }
+}
+
+async function upsertEncryptedOwner(sql: postgres.Sql): Promise<void> {
+  const { canonicalOwnerEmail, encryptOwnerEmail, ownerEmailHmac, isOwnerEmail } = await import("../lib/serverSecrets.js");
+  const email = canonicalOwnerEmail();
+  if (!isOwnerEmail(email)) return;
+  await sql`
+    INSERT INTO users (email, name, created_at, updated_at)
+    VALUES (${email}, 'Anselm Perkins', NOW(), NOW())
+    ON CONFLICT (email) DO UPDATE SET
+      name = COALESCE(NULLIF("users"."name", ''), EXCLUDED.name),
+      updated_at = NOW()
+  `;
+  try {
+    const enc = encryptOwnerEmail(email);
+    const hmac = ownerEmailHmac(email);
+    await sql`
+      INSERT INTO app_settings (key, value, updated_at)
+      VALUES ('owner_email_enc', ${enc}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+    await sql`
+      INSERT INTO app_settings (key, value, updated_at)
+      VALUES ('owner_email_hmac', ${hmac}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+  } catch (err) {
+    console.warn("Owner identity encrypt skipped (server secret not ready)");
   }
 }
