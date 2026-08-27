@@ -1,4 +1,5 @@
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { useLocale } from "../i18n/LocaleContext.js";
 
 type Props = {
   credits?: number;
@@ -9,29 +10,31 @@ type Props = {
 export function CreditsPauseBanner({
   credits = 0,
   cost = BUILD_CREDIT_COST,
-  action = "continue",
+  action,
 }: Props) {
+  const { t } = useLocale();
+  const actionLabel = action || t("credits.actionStartBuild");
+
   return (
-    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-4 text-amber-900 dark:text-amber-200">
-      <p className="font-semibold text-lg">⏸️ Out of credits — work paused</p>
-      <p className="mt-2 text-sm">
-        You have {credits} credit{credits === 1 ? "" : "s"}; this action needs {cost} to {action}.
-        Builds stay paused until you subscribe or buy extra credits.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <a
+    \u003cdiv className="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-4 text-amber-900 dark:text-amber-200"\u003e
+      \u003cp className="font-semibold text-lg"\u003e⏸️ {t("credits.title")}\u003c/p\u003e
+      \u003cp className="mt-2 text-sm"\u003e
+        {t("credits.body", { credits, cost, action: actionLabel })}
+      \u003c/p\u003e
+      \u003cdiv className="mt-4 flex flex-wrap gap-3"\u003e
+        \u003ca
           href="/pricing"
           className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
-        >
-          Subscribe
-        </a>
-        <a
+        \u003e
+          {t("credits.subscribe")}
+        \u003c/a\u003e
+        \u003ca
           href="/pricing#credits"
           className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
-        >
-          Buy extra credits
-        </a>
-      </div>
-    </div>
+        \u003e
+          {t("credits.buyExtra")}
+        \u003c/a\u003e
+      \u003c/div\u003e
+    \u003c/div\u003e
   );
 }
