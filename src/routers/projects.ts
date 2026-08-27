@@ -14,6 +14,7 @@ import {
   ensureUserCredits,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -25,7 +26,9 @@ import {
 
 const FREE_TIER_LIMIT = 3;
 
+// ── Validated tech stack options ──
 const techStackEnum = z.enum([
+  // Web apps
   "react-node",
   "react-python",
   "vue-node",
@@ -37,6 +40,7 @@ const techStackEnum = z.enum([
   "react-supabase",
   "remix-node",
   "astro-node",
+  // Games
   "phaser-html5",
   "three-js-3d",
   "babylon-js-3d",
@@ -44,17 +48,20 @@ const techStackEnum = z.enum([
   "godot-html5",
   "react-native-game",
   "flutter-game",
+  // AI / Agents
   "ai-agent-python",
   "ai-agent-node",
   "openai-tool",
   "langchain-tool",
   "crewai-agent",
   "autogen-agent",
+  // Desktop / Mobile
   "electron-react",
   "tauri-rust",
   "react-native-expo",
   "flutter-firebase",
   "capacitor-ionic",
+  // Specialized
   "chrome-extension",
   "vscode-extension",
   "discord-bot",
@@ -68,14 +75,26 @@ const techStackEnum = z.enum([
   "serverless-vercel",
 ]);
 
+// ── Input sanitization helpers ──
 function sanitizeString(input: string): string {
-  return input.trim().replace(/[<>]/g, "").slice(0, 5000);
+  return input
+    .trim()
+    .replace(/[<>]/g, "")
+    .slice(0, PROMPT_MAX_CHARS);
 }
 
 const projectCreateSchema = z.object({
-  description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be at most 2000 characters").transform(sanitizeString),
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(PROMPT_MAX_CHARS, `Description must be at most ${PROMPT_MAX_CHARS} characters`)
+    .transform(sanitizeString),
   techStack: techStackEnum.default("react-node"),
-  title: z.string().min(1, "Title is required").max(255, "Title must be at most 255 characters").transform(sanitizeString),
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .max(255, "Title must be at most 255 characters")
+    .transform(sanitizeString),
 });
 
 export const projectsRouter = router({
@@ -106,12 +125,14 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
+      // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
       const moderation = await moderateUserContent(ctx.user.id, input.description + " " + input.title);
       if (!moderation.allowed) {
         throw new TRPCError({ code: "FORBIDDEN", message: moderation.reason ?? "Content flagged" });
       }
 
+      // Backend tier enforcement
       const tier = await getUserTier(ctx.user.id);
       const limit = getTierBuildLimit(tier);
       if (limit !== null) {
@@ -125,7 +146,8 @@ export const projectsRouter = router({
       }
 
       const credits = await ensureUserCredits(ctx.user.id);
-      if (credits.balance < BUILD_CREDIT_COST) {
+      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      if (!unlimited && credits.balance < BUILD_CREDIT_COST) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}). Subscribe or buy extra credits to start a build.`,
@@ -157,6 +179,7 @@ export const projectsRouter = router({
       limit,
       remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
       credits: credits?.balance ?? 0,
+      unlimited: !!credits?.unlimited || tier === "lifetime",
     };
   }),
 
@@ -204,6 +227,7 @@ export const projectsRouter = router({
       return { base64, filename };
     }),
 
+  // ── Senior Dev Agent: Create Task ──
   seniorDev: protectedProcedure
     .input(
       z.object({
@@ -235,6 +259,7 @@ export const projectsRouter = router({
       return { taskId, status: "planning" };
     }),
 
+  // ── Senior Dev Agent: Approve Plan ──
   seniorDevApprove: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
@@ -249,6 +274,7 @@ export const projectsRouter = router({
       return { success: true, status: "executing" };
     }),
 
+  // ── Senior Dev Agent: Get Task ──
   seniorDevTask: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
@@ -258,6 +284,7 @@ export const projectsRouter = router({
       return task;
     }),
 
+  /** List all build snapshots for a project (version history) */
   snapshots: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -269,6 +296,7 @@ export const projectsRouter = router({
       return getSnapshotsByProject(input.projectId);
     }),
 
+  /** Rollback to a specific snapshot version */
   rollback: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive(), snapshotId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {

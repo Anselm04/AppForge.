@@ -41,6 +41,8 @@
     "pausedCta": "Paused — out of credits",
     "creating": "Creating...",
     "generate": "Generate App",
+    "generateFailed": "Could not start the build. Your prompt was kept.",
+    "needAccount": "Sign in or create an account to generate. Your prompt was saved.",
     "fastTitle": "Fast",
     "fastDesc": "Generate full-stack apps in minutes, not days.",
     "aiTitle": "AI-Powered",
