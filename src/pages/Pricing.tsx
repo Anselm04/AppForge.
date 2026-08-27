@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
 import { useSession } from "../lib/auth.js";
+import { useLocale } from "../i18n/LocaleContext.js";
 
 const TIER_CONFIG = {
   free: { price: 0, credits: 20, builds: 3, label: "Free" },
@@ -15,6 +16,7 @@ const TIER_CONFIG = {
 
 export function Pricing() {
   const navigate = useNavigate();
+  const { t } = useLocale();
   const session = useSession();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
@@ -50,89 +52,89 @@ export function Pricing() {
   const tiers = [
     {
       key: "free" as const,
-      name: "Free",
+      name: t("pricing.freeName"),
       price: "$0",
-      subPrice: "/month",
-      description: "For hobbyists exploring AI app building",
+      subPrice: t("pricing.perMonth"),
+      description: t("pricing.freeDesc"),
       features: [
-        "3 builds/month",
-        "20 compute credits/month",
-        "Basic templates",
-        "Community support",
+        t("pricing.freeF1"),
+        t("pricing.freeF2"),
+        t("pricing.freeF3"),
+        t("pricing.freeF4"),
       ],
-      cta: "Current Plan",
+      cta: t("pricing.currentPlan"),
       popular: false,
       disabled: currentTier !== "free",
     },
     {
       key: "starter" as const,
-      name: "Starter",
+      name: t("pricing.starterName"),
       price: "$49",
-      subPrice: "/month",
-      description: "Entry paid tier for individual creators",
+      subPrice: t("pricing.perMonth"),
+      description: t("pricing.starterDesc"),
       features: [
-        "16 builds/month",
-        "100 compute credits/month",
-        "All templates",
-        "GitHub export",
-        "Vercel deploy",
-        "7-day free trial",
+        t("pricing.starterF1"),
+        t("pricing.starterF2"),
+        t("pricing.starterF3"),
+        t("pricing.starterF4"),
+        t("pricing.starterF5"),
+        t("pricing.starterF6"),
       ],
-      cta: currentTier === "starter" ? "Current Plan" : "Start Free Trial",
+      cta: currentTier === "starter" ? t("pricing.currentPlan") : t("pricing.startTrial"),
       popular: false,
       disabled: currentTier === "starter" || currentTier === "builder" || currentTier === "studio" || currentTier === "enterprise" || currentTier === "custom",
     },
     {
       key: "builder" as const,
-      name: "Builder",
+      name: t("pricing.builderName"),
       price: "$149",
-      subPrice: "/month",
-      description: "Serious individual professionals",
+      subPrice: t("pricing.perMonth"),
+      description: t("pricing.builderDesc"),
       features: [
-        "66 builds/month",
-        "400 compute credits/month",
-        "Priority build queue",
-        "Advanced integrations",
-        "Custom domains",
-        "7-day free trial",
+        t("pricing.builderF1"),
+        t("pricing.builderF2"),
+        t("pricing.builderF3"),
+        t("pricing.builderF4"),
+        t("pricing.builderF5"),
+        t("pricing.builderF6"),
       ],
-      cta: currentTier === "builder" ? "Current Plan" : "Start Free Trial",
+      cta: currentTier === "builder" ? t("pricing.currentPlan") : t("pricing.startTrial"),
       popular: true,
       disabled: currentTier === "builder" || currentTier === "studio" || currentTier === "enterprise" || currentTier === "custom",
     },
     {
       key: "studio" as const,
-      name: "Studio",
+      name: t("pricing.studioName"),
       price: "$399",
-      subPrice: "/month",
-      description: "Professional teams and studios",
+      subPrice: t("pricing.perMonth"),
+      description: t("pricing.studioDesc"),
       features: [
-        "Unlimited builds",
-        "1,500 compute credits/month",
-        "Team collaboration",
-        "SSO & SAML",
-        "Dedicated support",
-        "7-day free trial",
+        t("pricing.studioF1"),
+        t("pricing.studioF2"),
+        t("pricing.studioF3"),
+        t("pricing.studioF4"),
+        t("pricing.studioF5"),
+        t("pricing.studioF6"),
       ],
-      cta: currentTier === "studio" ? "Current Plan" : "Start Free Trial",
+      cta: currentTier === "studio" ? t("pricing.currentPlan") : t("pricing.startTrial"),
       popular: false,
       disabled: currentTier === "studio" || currentTier === "enterprise" || currentTier === "custom",
     },
     {
       key: "enterprise" as const,
-      name: "Enterprise",
+      name: t("pricing.enterpriseName"),
       price: "$896+",
-      subPrice: "/month",
-      description: "Larger organizations with custom needs",
+      subPrice: t("pricing.perMonth"),
+      description: t("pricing.enterpriseDesc"),
       features: [
-        "Unlimited builds & credits",
-        "Custom contracts",
-        "SLA guarantees",
-        "Dedicated infrastructure",
-        "Priority 24/7 support",
-        "Custom integrations",
+        t("pricing.enterpriseF1"),
+        t("pricing.enterpriseF2"),
+        t("pricing.enterpriseF3"),
+        t("pricing.enterpriseF4"),
+        t("pricing.enterpriseF5"),
+        t("pricing.enterpriseF6"),
       ],
-      cta: "Contact Sales",
+      cta: t("pricing.contactSales"),
       popular: false,
       disabled: false,
       isEnterprise: true,
@@ -144,15 +146,14 @@ export function Pricing() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-4">
           <span className="inline-block bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold">
-            7-day free trial on all paid plans
+            {t("pricing.trialBadge")}
           </span>
         </div>
         <h1 className="text-4xl font-bold text-center text-slate-900 dark:text-white mb-4">
-          Choose Your Plan
+          {t("pricing.title")}
         </h1>
         <p className="text-center text-slate-600 dark:text-slate-400 mb-12 max-w-2xl mx-auto">
-          Build full-stack apps with AI. Every plan includes our multi-agent pipeline.
-          Credits are consumed per build phase (Planner, Coder, Reviewer).
+          {t("pricing.subtitle")}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-7xl mx-auto">
@@ -167,7 +168,7 @@ export function Pricing() {
             >
               {tier.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold">
-                  MOST POPULAR
+                  {t("pricing.mostPopular")}
                 </div>
               )}
               <h2 className={`text-xl font-bold mb-2 ${tier.popular ? "text-white" : "text-slate-900 dark:text-white"}`}>
@@ -220,7 +221,7 @@ export function Pricing() {
                     : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                 }`}
               >
-                {createCheckout.isPending && !tier.disabled ? "Loading..." : tier.cta}
+                {createCheckout.isPending && !tier.disabled ? t("pricing.loading") : tier.cta}
               </button>
             </div>
           ))}
@@ -228,10 +229,10 @@ export function Pricing() {
 
         <div id="credits" className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            Out of credits? Buy extra
+            {t("pricing.buyTitle")}
           </h3>
           <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
-            Extra credits are $1 each. They add to your balance immediately after payment and unpause paused builds.
+            {t("pricing.buySubtitle")}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[50, 100, 250].map((pack) => (
@@ -242,9 +243,9 @@ export function Pricing() {
                 className="border border-slate-200 dark:border-slate-600 rounded-lg p-4 hover:border-blue-500 transition-colors disabled:opacity-50"
               >
                 <div className="text-2xl font-bold text-slate-900 dark:text-white">{pack}</div>
-                <div className="text-sm text-slate-500 mb-3">credits · ${pack}</div>
+                <div className="text-sm text-slate-500 mb-3">{t("pricing.packCredits", { n: pack })}</div>
                 <span className="text-blue-600 font-semibold text-sm">
-                  {buyCredits.isPending ? "Loading..." : "Buy"}
+                  {buyCredits.isPending ? t("pricing.loading") : t("pricing.buy")}
                 </span>
               </button>
             ))}
@@ -253,27 +254,27 @@ export function Pricing() {
 
         <div className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-            How Credits Work
+            {t("pricing.howTitle")}
           </h3>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            Each build runs through a 3-phase AI pipeline. Credits are consumed per phase:
+            {t("pricing.howIntro")}
           </p>
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">2</div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">Planner credits</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">{t("pricing.planner")}</div>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">3</div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">Coder credits</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">{t("pricing.coder")}</div>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">Reviewer credits</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">{t("pricing.reviewer")}</div>
             </div>
           </div>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
-            A typical full build uses <strong>6 credits</strong> (2 + 3 + 1). If you run out mid-build, your project pauses and you can top up credits or upgrade your plan. Unused credits roll over for 30 days.
+            {t("pricing.howFooter")}
           </p>
         </div>
       </div>
