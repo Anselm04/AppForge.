@@ -27,8 +27,15 @@ export const usernameSchema = z
 // UUID validation
 export const uuidSchema = z.string().uuid('Invalid UUID format');
 
-// URL validation
-export const urlSchema = z.string().url('Invalid URL format').min(1).max(2048);
+// URL validation (http/https only — Zod's .url() also accepts ftp:// etc.)
+export const urlSchema = z
+  .string()
+  .url('Invalid URL format')
+  .min(1)
+  .max(2048)
+  .refine((value) => /^https?:\/\//i.test(value), {
+    message: 'URL must start with http:// or https://',
+  });
 
 // Name validation (first/last name)
 export const nameSchema = z

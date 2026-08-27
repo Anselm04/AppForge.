@@ -37,7 +37,7 @@ export class AgentOrchestrator {
       id: `build_${Date.now()}`,
       prompt,
       createdAt: new Date(),
-      requirements: context.requirements ?? {},
+      requirements: context.decisions ?? {},
       architecture: context.architecture ?? {},
       agents: results,
     };
