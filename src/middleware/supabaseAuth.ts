@@ -24,15 +24,25 @@ declare global {
   }
 }
 
+function readAccessToken(req: Request): string | undefined {
+  const header = req.headers.authorization;
+  if (typeof header === "string") {
+    const match = header.match(/^Bearer\s+(.+)$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+  const cookie = req.cookies?.["sb-access-token"];
+  if (typeof cookie === "string" && cookie.length > 0) return cookie;
+  const queryToken = req.query?.token;
+  if (typeof queryToken === "string" && queryToken.length > 0) return queryToken;
+  return undefined;
+}
+
 export async function supabaseAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
   if (!supabase) {
     return next();
   }
 
-  const token =
-    req.headers.authorization?.replace(/^Bearer\s+/i, "") ||
-    req.cookies?.["sb-access-token"] ||
-    (req.query?.token as string | undefined);
+  const token = readAccessToken(req);
   if (!token) {
     return next();
   }
@@ -44,25 +54,30 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
     }
 
     const supabaseUid = data.user.id;
-    const email = data.user.email ?? "";
+    const email = (data.user.email ?? "").trim().toLowerCase();
+    const name =
+      data.user.user_metadata?.["full_name"] ||
+      data.user.user_metadata?.["name"] ||
+      (email ? email.split("@")[0] : "user");
+    const picture = data.user.user_metadata?.["avatar_url"] ?? null;
 
-    // Look up our local user record by open_id (Supabase UID) or create on first visit
-    const { getUserByOpenId, createUser } = await import("../db.js");
-    let dbUser = await getUserByOpenId(supabaseUid);
+    const { upsertUserFromAuth } = await import("../db.js");
+    const dbUser = await upsertUserFromAuth({
+      openId: supabaseUid,
+      email,
+      name,
+      picture,
+    });
 
-    if (!dbUser) {
-      dbUser = await createUser({
-        openId: supabaseUid,
-        email,
-        name: data.user.user_metadata?.["full_name"] || data.user.user_metadata?.["name"] || email.split("@")[0],
-        picture: data.user.user_metadata?.["avatar_url"] ?? null,
-      });
+    if (!dbUser?.id) {
+      console.error("Supabase auth: user upsert returned no row");
+      return next();
     }
 
     req.user = {
       id: dbUser.id,
       email: dbUser.email ?? email,
-      name: dbUser.name ?? email.split("@")[0],
+      name: dbUser.name ?? name,
       supabaseUid,
     };
   } catch (err) {

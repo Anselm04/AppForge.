@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
 import { signOut, useSession } from "../lib/auth.js";
+import { isOwnerEmail } from "../lib/owner.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
@@ -189,9 +190,9 @@ export function TopNav() {
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  const email = user?.email || session?.user?.email;
   const isLoggedIn = !!user || !!session;
-  const isOwner = email === "anselm.perkins@gmail.com";
+  // Only show Admin when the server session (auth.me) says this login is the owner.
+  const isOwner = !!user && isOwnerEmail(user.email);
 
   const closeMenu = () => setMenuOpen(false);
   const go = (path: string) => {
@@ -224,8 +225,9 @@ export function TopNav() {
             closeMenu();
             navigate("/");
           }}
-          className="text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
+          className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
         >
+          <img src="/appforge-logo.png" alt="" className="h-9 w-9 rounded-lg" />
           AppForge
         </button>
 
@@ -262,7 +264,10 @@ export function TopNav() {
             className="fixed inset-y-0 end-0 z-[70] w-[min(20rem,86vw)] bg-white dark:bg-slate-900 shadow-xl flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
-              <span className="text-lg font-bold text-blue-600">AppForge</span>
+              <span className="flex items-center gap-2 text-lg font-bold text-blue-600">
+                <img src="/appforge-logo.png" alt="" className="h-8 w-8 rounded-lg" />
+                AppForge
+              </span>
               <button
                 ref={closeBtnRef}
                 type="button"
