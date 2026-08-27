@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "../_core/cookies.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
 import { systemRouter } from "../_core/systemRouter.js";
 import { publicProcedure, router } from "../_core/trpc.js";
+import { isOwnerEmail } from "../lib/owner.js";
 import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
@@ -12,7 +13,11 @@ import { moderationRouter } from "./moderation.js";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      const user = opts.ctx.user;
+      if (!user) return null;
+      return { ...user, isOwner: isOwnerEmail(user.email) };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

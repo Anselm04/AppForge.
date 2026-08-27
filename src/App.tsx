@@ -12,6 +12,7 @@ import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
+import { Redeem } from "./pages/Redeem.js";
 
 function AppShell() {
   const { locale, dir } = useLocale();
@@ -26,6 +27,7 @@ function AppShell() {
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/redeem" element={<Redeem />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/build/:projectId" element={<Build />} />
           <Route path="/pricing" element={<Pricing />} />
