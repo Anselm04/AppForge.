@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
       {open && (
         <ul
           role="listbox"
-          className="absolute end-0 mt-2 w-56 max-h-80 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
+          className="absolute end-0 mt-2 w-56 max-h-80 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[200]"
         >
           {LOCALES.map((item) => (
             <li key={item.code}>
@@ -48,7 +48,15 @@ export function LanguageSwitcher() {
                 aria-selected={locale === item.code}
                 lang={item.code}
                 dir={item.dir}
-                onClick={() => {
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setLocale(item.code);
+                  setOpen(false);
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
                   setLocale(item.code);
                   setOpen(false);
                 }}

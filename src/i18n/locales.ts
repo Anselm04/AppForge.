@@ -59,4 +59,5 @@ export function applyDocumentLocale(code: LocaleCode) {
   const meta = getLocaleMeta(code);
   document.documentElement.lang = code;
   document.documentElement.dir = meta.dir;
+  document.documentElement.setAttribute("data-locale", code);
 }

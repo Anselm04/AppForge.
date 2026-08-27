@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   applyDocumentLocale,
   DEFAULT_LOCALE,
@@ -22,7 +22,17 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-function lookup(tree: Messages, key: string): string | undefined {
+function unwrapMessages(mod: unknown): Messages | undefined {
+  if (!mod || typeof mod !== "object") return undefined;
+  const rec = mod as Record<string, unknown>;
+  if ("nav" in rec) return mod as Messages;
+  if (rec.default && typeof rec.default === "object" && rec.default && "nav" in (rec.default as object)) {
+    return rec.default as Messages;
+  }
+  return undefined;
+}
+
+function lookup(tree: Messages | undefined, key: string): string | undefined {
   const parts = key.split(".");
   let cur: unknown = tree;
   for (const part of parts) {
@@ -61,9 +71,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     applyDocumentLocale(next);
   }, []);
 
+  useEffect(() => {
+    persistLocale(locale);
+    applyDocumentLocale(locale);
+  }, [locale]);
+
   const t = useCallback(
     (key: string, vars?: Vars) => {
-      const raw = lookup(messages[locale], key) ?? lookup(messages[DEFAULT_LOCALE], key) ?? key;
+      const catalog = unwrapMessages(messages[locale]) ?? unwrapMessages(messages[DEFAULT_LOCALE]);
+      const fallback = unwrapMessages(messages[DEFAULT_LOCALE]);
+      const raw = lookup(catalog, key) ?? lookup(fallback, key) ?? key;
       return interpolate(raw, vars);
     },
     [locale],
