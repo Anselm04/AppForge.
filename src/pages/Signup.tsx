@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession, signUp, useSession } from "../lib/auth.js";
+import { useLocale } from "../i18n/LocaleContext.js";
 
 function safeNext(value: string | null): string {
   if (value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) {
@@ -12,6 +13,7 @@ function safeNext(value: string | null): string {
 
 export function Signup() {
   const navigate = useNavigate();
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const session = useSession();
@@ -34,7 +36,7 @@ export function Signup() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("signup.mismatch"));
       return;
     }
     setPending(true);
@@ -47,7 +49,7 @@ export function Signup() {
       }
       setCheckEmail(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-up failed.");
+      setError(err instanceof Error ? err.message : t("signup.failed"));
     } finally {
       setPending(false);
     }
@@ -57,23 +59,22 @@ export function Signup() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-md mx-auto px-4 py-20">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">Create your account</h1>
-          <p className="text-slate-600 dark:text-slate-300">Start building full-stack apps with AI.</p>
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">{t("signup.title")}</h1>
+          <p className="text-slate-600 dark:text-slate-300">{t("signup.subtitle")}</p>
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8">
           {checkEmail ? (
             <div className="text-center space-y-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Check your email</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t("signup.checkTitle")}</h2>
               <p className="text-slate-600 dark:text-slate-300">
-                We sent a confirmation link to <span className="font-semibold">{email.trim()}</span>.
-                Confirm your address, then log in to start a session.
+                {t("signup.checkBody", { email: email.trim() })}
               </p>
               <button
                 type="button"
                 onClick={() => navigate(`/login?next=${encodeURIComponent(next)}`)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
               >
-                Go to Login
+                {t("signup.goToLogin")}
               </button>
             </div>
           ) : (
@@ -81,7 +82,7 @@ export function Signup() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label htmlFor="signup-email" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    Email
+                    {t("signup.email")}
                   </label>
                   <input
                     id="signup-email"
@@ -95,7 +96,7 @@ export function Signup() {
                 </div>
                 <div>
                   <label htmlFor="signup-password" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    Password
+                    {t("signup.password")}
                   </label>
                   <input
                     id="signup-password"
@@ -107,11 +108,11 @@ export function Signup() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">At least 6 characters.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t("signup.minChars")}</p>
                 </div>
                 <div>
                   <label htmlFor="signup-confirm" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    Confirm password
+                    {t("signup.confirm")}
                   </label>
                   <input
                     id="signup-confirm"
@@ -132,13 +133,13 @@ export function Signup() {
                   disabled={pending || !email.trim() || password.length < 6}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
                 >
-                  {pending ? "Creating account..." : "Sign up"}
+                  {pending ? t("signup.pending") : t("signup.submit")}
                 </button>
               </form>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-6 text-center">
-                Already have an account?{" "}
+                {t("signup.hasAccount")}{" "}
                 <Link to={`/login?next=${encodeURIComponent(next)}`} className="text-blue-600 hover:text-blue-700 font-semibold">
-                  Log in
+                  {t("signup.logIn")}
                 </Link>
               </p>
             </>
