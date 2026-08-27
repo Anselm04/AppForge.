@@ -10,6 +10,9 @@ export interface AppForgeSession {
   user: { id: string; email?: string };
 }
 
+let cachedRaw: string | null | undefined;
+let cachedSession: AppForgeSession | null = null;
+
 function emitSessionChange() {
   listeners.forEach((listener) => listener());
 }
@@ -21,8 +24,54 @@ function subscribeSession(listener: () => void) {
   };
 }
 
+function readStorage(key: string): string | null {
+  try {
+    const storage = typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined;
+    if (!storage) return null;
+    return storage.getItem(key);
+  } catch {
+    /* iOS Safari private / ITP / blocked cookies: getItem throws SecurityError */
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  try {
+    const storage = typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined;
+    if (!storage) return;
+    storage.setItem(key, value);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function removeStorage(key: string) {
+  try {
+    const storage = typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined;
+    if (!storage) return;
+    storage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function parseSession(raw: string): AppForgeSession | null {
+  try {
+    const parsed = JSON.parse(raw) as AppForgeSession;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.accessToken !== 'string' || parsed.accessToken.length === 0) return null;
+    if (!parsed.user || typeof parsed.user !== 'object' || typeof parsed.user.id !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function saveSession(session: AppForgeSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  const raw = JSON.stringify(session);
+  writeStorage(SESSION_KEY, raw);
+  cachedRaw = raw;
+  cachedSession = session;
   emitSessionChange();
 }
 
@@ -40,15 +89,23 @@ function sessionFromAuth(result: {
 }
 
 export function getSession(): AppForgeSession | null {
-  if (typeof localStorage === 'undefined') return null;
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AppForgeSession;
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
+  const raw = readStorage(SESSION_KEY);
+  if (!raw) {
+    cachedRaw = null;
+    cachedSession = null;
     return null;
   }
+  if (raw === cachedRaw) return cachedSession;
+  const parsed = parseSession(raw);
+  if (!parsed) {
+    removeStorage(SESSION_KEY);
+    cachedRaw = null;
+    cachedSession = null;
+    return null;
+  }
+  cachedRaw = raw;
+  cachedSession = parsed;
+  return parsed;
 }
 
 export function getAccessToken(): string | null {
@@ -68,9 +125,9 @@ export function useSession(): AppForgeSession | null {
 }
 
 export function signOut() {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(SESSION_KEY);
-  }
+  removeStorage(SESSION_KEY);
+  cachedRaw = null;
+  cachedSession = null;
   emitSessionChange();
 }
 

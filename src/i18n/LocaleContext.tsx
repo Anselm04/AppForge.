@@ -58,11 +58,7 @@ function persistLocale(code: LocaleCode) {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<LocaleCode>(() => {
-    const initial = detectLocale();
-    applyDocumentLocale(initial);
-    return initial;
-  });
+  const [locale, setLocaleState] = useState<LocaleCode>(() => detectLocale());
 
   const setLocale = useCallback((next: LocaleCode) => {
     if (!isLocaleCode(next)) return;
@@ -78,10 +74,14 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string, vars?: Vars) => {
-      const catalog = unwrapMessages(messages[locale]) ?? unwrapMessages(messages[DEFAULT_LOCALE]);
-      const fallback = unwrapMessages(messages[DEFAULT_LOCALE]);
-      const raw = lookup(catalog, key) ?? lookup(fallback, key) ?? key;
-      return interpolate(raw, vars);
+      try {
+        const catalog = unwrapMessages(messages[locale]) ?? unwrapMessages(messages[DEFAULT_LOCALE]);
+        const fallback = unwrapMessages(messages[DEFAULT_LOCALE]);
+        const raw = lookup(catalog, key) ?? lookup(fallback, key) ?? key;
+        return interpolate(raw, vars);
+      } catch {
+        return key;
+      }
     },
     [locale],
   );

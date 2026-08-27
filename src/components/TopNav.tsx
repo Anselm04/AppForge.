@@ -45,7 +45,7 @@ export function TopNav() {
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  const email = user?.email || session?.user.email;
+  const email = user?.email || session?.user?.email;
   const isLoggedIn = !!user || !!session;
   const isOwner = email === "anselm.perkins@gmail.com";
 

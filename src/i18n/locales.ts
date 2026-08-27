@@ -56,8 +56,12 @@ export function detectLocale(): LocaleCode {
 
 export function applyDocumentLocale(code: LocaleCode) {
   if (typeof document === "undefined") return;
-  const meta = getLocaleMeta(code);
-  document.documentElement.lang = code;
-  document.documentElement.dir = meta.dir;
-  document.documentElement.setAttribute("data-locale", code);
+  try {
+    const meta = getLocaleMeta(code);
+    document.documentElement.lang = code;
+    document.documentElement.dir = meta.dir;
+    document.documentElement.setAttribute("data-locale", code);
+  } catch {
+    /* some WebKit builds reject html dir/lang writes during render */
+  }
 }

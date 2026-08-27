@@ -19,7 +19,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    Sentry.captureException(error, { extra: { errorInfo } });
+    try {
+      Sentry.captureException(error, { extra: { errorInfo } });
+    } catch {
+      /* Sentry is not initialized in production */
+    }
     console.error("AppForge ErrorBoundary caught:", error, errorInfo);
   }
 
