@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { TopNav } from "./components/TopNav.js";
 import { SiteFooter } from "./components/SiteFooter.js";
 import { useLocale } from "./i18n/LocaleContext.js";
@@ -10,6 +16,7 @@ import { Pricing } from "./pages/Pricing.js";
 import { Admin } from "./pages/Admin.js";
 import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
+import { TemplateMarketplace } from "./pages/TemplateMarketplace.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { Redeem } from "./pages/Redeem.js";
@@ -33,6 +40,7 @@ function AppShell() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/ai-builder" element={<AIBuilder />} />
+          <Route path="/templates" element={<TemplateMarketplace />} />
           <Route path="/editor" element={<GraphicsEditor />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
