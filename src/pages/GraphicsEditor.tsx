@@ -1,1 +1,1 @@
-test placeholder
+@file:/tmp/ge_from_git.tsx
