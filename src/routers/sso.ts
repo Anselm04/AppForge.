@@ -4,12 +4,15 @@ import { eq, and } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc.js";
+import {
+  registerSupabaseSsoProvider,
+  supabaseSsoEndpoints,
+} from "../services/supabaseSsoAdmin.js";
 
 const appBaseUrl =
-  process.env.PUBLIC_APP_URL || process.env.APP_URL || "https://appforge.app";
+  process.env.PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:5173";
 
 export const ssoRouter = router({
-  /** Public SSO discovery for a verified org domain (B2B login page). */
   discover: publicProcedure
     .input(z.object({ email: z.string().email() }))
     .query(async ({ input }) => {
@@ -46,12 +49,15 @@ export const ssoRouter = router({
         where: eq(schema.organizations.id, input.orgId),
       });
       if (!org) throw new TRPCError({ code: "NOT_FOUND" });
+      const endpoints = supabaseSsoEndpoints();
       return {
         ssoEnabled: org.ssoEnabled,
         ssoProvider: org.ssoProvider,
-        ssoEntityId: org.ssoEntityId,
+        ssoProviderId: org.ssoEntityId,
         ssoMetadataUrl: org.ssoMetadataUrl,
-        acsUrl: `${appBaseUrl}/api/sso/callback`,
+        supabaseAcsUrl: endpoints.acsUrl,
+        supabaseEntityId: endpoints.entityId,
+        appCallbackUrl: `${appBaseUrl.replace(/\/$/, "")}/api/sso/callback`,
       };
     }),
 
@@ -75,17 +81,52 @@ export const ssoRouter = router({
       if (!membership || membership.role !== "owner") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
+
+      const domains = await db.query.organizationDomains.findMany({
+        where: eq(schema.organizationDomains.organizationId, input.orgId),
+      });
+      const verifiedDomains = domains
+        .filter((d) => d.verified)
+        .map((d) => d.domain);
+      if (verifiedDomains.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Verify at least one domain before enabling SSO.",
+        });
+      }
+
+      let providerId = input.entityId ?? null;
+      if (input.metadataUrl) {
+        try {
+          const registered = await registerSupabaseSsoProvider({
+            provider: input.provider,
+            metadataUrl: input.metadataUrl,
+            domains: verifiedDomains,
+            clientId: input.clientId,
+          });
+          providerId = registered.providerId || providerId;
+        } catch (err) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Failed to register SSO provider with Supabase",
+          });
+        }
+      }
+
       await db
         .update(schema.organizations)
         .set({
           ssoEnabled: true,
           ssoProvider: input.provider,
-          ssoEntityId: input.entityId ?? null,
+          ssoEntityId: providerId,
           ssoMetadataUrl: input.metadataUrl ?? null,
           ssoClientId: input.clientId ?? null,
           updatedAt: new Date(),
         })
         .where(eq(schema.organizations.id, input.orgId));
-      return { ok: true };
+      return { ok: true, providerId };
     }),
 });
