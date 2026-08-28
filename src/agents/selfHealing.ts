@@ -37,7 +37,11 @@ interface WatcherState {
 const watchedProjects = new Map<number, WatcherState>();
 
 /** Add a project to the healing watchlist after deployment */
-export function watchProject(projectId: number, userId: number, deploymentUrl?: string) {
+export function watchProject(
+  projectId: number,
+  userId: number,
+  deploymentUrl?: string,
+) {
   watchedProjects.set(projectId, {
     projectId,
     userId,
@@ -73,7 +77,7 @@ async function fetchSentryIssues(projectId: number): Promise<SentryIssue[]> {
     });
     if (!res.ok) return [];
     const issues = (await res.json()) as SentryIssue[];
-    return issues.filter(i => new Date(i.lastSeen) >= new Date(since));
+    return issues.filter((i) => new Date(i.lastSeen) >= new Date(since));
   } catch (err) {
     logger.error({ err }, "sentry_fetch_failed");
     return [];
@@ -85,7 +89,7 @@ async function checkProjectForHealing(state: WatcherState) {
   const issues = await fetchSentryIssues(state.projectId);
   if (issues.length === 0) return;
 
-  const newIssues = issues.filter(i => !state.lastKnownErrorIds.has(i.id));
+  const newIssues = issues.filter((i) => !state.lastKnownErrorIds.has(i.id));
   const totalNewCount = newIssues.reduce((sum, i) => sum + i.count, 0);
 
   // Update known set
@@ -93,14 +97,21 @@ async function checkProjectForHealing(state: WatcherState) {
   state.lastCheckAt = new Date();
 
   if (totalNewCount < ERROR_SPIKE_THRESHOLD) {
-    logger.info({ projectId: state.projectId, newErrors: totalNewCount }, "self_healing_no_spike");
+    logger.info(
+      { projectId: state.projectId, newErrors: totalNewCount },
+      "self_healing_no_spike",
+    );
     return;
   }
 
   // SPIKE DETECTED — create autonomous fix task
   logger.warn(
-    { projectId: state.projectId, newIssues: newIssues.length, totalCount: totalNewCount },
-    "self_healing_spike_detected"
+    {
+      projectId: state.projectId,
+      newIssues: newIssues.length,
+      totalCount: totalNewCount,
+    },
+    "self_healing_spike_detected",
   );
 
   const topIssue = newIssues[0];
@@ -114,7 +125,7 @@ async function createAutonomousFixTask(
   projectId: number,
   userId: number,
   request: string,
-  sentryIssues: SentryIssue[]
+  sentryIssues: SentryIssue[],
 ) {
   // 1. Get current snapshot
   const { getCurrentSnapshot } = await import("../db.js");
@@ -126,7 +137,12 @@ async function createAutonomousFixTask(
 
   // 2. Create task record
   const { createSeniorDevTask } = await import("../db.js");
-  const taskId = await createSeniorDevTask({ projectId, userId, request, mode: "autonomous" });
+  const taskId = await createSeniorDevTask({
+    projectId,
+    userId,
+    request,
+    mode: "autonomous",
+  });
 
   // 3. Run agent autonomously (no approval needed)
   const task: SeniorDevTask = {
@@ -151,18 +167,17 @@ async function createAutonomousFixTask(
   let summary = "";
 
   try {
-    const result = await runSeniorDevAgent(
-      task,
-      files,
-      techStack,
-      (e) => {
-        logger.info({ projectId, taskId, stage: e.stage, msg: e.message }, "self_healing_progress");
-      }
-    );
+    const result = await runSeniorDevAgent(task, files, techStack, (e) => {
+      logger.info(
+        { projectId, taskId, stage: e.stage, msg: e.message },
+        "self_healing_progress",
+      );
+    });
     summary = result.summary;
 
     // 4. Save new snapshot as current
-    const { getNextVersion, createBuildSnapshot, markSnapshotAsCurrent } = await import("../db.js");
+    const { getNextVersion, createBuildSnapshot, markSnapshotAsCurrent } =
+      await import("../db.js");
     const newVersion = await getNextVersion(projectId);
     const newSnapshotId = await createBuildSnapshot({
       projectId,
@@ -188,7 +203,10 @@ async function createAutonomousFixTask(
       })
       .where(eq(schema.projects.id, projectId));
 
-    logger.info({ projectId, taskId, newVersion, summary }, "self_healing_complete");
+    logger.info(
+      { projectId, taskId, newVersion, summary },
+      "self_healing_complete",
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ projectId, taskId, error: msg }, "self_healing_failed");
@@ -205,19 +223,37 @@ function topIssueTitle(issues: SentryIssue[]): string {
 
 /** Main watcher loop — call from server.ts on startup */
 export function startSelfHealingWatcher(intervalMs = 300_000) {
+  const sentryToken = process.env.SENTRY_API_TOKEN ?? "";
+  const orgSlug = process.env.SENTRY_ORG_SLUG ?? "";
+  const projectSlug = process.env.SENTRY_PROJECT_SLUG ?? "";
+
   if (!ENV.sentryDsn) {
-    logger.info("self_healing_disabled_no_sentry");
-    return () => {}; // no-op cleanup
+    logger.info("self_healing_disabled_no_sentry_dsn");
+    return () => {};
   }
 
-  logger.info({ intervalMinutes: intervalMs / 60_000 }, "self_healing_watcher_start");
+  if (!sentryToken || !orgSlug || !projectSlug) {
+    logger.info(
+      { hasToken: !!sentryToken, hasOrg: !!orgSlug, hasProject: !!projectSlug },
+      "self_healing_disabled_missing_sentry_api_config",
+    );
+    return () => {};
+  }
+
+  logger.info(
+    { intervalMinutes: intervalMs / 60_000 },
+    "self_healing_watcher_start",
+  );
 
   const timer = setInterval(async () => {
     for (const state of watchedProjects.values()) {
       try {
         await checkProjectForHealing(state);
       } catch (err) {
-        logger.error({ projectId: state.projectId, err }, "self_healing_check_error");
+        logger.error(
+          { projectId: state.projectId, err },
+          "self_healing_check_error",
+        );
       }
     }
   }, intervalMs);

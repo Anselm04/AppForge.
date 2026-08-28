@@ -33,9 +33,12 @@ import { logger } from "../_core/logger.js";
 const router = Router();
 
 const BUILD_COST = BUILD_CREDIT_COST;
-const PLANNER_COST = 2;
-const CODER_COST = 3;
-const REVIEWER_COST = 1;
+
+function buildSseTimeoutMs(): number {
+  const raw = parseInt(process.env.BUILD_SSE_TIMEOUT_MS ?? "1200000", 10);
+  if (Number.isNaN(raw) || raw < 60_000) return 1_200_000;
+  return Math.min(raw, 3_600_000);
+}
 
 const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
@@ -118,7 +121,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   res.flushHeaders?.();
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min max
+  const timeout = setTimeout(() => controller.abort(), buildSseTimeoutMs());
   const heartbeat = setInterval(() => {
     if (!res.writableEnded) {
       res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
@@ -138,24 +141,6 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     }
   };
 
-  // Credit-aware pipeline wrapper
-  let totalSpent = 0;
-  const creditAwareWrite = (event: string, data: any) => {
-    // Deduct credits per agent phase
-    if (event === "agent" && data?.type === "start") {
-      const agent = data?.payload?.agent as string;
-      let phaseCost = 0;
-      if (agent === "Planner") phaseCost = PLANNER_COST;
-      if (agent === "Coder") phaseCost = CODER_COST;
-      if (agent === "Reviewer") phaseCost = REVIEWER_COST;
-
-      if (phaseCost > 0) {
-        totalSpent += phaseCost;
-      }
-    }
-    write(event, data);
-  };
-
   // Check if we need to pause mid-build
   const checkCredits = async () => {
     const current = await getUserCredits(user.id);
@@ -166,7 +151,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       write("pause", {
         reason: "credits_exhausted",
         message: "Build paused: your credits ran out. Purchase more to resume.",
-        spent: totalSpent,
+        spent: BUILD_COST,
       });
       return false;
     }
@@ -184,17 +169,15 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       projectId,
       project.description || "",
       project.techStack || "react-node",
-      creditAwareWrite,
+      write,
       controller.signal,
       checkCredits,
     );
 
-    if (totalSpent > 0) {
-      const { updateProjectCreditsSpent } = await import("../db.js");
-      await updateProjectCreditsSpent(projectId, totalSpent);
-    }
+    const { updateProjectCreditsSpent } = await import("../db.js");
+    await updateProjectCreditsSpent(projectId, BUILD_COST);
 
-    write("done", { status: "completed" });
+    write("done", { status: "completed", creditsReserved: BUILD_COST });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("Build pipeline error:", msg);

@@ -95,6 +95,7 @@ const projectCreateSchema = z.object({
     .min(1, "Title is required")
     .max(255, "Title must be at most 255 characters")
     .transform(sanitizeString),
+  hcaptchaToken: z.string().optional(),
 });
 
 export const projectsRouter = router({
@@ -133,6 +134,16 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
+      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+      const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
+      if (!captchaOk) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Captcha verification failed. Complete the challenge and try again.",
+        });
+      }
+
       // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
       const moderation = await moderateUserContent(

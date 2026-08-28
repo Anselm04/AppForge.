@@ -15,14 +15,8 @@ import {
   mergeScaffoldWithGenerated,
 } from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
-
-// Credit cost per agent phase
-const PHASE_COSTS: Record<string, number> = {
-  Planner: 2,
-  Coder: 3,
-  Reviewer: 1,
-  Validator: 2,
-};
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { getValidationMode } from "../lib/validationMode.js";
 
 // Maximum retry attempts for the error-recovery loop
 const MAX_FIX_RETRIES = 2;
@@ -129,7 +123,13 @@ export function getTechStackDescription(stack: TechStack): string {
 }
 
 type AgentRole =
-  "Planner" | "Coder" | "Reviewer" | "Validator" | "Cosine" | "Testing";
+  | "Planner"
+  | "Coder"
+  | "Reviewer"
+  | "Validator"
+  | "Cosine"
+  | "Testing"
+  | "System";
 
 type SSEWriter = (event: string, data: unknown) => void;
 type CreditChecker = () => Promise<boolean>;
@@ -177,31 +177,27 @@ export async function runAgentPipeline(
     write("agent", { agent, type, payload });
   };
 
-  let totalCreditsSpent = 0;
-
-  const checkAndDeduct = async (agent: AgentRole) => {
-    const cost = PHASE_COSTS[agent] || 0;
-    if (cost === 0) return true;
-    if (creditCheck) {
-      const ok = await creditCheck();
-      if (!ok) return false;
-    }
-    totalCreditsSpent += cost;
-    return true;
-  };
+  const validationMode = getValidationMode(techStack);
+  emit("System", "info", {
+    message: `Validation mode: ${validationMode === "full" ? "full compile sandbox" : "structure check only"}`,
+    validationMode,
+  });
 
   try {
     await updateProjectStatus(projectId, "running");
 
     // ── PLANNER ──────────────────────────────────────────────────────────────
-    if (!(await checkAndDeduct("Planner"))) {
-      write("pause", {
-        reason: "credits_exhausted",
-        agent: "Planner",
-        message: "Build paused: insufficient credits to start planning phase.",
-      });
-      await updateProjectStatus(projectId, "paused", "credits_exhausted");
-      return;
+    if (creditCheck) {
+      const ok = await creditCheck();
+      if (!ok) {
+        write("pause", {
+          reason: "credits_exhausted",
+          agent: "Planner",
+          message: "Build paused: insufficient credits.",
+        });
+        await updateProjectStatus(projectId, "paused", "credits_exhausted");
+        return;
+      }
     }
 
     emit("Planner", "start", {
@@ -262,15 +258,17 @@ The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStac
     }
 
     // ── CODER ────────────────────────────────────────────────────────────────
-    if (!(await checkAndDeduct("Coder"))) {
-      write("pause", {
-        reason: "credits_exhausted",
-        agent: "Coder",
-        message:
-          "Build paused: insufficient credits for code generation phase.",
-      });
-      await updateProjectStatus(projectId, "paused", "credits_exhausted");
-      return;
+    if (creditCheck) {
+      const ok = await creditCheck();
+      if (!ok) {
+        write("pause", {
+          reason: "credits_exhausted",
+          agent: "Coder",
+          message: "Build paused: insufficient credits.",
+        });
+        await updateProjectStatus(projectId, "paused", "credits_exhausted");
+        return;
+      }
     }
 
     emit("Coder", "start", {
@@ -377,14 +375,17 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
       });
 
       // ── VALIDATOR (Build + Type Check + Test) ──────────────────────────────
-      if (!(await checkAndDeduct("Validator"))) {
-        write("pause", {
-          reason: "credits_exhausted",
-          agent: "Validator",
-          message: "Build paused: insufficient credits for validation phase.",
-        });
-        await updateProjectStatus(projectId, "paused", "credits_exhausted");
-        return;
+      if (creditCheck) {
+        const ok = await creditCheck();
+        if (!ok) {
+          write("pause", {
+            reason: "credits_exhausted",
+            agent: "Validator",
+            message: "Build paused: insufficient credits.",
+          });
+          await updateProjectStatus(projectId, "paused", "credits_exhausted");
+          return;
+        }
       }
 
       emit("Validator", "start", {
@@ -437,14 +438,17 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
     }
 
     // ── REVIEWER ─────────────────────────────────────────────────────────────
-    if (!(await checkAndDeduct("Reviewer"))) {
-      write("pause", {
-        reason: "credits_exhausted",
-        agent: "Reviewer",
-        message: "Build paused: insufficient credits for review phase.",
-      });
-      await updateProjectStatus(projectId, "paused", "credits_exhausted");
-      return;
+    if (creditCheck) {
+      const ok = await creditCheck();
+      if (!ok) {
+        write("pause", {
+          reason: "credits_exhausted",
+          agent: "Reviewer",
+          message: "Build paused: insufficient credits.",
+        });
+        await updateProjectStatus(projectId, "paused", "credits_exhausted");
+        return;
+      }
     }
 
     emit("Reviewer", "start", {
@@ -619,7 +623,8 @@ Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Fo
       snapshotId,
       title: appTitle,
       fileCount: Object.keys(generatedFiles).length,
-      creditsSpent: totalCreditsSpent,
+      creditsSpent: BUILD_CREDIT_COST,
+      creditsReserved: BUILD_CREDIT_COST,
       validationPassed: validationResult?.passed ?? false,
       validationStage: validationResult?.stage ?? "unknown",
       validationErrors: validationResult?.errors ?? [],
