@@ -13,6 +13,7 @@ import { projectChatRouter } from "./projectChat.js";
 import { analyticsRouter } from "./analytics.js";
 import { templatesRouter } from "./templates.js";
 import { assetsRouter } from "./assets.js";
+import { capabilitiesRouter } from "./capabilities.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -44,6 +45,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   templates: templatesRouter,
   assets: assetsRouter,
+  capabilities: capabilitiesRouter,
 });
 
 export type AppRouter = typeof appRouter;
