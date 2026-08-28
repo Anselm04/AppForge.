@@ -16,7 +16,7 @@ export async function runResearchAgent(
   description: string,
   techStack: string,
   emit: (type: string, payload: unknown) => void,
-  options?: { focus?: "education" | "patent" | "general" },
+  options?: { focus?: "education" | "patent" | "architecture" | "general" },
 ): Promise<string> {
   const focus = options?.focus ?? "general";
   const query =
@@ -24,7 +24,9 @@ export async function runResearchAgent(
       ? `${description.slice(0, 100)} curriculum standards lesson plans teaching resources 2026`.trim()
       : focus === "patent"
         ? `${description.slice(0, 100)} prior art patents existing products novelty`.trim()
-        : `${description.slice(0, 120)} ${techStack} best practices 2026`.trim();
+        : focus === "architecture"
+          ? `${description.slice(0, 100)} building code zoning setbacks height limits planning permission 2026`.trim()
+          : `${description.slice(0, 120)} ${techStack} best practices 2026`.trim();
 
   emit("start", {
     message:
@@ -32,7 +34,9 @@ export async function runResearchAgent(
         ? "Researching current educational content and standards…"
         : focus === "patent"
           ? "Searching prior art and existing patents…"
-          : "Searching the web for current information…",
+          : focus === "architecture"
+            ? "Researching zoning, building codes, and planning requirements…"
+            : "Searching the web for current information…",
     query,
   });
 
@@ -45,7 +49,9 @@ export async function runResearchAgent(
 
   const response = await searchWeb(
     query,
-    focus === "education" || focus === "patent" ? 8 : 6,
+    focus === "education" || focus === "patent" || focus === "architecture"
+      ? 8
+      : 6,
   );
   let brief = formatSearchForPrompt(response);
 
@@ -63,6 +69,14 @@ export async function runResearchAgent(
       5,
     );
     brief += `\n\n--- Prior art / patent databases ---\n${formatSearchForPrompt(supplemental)}`;
+  }
+
+  if (focus === "architecture" && description.length > 20) {
+    const supplemental = await searchWeb(
+      `${description.slice(0, 80)} building regulations accessibility fire safety construction cost`,
+      5,
+    );
+    brief += `\n\n--- Building code / compliance sources ---\n${formatSearchForPrompt(supplemental)}`;
   }
 
   emit("complete", {
