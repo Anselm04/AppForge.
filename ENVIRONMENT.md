@@ -1,241 +1,142 @@
 # AppForge Environment Variables
 
-## Required Variables
-
-### Database
+Copy `.env.example` to `.env` and fill in values. Validate before deploy:
 
 ```bash
-DATABASE_URL=postgresql://user:password@host:5432/database_name
+npm run validate-env          # warnings in development
+npm run validate-env -- --strict   # fail on missing production requirements
 ```
 
-- **Format**: PostgreSQL connection string
-- **Example**: `postgresql://appforge:secret@localhost:5432/appforge`
-- **Source**: Your PostgreSQL instance (local, Docker, or cloud)
+## Validation (source of truth)
 
-### Authentication
+Runtime validation lives in **`src/utils/env-validator.ts`** (`validateEnv()`). It is invoked by:
 
-```bash
-JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+- `npm run validate-env` (CLI)
+- Server startup (production errors block boot; development logs warnings)
+
+There is **no** `src/config/index.ts` — do not reference it in docs or scripts.
+
+Example checks:
+
+```typescript
+// src/utils/env-validator.ts (abbreviated)
+if (!config.SUPABASE_URL && !config.DATABASE_URL && !config.SUPABASE_DB_URL) {
+  errors.push("Database connection required...");
+}
+if (!config.JWT_SECRET || config.JWT_SECRET.length < 32) {
+  errors.push(
+    "JWT_SECRET is required and must be at least 32 characters in production",
+  );
+}
 ```
 
-- **Format**: Random string (min 32 characters)
-- **Generate**: `openssl rand -base64 32`
-- **Purpose**: Signing JWT tokens for authentication
+If the app fails to start, run `npm run validate-env -- --strict` and compare with `.env.example`.
 
-### API Keys
+---
 
-```bash
-# Vercel (for deployment automation)
-VERCEL_TOKEN=your-vercel-token
+## Required for production (full builder)
 
-# GitHub (for CI/CD)
-GITHUB_TOKEN=your-github-token
-```
+| Variable                                              | Purpose                       |
+| ----------------------------------------------------- | ----------------------------- |
+| `NODE_ENV`                                            | `production`                  |
+| `DATABASE_URL` or `SUPABASE_DB_URL` or `SUPABASE_URL` | PostgreSQL / Supabase         |
+| `JWT_SECRET`                                          | Session signing (≥ 32 chars)  |
+| `COOKIE_SECRET`                                       | Cookie signing (≥ 32 chars)   |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`  | Client auth                   |
+| `SUPABASE_SERVICE_ROLE_KEY`                           | Server verifies Supabase JWTs |
+| `BUILT_IN_FORGE_API_KEY`                              | LLM for builds (required)     |
+| `BUILT_IN_FORGE_API_URL`                              | OpenAI-compatible base URL    |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`          | Billing                       |
+| `STRIPE_*_PRICE_ID` / payment links                   | Subscription tiers            |
+| `OWNER_EMAIL`                                         | Admin lock                    |
+| `CORS_ORIGIN`, `APP_URL`                              | Production URLs               |
 
-## Optional Variables
+---
 
-### Feature Flags
+## Optional integrations
 
-```bash
-ENABLE_ANALYTICS=true
-ENABLE_MONITORING=true
-ENABLE_BACKUPS=true
-```
+### hCaptcha (project create)
 
-### External Services
+When `HCAPTCHA_SECRET` is set, `projects.create` requires a valid captcha token.
 
-```bash
-# Email (if using)
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=user@example.com
-SMTP_PASS=password
+- Server: `HCAPTCHA_SECRET`
+- Client: `VITE_HCAPTCHA_SITE_KEY` or runtime `/config.js` → `hcaptchaSiteKey`
 
-# Storage (if using)
-S3_BUCKET=appforge-assets
-S3_REGION=us-east-1
-S3_ACCESS_KEY=access-key
-S3_SECRET_KEY=secret-key
-```
+### SMS god-code redeem
 
-### Monitoring
+When Twilio vars are set, redeeming a god code requires OTP to `OWNER_PHONE`.
 
-```bash
-# Sentry (error tracking)
-SENTRY_DSN=https://key@sentry.io/project-id
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
+- `OWNER_PHONE` (E.164)
 
-# Prometheus (metrics)
-PROMETHEUS_URL=http://prometheus:9090
-```
+If Twilio is unset, redeem works without SMS (owner-only minting still applies).
 
-## Environment-Specific
+### Sentry + self-healing
 
-### Development (.env.local)
+- `SENTRY_DSN` — error reporting
+- Self-healing watcher (`src/agents/selfHealing.ts`) starts only when **all** are set:
+  - `SENTRY_DSN`, `SENTRY_API_TOKEN`, `SENTRY_ORG_SLUG`, `SENTRY_PROJECT_SLUG`
+
+### Vanta
+
+- `VANTA_WORKSPACE_ID`, `VANTA_API_TOKEN` — optional; compliance **scaffolding** is injected into generated apps. There is no live Vanta API sync job in AppForge server yet.
+
+### Deploy targets (user exports)
+
+- `VERCEL_TOKEN`, `VERCEL_TEAM_ID`
+- `NETLIFY_AUTH_TOKEN`, `FLY_API_TOKEN`
+- `GITHUB_TOKEN`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+
+### Build tuning
+
+- `BUILD_SSE_TIMEOUT_MS` — default 20 minutes for SSE build stream
+- `REDIS_URL` — optional pub/sub for multi-instance SSE (builds still run in-process)
+
+---
+
+## Development
 
 ```bash
 NODE_ENV=development
-DATABASE_URL=postgresql://localhost:5432/appforge_dev
-JWT_SECRET=dev-secret-key-change-in-production
+# Use .env from .env.example; JWT warnings are OK locally
+npm run validate-env
+npm run build && npm start   # full stack on :3000
 ```
 
-### Testing (.env.test)
+---
 
-```bash
-NODE_ENV=test
-DATABASE_URL=postgresql://localhost:5432/appforge_test
-JWT_SECRET=test-secret-key
-```
+## Vercel (static client deploy only)
 
-### Production (.env.production)
+Set `VITE_*` for Supabase/Stripe publishable keys. **API and webhooks** must hit your Fly (or Docker) backend — see [docs/VERCEL.md](docs/VERCEL.md).
 
-```bash
-NODE_ENV=production
-DATABASE_URL=postgresql://prod-db:5432/appforge_prod
-JWT_SECRET=<strong-random-secret>
-```
+Do **not** assume `DATABASE_URL` on Vercel runs the builder unless you also host Express elsewhere.
 
-## Vercel Environment Variables
+---
 
-Set these in Vercel dashboard:
+## Security
 
-1. Go to project settings → Environment Variables
-2. Add each variable for production/preview/development
-3. Deploy after adding variables
+1. Never commit `.env` (gitignored).
+2. Generate secrets: `openssl rand -base64 48`
+3. Rotate after team changes.
+4. Use `fly secrets set` or your host's secret manager in production.
 
-### Required for Vercel
-
-```bash
-DATABASE_URL
-JWT_SECRET
-NODE_ENV
-```
-
-### Optional for Vercel
-
-```bash
-ENABLE_ANALYTICS
-SENTRY_DSN
-SMTP_HOST
-SMTP_PORT
-SMTP_USER
-SMTP_PASS
-```
-
-## Security Best Practices
-
-1. **Never commit .env files**: Already in `.gitignore`
-2. **Use strong secrets**: Min 32 chars for JWT_SECRET
-3. **Rotate secrets regularly**: Especially after team changes
-4. **Use environment-specific values**: Different DB per environment
-5. **Limit access**: Only necessary team members should have production secrets
-6. **Use secret managers**: Consider 1Password, AWS Secrets Manager, etc.
-
-## Validation
-
-The application validates environment variables on startup:
-
-```typescript
-// src/config/index.ts
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is required');
-}
-
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET must be at least 32 characters');
-}
-```
-
-If the app fails to start, check:
-
-1. All required variables are set
-2. No typos in variable names
-3. Values are properly formatted
-4. Database is accessible
+---
 
 ## Troubleshooting
 
-### "DATABASE_URL is required"
+| Error                    | Fix                                                     |
+| ------------------------ | ------------------------------------------------------- |
+| Database required        | Set `DATABASE_URL` or `SUPABASE_DB_URL`                 |
+| JWT_SECRET too short     | `openssl rand -base64 48`                               |
+| Builds fail immediately  | Set `BUILT_IN_FORGE_API_KEY`                            |
+| Captcha required locally | Unset `HCAPTCHA_SECRET` or set `VITE_HCAPTCHA_SITE_KEY` |
+| Redeem asks for SMS      | Set Twilio vars or test without them in dev             |
 
-- Copy `.env.example` to `.env`
-- Fill in your database URL
-- Restart the application
+---
 
-### "JWT_SECRET is too short"
+## Database schema
 
-- Generate a longer secret: `openssl rand -base64 48`
-- Update `.env` file
-- Restart the application
+AppForge uses Drizzle with **`ensureAppSchema()` on boot** — not `supabase/migrations/` for the Express app.
 
-### "Cannot connect to database"
-
-- Verify DATABASE_URL format
-- Check database is running
-- Ensure network access (firewall, Docker networking)
-- Test connection: `psql $DATABASE_URL`
-
-## Tools
-
-### Generate secrets
-
-```bash
-# JWT secret
-openssl rand -base64 48
-
-# Generic secret
-openssl rand -hex 32
-```
-
-### Validate .env
-
-```bash
-# Check file exists
-ls -la .env
-
-# Check variables
-cat .env | grep -E '^[A-Z]+'
-```
-
-### Load environment
-
-```bash
-# In development
-npm run dev
-
-# In production
-NODE_ENV=production npm run start
-```
-
-## Migration
-
-When moving from development to production:
-
-1. Copy `.env.example` to `.env.production`
-2. Generate production-grade secrets
-3. Set up production database
-4. Update DATABASE_URL
-5. Test thoroughly before deploying
-
-## Backup
-
-Always backup your `.env` files securely:
-
-```bash
-# Encrypted backup
-tar -czf env-backup.tar.gz .env* | openssl enc -aes-256-cbc -salt -out env-backup.enc
-
-# Store in secure location (not in git!)
-```
-
-Restore when needed:
-
-```bash
-openssl enc -aes-256-cbc -d -in env-backup.enc | tar -xzf -
-```
-
-## Compliance
-
-- Secrets encrypted at rest
-- Access logged and audited
-- Rotated on schedule (quarterly recommended)
-- Stored in approved secret managers
-- Never logged or exposed in error messages
+- `npm run db:migrate` → runs `ensureAppSchema()` (see `src/db/migrate.ts`)
+- `supabase/migrations/` → Supabase GitHub integration only — see `supabase/migrations/README.md`
