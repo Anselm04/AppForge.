@@ -306,6 +306,7 @@ CREATE TABLE IF NOT EXISTS "user_build_stats" (
 );
 
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "locale" VARCHAR(10) DEFAULT 'en';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_capabilities" JSONB DEFAULT '[]'::jsonb;
 `;
 
 export async function ensureAppSchema(): Promise<void> {
