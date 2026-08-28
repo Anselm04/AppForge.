@@ -72,7 +72,7 @@ export function useSeniorDev() {
       setStage("planning");
       setActiveTaskId(taskId);
 
-      const es = new EventSource(authedUrl(`/api/build/senior/\${taskId}`));
+      const es = new EventSource(authedUrl(`/api/build/senior/${taskId}`));
       eventSourceRef.current = es;
 
       es.addEventListener("progress", (e: MessageEvent) => {
@@ -134,7 +134,7 @@ export function useSeniorDev() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer \${getAccessToken() ?? ""}`,
+            Authorization: `Bearer ${getAccessToken() ?? ""}`,
           },
           body: JSON.stringify({
             json: { projectId, request, mode },
@@ -178,7 +178,7 @@ export function useSeniorDev() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer \${getAccessToken() ?? ""}`,
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
         },
         body: JSON.stringify({ json: { taskId } }),
       });
@@ -195,10 +195,10 @@ export function useSeniorDev() {
       });
 
       const resumeRes = await fetch(
-        authedUrl(`/api/build/senior/\${taskId}/resume`),
+        authedUrl(`/api/build/senior/${taskId}/resume`),
         {
           method: "POST",
-          headers: { Authorization: `Bearer \${getAccessToken() ?? ""}` },
+          headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
         },
       );
       if (!resumeRes.ok || !resumeRes.body) {

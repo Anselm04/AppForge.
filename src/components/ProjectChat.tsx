@@ -142,7 +142,7 @@ export function ProjectChat({ projectId }: Props) {
         {(messages ?? []).map((m) => (
           <div
             key={m.id}
-            className={`text-sm rounded-lg px-3 py-2 \${
+            className={`text-sm rounded-lg px-3 py-2 ${
               m.role === "user"
                 ? "bg-blue-900/40 text-blue-100 ml-8"
                 : "bg-slate-700 text-slate-200 mr-8"

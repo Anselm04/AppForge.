@@ -80,7 +80,7 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
                 setSelected(path);
                 setDraft(files[path] ?? "");
               }}
-              className={`w-full text-left px-3 py-2 truncate \${
+              className={`w-full text-left px-3 py-2 truncate ${
                 path === activePath
                   ? "bg-blue-900/50 text-blue-200"
                   : "text-slate-300 hover:bg-slate-700"
