@@ -9,3 +9,28 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Minimal WebXR typings for AR studio (DOM lib may omit these). */
+interface XRSession extends EventTarget {
+  end(): Promise<void>;
+  renderState: { baseLayer?: unknown };
+  updateRenderState(state: { baseLayer?: unknown }): Promise<void>;
+  requestReferenceSpace(type: string): Promise<XRReferenceSpace>;
+  requestAnimationFrame(cb: (time: number, frame: XRFrame) => void): number;
+  addEventListener(type: string, listener: EventListener): void;
+}
+
+interface XRReferenceSpace {}
+
+interface XRFrame {
+  getViewerPose(space: XRReferenceSpace): unknown;
+}
+
+declare class XRWebGLLayer {
+  constructor(session: XRSession, gl: WebGLRenderingContext);
+  framebuffer: WebGLFramebuffer | null;
+}
+
+interface WebGLRenderingContext {
+  makeXRCompatible?: () => Promise<void>;
+}
