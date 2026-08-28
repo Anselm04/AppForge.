@@ -3,6 +3,7 @@ import {
   BUILD_CAPABILITIES,
   BUILD_CAPABILITY_IDS,
 } from "../lib/buildCapabilities.js";
+import { BuildPurposeStatement } from "../components/BuildPurposeStatement.js";
 
 export function CreativeStudio() {
   return (
@@ -14,6 +15,10 @@ export function CreativeStudio() {
           Create assets here, then enable matching capabilities when you
           generate an app — or attach outputs to an existing project.
         </p>
+
+        <div className="mb-8">
+          <BuildPurposeStatement />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {BUILD_CAPABILITY_IDS.filter((id) => id !== "web_search").map(
@@ -83,6 +88,23 @@ export function CreativeStudio() {
               to design inventions, search prior art, draft jurisdiction-aware
               specifications, generate drawings, and track versions. Not a
               substitute for a registered patent attorney.
+            </p>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              {BUILD_CAPABILITIES.architecture.icon}{" "}
+              {BUILD_CAPABILITIES.architecture.label}
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+              Open the{" "}
+              <Link
+                to="/studio/architecture"
+                className="text-blue-600 dark:text-blue-400 underline"
+              >
+                Architecture Studio
+              </Link>{" "}
+              for full building-project delivery — briefing, BIM, construction
+              documents, permits, and handover for any country.
             </p>
           </div>
         </div>
