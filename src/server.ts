@@ -26,8 +26,10 @@ import {
   billingCompatRouter,
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
+import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
+import { webContainerHeaders } from "./middleware/webContainerHeaders.js";
 import { closeDbConnection } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
@@ -42,7 +44,6 @@ const REQUEST_TIMEOUT = parseInt(
 );
 const clientDir = path.resolve(process.cwd(), "dist/client");
 
-// ── Sentry initialization (before middleware) ──
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || "development",
@@ -50,14 +51,10 @@ Sentry.init({
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 });
 
-// ── Trust proxy when behind ALB / Cloudflare / Fly ──
 if (ENV.isProduction) {
   app.set("trust proxy", true);
 }
 
-// ── SSL/HTTPS enforcement (production only) ──
-// Fly health checks hit the machine over HTTP with no x-forwarded-proto.
-// Only redirect when the edge explicitly says the client used http.
 if (ENV.isProduction) {
   app.use((req, res, next) => {
     if (req.path.startsWith("/api/health")) return next();
@@ -69,7 +66,6 @@ if (ENV.isProduction) {
   });
 }
 
-// ── Security & compression ──
 app.use(securityHeaders());
 app.use(
   cors({
@@ -85,8 +81,8 @@ app.use(
   }),
 );
 app.use(compressionMiddleware());
+app.use(webContainerHeaders());
 
-// ── Request logging (Sentry + structured logger) ──
 app.use(sentryRequestLogging());
 app.use((req, res, next) => {
   const start = Date.now();
@@ -108,8 +104,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Request timeout middleware ──
-// SSE builds run up to ~5 minutes; do not kill those sockets at 30s.
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/build") || req.path.startsWith("/live")) {
     req.setTimeout(0);
@@ -125,10 +119,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Body parsing (after raw body route) ──
 app.use(cookieParser(ENV.cookieSecret));
 
-// ── Rate limiting: strict for webhooks ──
 (async () => {
   const webhookLimiter = await createRateLimiter({
     windowMs: 1 * 60 * 1000,
@@ -139,17 +131,14 @@ app.use(cookieParser(ENV.cookieSecret));
   app.use("/api/webhooks/stripe", webhookLimiter);
 })().catch(() => {});
 
-// Stripe webhook (raw body required — before JSON parser)
 app.post(
   "/api/webhooks/stripe",
   express.raw({ type: "application/json" }),
   stripeWebhookHandler,
 );
 
-// ── Global middleware ──
 app.use(express.json({ limit: "10mb" }));
 
-// ── Rate limiting: global + API ──
 (async () => {
   const globalLimiter = await createRateLimiter({
     windowMs: 15 * 60 * 1000,
@@ -180,14 +169,9 @@ app.use(express.json({ limit: "10mb" }));
   app.use("/api/trpc", apiLimiter);
 })().catch(() => {});
 
-// ── Health check (with DB verification on / , liveness on /live) ──
 app.use("/api/health", healthRouter);
-
-// ── Auth middleware (sets req.user for all protected routes below) ──
 app.use("/api", supabaseAuthMiddleware);
 app.use("/api/trpc", supabaseAuthMiddleware);
-
-// ── REST API routes ──
 app.use("/api/ai", aiRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/build", buildRouter);
@@ -195,9 +179,9 @@ app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);
+app.use("/api/sso", ssoHttpRouter);
 app.use("/live", supabaseAuthMiddleware, livePreviewRouter);
 
-// ── tRPC routes ──
 app.use(
   "/api/trpc",
   createExpressMiddleware({
@@ -206,7 +190,6 @@ app.use(
   }),
 );
 
-// Public runtime config so Fly secrets work without baking VITE_* at image build time.
 app.get("/config.js", (_req, res) => {
   const payload = {
     supabaseUrl:
@@ -225,7 +208,6 @@ app.get("/config.js", (_req, res) => {
   res.send(`window.__APPFORGE_CONFIG__=${JSON.stringify(payload)};`);
 });
 
-// ── SPA: serve Vite client assets, then index.html ──
 if (ENV.isProduction) {
   app.use(express.static(clientDir, { index: false, fallthrough: true }));
   app.get("*", (req, res, next) => {
@@ -241,15 +223,12 @@ if (ENV.isProduction) {
   });
 }
 
-// ── 404 handler ──
 app.use((req, res) => {
   res.status(404).json({ error: "Not found", path: req.path });
 });
 
-// ── Sentry error handler (captures 500s) ──
 app.use(sentryErrorHandler());
 
-// ── Final error handler ──
 app.use(
   (
     err: any,
@@ -277,7 +256,6 @@ app.use(
   },
 );
 
-// ── Graceful shutdown ──
 process.on("unhandledRejection", (reason) => {
   console.error("unhandledRejection", reason);
 });
