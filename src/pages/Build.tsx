@@ -5,6 +5,9 @@ import { trpc } from "../utils/trpc.js";
 import { authedUrl } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { ProjectCodeEditor } from "../components/ProjectCodeEditor.js";
+import { ProjectChat } from "../components/ProjectChat.js";
+import { DeployWizard } from "../components/DeployWizard.js";
 
 interface BuildLog {
   agent: string;
@@ -21,8 +24,12 @@ interface BuildLog {
 type DeployDestination =
   "vercel" | "netlify" | "fly" | "preview" | "github-pages";
 
+type BuildTab = "logs" | "code" | "chat";
+
 export function Build() {
   const { projectId } = useParams<{ projectId: string }>();
+  const pid = parseInt(projectId ?? "0", 10);
+  const [tab, setTab] = useState<BuildTab>("logs");
   const [logs, setLogs] = useState<BuildLog[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -31,12 +38,13 @@ export function Build() {
   const [deploying, setDeploying] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
 
   const { data: project } = useQuery({
     queryKey: ["projects", projectId],
-    queryFn: () => trpc.projects.get.query({ id: parseInt(projectId!) }),
-    enabled: !!projectId,
+    queryFn: () => trpc.projects.get.query({ id: pid }),
+    enabled: pid > 0,
   });
 
   const { data: tierStatus } = useQuery({
@@ -55,7 +63,7 @@ export function Build() {
     tierStatus !== undefined && !unlimited && creditBalance < BUILD_CREDIT_COST;
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || pid <= 0) return;
     if (tierStatus === undefined) return;
     if (!unlimited && creditBalance < BUILD_CREDIT_COST) {
       setIsPaused(true);
@@ -81,64 +89,53 @@ export function Build() {
 
     eventSource.addEventListener("done", (event: MessageEvent) => {
       const data = JSON.parse(event.data) as {
-        payload?: {
-          creditsSpent?: number;
-          validationPassed?: boolean;
-          manualReviewRequired?: boolean;
-        };
+        payload?: { creditsSpent?: number };
         creditsSpent?: number;
-        validationPassed?: boolean;
-        manualReviewRequired?: boolean;
-        fileCount?: number;
       };
       setIsComplete(true);
       const spent = data.payload?.creditsSpent ?? data.creditsSpent;
       if (spent) setCreditsSpent(spent);
-      // Still allow deploy/ZIP even when validation failed (files were persisted)
       eventSource.close();
     });
 
     eventSource.addEventListener("error", async (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data) as any;
-        const msg = data?.payload?.message ?? data?.message ?? "";
+        const data = JSON.parse(event.data) as {
+          message?: string;
+          error?: string;
+          reason?: string;
+        };
+        const msg = data?.message ?? "";
         if (
           data?.error === "credits_exhausted" ||
-          data?.code === "credits_exhausted" ||
           data?.reason === "credits_exhausted" ||
           /credit/i.test(msg)
         ) {
           setIsPaused(true);
-        } else {
-          setError(msg || "Build stream error");
+        } else if (msg) {
+          setError(msg);
         }
       } catch {
-        try {
-          const status = await trpc.projects.tierStatus.query();
-          if (!status.unlimited && (status.credits ?? 0) < BUILD_CREDIT_COST) {
-            setIsPaused(true);
-          } else {
-            setError("Build stream error");
-          }
-        } catch {
-          setError("Build stream error");
-        }
+        setError("Build stream error");
       }
       eventSource.close();
     });
 
     return () => eventSource.close();
-  }, [projectId, tierStatus, creditBalance, unlimited]);
+  }, [projectId, pid, tierStatus, creditBalance, unlimited]);
 
   const handleDeploy = async () => {
     if (!projectId) return;
     setDeploying(true);
     try {
       const result = await trpc.projects.deploy.mutate({
-        id: parseInt(projectId),
+        id: pid,
         destination,
       });
       if (result.deployUrl) setDeployUrl(result.deployUrl);
+      if ("deployGuide" in result && Array.isArray(result.deployGuide)) {
+        setDeployGuide(result.deployGuide as string[]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deployment failed");
     } finally {
@@ -150,9 +147,7 @@ export function Build() {
     if (!projectId) return;
     setDownloading(true);
     try {
-      const result = await trpc.projects.download.query({
-        id: parseInt(projectId),
-      });
+      const result = await trpc.projects.download.query({ id: pid });
       const binary = atob(result.base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -190,7 +185,7 @@ export function Build() {
         .replace(/[^a-z0-9]/g, "-")
         .slice(0, 30)}`;
       const result = await trpc.github.pushToRepo.mutate({
-        projectId: parseInt(projectId),
+        projectId: pid,
         repoName,
       });
       window.open(result.repoUrl, "_blank");
@@ -206,22 +201,57 @@ export function Build() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-2">
-          Building your app...
+          {isComplete ? "Build complete" : "Building your app…"}
         </h1>
         {project && (
-          <p className="text-slate-400 mb-8">
+          <p className="text-slate-400 mb-4">
             {project.title} — {project.techStack}
+            {project.status === "running" && (
+              <span className="ml-2 text-amber-400 text-sm">
+                (runs in background — safe to refresh)
+              </span>
+            )}
           </p>
         )}
 
-        <div className="space-y-4 mb-8">
-          {logs.map((log, idx) => (
-            <AgentLogItem key={idx} log={log} />
+        <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
+          {(["logs", "code", "chat"] as BuildTab[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
+                tab === t
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {t}
+            </button>
           ))}
         </div>
+
+        {tab === "logs" && (
+          <div className="space-y-4 mb-8">
+            {logs.map((log, idx) => (
+              <AgentLogItem key={idx} log={log} />
+            ))}
+            {logs.length === 0 && !error && (
+              <p className="text-slate-500 text-sm">
+                Waiting for build events…
+              </p>
+            )}
+          </div>
+        )}
+
+        {tab === "code" && pid > 0 && (
+          <ProjectCodeEditor projectId={pid} enabled={isComplete} />
+        )}
+
+        {tab === "chat" && pid > 0 && <ProjectChat projectId={pid} />}
 
         {creditsSpent > 0 && (
           <div className="mb-4 text-slate-400 text-sm">
@@ -230,13 +260,11 @@ export function Build() {
         )}
 
         {(isPaused || outOfCredits) && (
-          <div className="mt-8">
-            <CreditsPauseBanner
-              credits={creditBalance}
-              cost={BUILD_CREDIT_COST}
-              action="run this build"
-            />
-          </div>
+          <CreditsPauseBanner
+            credits={creditBalance}
+            cost={BUILD_CREDIT_COST}
+            action="run this build"
+          />
         )}
 
         {error && (
@@ -250,7 +278,7 @@ export function Build() {
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
             <p className="font-semibold text-lg">App generation complete!</p>
             <p className="mt-2">
-              Your app is ready. Deploy, download a ZIP, or export to GitHub.
+              Edit files in the Code tab, iterate in Chat, then deploy.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-green-200/80">
@@ -262,48 +290,27 @@ export function Build() {
                   }
                   className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
                 >
-                  <option
-                    value="preview"
-                    disabled={destinationDisabled("preview")}
-                  >
-                    Preview
-                    {deployOptions?.preview
-                      ? ` (${deployOptions.preview.label})`
-                      : ""}
-                  </option>
+                  <option value="preview">Preview</option>
                   <option
                     value="vercel"
                     disabled={destinationDisabled("vercel")}
                   >
                     Vercel
-                    {deployOptions?.vercel && !deployOptions.vercel.configured
-                      ? " — not configured"
-                      : ""}
                   </option>
                   <option
                     value="netlify"
                     disabled={destinationDisabled("netlify")}
                   >
                     Netlify
-                    {deployOptions?.netlify && !deployOptions.netlify.configured
-                      ? " — not configured"
-                      : ""}
                   </option>
                   <option value="fly" disabled={destinationDisabled("fly")}>
                     Fly.io
-                    {deployOptions?.fly && !deployOptions.fly.configured
-                      ? " — not configured"
-                      : ""}
                   </option>
                   <option
                     value="github-pages"
                     disabled={destinationDisabled("github-pages")}
                   >
                     GitHub Pages
-                    {deployOptions?.["github-pages"] &&
-                    !deployOptions["github-pages"].configured
-                      ? " — not configured"
-                      : ""}
                   </option>
                 </select>
               </label>
@@ -322,7 +329,7 @@ export function Build() {
                   disabled={deploying || destinationDisabled(destination)}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying ? "Deploying..." : "Deploy"}
+                  {deploying ? "Deploying…" : "Deploy"}
                 </button>
               )}
               <button
@@ -330,7 +337,7 @@ export function Build() {
                 disabled={downloading}
                 className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
               >
-                {downloading ? "Preparing ZIP..." : "Download ZIP"}
+                {downloading ? "Preparing ZIP…" : "Download ZIP"}
               </button>
               <button
                 onClick={handleGitHubExport}
@@ -339,6 +346,11 @@ export function Build() {
                 Export to GitHub
               </button>
             </div>
+            <DeployWizard
+              deployUrl={deployUrl}
+              deployGuide={deployGuide}
+              techStack={project?.techStack}
+            />
           </div>
         )}
       </div>
@@ -348,7 +360,6 @@ export function Build() {
 
 function AgentLogItem({ log }: { log: BuildLog }) {
   const [expanded, setExpanded] = useState(false);
-
   const isSystem = log.agent === "System";
   const isError = log.type === "error";
   const isPause = log.type === "pause";
@@ -358,6 +369,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
       className={`rounded-lg p-4 border ${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}
     >
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
       >
