@@ -1,7 +1,9 @@
-# Supabase migrations (integration only)
+# Supabase migrations (GitHub integration only)
 
-These SQL files are for **Supabase GitHub integration** and hosted Postgres provisioning — not for the Express/Drizzle app boot path.
+These SQL files are for the **Supabase GitHub Preview** check and optional Supabase-hosted Postgres with `auth.users`.
 
-The AppForge server applies schema via **`ensureAppSchema()`** on startup (`src/db.ts`). Running `npm run db:migrate` invokes the same helper (`src/db/migrate.ts`).
+They are **not** applied by the AppForge Express server. Production app data uses **Drizzle ORM** and `ensureAppSchema()` in `src/db/ensureSchema.ts` (integer `users.id`, not UUID `auth.users`).
 
-Do not assume running `supabase db push` alone is sufficient for a Fly/Docker Express deployment.
+Do **not** run these migrations against your Fly/Drizzle database expecting the AppForge app schema.
+
+If you use Supabase only for Auth, keep Auth in the Supabase dashboard and point `DATABASE_URL` at your Drizzle-compatible Postgres (Fly Postgres, Supabase pooler, etc.).
