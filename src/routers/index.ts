@@ -9,11 +9,15 @@ import { githubRouter } from "./github.js";
 import { cosineRouter } from "./cosine.js";
 import { adminRouter } from "./admin.js";
 import { moderationRouter } from "./moderation.js";
+import { projectChatRouter } from "./projectChat.js";
+import { analyticsRouter } from "./analytics.js";
+import { templatesRouter } from "./templates.js";
+import { assetsRouter } from "./assets.js";
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => {
+    me: publicProcedure.query((opts) => {
       const user = opts.ctx.user;
       if (!user) return null;
       const email = (user.email ?? "").trim().toLowerCase();
@@ -36,6 +40,10 @@ export const appRouter = router({
   cosine: cosineRouter,
   admin: adminRouter,
   moderation: moderationRouter,
+  projectChat: projectChatRouter,
+  analytics: analyticsRouter,
+  templates: templatesRouter,
+  assets: assetsRouter,
 });
 
 export type AppRouter = typeof appRouter;
