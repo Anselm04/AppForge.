@@ -1,5 +1,6 @@
 import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
+import type { Queue, Worker } from "bullmq";
 
 const VANTA_API = "https://api.vanta.com/v1";
 
@@ -37,4 +38,26 @@ export async function syncComplianceToVanta(
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: msg };
   }
+}
+
+/** Periodic heartbeat to Vanta when credentials are configured. */
+export function startVantaPoller(intervalMs = 3_600_000): () => void {
+  const workspaceId = ENV.vantaWorkspaceId || process.env.VANTA_WORKSPACE_ID;
+  const token = ENV.vantaApiToken || process.env.VANTA_API_TOKEN;
+  if (!workspaceId || !token) {
+    return () => {};
+  }
+
+  const tick = () => {
+    void syncComplianceToVanta(0, {
+      type: "heartbeat",
+      at: new Date().toISOString(),
+      service: "appforge",
+    }).catch((err) => logger.warn({ err }, "vanta_poller_tick_failed"));
+  };
+
+  tick();
+  const timer = setInterval(tick, intervalMs);
+  logger.info({ intervalMs }, "vanta_poller_started");
+  return () => clearInterval(timer);
 }

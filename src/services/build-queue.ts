@@ -1,4 +1,5 @@
 import { createClient, type RedisClientType } from "redis";
+import type { Queue, Worker } from "bullmq";
 import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
 import { runBuildJob, type BuildJob } from "./build-worker.js";
@@ -6,8 +7,11 @@ import { runBuildJob, type BuildJob } from "./build-worker.js";
 let redisClient: RedisClientType | null = null;
 const memoryQueue: BuildJob[] = [];
 let memoryWorkerRunning = false;
+let bullWorker: Worker | null = null;
+let bullQueue: Queue | null = null;
 
 const QUEUE_KEY = "appforge:build:queue";
+const BULL_QUEUE_NAME = "appforge-builds";
 
 async function getRedis(): Promise<RedisClientType | null> {
   if (!ENV.redisUrl) return null;
@@ -20,6 +24,38 @@ async function getRedis(): Promise<RedisClientType | null> {
     logger.info("Build queue Redis connected");
   }
   return redisClient;
+}
+
+/** Prefer BullMQ when available — durable jobs, retries, horizontal workers. */
+async function initBullMQ(): Promise<boolean> {
+  if (bullQueue) return true;
+  if (!ENV.redisUrl) return false;
+  try {
+    const { Queue, Worker } = await import("bullmq");
+    const connection = { url: ENV.redisUrl };
+    bullQueue = new Queue(BULL_QUEUE_NAME, { connection });
+    bullWorker = new Worker(
+      BULL_QUEUE_NAME,
+      async (job) => {
+        await runBuildJob(job.data as BuildJob);
+      },
+      { connection, concurrency: 2 },
+    );
+    bullWorker.on(
+      "failed",
+      (job: { data?: BuildJob } | undefined, err: Error) => {
+        logger.error(
+          { err, projectId: (job?.data as BuildJob)?.projectId },
+          "bullmq_job_failed",
+        );
+      },
+    );
+    logger.info("BullMQ build worker started");
+    return true;
+  } catch (err) {
+    logger.warn({ err }, "bullmq_unavailable_fallback_redis_list");
+    return false;
+  }
 }
 
 async function processMemoryQueue(): Promise<void> {
@@ -44,7 +80,6 @@ async function processMemoryQueue(): Promise<void> {
 async function processRedisQueue(): Promise<void> {
   const redis = await getRedis();
   if (!redis) return;
-  // Non-blocking drain — one job per tick
   const raw = await redis.rPop(QUEUE_KEY);
   if (!raw) return;
   try {
@@ -55,17 +90,41 @@ async function processRedisQueue(): Promise<void> {
   }
 }
 
-/** Start background worker loop (Redis or in-memory). */
+/** Start background worker loop (BullMQ, Redis list, or in-memory). */
 export function startBuildQueueWorker(intervalMs = 2000): () => void {
+  void initBullMQ();
+
   const timer = setInterval(() => {
-    void processRedisQueue();
-    void processMemoryQueue();
+    if (!bullWorker) {
+      void processRedisQueue();
+      void processMemoryQueue();
+    }
   }, intervalMs);
   logger.info({ intervalMs }, "build_queue_worker_started");
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    void bullWorker?.close();
+    bullWorker = null;
+    bullQueue = null;
+  };
 }
 
 export async function enqueueBuild(job: BuildJob): Promise<void> {
+  if (!bullQueue) {
+    await initBullMQ();
+  }
+  if (bullQueue) {
+    await bullQueue.add("build", job, {
+      jobId: `build-${job.projectId}-${Date.now()}`,
+      removeOnComplete: 100,
+      removeOnFail: 50,
+      attempts: 2,
+      backoff: { type: "exponential", delay: 5000 },
+    });
+    logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
+    return;
+  }
+
   const redis = await getRedis();
   if (redis) {
     await redis.lPush(QUEUE_KEY, JSON.stringify(job));
@@ -114,6 +173,11 @@ export async function subscribeBuildEvents(
 }
 
 export async function closeBuildQueue(): Promise<void> {
+  if (bullWorker) {
+    await bullWorker.close();
+    bullWorker = null;
+    bullQueue = null;
+  }
   if (redisClient) {
     await redisClient.quit();
     redisClient = null;
