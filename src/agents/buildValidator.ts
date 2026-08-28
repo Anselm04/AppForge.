@@ -1,5 +1,5 @@
 // src/agents/buildValidator.ts
-// ── Build Validation Agent ──────────────────────────────────────────────
+// ── Build Validation Agent ─────────────────────────────────────
 // This is the most critical production-readiness piece. It takes the raw
 // text files the LLM generated and actually tries to:
 // 1. Write them to a temp directory
@@ -16,6 +16,7 @@ import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
+import { npmCacheEnv } from "../services/buildCache.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -85,7 +86,7 @@ export async function validateGeneratedBuild(
   const errors: string[] = [];
 
   try {
-    // ── 1. Write files ─────────────────────────────────────────────────
+    // ── 1. Write files ──────────────────────────────────────────
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
       const fullPath = join(tmpDir, filePath);
@@ -93,7 +94,7 @@ export async function validateGeneratedBuild(
       await writeFile(fullPath, content, "utf-8");
     }
 
-    // ── 2. Create a package.json if the LLM forgot ─────────────────────
+    // ── 2. Create a package.json if the LLM forgot ───────────────
     const hasPackageJson = files["package.json"] || files["src/package.json"];
     if (!hasPackageJson) {
       const deps = techStackDeps(techStack);
@@ -118,7 +119,7 @@ export async function validateGeneratedBuild(
       );
     }
 
-    // ── 2b. Python / non-npm stacks ────────────────────────────────────
+    // ── 2b. Python / non-npm stacks ─────────────────────────────
     const isPython =
       !!files["requirements.txt"] ||
       !!files["pyproject.toml"] ||
@@ -128,7 +129,6 @@ export async function validateGeneratedBuild(
       techStack.includes("crewai") ||
       techStack.includes("autogen");
     if (isPython && !hasPackageJson) {
-      // Structural validation for Python agents/tools
       const entry =
         files["main.py"] || files["src/main.py"] || files["agent.py"];
       if (!entry) {
@@ -143,14 +143,38 @@ export async function validateGeneratedBuild(
             "Python agent requires main.py (or set package.json for Node validation).",
         };
       }
+      const entryPath = files["main.py"]
+        ? "main.py"
+        : files["src/main.py"]
+          ? "src/main.py"
+          : "agent.py";
+      const pyCheck = await runCommand(
+        "python3",
+        ["-m", "py_compile", entryPath],
+        tmpDir,
+        30_000,
+      );
+      if (pyCheck.exitCode !== 0) {
+        errors.push(
+          `Python syntax check failed: ${pyCheck.stderr.slice(0, 300)}`,
+        );
+        return {
+          passed: false,
+          stage: "python_syntax",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Fix Python syntax errors before deploy.",
+        };
+      }
       return {
         passed: true,
-        stage: "structure",
+        stage: "python_syntax",
         errors: [],
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Python stack: structural checks only. Run pip install + pytest locally before production.",
+          "Python stack: syntax check passed. Run pip install + pytest locally before production.",
       };
     }
 
@@ -211,7 +235,7 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 3. npm install ─────────────────────────────────────────────────
+    // ── 3. npm install ──────────────────────────────────────────
     // Pre-flight: if npm is not responding, skip validation gracefully
     const hasNpm = await npmAvailable();
     if (!hasNpm) {
@@ -236,6 +260,7 @@ export async function validateGeneratedBuild(
       () => {},
     );
 
+    const cacheEnv = await npmCacheEnv();
     const installResult = await runCommand(
       "npm",
       [
@@ -247,7 +272,7 @@ export async function validateGeneratedBuild(
       ],
       tmpDir,
       120_000,
-      { NODE_OPTIONS: "--max-old-space-size=512" },
+      { NODE_OPTIONS: "--max-old-space-size=512", ...cacheEnv },
     );
     if (installResult.exitCode !== 0) {
       // Retry with cache disabled (network-less fallback)
@@ -280,7 +305,7 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 4. Type check (if TS files present) ──────────────────────────
+    // ── 4. Type check (if TS files present) ───────────────────────
     const tsFiles = Object.keys(files).filter(
       (f) => f.endsWith(".ts") || f.endsWith(".tsx"),
     );
@@ -336,7 +361,7 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 5. Try to run generated tests ──────────────────────────────────
+    // ── 5. Try to run generated tests ─────────────────────────────
     if (
       files["src/__tests__/setup.ts"] ||
       files["vitest.config.ts"] ||
@@ -354,7 +379,7 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 6. Build check ─────────────────────────────────────────────────
+    // ── 6. Build check ──────────────────────────────────────────
     if (files["vite.config.ts"] || files["vite.config.js"] || hasPackageJson) {
       const buildResult = await runCommand(
         "npx",
