@@ -14,6 +14,9 @@ import { analyticsRouter } from "./analytics.js";
 import { templatesRouter } from "./templates.js";
 import { assetsRouter } from "./assets.js";
 import { capabilitiesRouter } from "./capabilities.js";
+import { sandboxRouter } from "./sandbox.js";
+import { orgsRouter } from "./orgs.js";
+import { ssoRouter } from "./sso.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -46,6 +49,9 @@ export const appRouter = router({
   templates: templatesRouter,
   assets: assetsRouter,
   capabilities: capabilitiesRouter,
+  sandbox: sandboxRouter,
+  orgs: orgsRouter,
+  sso: ssoRouter,
 });
 
 export type AppRouter = typeof appRouter;

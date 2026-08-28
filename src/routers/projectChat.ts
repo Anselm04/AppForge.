@@ -7,6 +7,7 @@ import { getProjectById, createSeniorDevTask, getProjectFiles } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { ensureUserCredits } from "../db.js";
+import { runQuickEdit } from "../services/quickEditAgent.js";
 
 export const projectChatRouter = router({
   list: protectedProcedure
@@ -37,15 +38,12 @@ export const projectChatRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
-      const [userMsg] = await db
-        .insert(schema.projectMessages)
-        .values({
-          projectId: input.projectId,
-          userId: ctx.user.id,
-          role: "user",
-          content: input.content,
-        })
-        .returning();
+      await db.insert(schema.projectMessages).values({
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        role: "user",
+        content: input.content,
+      });
 
       let seniorDevTaskId: number | null = null;
       if (input.triggerSeniorDev) {
@@ -78,14 +76,34 @@ export const projectChatRouter = router({
           metadata: { seniorDevTaskId },
         });
       } else {
-        await db.insert(schema.projectMessages).values({
-          projectId: input.projectId,
-          userId: ctx.user.id,
-          role: "assistant",
-          content:
-            "Message saved. Use **Improve with Senior Dev** to apply this request to your project files.",
-          metadata: { linkedUserMessageId: userMsg.id },
-        });
+        const files = await getProjectFiles(input.projectId);
+        if (Object.keys(files).length === 0) {
+          await db.insert(schema.projectMessages).values({
+            projectId: input.projectId,
+            userId: ctx.user.id,
+            role: "assistant",
+            content:
+              "Complete a build first — then chat can patch files and refresh preview instantly.",
+          });
+        } else {
+          const edit = await runQuickEdit({
+            projectId: input.projectId,
+            request: input.content,
+            techStack: project.techStack,
+          });
+          await db.insert(schema.projectMessages).values({
+            projectId: input.projectId,
+            userId: ctx.user.id,
+            role: "assistant",
+            content: edit.filesChanged.length
+              ? `${edit.summary}\n\nUpdated: ${edit.filesChanged.join(", ")}`
+              : edit.summary,
+            metadata: {
+              quickEdit: true,
+              filesChanged: edit.filesChanged,
+            },
+          });
+        }
       }
 
       return { ok: true, seniorDevTaskId };

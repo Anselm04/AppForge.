@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
+import { promises as dns } from "dns";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
@@ -133,5 +134,63 @@ export const orgsRouter = router({
         domain,
         verificationHint: `TXT appforge-verify=${input.orgId}`,
       };
+    }),
+
+  verifyDomain: protectedProcedure
+    .input(
+      z.object({
+        orgId: z.number().int().positive(),
+        domain: z.string().min(3).max(255),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const membership = await db.query.organizationMembers.findFirst({
+        where: and(
+          eq(schema.organizationMembers.organizationId, input.orgId),
+          eq(schema.organizationMembers.userId, ctx.user.id),
+        ),
+      });
+      if (!membership || !["owner", "admin"].includes(membership.role)) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const domain = input.domain.toLowerCase().replace(/^@/, "");
+      const row = await db.query.organizationDomains.findFirst({
+        where: and(
+          eq(schema.organizationDomains.organizationId, input.orgId),
+          eq(schema.organizationDomains.domain, domain),
+        ),
+      });
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Domain not registered",
+        });
+      }
+
+      const expected = `appforge-verify=${input.orgId}`;
+      let verified = process.env.SSO_AUTO_VERIFY === "true";
+      if (!verified) {
+        try {
+          const records = await dns.resolveTxt(domain);
+          verified = records.some((chunks) =>
+            chunks.some((chunk) => chunk.includes(expected)),
+          );
+        } catch {
+          verified = false;
+        }
+      }
+
+      if (!verified) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Add DNS TXT record: ${expected}`,
+        });
+      }
+
+      await db
+        .update(schema.organizationDomains)
+        .set({ verified: true })
+        .where(eq(schema.organizationDomains.id, row.id));
+      return { ok: true, domain, verified: true };
     }),
 });
