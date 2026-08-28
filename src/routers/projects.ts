@@ -11,6 +11,7 @@ import {
   getUserTier,
   getTierBuildLimit,
   updateProjectStatus,
+  updateProjectFiles,
   ensureUserCredits,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
@@ -95,6 +96,8 @@ const projectCreateSchema = z.object({
     .min(1, "Title is required")
     .max(255, "Title must be at most 255 characters")
     .transform(sanitizeString),
+  hcaptchaToken: z.string().optional(),
+  locale: z.string().max(10).optional(),
 });
 
 export const projectsRouter = router({
@@ -133,6 +136,16 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
+      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+      const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
+      if (!captchaOk) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Captcha verification failed. Complete the challenge and try again.",
+        });
+      }
+
       // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
       const moderation = await moderateUserContent(
@@ -175,6 +188,13 @@ export const projectsRouter = router({
         techStack: input.techStack,
         status: "pending",
       });
+
+      if (input.locale) {
+        await db
+          .update(schema.projects)
+          .set({ locale: input.locale, updatedAt: new Date() })
+          .where(eq(schema.projects.id, id));
+      }
 
       return { id };
     }),
@@ -273,10 +293,21 @@ export const projectsRouter = router({
           .set({ status: "completed", updatedAt: new Date() })
           .where(eq(schema.projects.id, input.id));
 
+        const { recordDeploy } = await import("../db/buildStats.js");
+        await recordDeploy(ctx.user.id);
+
+        const deployGuide = [
+          "Set environment variables on your host (DATABASE_URL, API keys).",
+          "Run database migrations if your stack uses a DB.",
+          "Configure Stripe/webhooks if billing is included.",
+          "Review REVIEW.md for known issues from the AI pipeline.",
+        ];
+
         return {
           deployUrl: result.url,
           destination: result.destination,
           note: result.note,
+          deployGuide,
           options: listDeployDestinations(),
         };
       } catch (err: unknown) {
@@ -428,5 +459,36 @@ export const projectsRouter = router({
         version: snapshot.version,
         label: snapshot.label,
       };
+    }),
+
+  getFiles: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      return getProjectFiles(input.id);
+    }),
+
+  updateFile: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        path: z.string().min(1).max(500),
+        content: z.string().max(500_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      const files = await getProjectFiles(input.id);
+      files[input.path] = input.content;
+      await updateProjectFiles(input.id, files);
+      return { ok: true, path: input.path };
     }),
 });
