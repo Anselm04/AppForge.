@@ -1,1 +1,1 @@
-@file:/tmp/ge_content_only.txt
+test placeholder
