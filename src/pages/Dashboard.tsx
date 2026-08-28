@@ -51,6 +51,13 @@ export function Dashboard() {
     retry: false,
   });
 
+  const { data: analytics } = useQuery({
+    queryKey: ["analytics", "me"],
+    queryFn: () => trpc.analytics.me.query(),
+    enabled: !!session,
+    retry: false,
+  });
+
   const unauthError =
     isError &&
     /unauth|not authenticated/i.test(String((error as Error)?.message || ""));
@@ -119,6 +126,22 @@ export function Dashboard() {
                   : "Upgrade"}
               </button>
             )}
+          </div>
+        )}
+
+        {analytics && analytics.totalBuilds > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <StatCard label="Total builds" value={analytics.totalBuilds} />
+            <StatCard label="Successful" value={analytics.successfulBuilds} />
+            <StatCard
+              label="Success rate"
+              value={
+                analytics.successRate != null
+                  ? `${analytics.successRate}%`
+                  : "—"
+              }
+            />
+            <StatCard label="Deploys" value={analytics.totalDeploys} />
           </div>
         )}
 
@@ -233,14 +256,23 @@ function ProjectCard({ project }: { project: Project }) {
           </button>
         )}
         <button
-          onClick={() =>
-            navigate(`/ai-builder?projectId=${project.id}&mode=build`)
-          }
+          onClick={() => navigate("/")}
           className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
         >
-          Rebuild
+          New build
         </button>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4">
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="text-2xl font-bold text-slate-900 dark:text-white">
+        {value}
+      </p>
     </div>
   );
 }
