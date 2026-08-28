@@ -9,6 +9,7 @@ export function OrgSettings() {
   const queryClient = useQueryClient();
   const [orgName, setOrgName] = useState("");
   const [domain, setDomain] = useState("");
+  const [verifyDomainInput, setVerifyDomainInput] = useState("");
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   const [ssoProvider, setSsoProvider] = useState<"saml" | "oidc">("saml");
   const [metadataUrl, setMetadataUrl] = useState("");
@@ -17,6 +18,12 @@ export function OrgSettings() {
     queryKey: ["orgs", "my"],
     queryFn: () => trpc.orgs.myOrgs.query(),
     enabled: !!session,
+  });
+
+  const { data: ssoConfig } = useQuery({
+    queryKey: ["sso", "config", selectedOrgId],
+    queryFn: () => trpc.sso.getOrgConfig.query({ orgId: selectedOrgId! }),
+    enabled: !!selectedOrgId,
   });
 
   const createOrg = useMutation({
@@ -36,6 +43,14 @@ export function OrgSettings() {
     onSuccess: () => setDomain(""),
   });
 
+  const verifyDomainMut = useMutation({
+    mutationFn: () =>
+      trpc.orgs.verifyDomain.mutate({
+        orgId: selectedOrgId!,
+        domain: verifyDomainInput,
+      }),
+  });
+
   const configureSso = useMutation({
     mutationFn: () =>
       trpc.sso.configure.mutate({
@@ -43,6 +58,9 @@ export function OrgSettings() {
         provider: ssoProvider,
         metadataUrl: metadataUrl || undefined,
       }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["sso", "config"] });
+    },
   });
 
   if (!session) {
@@ -66,8 +84,8 @@ export function OrgSettings() {
           Organization & SSO
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8">
-          B2B teams — create an org, verify your domain, and enable SAML/OIDC
-          for enterprise login.
+          Create an org, verify your domain via DNS TXT, register SAML with
+          Supabase Auth, and enable enterprise login on the sign-in page.
         </p>
 
         <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
@@ -119,7 +137,7 @@ export function OrgSettings() {
           <>
             <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
               <h2 className="font-semibold mb-3">Verify domain</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700"
                   placeholder="acme.com"
@@ -136,9 +154,50 @@ export function OrgSettings() {
                 </button>
               </div>
               {setDomainMut.data?.verificationHint && (
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-slate-500 mb-3">
                   DNS TXT: {setDomainMut.data.verificationHint}
                 </p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700"
+                  placeholder="Domain to verify"
+                  value={verifyDomainInput}
+                  onChange={(e) => setVerifyDomainInput(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={
+                    verifyDomainInput.length < 3 || verifyDomainMut.isPending
+                  }
+                  onClick={() => verifyDomainMut.mutate()}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+                >
+                  Verify DNS
+                </button>
+              </div>
+              {verifyDomainMut.isError && (
+                <p className="text-xs text-red-500 mt-2">
+                  {(verifyDomainMut.error as Error).message}
+                </p>
+              )}
+              {verifyDomainMut.isSuccess && (
+                <p className="text-xs text-green-600 mt-2">
+                  Domain verified — SSO can be enabled.
+                </p>
+              )}
+            </section>
+
+            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
+              <h2 className="font-semibold mb-3">Supabase SAML endpoints</h2>
+              {ssoConfig ? (
+                <ul className="text-xs space-y-2 font-mono text-slate-600 dark:text-slate-300">
+                  <li>ACS (configure in IdP): {ssoConfig.supabaseAcsUrl}</li>
+                  <li>Entity ID: {ssoConfig.supabaseEntityId}</li>
+                  <li>App callback: {ssoConfig.appCallbackUrl}</li>
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500">Loading…</p>
               )}
             </section>
 
@@ -162,18 +221,24 @@ export function OrgSettings() {
               </div>
               <input
                 className="w-full border rounded-lg px-3 py-2 mb-3 dark:bg-slate-900 dark:border-slate-700"
-                placeholder="IdP metadata URL"
+                placeholder="IdP metadata URL (registers provider in Supabase)"
                 value={metadataUrl}
                 onChange={(e) => setMetadataUrl(e.target.value)}
               />
               <button
                 type="button"
-                disabled={configureSso.isPending}
+                disabled={configureSso.isPending || !metadataUrl}
                 onClick={() => configureSso.mutate()}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
               >
-                Enable SSO
+                {configureSso.isPending ? "Provisioning…" : "Enable SSO"}
               </button>
+              {configureSso.isSuccess && (
+                <p className="text-xs text-green-600 mt-2">
+                  SSO enabled. Users with verified domains see Sign in with SSO
+                  on the login page.
+                </p>
+              )}
             </section>
           </>
         )}
