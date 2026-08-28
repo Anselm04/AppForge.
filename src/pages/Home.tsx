@@ -79,7 +79,7 @@ export function Home() {
   const validationMode = getValidationMode(techStack);
 
   const navigate = useNavigate();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
@@ -110,6 +110,7 @@ export function Home() {
         description,
         techStack,
         hcaptchaToken: hcaptchaToken ?? undefined,
+        locale,
       }),
     onSuccess: (data) => {
       clearPromptDraft();
