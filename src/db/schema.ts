@@ -32,9 +32,9 @@ export const subscriptions = pgTable("subscriptions", {
     .unique(),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
-  status: varchar("status", { length: 50 }),
-  tier: varchar("tier", { length: 50 }).default("free"),
-  trialEnd: timestamp("trial_end"),
+  status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
+  tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
+  trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
   currentPeriodEnd: timestamp("current_period_end"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -66,17 +66,22 @@ export const userCredits = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-  (table) => [index("user_credits_balance_idx").on(table.balance)],
+  (table) => [
+    // Prevent negative balances at DB level (extra safety net)
+    index("user_credits_balance_idx").on(table.balance),
+  ],
 );
 
 export const creditTransactions = pgTable(
   "credit_transactions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     amount: integer("amount").notNull(),
     type: varchar("type", { length: 50 }).notNull(),
-    projectId: integer("project_id"),
+    projectId: integer("project_id"), // nullable - which build consumed these
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
     description: text("description"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -92,16 +97,18 @@ export const projects = pgTable(
   "projects",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     title: varchar("title", { length: 255 }),
     description: text("description"),
     techStack: varchar("tech_stack", { length: 255 }).default("react-node"),
-    status: varchar("status", { length: 50 }).default("pending"),
+    status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'running', 'completed', 'failed', 'paused'
     errorMessage: text("error_message"),
-    pauseReason: text("pause_reason"),
+    pauseReason: text("pause_reason"), // 'credits_exhausted', 'user_cancelled', etc
     generatedFiles: jsonb("generated_files"),
     creditsSpent: integer("credits_spent").default(0),
-    creditsReserved: integer("credits_reserved").default(0),
+    creditsReserved: integer("credits_reserved").default(0), // reserved at build start
     locale: varchar("locale", { length: 10 }).default("en"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -118,8 +125,10 @@ export const agentLogs = pgTable(
   "agent_logs",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
-    agent: varchar("agent", { length: 50 }),
+    projectId: integer("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    agent: varchar("agent", { length: 50 }), // 'Planner', 'Coder', 'Reviewer', 'Cosine'
     content: text("content"),
     creditsCharged: integer("credits_charged").default(0),
     isComplete: boolean("is_complete").default(false),
@@ -129,7 +138,10 @@ export const agentLogs = pgTable(
   (table) => [
     index("agent_logs_project_idx").on(table.projectId),
     index("agent_logs_agent_idx").on(table.agent),
-    index("agent_logs_project_created_idx").on(table.projectId, table.createdAt),
+    index("agent_logs_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -137,11 +149,15 @@ export const cosineImprovements = pgTable(
   "cosine_improvements",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
-    improvements: jsonb("improvements"),
+    projectId: integer("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    improvements: jsonb("improvements"), // Array of improvement types: ['bug-fix', 'feature-add', 'optimize', etc]
     prUrl: text("pr_url"),
-    status: varchar("status", { length: 50 }).default("pending"),
+    status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'in-progress', 'completed', 'failed'
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -155,7 +171,9 @@ export const userStrikes = pgTable(
   "user_strikes",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     strikeNumber: integer("strike_number").notNull(),
     reason: text("reason").notNull(),
     contentSnapshot: text("content_snapshot"),
@@ -168,13 +186,17 @@ export const moderationFlags = pgTable(
   "moderation_flags",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    projectId: integer("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
     flaggedText: text("flagged_text").notNull(),
-    category: varchar("category", { length: 50 }).notNull(),
+    category: varchar("category", { length: 50 }).notNull(), // 'illegal', 'dangerous', 'sexual', 'other'
     autoFlagged: boolean("auto_flagged").default(true),
     adminReviewed: boolean("admin_reviewed").default(false),
-    adminAction: varchar("admin_action", { length: 50 }),
+    adminAction: varchar("admin_action", { length: 50 }), // 'warn', 'strike', 'ban', 'dismiss'
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [
@@ -197,10 +219,15 @@ export const godCodes = pgTable(
     trialDays: integer("trial_days").default(0),
     expiresAt: timestamp("expires_at"),
     isUsed: boolean("is_used").default(false),
-    usedByUserId: integer("used_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    usedByUserId: integer("used_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     usedAt: timestamp("used_at"),
     redeemedAt: timestamp("redeemed_at"),
-    redeemedByUserId: integer("redeemed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    redeemedByUserId: integer("redeemed_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -215,7 +242,9 @@ export const smsVerifications = pgTable(
   "sms_verifications",
   {
     id: serial("id").primaryKey(),
-    codeId: integer("code_id").references(() => godCodes.id, { onDelete: "cascade" }).notNull(),
+    codeId: integer("code_id")
+      .references(() => godCodes.id, { onDelete: "cascade" })
+      .notNull(),
     phoneNumber: varchar("phone_number", { length: 50 }).notNull(),
     otpHash: varchar("otp_hash", { length: 255 }).notNull(),
     expiresAt: timestamp("expires_at").notNull(),
@@ -232,8 +261,10 @@ export const complianceRecords = pgTable(
   "compliance_records",
   {
     id: serial("id").primaryKey(),
-    recordType: varchar("record_type", { length: 50 }).notNull(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    recordType: varchar("record_type", { length: 50 }).notNull(), // 'user_data_access', 'content_moderation', 'payment_audit', 'security_incident', 'god_code_audit'
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     details: jsonb("details"),
     adminEmail: varchar("admin_email", { length: 255 }).notNull(),
     createdAt: timestamp("created_at").defaultNow(),
@@ -248,7 +279,9 @@ export const userSessions = pgTable(
   "user_sessions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     ipAddress: varchar("ip_address", { length: 50 }),
     userAgent: text("user_agent"),
     country: varchar("country", { length: 100 }),
@@ -259,7 +292,9 @@ export const userSessions = pgTable(
 
 export const cosineConnections = pgTable("cosine_connections", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).unique(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   expiresAt: timestamp("expires_at"),
@@ -271,8 +306,12 @@ export const seniorDevTasks = pgTable(
   "senior_dev_tasks",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     request: text("request").notNull(),
     mode: varchar("mode", { length: 20 }).default("collaborative"),
     plan: jsonb("plan"),
@@ -292,6 +331,7 @@ export const seniorDevTasks = pgTable(
   ],
 );
 
+// Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   projects: many(projects),
   subscriptions: one(subscriptions),
@@ -316,21 +356,45 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 }));
 
 export const godCodesRelations = relations(godCodes, ({ one }) => ({
-  usedByUser: one(users, { fields: [godCodes.usedByUserId], references: [users.id] }),
-  redeemedByUser: one(users, { fields: [godCodes.redeemedByUserId], references: [users.id] }),
+  usedByUser: one(users, {
+    fields: [godCodes.usedByUserId],
+    references: [users.id],
+  }),
+  redeemedByUser: one(users, {
+    fields: [godCodes.redeemedByUserId],
+    references: [users.id],
+  }),
 }));
 
-export const smsVerificationsRelations = relations(smsVerifications, ({ one }) => ({
-  godCode: one(godCodes, { fields: [smsVerifications.codeId], references: [godCodes.id] }),
-}));
+export const smsVerificationsRelations = relations(
+  smsVerifications,
+  ({ one }) => ({
+    godCode: one(godCodes, {
+      fields: [smsVerifications.codeId],
+      references: [godCodes.id],
+    }),
+  }),
+);
 
-export const moderationFlagsRelations = relations(moderationFlags, ({ one }) => ({
-  user: one(users, { fields: [moderationFlags.userId], references: [users.id] }),
-  project: one(projects, { fields: [moderationFlags.projectId], references: [projects.id] }),
-}));
+export const moderationFlagsRelations = relations(
+  moderationFlags,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [moderationFlags.userId],
+      references: [users.id],
+    }),
+    project: one(projects, {
+      fields: [moderationFlags.projectId],
+      references: [projects.id],
+    }),
+  }),
+);
 
 export const seniorDevTasksRelations = relations(seniorDevTasks, ({ one }) => ({
-  project: one(projects, { fields: [seniorDevTasks.projectId], references: [projects.id] }),
+  project: one(projects, {
+    fields: [seniorDevTasks.projectId],
+    references: [projects.id],
+  }),
   user: one(users, { fields: [seniorDevTasks.userId], references: [users.id] }),
 }));
 
@@ -344,8 +408,12 @@ export const buildSnapshots = pgTable(
   "build_snapshots",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     version: integer("version").notNull(),
     label: varchar("label", { length: 255 }),
     files: jsonb("files").notNull(),
@@ -365,7 +433,10 @@ export const buildSnapshots = pgTable(
 );
 
 export const buildSnapshotsRelations = relations(buildSnapshots, ({ one }) => ({
-  project: one(projects, { fields: [buildSnapshots.projectId], references: [projects.id] }),
+  project: one(projects, {
+    fields: [buildSnapshots.projectId],
+    references: [projects.id],
+  }),
   user: one(users, { fields: [buildSnapshots.userId], references: [users.id] }),
 }));
 
@@ -373,8 +444,12 @@ export const projectMessages = pgTable(
   "project_messages",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     role: varchar("role", { length: 20 }).notNull(),
     content: text("content").notNull(),
     metadata: jsonb("metadata"),
@@ -390,7 +465,9 @@ export const buildEvents = pgTable(
   "build_events",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
     event: varchar("event", { length: 50 }).notNull(),
     payload: jsonb("payload").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
@@ -405,8 +482,12 @@ export const projectAssets = pgTable(
   "project_assets",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     filename: varchar("filename", { length: 255 }).notNull(),
     mimeType: varchar("mime_type", { length: 100 }),
     content: text("content").notNull(),
@@ -416,7 +497,9 @@ export const projectAssets = pgTable(
 );
 
 export const userBuildStats = pgTable("user_build_stats", {
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .primaryKey(),
   totalBuilds: integer("total_builds").default(0).notNull(),
   successfulBuilds: integer("successful_builds").default(0).notNull(),
   failedBuilds: integer("failed_builds").default(0).notNull(),
