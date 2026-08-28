@@ -1,1 +1,1 @@
-PLACEHOLDER_WILL_NOT_USE
+@file:/tmp/ge_content_only.txt
