@@ -711,6 +711,19 @@ export async function getCurrentSnapshot(projectId: number) {
   });
 }
 
+/** Latest build files: prefer current snapshot, fall back to project.generatedFiles */
+export async function getProjectFiles(
+  projectId: number,
+): Promise<Record<string, string>> {
+  const snapshot = await getCurrentSnapshot(projectId);
+  const fromSnapshot = snapshot?.files as Record<string, string> | undefined;
+  if (fromSnapshot && Object.keys(fromSnapshot).length > 0) {
+    return fromSnapshot;
+  }
+  const project = await getProjectById(projectId);
+  return (project?.generatedFiles as Record<string, string> | null) ?? {};
+}
+
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
   await db.transaction(async (tx) => {
     await tx
