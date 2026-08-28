@@ -16,6 +16,7 @@ import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
+import { npmCacheEnv } from "../services/buildCache.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -128,7 +129,6 @@ export async function validateGeneratedBuild(
       techStack.includes("crewai") ||
       techStack.includes("autogen");
     if (isPython && !hasPackageJson) {
-      // Structural validation for Python agents/tools
       const entry =
         files["main.py"] || files["src/main.py"] || files["agent.py"];
       if (!entry) {
@@ -143,14 +143,38 @@ export async function validateGeneratedBuild(
             "Python agent requires main.py (or set package.json for Node validation).",
         };
       }
+      const entryPath = files["main.py"]
+        ? "main.py"
+        : files["src/main.py"]
+          ? "src/main.py"
+          : "agent.py";
+      const pyCheck = await runCommand(
+        "python3",
+        ["-m", "py_compile", entryPath],
+        tmpDir,
+        30_000,
+      );
+      if (pyCheck.exitCode !== 0) {
+        errors.push(
+          `Python syntax check failed: ${pyCheck.stderr.slice(0, 300)}`,
+        );
+        return {
+          passed: false,
+          stage: "python_syntax",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Fix Python syntax errors before deploy.",
+        };
+      }
       return {
         passed: true,
-        stage: "structure",
+        stage: "python_syntax",
         errors: [],
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Python stack: structural checks only. Run pip install + pytest locally before production.",
+          "Python stack: syntax check passed. Run pip install + pytest locally before production.",
       };
     }
 
@@ -236,6 +260,7 @@ export async function validateGeneratedBuild(
       () => {},
     );
 
+    const cacheEnv = await npmCacheEnv();
     const installResult = await runCommand(
       "npm",
       [
@@ -247,7 +272,7 @@ export async function validateGeneratedBuild(
       ],
       tmpDir,
       120_000,
-      { NODE_OPTIONS: "--max-old-space-size=512" },
+      { NODE_OPTIONS: "--max-old-space-size=512", ...cacheEnv },
     );
     if (installResult.exitCode !== 0) {
       // Retry with cache disabled (network-less fallback)
