@@ -217,6 +217,8 @@ app.get("/config.js", (_req, res) => {
       process.env.SUPABASE_ANON_KEY ||
       "",
     stripePublicKey: process.env.VITE_STRIPE_PUBLIC_KEY || "",
+    hcaptchaSiteKey:
+      process.env.VITE_HCAPTCHA_SITE_KEY || process.env.HCAPTCHA_SITE_KEY || "",
   };
   res.setHeader("Cache-Control", "no-store");
   res.type("application/javascript");
