@@ -1,1 +1,1 @@
-@file:/tmp/ge_from_git.tsx
+PLACEHOLDER_USE_SHELL_PUSH
