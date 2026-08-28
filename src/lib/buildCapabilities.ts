@@ -20,6 +20,7 @@ export type BuildCapabilityMeta = {
   description: string;
   icon: string;
   studioPath: string;
+  /** Suggested tech stack when this capability is the primary focus */
   suggestedStack?: string;
 };
 
