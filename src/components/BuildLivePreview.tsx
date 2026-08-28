@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authedUrl } from "../lib/auth.js";
+import { onPreviewUpdate } from "../lib/previewEvents.js";
 
 type Props = {
   projectId: number;
@@ -13,6 +14,21 @@ export function BuildLivePreview({
   enabled = true,
 }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [hmrFlash, setHmrFlash] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!enabled || projectId <= 0) return;
+    return onPreviewUpdate((detail) => {
+      if (detail.projectId !== projectId) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setRefreshKey((k) => k + 1);
+        setHmrFlash(true);
+        setTimeout(() => setHmrFlash(false), 600);
+      }, 400);
+    });
+  }, [projectId, enabled]);
 
   if (!enabled || projectId <= 0) {
     return (
@@ -31,7 +47,10 @@ export function BuildLivePreview({
         <p className="text-sm text-slate-400">
           {deployUrl
             ? "Deployed preview"
-            : "Live preview — rebuilds when you refresh after code changes"}
+            : "Instant preview — auto-refreshes when Monaco, chat, or sandbox edits files"}
+          {hmrFlash && (
+            <span className="ml-2 text-green-400 animate-pulse">● live</span>
+          )}
         </p>
         <div className="flex gap-2">
           <button

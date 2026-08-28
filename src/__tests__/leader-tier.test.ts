@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   emitPreviewUpdate,
   onPreviewUpdate,
   PREVIEW_UPDATE_EVENT,
 } from "../lib/previewEvents.js";
 import { designSystemPrompt } from "../lib/componentLibrary.js";
+import { supabaseSsoEndpoints } from "../services/supabaseSsoAdmin.js";
 
 describe("previewEvents", () => {
   it("dispatches and listens for preview updates", () => {
@@ -37,5 +38,11 @@ describe("designSystemPrompt", () => {
     expect(prompt).toMatch(/Next.js App Router/i);
     expect(prompt).toMatch(/logo.svg/);
     expect(prompt).toMatch(/locale "fr"/i);
+  });
+});
+
+describe("supabaseSsoEndpoints", () => {
+  it("requires Supabase URL configuration", () => {
+    expect(() => supabaseSsoEndpoints()).toThrow(/SUPABASE_URL/);
   });
 });
