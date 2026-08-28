@@ -71,7 +71,7 @@ export function Build() {
       return;
     }
 
-    const eventSource = new EventSource(authedUrl(`/api/build/\${projectId}`));
+    const eventSource = new EventSource(authedUrl(`/api/build/${projectId}`));
 
     eventSource.addEventListener("agent", (event: MessageEvent) => {
       const data = JSON.parse(event.data) as BuildLog;
@@ -181,7 +181,7 @@ export function Build() {
         window.location.href = url;
         return;
       }
-      const repoName = `appforge-\${project.title
+      const repoName = `appforge-${project.title
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "-")
         .slice(0, 30)}`;
@@ -224,7 +224,7 @@ export function Build() {
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize \${
+              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
                 tab === t
                   ? "bg-slate-700 text-white"
                   : "text-slate-400 hover:text-white"
@@ -375,7 +375,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
 
   return (
     <div
-      className={`rounded-lg p-4 border \${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}
+      className={`rounded-lg p-4 border ${isError ? "bg-red-900/20 border-red-700" : isPause ? "bg-amber-900/20 border-amber-700" : "bg-slate-700 border-slate-600"}`}
     >
       <button
         type="button"
