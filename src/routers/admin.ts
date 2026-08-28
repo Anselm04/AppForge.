@@ -446,6 +446,43 @@ export const adminRouter = router({
       .where(eq(schema.moderationFlags.adminReviewed, false))
       .orderBy(desc(schema.moderationFlags.createdAt));
   }),
+
+  reviewModeration: ownerOnlyProcedure
+    .input(
+      z.object({
+        flagId: z.number().int().positive(),
+        action: z.enum(["dismiss", "uphold", "ban"]),
+        note: z.string().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const flag = await db.query.moderationFlags.findFirst({
+        where: eq(schema.moderationFlags.id, input.flagId),
+      });
+      if (!flag) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Flag not found" });
+      }
+      await db
+        .update(schema.moderationFlags)
+        .set({
+          adminReviewed: true,
+          adminAction: input.action,
+        })
+        .where(eq(schema.moderationFlags.id, input.flagId));
+
+      if (input.action === "ban") {
+        await db
+          .update(schema.users)
+          .set({
+            isBanned: true,
+            bannedAt: new Date(),
+            banReason: input.note ?? `Moderation review: ${flag.category}`,
+          })
+          .where(eq(schema.users.id, flag.userId));
+      }
+
+      return { success: true, action: input.action };
+    }),
 });
 
 export type AdminRouter = typeof adminRouter;
