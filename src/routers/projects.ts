@@ -499,6 +499,9 @@ export const projectsRouter = router({
       const files = await getProjectFiles(input.id);
       files[input.path] = input.content;
       await updateProjectFiles(input.id, files);
+      const { invalidatePreviewCache } =
+        await import("../routes/livePreview.js");
+      invalidatePreviewCache(input.id);
       return { ok: true, path: input.path };
     }),
 
