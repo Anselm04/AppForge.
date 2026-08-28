@@ -261,6 +261,51 @@ ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "expires_at" TIMESTAMP;
 ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "redeemed_at" TIMESTAMP;
 ALTER TABLE "god_codes" ADD COLUMN IF NOT EXISTS "redeemed_by_user_id" INTEGER REFERENCES "users"("id") ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "god_codes_hash_unique" ON "god_codes" ("hash");
+
+CREATE TABLE IF NOT EXISTS "project_messages" (
+  "id" SERIAL PRIMARY KEY,
+  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "role" VARCHAR(20) NOT NULL,
+  "content" TEXT NOT NULL,
+  "metadata" JSONB,
+  "created_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "project_messages_project_idx" ON "project_messages" ("project_id");
+CREATE INDEX IF NOT EXISTS "project_messages_created_idx" ON "project_messages" ("project_id", "created_at");
+
+CREATE TABLE IF NOT EXISTS "build_events" (
+  "id" SERIAL PRIMARY KEY,
+  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "event" VARCHAR(50) NOT NULL,
+  "payload" JSONB NOT NULL,
+  "created_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "build_events_project_idx" ON "build_events" ("project_id");
+CREATE INDEX IF NOT EXISTS "build_events_project_id_idx" ON "build_events" ("project_id", "id");
+
+CREATE TABLE IF NOT EXISTS "project_assets" (
+  "id" SERIAL PRIMARY KEY,
+  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "filename" VARCHAR(255) NOT NULL,
+  "mime_type" VARCHAR(100),
+  "content" TEXT NOT NULL,
+  "created_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "project_assets_project_idx" ON "project_assets" ("project_id");
+
+CREATE TABLE IF NOT EXISTS "user_build_stats" (
+  "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+  "total_builds" INTEGER NOT NULL DEFAULT 0,
+  "successful_builds" INTEGER NOT NULL DEFAULT 0,
+  "failed_builds" INTEGER NOT NULL DEFAULT 0,
+  "total_credits_spent" INTEGER NOT NULL DEFAULT 0,
+  "total_deploys" INTEGER NOT NULL DEFAULT 0,
+  "updated_at" TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "locale" VARCHAR(10) DEFAULT 'en';
 `;
 
 export async function ensureAppSchema(): Promise<void> {
@@ -280,7 +325,12 @@ export async function ensureAppSchema(): Promise<void> {
 }
 
 async function upsertEncryptedOwner(sql: postgres.Sql): Promise<void> {
-  const { canonicalOwnerEmail, encryptOwnerEmail, ownerEmailHmac, isOwnerEmail } = await import("../lib/serverSecrets.js");
+  const {
+    canonicalOwnerEmail,
+    encryptOwnerEmail,
+    ownerEmailHmac,
+    isOwnerEmail,
+  } = await import("../lib/serverSecrets.js");
   const email = canonicalOwnerEmail();
   if (!isOwnerEmail(email)) return;
   await sql`
