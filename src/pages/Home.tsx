@@ -7,6 +7,11 @@ import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import {
+  getValidationMode,
+  validationModeLabel,
+} from "../lib/validationMode.js";
+import { HcaptchaWidget } from "../components/HcaptchaWidget.js";
+import {
   clearPromptDraft,
   readPromptDraft,
   readPromptStack,
@@ -69,9 +74,12 @@ export function Home() {
   const [techStack, setTechStack] = useState<TechStack>("react-node");
   const [isBuilding, setIsBuilding] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
+
+  const validationMode = getValidationMode(techStack);
 
   const navigate = useNavigate();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
@@ -101,6 +109,8 @@ export function Home() {
         title: description.slice(0, 60) || "Untitled App",
         description,
         techStack,
+        hcaptchaToken: hcaptchaToken ?? undefined,
+        locale,
       }),
     onSuccess: (data) => {
       clearPromptDraft();
@@ -331,9 +341,19 @@ export function Home() {
                 </optgroup>
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {t("home.techHint")}
+                {t("home.techHint")} · {validationModeLabel(validationMode)}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Each build reserves {BUILD_CREDIT_COST} credits when it starts
+                (charged once, not per agent).
+              </p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                Descriptions are screened by automated moderation (regex). AI
+                output is English-only.
               </p>
             </div>
+
+            <HcaptchaWidget onToken={setHcaptchaToken} />
 
             {(formError || createProjectMutation.isError) && (
               <p className="text-sm text-amber-700 dark:text-amber-300">
