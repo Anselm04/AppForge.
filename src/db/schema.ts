@@ -110,6 +110,9 @@ export const projects = pgTable(
     creditsSpent: integer("credits_spent").default(0),
     creditsReserved: integer("credits_reserved").default(0), // reserved at build start
     locale: varchar("locale", { length: 10 }).default("en"),
+    buildCapabilities: jsonb("build_capabilities")
+      .$type<string[]>()
+      .default([]),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
