@@ -9,6 +9,7 @@ export const BUILD_CAPABILITY_IDS = [
   "ar",
   "education",
   "patent",
+  "architecture",
 ] as const;
 
 export type BuildCapabilityId = (typeof BUILD_CAPABILITY_IDS)[number];
@@ -106,6 +107,16 @@ export const BUILD_CAPABILITIES: Record<
     icon: "📜",
     studioPath: "/studio/patent",
     suggestedStack: "react-node",
+  },
+  architecture: {
+    id: "architecture",
+    label: "Architecture & BIM studio",
+    shortLabel: "Architecture",
+    description:
+      "Complete architectural design and delivery — briefing, BIM, construction documents, permits, cost control, and handover for any country.",
+    icon: "🏛️",
+    studioPath: "/studio/architecture",
+    suggestedStack: "three-js-3d",
   },
 };
 
