@@ -23,7 +23,7 @@ export function BuildLivePreview({
   }
 
   const previewSrc =
-    deployUrl || authedUrl(`/live/${projectId}?v=${refreshKey}`);
+    deployUrl || authedUrl(`/live/\${projectId}?v=\${refreshKey}`);
 
   return (
     <div className="flex flex-col gap-3 min-h-[420px]">
