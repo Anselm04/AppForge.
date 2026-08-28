@@ -10,6 +10,11 @@ import {
   getValidationMode,
   validationModeLabel,
 } from "../lib/validationMode.js";
+import {
+  getStackMeta,
+  tierBadgeClass,
+  tierLabel,
+} from "../lib/stackMetadata.js";
 import { HcaptchaWidget } from "../components/HcaptchaWidget.js";
 import {
   clearPromptDraft,
@@ -77,6 +82,7 @@ export function Home() {
   const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
 
   const validationMode = getValidationMode(techStack);
+  const stackMeta = getStackMeta(techStack);
 
   const navigate = useNavigate();
   const { t, locale } = useLocale();
@@ -342,6 +348,21 @@ export function Home() {
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 {t("home.techHint")} · {validationModeLabel(validationMode)}
+              </p>
+              <p className="text-xs mt-1 flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-block px-2 py-0.5 rounded-full font-medium ${tierBadgeClass(stackMeta.tier)}`}
+                >
+                  {tierLabel(stackMeta.tier)}
+                </span>
+                {stackMeta.dockerCapable && (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Docker validation when available
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {stackMeta.description}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Each build reserves {BUILD_CREDIT_COST} credits when it starts
