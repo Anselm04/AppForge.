@@ -1,0 +1,4 @@
+export const PREVIEW_UPDATE_EVENT = "appforge:preview-update";
+export type PreviewUpdateDetail = { projectId: number; paths?: string[]; source?: "editor" | "chat" | "sandbox" | "studio" };
+export function emitPreviewUpdate(projectId: number, opts?: { paths?: string[]; source?: PreviewUpdateDetail["source"] }): void { if (typeof window === "undefined") return; window.dispatchEvent(new CustomEvent<PreviewUpdateDetail>(PREVIEW_UPDATE_EVENT, { detail: { projectId, ...opts } })); }
+export function onPreviewUpdate(handler: (detail: PreviewUpdateDetail) => void): () => void { if (typeof window === "undefined") return () => {}; const listener = (event: Event) => { const detail = (event as CustomEvent<PreviewUpdateDetail>).detail; if (detail?.projectId) handler(detail); }; window.addEventListener(PREVIEW_UPDATE_EVENT, listener); return () => window.removeEventListener(PREVIEW_UPDATE_EVENT, listener); }
