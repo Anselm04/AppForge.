@@ -334,7 +334,96 @@ export const seniorDevTasks = pgTable(
   ],
 );
 
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 120 }).notNull(),
+    slug: varchar("slug", { length: 48 }).notNull().unique(),
+    ownerUserId: integer("owner_user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    ssoEnabled: boolean("sso_enabled").default(false),
+    ssoProvider: varchar("sso_provider", { length: 20 }),
+    ssoEntityId: varchar("sso_entity_id", { length: 500 }),
+    ssoMetadataUrl: text("sso_metadata_url"),
+    ssoClientId: varchar("sso_client_id", { length: 255 }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("organizations_slug_idx").on(table.slug)],
+);
+
+export const organizationMembers = pgTable(
+  "organization_members",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    role: varchar("role", { length: 20 }).default("member").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("org_members_org_idx").on(table.organizationId),
+    index("org_members_user_idx").on(table.userId),
+  ],
+);
+
+export const organizationDomains = pgTable(
+  "organization_domains",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    domain: varchar("domain", { length: 255 }).notNull().unique(),
+    verified: boolean("verified").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [index("org_domains_org_idx").on(table.organizationId)],
+);
+
 // Relations
+export const organizationsRelations = relations(
+  organizations,
+  ({ one, many }) => ({
+    owner: one(users, {
+      fields: [organizations.ownerUserId],
+      references: [users.id],
+    }),
+    members: many(organizationMembers),
+    domains: many(organizationDomains),
+  }),
+);
+
+export const organizationMembersRelations = relations(
+  organizationMembers,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [organizationMembers.organizationId],
+      references: [organizations.id],
+    }),
+    user: one(users, {
+      fields: [organizationMembers.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const organizationDomainsRelations = relations(
+  organizationDomains,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [organizationDomains.organizationId],
+      references: [organizations.id],
+    }),
+  }),
+);
+
 export const usersRelations = relations(users, ({ many, one }) => ({
   projects: many(projects),
   subscriptions: one(subscriptions),
@@ -347,6 +436,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   godCodeUses: many(godCodes),
   complianceRecords: many(complianceRecords),
   sessions: many(userSessions),
+  organizationMemberships: many(organizationMembers),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
