@@ -1,5 +1,9 @@
 import { test, expect } from "vitest";
 
+/**
+ * Golden-path smoke tests (mock-friendly).
+ * Full Playwright E2E runs in CI when PLAYWRIGHT_E2E=1.
+ */
 test("home route module exports", async () => {
   const mod = await import("../pages/Home.js");
   expect(mod).toBeDefined();

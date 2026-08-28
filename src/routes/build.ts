@@ -134,6 +134,8 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       description: project.description || "",
       techStack: project.techStack || "react-node",
       locale: (project as { locale?: string }).locale ?? "en",
+      buildCapabilities:
+        (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
       createdAt: new Date().toISOString(),
     });
   }

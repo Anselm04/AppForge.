@@ -321,6 +321,13 @@ async function start() {
         process.on("SIGINT", () => stopQueue());
       })
       .catch(() => {});
+    import("./services/vantaSync.js")
+      .then(({ startVantaPoller }) => {
+        const stopVanta = startVantaPoller();
+        process.on("SIGTERM", () => stopVanta());
+        process.on("SIGINT", () => stopVanta());
+      })
+      .catch(() => {});
     if (ENV.isProduction && ENV.sentryDsn) {
       import("./agents/selfHealing.js")
         .then(({ startSelfHealingWatcher }) => {
