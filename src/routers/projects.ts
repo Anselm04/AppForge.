@@ -104,7 +104,7 @@ const projectCreateSchema = z.object({
   locale: z.string().max(10).optional(),
   buildCapabilities: z
     .array(z.enum(BUILD_CAPABILITY_IDS as unknown as [string, ...string[]]))
-    .max(9)
+    .max(10)
     .optional(),
 });
 
