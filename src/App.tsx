@@ -26,6 +26,7 @@ import { EducationStudio } from "./pages/EducationStudio.js";
 import { PatentStudio } from "./pages/PatentStudio.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
+import { OrgSettings } from "./pages/OrgSettings.js";
 import { Redeem } from "./pages/Redeem.js";
 
 function AppShell() {
@@ -41,6 +42,7 @@ function AppShell() {
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/settings/org" element={<OrgSettings />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/build/:projectId" element={<Build />} />
