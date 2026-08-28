@@ -1,5 +1,6 @@
 import { invokeLLM } from "../_core/llm.js";
 import { modelForAgent } from "./llmModels.js";
+import { APPFORGE_BUILD_BOUNDARIES } from "./buildPurpose.js";
 
 export type MlModerationResult = {
   allowed: boolean;
@@ -15,13 +16,15 @@ export async function mlModerateContent(
   if (!process.env.BUILT_IN_FORGE_API_KEY) return null;
 
   try {
+    const boundaries = APPFORGE_BUILD_BOUNDARIES.map((b) => b.label).join("; ");
     const result = await invokeLLM({
       model: modelForAgent("moderation"),
       messages: [
         {
           role: "system",
           content:
-            'You are a content safety classifier. Reply ONLY with JSON: {"allowed":true} or {"allowed":false,"category":"illegal|dangerous|sexual|hate|spam|other","reason":"brief"}',
+            `You are AppForge content safety. Block requests that are: ${boundaries}. ` +
+            'Reply ONLY with JSON: {"allowed":true} or {"allowed":false,"category":"illegal|dangerous|sexual|hate|spam|other","reason":"brief"}',
         },
         { role: "user", content: text.slice(0, 4000) },
       ],
