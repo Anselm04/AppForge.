@@ -17,6 +17,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { npmCacheEnv } from "../services/buildCache.js";
+import { validateWithDocker } from "../lib/dockerValidator.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -233,6 +234,29 @@ export async function validateGeneratedBuild(
       } catch {
         /* fall through to npm validation */
       }
+    }
+
+    // ── 2c. Optional Docker sandbox (Python / Flutter) ───────────────
+    const dockerResult = await validateWithDocker(files, techStack);
+    if (dockerResult && !dockerResult.skipped) {
+      if (!dockerResult.passed) {
+        return {
+          passed: false,
+          stage: dockerResult.stage,
+          errors: dockerResult.errors,
+          durationMs: dockerResult.durationMs,
+          fileCount: Object.keys(files).length,
+          warning: "Docker sandbox validation failed.",
+        };
+      }
+      return {
+        passed: true,
+        stage: dockerResult.stage,
+        errors: [],
+        durationMs: dockerResult.durationMs,
+        fileCount: Object.keys(files).length,
+        warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
     }
 
     // ── 3. npm install ─────────────────────────────────────────────────

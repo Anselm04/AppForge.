@@ -17,6 +17,12 @@ import { Admin } from "./pages/Admin.js";
 import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
 import { TemplateMarketplace } from "./pages/TemplateMarketplace.js";
+import { CreativeStudio } from "./pages/CreativeStudio.js";
+import { VideoStudio } from "./pages/VideoStudio.js";
+import { MusicStudio } from "./pages/MusicStudio.js";
+import { MarketingStudio } from "./pages/MarketingStudio.js";
+import { ARStudio } from "./pages/ARStudio.js";
+import { EducationStudio } from "./pages/EducationStudio.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { Redeem } from "./pages/Redeem.js";
@@ -42,6 +48,12 @@ function AppShell() {
           <Route path="/ai-builder" element={<AIBuilder />} />
           <Route path="/templates" element={<TemplateMarketplace />} />
           <Route path="/editor" element={<GraphicsEditor />} />
+          <Route path="/studio" element={<CreativeStudio />} />
+          <Route path="/studio/video" element={<VideoStudio />} />
+          <Route path="/studio/music" element={<MusicStudio />} />
+          <Route path="/studio/marketing" element={<MarketingStudio />} />
+          <Route path="/studio/ar" element={<ARStudio />} />
+          <Route path="/studio/education" element={<EducationStudio />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

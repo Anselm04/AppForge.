@@ -22,7 +22,9 @@ export const ENV = {
   stripeBuilderPaymentLink: process.env.STRIPE_BUILDER_PAYMENT_LINK ?? "",
   stripeStudioPaymentLink: process.env.STRIPE_STUDIO_PAYMENT_LINK ?? "",
   sentryDsn: process.env.SENTRY_DSN ?? "",
-  sentryTracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
+  sentryTracesSampleRate: parseFloat(
+    process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1",
+  ),
   corsOrigin: process.env.CORS_ORIGIN ?? "",
   requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS ?? "30000", 10),
   vercelToken: process.env.VERCEL_TOKEN ?? "",
@@ -36,5 +38,7 @@ export const ENV = {
   hCaptchaSecret: process.env.HCAPTCHA_SECRET ?? "",
   vantaWorkspaceId: process.env.VANTA_WORKSPACE_ID ?? "",
   vantaApiToken: process.env.VANTA_API_TOKEN ?? "",
+  tavilyApiKey: process.env.TAVILY_API_KEY ?? "",
+  serpApiKey: process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY ?? "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
 };
