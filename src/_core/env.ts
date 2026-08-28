@@ -31,6 +31,7 @@ export const ENV = {
   vercelTeamId: process.env.VERCEL_TEAM_ID ?? "",
   redisUrl: process.env.REDIS_URL ?? "",
   logtailSourceToken: process.env.LOGTAIL_SOURCE_TOKEN ?? "",
+  // Admin / SMS / Moderation / Captcha / Email
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? "",
   twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER ?? "",
