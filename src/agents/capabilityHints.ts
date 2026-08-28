@@ -1,4 +1,5 @@
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
+import { buildPurposePrompt } from "../lib/buildPurpose.js";
 
 const HINTS: Record<BuildCapabilityId, string> = {
   web_search: `
@@ -66,15 +67,31 @@ PATENT / INVENTION CAPABILITY enabled:
 - Reference numeral consistency between description and figures
 - User-editable spec UI with version history; LEGAL DISCLAIMER that output is not legal advice — attorney review required
 `.trim(),
+
+  architecture: `
+ARCHITECTURE / BIM CAPABILITY enabled — full building project delivery:
+- Pre-design: client brief, site analysis, zoning/building-code research (use Research brief), budget/feasibility in architecture/brief.json
+- Concept: massing, floor plans, material palettes, sustainability/energy strategy in architecture/concept/
+- Coordinated BIM: single 3D model JSON (architecture/bim/model.json) generating plans, sections, elevations
+- Structural + MEP coordination with clash detection; construction document set in architecture/drawings/
+- Accessibility (ramps, egress, universal design) and fire/life-safety strategy stubs
+- Site/landscape (grading, planting) and interior fit-out in architecture/site/ and architecture/interiors/
+- Permit drawings, bill of quantities, specifications in architecture/permits/ and architecture/specs/
+- Construction admin: submittal log, change orders, snagging in architecture/construction/
+- Three.js or canvas 3D preview with orbit controls; metric/imperial toggle
+- Multi-disciplinary version history; client presentation/approval workflow UI
+- LEGAL DISCLAIMER: outputs require licensed architect/engineer review — not stamped professional documents
+`.trim(),
 };
 
 export function capabilityHintsForPipeline(
   capabilities: BuildCapabilityId[],
 ): string {
-  if (capabilities.length === 0) return "";
+  const purpose = buildPurposePrompt();
+  if (capabilities.length === 0) return `\n\n${purpose}\n`;
   const blocks = capabilities
     .map((id) => HINTS[id])
     .filter(Boolean)
     .join("\n\n");
-  return `\n\n--- BUILD CAPABILITIES ---\n${blocks}\n--- END CAPABILITIES ---\n`;
+  return `\n\n${purpose}\n\n--- BUILD CAPABILITIES ---\n${blocks}\n--- END CAPABILITIES ---\n`;
 }
