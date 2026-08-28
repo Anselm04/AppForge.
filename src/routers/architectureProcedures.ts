@@ -87,7 +87,14 @@ export const architectureProcedures = {
       const units = resolveUnits(input.jurisdiction, input.units);
       const ctx = jurisdictionContext(input.jurisdiction, input.location);
       return llmJson(
-        `You are a senior architect. Produce pre-design deliverables in ${units} units.\nOutput JSON: {\n  clientBrief: { goals, constraints, stakeholders, successCriteria },\n  siteAnalysis: { topography, orientation, climate, access, existingConditions },\n  feasibility: { viable, risks, opportunities, recommendations },\n  budgetStrategy: { estimatedCostRange, costDrivers, phasing, contingencyPercent },\n  projectViability: { score, summary }\n}`,
+        `You are a senior architect. Produce pre-design deliverables in ${units} units.
+Output JSON: {
+  clientBrief: { goals, constraints, stakeholders, successCriteria },
+  siteAnalysis: { topography, orientation, climate, access, existingConditions },
+  feasibility: { viable, risks, opportunities, recommendations },
+  budgetStrategy: { estimatedCostRange, costDrivers, phasing, contingencyPercent },
+  projectViability: { score, summary }
+}`,
         `${ctx}\nBrief: ${input.brief}\nSite notes: ${input.siteNotes ?? "none"}\nBudget USD: ${input.budgetUsd ?? "TBD"}\nZoning research:\n${input.zoningResearch ?? "none"}`,
       );
     }),
@@ -106,7 +113,14 @@ export const architectureProcedures = {
     .mutation(async ({ input }) => {
       const units = resolveUnits(input.jurisdiction, input.units);
       return llmJson(
-        `Architectural concept designer. Output JSON in ${units}:\n{\n  massing: { form, height, footprint, storeys },\n  floorPlans: [{ level, rooms: [{ id, name, type, x, y, width, height, doorWidthMm }] }],\n  materials: [{ zone, exterior, interior, rationale }],\n  aestheticNotes: string,\n  renderPrompts: [string]\n}`,
+        `Architectural concept designer. Output JSON in ${units}:
+{
+  massing: { form, height, footprint, storeys },
+  floorPlans: [{ level, rooms: [{ id, name, type, x, y, width, height, doorWidthMm }] }],
+  materials: [{ zone, exterior, interior, rationale }],
+  aestheticNotes: string,
+  renderPrompts: [string]
+}`,
         `Location: ${input.location}\nType: ${input.buildingType}\nFloors: ${input.floors}\nBrief:\n${input.brief}`,
       );
     }),
@@ -122,7 +136,15 @@ export const architectureProcedures = {
     .mutation(async ({ input }) => {
       const meta = ARCHITECTURE_JURISDICTIONS[input.jurisdiction];
       return llmJson(
-        `Sustainability consultant. Output JSON:\n{\n  passiveDesign: [string],\n  insulationStrategy: { walls, roof, glazing, uValues },\n  solarOrientation: { optimal, current, recommendations },\n  energyPerformance: { estimatedEUI, rating, certifications },\n  waterStrategy: [string],\n  carbonNotes: string\n}`,
+        `Sustainability consultant. Output JSON:
+{
+  passiveDesign: [string],
+  insulationStrategy: { walls, roof, glazing, uValues },
+  solarOrientation: { optimal, current, recommendations },
+  energyPerformance: { estimatedEUI, rating, certifications },
+  waterStrategy: [string],
+  carbonNotes: string
+}`,
         `${meta.label} — ${input.location}\nConcept:\n${JSON.stringify(input.conceptDesign, null, 2)}`,
       );
     }),
@@ -138,7 +160,15 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `BIM coordinator (Revit/ArchiCAD level). Output coordinated JSON model:\n{\n  modelVersion: string,\n  levels: [{ id, name, elevation }],\n  elements: [{ id, discipline, type, label, levelId, x, y, z, width, height, depth }],\n  structural: { foundations, framing, loadPaths: [string] },\n  mep: { mechanical, electrical, plumbing: [{ system, elements: [string] }] },\n  views: { plans: [string], sections: [string], elevations: [string] }\n}`,
+        `BIM coordinator (Revit/ArchiCAD level). Output coordinated JSON model:
+{
+  modelVersion: string,
+  levels: [{ id, name, elevation }],
+  elements: [{ id, discipline, type, label, levelId, x, y, z, width, height, depth }],
+  structural: { foundations, framing, loadPaths: [string] },
+  mep: { mechanical, electrical, plumbing: [{ system, elements: [string] }] },
+  views: { plans: [string], sections: [string], elevations: [string] }
+}`,
         `Location: ${input.location}\nStructural: ${input.includeStructural}\nMEP: ${input.includeMEP}\nConcept:\n${JSON.stringify(input.conceptDesign, null, 2)}`,
         "coder",
       );
@@ -185,7 +215,17 @@ export const architectureProcedures = {
       const units = resolveUnits(input.jurisdiction, input.units);
       const meta = ARCHITECTURE_JURISDICTIONS[input.jurisdiction];
       return llmJson(
-        `Produce construction document set in ${units} for ${meta.label}. Output JSON:\n{\n  sheetIndex: [{ number, title, scale }],\n  floorPlans: [{ sheet, level, notes }],\n  elevations: [{ sheet, facing, notes }],\n  sections: [{ sheet, cut, notes }],\n  schedules: { doors: [], windows: [], finishes: [] },\n  structuralDetails: [{ ref, description }],\n  fireStrategy: { compartments, egress, alarms },\n  accessibilityNotes: [string]\n}`,
+        `Produce construction document set in ${units} for ${meta.label}. Output JSON:
+{
+  sheetIndex: [{ number, title, scale }],
+  floorPlans: [{ sheet, level, notes }],
+  elevations: [{ sheet, facing, notes }],
+  sections: [{ sheet, cut, notes }],
+  schedules: { doors: [], windows: [], finishes: [] },
+  structuralDetails: [{ ref, description }],
+  fireStrategy: { compartments, egress, alarms },
+  accessibilityNotes: [string]
+}`,
         JSON.stringify(input.bimModel, null, 2),
         "coder",
       );
@@ -226,7 +266,13 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Acoustic consultant. Output JSON:\n{\n  criteria: [{ space, targetRT60, targetNC, standard }],\n  partitions: [{ between, stcRating, notes }],\n  recommendations: [string],\n  criticalSpaces: [string]\n}`,
+        `Acoustic consultant. Output JSON:
+{
+  criteria: [{ space, targetRT60, targetNC, standard }],
+  partitions: [{ between, stcRating, notes }],
+  recommendations: [string],
+  criticalSpaces: [string]
+}`,
         `Type: ${input.buildingType}\nRooms: ${input.rooms.join(", ") || "general"}\nJurisdiction: ${input.jurisdiction}`,
       );
     }),
@@ -241,7 +287,14 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Landscape architect. Output JSON:\n{\n  grading: { strategy, drainage, cutFillNotes },\n  hardscape: [{ zone, material, area }],\n  planting: [{ zone, species, density, irrigation }],\n  sitePlanNotes: [string],\n  outdoorAmenities: [string]\n}`,
+        `Landscape architect. Output JSON:
+{
+  grading: { strategy, drainage, cutFillNotes },
+  hardscape: [{ zone, material, area }],
+  planting: [{ zone, species, density, irrigation }],
+  sitePlanNotes: [string],
+  outdoorAmenities: [string]
+}`,
         `Climate: ${input.climate}\nUnits: ${input.units ?? "metric"}\nBrief:\n${input.siteBrief}`,
       );
     }),
@@ -256,7 +309,13 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Interior designer. Output JSON:\n{\n  zones: [{ room, furniture: [{ item, dimensions, placement }], fixtures: [string], finishes: { floor, walls, ceiling } }],\n  ffAndE: [{ item, qty, spec }],\n  moodBoard: { palette, materials, lighting },\n  notes: [string]\n}`,
+        `Interior designer. Output JSON:
+{
+  zones: [{ room, furniture: [{ item, dimensions, placement }], fixtures: [string], finishes: { floor, walls, ceiling } }],
+  ffAndE: [{ item, qty, spec }],
+  moodBoard: { palette, materials, lighting },
+  notes: [string]
+}`,
         `Style: ${input.style}\nBudget: ${input.budgetTier}\nFloor plan:\n${JSON.stringify(input.floorPlan, null, 2)}`,
       );
     }),
@@ -272,7 +331,14 @@ export const architectureProcedures = {
     .mutation(async ({ input }) => {
       const meta = ARCHITECTURE_JURISDICTIONS[input.jurisdiction];
       return llmJson(
-        `Permit application specialist for ${meta.label}. Output JSON:\n{\n  applicationChecklist: [string],\n  requiredSheets: [{ name, purpose, format }],\n  coverSheetNotes: string,\n  complianceStatements: { zoning, accessibility, fire, energy },\n  submissionNotes: [string]\n}`,
+        `Permit application specialist for ${meta.label}. Output JSON:
+{
+  applicationChecklist: [string],
+  requiredSheets: [{ name, purpose, format }],
+  coverSheetNotes: string,
+  complianceStatements: { zoning, accessibility, fire, energy },
+  submissionNotes: [string]
+}`,
         `Council: ${input.councilName ?? meta.planningAuthority}\nPermit notes: ${meta.permitNotes}\nDocs:\n${JSON.stringify(input.constructionDocs, null, 2)}`,
       );
     }),
@@ -287,7 +353,15 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Quantity surveyor. Output JSON:\n{\n  currency: string,\n  lineItems: [{ code, description, unit, quantity, unitRate, total }],\n  subtotals: { structure, envelope, mep, interiors, external },\n  contingencyPercent: number,\n  grandTotal: number,\n  assumptions: [string]\n}`,
+        `Quantity surveyor. Output JSON:
+{
+  currency: string,
+  lineItems: [{ code, description, unit, quantity, unitRate, total }],
+  subtotals: { structure, envelope, mep, interiors, external },
+  contingencyPercent: number,
+  grandTotal: number,
+  assumptions: [string]
+}`,
         `Currency: ${input.currency}\nUnits: ${input.units ?? "metric"}\nModel:\n${JSON.stringify(input.bimModel, null, 2)}`,
         "coder",
       );
@@ -303,7 +377,13 @@ export const architectureProcedures = {
     .mutation(async ({ input }) => {
       const meta = ARCHITECTURE_JURISDICTIONS[input.jurisdiction];
       return llmJson(
-        `Specification writer (CSI/Masterspec style) for ${meta.label}. Output JSON:\n{\n  divisions: [{ number, title, sections: [{ number, title, content }] }],\n  materialStandards: [{ material, standard, manufacturer }],\n  executionNotes: [string],\n  qualityAssurance: [string]\n}`,
+        `Specification writer (CSI/Masterspec style) for ${meta.label}. Output JSON:
+{
+  divisions: [{ number, title, sections: [{ number, title, content }] }],
+  materialStandards: [{ material, standard, manufacturer }],
+  executionNotes: [string],
+  qualityAssurance: [string]
+}`,
         JSON.stringify(input.constructionDocs, null, 2),
         "coder",
       );
@@ -320,7 +400,14 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Construction contract administrator. Output JSON:\n{\n  submittalLog: [{ id, description, status, dueDate, reviewer }],\n  rfis: [{ id, question, response, status }],\n  changeOrders: [{ id, description, costImpact, scheduleImpact, status }],\n  siteInstructions: [{ date, instruction, issuedBy }],\n  meetingMinutes: [{ date, attendees, decisions }]\n}`,
+        `Construction contract administrator. Output JSON:
+{
+  submittalLog: [{ id, description, status, dueDate, reviewer }],
+  rfis: [{ id, question, response, status }],
+  changeOrders: [{ id, description, costImpact, scheduleImpact, status }],
+  siteInstructions: [{ date, instruction, issuedBy }],
+  meetingMinutes: [{ date, attendees, decisions }]
+}`,
         `Project: ${input.projectName}\nPhase: ${input.phase}`,
       );
     }),
@@ -334,7 +421,13 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Handover/snagging specialist. Output JSON:\n{\n  defects: [{ id, location, description, severity, trade, status, photoRef }],\n  punchListSummary: { open, closed, critical },\n  handoverChecklist: [string],\n  warrantyItems: [string]\n}`,
+        `Handover/snagging specialist. Output JSON:
+{
+  defects: [{ id, location, description, severity, trade, status, photoRef }],
+  punchListSummary: { open, closed, critical },
+  handoverChecklist: [string],
+  warrantyItems: [string]
+}`,
         `Project: ${input.projectName}\nAreas: ${input.areas.join(", ") || "whole building"}`,
       );
     }),
@@ -348,7 +441,14 @@ export const architectureProcedures = {
     )
     .mutation(async ({ input }) => {
       return llmJson(
-        `Post-occupancy evaluation specialist. Output JSON:\n{\n  kpis: [{ metric, target, measurementMethod, frequency }],\n  energyMonitoring: { meters, benchmarks, reporting },\n  userFeedback: { surveys, channels, schedule },\n  lessonsLearned: [string],\n  continuousImprovement: [string]\n}`,
+        `Post-occupancy evaluation specialist. Output JSON:
+{
+  kpis: [{ metric, target, measurementMethod, frequency }],
+  energyMonitoring: { meters, benchmarks, reporting },
+  userFeedback: { surveys, channels, schedule },
+  lessonsLearned: [string],
+  continuousImprovement: [string]
+}`,
         `Type: ${input.buildingType}\nTargets: ${input.sustainabilityTargets ?? "standard efficiency"}`,
       );
     }),
