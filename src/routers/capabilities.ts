@@ -8,6 +8,7 @@ import {
   BUILD_CAPABILITY_IDS,
   BUILD_CAPABILITIES,
 } from "../lib/buildCapabilities.js";
+import { architectureProcedures } from "./architectureProcedures.js";
 
 export const capabilitiesRouter = router({
   list: protectedProcedure.query(() => {
@@ -462,6 +463,8 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
       return checkReferenceNumerals(input.specification, input.drawingLabels);
     }),
 
+  ...architectureProcedures,
+
   attachStudioAsset: protectedProcedure
     .input(
       z.object({
@@ -476,6 +479,7 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
           "ar",
           "education",
           "patent",
+          "architecture",
           "research",
         ]),
       }),
@@ -502,9 +506,11 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
                   ? "education/"
                   : input.kind === "patent"
                     ? "patent/"
-                    : input.kind === "marketing"
-                      ? "marketing/"
-                      : "research/";
+                    : input.kind === "architecture"
+                      ? "architecture/"
+                      : input.kind === "marketing"
+                        ? "marketing/"
+                        : "research/";
       const path = `${prefix}${safeName}`;
       files[path] = input.content;
       await updateProjectFiles(input.projectId, files);
