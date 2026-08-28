@@ -33,7 +33,7 @@ export function DeployWizard({
   }
 
   const copyEnv = async (key: string) => {
-    await navigator.clipboard.writeText(key + "=");
+    await navigator.clipboard.writeText(`${key}=`);
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -66,11 +66,11 @@ export function DeployWizard({
           )}
           {healthCheck.data && (
             <p
-              className={"text-xs " + (healthCheck.data.ok ? "text-green-400" : "text-amber-400")}
+              className={`text-xs ${healthCheck.data.ok ? "text-green-400" : "text-amber-400"}`}
             >
               {healthCheck.data.ok
-                ? "Healthy"
-                : "Unhealthy"}
+                ? `Healthy (${healthCheck.data.statusCode}, ${healthCheck.data.latencyMs}ms)`
+                : `Unhealthy: ${healthCheck.data.error ?? `HTTP ${healthCheck.data.statusCode}`}`}
             </p>
           )}
         </div>
