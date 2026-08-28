@@ -4,7 +4,14 @@ import * as schema from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import { deployToVercel } from "../services/deployer.js";
 import { watchProject } from "../agents/selfHealing.js";
-import { runAgentPipeline } from "../agents/pipeline.js";
+import {
+  getBuildEventsSince,
+  clearBuildEvents,
+} from "../services/build-event-store.js";
+import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
+import { enqueueBuild, subscribeBuildEvents } from "../services/build-queue.js";
+import { isBuildActive } from "../services/build-worker.js";
+import { canStartBuild } from "../lib/buildConcurrency.js";
 import {
   getProjectById,
   updateProjectStatus,
@@ -33,9 +40,6 @@ import { logger } from "../_core/logger.js";
 const router = Router();
 
 const BUILD_COST = BUILD_CREDIT_COST;
-const PLANNER_COST = 2;
-const CODER_COST = 3;
-const REVIEWER_COST = 1;
 
 const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
@@ -79,131 +83,121 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     return;
   }
 
-  // Build already in progress
-  if (project.status === "running") {
-    res.status(409).json({ error: "Build already in progress", projectId });
-    return;
+  const isActive = project.status === "running" || isBuildActive(projectId);
+  const shouldStart =
+    !isActive &&
+    (project.status === "pending" ||
+      project.status === "failed" ||
+      (project.status === "paused" &&
+        project.pauseReason === "credits_exhausted"));
+
+  if (shouldStart) {
+    const concurrency = await canStartBuild(user.id);
+    if (!concurrency.allowed) {
+      res.status(429).json({
+        error: "concurrent_build_limit",
+        message: `You have ${concurrency.active} builds running (limit ${concurrency.limit}). Wait for one to finish.`,
+        active: concurrency.active,
+        limit: concurrency.limit,
+      });
+      return;
+    }
+
+    const credits = await ensureUserCredits(user.id);
+    const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+    if (!unlimited && credits.balance < BUILD_COST) {
+      res
+        .status(402)
+        .json(
+          creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"),
+        );
+      return;
+    }
+
+    if (!unlimited) {
+      await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
+    }
+
+    if (
+      project.status === "paused" &&
+      project.pauseReason === "credits_exhausted"
+    ) {
+      await resumeProject(projectId);
+    }
+
+    await clearBuildEvents(projectId);
+    await updateProjectStatus(projectId, "running");
+
+    await enqueueBuild({
+      projectId,
+      userId: user.id,
+      description: project.description || "",
+      techStack: project.techStack || "react-node",
+      locale: (project as { locale?: string }).locale ?? "en",
+      createdAt: new Date().toISOString(),
+    });
   }
 
-  // Credit check — monthlyAllowance is a build-count cap, not spendable credits.
-  const credits = await ensureUserCredits(user.id);
-  const unlimited = !!credits.unlimited || credits.tier === "lifetime";
-  if (!unlimited && credits.balance < BUILD_COST) {
-    res
-      .status(402)
-      .json(
-        creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"),
-      );
-    return;
-  }
-
-  if (!unlimited) {
-    await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
-  }
-
-  // Resume if previously paused
-  if (
-    project.status === "paused" &&
-    project.pauseReason === "credits_exhausted"
-  ) {
-    await resumeProject(projectId);
-  }
-
-  await updateProjectStatus(projectId, "running");
-
-  // Set up SSE
+  // SSE stream — replay persisted events + live fan-out (reconnect-safe)
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min max
+  let closed = false;
   const heartbeat = setInterval(() => {
     if (!res.writableEnded) {
       res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
     }
   }, 15000);
 
-  req.on("close", () => {
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    controller.abort();
-  });
-
   const write = (event: string, data: unknown) => {
-    if (!res.writableEnded) {
+    if (!closed && !res.writableEnded) {
       res.write(`event: ${event}\n`);
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     }
   };
 
-  // Credit-aware pipeline wrapper
-  let totalSpent = 0;
-  const creditAwareWrite = (event: string, data: any) => {
-    // Deduct credits per agent phase
-    if (event === "agent" && data?.type === "start") {
-      const agent = data?.payload?.agent as string;
-      let phaseCost = 0;
-      if (agent === "Planner") phaseCost = PLANNER_COST;
-      if (agent === "Coder") phaseCost = CODER_COST;
-      if (agent === "Reviewer") phaseCost = REVIEWER_COST;
-
-      if (phaseCost > 0) {
-        totalSpent += phaseCost;
-      }
-    }
-    write(event, data);
-  };
-
-  // Check if we need to pause mid-build
-  const checkCredits = async () => {
-    const current = await getUserCredits(user.id);
-    if (!current) return false;
-    if (current.unlimited || current.tier === "lifetime") return true;
-    if (current.balance < 1) {
-      await pauseProject(projectId, "credits_exhausted");
-      write("pause", {
-        reason: "credits_exhausted",
-        message: "Build paused: your credits ran out. Purchase more to resume.",
-        spent: totalSpent,
-      });
-      return false;
-    }
-    return true;
-  };
-
-  try {
-    const ok = await checkCredits();
-    if (!ok) {
-      res.end();
-      return;
-    }
-
-    await runAgentPipeline(
-      projectId,
-      project.description || "",
-      project.techStack || "react-node",
-      creditAwareWrite,
-      controller.signal,
-      checkCredits,
-    );
-
-    if (totalSpent > 0) {
-      const { updateProjectCreditsSpent } = await import("../db.js");
-      await updateProjectCreditsSpent(projectId, totalSpent);
-    }
-
-    write("done", { status: "completed" });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("Build pipeline error:", msg);
-    write("error", { message: msg });
-  } finally {
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    if (!res.writableEnded) res.end();
+  const historical = await getBuildEventsSince(projectId, 0);
+  let sawTerminal = false;
+  for (const row of historical) {
+    write(row.event, row.payload);
+    if (row.event === "done" || row.event === "error") sawTerminal = true;
   }
+
+  if (sawTerminal) {
+    clearInterval(heartbeat);
+    res.end();
+    return;
+  }
+
+  const unsubRuntime = subscribeRuntimeBuildEvents(
+    projectId,
+    ({ event, data }) => {
+      write(event, data);
+      if (event === "done" || event === "error") {
+        closed = true;
+        clearInterval(heartbeat);
+        if (!res.writableEnded) res.end();
+      }
+    },
+  );
+
+  const unsubRedis = await subscribeBuildEvents(projectId, (event, data) => {
+    write(event, data);
+    if (event === "done" || event === "error") {
+      closed = true;
+      clearInterval(heartbeat);
+      if (!res.writableEnded) res.end();
+    }
+  });
+
+  req.on("close", () => {
+    closed = true;
+    clearInterval(heartbeat);
+    unsubRuntime();
+    void unsubRedis();
+  });
 });
 
 /** SSE endpoint for Senior Dev Agent: streams plan + execution + validation */
