@@ -9,6 +9,7 @@ import { ProjectCodeEditor } from "../components/ProjectCodeEditor.js";
 import { ProjectChat } from "../components/ProjectChat.js";
 import { DeployWizard } from "../components/DeployWizard.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
+import { AgentTerminal } from "../components/AgentTerminal.js";
 
 interface BuildLog {
   agent: string;
@@ -25,7 +26,7 @@ interface BuildLog {
 type DeployDestination =
   "vercel" | "netlify" | "fly" | "preview" | "github-pages";
 
-type BuildTab = "logs" | "code" | "chat" | "preview";
+type BuildTab = "logs" | "code" | "chat" | "preview" | "terminal";
 
 export function Build() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -219,20 +220,22 @@ export function Build() {
         )}
 
         <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
-          {(["logs", "preview", "code", "chat"] as BuildTab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
-                tab === t
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+          {(["logs", "preview", "code", "chat", "terminal"] as BuildTab[]).map(
+            (t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
+                  tab === t
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {t}
+              </button>
+            ),
+          )}
         </div>
 
         {tab === "logs" && (
@@ -261,6 +264,10 @@ export function Build() {
         )}
 
         {tab === "chat" && pid > 0 && <ProjectChat projectId={pid} />}
+
+        {tab === "terminal" && pid > 0 && (
+          <AgentTerminal projectId={pid} enabled={isComplete} />
+        )}
 
         {creditsSpent > 0 && (
           <div className="mb-4 text-slate-400 text-sm">
@@ -356,6 +363,7 @@ export function Build() {
               </button>
             </div>
             <DeployWizard
+              projectId={pid}
               deployUrl={deployUrl}
               deployGuide={deployGuide}
               techStack={project?.techStack}
