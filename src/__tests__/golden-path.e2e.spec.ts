@@ -25,6 +25,17 @@ test("deploy health detects env vars", async () => {
 test("build capabilities registry", async () => {
   const { BUILD_CAPABILITIES, BUILD_CAPABILITY_IDS } =
     await import("../lib/buildCapabilities.js");
-  expect(BUILD_CAPABILITY_IDS).toHaveLength(7);
-  expect(BUILD_CAPABILITIES.education.label).toContain("classroom");
+  expect(BUILD_CAPABILITY_IDS).toHaveLength(8);
+  expect(BUILD_CAPABILITIES.patent.label.toLowerCase()).toContain("patent");
+});
+
+test("patent reference numeral check", async () => {
+  const { checkReferenceNumerals } =
+    await import("../lib/patentReferenceCheck.js");
+  const r = checkReferenceNumerals(
+    "The housing 10 connects to the motor 20.",
+    "FIG 1 shows housing 10 and motor 20",
+  );
+  expect(r.matched).toContain("10");
+  expect(r.matched).toContain("20");
 });

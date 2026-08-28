@@ -23,6 +23,7 @@ import { MusicStudio } from "./pages/MusicStudio.js";
 import { MarketingStudio } from "./pages/MarketingStudio.js";
 import { ARStudio } from "./pages/ARStudio.js";
 import { EducationStudio } from "./pages/EducationStudio.js";
+import { PatentStudio } from "./pages/PatentStudio.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { Redeem } from "./pages/Redeem.js";
@@ -54,6 +55,7 @@ function AppShell() {
           <Route path="/studio/marketing" element={<MarketingStudio />} />
           <Route path="/studio/ar" element={<ARStudio />} />
           <Route path="/studio/education" element={<EducationStudio />} />
+          <Route path="/studio/patent" element={<PatentStudio />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
