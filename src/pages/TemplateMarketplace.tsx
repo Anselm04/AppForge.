@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "../utils/trpc.js";
 import { writePromptDraft, writePromptStack } from "../lib/promptDraft.js";
 import { TemplateCard } from "../components/TemplateCard.js";
 import { TemplateFilters } from "../components/TemplateFilters.js";
@@ -9,6 +11,11 @@ import { Template } from "../services/template-service.js";
 
 export function TemplateMarketplace() {
   const navigate = useNavigate();
+  const cloneTemplate = useMutation({
+    mutationFn: (templateId: string) =>
+      trpc.templates.createProjectFromTemplate.mutate({ templateId }),
+    onSuccess: (data) => navigate(`/build/${data.projectId}`),
+  });
   const { templates, isLoading } = useTemplates();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedUseCase, setSelectedUseCase] = useState("all");
@@ -81,12 +88,16 @@ export function TemplateMarketplace() {
                   setShowPreview(true);
                 }}
                 onUse={() => {
-                  writePromptDraft(
-                    `Build a ${template.name}: ${template.description}`,
-                  );
-                  const stack = template.techStack[0];
-                  if (stack) writePromptStack(stack);
-                  navigate("/");
+                  cloneTemplate.mutate(template.id, {
+                    onError: () => {
+                      writePromptDraft(
+                        `Build a ${template.name}: ${template.description}`,
+                      );
+                      const stack = template.techStack[0];
+                      if (stack) writePromptStack(stack);
+                      navigate("/");
+                    },
+                  });
                 }}
               />
             ))}
