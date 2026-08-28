@@ -194,6 +194,8 @@ export function useSeniorDev() {
         message: "Plan approved. Executing changes...",
       });
 
+      // Resume uses POST /resume — open a short-lived fetch stream via EventSource
+      // after kicking resume (GET SSE on resume endpoint via query-token EventSource).
       const resumeRes = await fetch(
         authedUrl(`/api/build/senior/${taskId}/resume`),
         {
@@ -205,6 +207,7 @@ export function useSeniorDev() {
         throw new Error("Failed to resume Senior Dev after approval");
       }
 
+      // Parse SSE from fetch body (resume is POST, not EventSource-compatible)
       const reader = resumeRes.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
