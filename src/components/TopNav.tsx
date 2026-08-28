@@ -9,7 +9,15 @@ import { useLocale } from "../i18n/LocaleContext.js";
 
 function MenuIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
       <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
     </svg>
   );
@@ -17,7 +25,15 @@ function MenuIcon() {
 
 function CloseIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
       <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
     </svg>
   );
@@ -37,10 +53,18 @@ function LayoutSwitcher({
   t: (key: string) => string;
 }) {
   const labelFor = (value: LayoutMode) =>
-    value === "auto" ? t("nav.layoutAuto") : value === "phone" ? t("nav.layoutPhone") : t("nav.layoutDesktop");
+    value === "auto"
+      ? t("nav.layoutAuto")
+      : value === "phone"
+        ? t("nav.layoutPhone")
+        : t("nav.layoutDesktop");
 
   return (
-    <div className={stacked ? "w-full" : "shrink-0"} role="group" aria-label={t("nav.layout")}>
+    <div
+      className={stacked ? "w-full" : "shrink-0"}
+      role="group"
+      aria-label={t("nav.layout")}
+    >
       {stacked && (
         <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           {t("nav.layout")}
@@ -132,7 +156,12 @@ function NavChrome({
     <>
       <LanguageSwitcher variant={stacked ? "panel" : "dropdown"} />
 
-      <LayoutSwitcher stacked={stacked} mode={layoutMode} setMode={setLayoutMode} t={t} />
+      <LayoutSwitcher
+        stacked={stacked}
+        mode={layoutMode}
+        setMode={setLayoutMode}
+        t={t}
+      />
 
       <button type="button" onClick={toggleDark} className={darkBtn}>
         {isDark ? t("nav.light") : t("nav.dark")}
@@ -141,13 +170,29 @@ function NavChrome({
       {isLoggedIn ? (
         <>
           {isOwner && (
-            <button type="button" onClick={() => go("/admin")} className={adminBtn}>
+            <button
+              type="button"
+              onClick={() => go("/admin")}
+              className={adminBtn}
+            >
               {t("nav.admin")}
             </button>
           )}
 
-          <button type="button" onClick={() => go("/dashboard")} className={item}>
+          <button
+            type="button"
+            onClick={() => go("/dashboard")}
+            className={item}
+          >
             {t("nav.dashboard")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => go("/templates")}
+            className={item}
+          >
+            Templates
           </button>
 
           <button type="button" onClick={() => go("/editor")} className={item}>
@@ -155,7 +200,11 @@ function NavChrome({
           </button>
 
           {!isPaid && !isTrialing && (
-            <button type="button" onClick={() => go("/pricing")} className={primaryBtn}>
+            <button
+              type="button"
+              onClick={() => go("/pricing")}
+              className={primaryBtn}
+            >
               {t("nav.upgrade")}
             </button>
           )}
@@ -181,7 +230,11 @@ function NavChrome({
           <button type="button" onClick={() => go("/login")} className={item}>
             {t("nav.login")}
           </button>
-          <button type="button" onClick={() => go("/signup")} className={primaryBtn}>
+          <button
+            type="button"
+            onClick={() => go("/signup")}
+            className={primaryBtn}
+          >
             {t("nav.signUp")}
           </button>
         </>
@@ -296,7 +349,13 @@ export function TopNav() {
           }}
           className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
         >
-          <img src="/appforge-logo-mark.png" alt="" width={40} height={40} className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain" />
+          <img
+            src="/appforge-logo-mark.png"
+            alt=""
+            width={40}
+            height={40}
+            className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain"
+          />
           AppForge
         </button>
 
@@ -338,7 +397,13 @@ export function TopNav() {
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <span className="flex items-center gap-2 text-lg font-bold text-blue-600">
-                <img src="/appforge-logo-mark.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
+                <img
+                  src="/appforge-logo-mark.png"
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded-lg object-contain"
+                />
                 AppForge
               </span>
               <button
