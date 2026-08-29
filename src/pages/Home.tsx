@@ -27,6 +27,11 @@ import { useLocale } from "../i18n/LocaleContext.js";
 import { CapabilityPicker } from "../components/CapabilityPicker.js";
 import { BuildPurposeStatement } from "../components/BuildPurposeStatement.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
+import {
+  PRODUCTION_READY_CAPABILITIES,
+  PRODUCTION_READY_STACK,
+  GOLDEN_STACKS,
+} from "../lib/productionPreset.js";
 
 const TECH_STACKS = [
   "react-node",
@@ -387,6 +392,22 @@ export function Home() {
               onChange={setBuildCapabilities}
               disabled={createProjectMutation.isPending || isBuilding}
             />
+
+            <button
+              type="button"
+              disabled={createProjectMutation.isPending || isBuilding}
+              onClick={() => {
+                setTechStack(PRODUCTION_READY_STACK);
+                setBuildCapabilities([...PRODUCTION_READY_CAPABILITIES]);
+              }}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Use production-ready preset ({PRODUCTION_READY_STACK} + live
+              search)
+            </button>
+            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
+              Golden stacks with full validation: {GOLDEN_STACKS.join(", ")}
+            </p>
 
             <BuildPurposeStatement compact showBoundaries={false} />
 
