@@ -1,22 +1,29 @@
-name: Assemble lockfile
+name: Restore lockfile
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - cursor/fix-operational-urgency-5e66
     paths:
-      - .github/lockfile-parts/**
+      - .github/workflows/assemble-lockfile.yml
 
 permissions:
   contents: write
 
 jobs:
-  assemble:
+  restore:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble package-lock.json from parts
-        run: cat .github/lockfile-parts/part-* > package-lock.json
+        with:
+          fetch-depth: 0
+      - name: Copy full package-lock.json from fix-ci-lockfile branch
+        run: |
+          git fetch origin cursor/fix-ci-lockfile-5e66
+          git checkout origin/cursor/fix-ci-lockfile-5e66 -- package-lock.json
+          wc -c package-lock.json
+          test "$(wc -c < package-lock.json)" -eq 358193
       - name: Commit restored lockfile
         run: |
           git config user.name "github-actions[bot]"
