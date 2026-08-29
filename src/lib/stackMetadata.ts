@@ -81,3 +81,5 @@ export function tierLabel(tier: StackTier): string {
   if (tier === "scaffold") return "Scaffold only";
   return "Experimental";
 }
+
+export { GOLDEN_STACKS } from "./productionPreset.js";
