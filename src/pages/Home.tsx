@@ -10,6 +10,11 @@ import {
   getValidationMode,
   validationModeLabel,
 } from "../lib/validationMode.js";
+import {
+  getStackMeta,
+  tierBadgeClass,
+  tierLabel,
+} from "../lib/stackMetadata.js";
 import { HcaptchaWidget } from "../components/HcaptchaWidget.js";
 import {
   clearPromptDraft,
@@ -19,6 +24,9 @@ import {
   writePromptStack,
 } from "../lib/promptDraft.js";
 import { useLocale } from "../i18n/LocaleContext.js";
+import { CapabilityPicker } from "../components/CapabilityPicker.js";
+import { BuildPurposeStatement } from "../components/BuildPurposeStatement.js";
+import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 
 const TECH_STACKS = [
   "react-node",
@@ -75,8 +83,12 @@ export function Home() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
+  const [buildCapabilities, setBuildCapabilities] = useState<
+    BuildCapabilityId[]
+  >([]);
 
   const validationMode = getValidationMode(techStack);
+  const stackMeta = getStackMeta(techStack);
 
   const navigate = useNavigate();
   const { t, locale } = useLocale();
@@ -111,6 +123,8 @@ export function Home() {
         techStack,
         hcaptchaToken: hcaptchaToken ?? undefined,
         locale,
+        buildCapabilities:
+          buildCapabilities.length > 0 ? buildCapabilities : undefined,
       }),
     onSuccess: (data) => {
       clearPromptDraft();
@@ -343,6 +357,21 @@ export function Home() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 {t("home.techHint")} · {validationModeLabel(validationMode)}
               </p>
+              <p className="text-xs mt-1 flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-block px-2 py-0.5 rounded-full font-medium ${tierBadgeClass(stackMeta.tier)}`}
+                >
+                  {tierLabel(stackMeta.tier)}
+                </span>
+                {stackMeta.dockerCapable && (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Docker validation when available
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {stackMeta.description}
+              </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Each build reserves {BUILD_CREDIT_COST} credits when it starts
                 (charged once, not per agent).
@@ -352,6 +381,14 @@ export function Home() {
                 output is English-only.
               </p>
             </div>
+
+            <CapabilityPicker
+              selected={buildCapabilities}
+              onChange={setBuildCapabilities}
+              disabled={createProjectMutation.isPending || isBuilding}
+            />
+
+            <BuildPurposeStatement compact showBoundaries={false} />
 
             <HcaptchaWidget onToken={setHcaptchaToken} />
 

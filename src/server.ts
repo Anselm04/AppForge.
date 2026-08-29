@@ -26,8 +26,10 @@ import {
   billingCompatRouter,
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
+import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
+import { webContainerHeaders } from "./middleware/webContainerHeaders.js";
 import { closeDbConnection } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
@@ -85,6 +87,7 @@ app.use(
   }),
 );
 app.use(compressionMiddleware());
+app.use(webContainerHeaders());
 
 // ── Request logging (Sentry + structured logger) ──
 app.use(sentryRequestLogging());
@@ -195,6 +198,7 @@ app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);
+app.use("/api/sso", ssoHttpRouter);
 app.use("/live", supabaseAuthMiddleware, livePreviewRouter);
 
 // ── tRPC routes ──
@@ -319,6 +323,13 @@ async function start() {
         const stopQueue = startBuildQueueWorker(2000);
         process.on("SIGTERM", () => stopQueue());
         process.on("SIGINT", () => stopQueue());
+      })
+      .catch(() => {});
+    import("./services/vantaSync.js")
+      .then(({ startVantaPoller }) => {
+        const stopVanta = startVantaPoller();
+        process.on("SIGTERM", () => stopVanta());
+        process.on("SIGINT", () => stopVanta());
       })
       .catch(() => {});
     if (ENV.isProduction && ENV.sentryDsn) {

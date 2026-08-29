@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
+import { emitPreviewUpdate } from "../lib/previewEvents.js";
 
 const MonacoEditor = lazy(() =>
   import("@monaco-editor/react").then((m) => ({ default: m.default })),
@@ -38,20 +39,37 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const activePath = selected ?? paths[0] ?? null;
   const [draft, setDraft] = useState("");
+  const [validationMsg, setValidationMsg] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (activePath && files?.[activePath] !== undefined) {
       setDraft(files[activePath] ?? "");
+      setValidationMsg(null);
     }
   }, [activePath, files]);
 
   const save = useMutation({
     mutationFn: (payload: { path: string; content: string }) =>
       trpc.projects.updateFile.mutate({ id: projectId, ...payload }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: ["projects", projectId, "files"],
       });
+      emitPreviewUpdate(projectId, {
+        paths: [variables.path],
+        source: "editor",
+      });
+    },
+  });
+
+  const validate = useMutation({
+    mutationFn: (payload: { path: string; content: string }) =>
+      trpc.projects.validateFile.mutate({ id: projectId, ...payload }),
+    onSuccess: (result) => {
+      setValidationMsg(result);
     },
   });
 
@@ -119,17 +137,40 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
             />
           </Suspense>
         </div>
-        <button
-          type="button"
-          disabled={!activePath || save.isPending}
-          onClick={() => {
-            if (!activePath) return;
-            save.mutate({ path: activePath, content: draft || content });
-          }}
-          className="self-start bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          {save.isPending ? "Saving…" : "Save file"}
-        </button>
+        <div className="flex flex-wrap gap-2 items-center">
+          <button
+            type="button"
+            disabled={!activePath || save.isPending}
+            onClick={() => {
+              if (!activePath) return;
+              save.mutate({ path: activePath, content: draft || content });
+            }}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            {save.isPending ? "Saving…" : "Save file"}
+          </button>
+          <button
+            type="button"
+            disabled={!activePath || validate.isPending}
+            onClick={() => {
+              if (!activePath) return;
+              validate.mutate({
+                path: activePath,
+                content: draft || content,
+              });
+            }}
+            className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            {validate.isPending ? "Validating…" : "Re-run validator"}
+          </button>
+          {validationMsg && (
+            <span
+              className={`text-xs ${validationMsg.ok ? "text-green-400" : "text-amber-400"}`}
+            >
+              {validationMsg.message}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

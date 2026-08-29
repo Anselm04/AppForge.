@@ -3,7 +3,7 @@ import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { eq, count } from "drizzle-orm";
+import { eq, count, desc } from "drizzle-orm";
 import { logger } from "../_core/logger.js";
 import { mlModerateContent } from "../lib/mlModeration.js";
 
@@ -154,6 +154,44 @@ export const moderationRouter = router({
       const result = await moderateUserContent(ctx.user.id, input.text);
       return result;
     }),
+
+  /** User appeal for a moderation flag on their account */
+  appeal: protectedProcedure
+    .input(
+      z.object({
+        flagId: z.number().int().positive(),
+        message: z.string().min(20).max(2000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const flag = await db.query.moderationFlags.findFirst({
+        where: eq(schema.moderationFlags.id, input.flagId),
+      });
+      if (!flag || flag.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Flag not found" });
+      }
+      await db.insert(schema.complianceRecords).values({
+        recordType: "content_moderation",
+        userId: ctx.user.id,
+        details: {
+          action: "appeal",
+          flagId: input.flagId,
+          message: input.message.slice(0, 2000),
+          category: flag.category,
+        },
+        adminEmail: process.env.OWNER_EMAIL ?? "anselm.perkins@gmail.com",
+      });
+      return { submitted: true };
+    }),
+
+  myFlags: protectedProcedure.query(async ({ ctx }) => {
+    return db
+      .select()
+      .from(schema.moderationFlags)
+      .where(eq(schema.moderationFlags.userId, ctx.user.id))
+      .orderBy(desc(schema.moderationFlags.createdAt))
+      .limit(20);
+  }),
 });
 
 export type ModerationRouter = typeof moderationRouter;

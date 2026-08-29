@@ -17,8 +17,18 @@ import { Admin } from "./pages/Admin.js";
 import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
 import { TemplateMarketplace } from "./pages/TemplateMarketplace.js";
+import { CreativeStudio } from "./pages/CreativeStudio.js";
+import { VideoStudio } from "./pages/VideoStudio.js";
+import { MusicStudio } from "./pages/MusicStudio.js";
+import { MarketingStudio } from "./pages/MarketingStudio.js";
+import { ARStudio } from "./pages/ARStudio.js";
+import { EducationStudio } from "./pages/EducationStudio.js";
+import { PatentStudio } from "./pages/PatentStudio.js";
+import { ArchitectureStudio } from "./pages/ArchitectureStudio.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
+import { OrgSettings } from "./pages/OrgSettings.js";
+import { SsoCallback } from "./pages/SsoCallback.js";
 import { Redeem } from "./pages/Redeem.js";
 
 function AppShell() {
@@ -33,7 +43,9 @@ function AppShell() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/sso/callback" element={<SsoCallback />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/settings/org" element={<OrgSettings />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/build/:projectId" element={<Build />} />
@@ -42,6 +54,14 @@ function AppShell() {
           <Route path="/ai-builder" element={<AIBuilder />} />
           <Route path="/templates" element={<TemplateMarketplace />} />
           <Route path="/editor" element={<GraphicsEditor />} />
+          <Route path="/studio" element={<CreativeStudio />} />
+          <Route path="/studio/video" element={<VideoStudio />} />
+          <Route path="/studio/music" element={<MusicStudio />} />
+          <Route path="/studio/marketing" element={<MarketingStudio />} />
+          <Route path="/studio/ar" element={<ARStudio />} />
+          <Route path="/studio/education" element={<EducationStudio />} />
+          <Route path="/studio/patent" element={<PatentStudio />} />
+          <Route path="/studio/architecture" element={<ArchitectureStudio />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

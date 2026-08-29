@@ -12,6 +12,17 @@ const livePreviewRouter = Router();
 type DistCache = { hash: string; dir: string; builtAt: number };
 const distCache = new Map<number, DistCache>();
 
+export function invalidatePreviewCache(projectId: number): void {
+  const cached = distCache.get(projectId);
+  distCache.delete(projectId);
+  if (cached?.dir) {
+    void rm(cached.dir.replace(/\/dist$/, ""), {
+      recursive: true,
+      force: true,
+    }).catch(() => {});
+  }
+}
+
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".htm": "text/html; charset=utf-8",

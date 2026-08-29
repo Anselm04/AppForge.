@@ -34,10 +34,20 @@ export function Pricing() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const createCheckout = useMutation({
-    mutationFn: (tier: keyof typeof TIER_CONFIG) =>
-      trpc.subscriptions.getPaymentLink.mutate({
+    mutationFn: async (tier: keyof typeof TIER_CONFIG) => {
+      if (tier === "enterprise" || tier === "custom") {
+        const origin = window.location.origin;
+        return trpc.subscriptions.createCheckoutSession.mutate({
+          tier,
+          successUrl: `${origin}/dashboard?checkout=success`,
+          cancelUrl: `${origin}/pricing?checkout=cancel`,
+          trialDays: tier === "enterprise" ? 14 : 7,
+        });
+      }
+      return trpc.subscriptions.getPaymentLink.mutate({
         tier: tier as "starter" | "builder" | "studio",
-      }),
+      });
+    },
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
@@ -268,11 +278,6 @@ export function Pricing() {
               </ul>
               <button
                 onClick={() => {
-                  if (tier.isEnterprise) {
-                    window.location.href =
-                      "mailto:sales@appforge.dev?subject=Enterprise%20Plan%20Inquiry";
-                    return;
-                  }
                   if (!isAuthed) {
                     navigate("/signup?next=/pricing");
                     return;

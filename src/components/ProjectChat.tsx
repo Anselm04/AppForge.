@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useSeniorDev } from "../hooks/useSeniorDev.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import { emitPreviewUpdate } from "../lib/previewEvents.js";
 
 type Props = {
   projectId: number;
@@ -130,6 +131,12 @@ export function ProjectChat({ projectId }: Props) {
       void queryClient.invalidateQueries({
         queryKey: ["projectChat", projectId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["projects", projectId, "files"],
+      });
+      if (!data.seniorDevTaskId) {
+        emitPreviewUpdate(projectId, { source: "chat" });
+      }
       if (data.seniorDevTaskId) {
         connectToTask(data.seniorDevTaskId);
       }
@@ -172,9 +179,9 @@ export function ProjectChat({ projectId }: Props) {
           onClick={() =>
             send.mutate({ content: text.trim(), triggerSeniorDev: false })
           }
-          className="bg-slate-600 hover:bg-slate-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
         >
-          Save message
+          {send.isPending ? "Applying…" : "Apply changes"}
         </button>
         <button
           type="button"

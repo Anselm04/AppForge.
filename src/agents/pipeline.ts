@@ -18,6 +18,16 @@ import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { getValidationMode } from "../lib/validationMode.js";
 import { modelForAgent } from "../lib/llmModels.js";
+import { LOCALE_UI_HINT, designSystemPrompt } from "../lib/componentLibrary.js";
+import {
+  normalizeCapabilities,
+  type BuildCapabilityId,
+} from "../lib/buildCapabilities.js";
+import { capabilityHintsForPipeline } from "./capabilityHints.js";
+import { runResearchAgent } from "./researchAgent.js";
+import { db } from "../db.js";
+import * as schema from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 // Maximum retry attempts for the error-recovery loop
 const MAX_FIX_RETRIES = 2;
@@ -130,6 +140,7 @@ type AgentRole =
   | "Validator"
   | "Cosine"
   | "Testing"
+  | "Research"
   | "System";
 
 type SSEWriter = (event: string, data: unknown) => void;
@@ -169,6 +180,7 @@ export interface PlanTask {
 
 export interface PipelineOptions {
   locale?: string;
+  buildCapabilities?: BuildCapabilityId[];
 }
 
 /** Run the full multi-agent pipeline for a project, emitting SSE events */
@@ -182,10 +194,28 @@ export async function runAgentPipeline(
   options?: PipelineOptions,
 ): Promise<void> {
   const locale = options?.locale ?? "en";
-  const localeHint =
-    locale !== "en"
-      ? ` Generate user-facing UI copy in locale "${locale}" when writing frontend strings.`
-      : "";
+  const localeHint = LOCALE_UI_HINT(locale);
+  const capabilities = normalizeCapabilities(options?.buildCapabilities ?? []);
+  const capabilityHints = capabilityHintsForPipeline(capabilities);
+
+  const projectRow = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, projectId),
+    columns: { buildCapabilities: true },
+  });
+  const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
+  const activeCapabilities =
+    capabilities.length > 0 ? capabilities : storedCaps;
+
+  const assetRows = await db.query.projectAssets.findMany({
+    where: eq(schema.projectAssets.projectId, projectId),
+    columns: { filename: true },
+  });
+  const assetPaths = assetRows.map((a) => `public/assets/${a.filename}`);
+  const designHints = designSystemPrompt({
+    assetPaths,
+    locale,
+    stack: techStack,
+  });
 
   const emit = (agent: AgentRole, type: string, payload: unknown) => {
     write("agent", { agent, type, payload });
@@ -199,6 +229,41 @@ export async function runAgentPipeline(
 
   try {
     await updateProjectStatus(projectId, "running");
+
+    let researchBrief = "";
+    const needsResearch =
+      activeCapabilities.includes("web_search") ||
+      activeCapabilities.includes("education") ||
+      activeCapabilities.includes("patent") ||
+      activeCapabilities.includes("architecture");
+    if (needsResearch) {
+      if (creditCheck) {
+        const ok = await creditCheck();
+        if (!ok) {
+          write("pause", {
+            reason: "credits_exhausted",
+            agent: "Research",
+            message: "Build paused: insufficient credits.",
+          });
+          await updateProjectStatus(projectId, "paused", "credits_exhausted");
+          return;
+        }
+      }
+      const researchFocus = activeCapabilities.includes("patent")
+        ? "patent"
+        : activeCapabilities.includes("architecture")
+          ? "architecture"
+          : activeCapabilities.includes("education")
+            ? "education"
+            : "general";
+      researchBrief = await runResearchAgent(
+        projectId,
+        description,
+        techStack,
+        (type, payload) => emit("Research", type, payload),
+        { focus: researchFocus },
+      );
+    }
 
     // ── PLANNER ──────────────────────────────────────────────────────────────
     if (creditCheck) {
@@ -240,7 +305,11 @@ Output ONLY valid JSON with this shape:
   ]
 }
 Include 4-8 tasks covering: data models, API routes, frontend components, auth, and any special features.
-The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStack)}).${localeHint}`,
+The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStack)}).
+${designHints}
+${capabilityHints}
+${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}
+${localeHint}`,
         },
         {
           role: "user",
@@ -350,7 +419,11 @@ MANDATORY VANTA-COMPLIANT SCAFFOLDING (include regardless of app type):
 - Force HTTPS redirect in production middleware
 - Add a clear cookie consent banner component in the UI
 
-${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScript/build errors. Keep all other code intact." : ""}${localeHint}`,
+${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScript/build errors. Keep all other code intact." : ""}
+${designHints}
+${capabilityHints}
+${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}
+${localeHint}`,
             },
             {
               role: "user",
@@ -490,7 +563,10 @@ ${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScr
 Review the generated file list and provide a concise quality report.
 Cover: potential bugs, missing error handling, security concerns, and improvement suggestions.
 Also assess whether the build validation passed or failed, and what manual fixes are still needed.
-Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Found, ## Manual Fixes Needed, ## Recommendations.${localeHint}`,
+Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Found, ## Manual Fixes Needed, ## Recommendations.
+${designHints}
+${capabilityHints}
+${localeHint}`,
         },
         {
           role: "user",

@@ -306,6 +306,41 @@ CREATE TABLE IF NOT EXISTS "user_build_stats" (
 );
 
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "locale" VARCHAR(10) DEFAULT 'en';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_capabilities" JSONB DEFAULT '[]'::jsonb;
+
+CREATE TABLE IF NOT EXISTS "organizations" (
+  "id" SERIAL PRIMARY KEY,
+  "name" VARCHAR(120) NOT NULL,
+  "slug" VARCHAR(48) NOT NULL UNIQUE,
+  "owner_user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "sso_enabled" BOOLEAN DEFAULT FALSE,
+  "sso_provider" VARCHAR(20),
+  "sso_entity_id" VARCHAR(500),
+  "sso_metadata_url" TEXT,
+  "sso_client_id" VARCHAR(255),
+  "created_at" TIMESTAMP DEFAULT NOW(),
+  "updated_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "organizations_slug_idx" ON "organizations" ("slug");
+
+CREATE TABLE IF NOT EXISTS "organization_members" (
+  "id" SERIAL PRIMARY KEY,
+  "organization_id" INTEGER NOT NULL REFERENCES "organizations"("id") ON DELETE CASCADE,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "role" VARCHAR(20) NOT NULL DEFAULT 'member',
+  "created_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "org_members_org_idx" ON "organization_members" ("organization_id");
+CREATE INDEX IF NOT EXISTS "org_members_user_idx" ON "organization_members" ("user_id");
+
+CREATE TABLE IF NOT EXISTS "organization_domains" (
+  "id" SERIAL PRIMARY KEY,
+  "organization_id" INTEGER NOT NULL REFERENCES "organizations"("id") ON DELETE CASCADE,
+  "domain" VARCHAR(255) NOT NULL UNIQUE,
+  "verified" BOOLEAN DEFAULT FALSE,
+  "created_at" TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("organization_id");
 `;
 
 export async function ensureAppSchema(): Promise<void> {

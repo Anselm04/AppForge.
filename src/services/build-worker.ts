@@ -17,6 +17,7 @@ import {
 import { publishBuildEvent } from "./build-queue.js";
 import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
+import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 
 export interface BuildJob {
   projectId: number;
@@ -24,6 +25,7 @@ export interface BuildJob {
   description: string;
   techStack: string;
   locale?: string;
+  buildCapabilities?: string[];
   createdAt: string;
 }
 
@@ -39,7 +41,14 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
   if (activeJobs.has(job.projectId)) return;
   activeJobs.add(job.projectId);
 
-  const { projectId, userId, description, techStack, locale } = job;
+  const {
+    projectId,
+    userId,
+    description,
+    techStack,
+    locale,
+    buildCapabilities,
+  } = job;
   const controller = new AbortController();
   const timeoutMs = parseInt(process.env.BUILD_SSE_TIMEOUT_MS ?? "1200000", 10);
   const timeout = setTimeout(
@@ -84,7 +93,10 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       write,
       controller.signal,
       checkCredits,
-      { locale },
+      {
+        locale,
+        buildCapabilities: buildCapabilities as BuildCapabilityId[] | undefined,
+      },
     );
 
     await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);

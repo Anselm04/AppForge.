@@ -199,6 +199,10 @@ function NavChrome({
             {t("nav.editor")}
           </button>
 
+          <button type="button" onClick={() => go("/studio")} className={item}>
+            Studio
+          </button>
+
           {!isPaid && !isTrialing && (
             <button
               type="button"

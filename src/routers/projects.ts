@@ -16,6 +16,10 @@ import {
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
+import {
+  BUILD_CAPABILITY_IDS,
+  type BuildCapabilityId,
+} from "../lib/buildCapabilities.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -98,6 +102,10 @@ const projectCreateSchema = z.object({
     .transform(sanitizeString),
   hcaptchaToken: z.string().optional(),
   locale: z.string().max(10).optional(),
+  buildCapabilities: z
+    .array(z.enum(BUILD_CAPABILITY_IDS as unknown as [string, ...string[]]))
+    .max(10)
+    .optional(),
 });
 
 export const projectsRouter = router({
@@ -187,6 +195,8 @@ export const projectsRouter = router({
         description: input.description,
         techStack: input.techStack,
         status: "pending",
+        locale: input.locale,
+        buildCapabilities: input.buildCapabilities ?? [],
       });
 
       if (input.locale) {
@@ -489,6 +499,60 @@ export const projectsRouter = router({
       const files = await getProjectFiles(input.id);
       files[input.path] = input.content;
       await updateProjectFiles(input.id, files);
+      const { invalidatePreviewCache } =
+        await import("../routes/livePreview.js");
+      invalidatePreviewCache(input.id);
       return { ok: true, path: input.path };
+    }),
+
+  validateFile: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        path: z.string().min(1).max(500),
+        content: z.string().max(500_000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      const { validateSingleFile } =
+        await import("../lib/validateSingleFile.js");
+      const files = await getProjectFiles(input.id);
+      const content = input.content ?? files[input.path] ?? "";
+      return validateSingleFile(input.path, content, files);
+    }),
+
+  requiredEnvVars: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      const { detectRequiredEnvVars } =
+        await import("../services/deployHealth.js");
+      const files = await getProjectFiles(input.id);
+      return detectRequiredEnvVars(files);
+    }),
+
+  deployHealth: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        url: z.string().url(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { probeDeployUrl } = await import("../services/deployHealth.js");
+      return probeDeployUrl(input.url);
     }),
 });

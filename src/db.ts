@@ -206,10 +206,20 @@ export async function createProject(data: {
   description: string;
   techStack: string;
   status: string;
+  locale?: string;
+  buildCapabilities?: string[];
 }) {
   const result = await db
     .insert(schema.projects)
-    .values(data)
+    .values({
+      userId: data.userId,
+      title: data.title,
+      description: data.description,
+      techStack: data.techStack,
+      status: data.status,
+      locale: data.locale,
+      buildCapabilities: data.buildCapabilities ?? [],
+    })
     .returning({ id: schema.projects.id });
   return result[0].id;
 }
