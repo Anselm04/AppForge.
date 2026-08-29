@@ -34,6 +34,8 @@ describe("billing golden path scaffold", () => {
     const result = validateBillingScaffold(merged);
     expect(result.passed).toBe(true);
     expect(result.missing).toHaveLength(0);
+    expect(merged["src/lib/auth/session.ts"]).toContain("getUserIdFromRequest");
+    expect(merged["src/components/RequirePro.tsx"]).toContain("RequirePro");
   });
 
   it("scores higher readiness when persistence is present", () => {
@@ -67,5 +69,18 @@ describe("databaseProvision", () => {
     expect(
       hasBillingMigration({ "database/billing-schema.sql": "CREATE TABLE" }),
     ).toBe(true);
+  });
+});
+
+describe("billingE2eValidator", () => {
+  it("validates full golden path on merged scaffold", async () => {
+    const { validateBillingGoldenPath } =
+      await import("../services/billingE2eValidator.js");
+    const { mergeBillingScaffold } =
+      await import("../services/saasBillingScaffold.js");
+    const merged = mergeBillingScaffold({}, "next-node");
+    const report = validateBillingGoldenPath(merged);
+    expect(report.passed).toBe(true);
+    expect(report.checks.length).toBeGreaterThanOrEqual(6);
   });
 });

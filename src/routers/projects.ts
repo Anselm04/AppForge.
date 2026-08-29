@@ -628,6 +628,9 @@ export const projectsRouter = router({
           projectName: project.title ?? undefined,
           hasBillingSchema: hasBillingMigration(files),
         }),
+        billingGoldenPath: (
+          await import("../services/billingE2eValidator.js")
+        ).validateBillingGoldenPath(files),
       };
     }),
 

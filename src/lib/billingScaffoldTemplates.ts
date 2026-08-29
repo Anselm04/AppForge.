@@ -273,3 +273,92 @@ export function billingSetupReadme(isNext: boolean): string {
 ${isNext ? "Next.js: webhook route uses raw body automatically." : "Express: mount stripeWebhook with express.raw({ type: 'application/json' }) before express.json()."}
 `;
 }
+
+export function billingSessionModule(): string {
+  return `/** Minimal session helper — replace with Supabase/Clerk/NextAuth in production. */
+export function getUserIdFromCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/(?:^|;\\s*)userId=([^;]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+export function getUserIdFromRequest(req: { headers: { get?(n: string): string | null; cookie?: string } }): string | null {
+  if (typeof req.headers.get === "function") {
+    return getUserIdFromCookie(req.headers.get("cookie"));
+  }
+  return getUserIdFromCookie(req.headers.cookie ?? null);
+}
+`;
+}
+
+export function billingMeRoute(isNext: boolean): string | null {
+  if (!isNext) return null;
+  return `import { NextResponse } from "next/server";
+import { getEntitlements } from "../../../../lib/billing/entitlements.js";
+import { getUserIdFromRequest } from "../../../../lib/auth/session.js";
+
+export async function GET(req: Request) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const entitlements = await getEntitlements(userId);
+  return NextResponse.json({ userId, entitlements });
+}
+`;
+}
+
+export function billingExpressMeRoute(): string {
+  return `import type { Request, Response } from "express";
+import { getEntitlements } from "../../lib/billing/entitlements.js";
+import { getUserIdFromRequest } from "../../lib/auth/session.js";
+
+export async function getBillingMe(req: Request, res: Response) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const entitlements = await getEntitlements(userId);
+  res.json({ userId, entitlements });
+}
+`;
+}
+
+export function requireProComponent(): string {
+  return `import { useEffect, useState, type ReactNode } from "react";
+import { getEntitlements, type UserEntitlements } from "../lib/billing/entitlements.js";
+
+type Props = {
+  userId: string;
+  feature?: string;
+  children: ReactNode;
+  fallback?: ReactNode;
+};
+
+/** Gate premium UI by entitlements from DB (via /api/billing/me in real apps). */
+export function RequirePro({ userId, feature = "pro", children, fallback }: Props) {
+  const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
+
+  useEffect(() => {
+    void getEntitlements(userId).then(setEntitlements);
+  }, [userId]);
+
+  if (!entitlements) return <p>Loading…</p>;
+  const allowed =
+    entitlements.plan === "pro" ||
+    entitlements.plan === "enterprise" ||
+    feature === "free";
+  if (!allowed) {
+    return (
+      fallback ?? (
+        <p>
+          Pro subscription required. <a href="/pricing">Upgrade</a>
+        </p>
+      )
+    );
+  }
+  return <>{children}</>;
+}
+`;
+}

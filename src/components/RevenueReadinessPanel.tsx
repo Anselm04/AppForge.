@@ -85,6 +85,36 @@ export function RevenueReadinessPanel({ projectId, enabled = true }: Props) {
         </details>
       )}
 
+      {data.billingGoldenPath && (
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-slate-300 mb-2">
+            Billing golden path{" "}
+            <span
+              className={
+                data.billingGoldenPath.passed
+                  ? "text-green-400"
+                  : "text-amber-400"
+              }
+            >
+              {data.billingGoldenPath.passed ? "complete" : "in progress"}
+            </span>
+          </h4>
+          <ul className="space-y-1 text-xs">
+            {data.billingGoldenPath.checks.map((check) => (
+              <li
+                key={check.id}
+                className={check.passed ? "text-green-400" : "text-slate-400"}
+              >
+                {check.passed ? "✓" : "○"} {check.label}
+                {!check.passed && check.hint && (
+                  <span className="text-slate-500"> — {check.hint}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {data.goLiveSteps.length > 0 && data.stripeDetected && (
         <div>
           <h4 className="text-sm font-medium text-slate-300 mb-2">
