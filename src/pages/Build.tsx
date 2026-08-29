@@ -42,6 +42,7 @@ export function Build() {
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
+  const [hasPartialFiles, setHasPartialFiles] = useState(false);
 
   const { data: project } = useQuery({
     queryKey: ["projects", projectId],
@@ -77,6 +78,16 @@ export function Build() {
     eventSource.addEventListener("agent", (event: MessageEvent) => {
       const data = JSON.parse(event.data) as BuildLog;
       setLogs((prev) => [...prev, data]);
+      if (
+        data.agent === "Coder" &&
+        (data.type === "task_complete" || data.type === "complete")
+      ) {
+        setHasPartialFiles(true);
+      }
+    });
+
+    eventSource.addEventListener("files_partial", () => {
+      setHasPartialFiles(true);
     });
 
     eventSource.addEventListener("pause", (event: MessageEvent) => {
@@ -196,6 +207,8 @@ export function Build() {
     }
   };
 
+  const canUseWorkspace = isComplete || hasPartialFiles;
+
   const destinationDisabled = (dest: DeployDestination): boolean => {
     if (dest === "preview") return false;
     const opt = deployOptions?.[dest];
@@ -255,18 +268,18 @@ export function Build() {
           <BuildLivePreview
             projectId={pid}
             deployUrl={deployUrl}
-            enabled={isComplete}
+            enabled={canUseWorkspace}
           />
         )}
 
         {tab === "code" && pid > 0 && (
-          <ProjectCodeEditor projectId={pid} enabled={isComplete} />
+          <ProjectCodeEditor projectId={pid} enabled={canUseWorkspace} />
         )}
 
         {tab === "chat" && pid > 0 && <ProjectChat projectId={pid} />}
 
         {tab === "terminal" && pid > 0 && (
-          <AgentTerminal projectId={pid} enabled={isComplete} />
+          <AgentTerminal projectId={pid} enabled={canUseWorkspace} />
         )}
 
         {creditsSpent > 0 && (
