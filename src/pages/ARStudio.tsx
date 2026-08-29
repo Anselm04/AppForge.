@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ActiveProjectPicker } from "../components/ActiveProjectPicker.js";
+import { useStudioProjectId } from "../hooks/useStudioProjectId.js";
 import { trpc } from "../utils/trpc.js";
 
 export function ARStudio() {
@@ -8,7 +10,7 @@ export function ARStudio() {
   const [description, setDescription] = useState("");
   const [scene, setScene] = useState<Record<string, unknown> | null>(null);
   const [xrSupported, setXrSupported] = useState(false);
-  const [projectId, setProjectId] = useState("");
+  const { projectId, setProjectId, parsedProjectId } = useStudioProjectId();
   const animRef = useRef<number>(0);
 
   const generate = useMutation({
@@ -21,13 +23,15 @@ export function ARStudio() {
   });
 
   const attach = useMutation({
-    mutationFn: (content: string) =>
-      trpc.capabilities.attachStudioAsset.mutate({
-        projectId: parseInt(projectId, 10),
+    mutationFn: (content: string) => {
+      if (!parsedProjectId) throw new Error("Select a project");
+      return trpc.capabilities.attachStudioAsset.mutate({
+        projectId: parsedProjectId,
         filename: "scene.json",
         content,
         kind: "ar",
-      }),
+      });
+    },
   });
 
   useEffect(() => {
@@ -116,6 +120,7 @@ export function ARStudio() {
           </pre>
         )}
 
+        <ActiveProjectPicker />
         <div className="flex gap-2 items-end">
           <input
             placeholder="Project ID"
@@ -125,7 +130,7 @@ export function ARStudio() {
           />
           <button
             type="button"
-            disabled={!projectId || !scene || attach.isPending}
+            disabled={!parsedProjectId || !scene || attach.isPending}
             onClick={() => attach.mutate(JSON.stringify(scene, null, 2))}
             className="bg-slate-600 px-4 py-2 rounded-lg text-sm"
           >
