@@ -1,20 +1,30 @@
 /** Stripe billing scaffold merged into income-oriented builds (Fintech capability). */
 
+import {
+  billingDbModule,
+  billingEntitlementsModule,
+  billingSchemaSql,
+  billingSetupReadme,
+  billingSubscriptionsModule,
+  billingWebhookHandlers,
+} from "../lib/billingScaffoldTemplates.js";
+
 type Files = Record<string, string>;
 
 export const BILLING_REQUIRED_PATHS = [
   "billing/stripe-manifest.json",
-  "src/server/routes/billing/checkout.ts",
-  "src/server/routes/billing/webhook.ts",
+  "src/lib/billing/db.ts",
+  "src/lib/billing/subscriptions.ts",
   "src/lib/billing/entitlements.ts",
-  "src/pages/PricingPage.tsx",
+  "database/billing-schema.sql",
 ] as const;
 
 export function billingScaffoldFiles(techStack: string): Files {
   const isNext = techStack.includes("next");
+  const webhooks = billingWebhookHandlers(isNext);
+
   const checkoutRoute = isNext
-    ? `// filename: src/app/api/checkout/route.ts
-import { NextResponse } from "next/server";
+    ? `import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -23,7 +33,11 @@ export async function POST(req: Request) {
   }
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const body = (await req.json()) as { priceId?: string; customerEmail?: string };
+  const body = (await req.json()) as {
+    priceId?: string;
+    customerEmail?: string;
+    userId?: string;
+  };
   const priceId = body.priceId ?? process.env.STRIPE_PRICE_ID;
   if (!priceId) {
     return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
@@ -34,12 +48,13 @@ export async function POST(req: Request) {
     success_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/pricing\`,
     customer_email: body.customerEmail,
+    client_reference_id: body.userId ?? body.customerEmail,
+    metadata: body.userId ? { userId: body.userId } : undefined,
   });
   return NextResponse.json({ url: session.url });
 }
 `
-    : `// filename: src/server/routes/billing/checkout.ts
-import type { Request, Response } from "express";
+    : `import type { Request, Response } from "express";
 
 export async function createCheckoutSession(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -49,7 +64,11 @@ export async function createCheckoutSession(req: Request, res: Response) {
   }
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const { priceId, customerEmail } = req.body as { priceId?: string; customerEmail?: string };
+  const { priceId, customerEmail, userId } = req.body as {
+    priceId?: string;
+    customerEmail?: string;
+    userId?: string;
+  };
   const resolvedPrice = priceId ?? process.env.STRIPE_PRICE_ID;
   if (!resolvedPrice) {
     res.status(400).json({ error: "Missing priceId" });
@@ -61,67 +80,10 @@ export async function createCheckoutSession(req: Request, res: Response) {
     success_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
     customer_email: customerEmail,
+    client_reference_id: userId ?? customerEmail,
+    metadata: userId ? { userId } : undefined,
   });
   res.json({ url: session.url });
-}
-`;
-
-  const webhookRoute = isNext
-    ? `// filename: src/app/api/webhooks/stripe/route.ts
-import { NextResponse } from "next/server";
-
-export async function POST(req: Request) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripeKey || !webhookSecret) {
-    return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
-  }
-  const { default: Stripe } = await import("stripe");
-  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const body = await req.text();
-  const sig = req.headers.get("stripe-signature");
-  if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
-  // TODO: persist subscription status to your database (see src/lib/billing/entitlements.ts)
-  if (event.type === "checkout.session.completed") {
-    console.log("[stripe] checkout completed", event.id);
-  }
-  return NextResponse.json({ received: true });
-}
-`
-    : `// filename: src/server/routes/billing/webhook.ts
-import type { Request, Response } from "express";
-
-export async function stripeWebhook(req: Request, res: Response) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripeKey || !webhookSecret) {
-    res.status(503).send("Stripe not configured");
-    return;
-  }
-  const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const sig = req.headers["stripe-signature"];
-  if (!sig || typeof sig !== "string") {
-    res.status(400).send("Missing signature");
-    return;
-  }
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch {
-    res.status(400).send("Invalid signature");
-    return;
-  }
-  if (event.type === "checkout.session.completed") {
-    console.log("[stripe] checkout completed", event.id);
-  }
-  res.json({ received: true });
 }
 `;
 
@@ -131,6 +93,7 @@ export async function stripeWebhook(req: Request, res: Response) {
         provider: "stripe",
         mode: "subscription",
         requiredEnv: [
+          "DATABASE_URL",
           "STRIPE_SECRET_KEY",
           "STRIPE_WEBHOOK_SECRET",
           "STRIPE_PRICE_ID",
@@ -140,58 +103,30 @@ export async function stripeWebhook(req: Request, res: Response) {
         webhookEvents: [
           "checkout.session.completed",
           "customer.subscription.updated",
+          "customer.subscription.deleted",
           "invoice.paid",
         ],
         testCard: "4242 4242 4242 4242",
+        migration: "database/billing-schema.sql",
       },
       null,
       2,
     ),
+    "billing/SETUP.md": billingSetupReadme(isNext),
+    "src/lib/billing/db.ts": billingDbModule(),
+    "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
+    "src/lib/billing/entitlements.ts": billingEntitlementsModule(),
+    "database/billing-schema.sql": billingSchemaSql(),
     ...(isNext
       ? {
-          "src/app/api/checkout/route.ts": checkoutRoute.replace(
-            /^\/\/ filename:.*\n/,
-            "",
-          ),
-          "src/app/api/webhooks/stripe/route.ts": webhookRoute.replace(
-            /^\/\/ filename:.*\n/,
-            "",
-          ),
+          "src/app/api/checkout/route.ts": checkoutRoute,
+          "src/app/api/webhooks/stripe/route.ts": webhooks.nextRoute,
         }
       : {
-          "src/server/routes/billing/checkout.ts": checkoutRoute.replace(
-            /^\/\/ filename:.*\n/,
-            "",
-          ),
-          "src/server/routes/billing/webhook.ts": webhookRoute.replace(
-            /^\/\/ filename:.*\n/,
-            "",
-          ),
+          "src/server/routes/billing/checkout.ts": checkoutRoute,
+          "src/server/routes/billing/webhook.ts": webhooks.expressRoute,
         }),
-    "src/lib/billing/entitlements.ts": `// filename: src/lib/billing/entitlements.ts
-export type Plan = "free" | "pro" | "enterprise";
-
-export type UserEntitlements = {
-  plan: Plan;
-  stripeCustomerId?: string;
-  stripeSubscriptionId?: string;
-  activeUntil?: string;
-};
-
-/** Replace with DB lookup — stub for generated apps. */
-export async function getEntitlements(userId: string): Promise<UserEntitlements> {
-  void userId;
-  return { plan: "free" };
-}
-
-export function canAccessFeature(entitlements: UserEntitlements, feature: string): boolean {
-  if (entitlements.plan === "enterprise") return true;
-  if (entitlements.plan === "pro") return feature !== "enterprise_only";
-  return feature === "free";
-}
-`,
-    "src/pages/PricingPage.tsx": `// filename: src/pages/PricingPage.tsx
-import { useState } from "react";
+    "src/pages/PricingPage.tsx": `import { useState } from "react";
 
 export function PricingPage() {
   const [loading, setLoading] = useState(false);
@@ -205,7 +140,11 @@ export function PricingPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId: priceId ?? import.meta.env.VITE_STRIPE_PRICE_ID }),
+        body: JSON.stringify({
+          priceId: priceId ?? import.meta.env.VITE_STRIPE_PRICE_ID,
+          customerEmail: localStorage.getItem("userEmail") ?? undefined,
+          userId: localStorage.getItem("userId") ?? undefined,
+        }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Checkout failed");
@@ -235,17 +174,14 @@ export function PricingPage() {
   );
 }
 `,
-    "database/billing-schema.sql": `-- Subscriptions table — run against your production DB
-CREATE TABLE IF NOT EXISTS subscriptions (
-  id SERIAL PRIMARY KEY,
-  user_id VARCHAR(255) NOT NULL,
-  stripe_customer_id VARCHAR(255),
-  stripe_subscription_id VARCHAR(255),
-  plan VARCHAR(50) DEFAULT 'free',
-  status VARCHAR(50) DEFAULT 'inactive',
-  current_period_end TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+    "src/pages/BillingSuccessPage.tsx": `export function BillingSuccessPage() {
+  return (
+    <main style={{ fontFamily: "system-ui", padding: 24 }}>
+      <h1>Subscription active</h1>
+      <p>Your payment succeeded. Pro features unlock after the webhook updates your account.</p>
+    </main>
+  );
+}
 `,
   };
 }
@@ -271,6 +207,7 @@ export function mergeBillingScaffold(
       pkg.dependencies = {
         ...(pkg.dependencies ?? {}),
         stripe: "^14.0.0",
+        postgres: "^3.4.0",
       };
       merged["package.json"] = JSON.stringify(pkg, null, 2);
     } catch {
@@ -295,11 +232,23 @@ export function validateBillingScaffold(files: Files): {
   if (!text.includes("webhook") || !content.includes("stripe")) {
     missing.push("stripe webhook handler");
   }
-  if (!text.includes("entitlement") && !content.includes("subscription")) {
+  if (!content.includes("upsertfromcheckoutsession")) {
+    missing.push("webhook persists subscriptions to DB");
+  }
+  if (
+    !text.includes("subscriptions.ts") &&
+    !content.includes("getsubscriptionbyuserid")
+  ) {
+    missing.push("subscriptions DB module");
+  }
+  if (!text.includes("entitlement") && !content.includes("getentitlements")) {
     missing.push("entitlements helper");
   }
   if (!content.includes("stripe")) {
     missing.push("stripe dependency or integration");
+  }
+  if (!content.includes("database_url") && !text.includes("billing/db")) {
+    missing.push("DATABASE_URL billing db module");
   }
 
   return { passed: missing.length === 0, missing };

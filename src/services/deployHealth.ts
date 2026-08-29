@@ -71,3 +71,56 @@ export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
   const ok = root.ok && (health ? health.ok : true);
   return { ok, root, health };
 }
+
+type RouteProbe = {
+  path: string;
+  method: "GET" | "POST";
+  ok: boolean;
+  statusCode?: number;
+  note?: string;
+};
+
+/** Probe billing routes exist (404 = broken; 400/405/503 = route wired). */
+export async function runBillingRouteSmokeTest(
+  deployUrl: string,
+): Promise<{ ok: boolean; routes: RouteProbe[] }> {
+  const base = deployUrl.replace(/\/$/, "");
+  const probes: Array<{ path: string; method: "GET" | "POST" }> = [
+    { path: "/pricing", method: "GET" },
+    { path: "/api/checkout", method: "POST" },
+    { path: "/api/webhooks/stripe", method: "POST" },
+  ];
+
+  const routes: RouteProbe[] = [];
+  for (const probe of probes) {
+    try {
+      const res = await fetch(`${base}${probe.path}`, {
+        method: probe.method,
+        headers:
+          probe.method === "POST"
+            ? { "Content-Type": "application/json" }
+            : undefined,
+        body: probe.method === "POST" ? "{}" : undefined,
+        signal: AbortSignal.timeout(12_000),
+      });
+      const ok = res.status !== 404 && res.status !== 502;
+      routes.push({
+        path: probe.path,
+        method: probe.method,
+        ok,
+        statusCode: res.status,
+        note: ok ? "route reachable" : "route missing or gateway error",
+      });
+    } catch (err) {
+      routes.push({
+        path: probe.path,
+        method: probe.method,
+        ok: false,
+        note: err instanceof Error ? err.message : "probe failed",
+      });
+    }
+  }
+
+  const ok = routes.every((r) => r.ok);
+  return { ok, routes };
+}

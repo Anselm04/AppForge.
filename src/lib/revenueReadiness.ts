@@ -197,7 +197,13 @@ export function scanProjectReadiness(
   const hasWebhook =
     text.includes("webhook") &&
     (text.includes("stripe") || paths.some((p) => p.includes("webhook")));
+  const hasWebhookPersistence =
+    text.includes("upsertfromcheckoutsession") ||
+    (text.includes("insert into subscriptions") && text.includes("webhook"));
+  const hasEntitlementsDb =
+    text.includes("getsubscriptionbyuserid") || text.includes("getbillingdb");
   const hasEntitlements =
+    hasEntitlementsDb ||
     text.includes("entitlement") ||
     text.includes("subscription") ||
     paths.some((p) => p.includes("entitlement"));
@@ -222,8 +228,20 @@ export function scanProjectReadiness(
     core_value: hasHealth || paths.length > 8 ? "partial" : "missing",
     auth_accounts: hasAuth ? "done" : "missing",
     stripe_checkout: hasCheckout ? "done" : hasStripe ? "partial" : "missing",
-    stripe_webhook: hasWebhook ? "done" : hasStripe ? "partial" : "missing",
-    entitlements: hasEntitlements ? "done" : hasStripe ? "partial" : "missing",
+    stripe_webhook: hasWebhookPersistence
+      ? "done"
+      : hasWebhook
+        ? "partial"
+        : hasStripe
+          ? "partial"
+          : "missing",
+    entitlements: hasEntitlementsDb
+      ? "done"
+      : text.includes("entitlement")
+        ? "partial"
+        : hasStripe
+          ? "partial"
+          : "missing",
     database: hasDb ? "done" : "missing",
     env_secrets: hasStripe || hasDb ? "partial" : "missing",
     domain_ssl: "missing",
@@ -286,7 +304,7 @@ export const PLATFORM_INCOME_GAPS: ReadinessItem[] = [
     category: "data",
     label: "One-click Neon/Supabase DB provisioning",
     why: "Users stall at DATABASE_URL setup.",
-    how: "Future: Vercel/Supabase marketplace attach during build.",
+    how: "Deploy wizard now includes Neon/Supabase setup steps; one-click attach is still planned.",
   },
   {
     id: "gap_stripe_connect",
@@ -300,6 +318,6 @@ export const PLATFORM_INCOME_GAPS: ReadinessItem[] = [
     category: "payments",
     label: "Automated test checkout in CI",
     why: "Billing regressions are costly.",
-    how: "Future: Stripe test clock + Playwright checkout flow.",
+    how: "Post-deploy billing route smoke test runs after deploy; full Stripe E2E still planned.",
   },
 ];
