@@ -2,12 +2,131 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply antialiased;
-  font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans SC", "Noto Sans JP",
-    "Noto Sans KR", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+:root {
+  --forge-bg: #f4f7fb;
+  --forge-bg-rgb: 244 247 251;
+  --forge-surface: #ffffff;
+  --forge-surface-rgb: 255 255 255;
+  --forge-surface-hover: #eef2f8;
+  --forge-surface-hover-rgb: 238 242 248;
+  --forge-text: #0f172a;
+  --forge-text-rgb: 15 23 42;
+  --forge-muted: #64748b;
+  --forge-muted-rgb: 100 116 139;
+  --forge-border: rgba(15, 23, 42, 0.1);
+  --forge-gold: #b8941f;
+  --forge-gold-rgb: 184 148 31;
+  --forge-cyan: #0ea5e9;
+  --forge-cyan-rgb: 14 165 233;
+  --forge-blue: #1a56ff;
+  --forge-blue-rgb: 26 86 255;
+  --forge-gradient: linear-gradient(135deg, #0ea5e9 0%, #1a56ff 100%);
+  --forge-radius: 16px;
+  --forge-transition: 200ms ease-out;
+  --forge-mesh-a: rgba(14, 165, 233, 0.08);
+  --forge-mesh-b: rgba(26, 86, 255, 0.06);
+  color-scheme: light;
 }
 
 .dark {
+  --forge-bg: #0a1224;
+  --forge-bg-rgb: 10 18 36;
+  --forge-surface: #101a33;
+  --forge-surface-rgb: 16 26 51;
+  --forge-surface-hover: #152040;
+  --forge-surface-hover-rgb: 21 32 64;
+  --forge-text: #e8ecf5;
+  --forge-text-rgb: 232 236 245;
+  --forge-muted: #8892a6;
+  --forge-muted-rgb: 136 146 166;
+  --forge-border: rgba(255, 255, 255, 0.08);
+  --forge-gold: #d4af37;
+  --forge-gold-rgb: 212 175 55;
+  --forge-cyan: #22b8ff;
+  --forge-cyan-rgb: 34 184 255;
+  --forge-blue: #1a56ff;
+  --forge-blue-rgb: 26 86 255;
+  --forge-gradient: linear-gradient(135deg, #22b8ff 0%, #1a56ff 100%);
+  --forge-mesh-a: rgba(34, 184, 255, 0.12);
+  --forge-mesh-b: rgba(26, 86, 255, 0.08);
   color-scheme: dark;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply antialiased bg-forge-bg text-forge-text-primary;
+    font-family: Inter, Sora, "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background: rgba(34, 184, 255, 0.25);
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--forge-cyan);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .forge-glass {
+    @apply bg-forge-surface/80 backdrop-blur-xl border border-forge-border;
+  }
+
+  .forge-gradient-text {
+    @apply bg-clip-text text-transparent bg-forge-gradient;
+  }
+
+  .forge-gradient-border {
+    position: relative;
+  }
+
+  .forge-gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--forge-gradient);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.5;
+    transition: opacity var(--forge-transition);
+  }
+
+  .forge-gradient-border:hover::before {
+    opacity: 1;
+  }
+
+  .forge-section {
+    @apply py-22 md:py-30 px-4 md:px-8;
+  }
+
+  .forge-container {
+    @apply max-w-6xl mx-auto w-full;
+  }
+
+  .forge-h1 {
+    @apply font-display text-4xl md:text-5xl lg:text-[3.5rem] font-semibold tracking-tight leading-[1.1];
+  }
+
+  .forge-h2 {
+    @apply font-display text-2xl md:text-[2rem] font-semibold tracking-tight;
+  }
+
+  .forge-body {
+    @apply text-base leading-relaxed text-forge-text-muted;
+  }
 }

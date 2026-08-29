@@ -6,14 +6,15 @@ export default {
     extend: {
       colors: {
         forge: {
-          bg: "#0a1224",
-          surface: "#101a33",
-          "surface-hover": "#152040",
-          gold: "#d4af37",
-          "text-primary": "#e8ecf5",
-          "text-muted": "#8892a6",
-          cyan: "#22b8ff",
-          blue: "#1a56ff",
+          bg: "rgb(var(--forge-bg-rgb) / <alpha-value>)",
+          surface: "rgb(var(--forge-surface-rgb) / <alpha-value>)",
+          "surface-hover": "rgb(var(--forge-surface-hover-rgb) / <alpha-value>)",
+          gold: "rgb(var(--forge-gold-rgb) / <alpha-value>)",
+          "text-primary": "rgb(var(--forge-text-rgb) / <alpha-value>)",
+          "text-muted": "rgb(var(--forge-muted-rgb) / <alpha-value>)",
+          cyan: "rgb(var(--forge-cyan-rgb) / <alpha-value>)",
+          blue: "rgb(var(--forge-blue-rgb) / <alpha-value>)",
+          border: "var(--forge-border)",
         },
       },
       fontFamily: {
@@ -43,9 +44,9 @@ export default {
           "0 0 0 1px rgba(34, 184, 255, 0.25), 0 8px 32px rgba(0, 0, 0, 0.35)",
       },
       backgroundImage: {
-        "forge-gradient": "linear-gradient(135deg, #22b8ff 0%, #1a56ff 100%)",
+        "forge-gradient": "var(--forge-gradient)",
         "forge-mesh":
-          "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(34,184,255,0.12), transparent), radial-gradient(ellipse 50% 40% at 90% 20%, rgba(26,86,255,0.08), transparent)",
+          "radial-gradient(ellipse 80% 60% at 50% -10%, var(--forge-mesh-a), transparent), radial-gradient(ellipse 50% 40% at 90% 20%, var(--forge-mesh-b), transparent)",
       },
       spacing: {
         18: "4.5rem",
