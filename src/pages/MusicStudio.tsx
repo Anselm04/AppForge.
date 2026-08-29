@@ -158,7 +158,7 @@ export function MusicStudio() {
               }
               className="bg-slate-600 px-4 py-2 rounded-lg text-sm"
             >
-              Attach to project
+            Attach to project
             </button>
           </div>
         </div>
