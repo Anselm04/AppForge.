@@ -5,6 +5,7 @@ import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
 } from "./stackScaffolds.js";
+import { stripFilenameHeaders } from "../lib/reliableBuild.js";
 
 const FILENAME_RE = /^\/\/\s*filename:\s*(.+)$/gm;
 
@@ -14,7 +15,17 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
   if (!llmOutput || typeof llmOutput !== "string") return files;
 
   const matches = [...llmOutput.matchAll(FILENAME_RE)];
-  if (matches.length === 0) return files;
+  if (matches.length === 0) {
+    // Single-file fallback: // filename: at top
+    const single = llmOutput.match(/^\/\/\s*filename:\s*(.+)\r?\n([\s\S]*)$/m);
+    if (single) {
+      const filename = single[1].trim().replace(/^['"]|['"]$/g, "");
+      if (filename && !filename.includes("..")) {
+        files[filename] = stripFilenameHeaders(single[2]);
+      }
+    }
+    return files;
+  }
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
@@ -25,9 +36,10 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
       i + 1 < matches.length
         ? (matches[i + 1].index ?? llmOutput.length)
         : llmOutput.length;
-    let content = llmOutput.slice(start, end).replace(/^\n/, "");
-    content = content.replace(/\n```\s*$/, "").replace(/^```[a-z]*\n/, "");
-    files[filename] = `// filename: ${filename}\n${content.trimStart()}`;
+    const content = stripFilenameHeaders(llmOutput.slice(start, end));
+    if (content.trim().length > 0) {
+      files[filename] = content;
+    }
   }
   return files;
 }
@@ -45,7 +57,7 @@ export function ensureEssentialFiles(
     !out["Cargo.toml"] &&
     !out["pubspec.yaml"];
 
-  if (needsPkg || !out["README.md"]) {
+  if (needsPkg || !out["README.md"] || !out["index.html"]) {
     return mergeScaffoldWithGenerated(getStackScaffold(techStack), out);
   }
   return out;
