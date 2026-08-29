@@ -4,13 +4,15 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-production-main
+  cancel-in-progress: false
+
 jobs:
-  production:
+  validate:
     runs-on: ubuntu-latest
-    name: Deploy Production
+    name: Validate release
     environment: production
-    # Vercel GitHub app + .github/workflows/deploy.yml handle prod deploy.
-    # This job validates the release artifact before promotion.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,7 +38,38 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Production readiness note
+  deploy-fly:
+    runs-on: ubuntu-latest
+    name: Deploy to Fly.io
+    needs: validate
+    environment: production
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          echo "Production build validated on main."
-          echo "Vercel GitHub integration + deploy.yml promote to production when VERCEL_TOKEN is configured."
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::warning::FLY_API_TOKEN is not set — production validated but not deployed."
+            echo "Add FLY_API_TOKEN to GitHub repository secrets. See DEPLOYMENT.md#ci--github-actions"
+            exit 0
+          fi
+          flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+          URL="https://appforge-unfurling-moon-9058.fly.dev"
+          for i in $(seq 1 30); do
+            if curl -sf "$URL/api/health/live"; then
+              echo ""
+              echo "Live health check passed"
+              exit 0
+            fi
+            echo "Waiting for $URL/api/health/live (attempt $i/30)..."
+            sleep 10
+          done
+          echo "Health check failed after deploy"
+          exit 1

@@ -151,8 +151,22 @@ See [DOCKER.md](DOCKER.md).
 
 ## CI / GitHub Actions
 
-On pull requests: lint, typecheck, test, build, security scan.  
-On `main`: production deploy workflows may target Vercel (client) and/or Fly depending on your secrets.
+| Workflow                | Trigger                      | Purpose                                 |
+| ----------------------- | ---------------------------- | --------------------------------------- |
+| `ci.yml`                | PR + push to `main`          | Lint, typecheck, test, build, security  |
+| `deploy-preview.yml`    | PR                           | Build validation (no Vercel quota burn) |
+| `deploy-production.yml` | Push to `main`               | Validate release + deploy to Fly.io     |
+| `deploy.yml`            | Manual (`workflow_dispatch`) | Optional static Vercel client only      |
+
+**GitHub repository secrets**
+
+| Secret                                               | Required for                 | Notes                                                                                      |
+| ---------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `FLY_API_TOKEN`                                      | Auto deploy to Fly on `main` | Create at [fly.io/user/personal_access_tokens](https://fly.io/user/personal_access_tokens) |
+| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Manual Vercel deploy only    | Optional static CDN client                                                                 |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`  | Source map upload in CI      | Optional                                                                                   |
+
+Vercel **automatic Git deploys are disabled** in `vercel.json` (`git.deploymentEnabled: false`) to avoid the >100/day rate limit. Production hosting is **Fly.io** (`appforge-unfurling-moon-9058`).
 
 ---
 

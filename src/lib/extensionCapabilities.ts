@@ -152,3 +152,32 @@ export function isExtensionCapabilityId(v: string): v is ExtensionCapabilityId {
 export function attachPrefixForKind(kind: ExtensionAttachKind): string {
   return EXTENSION_STUDIOS[kind].attachPrefix;
 }
+
+/** Client-safe map from studio id → tRPC mutation name (no server imports). */
+export const EXTENSION_GENERATE_PROCEDURE = {
+  game: "generateGameProject",
+  cad: "generateCadProduct",
+  legal: "generateLegalDocuments",
+  fintech: "generateFintechSchema",
+  healthcare: "generateHealthcareConfig",
+  mobile: "generateMobilePackaging",
+  voice: "generateVoicePodcast",
+  data: "generateBiDashboard",
+  localization: "generateLocalizationBundle",
+  collab: "generateCollabRoom",
+} as const satisfies Record<
+  ExtensionCapabilityId,
+  | "generateGameProject"
+  | "generateCadProduct"
+  | "generateLegalDocuments"
+  | "generateFintechSchema"
+  | "generateHealthcareConfig"
+  | "generateMobilePackaging"
+  | "generateVoicePodcast"
+  | "generateBiDashboard"
+  | "generateLocalizationBundle"
+  | "generateCollabRoom"
+>;
+
+export type ExtensionGenerateProcedureName =
+  (typeof EXTENSION_GENERATE_PROCEDURE)[ExtensionCapabilityId];

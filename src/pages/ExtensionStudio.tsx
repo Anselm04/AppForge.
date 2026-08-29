@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 import { BUILD_CAPABILITIES } from "../lib/buildCapabilities.js";
 import {
   EXTENSION_STUDIOS,
+  EXTENSION_GENERATE_PROCEDURE,
   type ExtensionCapabilityId,
 } from "../lib/extensionCapabilities.js";
-import { EXTENSION_GENERATE_PROCEDURE } from "../routers/extensionProcedures.js";
 import { ActiveProjectPicker } from "../components/ActiveProjectPicker.js";
 import { useStudioProjectId } from "../hooks/useStudioProjectId.js";
 import { trpc } from "../utils/trpc.js";
