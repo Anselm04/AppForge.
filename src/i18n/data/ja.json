@@ -1,1 +1,22 @@
-PLACEHOLDER_JA
+{
+  "nav": {
+    "language": "言語",
+    "menu": "メニュー",
+    "closeMenu": "メニューを閉じる",
+    "dark": "ダーク",
+    "light": "ライト",
+    "login": "ログイン",
+    "signUp": "新規登録",
+    "logout": "ログアウト",
+    "dashboard": "ダッシュボード",
+    "editor": "エディター",
+    "admin": "管理",
+    "upgrade": "アップグレード",
+    "trial": "トライアル（{tier}）",
+    "layout": "レイアウト",
+    "layoutAuto": "自動",
+    "layoutPhone": "スマホ",
+    "layoutDesktop": "デスクトップ",
+    "pricing": "料金"
+  }
+}
