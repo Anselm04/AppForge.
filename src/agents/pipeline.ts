@@ -307,7 +307,22 @@ export async function runAgentPipeline(
       [
         {
           role: "system",
-          content: `You are the Planner agent in a multi-agent app builder.\nGiven a user's app description and tech stack, produce a structured JSON plan.\nOutput ONLY valid JSON with this shape:\n{\n  "title": "short app title",\n  "overview": "one-sentence description",\n  "tasks": [\n    { "id": "1", "module": "module name", "description": "what to build" }\n  ]\n}\nInclude 4-8 tasks covering: data models, API routes, frontend components, auth, and any special features.\nThe tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStack)}).\n${designHints}\n${capabilityHints}\n${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}\n${localeHint}`,
+          content: `You are the Planner agent in a multi-agent app builder.
+Given a user's app description and tech stack, produce a structured JSON plan.
+Output ONLY valid JSON with this shape:
+{
+  "title": "short app title",
+  "overview": "one-sentence description",
+  "tasks": [
+    { "id": "1", "module": "module name", "description": "what to build" }
+  ]
+}
+Include 4-8 tasks covering: data models, API routes, frontend components, auth, and any special features.
+The tech stack is: ${techStack} (${getTechStackDescription(techStack as TechStack)}).
+${designHints}
+${capabilityHints}
+${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}
+${localeHint}`,
         },
         {
           role: "user",
@@ -357,7 +372,10 @@ export async function runAgentPipeline(
 
     let generatedFiles: Record<string, string> = {};
 
-    // ERROR RECOVERY LOOP
+    // ═══════════════════════════════════════════════════════════════════════
+    // ERROR RECOVERY LOOP: If compilation fails, feed errors back to LLM
+    // and retry up to MAX_FIX_RETRIES times.
+    // ═══════════════════════════════════════════════════════════════════════
     let validationResult: ValidationResult | null = null;
     let lastAuditResult: TripleAuditResult | null = null;
     let fixAttempt = 0;
@@ -371,7 +389,7 @@ export async function runAgentPipeline(
         });
       }
 
-      generatedFiles = {};
+      generatedFiles = {}; // Reset on retry
 
       for (const task of tasks) {
         if (signal?.aborted) break;
@@ -397,7 +415,30 @@ export async function runAgentPipeline(
           [
             {
               role: "system",
-              content: `You are the Coder agent in a multi-agent app builder.\nGenerate production-quality code for the given module.\nUse ${techStack} conventions. Output the full file content with a comment header showing the filename.\nFormat: start with // filename: <path/filename.ext> then the complete code.\n\nMANDATORY VANTA-COMPLIANT SCAFFOLDING (include regardless of app type):\n- All API routes must validate inputs with Zod schemas\n- All auth endpoints must use secure HTTPOnly cookies with SameSite=Strict\n- All user PII fields must be encrypted at rest (bcrypt for passwords)\n- All endpoints must have rate limiting (express-rate-limit) and Helmet security headers\n- All errors must be caught and sanitized (no stack traces leaked to client)\n- All access to user data must be logged with timestamp, userId, action for audit trail\n- Include a /health endpoint with DB connectivity check\n- Include Terms of Service and Privacy Policy pages\n- All DB queries must use parameterized statements (Drizzle ORM)\n- Include a content moderation check function\n- Force HTTPS redirect in production middleware\n- Add a clear cookie consent banner component in the UI\n\n${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScript/build errors. Keep all other code intact." : ""}\n${designHints}\n${capabilityHints}\n${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}\n${localeHint}`,
+              content: `You are the Coder agent in a multi-agent app builder.
+Generate production-quality code for the given module.
+Use ${techStack} conventions. Output the full file content with a comment header showing the filename.
+Format: start with // filename: <path/filename.ext> then the complete code.
+
+MANDATORY VANTA-COMPLIANT SCAFFOLDING (include regardless of app type):
+- All API routes must validate inputs with Zod schemas
+- All auth endpoints must use secure HTTPOnly cookies with SameSite=Strict
+- All user PII fields must be encrypted at rest (bcrypt for passwords)
+- All endpoints must have rate limiting (express-rate-limit) and Helmet security headers
+- All errors must be caught and sanitized (no stack traces leaked to client)
+- All access to user data must be logged with timestamp, userId, action for audit trail
+- Include a /health endpoint with DB connectivity check
+- Include Terms of Service and Privacy Policy pages
+- All DB queries must use parameterized statements (Drizzle ORM)
+- Include a content moderation check function
+- Force HTTPS redirect in production middleware
+- Add a clear cookie consent banner component in the UI
+
+${fixAttempt > 0 ? "THIS IS A FIX RETRY — focus on fixing the reported TypeScript/build errors. Keep all other code intact." : ""}
+${designHints}
+${capabilityHints}
+${researchBrief ? `\nRESEARCH BRIEF:\n${researchBrief}\n` : ""}
+${localeHint}`,
             },
             {
               role: "user",
@@ -412,6 +453,7 @@ export async function runAgentPipeline(
           "coder",
         );
 
+        // Parse multi-file LLM output; fall back to single-file extraction
         const parsedFiles = parseGeneratedFiles(fileContent);
         if (Object.keys(parsedFiles).length > 0) {
           Object.assign(generatedFiles, parsedFiles);
@@ -458,6 +500,7 @@ export async function runAgentPipeline(
         message: `Prepared ${Object.keys(testFiles).length} test file(s) for validation.`,
       });
 
+      // ── VALIDATOR (Build + Type Check + Test) ─────────────────────────────
       if (creditCheck) {
         const ok = await creditCheck();
         if (!ok) {
@@ -480,6 +523,7 @@ export async function runAgentPipeline(
         { testsBlocking },
       );
 
+      // ── Triple Audit (a11y + security + perf) ─────────────────────────────
       const { runTripleAudit } = await import("./tripleAudit.js");
       lastAuditResult = await runTripleAudit(generatedFiles);
       emit("Validator", "audit", {
@@ -525,14 +569,17 @@ export async function runAgentPipeline(
       !signal?.aborted
     );
 
+    // If validation still fails after retries, mark build as FAILED with a warning
     if (!validationResult.passed) {
       emit("Validator", "failed", {
         message: `Build could not be auto-fixed after ${MAX_FIX_RETRIES} attempts. Manual developer review required.`,
         errors: validationResult.errors,
         stage: validationResult.stage,
       });
+      // Still save files so the user can download and fix manually
     }
 
+    // ── REVIEWER ─────────────────────────────────────────────────────────────
     let reviewOutput = "";
     if (validationResult.passed) {
       if (creditCheck) {
@@ -570,7 +617,13 @@ export async function runAgentPipeline(
         [
           {
             role: "system",
-            content: `You are the Reviewer agent in a multi-agent app builder.\nReview the generated file list and provide a concise quality report.\nCover: potential bugs, missing error handling, security concerns, and improvement suggestions.\nFormat as markdown with sections: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.\n${designHints}\n${capabilityHints}\n${localeHint}`,
+            content: `You are the Reviewer agent in a multi-agent app builder.
+Review the generated file list and provide a concise quality report.
+Cover: potential bugs, missing error handling, security concerns, and improvement suggestions.
+Format as markdown with sections: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.
+${designHints}
+${capabilityHints}
+${localeHint}`,
           },
           {
             role: "user",
@@ -594,13 +647,17 @@ export async function runAgentPipeline(
       });
     }
 
+    // Add review + compliance scaffolding to generated files
     generatedFiles["REVIEW.md"] = reviewOutput;
     generatedFiles["README.md"] =
       `# ${appTitle}\n\nGenerated by AppForge multi-agent pipeline.\n\n**Tech Stack:** ${techStack} (${getTechStackDescription(techStack as TechStack)})\n\n**Validation:** ${validationResult?.passed ? "Compiled and passed basic checks" : "FAILED — manual fixes required"}\n\n**Warning:** LLM-generated code is a starting point, not production-ready without review.\n\n## Modules\n${tasks.map((t) => `- **${t.module}**: ${t.description}`).join("\n")}\n\n## How to run\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
 
     injectComplianceScaffolding(generatedFiles);
+
+    // Persist files incrementally so disconnect/deploy still have a usable tree
     await updateProjectFiles(projectId, generatedFiles);
 
+    // ── Snapshot + Audit + Cost at end of build ────────────────────────────
     const { logger } = await import("../_core/logger.js");
     const {
       createBuildSnapshot,
@@ -656,6 +713,7 @@ export async function runAgentPipeline(
 
     await markSnapshotAsCurrent(snapshotId, projectId);
 
+    // Final status: done
     await updateProjectStatus(
       projectId,
       validationResult?.passed ? "completed" : "failed",
