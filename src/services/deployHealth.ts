@@ -89,6 +89,7 @@ export async function runBillingRouteSmokeTest(
     { path: "/pricing", method: "GET" },
     { path: "/api/checkout", method: "POST" },
     { path: "/api/webhooks/stripe", method: "POST" },
+    { path: "/api/billing/me", method: "GET" },
   ];
 
   const routes: RouteProbe[] = [];
