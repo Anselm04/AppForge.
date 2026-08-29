@@ -23,6 +23,12 @@ export function DeployWizard({
     enabled: !!projectId && projectId > 0,
   });
 
+  const { data: revenue } = useQuery({
+    queryKey: ["projects", projectId, "revenueReadiness"],
+    queryFn: () => trpc.projects.revenueReadiness.query({ id: projectId! }),
+    enabled: !!projectId && projectId > 0,
+  });
+
   const healthCheck = useMutation({
     mutationFn: (url: string) =>
       trpc.projects.deployHealth.mutate({ id: projectId!, url }),
@@ -116,6 +122,19 @@ export function DeployWizard({
           <li key={step}>{step}</li>
         ))}
       </ol>
+
+      {revenue?.stripeDetected && revenue.goLiveSteps.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-600">
+          <h4 className="text-sm font-medium text-emerald-300 mb-2">
+            Stripe go-live (after deploy)
+          </h4>
+          <ol className="list-decimal list-inside space-y-1 text-xs text-slate-400">
+            {revenue.goLiveSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
