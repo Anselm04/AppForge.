@@ -25,7 +25,7 @@ test("deploy health detects env vars", async () => {
 test("build capabilities registry", async () => {
   const { BUILD_CAPABILITIES, BUILD_CAPABILITY_IDS } =
     await import("../lib/buildCapabilities.js");
-  expect(BUILD_CAPABILITY_IDS).toHaveLength(9);
+  expect(BUILD_CAPABILITY_IDS).toHaveLength(19);
   expect(BUILD_CAPABILITIES.patent.label.toLowerCase()).toContain("patent");
   expect(BUILD_CAPABILITIES.architecture.label.toLowerCase()).toContain(
     "architecture",

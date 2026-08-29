@@ -10,7 +10,7 @@ import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 describe("architecture studio", () => {
   it("registers architecture capability", () => {
     expect(BUILD_CAPABILITY_IDS).toContain("architecture");
-    expect(BUILD_CAPABILITY_IDS).toHaveLength(9);
+    expect(BUILD_CAPABILITY_IDS).toHaveLength(19);
   });
 
   it("resolves units by jurisdiction", () => {

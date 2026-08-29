@@ -10,6 +10,16 @@ export const BUILD_CAPABILITY_IDS = [
   "education",
   "patent",
   "architecture",
+  "game",
+  "cad",
+  "legal",
+  "fintech",
+  "healthcare",
+  "mobile",
+  "voice",
+  "data",
+  "localization",
+  "collab",
 ] as const;
 
 export type BuildCapabilityId = (typeof BUILD_CAPABILITY_IDS)[number];
@@ -117,6 +127,106 @@ export const BUILD_CAPABILITIES: Record<
     icon: "🏛️",
     studioPath: "/studio/architecture",
     suggestedStack: "three-js-3d",
+  },
+  game: {
+    id: "game",
+    label: "Game dev studio",
+    shortLabel: "Games",
+    description:
+      "Unity/Godot-style web game pipelines with scene plans and playable WebGL/canvas preview.",
+    icon: "🎮",
+    studioPath: "/studio/game",
+    suggestedStack: "phaser-game",
+  },
+  cad: {
+    id: "cad",
+    label: "3D product & CAD studio",
+    shortLabel: "CAD",
+    description:
+      "Industrial design meshes and product specs exportable to Three.js / glTF builds.",
+    icon: "📐",
+    studioPath: "/studio/cad",
+    suggestedStack: "three-js-3d",
+  },
+  legal: {
+    id: "legal",
+    label: "Legal & contracts studio",
+    shortLabel: "Legal",
+    description:
+      "NDAs, terms, privacy policies, and jurisdiction-aware contract outlines with attorney-review disclaimers.",
+    icon: "⚖️",
+    studioPath: "/studio/legal",
+    suggestedStack: "next-node",
+  },
+  fintech: {
+    id: "fintech",
+    label: "Finance & fintech studio",
+    shortLabel: "Fintech",
+    description:
+      "Stripe-ready schemas, ledgers, KYC fields, and compliance checklists for financial apps.",
+    icon: "💳",
+    studioPath: "/studio/fintech",
+    suggestedStack: "next-node",
+  },
+  healthcare: {
+    id: "healthcare",
+    label: "Healthcare & HIPAA mode",
+    shortLabel: "Healthcare",
+    description:
+      "PHI-safe build boundaries, encryption, access controls, and audit logging configuration.",
+    icon: "🏥",
+    studioPath: "/studio/healthcare",
+    suggestedStack: "next-node",
+  },
+  mobile: {
+    id: "mobile",
+    label: "Native mobile packaging",
+    shortLabel: "Mobile",
+    description:
+      "Expo / Capacitor packaging, store listings, icons, and platform permissions.",
+    icon: "📱",
+    studioPath: "/studio/mobile",
+    suggestedStack: "expo-mobile",
+  },
+  voice: {
+    id: "voice",
+    label: "Voice & podcast studio",
+    shortLabel: "Voice",
+    description:
+      "TTS narration scripts, episode outlines, and podcast RSS manifests extending video/music.",
+    icon: "🎙️",
+    studioPath: "/studio/voice",
+    suggestedStack: "react-node",
+  },
+  data: {
+    id: "data",
+    label: "Data & BI studio",
+    shortLabel: "Data",
+    description:
+      "Dashboards, SQL schemas, KPIs, and chart components for analytics apps.",
+    icon: "📊",
+    studioPath: "/studio/data",
+    suggestedStack: "next-node",
+  },
+  localization: {
+    id: "localization",
+    label: "Localization studio",
+    shortLabel: "i18n",
+    description:
+      "Locale bundles, RTL support, and i18n extraction paths for any app.",
+    icon: "🌍",
+    studioPath: "/studio/localization",
+    suggestedStack: "next-node",
+  },
+  collab: {
+    id: "collab",
+    label: "Team realtime collab",
+    shortLabel: "Collab",
+    description:
+      "Multi-user studio editing specs — WebSocket rooms, presence, and version history (Figma-style).",
+    icon: "👥",
+    studioPath: "/studio/collab",
+    suggestedStack: "react-node",
   },
 };
 

@@ -82,6 +82,78 @@ ARCHITECTURE / BIM CAPABILITY enabled — full building project delivery:
 - Multi-disciplinary version history; client presentation/approval workflow UI
 - LEGAL DISCLAIMER: outputs require licensed architect/engineer review — not stamped professional documents
 `.trim(),
+
+  game: `
+GAME DEV CAPABILITY enabled:
+- Include game/ folder with game-project.json (scenes, mechanics, assets)
+- Phaser, Godot-web, or canvas/WebGL player with keyboard/touch controls
+- public/game/ for sprites/audio; playable preview route or embedded canvas
+- Win/lose conditions and buildSteps documented in manifest
+`.trim(),
+
+  cad: `
+3D PRODUCT / CAD CAPABILITY enabled:
+- cad/product-design.json with dimensions, materials, meshHints for Three.js
+- Export glTF/GLB to public/models/; orbit-controls preview component
+- manufacturingNotes and feature labels for industrial design handoff
+`.trim(),
+
+  legal: `
+LEGAL / CONTRACTS CAPABILITY enabled:
+- legal/legal-bundle.json with jurisdiction, documentType, sections, keyClauses
+- User-editable contract outline UI — NOT binding legal advice
+- LEGAL DISCLAIMER: attorney review required before signing or filing
+`.trim(),
+
+  fintech: `
+FINTECH CAPABILITY enabled:
+- fintech/fintech-schema.json with Stripe product hints, ledger accounts, webhooks
+- KYC field stubs, complianceChecklist, and apiRoutes for payments apps
+- DISCLAIMER: engineering aids only — not licensed financial or tax advice
+`.trim(),
+
+  healthcare: `
+HEALTHCARE / HIPAA CAPABILITY enabled:
+- healthcare/hipaa-build-config.json with phiDataTypes, encryptionAtRest, auditLogFields
+- Role-based accessControls, BA requirements, retentionPolicyDays, buildBoundaries
+- Audit logging middleware stub; no PHI in logs or client-side storage without encryption
+- DISCLAIMER: not a compliance certification — engage qualified compliance officer
+`.trim(),
+
+  mobile: `
+NATIVE MOBILE PACKAGING enabled:
+- mobile/mobile-packaging.json with Expo or Capacitor framework, bundleId, platforms
+- storeListing metadata, icon sizes, permissions, buildCommands
+- app.json / eas.json or capacitor.config stubs as appropriate for stack
+`.trim(),
+
+  voice: `
+VOICE / PODCAST CAPABILITY enabled:
+- voice/podcast-manifest.json with showTitle, script segments, ttsVoice, chapters
+- Extends video/music: public/audio/ for narration; RSS feed hints
+- Episode player with chapter markers and optional TTS integration hook
+`.trim(),
+
+  data: `
+DATA / BI CAPABILITY enabled:
+- data/bi-dashboard.json with sqlSchema tables, charts, KPIs, refreshStrategy
+- Dashboard page with chart components (recharts or similar); SQL migration stubs
+- Query hints mapped to chart metrics in src/components/dashboard/
+`.trim(),
+
+  localization: `
+LOCALIZATION CAPABILITY enabled:
+- localization/i18n-bundle.json with defaultLocale, supportedLocales, sampleKeys
+- Locale JSON files under public/locales/ or src/i18n/; RTL support for rtlLocales
+- extractionPaths documented for i18n key scanning; date/number format per locale
+`.trim(),
+
+  collab: `
+TEAM REALTIME COLLAB CAPABILITY enabled:
+- collab/collab-room.json with transport, roles, syncedArtifacts, conflictStrategy
+- WebSocket or WebRTC presence with cursors and versionHistory flags
+- Multi-user editing UI for studio artifacts (Figma-style) with role permissions
+`.trim(),
 };
 
 export function capabilityHintsForPipeline(

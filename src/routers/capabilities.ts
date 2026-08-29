@@ -9,6 +9,11 @@ import {
   BUILD_CAPABILITIES,
 } from "../lib/buildCapabilities.js";
 import { architectureProcedures } from "./architectureProcedures.js";
+import { extensionProcedures } from "./extensionProcedures.js";
+import {
+  attachPrefixForKind,
+  isExtensionCapabilityId,
+} from "../lib/extensionCapabilities.js";
 import {
   PLATFORM_FEATURE_MATRIX,
   COMPETITOR_LABELS,
@@ -486,6 +491,7 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
     }),
 
   ...architectureProcedures,
+  ...extensionProcedures,
 
   attachStudioAsset: protectedProcedure
     .input(
@@ -503,6 +509,16 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
           "patent",
           "architecture",
           "research",
+          "game",
+          "cad",
+          "legal",
+          "fintech",
+          "healthcare",
+          "mobile",
+          "voice",
+          "data",
+          "localization",
+          "collab",
         ]),
       }),
     )
@@ -515,24 +531,20 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
       }
       const files = await getProjectFiles(input.projectId);
       const safeName = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const prefix =
-        input.kind === "graphics"
-          ? "public/assets/"
-          : input.kind === "video"
-            ? "public/video/"
-            : input.kind === "audio"
-              ? "public/audio/"
-              : input.kind === "ar"
-                ? "public/ar/"
-                : input.kind === "education"
-                  ? "education/"
-                  : input.kind === "patent"
-                    ? "patent/"
-                    : input.kind === "architecture"
-                      ? "architecture/"
-                      : input.kind === "marketing"
-                        ? "marketing/"
-                        : "research/";
+      const legacyPrefix: Record<string, string> = {
+        graphics: "public/assets/",
+        video: "public/video/",
+        audio: "public/audio/",
+        ar: "public/ar/",
+        education: "education/",
+        patent: "patent/",
+        architecture: "architecture/",
+        marketing: "marketing/",
+        research: "research/",
+      };
+      const prefix = isExtensionCapabilityId(input.kind)
+        ? attachPrefixForKind(input.kind)
+        : (legacyPrefix[input.kind] ?? "research/");
       const path = `${prefix}${safeName}`;
       files[path] = input.content;
       await updateProjectFiles(input.projectId, files);
