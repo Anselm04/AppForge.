@@ -26,6 +26,7 @@ import {
   billingCompatRouter,
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
+import { sandboxDevProxyRouter } from "./routes/sandboxDevProxy.js";
 import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
@@ -200,6 +201,7 @@ app.use("/api/billing", billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);
 app.use("/api/sso", ssoHttpRouter);
 app.use("/live", supabaseAuthMiddleware, livePreviewRouter);
+app.use("/sandbox-dev", supabaseAuthMiddleware, sandboxDevProxyRouter);
 
 // ── tRPC routes ──
 app.use(

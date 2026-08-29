@@ -53,3 +53,21 @@ export function detectRequiredEnvVars(files: Record<string, string>): string[] {
     found.add("STRIPE_SECRET_KEY");
   return [...found].sort();
 }
+
+/** Post-deploy smoke test — probes root and optional /health. */
+export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
+  ok: boolean;
+  root: HealthCheckResult;
+  health?: HealthCheckResult;
+}> {
+  const root = await probeDeployUrl(deployUrl.replace(/\/$/, ""));
+  const healthUrl = `${deployUrl.replace(/\/$/, "")}/health`;
+  let health: HealthCheckResult | undefined;
+  try {
+    health = await probeDeployUrl(healthUrl, 10_000);
+  } catch {
+    health = undefined;
+  }
+  const ok = root.ok && (health ? health.ok : true);
+  return { ok, root, health };
+}
