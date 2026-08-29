@@ -7,6 +7,8 @@ import {
   GOLDEN_STACKS,
   PRODUCTION_READY_CAPABILITIES,
   PRODUCTION_READY_STACK,
+  INCOME_READY_CAPABILITIES,
+  INCOME_READY_STACK,
 } from "../lib/productionPreset.js";
 
 describe("buildValidationHelpers", () => {
@@ -35,5 +37,7 @@ describe("productionPreset", () => {
     expect(GOLDEN_STACKS.length).toBeGreaterThanOrEqual(8);
     expect(PRODUCTION_READY_STACK).toBe("next-node");
     expect(PRODUCTION_READY_CAPABILITIES).toContain("web_search");
+    expect(INCOME_READY_STACK).toBe("next-node");
+    expect(INCOME_READY_CAPABILITIES).toContain("fintech");
   });
 });
