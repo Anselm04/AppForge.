@@ -306,11 +306,26 @@ export const projectsRouter = router({
         const { recordDeploy } = await import("../db/buildStats.js");
         await recordDeploy(ctx.user.id);
 
+        const { detectRequiredEnvVars, runPostDeploySmokeTest } =
+          await import("../services/deployHealth.js");
+        const requiredEnv = detectRequiredEnvVars(files);
+        const smoke = result.url
+          ? await runPostDeploySmokeTest(result.url)
+          : null;
+
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
+          ...requiredEnv.map((k) => `Configure ${k} on your host.`),
           "Run database migrations if your stack uses a DB.",
           "Configure Stripe/webhooks if billing is included.",
           "Review REVIEW.md for known issues from the AI pipeline.",
+          ...(smoke && !smoke.ok
+            ? [
+                `Post-deploy smoke test warning: HTTP ${smoke.root.statusCode ?? "error"} at ${result.url}`,
+              ]
+            : smoke?.ok
+              ? ["Post-deploy smoke test passed."]
+              : []),
         ];
 
         return {
@@ -318,6 +333,7 @@ export const projectsRouter = router({
           destination: result.destination,
           note: result.note,
           deployGuide,
+          smokeTest: smoke,
           options: listDeployDestinations(),
         };
       } catch (err: unknown) {

@@ -28,6 +28,10 @@ export interface ValidationResult {
   warning: string;
 }
 
+export type ValidateOptions = {
+  testsBlocking?: boolean;
+};
+
 function runCommand(
   cmd: string,
   args: string[],
@@ -81,6 +85,7 @@ async function npmAvailable(): Promise<boolean> {
 export async function validateGeneratedBuild(
   files: Record<string, string>,
   techStack: string,
+  options: ValidateOptions = {},
 ): Promise<ValidationResult> {
   const tmpDir = join(tmpdir(), `appforge-build-${Date.now()}`);
   const start = Date.now();
@@ -398,8 +403,19 @@ export async function validateGeneratedBuild(
         60_000,
       );
       if (testResult.exitCode !== 0) {
-        errors.push(`Tests failed: ${testResult.stderr.slice(0, 300)}`);
-        // Non-blocking warning — many generated tests are stubs
+        const testErr = `Tests failed: ${testResult.stderr.slice(0, 300)}`;
+        errors.push(testErr);
+        if (options.testsBlocking) {
+          return {
+            passed: false,
+            stage: "tests",
+            errors,
+            durationMs: Date.now() - start,
+            fileCount: Object.keys(files).length,
+            warning:
+              "Generated tests failed. Errors will be fed back to the Coder for auto-fix.",
+          };
+        }
       }
     }
 

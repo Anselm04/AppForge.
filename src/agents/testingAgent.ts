@@ -5,13 +5,13 @@
 // BuildValidator runs them. If tests fail, errors are fed back to
 // both the Coder (for code fixes) and the TestingAgent (for test fixes).
 
-import { Agent, AgentContext, AgentResult } from './types';
+import { Agent, AgentContext, AgentResult } from "./types";
 import { invokeLLM } from "../_core/llm.js";
 
 export async function generateTestsForModule(
   moduleName: string,
   fileContent: string,
-  techStack: string
+  techStack: string,
 ): Promise<{ testFile: string; filename: string } | null> {
   // Skip non-code files
   if (!fileContent.includes("export") && !fileContent.includes("function")) {
@@ -53,10 +53,73 @@ If the file is a utility, test pure functions directly.`,
   return { testFile: content, filename };
 }
 
+const VITEST_CONFIG = `// filename: vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+export default defineConfig({
+  plugins: [react()],
+  test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },
+  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+});
+`;
+
+const VITEST_SETUP = `// filename: src/__tests__/setup.ts
+import '@testing-library/jest-dom';
+import { cleanup } from '@testing-library/react';
+import { afterEach, vi } from 'vitest';
+afterEach(() => cleanup());
+window.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));
+window.scrollTo = vi.fn();
+window.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));
+global.fetch = vi.fn();
+`;
+
+/** Generate vitest files for code modules — used before validation in the build pipeline. */
+export async function attachGeneratedTests(
+  generatedFiles: Record<string, string>,
+  techStack: string,
+): Promise<Record<string, string>> {
+  const testFiles: Record<string, string> = {};
+  for (const [filename, content] of Object.entries(generatedFiles)) {
+    if (
+      filename.endsWith(".test.ts") ||
+      filename.endsWith(".test.tsx") ||
+      filename.endsWith(".md") ||
+      filename.endsWith(".json")
+    )
+      continue;
+    const moduleName =
+      filename
+        .split("/")
+        .pop()
+        ?.replace(/\.[^.]+$/, "") ?? filename;
+    const testResult = await generateTestsForModule(
+      moduleName,
+      content,
+      techStack,
+    );
+    if (testResult) {
+      testFiles[testResult.filename] = testResult.testFile;
+    }
+  }
+  if (!generatedFiles["vitest.config.ts"] && !testFiles["vitest.config.ts"]) {
+    testFiles["vitest.config.ts"] = VITEST_CONFIG;
+  }
+  if (
+    !generatedFiles["src/__tests__/setup.ts"] &&
+    !testFiles["src/__tests__/setup.ts"]
+  ) {
+    testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
+  }
+  return testFiles;
+}
+
 export const TestingAgent: Agent = {
-  role: 'testing',
-  name: 'Testing Agent',
-  description: 'Generates and runs Vitest unit tests for every code module. Feeds test failures back to the Coder for auto-fix.',
+  role: "testing",
+  name: "Testing Agent",
+  description:
+    "Generates and runs Vitest unit tests for every code module. Feeds test failures back to the Coder for auto-fix.",
   async run(context: AgentContext): Promise<AgentResult> {
     const { prompt, architecture } = context;
     const files = architecture?.generatedFiles ?? {};
@@ -67,11 +130,20 @@ export const TestingAgent: Agent = {
     let skippedCount = 0;
 
     for (const [filename, content] of Object.entries(files)) {
-      if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) continue;
+      if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx"))
+        continue;
       if (filename.endsWith(".md") || filename.endsWith(".json")) continue;
 
-      const moduleName = filename.split("/").pop()?.replace(/\.[^.]+$/, "") ?? filename;
-      const testResult = await generateTestsForModule(moduleName, String(content), String(techStack));
+      const moduleName =
+        filename
+          .split("/")
+          .pop()
+          ?.replace(/\.[^.]+$/, "") ?? filename;
+      const testResult = await generateTestsForModule(
+        moduleName,
+        String(content),
+        String(techStack),
+      );
       if (testResult) {
         testFiles[testResult.filename] = testResult.testFile;
         testCount++;
@@ -103,7 +175,10 @@ export default defineConfig({
 `;
     }
 
-    if (!files["src/__tests__/setup.ts"] && !testFiles["src/__tests__/setup.ts"]) {
+    if (
+      !files["src/__tests__/setup.ts"] &&
+      !testFiles["src/__tests__/setup.ts"]
+    ) {
       testFiles["src/__tests__/setup.ts"] = `// filename: src/__tests__/setup.ts
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
@@ -118,15 +193,16 @@ global.fetch = vi.fn();
 
     const summary = `Generated ${testCount} test files (${skippedCount} non-testable files skipped).`;
     const details = {
-      framework: 'Vitest + Testing Library',
+      framework: "Vitest + Testing Library",
       testFiles: Object.keys(testFiles),
       testCount,
       skippedCount,
       coverageTarget: { lines: 70, branches: 70 },
-      instructions: "Run `npm test` to execute. If tests fail, the pipeline will auto-retry with error feedback.",
+      instructions:
+        "Run `npm test` to execute. If tests fail, the pipeline will auto-retry with error feedback.",
     };
 
-    return { taskId: 'testing-task', role: 'testing', summary, details };
+    return { taskId: "testing-task", role: "testing", summary, details };
   },
 };
 

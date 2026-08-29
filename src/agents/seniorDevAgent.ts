@@ -1,6 +1,7 @@
 import { invokeLLM } from "../_core/llm.js";
 import type { Message } from "../_core/llm.js";
 import { logger } from "../_core/logger.js";
+import { validateProjectFiles } from "../lib/buildValidationHelpers.js";
 
 // ── Types ──
 
@@ -291,6 +292,7 @@ export async function validateWork(
   task: SeniorDevTask,
   originalFiles: Record<string, string>,
   newFiles: Record<string, string>,
+  techStack: string,
   onProgress: (e: ProgressEvent) => void,
 ): Promise<ValidationResult[]> {
   const results: ValidationResult[] = [];
@@ -304,6 +306,32 @@ export async function validateWork(
     return [{ stage: "syntax", passed: true, errors: [], warnings: [] }];
   }
 
+  onProgress({
+    stage: "validating",
+    message: "Running sandbox compile validation on changed project…",
+  });
+
+  const sandboxResult = await validateProjectFiles(newFiles, techStack, {
+    testsBlocking: true,
+  });
+
+  results.push({
+    stage: sandboxResult.stage as ValidationResult["stage"],
+    passed: sandboxResult.passed,
+    errors: sandboxResult.errors,
+    warnings: sandboxResult.warning ? [sandboxResult.warning] : [],
+  });
+
+  if (!sandboxResult.passed) {
+    onProgress({
+      stage: "fixing",
+      message: `Sandbox validation failed: ${sandboxResult.errors.slice(0, 2).join("; ")}`,
+      detail: { validation: sandboxResult },
+    });
+    trackCredits(task, "validate");
+    return results;
+  }
+
   const before: Record<string, string> = {};
   const after: Record<string, string> = {};
   for (const p of changedPaths) {
@@ -313,7 +341,7 @@ export async function validateWork(
 
   onProgress({
     stage: "validating",
-    message: "Checking syntax, types, and consistency...",
+    message: "LLM consistency review on changed files…",
   });
 
   const messages: Message[] = [
@@ -513,6 +541,7 @@ export async function runSeniorDevAgent(
       task,
       originalFiles,
       generatedFiles,
+      techStack,
       onProgress,
     );
 
@@ -545,6 +574,7 @@ export async function runSeniorDevAgent(
         task,
         originalFiles,
         generatedFiles,
+        techStack,
         onProgress,
       );
       validations.push(...revalidation);

@@ -1,7 +1,12 @@
+import { invalidatePreviewCache } from "../routes/livePreview.js";
 import { invokeLLM } from "../_core/llm.js";
 import { updateProjectFiles, getProjectFiles } from "../db.js";
 import { modelForAgent } from "../lib/llmModels.js";
-import { invalidatePreviewCache } from "../routes/livePreview.js";
+import {
+  buildEditContextSample,
+  validateProjectFiles,
+} from "../lib/buildValidationHelpers.js";
+import type { ValidationResult } from "../agents/buildValidator.js";
 
 export type QuickEditPatch = {
   path: string;
@@ -13,6 +18,7 @@ export type QuickEditResult = {
   summary: string;
   filesChanged: string[];
   patches: QuickEditPatch[];
+  validation?: ValidationResult;
 };
 
 const SYSTEM = `You are AppForge Quick Edit — a fast code assistant that patches project files.
@@ -39,12 +45,7 @@ export async function runQuickEdit(params: {
     };
   }
 
-  const contextSample = fileList.slice(0, 12).map((path) => {
-    const content = files[path] ?? "";
-    const preview =
-      content.length > 2500 ? `${content.slice(0, 2500)}\n…` : content;
-    return `--- ${path} ---\n${preview}`;
-  });
+  const contextSample = buildEditContextSample(params.request, files, 16, 4000);
 
   const response = await invokeLLM({
     model: modelForAgent("coder"),
@@ -55,7 +56,7 @@ export async function runQuickEdit(params: {
         content: `Tech stack: ${params.techStack ?? "react-node"}
 User request: ${params.request}
 
-Project files (${fileList.length} total):
+Project files (${fileList.length} total; most relevant shown):
 ${contextSample.join("\n\n")}
 
 Respond with JSON only: { "summary": string, "patches": [{ "path": string, "action": "create"|"modify"|"delete", "content"?: string }] }`,
@@ -95,15 +96,26 @@ Respond with JSON only: { "summary": string, "patches": [{ "path": string, "acti
     }
   }
 
+  let validation: ValidationResult | undefined;
   if (patches.length > 0) {
     await updateProjectFiles(params.projectId, nextFiles);
     invalidatePreviewCache(params.projectId);
+    validation = await validateProjectFiles(nextFiles, params.techStack, {
+      testsBlocking: false,
+    });
   }
 
   const filesChanged = patches.map((p) => p.path);
+  const validationNote = validation
+    ? validation.passed
+      ? " Sandbox validation passed."
+      : ` Validation warnings: ${validation.errors.slice(0, 2).join("; ")}`
+    : "";
+
   return {
-    summary: parsed.summary ?? `Updated ${filesChanged.length} file(s).`,
+    summary: `${parsed.summary ?? `Updated ${filesChanged.length} file(s).`}${validationNote}`,
     filesChanged,
     patches,
+    validation,
   };
 }
