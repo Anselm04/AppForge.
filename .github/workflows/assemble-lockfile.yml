@@ -17,9 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble package-lock.json from parts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Regenerate package-lock.json
         run: |
-          cat .github/lockfile-parts/part-* > package-lock.json
+          rm -f package-lock.json
+          npm install --package-lock-only --ignore-scripts --legacy-peer-deps
           wc -c package-lock.json
           test "$(wc -c < package-lock.json)" -eq 358193
       - name: Commit restored lockfile
