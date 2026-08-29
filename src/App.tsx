@@ -25,6 +25,7 @@ import { ARStudio } from "./pages/ARStudio.js";
 import { EducationStudio } from "./pages/EducationStudio.js";
 import { PatentStudio } from "./pages/PatentStudio.js";
 import { ArchitectureStudio } from "./pages/ArchitectureStudio.js";
+import { ExtensionStudio } from "./pages/ExtensionStudio.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { OrgSettings } from "./pages/OrgSettings.js";
@@ -62,6 +63,16 @@ function AppShell() {
           <Route path="/studio/education" element={<EducationStudio />} />
           <Route path="/studio/patent" element={<PatentStudio />} />
           <Route path="/studio/architecture" element={<ArchitectureStudio />} />
+          <Route path="/studio/game" element={<ExtensionStudio studioId="game" />} />
+          <Route path="/studio/cad" element={<ExtensionStudio studioId="cad" />} />
+          <Route path="/studio/legal" element={<ExtensionStudio studioId="legal" />} />
+          <Route path="/studio/fintech" element={<ExtensionStudio studioId="fintech" />} />
+          <Route path="/studio/healthcare" element={<ExtensionStudio studioId="healthcare" />} />
+          <Route path="/studio/mobile" element={<ExtensionStudio studioId="mobile" />} />
+          <Route path="/studio/voice" element={<ExtensionStudio studioId="voice" />} />
+          <Route path="/studio/data" element={<ExtensionStudio studioId="data" />} />
+          <Route path="/studio/localization" element={<ExtensionStudio studioId="localization" />} />
+          <Route path="/studio/collab" element={<ExtensionStudio studioId="collab" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
