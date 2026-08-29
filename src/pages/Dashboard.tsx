@@ -5,6 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { useLocale } from "../i18n/LocaleContext.js";
+import { Button } from "../design-system/Button.js";
+import { GlassCard } from "../design-system/GlassCard.js";
+import { Badge } from "../design-system/Badge.js";
 
 interface TierStatus {
   tier: string;
@@ -25,6 +29,7 @@ interface Project {
 export function Dashboard() {
   const navigate = useNavigate();
   const session = useSession();
+  const { t } = useLocale();
 
   useEffect(() => {
     if (!session) {
@@ -64,131 +69,128 @@ export function Dashboard() {
 
   if (!session || unauthError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
-        <div className="max-w-6xl mx-auto text-center py-16">
-          <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
-            Sign in to see your apps.
+      <div className="p-6 md:p-8">
+        <GlassCard className="max-w-lg mx-auto text-center py-16" hover={false}>
+          <p className="text-forge-text-muted text-lg mb-6">
+            {t("dashboard.signInPrompt")}
           </p>
-          <button
-            onClick={() => navigate("/login?next=/dashboard")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg inline-block"
-          >
-            Sign in
-          </button>
-        </div>
+          <Button onClick={() => navigate("/login?next=/dashboard")}>
+            {t("dashboard.signIn")}
+          </Button>
+        </GlassCard>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="p-6 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         {tierStatus && (
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-8 flex items-center justify-between">
+          <GlassCard
+            hover={false}
+            className="flex flex-wrap items-center gap-6 justify-between"
+          >
             <div>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                Current plan
+              <span className="text-sm text-forge-text-muted">
+                {t("dashboard.currentPlan")}
               </span>
-              <p className="font-bold text-slate-900 dark:text-white capitalize">
+              <p className="font-semibold text-forge-text-primary capitalize flex items-center gap-2">
                 {tierStatus.tier}
                 {tierStatus.isPaid && tierStatus.tier !== "free" && (
-                  <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
+                  <Badge tone="success">{t("dashboard.active")}</Badge>
                 )}
               </p>
             </div>
             <div className="text-right">
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                Builds this month
+              <span className="text-sm text-forge-text-muted">
+                {t("dashboard.buildsThisMonth")}
               </span>
-              <p className="font-bold text-slate-900 dark:text-white">
+              <p className="font-semibold text-forge-text-primary">
                 {tierStatus.buildsThisMonth}
                 {tierStatus.limit !== null ? ` / ${tierStatus.limit}` : " / ∞"}
               </p>
             </div>
             <div className="text-right">
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                Credits
+              <span className="text-sm text-forge-text-muted">
+                {t("dashboard.credits")}
               </span>
-              <p className="font-bold text-blue-600 dark:text-blue-400">
+              <p className="font-semibold text-forge-cyan">
                 {tierStatus.credits ?? 0}
               </p>
             </div>
             {(tierStatus.tier === "free" ||
               (tierStatus.credits ?? 0) < BUILD_CREDIT_COST) && (
-              <button
-                onClick={() => navigate("/pricing")}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-              >
+              <Button size="sm" onClick={() => navigate("/pricing")}>
                 {(tierStatus.credits ?? 0) < BUILD_CREDIT_COST
-                  ? "Get credits"
-                  : "Upgrade"}
-              </button>
+                  ? t("dashboard.getCredits")
+                  : t("dashboard.upgrade")}
+              </Button>
             )}
-          </div>
+          </GlassCard>
         )}
 
         {analytics && analytics.totalBuilds > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Total builds" value={analytics.totalBuilds} />
-            <StatCard label="Successful" value={analytics.successfulBuilds} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard
-              label="Success rate"
+              label={t("dashboard.stats.totalBuilds")}
+              value={analytics.totalBuilds}
+            />
+            <StatCard
+              label={t("dashboard.stats.successful")}
+              value={analytics.successfulBuilds}
+            />
+            <StatCard
+              label={t("dashboard.stats.successRate")}
               value={
                 analytics.successRate != null
                   ? `${analytics.successRate}%`
                   : "—"
               }
             />
-            <StatCard label="Deploys" value={analytics.totalDeploys} />
-          </div>
-        )}
-
-        {tierStatus && (tierStatus.credits ?? 0) < BUILD_CREDIT_COST && (
-          <div className="mb-8">
-            <CreditsPauseBanner
-              credits={tierStatus.credits ?? 0}
-              cost={BUILD_CREDIT_COST}
-              action="build or improve apps"
+            <StatCard
+              label={t("dashboard.stats.deploys")}
+              value={analytics.totalDeploys}
             />
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white">
-            My Apps
+        {tierStatus && (tierStatus.credits ?? 0) < BUILD_CREDIT_COST && (
+          <CreditsPauseBanner
+            credits={tierStatus.credits ?? 0}
+            cost={BUILD_CREDIT_COST}
+            action="build or improve apps"
+          />
+        )}
+
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <h1 className="forge-h2 text-forge-text-primary">
+            {t("dashboard.myApps")}
           </h1>
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => navigate("/redeem")}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white px-6 py-2 rounded-lg"
             >
-              Redeem code
-            </button>
-            <button
-              onClick={() => navigate("/")}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-            >
-              + New App
-            </button>
+              {t("dashboard.redeemCode")}
+            </Button>
+            <Button size="sm" onClick={() => navigate("/app/new")}>
+              + {t("dashboard.newApp")}
+            </Button>
           </div>
         </div>
 
         {isLoading ? (
-          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+          <p className="text-forge-text-muted">{t("common.loading")}</p>
         ) : projects?.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
-              You haven't created any apps yet.
+          <GlassCard className="text-center py-16" hover={false}>
+            <p className="text-forge-text-muted text-lg mb-6">
+              {t("dashboard.noApps")}
             </p>
-            <button
-              onClick={() => navigate("/")}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg inline-block"
-            >
-              Create Your First App
-            </button>
-          </div>
+            <Button onClick={() => navigate("/app/new")}>
+              {t("dashboard.createFirst")}
+            </Button>
+          </GlassCard>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects?.map((project: Project) => (
@@ -203,76 +205,77 @@ export function Dashboard() {
 
 function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
-  const statusColors: Record<string, string> = {
-    completed:
-      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    running: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    pending:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    paused: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+  const { t } = useLocale();
+
+  const statusTone: Record<string, "success" | "cyan" | "gold" | "default"> = {
+    completed: "success",
+    failed: "default",
+    running: "cyan",
+    pending: "gold",
+    paused: "gold",
   };
 
   const canImprove =
     project.status === "completed" || project.status === "paused";
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-      <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">
+    <GlassCard className="flex flex-col h-full">
+      <h3 className="font-semibold text-lg text-forge-text-primary mb-2">
         {project.title}
       </h3>
-      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">
+      <p className="text-sm text-forge-text-muted mb-4 line-clamp-2 flex-1">
         {project.description}
       </p>
       <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            statusColors[project.status ?? "pending"] || statusColors.pending
-          }`}
-        >
+        <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
           {project.status}
-        </span>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        </Badge>
+        <p className="text-xs text-forge-text-muted">
           {project.createdAt
             ? new Date(project.createdAt).toLocaleDateString()
             : "—"}
         </p>
       </div>
       <div className="flex gap-2">
-        <button
+        <Button
+          size="sm"
+          className="flex-1 text-xs"
           onClick={() => navigate(`/build/${project.id}`)}
-          className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
         >
-          View Build
-        </button>
+          {t("dashboard.viewBuild")}
+        </Button>
         {canImprove && (
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1 text-xs"
             onClick={() =>
               navigate(`/ai-builder?projectId=${project.id}&mode=improve`)
             }
-            className="flex-1 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
           >
-            Improve
-          </button>
+            {t("dashboard.improve")}
+          </Button>
         )}
-        <button
-          onClick={() => navigate("/")}
-          className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={() => navigate("/app/new")}
         >
-          New build
-        </button>
+          {t("dashboard.newBuild")}
+        </Button>
       </div>
-    </div>
+    </GlassCard>
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4">
-      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="text-2xl font-bold text-slate-900 dark:text-white">
+    <GlassCard padding="sm" hover={false}>
+      <p className="text-xs text-forge-text-muted">{label}</p>
+      <p className="text-2xl font-semibold text-forge-text-primary mt-1">
         {value}
       </p>
-    </div>
+    </GlassCard>
   );
 }

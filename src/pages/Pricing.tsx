@@ -5,6 +5,10 @@ import { trpc } from "../utils/trpc.js";
 import { useSession } from "../lib/auth.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { useLocale } from "../i18n/LocaleContext.js";
+import { Button } from "../design-system/Button.js";
+import { GlassCard } from "../design-system/GlassCard.js";
+import { Badge } from "../design-system/Badge.js";
+import { cn } from "../lib/cn.js";
 
 const TIER_CONFIG = {
   free: { price: 0, credits: 20, builds: 3, label: "Free" },
@@ -52,11 +56,13 @@ export function Pricing() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setCheckoutError("Checkout did not return a payment URL.");
+        setCheckoutError(t("pricing.checkoutNoUrl"));
       }
     },
     onError: (err) => {
-      setCheckoutError(err instanceof Error ? err.message : "Checkout failed");
+      setCheckoutError(
+        err instanceof Error ? err.message : t("pricing.checkoutFailed"),
+      );
     },
   });
 
@@ -67,12 +73,12 @@ export function Pricing() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setCheckoutError("Checkout did not return a payment URL.");
+        setCheckoutError(t("pricing.checkoutNoUrl"));
       }
     },
     onError: (err) => {
       setCheckoutError(
-        err instanceof Error ? err.message : "Credit checkout failed",
+        err instanceof Error ? err.message : t("pricing.creditCheckoutFailed"),
       );
     },
   });
@@ -193,90 +199,73 @@ export function Pricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="forge-section">
+      <div className="forge-container">
         <div className="text-center mb-4">
-          <span className="inline-block bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold">
-            {t("pricing.trialBadge")}
-          </span>
+          <Badge tone="success">{t("pricing.trialBadge")}</Badge>
         </div>
-        <h1 className="text-4xl font-bold text-center text-slate-900 dark:text-white mb-4">
-          {t("pricing.title")}
-        </h1>
-        <p className="text-center text-slate-600 dark:text-slate-400 mb-4 max-w-2xl mx-auto">
+        <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
+        <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
           {t("pricing.subtitle")}
         </p>
-        <p className="text-center text-sm text-slate-500 dark:text-slate-500 mb-12 max-w-2xl mx-auto">
-          Builds reserve {BUILD_CREDIT_COST} credits each when they start.
-          Senior Dev sessions cost {SENIOR_DEV_CREDIT_COST} credits. Enterprise
-          is sales-led — contact us below (no self-serve checkout).
+        <p className="text-center text-sm text-forge-text-muted mb-12 max-w-2xl mx-auto">
+          {t("pricing.creditsNote", {
+            buildCost: BUILD_CREDIT_COST,
+            seniorCost: SENIOR_DEV_CREDIT_COST,
+          })}
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {tiers.map((tier) => (
-            <div
+            <GlassCard
               key={tier.key}
-              className={`relative rounded-xl shadow-lg p-6 flex flex-col ${
-                tier.popular
-                  ? "bg-blue-600 text-white scale-105 md:scale-100 z-10"
-                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              }`}
+              hover={!tier.disabled}
+              className={cn(
+                "relative flex flex-col",
+                tier.popular &&
+                  "forge-gradient-border bg-forge-gradient/10 lg:scale-[1.02] z-10",
+              )}
             >
               {tier.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold">
+                <Badge
+                  tone="gold"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2"
+                >
                   {t("pricing.mostPopular")}
-                </div>
+                </Badge>
               )}
-              <h2
-                className={`text-xl font-bold mb-2 ${tier.popular ? "text-white" : "text-slate-900 dark:text-white"}`}
-              >
+              <h2 className="text-xl font-semibold mb-2 text-forge-text-primary">
                 {tier.name}
               </h2>
-              <p
-                className={`text-sm mb-4 ${tier.popular ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}
-              >
+              <p className="text-sm mb-4 text-forge-text-muted">
                 {tier.description}
               </p>
               <div className="mb-6">
-                <span
-                  className={`text-3xl font-bold ${tier.popular ? "text-white" : "text-slate-900 dark:text-white"}`}
-                >
+                <span className="text-3xl font-bold text-forge-text-primary">
                   {tier.price}
                 </span>
-                <span
-                  className={
-                    tier.popular
-                      ? "text-blue-200"
-                      : "text-slate-500 dark:text-slate-400"
-                  }
-                >
-                  {tier.subPrice}
-                </span>
+                <span className="text-forge-text-muted">{tier.subPrice}</span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {tier.features.map((feature, idx) => (
                   <li
                     key={idx}
-                    className={`flex items-center text-sm ${
-                      tier.popular
-                        ? "text-blue-50"
-                        : "text-slate-600 dark:text-slate-300"
-                    }`}
+                    className="flex items-start text-sm text-forge-text-muted"
                   >
-                    <span
-                      className={
-                        tier.popular
-                          ? "text-yellow-300 mr-2"
-                          : "text-green-500 mr-2"
-                      }
-                    >
-                      ✓
-                    </span>
+                    <span className="text-forge-cyan mr-2 mt-0.5">✓</span>
                     {feature}
                   </li>
                 ))}
               </ul>
-              <button
+              <Button
+                variant={
+                  tier.popular
+                    ? "primary"
+                    : tier.disabled
+                      ? "ghost"
+                      : "secondary"
+                }
+                className="w-full"
                 onClick={() => {
                   if (!isAuthed) {
                     navigate("/signup?next=/pricing");
@@ -288,54 +277,33 @@ export function Pricing() {
                   }
                 }}
                 disabled={tier.disabled || createCheckout.isPending}
-                className={`w-full py-3 rounded-lg font-semibold transition-colors ${
-                  tier.popular
-                    ? "bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                    : tier.disabled
-                      ? "bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                }`}
+                loading={createCheckout.isPending && !tier.disabled}
               >
-                {createCheckout.isPending && !tier.disabled
-                  ? t("pricing.loading")
-                  : tier.cta}
-              </button>
-            </div>
+                {tier.cta}
+              </Button>
+            </GlassCard>
           ))}
         </div>
 
-        <div
+        <GlassCard
           id="credits"
-          className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8"
+          className="mt-16 max-w-3xl mx-auto"
+          hover={false}
         >
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            {t("pricing.buyTitle")}
-          </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
+          <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")}</h3>
+          <p className="text-forge-text-muted mb-6 text-sm">
             {t("pricing.buySubtitle")}
           </p>
           {checkoutError && (
-            <p
-              className="text-sm text-red-600 dark:text-red-400 mb-4"
-              role="alert"
-            >
+            <p className="text-sm text-red-500 mb-4" role="alert">
               {checkoutError}
-            </p>
-          )}
-          {createCheckout.isError && !checkoutError && (
-            <p
-              className="text-sm text-red-600 dark:text-red-400 mb-4"
-              role="alert"
-            >
-              {String(
-                (createCheckout.error as Error)?.message || "Checkout failed",
-              )}
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[50, 100, 250].map((pack) => (
               <button
                 key={pack}
+                type="button"
                 onClick={() => {
                   if (!isAuthed) {
                     navigate("/signup?next=/pricing");
@@ -345,15 +313,15 @@ export function Pricing() {
                   buyCredits.mutate(pack);
                 }}
                 disabled={buyCredits.isPending}
-                className="border border-slate-200 dark:border-slate-600 rounded-lg p-4 hover:border-blue-500 transition-colors disabled:opacity-50"
+                className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-left transition-colors hover:border-forge-cyan/40 disabled:opacity-50"
               >
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                <div className="text-2xl font-bold text-forge-text-primary">
                   {pack}
                 </div>
-                <div className="text-sm text-slate-500 mb-3">
+                <div className="text-sm text-forge-text-muted mb-3">
                   {t("pricing.packCredits", { n: pack })}
                 </div>
-                <span className="text-blue-600 font-semibold text-sm">
+                <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
                     ? t("pricing.loading")
                     : t("pricing.buy")}
@@ -361,45 +329,34 @@ export function Pricing() {
               </button>
             ))}
           </div>
-        </div>
+        </GlassCard>
 
-        <div className="mt-16 max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-            {t("pricing.howTitle")}
-          </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            {t("pricing.howIntro")}
-          </p>
+        <GlassCard className="mt-8 max-w-3xl mx-auto" hover={false}>
+          <h3 className="forge-h2 mb-4">{t("pricing.howTitle")}</h3>
+          <p className="text-forge-text-muted mb-4">{t("pricing.howIntro")}</p>
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                2
+            {[
+              { value: 2, label: t("pricing.planner") },
+              { value: 3, label: t("pricing.coder") },
+              { value: 1, label: t("pricing.reviewer") },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-center"
+              >
+                <div className="text-2xl font-bold text-forge-cyan">
+                  {item.value}
+                </div>
+                <div className="text-sm text-forge-text-muted">
+                  {item.label}
+                </div>
               </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                {t("pricing.planner")}
-              </div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                3
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                {t("pricing.coder")}
-              </div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                1
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                {t("pricing.reviewer")}
-              </div>
-            </div>
+            ))}
           </div>
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
+          <p className="text-forge-text-muted text-sm">
             {t("pricing.howFooter")}
           </p>
-        </div>
+        </GlassCard>
       </div>
     </div>
   );

@@ -5,9 +5,18 @@ import { useQuery } from "@tanstack/react-query";
 import { getSession, signUp } from "../lib/auth.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
+import { LogoLockup } from "../components/brand/LogoMark.js";
+import { Button } from "../design-system/Button.js";
+import { GlassCard } from "../design-system/GlassCard.js";
+import { Input } from "../design-system/Input.js";
 
 function safeNext(value: string | null): string {
-  if (value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) {
+  if (
+    value &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("\\")
+  ) {
     return value;
   }
   return "/";
@@ -18,7 +27,10 @@ export function Signup() {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const next = useMemo(() => safeNext(searchParams.get("next")), [searchParams]);
+  const next = useMemo(
+    () => safeNext(searchParams.get("next")),
+    [searchParams],
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,95 +74,92 @@ export function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="max-w-md mx-auto px-4 py-20">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">{t("signup.title")}</h1>
-          <p className="text-slate-600 dark:text-slate-300">{t("signup.subtitle")}</p>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-16 bg-forge-mesh">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center mb-8">
+          <Link to="/">
+            <LogoLockup size="sm" />
+          </Link>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8">
+        <div className="text-center mb-8">
+          <h1 className="forge-h2 text-forge-text-primary mb-2">
+            {t("signup.title")}
+          </h1>
+          <p className="text-forge-text-muted">{t("signup.subtitle")}</p>
+        </div>
+        <GlassCard hover={false} padding="lg">
           {checkEmail ? (
             <div className="text-center space-y-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t("signup.checkTitle")}</h2>
-              <p className="text-slate-600 dark:text-slate-300">
+              <h2 className="text-xl font-semibold text-forge-text-primary">
+                {t("signup.checkTitle")}
+              </h2>
+              <p className="text-forge-text-muted">
                 {t("signup.checkBody", { email: email.trim() })}
               </p>
-              <button
-                type="button"
-                onClick={() => navigate(`/login?next=${encodeURIComponent(next)}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+              <Button
+                className="w-full"
+                onClick={() =>
+                  navigate(`/login?next=${encodeURIComponent(next)}`)
+                }
               >
                 {t("signup.goToLogin")}
-              </button>
+              </Button>
             </div>
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label htmlFor="signup-email" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    {t("signup.email")}
-                  </label>
-                  <input
-                    id="signup-email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="signup-password" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    {t("signup.password")}
-                  </label>
-                  <input
-                    id="signup-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t("signup.minChars")}</p>
-                </div>
-                <div>
-                  <label htmlFor="signup-confirm" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                    {t("signup.confirm")}
-                  </label>
-                  <input
-                    id="signup-confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                {error && (
-                  <p className="text-sm text-amber-700 dark:text-amber-300">{error}</p>
-                )}
-                <button
+                <Input
+                  id="signup-email"
+                  label={t("signup.email")}
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Input
+                  id="signup-password"
+                  label={t("signup.password")}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  hint={t("signup.minChars")}
+                />
+                <Input
+                  id="signup-confirm"
+                  label={t("signup.confirm")}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  error={error ?? undefined}
+                />
+                <Button
                   type="submit"
+                  className="w-full"
+                  loading={pending}
                   disabled={pending || !email.trim() || password.length < 6}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
                 >
                   {pending ? t("signup.pending") : t("signup.submit")}
-                </button>
+                </Button>
               </form>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-6 text-center">
+              <p className="text-sm text-forge-text-muted mt-6 text-center">
                 {t("signup.hasAccount")}{" "}
-                <Link to={`/login?next=${encodeURIComponent(next)}`} className="text-blue-600 hover:text-blue-700 font-semibold">
+                <Link
+                  to={`/login?next=${encodeURIComponent(next)}`}
+                  className="text-forge-cyan hover:underline font-medium"
+                >
                   {t("signup.logIn")}
                 </Link>
               </p>
             </>
           )}
-        </div>
+        </GlassCard>
       </div>
     </div>
   );
