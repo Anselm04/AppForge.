@@ -26,3 +26,16 @@ export const PRODUCTION_READY_CAPABILITIES: BuildCapabilityId[] = [
 ];
 
 export const PRODUCTION_READY_STACK: GoldenStack = "next-node";
+
+/** Stack + capabilities for SaaS / subscription products that can earn income. */
+export { INCOME_READY_PRESET, type IncomePreset } from "./revenueReadiness.js";
+
+export const INCOME_READY_CAPABILITIES: BuildCapabilityId[] = [
+  "web_search",
+  "fintech",
+  "marketing",
+  "graphics",
+  "legal",
+];
+
+export const INCOME_READY_STACK: GoldenStack = "next-node";
