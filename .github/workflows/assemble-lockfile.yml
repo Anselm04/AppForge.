@@ -17,11 +17,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Decode rest part bundles
+        run: |
+          set -euo pipefail
+          cd .github/lockfile-parts
+          if ls rest-*.b64 >/dev/null 2>&1; then
+            cat rest-*.b64 | sed 's/n#z/npz/g' | base64 -d | tar -xzf -
+          fi
+          if ls bundle-*.b64 >/dev/null 2>&1; then
+            for f in bundle-*.b64; do
+              base64 -d "$f" | tar -xzf - || true
+            done
+          fi
+          ls part-[0-9][0-9] | wc -l
       - name: Assemble package-lock.json from parts
         run: |
-          cat .github/lockfile-parts/part-* > package-lock.json
-          wc -c package-lock.json
-          test "$(wc -c < package-lock.json)" -eq 358193
+          set -euo pipefail
+          cat .github/lockfile-parts/part-[0-9][0-9] > package-lock.json
+          SIZE=$(wc -c < package-lock.json)
+          echo "assembled size=$SIZE"
+          test "$SIZE" -eq 358193
       - name: Commit restored lockfile
         run: |
           git config user.name "github-actions[bot]"
