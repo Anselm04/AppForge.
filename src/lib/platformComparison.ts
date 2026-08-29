@@ -346,6 +346,41 @@ export const PLATFORM_FEATURE_MATRIX: FeatureRow[] = [
     v0: false,
     github_copilot: false,
   },
+  {
+    id: "billing_scaffold",
+    category: "Ship",
+    feature:
+      "Stripe billing scaffold (checkout, webhook, entitlements) on income builds",
+    appforge: true,
+    bolt: "partial",
+    replit: "partial",
+    lovable: "partial",
+    v0: false,
+    github_copilot: false,
+    notes: "Merged when Fintech enabled or prompt describes paid product",
+  },
+  {
+    id: "revenue_readiness",
+    category: "Ship",
+    feature: "Revenue readiness score + go-live checklist on Build page",
+    appforge: true,
+    bolt: false,
+    replit: false,
+    lovable: false,
+    v0: false,
+    github_copilot: false,
+  },
+  {
+    id: "income_preset",
+    category: "Ship",
+    feature: "One-click income-ready SaaS preset (stack + Fintech + Legal)",
+    appforge: true,
+    bolt: false,
+    replit: false,
+    lovable: false,
+    v0: false,
+    github_copilot: false,
+  },
 ];
 
 export const COMPETITOR_LABELS: Record<CompetitorId, string> = {

@@ -106,10 +106,12 @@ LEGAL / CONTRACTS CAPABILITY enabled:
 `.trim(),
 
   fintech: `
-FINTECH CAPABILITY enabled:
+FINTECH / INCOME CAPABILITY enabled:
 - fintech/fintech-schema.json with Stripe product hints, ledger accounts, webhooks
-- KYC field stubs, complianceChecklist, and apiRoutes for payments apps
-- DISCLAIMER: engineering aids only — not licensed financial or tax advice
+- Pipeline merges billing scaffold: checkout route, webhook handler, entitlements.ts, PricingPage, billing-schema.sql
+- Wire PricingPage buttons to checkout; persist subscription status from webhooks to DB
+- Required env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID, APP_URL
+- DISCLAIMER: engineering aids only — not licensed financial or tax advice; test with card 4242 before live keys
 `.trim(),
 
   healthcare: `

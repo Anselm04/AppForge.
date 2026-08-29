@@ -30,8 +30,14 @@ import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import {
   PRODUCTION_READY_CAPABILITIES,
   PRODUCTION_READY_STACK,
+  INCOME_READY_CAPABILITIES,
+  INCOME_READY_STACK,
   GOLDEN_STACKS,
 } from "../lib/productionPreset.js";
+import {
+  detectIncomeIntent,
+  suggestCapabilitiesForIncome,
+} from "../lib/revenueReadiness.js";
 
 const TECH_STACKS = [
   "react-node",
@@ -119,6 +125,11 @@ export function Home() {
   useEffect(() => {
     writePromptStack(techStack);
   }, [techStack]);
+
+  useEffect(() => {
+    if (!detectIncomeIntent(description)) return;
+    setBuildCapabilities((prev) => suggestCapabilitiesForIncome(prev));
+  }, [description]);
 
   const createProjectMutation = useMutation({
     mutationFn: () =>
@@ -404,6 +415,18 @@ export function Home() {
             >
               Use production-ready preset ({PRODUCTION_READY_STACK} + live
               search)
+            </button>
+            <button
+              type="button"
+              disabled={createProjectMutation.isPending || isBuilding}
+              onClick={() => {
+                setTechStack(INCOME_READY_STACK);
+                setBuildCapabilities([...INCOME_READY_CAPABILITIES]);
+              }}
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline block"
+            >
+              Use income-ready SaaS preset ({INCOME_READY_STACK} + Stripe
+              billing scaffold)
             </button>
             <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
               Golden stacks with full validation: {GOLDEN_STACKS.join(", ")}

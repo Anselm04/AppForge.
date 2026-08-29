@@ -30,6 +30,8 @@ export interface ValidationResult {
 
 export type ValidateOptions = {
   testsBlocking?: boolean;
+  /** When true, verify checkout/webhook/entitlements scaffold for income products. */
+  validateBilling?: boolean;
 };
 
 function runCommand(
@@ -92,7 +94,6 @@ export async function validateGeneratedBuild(
   const errors: string[] = [];
 
   try {
-    // ── 1. Write files ─────────────────────────────────────────────────
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
       const fullPath = join(tmpDir, filePath);
@@ -100,7 +101,6 @@ export async function validateGeneratedBuild(
       await writeFile(fullPath, content, "utf-8");
     }
 
-    // ── 2. Create a package.json if the LLM forgot ─────────────────────
     const hasPackageJson = files["package.json"] || files["src/package.json"];
     if (!hasPackageJson) {
       const deps = techStackDeps(techStack);
@@ -125,7 +125,6 @@ export async function validateGeneratedBuild(
       );
     }
 
-    // ── 2b. Python / non-npm stacks ────────────────────────────────────
     const isPython =
       !!files["requirements.txt"] ||
       !!files["pyproject.toml"] ||
@@ -184,7 +183,6 @@ export async function validateGeneratedBuild(
       };
     }
 
-    // Flutter / Dart
     if (files["pubspec.yaml"]) {
       return {
         passed: true,
@@ -197,7 +195,6 @@ export async function validateGeneratedBuild(
       };
     }
 
-    // Chrome / VS Code extensions — structural
     if (files["manifest.json"]) {
       try {
         JSON.parse(files["manifest.json"]);
@@ -237,11 +234,10 @@ export async function validateGeneratedBuild(
           };
         }
       } catch {
-        /* fall through to npm validation */
+        /* fall through */
       }
     }
 
-    // ── 2c. Optional Docker sandbox (Python / Flutter) ───────────────
     const dockerResult = await validateWithDocker(files, techStack);
     if (dockerResult && !dockerResult.skipped) {
       if (!dockerResult.passed) {
@@ -264,8 +260,6 @@ export async function validateGeneratedBuild(
       };
     }
 
-    // ── 3. npm install ─────────────────────────────────────────────────
-    // Pre-flight: if npm is not responding, skip validation gracefully
     const hasNpm = await npmAvailable();
     if (!hasNpm) {
       const isProd = process.env.NODE_ENV === "production";
@@ -273,7 +267,7 @@ export async function validateGeneratedBuild(
         "npm not available in this environment — cannot verify install.",
       );
       return {
-        passed: !isProd, // fail-closed in production
+        passed: !isProd,
         stage: "install",
         errors,
         durationMs: Date.now() - start,
@@ -284,7 +278,6 @@ export async function validateGeneratedBuild(
       };
     }
 
-    // Warm up npm cache (prevents first-run hang)
     await runCommand("npm", ["cache", "verify"], tmpDir, 30_000).catch(
       () => {},
     );
@@ -304,7 +297,6 @@ export async function validateGeneratedBuild(
       { NODE_OPTIONS: "--max-old-space-size=512", ...cacheEnv },
     );
     if (installResult.exitCode !== 0) {
-      // Retry with cache disabled (network-less fallback)
       const cacheless = await runCommand(
         "npm",
         [
@@ -334,12 +326,10 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 4. Type check (if TS files present) ──────────────────────────
     const tsFiles = Object.keys(files).filter(
       (f) => f.endsWith(".ts") || f.endsWith(".tsx"),
     );
     if (tsFiles.length > 0) {
-      // Create minimal tsconfig.json if missing
       const hasTsconfig = files["tsconfig.json"] || files["src/tsconfig.json"];
       if (!hasTsconfig) {
         await writeFile(
@@ -376,7 +366,7 @@ export async function validateGeneratedBuild(
         const tscErrors = tscResult.stdout
           .split("\n")
           .filter((l) => l.includes("error TS"))
-          .slice(0, 10); // Max 10 errors to not flood LLM context
+          .slice(0, 10);
         errors.push(...tscErrors);
         return {
           passed: false,
@@ -390,7 +380,6 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 5. Try to run generated tests ──────────────────────────────────
     if (
       files["src/__tests__/setup.ts"] ||
       files["vitest.config.ts"] ||
@@ -419,7 +408,6 @@ export async function validateGeneratedBuild(
       }
     }
 
-    // ── 6. Build check ─────────────────────────────────────────────────
     if (files["vite.config.ts"] || files["vite.config.js"] || hasPackageJson) {
       const buildResult = await runCommand(
         "npx",
@@ -440,22 +428,31 @@ export async function validateGeneratedBuild(
       }
     }
 
+    let warning =
+      "LLM-generated code passed basic validation. ALWAYS review manually before production use.";
+
+    if (options.validateBilling) {
+      const { validateBillingScaffold } =
+        await import("../services/saasBillingScaffold.js");
+      const billing = validateBillingScaffold(files);
+      if (!billing.passed) {
+        warning += ` Billing scaffold gaps: ${billing.missing.join(", ")}. Configure Stripe env vars before go-live.`;
+      }
+    }
+
     return {
       passed: true,
       stage: "runtime",
       errors: [],
       durationMs: Date.now() - start,
       fileCount: Object.keys(files).length,
-      warning:
-        "LLM-generated code passed basic validation. ALWAYS review manually before production use.",
+      warning,
     };
   } finally {
-    // Cleanup temp directory
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
-/** Map tech stack strings to dependency sets */
 function techStackDeps(techStack: string): {
   prod: Record<string, string>;
   dev: Record<string, string>;
@@ -485,30 +482,16 @@ function techStackDeps(techStack: string): {
     "drizzle-kit": "^0.30.0",
   };
 
-  // Game / 3D / AI stacks need special deps
-  if (techStack.includes("phaser")) {
-    commonProd.phaser = "^3.70.0";
-  }
+  if (techStack.includes("phaser")) commonProd.phaser = "^3.70.0";
   if (techStack.includes("three")) {
     commonProd.three = "^0.160.0";
     commonDev["@types/three"] = "^0.160.0";
   }
-  if (techStack.includes("godot")) {
-    // Godot exports to HTML5 via WebGL; no npm deps needed
-    commonProd["html5-game-engine"] = "stub";
-  }
-  if (techStack.includes("unity")) {
-    commonProd["unity-webgl-loader"] = "stub";
-  }
-  if (techStack.includes("electron")) {
-    commonProd.electron = "^28.0.0";
-  }
-  if (techStack.includes("ai-agent")) {
-    commonProd["ai-agent-sdk"] = "^1.0.0";
-  }
-  if (techStack.includes("openai")) {
-    commonProd.openai = "^4.28.0";
-  }
+  if (techStack.includes("godot")) commonProd["html5-game-engine"] = "stub";
+  if (techStack.includes("unity")) commonProd["unity-webgl-loader"] = "stub";
+  if (techStack.includes("electron")) commonProd.electron = "^28.0.0";
+  if (techStack.includes("ai-agent")) commonProd["ai-agent-sdk"] = "^1.0.0";
+  if (techStack.includes("openai")) commonProd.openai = "^4.28.0";
 
   return { prod: commonProd, dev: commonDev };
 }

@@ -8,6 +8,7 @@ import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { ProjectCodeEditor } from "../components/ProjectCodeEditor.js";
 import { ProjectChat } from "../components/ProjectChat.js";
 import { DeployWizard } from "../components/DeployWizard.js";
+import { RevenueReadinessPanel } from "../components/RevenueReadinessPanel.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
 import { AgentTerminal } from "../components/AgentTerminal.js";
 
@@ -381,6 +382,7 @@ export function Build() {
               deployGuide={deployGuide}
               techStack={project?.techStack}
             />
+            <RevenueReadinessPanel projectId={pid} enabled={canUseWorkspace} />
           </div>
         )}
       </div>

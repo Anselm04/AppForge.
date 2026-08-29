@@ -308,16 +308,28 @@ export const projectsRouter = router({
 
         const { detectRequiredEnvVars, runPostDeploySmokeTest } =
           await import("../services/deployHealth.js");
+        const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } =
+          await import("../lib/revenueReadiness.js");
+        const { normalizeCapabilities } =
+          await import("../lib/buildCapabilities.js");
         const requiredEnv = detectRequiredEnvVars(files);
         const smoke = result.url
           ? await runPostDeploySmokeTest(result.url)
           : null;
+        const caps = normalizeCapabilities(project.buildCapabilities ?? []);
+        const readiness = scanProjectReadiness(files, {
+          incomeIntent:
+            detectIncomeIntent(project.description ?? "") ||
+            caps.includes("fintech"),
+        });
 
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
           ...requiredEnv.map((k) => `Configure ${k} on your host.`),
           "Run database migrations if your stack uses a DB.",
-          "Configure Stripe/webhooks if billing is included.",
+          ...(readiness.stripeDetected
+            ? revenueGoLiveSteps(result.url)
+            : ["Configure Stripe/webhooks if billing is included."]),
           "Review REVIEW.md for known issues from the AI pipeline.",
           ...(smoke && !smoke.ok
             ? [
@@ -554,6 +566,36 @@ export const projectsRouter = router({
         await import("../services/deployHealth.js");
       const files = await getProjectFiles(input.id);
       return detectRequiredEnvVars(files);
+    }),
+
+  revenueReadiness: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      const {
+        scanProjectReadiness,
+        revenueGoLiveSteps,
+        detectIncomeIntent,
+        PLATFORM_INCOME_GAPS,
+      } = await import("../lib/revenueReadiness.js");
+      const { normalizeCapabilities } =
+        await import("../lib/buildCapabilities.js");
+      const files = await getProjectFiles(input.id);
+      const caps = normalizeCapabilities(project.buildCapabilities ?? []);
+      const scan = scanProjectReadiness(files, {
+        incomeIntent:
+          detectIncomeIntent(project.description ?? "") ||
+          caps.includes("fintech"),
+      });
+      return {
+        ...scan,
+        platformGaps: PLATFORM_INCOME_GAPS,
+        goLiveSteps: revenueGoLiveSteps(null),
+      };
     }),
 
   deployHealth: protectedProcedure
