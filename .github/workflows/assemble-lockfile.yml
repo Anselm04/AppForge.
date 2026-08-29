@@ -1,0 +1,27 @@
+name: Assemble lockfile
+
+on:
+  push:
+    branches:
+      - cursor/fix-operational-urgency-5e66
+    paths:
+      - .github/lockfile-parts/**
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble package-lock.json from parts
+        run: cat .github/lockfile-parts/part-* > package-lock.json
+      - name: Commit restored lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "fix: restore package-lock.json (was 1-byte stub breaking npm ci in CI)"
+          git push
