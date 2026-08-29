@@ -8,11 +8,16 @@ import {
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 
 describe("platform comparison", () => {
-  it("tracks features across competitors", () => {
-    expect(PLATFORM_FEATURE_MATRIX.length).toBeGreaterThan(10);
+  it("tracks world-leader extension studios", () => {
+    expect(PLATFORM_FEATURE_MATRIX.length).toBeGreaterThanOrEqual(27);
+    expect(PLATFORM_FEATURE_MATRIX.some((r) => r.id === "game_studio")).toBe(
+      true,
+    );
     expect(
-      PLATFORM_FEATURE_MATRIX.some((r) => r.id === "architecture_bim"),
-    ).toBe(true);
+      PLATFORM_FEATURE_MATRIX.filter(
+        (r) => r.category === "World-leader extensions",
+      ),
+    ).toHaveLength(10);
   });
 
   it("lists all build capabilities", () => {
