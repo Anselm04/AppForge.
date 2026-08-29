@@ -1,19 +1,22 @@
-name: Deploy to Vercel
+name: Deploy to Vercel (manual only)
+
+# Automatic Vercel Git deploys are disabled in vercel.json to avoid rate limits.
+# Production deploys: .github/workflows/deploy-production.yml → Fly.io
+# CI validation: .github/workflows/ci.yml
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type deploy to run a manual Vercel static client deploy"
+        required: true
+        default: ""
 
 jobs:
-  # ============================================
-  # DEPLOYMENT PREVIEW (Pull Requests)
-  # ============================================
-  deploy-preview:
-    name: Deploy Preview
+  deploy-vercel-manual:
+    name: Manual Vercel static deploy
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event.inputs.confirm == 'deploy'
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -22,48 +25,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Pull Vercel project info
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
-
-      - name: Build project
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
-
-      - name: Deploy to Vercel preview
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-  # ============================================
-  # PRODUCTION DEPLOYMENT (Main branch)
-  # ============================================
-  deploy-production:
-    name: Deploy Production
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    timeout-minutes: 15
-    needs: [ci-check]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -73,43 +36,12 @@ jobs:
 
       - name: Pull Vercel project info
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
 
       - name: Deploy to Vercel production
         run: vercel deploy --prod --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
-        continue-on-error: true
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-  # ============================================
-  # CI CHECK - Required before deployment
-  # ============================================
-  ci-check:
-    name: CI Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm run test -- --run
-        continue-on-error: true
-
-      - name: Run build
-        run: npm run build
-        continue-on-error: true
