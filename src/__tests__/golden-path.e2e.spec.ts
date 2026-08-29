@@ -32,6 +32,18 @@ test("build capabilities registry", async () => {
   );
 });
 
+test("billing golden path validator on scaffold", async () => {
+  const { mergeBillingScaffold } =
+    await import("../services/saasBillingScaffold.js");
+  const { validateBillingGoldenPath } =
+    await import("../services/billingE2eValidator.js");
+  const files = mergeBillingScaffold({}, "next-node");
+  const report = validateBillingGoldenPath(files);
+  expect(report.checks.some((c) => c.id === "webhook_db" && c.passed)).toBe(
+    true,
+  );
+});
+
 test("patent reference numeral check", async () => {
   const { checkReferenceNumerals } =
     await import("../lib/patentReferenceCheck.js");
