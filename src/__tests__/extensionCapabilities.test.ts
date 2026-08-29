@@ -2,12 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   EXTENSION_CAPABILITY_IDS,
   EXTENSION_STUDIOS,
+  EXTENSION_GENERATE_PROCEDURE,
   attachPrefixForKind,
 } from "../lib/extensionCapabilities.js";
-import {
-  assertExtensionProcedureCoverage,
-  EXTENSION_GENERATE_PROCEDURE,
-} from "../routers/extensionProcedures.js";
+import { assertExtensionProcedureCoverage } from "../routers/extensionProcedures.js";
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 import { PLATFORM_FEATURE_MATRIX } from "../lib/platformComparison.js";
 

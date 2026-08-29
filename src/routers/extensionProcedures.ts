@@ -5,6 +5,7 @@ import { modelForAgent } from "../lib/llmModels.js";
 import {
   EXTENSION_CAPABILITY_IDS,
   EXTENSION_STUDIOS,
+  EXTENSION_GENERATE_PROCEDURE,
   type ExtensionCapabilityId,
 } from "../lib/extensionCapabilities.js";
 
@@ -64,21 +65,7 @@ export const extensionProcedures = {
   generateCollabRoom: makeGenerate("collab"),
 };
 
-export const EXTENSION_GENERATE_PROCEDURE: Record<
-  ExtensionCapabilityId,
-  keyof typeof extensionProcedures
-> = {
-  game: "generateGameProject",
-  cad: "generateCadProduct",
-  legal: "generateLegalDocuments",
-  fintech: "generateFintechSchema",
-  healthcare: "generateHealthcareConfig",
-  mobile: "generateMobilePackaging",
-  voice: "generateVoicePodcast",
-  data: "generateBiDashboard",
-  localization: "generateLocalizationBundle",
-  collab: "generateCollabRoom",
-};
+export { EXTENSION_GENERATE_PROCEDURE } from "../lib/extensionCapabilities.js";
 
 /** Validates all extension IDs have procedures wired. */
 export function assertExtensionProcedureCoverage(): boolean {
