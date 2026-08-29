@@ -3,10 +3,14 @@
 import {
   billingDbModule,
   billingEntitlementsModule,
+  billingExpressMeRoute,
+  billingMeRoute,
   billingSchemaSql,
+  billingSessionModule,
   billingSetupReadme,
   billingSubscriptionsModule,
   billingWebhookHandlers,
+  requireProComponent,
 } from "../lib/billingScaffoldTemplates.js";
 
 type Files = Record<string, string>;
@@ -25,6 +29,7 @@ export function billingScaffoldFiles(techStack: string): Files {
 
   const checkoutRoute = isNext
     ? `import { NextResponse } from "next/server";
+import { getUserIdFromRequest } from "../../../lib/auth/session.js";
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -38,6 +43,7 @@ export async function POST(req: Request) {
     customerEmail?: string;
     userId?: string;
   };
+  const sessionUserId = getUserIdFromRequest(req) ?? body.userId;
   const priceId = body.priceId ?? process.env.STRIPE_PRICE_ID;
   if (!priceId) {
     return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
@@ -48,13 +54,14 @@ export async function POST(req: Request) {
     success_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/pricing\`,
     customer_email: body.customerEmail,
-    client_reference_id: body.userId ?? body.customerEmail,
-    metadata: body.userId ? { userId: body.userId } : undefined,
+    client_reference_id: sessionUserId ?? body.customerEmail,
+    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
   });
   return NextResponse.json({ url: session.url });
 }
 `
     : `import type { Request, Response } from "express";
+import { getUserIdFromRequest } from "../../lib/auth/session.js";
 
 export async function createCheckoutSession(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -74,14 +81,15 @@ export async function createCheckoutSession(req: Request, res: Response) {
     res.status(400).json({ error: "Missing priceId" });
     return;
   }
+  const sessionUserId = getUserIdFromRequest(req) ?? userId;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: resolvedPrice, quantity: 1 }],
     success_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
     customer_email: customerEmail,
-    client_reference_id: userId ?? customerEmail,
-    metadata: userId ? { userId } : undefined,
+    client_reference_id: sessionUserId ?? customerEmail,
+    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
   });
   res.json({ url: session.url });
 }
@@ -116,15 +124,21 @@ export async function createCheckoutSession(req: Request, res: Response) {
     "src/lib/billing/db.ts": billingDbModule(),
     "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
     "src/lib/billing/entitlements.ts": billingEntitlementsModule(),
+    "src/lib/auth/session.ts": billingSessionModule(),
+    "src/components/RequirePro.tsx": requireProComponent(),
     "database/billing-schema.sql": billingSchemaSql(),
     ...(isNext
       ? {
           "src/app/api/checkout/route.ts": checkoutRoute,
           "src/app/api/webhooks/stripe/route.ts": webhooks.nextRoute,
+          ...(billingMeRoute(isNext)
+            ? { "src/app/api/billing/me/route.ts": billingMeRoute(isNext)! }
+            : {}),
         }
       : {
           "src/server/routes/billing/checkout.ts": checkoutRoute,
           "src/server/routes/billing/webhook.ts": webhooks.expressRoute,
+          "src/server/routes/billing/me.ts": billingExpressMeRoute(),
         }),
     "src/pages/PricingPage.tsx": `import { useState } from "react";
 
@@ -249,6 +263,18 @@ export function validateBillingScaffold(files: Files): {
   }
   if (!content.includes("database_url") && !text.includes("billing/db")) {
     missing.push("DATABASE_URL billing db module");
+  }
+  if (
+    !text.includes("session.ts") &&
+    !content.includes("getuseridfromrequest")
+  ) {
+    missing.push("auth session linked to checkout");
+  }
+  if (
+    !content.includes("requirepro") &&
+    !content.includes("canaccessfeature")
+  ) {
+    missing.push("premium feature gate");
   }
 
   return { passed: missing.length === 0, missing };
