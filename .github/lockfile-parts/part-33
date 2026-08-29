@@ -83,7 +83,7 @@
     "node_modules/human-signals": {
       "version": "8.0.1",
       "resolved": "https://registry.npmjs.org/human-signals/-/human-signals-8.0.1.tgz",
-      "integrity": "sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUBvjmNDn8rpcJfpwSYnHBjc95MQ==",
+      "integrity": "sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==",
       "license": "Apache-2.0",
       "engines": {
         "node": ">=18.18.0"
