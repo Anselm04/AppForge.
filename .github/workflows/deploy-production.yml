@@ -43,7 +43,6 @@ jobs:
     name: Deploy to Fly.io
     needs: validate
     environment: production
-    if: ${{ secrets.FLY_API_TOKEN != '' }}
     timeout-minutes: 25
     steps:
       - name: Checkout
@@ -53,12 +52,15 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      - name: Post-deploy smoke test
         run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::warning::FLY_API_TOKEN is not set — production validated but not deployed."
+            echo "Add FLY_API_TOKEN to GitHub repository secrets. See DEPLOYMENT.md#ci--github-actions"
+            exit 0
+          fi
+          flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
           URL="https://appforge-unfurling-moon-9058.fly.dev"
           for i in $(seq 1 30); do
             if curl -sf "$URL/api/health/live"; then
@@ -71,15 +73,3 @@ jobs:
           done
           echo "Health check failed after deploy"
           exit 1
-
-  fly-secret-missing:
-    runs-on: ubuntu-latest
-    name: Fly deploy skipped (missing secret)
-    needs: validate
-    if: ${{ secrets.FLY_API_TOKEN == '' }}
-    steps:
-      - name: Remind to configure FLY_API_TOKEN
-        run: |
-          echo "::warning::FLY_API_TOKEN is not set — production was validated but not deployed."
-          echo "Add FLY_API_TOKEN to GitHub repository secrets to enable automatic Fly deploys on main."
-          echo "See DEPLOYMENT.md#ci--github-actions"
