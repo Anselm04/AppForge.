@@ -16,7 +16,8 @@
     "layout": "布局",
     "layoutAuto": "自动",
     "layoutPhone": "手机",
-    "layoutDesktop": "桌面"
+    "layoutDesktop": "桌面",
+    "pricing": "定价"
   },
   "home": {
     "tagline": "用 AI 构建全栈 Web 应用。描述你的想法，即可获得可上线的代码。",
@@ -71,7 +72,10 @@
     "pending": "正在登录…",
     "failed": "登录失败。",
     "newTo": "还没有 AppForge 账号？",
-    "createAccount": "创建账号"
+    "createAccount": "创建账号",
+    "ssoFailed": "企业 SSO 登录失败。请重试或使用密码。",
+    "signInWithSso": "使用 SSO 登录",
+    "ssoUses": "{org} 使用企业 SSO（{provider}）。"
   },
   "signup": {
     "title": "创建账号",
@@ -147,7 +151,11 @@
     "planner": "规划积分",
     "coder": "编码积分",
     "reviewer": "审查积分",
-    "howFooter": "一次完整构建通常消耗 6 积分（2 + 3 + 1）。若中途用尽，项目会暂停，你可以补充积分或升级方案。未使用积分可结转 30 天。"
+    "howFooter": "一次完整构建通常消耗 6 积分（2 + 3 + 1）。若中途用尽，项目会暂停，你可以补充积分或升级方案。未使用积分可结转 30 天。",
+    "creditsNote": "构建开始时各预留 {buildCost} 积分。Senior Dev 会话消耗 {seniorCost} 积分。Enterprise 需联系销售（无自助结账）。",
+    "checkoutNoUrl": "结账未返回支付 URL。",
+    "checkoutFailed": "结账失败",
+    "creditCheckoutFailed": "积分结账失败"
   },
   "credits": {
     "title": "积分不足 — 工作已暂停",
@@ -159,10 +167,634 @@
   "footer": {
     "founder": "Anselm Perkins · 创始人兼首席执行官",
     "ownerOf": "AppForge 与 TrillionAI Tech 所有者",
-    "about": "关于"
+    "about": "关于",
+    "tagline": "TrillionAI Tech 的 AI 应用构建器 — 规划、编码、审查、部署。",
+    "product": "产品",
+    "company": "公司",
+    "help": "帮助中心",
+    "pricing": "定价",
+    "rights": "保留所有权利。"
   },
   "about": {
     "title": "关于 AppForge",
     "body": "AppForge 是 TrillionAI Tech 的 AI 应用构建器。Anselm Perkins 是创始人兼首席执行官，也是 AppForge 与 TrillionAI Tech 的所有者。"
+  },
+  "common": {
+    "noResults": "未找到结果。",
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "landing": {
+    "metaTitle": "用 AI 构建全栈应用",
+    "metaDesc": "AppForge 通过多智能体流水线将想法变为生产代码。",
+    "navFeatures": "功能",
+    "navPricing": "定价",
+    "navDiscover": "发现",
+    "navHelp": "帮助",
+    "heroTitle": "用 AI 智能体打造生产级应用",
+    "heroSubtitle": "描述您的想法。AppForge 规划、编码、审查并部署 — 内置模板、计费和团队工具。",
+    "ctaPrimary": "开始构建",
+    "ctaSecondary": "查看定价",
+    "featuresTitle": "发布所需的一切",
+    "featuresSubtitle": "从首个提示到生产部署 — 一个平台。",
+    "learnMore": "了解更多",
+    "allFeatures": "探索所有功能",
+    "howTitle": "工作原理",
+    "howSubtitle": "从想法到上线应用的三步。",
+    "howStep1Title": "描述您的应用",
+    "howStep1Body": "告诉 AppForge 您想要什么 — 技术栈、功能和设计偏好。",
+    "howStep2Title": "智能体构建",
+    "howStep2Body": "规划、编码和审查智能体生成并验证生产代码。",
+    "howStep3Title": "部署与增长",
+    "howStep3Body": "一键部署、计费设置、分析和团队协作。",
+    "pricingTitle": "简单透明的定价",
+    "pricingSubtitle": "免费开始。准备好发布时再升级。",
+    "pricingBlurb": "免费层包含每月 3 次构建。付费计划增加积分、优先队列和团队功能。",
+    "viewPlans": "比较计划",
+    "trustedBy": "受到全球构建者信赖",
+    "faqTitle": "常见问题",
+    "faq": {
+      "q1": "AppForge 支持哪些技术栈？",
+      "q1A": "React、Next.js、Vue、移动脚手架、API、游戏和扩展工作室。",
+      "q2": "可以导出代码吗？",
+      "q2A": "可以 — 随时导出到 GitHub 并部署到 Fly.io 或 Vercel。",
+      "q3": "积分如何工作？",
+      "q3A": "每个构建阶段消耗积分。未使用的积分保留 30 天。"
+    }
+  },
+  "discover": {
+    "title": "发现",
+    "subtitle": "探索 AppForge 功能",
+    "recommended": "推荐",
+    "new": "新",
+    "core": "核心平台"
+  },
+  "settings": {
+    "title": "设置",
+    "displayName": "显示名称",
+    "email": "电子邮件",
+    "tabs": {
+      "account": "账户",
+      "security": "安全",
+      "notifications": "通知",
+      "billing": "计费",
+      "language": "语言"
+    }
+  },
+  "help": {
+    "title": "帮助中心",
+    "subtitle": "指南、计费、部署和智能体",
+    "search": "搜索帮助文章…",
+    "topics": {
+      "gettingStarted": {
+        "title": "入门",
+        "body": "创建账户、运行首次构建并部署。"
+      },
+      "billing": {
+        "title": "计费与积分",
+        "body": "计划、试用、积分包和暂停的构建。"
+      },
+      "deploy": {
+        "title": "部署与托管",
+        "body": "Fly.io、Vercel、环境变量和健康检查。"
+      },
+      "agents": {
+        "title": "AI 智能体",
+        "body": "规划、编码、审查和 Senior Dev 工作流。"
+      }
+    }
+  },
+  "notFound": {
+    "title": "页面未找到",
+    "body": "您查找的页面不存在或已移动。",
+    "home": "返回首页"
+  },
+  "dashboard": {
+    "searchPlaceholder": "搜索命令…",
+    "notifications": "通知",
+    "profile": "个人资料",
+    "signInPrompt": "登录以查看您的应用。",
+    "signIn": "登录",
+    "currentPlan": "当前计划",
+    "active": "有效",
+    "buildsThisMonth": "本月构建",
+    "credits": "积分",
+    "getCredits": "获取积分",
+    "upgrade": "升级",
+    "myApps": "我的应用",
+    "redeemCode": "兑换码",
+    "newApp": "新应用",
+    "noApps": "您还没有创建任何应用。",
+    "createFirst": "创建您的第一个应用",
+    "viewBuild": "查看构建",
+    "improve": "改进",
+    "newBuild": "新构建",
+    "stats": {
+      "totalBuilds": "总构建数",
+      "successful": "成功",
+      "successRate": "成功率",
+      "deploys": "部署"
+    }
+  },
+  "sidebar": {
+    "build": "构建",
+    "ship": "发布",
+    "team": "团队",
+    "insights": "洞察",
+    "discover": "发现",
+    "studios": "创意工作室"
+  },
+  "onboarding": {
+    "title": "欢迎使用 AppForge",
+    "subtitle": "个性化您的工作区",
+    "welcomeTitle": "欢迎加入",
+    "welcomeBody": "告诉我们一些关于您的信息以便定制建议。",
+    "nameLabel": "您的姓名",
+    "namePlaceholder": "Alex",
+    "stackTitle": "首选技术栈",
+    "stackBody": "选择默认值 — 每个项目可更改。",
+    "stacks": {
+      "react": "React + Vite",
+      "next": "Next.js",
+      "vue": "Vue",
+      "mobile": "Mobile / Expo"
+    },
+    "goalTitle": "您在构建什么？",
+    "goalBody": "一句话即可 — 我们会推荐模板。",
+    "goalLabel": "项目目标",
+    "goalPlaceholder": "我的沙龙预约应用…",
+    "doneTitle": "一切就绪",
+    "doneBody": "前往构建器并描述您的第一个应用。",
+    "continue": "继续",
+    "back": "返回"
+  },
+  "changelog": {
+    "title": "更新日志",
+    "subtitle": "AppForge 新功能",
+    "latest": "最新",
+    "items": {
+      "premium": "高级营销站点、仪表板外壳和设计系统",
+      "onboarding": "新用户引导向导",
+      "cmdk": "命令面板 (⌘K) 快速导航",
+      "billing": "关联 Stripe 结账和 RequirePro 门控",
+      "studios": "游戏、CAD、法律等扩展工作室",
+      "agents": "带 Senior Dev 审查的多智能体流水线",
+      "deploy": "Fly.io 生产部署工作流"
+    }
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "subtitle": "在 AppForge 中更快移动",
+    "actions": {
+      "commandPalette": "打开命令面板",
+      "generate": "生成 / 提交",
+      "save": "保存项目",
+      "build": "开始构建",
+      "search": "聚焦搜索",
+      "close": "关闭面板 / 模态框"
+    }
+  },
+  "feedback": {
+    "title": "反馈看板",
+    "subtitle": "帮助塑造 AppForge",
+    "submitTitle": "提交想法",
+    "ideaLabel": "您的想法",
+    "ideaPlaceholder": "我希望看到…",
+    "submit": "提交反馈",
+    "thanks": "感谢 — 我们审查每条提交。",
+    "topRequests": "热门请求",
+    "votes": "{n} 票",
+    "requests": {
+      "dark-mode": "浅色 / 深色主题切换",
+      "figma-import": "从 Figma 导入",
+      "team-workspaces": "团队工作区"
+    },
+    "status": {
+      "planned": "已计划",
+      "review": "审核中",
+      "shipped": "已发布"
+    }
+  },
+  "health": {
+    "title": "项目健康",
+    "subtitle": "工作区部署前检查",
+    "scanNow": "运行扫描",
+    "checks": {
+      "env": {
+        "title": "环境变量",
+        "body": "已配置所需的密钥和 API 密钥。"
+      },
+      "deps": {
+        "title": "依赖项",
+        "body": "直接依赖中没有严重漏洞。"
+      },
+      "security": {
+        "title": "安全头",
+        "body": "存在 CSP、HSTS 和认证中间件。"
+      },
+      "performance": {
+        "title": "性能",
+        "body": "包大小和懒加载路由在目标范围内。"
+      }
+    }
+  },
+  "usage": {
+    "title": "使用与预测",
+    "subtitle": "积分、构建和预计支出",
+    "metrics": {
+      "credits": "剩余积分",
+      "builds": "本月构建",
+      "forecast": "预测 (30天)"
+    },
+    "values": {
+      "credits": "142",
+      "builds": "8 / 66",
+      "forecast": "~$24"
+    },
+    "chartTitle": "积分使用",
+    "chartSubtitle": "过去 6 个月",
+    "months": {
+      "jan": "1月",
+      "feb": "2月",
+      "mar": "3月",
+      "apr": "4月",
+      "may": "5月",
+      "jun": "6月"
+    }
+  },
+  "analyticsPage": {
+    "title": "分析",
+    "subtitle": "工作区指标一览",
+    "metrics": {
+      "views": "预览浏览",
+      "signups": "注册",
+      "builds": "构建",
+      "deploys": "部署"
+    },
+    "values": {
+      "views": "1,284",
+      "signups": "86",
+      "builds": "312",
+      "deploys": "47"
+    },
+    "delta": {
+      "views": "较上周 +12%",
+      "signups": "+8%",
+      "builds": "+15%",
+      "deploys": "+5%"
+    }
+  },
+  "features": {
+    "badge": "平台功能",
+    "tryIt": "立即试用",
+    "viewPricing": "查看定价",
+    "howItWorks": "工作原理",
+    "step": "步骤 {n}",
+    "bestResults": "最佳实践",
+    "whoItsFor": "适用对象",
+    "interactive": "交互演示",
+    "orchestrator": {
+      "title": "多智能体编排器",
+      "hero": "规划、编码和审查智能体并行工作，更快交付应用。",
+      "howIntro": "多智能体编排器 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "livePreview": {
+      "title": "实时预览",
+      "hero": "智能体编写代码时实时查看应用更新——桌面和移动视图。",
+      "howIntro": "实时预览 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "deploy": {
+      "title": "一键部署",
+      "hero": "一键推送到 Fly.io 或 Vercel，支持健康检查和回滚。",
+      "howIntro": "一键部署 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "databaseWizard": {
+      "title": "数据库向导",
+      "hero": "在几分钟内配置 Postgres、运行迁移并连接认证。",
+      "howIntro": "数据库向导 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "templates": {
+      "title": "模板市场",
+      "hero": "从 SaaS、仪表板等生产就绪脚手架开始。",
+      "howIntro": "模板市场 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "versionHistory": {
+      "title": "版本历史",
+      "hero": "审查、恢复和比较项目版本。",
+      "howIntro": "版本历史 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "collaboration": {
+      "title": "团队协作",
+      "hero": "与团队实时协作，支持角色和实时视图。",
+      "howIntro": "团队协作 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "analytics": {
+      "title": "构建分析",
+      "hero": "跟踪构建成功率、积分使用和部署健康。",
+      "howIntro": "构建分析 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "billing": {
+      "title": "灵活计费",
+      "hero": "计划、试用和积分包——达到限制时优雅暂停构建。",
+      "howIntro": "灵活计费 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "integrations": {
+      "title": "集成中心",
+      "hero": "在一个设置面板中连接 GitHub、Stripe、Supabase 和 SSO。",
+      "howIntro": "集成中心 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "onboardingAssistant": {
+      "title": "AI 入门助手",
+      "hero": "根据技术栈、目标和经验水平获得引导式设置。",
+      "howIntro": "AI 入门助手 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "changelog": {
+      "title": "产品更新日志",
+      "hero": "查看已发布内容、计划功能并订阅发布说明。",
+      "howIntro": "产品更新日志 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "shortcuts": {
+      "title": "键盘快捷键",
+      "hero": "搜索、构建、保存和导航的高级用户快捷键。",
+      "howIntro": "键盘快捷键 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "healthScanner": {
+      "title": "项目健康扫描",
+      "hero": "部署前扫描环境变量、依赖项和安全性。",
+      "howIntro": "项目健康扫描 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "costForecast": {
+      "title": "成本预测",
+      "hero": "在构建暂停前预测积分消耗并规划升级。",
+      "howIntro": "成本预测 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "templateSuggest": {
+      "title": "智能模板推荐",
+      "hero": "AI 根据提示推荐最佳起始模板。",
+      "howIntro": "智能模板推荐 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "feedbackBoard": {
+      "title": "反馈看板",
+      "hero": "为功能投票、提交想法并跟踪开发进度。",
+      "howIntro": "反馈看板 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "seniorDev": {
+      "title": "高级开发智能体",
+      "hero": "深度代码审查、架构建议和生产加固。",
+      "howIntro": "高级开发智能体 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    },
+    "revenueReadiness": {
+      "title": "收入就绪",
+      "hero": "Stripe 计费脚手架、认证门控和发布清单。",
+      "howIntro": "收入就绪 在 AppForge 中的工作方式。",
+      "step1": "连接项目或从模板开始。",
+      "step2": "AppForge 智能体配置并验证工作流。",
+      "step3": "通过部署钩子、监控和回滚功能上线。",
+      "bestIntro": "获得最佳结果的提示。",
+      "best1": "编写包含技术栈和约束的清晰提示。",
+      "best2": "部署到生产环境前审查智能体输出。",
+      "best3": "上线前使用健康扫描和收入就绪检查。",
+      "whoIntro": "为各阶段的构建者打造。",
+      "persona1Title": "独立创始人",
+      "persona1Body": "无需完整团队即可从想法到部署 MVP。",
+      "persona2Title": "产品团队",
+      "persona2Body": "在组织内标准化构建、计费和部署。",
+      "demoIntro": "在下方尝试交互式预览。"
+    }
   }
 }

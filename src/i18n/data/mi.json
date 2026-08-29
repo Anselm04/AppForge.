@@ -16,7 +16,8 @@
     "layout": "Layout",
     "layoutAuto": "Auto",
     "layoutPhone": "Phone",
-    "layoutDesktop": "Desktop"
+    "layoutDesktop": "Desktop",
+    "pricing": "Utu"
   },
   "home": {
     "tagline": "Hangaia ngā taupānga tukutuku katoa mā te AI. Whakaahuatia tō whakaaro, ka whiwhi waehere whakaputa.",
@@ -71,7 +72,10 @@
     "pending": "Kei te takiuru...",
     "failed": "I rahua te takiuru.",
     "newTo": "He hou ki AppForge?",
-    "createAccount": "Waihangatia he pūkete"
+    "createAccount": "Waihangatia he pūkete",
+    "ssoFailed": "I rahua te takiuru SSO hinonga. Ngana anō, whakamahia te kupuhipa.",
+    "signInWithSso": "Takiuru mā SSO",
+    "ssoUses": "Ka whakamahi a {org} i te SSO hinonga ({provider})."
   },
   "signup": {
     "title": "Waihangatia tō pūkete",
@@ -147,7 +151,11 @@
     "planner": "Nama kaimahere",
     "coder": "Nama kaiwaehere",
     "reviewer": "Nama kaiarotake",
-    "howFooter": "E 6 ngā nama o te hanganga katoa (2 + 3 + 1). Ki te pau i waenganui, ka okioki tō kaupapa, ā, ka taea e koe te tāpiri nama, te whakapai ake rānei i tō mahere. Ka pūmau ngā nama kāore i whakamahia mō ngā rā 30."
+    "howFooter": "E 6 ngā nama o te hanganga katoa (2 + 3 + 1). Ki te pau i waenganui, ka okioki tō kaupapa, ā, ka taea e koe te tāpiri nama, te whakapai ake rānei i tō mahere. Ka pūmau ngā nama kāore i whakamahia mō ngā rā 30.",
+    "creditsNote": "Ka rāhuitia {buildCost} nama mō ia hanganga ina tīmata. E {seniorCost} ngā nama mō ngā wātaka Kaiwaehere Matua. He hokonga te Hinonga — whakapā mai i raro (kāore he utu-a-kiri).",
+    "checkoutNoUrl": "Kāore i whakahokia he URL utu.",
+    "checkoutFailed": "I rahua te utu.",
+    "creditCheckoutFailed": "I rahua te utu nama."
   },
   "credits": {
     "title": "Kua pau ngā nama — kua okioki te mahi",
@@ -159,10 +167,634 @@
   "footer": {
     "founder": "Anselm Perkins · Founder & CEO",
     "ownerOf": "Owner of AppForge and TrillionAI Tech",
-    "about": "About"
+    "about": "About",
+    "tagline": "Kaihanga taupānga AI nā TrillionAI Tech — whakamahere, waehere, arotake, tuku.",
+    "product": "Hua",
+    "company": "Kamupene",
+    "help": "Pokapū Āwhina",
+    "pricing": "Utu",
+    "rights": "Kua rāhuitia ngā mana katoa."
   },
   "about": {
     "title": "About AppForge",
     "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
+  },
+  "common": {
+    "noResults": "Kāore he hua.",
+    "loading": "Kei te uta...",
+    "save": "Tiaki",
+    "cancel": "Whakakore"
+  },
+  "landing": {
+    "metaTitle": "Hangaia ngā taupānga katoa mā te AI",
+    "metaDesc": "Ka huri a AppForge i ngā whakaaro ki waehere whakaputa mā ngā paipa kaihoko-maha.",
+    "navFeatures": "Āhuatanga",
+    "navPricing": "Utu",
+    "navDiscover": "Tūhura",
+    "navHelp": "Āwhina",
+    "heroTitle": "Waihangatia ngā taupānga whakaputa mā ngā kaihoko AI",
+    "heroSubtitle": "Whakaahuatia tō whakaaro. Ka whakamahere, waehere, arotake, tuku hoki a AppForge — me ngā tātauira, utu, me ngā utauta tīma.",
+    "ctaPrimary": "Tīmata te hanga",
+    "ctaSecondary": "Tirohia ngā utu",
+    "featuresTitle": "Ngā mea katoa e hiahiatia ana kia tuku",
+    "featuresSubtitle": "Mai i te tono tuatahi ki te tuku whakaputa — kotahi te papa.",
+    "learnMore": "Akona atu anō",
+    "allFeatures": "Tūhura i ngā āhuatanga katoa",
+    "howTitle": "Pēhea e mahi ai",
+    "howSubtitle": "E toru ngā hipanga mai i te whakaaro ki te taupānga ora.",
+    "howStep1Title": "Whakaahuatia tō taupānga",
+    "howStep1Body": "Kōrero ki a AppForge ngā mea e hiahia ana koe — kāheu, āhuatanga, me ngā hiahia hoahoa.",
+    "howStep2Title": "Ka hanga ngā kaihoko",
+    "howStep2Body": "Ka waihanga me te whakaū ngā kaihoko Kaimahere, Kaiwaehere, me Kaiarotake i te waehere whakaputa.",
+    "howStep3Title": "Tuku me te whakatipu",
+    "howStep3Body": "Tuku kotahi-pāwhiri, whirihora utu, tātaritanga, me te mahi tahi ā-tīma.",
+    "pricingTitle": "Utu mārama, pūmau",
+    "pricingSubtitle": "Tīmata koreutu. Whakapai ake ina rite koe ki te tuku.",
+    "pricingBlurb": "Kei te taumata koreutu e 3 hanganga/marama. Ka tāpiri ngā mahere utu i ngā nama, rārangi matua, me ngā āhuatanga tīma.",
+    "viewPlans": "Whakatairite ngā mahere",
+    "trustedBy": "E whakawhirinakitia ana e ngā kaihanga puta noa i te ao",
+    "faqTitle": "Ngā pātai auau",
+    "faq": {
+      "q1": "He aha ngā kāheu e tautokona ana e AppForge?",
+      "q1A": "React, Next.js, Vue, tātaritanga pūkoro, API, kēmu, me ngā taiwhanga toronga.",
+      "q2": "Ka taea e au te kaweake i taku waehere?",
+      "q2A": "Āe — kaweake ki GitHub, tuku ki Fly.io, Vercel rānei i ngā wā katoa.",
+      "q3": "Pēhea ngā nama e mahi ai?",
+      "q3A": "Ka pau ngā nama i ia wāhanga hanganga. Ka pūmau ngā nama kāore i whakamahia mō ngā rā 30."
+    }
+  },
+  "discover": {
+    "title": "Tūhura",
+    "subtitle": "Tūhura i ngā āheinga AppForge",
+    "recommended": "Tūtohutia",
+    "new": "Hou",
+    "core": "Papa taketake"
+  },
+  "settings": {
+    "title": "Tautuhinga",
+    "displayName": "Ingoa whakaatu",
+    "email": "Īmēra",
+    "tabs": {
+      "account": "Pūkete",
+      "security": "Haumarutanga",
+      "notifications": "Whakamōhiotanga",
+      "billing": "Utu",
+      "language": "Reo"
+    }
+  },
+  "help": {
+    "title": "Pokapū Āwhina",
+    "subtitle": "Aratohu, utu, tuku, me ngā kaihoko",
+    "search": "Rapua ngā tuhinga āwhina…",
+    "topics": {
+      "gettingStarted": {
+        "title": "Tīmata",
+        "body": "Waihangatia he pūkete, whakahaere tō hanganga tuatahi, tuku."
+      },
+      "billing": {
+        "title": "Utu me ngā nama",
+        "body": "Ngā mahere, whakamātautau, pūkete nama, me ngā hanganga kua okioki."
+      },
+      "deploy": {
+        "title": "Tuku me te manaaki",
+        "body": "Fly.io, Vercel, taeonga taiao, me ngā tirohanga hauora."
+      },
+      "agents": {
+        "title": "Ngā kaihoko AI",
+        "body": "Ngā rerenga Kaimahere, Kaiwaehere, Kaiarotake, me Kaiwaehere Matua."
+      }
+    }
+  },
+  "notFound": {
+    "title": "Kāore i kitea te whārangi",
+    "body": "Kāore te whārangi e rapu ana i te mea e tīkina ana, kua nekehia rānei.",
+    "home": "Hoki ki te kāinga"
+  },
+  "dashboard": {
+    "searchPlaceholder": "Rapua ngā tono…",
+    "notifications": "Whakamōhiotanga",
+    "profile": "Kōtaha",
+    "signInPrompt": "Takiuru kia kite i ō taupānga.",
+    "signIn": "Takiuru",
+    "currentPlan": "Mahere o nāianei",
+    "active": "Hohe",
+    "buildsThisMonth": "Ngā hanganga i tēnei marama",
+    "credits": "Nama",
+    "getCredits": "Tiki nama",
+    "upgrade": "Whakapai ake",
+    "myApps": "Aku Taupānga",
+    "redeemCode": "Hoko waehere",
+    "newApp": "Taupānga Hou",
+    "noApps": "Kāore anō koe kia waihanga taupānga.",
+    "createFirst": "Waihangatia tō taupānga tuatahi",
+    "viewBuild": "Tirohia te hanganga",
+    "improve": "Whakapai ake",
+    "newBuild": "Hanganga hou",
+    "stats": {
+      "totalBuilds": "Ngā hanganga katoa",
+      "successful": "Angitu",
+      "successRate": "Reiti angitu",
+      "deploys": "Ngā tuku"
+    }
+  },
+  "sidebar": {
+    "build": "Hanga",
+    "ship": "Tuku",
+    "team": "Tīma",
+    "insights": "Māramatanga",
+    "discover": "Tūhura",
+    "studios": "Ngā taiwhanga auaha"
+  },
+  "onboarding": {
+    "title": "Nau mai ki AppForge",
+    "subtitle": "Kia whakawhitiwhiti tō wāhi mahi",
+    "welcomeTitle": "Nau mai",
+    "welcomeBody": "Kōrero mōu kia taea e mātou te whakarite i ngā tūtohu.",
+    "nameLabel": "Tō ingoa",
+    "namePlaceholder": "Alex",
+    "stackTitle": "Kāheu manakohia",
+    "stackBody": "Kōwhiria tētahi taunoa — ka taea te huri i ia kaupapa.",
+    "stacks": {
+      "react": "React + Vite",
+      "next": "Next.js",
+      "vue": "Vue",
+      "mobile": "Pūkoro / Expo"
+    },
+    "goalTitle": "He aha kei te hanga?",
+    "goalBody": "Kotahi te rerenga — ka tūtohu mātou i ngā tātauira.",
+    "goalLabel": "Whāinga kaupapa",
+    "goalPlaceholder": "He taupānga rāhuitanga mō tōu salon…",
+    "doneTitle": "Kua rite koe",
+    "doneBody": "Haere ki te kaihanga, whakaahuatia tō taupānga tuatahi.",
+    "continue": "Haere tonu",
+    "back": "Hoki"
+  },
+  "changelog": {
+    "title": "Rārangi huringa",
+    "subtitle": "He aha te hou i AppForge",
+    "latest": "Hou rawa",
+    "items": {
+      "premium": "Pae whakatairanga premium, anga papatohu, me te punaha hoahoa",
+      "onboarding": "Rangatira onboarding ārahi mō ngā kaiwhakamahi hou",
+      "cmdk": "Paewhiri tono (⌘K) mō te whakatere tere",
+      "billing": "Utu Stripe hono takiuru me te kuwaha RequirePro",
+      "studios": "Ngā taiwhanga toronga mō kēmu, CAD, ture, me ētahi atu",
+      "agents": "Paipa kaihoko-maha me te arotake Kaiwaehere Matua",
+      "deploy": "Rerenga tuku whakaputa Fly.io"
+    }
+  },
+  "shortcuts": {
+    "title": "Ngā pokatata papanui",
+    "subtitle": "Neke tere puta noa i AppForge",
+    "actions": {
+      "commandPalette": "Whakatuwhera paewhiri tono",
+      "generate": "Waihanga / tuku",
+      "save": "Tiaki kaupapa",
+      "build": "Tīmata hanganga",
+      "search": "Arotahi rapu",
+      "close": "Katia paewhiri / modal"
+    }
+  },
+  "feedback": {
+    "title": "Papa urupare",
+    "subtitle": "Āwhina ki te whakahāngai i AppForge",
+    "submitTitle": "Tukuna he whakaaro",
+    "ideaLabel": "Tō whakaaro",
+    "ideaPlaceholder": "Ka pai ki a au te kite i…",
+    "submit": "Tukuna urupare",
+    "thanks": "Ngā mihi — ka arotake mātou i ia tukunga.",
+    "topRequests": "Ngā tono matua",
+    "votes": "{n} pōti",
+    "requests": {
+      "dark-mode": "Whakawhiti aratau mārama / pōuri",
+      "figma-import": "Kawemai mai i Figma",
+      "team-workspaces": "Ngā wāhi mahi tīma"
+    },
+    "status": {
+      "planned": "Kua whakaritea",
+      "review": "Kei te arotake",
+      "shipped": "Kua tukuna"
+    }
+  },
+  "health": {
+    "title": "Hauora kaupapa",
+    "subtitle": "Ngā tirohanga i mua i te tuku mō tō wāhi mahi",
+    "scanNow": "Whakahaere mātai",
+    "checks": {
+      "env": {
+        "title": "Ngā taeonga taiao",
+        "body": "Kua whirihorahia ngā huna me ngā kī API e hiahiatia ana."
+      },
+      "deps": {
+        "title": "Ngā whakawhirinaki",
+        "body": "Kāore he ngoikoretanga kritika i ngā whakawhirinaki tōtika."
+      },
+      "security": {
+        "title": "Ngā upoko haumarutanga",
+        "body": "Kei te CSP, HSTS, me te middleware takiuru."
+      },
+      "performance": {
+        "title": "Mahinga",
+        "body": "Te rahi pūkei me ngā ara pūtōtara kei roto i ngā whāinga."
+      }
+    }
+  },
+  "usage": {
+    "title": "Whakamahinga me te matapae",
+    "subtitle": "Nama, hanganga, me te whakapaunga matapae",
+    "metrics": {
+      "credits": "Nama e toe ana",
+      "builds": "Ngā hanganga i tēnei marama",
+      "forecast": "Matapae (30 rā)"
+    },
+    "values": {
+      "credits": "142",
+      "builds": "8 / 66",
+      "forecast": "~$24"
+    },
+    "chartTitle": "Whakamahinga nama",
+    "chartSubtitle": "Ngā marama 6 kua hipa",
+    "months": {
+      "jan": "Hānu",
+      "feb": "Pēpu",
+      "mar": "Māe",
+      "apr": "Āper",
+      "may": "Mei",
+      "jun": "Hune"
+    }
+  },
+  "analyticsPage": {
+    "title": "Tātaritanga",
+    "subtitle": "Ngā inenga wāhi mahi i te titiro",
+    "metrics": {
+      "views": "Ngā tirohanga arokite",
+      "signups": "Ngā rēhitatanga",
+      "builds": "Ngā hanganga",
+      "deploys": "Ngā tuku"
+    },
+    "values": {
+      "views": "1,284",
+      "signups": "86",
+      "builds": "312",
+      "deploys": "47"
+    },
+    "delta": {
+      "views": "+12% i te wiki kua hipa",
+      "signups": "+8%",
+      "builds": "+15%",
+      "deploys": "+5%"
+    }
+  },
+  "features": {
+    "badge": "Āhuatanga papa",
+    "tryIt": "Whakamātau ināianei",
+    "viewPricing": "Tirohia ngā utu",
+    "howItWorks": "Pēhea e mahi ai",
+    "step": "Hipanga {n}",
+    "bestResults": "Ngā hua pai rawa",
+    "whoItsFor": "Mō wai",
+    "interactive": "Whakaaturanga whakawhitiwhiti",
+    "orchestrator": {
+      "title": "Kaiwhakahaere Kaihoko-Maha",
+      "hero": "Ka mahi tahi ngā kaihoko Kaimahere, Kaiwaehere, me Kaiarotake hei tuku tere i tō taupānga.",
+      "howIntro": "Pēhea te mahi a Kaiwhakahaere Kaihoko-Maha i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "livePreview": {
+      "title": "Tirohanga Ora",
+      "hero": "Tirohia tō taupānga e whakahou ana i te wā tūturu — tirohanga rorohiko me pūkoro.",
+      "howIntro": "Pēhea te mahi a Tirohanga Ora i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "deploy": {
+      "title": "Tuku Kotahi-Pāwhiri",
+      "hero": "Tukuna ki Fly.io, Vercel rānei me ngā tirohanga hauora me te tautoko whakahoki.",
+      "howIntro": "Pēhea te mahi a Tuku Kotahi-Pāwhiri i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "databaseWizard": {
+      "title": "Rangatira Pātengi Raraunga",
+      "hero": "Whakaritea Postgres, whakahaere whakawhiti, me te tūhono takiuru i roto i ngā meneti.",
+      "howIntro": "Pēhea te mahi a Rangatira Pātengi Raraunga i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "templates": {
+      "title": "Mākete Tātauira",
+      "hero": "Tīmata mai i ngā tātauira kua rite mō SaaS, papatohu, me ētahi atu.",
+      "howIntro": "Pēhea te mahi a Mākete Tātauira i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "versionHistory": {
+      "title": "Hītori Putanga",
+      "hero": "Arotake, whakahoki, whakatairite hoki i ngā putanga o tō kaupapa.",
+      "howIntro": "Pēhea te mahi a Hītori Putanga i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "collaboration": {
+      "title": "Mahi Tahi ā-Tīma",
+      "hero": "Mahi tahi me ngā tīma me ngā urunga manakore me ngā tirohanga ora.",
+      "howIntro": "Pēhea te mahi a Mahi Tahi ā-Tīma i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "analytics": {
+      "title": "Tātaritanga Hanganga",
+      "hero": "Aroturuki i te angitū hanganga, te whakamahinga nama, me te hauora tuku.",
+      "howIntro": "Pēhea te mahi a Tātaritanga Hanganga i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "billing": {
+      "title": "Utunga Ngawari",
+      "hero": "Ngā mahere, whakamātautau, me ngā pūkete nama — okioki ātaahua ina pau ngā rohe.",
+      "howIntro": "Pēhea te mahi a Utunga Ngawari i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "integrations": {
+      "title": "Pū Tūhononga",
+      "hero": "Tūhono GitHub, Stripe, Supabase, me SSO mai i tētahi paewhiri tautuhinga.",
+      "howIntro": "Pēhea te mahi a Pū Tūhononga i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "onboardingAssistant": {
+      "title": "Kaiāwhina Onboarding AI",
+      "hero": "Whiwhi tautuhi ārahi i runga i tō kāheu, ō whāinga, me tō taumata wheako.",
+      "howIntro": "Pēhea te mahi a Kaiāwhina Onboarding AI i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "changelog": {
+      "title": "Rārangi Huringa Hua",
+      "hero": "Tirohia ngā mea kua tukuna, ngā mea kua whakaritea, me te ohauru ki ngā panui.",
+      "howIntro": "Pēhea te mahi a Rārangi Huringa Hua i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "shortcuts": {
+      "title": "Ngā Pokatata Papanui",
+      "hero": "Ngā pokatata kaiwhakamahi kaha mō te rapu, hanga, tiaki, me te whakatere.",
+      "howIntro": "Pēhea te mahi a Ngā Pokatata Papanui i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "healthScanner": {
+      "title": "Mātai Hauora Kaupapa",
+      "hero": "Matai ngā taeonga taiao, ngā whakawhirinaki, me te haumarutanga i mua i te tuku.",
+      "howIntro": "Pēhea te mahi a Mātai Hauora Kaupapa i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "costForecast": {
+      "title": "Matapae Utu",
+      "hero": "Matapae i te pau nama me te whakamahere whakapai ake i mua i te okiokinga hanganga.",
+      "howIntro": "Pēhea te mahi a Matapae Utu i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "templateSuggest": {
+      "title": "Tūtohu Tātauira Atamai",
+      "hero": "Ka tūtohu te AI i te tātauira tīmata pai rawa mai i tō tono.",
+      "howIntro": "Pēhea te mahi a Tūtohu Tātauira Atamai i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "feedbackBoard": {
+      "title": "Papa Urupare",
+      "hero": "Pōti mō ngā āhuatanga, tukuna whakaaro, me te aroturuki i ngā mea kei te hanga.",
+      "howIntro": "Pēhea te mahi a Papa Urupare i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "seniorDev": {
+      "title": "Kaihoko Kaiwaehere Matua",
+      "hero": "Arotake waehere hohonu, tohutohu hanganga, me te whakapakari whakaputa.",
+      "howIntro": "Pēhea te mahi a Kaihoko Kaiwaehere Matua i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    },
+    "revenueReadiness": {
+      "title": "Rite Moni",
+      "hero": "Tātaritanga utu Stripe, kuwaha takiuru, me te rārangi whakarewa i tētahi paewhiri.",
+      "howIntro": "Pēhea te mahi a Rite Moni i AppForge.",
+      "step1": "Tūhonoa tō kaupapa, tīmata rānei i tētahi tātauira.",
+      "step2": "Ka whirihora me te whakaū ngā kaihoko a AppForge i te rerenga mahi.",
+      "step3": "Tukuna me ngā maka tuku, te aroturuki, me te whakahoki kua rite.",
+      "bestIntro": "Ngā tohutohu mō ngā hua pai rawa.",
+      "best1": "Tuhia ngā tono mārama me te kāheu me ngā here.",
+      "best2": "Arotake i te putanga a te kaihoko i mua i te tuku ki te whakaputa.",
+      "best3": "Whakamahia ngā mātai hauora me ngā tirohanga moni i mua i te whakarewa.",
+      "whoIntro": "I hanga mō ngā kaihanga i ia taumata.",
+      "persona1Title": "Ngā rangatira pakihi iti",
+      "persona1Body": "Neke mai i te whakaaro ki te MVP kua tukuna me te kore utu i tētahi tīma katoa.",
+      "persona2Title": "Ngā tīma hua",
+      "persona2Body": "Whakatairite i ngā hanganga, te utu, me ngā tuku puta noa i te whakahaere.",
+      "demoIntro": "Whakamātauria tētahi tirohanga whakawhitiwhiti i raro nei."
+    }
   }
 }

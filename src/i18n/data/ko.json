@@ -16,7 +16,8 @@
     "layout": "레이아웃",
     "layoutAuto": "자동",
     "layoutPhone": "휴대폰",
-    "layoutDesktop": "데스크톱"
+    "layoutDesktop": "데스크톱",
+    "pricing": "요금"
   },
   "home": {
     "tagline": "AI로 풀스택 웹 앱을 만드세요. 아이디어를 설명하면 프로덕션 코드를 받을 수 있습니다.",
@@ -71,7 +72,10 @@
     "pending": "로그인 중...",
     "failed": "로그인에 실패했습니다.",
     "newTo": "AppForge가 처음이신가요?",
-    "createAccount": "계정 만들기"
+    "createAccount": "계정 만들기",
+    "ssoFailed": "엔터프라이즈 SSO 로그인 실패. 다시 시도하거나 비밀번호를 사용하세요.",
+    "signInWithSso": "SSO로 로그인",
+    "ssoUses": "{org}은(는) 엔터프라이즈 SSO({provider})를 사용합니다."
   },
   "signup": {
     "title": "계정 만들기",
@@ -147,7 +151,11 @@
     "planner": "기획 크레딧",
     "coder": "코딩 크레딧",
     "reviewer": "검토 크레딧",
-    "howFooter": "일반적인 전체 빌드는 6크레딧(2 + 3 + 1)을 사용합니다. 중간에 부족하면 프로젝트가 일시 중지되며 크레딧을 충전하거나 플랜을 올릴 수 있습니다. 사용하지 않은 크레딧은 30일간 이월됩니다."
+    "howFooter": "일반적인 전체 빌드는 6크레딧(2 + 3 + 1)을 사용합니다. 중간에 부족하면 프로젝트가 일시 중지되며 크레딧을 충전하거나 플랜을 올릴 수 있습니다. 사용하지 않은 크레딧은 30일간 이월됩니다.",
+    "creditsNote": "빌드 시작 시 각 {buildCost} 크레dit 예약. Senior Dev 세션은 {seniorCost} 크레dit. Enterprise는 영업 주도 — 아래 문의 (셀프 체크아웃 없음).",
+    "checkoutNoUrl": "체크아웃이 결제 URL을 반환하지 않았습니다.",
+    "checkoutFailed": "체크아웃 실패",
+    "creditCheckoutFailed": "크레dit 체크아웃 실패"
   },
   "credits": {
     "title": "크레딧 부족 — 작업이 일시 중지됨",
@@ -159,10 +167,634 @@
   "footer": {
     "founder": "Anselm Perkins · 창업자 겸 CEO",
     "ownerOf": "AppForge 및 TrillionAI Tech 소유자",
-    "about": "소개"
+    "about": "소개",
+    "tagline": "TrillionAI Tech의 AI 앱 빌더 — 계획, 코드, 리뷰, 배포.",
+    "product": "제품",
+    "company": "회사",
+    "help": "고객센터",
+    "pricing": "요금",
+    "rights": "모든 권리 보유."
   },
   "about": {
     "title": "AppForge 소개",
     "body": "AppForge는 TrillionAI Tech의 AI 앱 빌더입니다. Anselm Perkins는 창업자 겸 CEO이며 AppForge와 TrillionAI Tech의 소유자입니다."
+  },
+  "common": {
+    "noResults": "결과 없음.",
+    "loading": "로딩 중...",
+    "save": "저장",
+    "cancel": "취소"
+  },
+  "landing": {
+    "metaTitle": "AI로 풀스택 앱 구축",
+    "metaDesc": "AppForge는 멀티 에이전트 파이프라인으로 아이디어를 프로덕션 코드로 변환.",
+    "navFeatures": "기능",
+    "navPricing": "요금",
+    "navDiscover": "탐색",
+    "navHelp": "도움말",
+    "heroTitle": "AI 에이전트로 프로덕션 앱 구축",
+    "heroSubtitle": "아이디어를 설명하세요. AppForge가 계획, 코드, 리뷰, 배포 — 템플릿, 결제, 팀 도구 내장.",
+    "ctaPrimary": "구축 시작",
+    "ctaSecondary": "요금 보기",
+    "featuresTitle": "출시에 필요한 모든 것",
+    "featuresSubtitle": "첫 프롬프트부터 프로덕션 배포까지 — 하나의 플랫폼.",
+    "learnMore": "더 알아보기",
+    "allFeatures": "모든 기능 탐색",
+    "howTitle": "작동 방식",
+    "howSubtitle": "아이디어에서 라이브 앱까지 3단계.",
+    "howStep1Title": "앱 설명",
+    "howStep1Body": "AppForge에 원하는 것을 알려주세요 — 스택, 기능, 디자인.",
+    "howStep2Title": "에이전트가 구축",
+    "howStep2Body": "Planner, Coder, Reviewer 에이전트가 프로덕션 코드 생성 및 검증.",
+    "howStep3Title": "배포 및 성장",
+    "howStep3Body": "원클릭 배포, 결제 설정, 분석, 팀 협업.",
+    "pricingTitle": "간단하고 투명한 요금",
+    "pricingSubtitle": "무료로 시작. 출시 준비되면 업그레이드.",
+    "pricingBlurb": "무료 플랜은 월 3빌드. 유료 플랜은 크레dit, 우선 큐, 팀 기능 추가.",
+    "viewPlans": "플랜 비교",
+    "trustedBy": "전 세계 빌더의 신뢰",
+    "faqTitle": "자주 묻는 질문",
+    "faq": {
+      "q1": "AppForge는 어떤 스택을 지원하나요?",
+      "q1A": "React, Next.js, Vue, 모바일 scaffold, API, 게임, 확장 스튜디오.",
+      "q2": "코드를 내보낼 수 있나요?",
+      "q2A": "예 — GitHub로 내보내고 Fly.io 또는 Vercel에 배포.",
+      "q3": "크레dit은 어떻게 작동하나요?",
+      "q3A": "각 빌드 단계에서 크레dit 소비. 미사용 크레dit 30일 이월."
+    }
+  },
+  "discover": {
+    "title": "탐색",
+    "subtitle": "AppForge 기능 탐색",
+    "recommended": "추천",
+    "new": "신규",
+    "core": "핵심 플랫폼"
+  },
+  "settings": {
+    "title": "설정",
+    "displayName": "표시 이름",
+    "email": "이메일",
+    "tabs": {
+      "account": "계정",
+      "security": "보안",
+      "notifications": "알림",
+      "billing": "결제",
+      "language": "언어"
+    }
+  },
+  "help": {
+    "title": "고객센터",
+    "subtitle": "가이드, 결제, 배포, 에이전트",
+    "search": "도움말 검색…",
+    "topics": {
+      "gettingStarted": {
+        "title": "시작하기",
+        "body": "계정 생성, 첫 빌드 실행, 배포."
+      },
+      "billing": {
+        "title": "결제 및 크레dit",
+        "body": "플랜, 체험, 크레dit 팩, 일시 중지 빌드."
+      },
+      "deploy": {
+        "title": "배포 및 호스팅",
+        "body": "Fly.io, Vercel, env vars, 헬스 체크."
+      },
+      "agents": {
+        "title": "AI 에이전트",
+        "body": "Planner, Coder, Reviewer, Senior Dev 워크플로."
+      }
+    }
+  },
+  "notFound": {
+    "title": "페이지를 찾을 수 없음",
+    "body": "찾는 페이지가 없거나 이동했습니다.",
+    "home": "홈으로"
+  },
+  "dashboard": {
+    "searchPlaceholder": "명령 검색…",
+    "notifications": "알림",
+    "profile": "프로필",
+    "signInPrompt": "로그인하여 앱을 확인하세요.",
+    "signIn": "로그인",
+    "currentPlan": "현재 플랜",
+    "active": "활성",
+    "buildsThisMonth": "이번 달 빌드",
+    "credits": "크레dit",
+    "getCredits": "크레dit 구매",
+    "upgrade": "업그레이드",
+    "myApps": "내 앱",
+    "redeemCode": "코드 사용",
+    "newApp": "새 앱",
+    "noApps": "아직 앱을 만들지 않았습니다.",
+    "createFirst": "첫 앱 만들기",
+    "viewBuild": "빌드 보기",
+    "improve": "개선",
+    "newBuild": "새 빌드",
+    "stats": {
+      "totalBuilds": "총 빌드",
+      "successful": "성공",
+      "successRate": "성공률",
+      "deploys": "배포"
+    }
+  },
+  "sidebar": {
+    "build": "빌드",
+    "ship": "출시",
+    "team": "팀",
+    "insights": "인사이트",
+    "discover": "탐색",
+    "studios": "크리에이티브 스튜디오"
+  },
+  "onboarding": {
+    "title": "AppForge에 오신 것을 환영합니다",
+    "subtitle": "워크스페이스를 개인화하세요",
+    "welcomeTitle": "환영합니다",
+    "welcomeBody": "맞춤 제안을 위해 자신에 대해 알려주세요.",
+    "nameLabel": "이름",
+    "namePlaceholder": "Alex",
+    "stackTitle": "선호 스택",
+    "stackBody": "기본값 선택 — 프로젝트별 변경 가능.",
+    "stacks": {
+      "react": "React + Vite",
+      "next": "Next.js",
+      "vue": "Vue",
+      "mobile": "Mobile / Expo"
+    },
+    "goalTitle": "무엇을 만들고 있나요?",
+    "goalBody": "한 문장이면 충분 — 템플릿을 추천합니다.",
+    "goalLabel": "프로젝트 목표",
+    "goalPlaceholder": "살롱 예약 앱…",
+    "doneTitle": "준비 완료",
+    "doneBody": "빌더로 이동해 첫 앱을 설명하세요.",
+    "continue": "계속",
+    "back": "뒤로"
+  },
+  "changelog": {
+    "title": "변경 로그",
+    "subtitle": "AppForge 새 소식",
+    "latest": "최신",
+    "items": {
+      "premium": "프리미엄 마케팅 사이트, 대시보드 셸, 디자인 시스템",
+      "onboarding": "신규 사용자 온보딩 마법사",
+      "cmdk": "명령 팔레트 (⌘K)",
+      "billing": "인증 연동 Stripe 체크아웃 및 RequirePro 게이트",
+      "studios": "게임, CAD, 법률 등 확장 스튜디오",
+      "agents": "Senior Dev 리뷰 멀티 에이전트 파이프라인",
+      "deploy": "Fly.io 프로덕션 배포 워크플로"
+    }
+  },
+  "shortcuts": {
+    "title": "키보드 단축키",
+    "subtitle": "AppForge에서 더 빠르게",
+    "actions": {
+      "commandPalette": "명령 팔레트 열기",
+      "generate": "생성 / 제출",
+      "save": "프로젝트 저장",
+      "build": "빌드 시작",
+      "search": "검색 포커스",
+      "close": "패널 / 모달 닫기"
+    }
+  },
+  "feedback": {
+    "title": "피드백 보드",
+    "subtitle": "AppForge 형성에 기여",
+    "submitTitle": "아이디어 제출",
+    "ideaLabel": "아이디어",
+    "ideaPlaceholder": "이런 기능이 있으면…",
+    "submit": "피드백 제출",
+    "thanks": "감사합니다 — 모든 제출을 검토합니다.",
+    "topRequests": "인기 요청",
+    "votes": "{n} 표",
+    "requests": {
+      "dark-mode": "라이트 / 다크 테마 전환",
+      "figma-import": "Figma에서 가져오기",
+      "team-workspaces": "팀 워크스페이스"
+    },
+    "status": {
+      "planned": "계획됨",
+      "review": "검토 중",
+      "shipped": "출시됨"
+    }
+  },
+  "health": {
+    "title": "프로젝트 상태",
+    "subtitle": "배포 전 검사",
+    "scanNow": "스캔 실행",
+    "checks": {
+      "env": {
+        "title": "환경 변수",
+        "body": "필요한 시크릿과 API 키 구성됨."
+      },
+      "deps": {
+        "title": "의존성",
+        "body": "직접 의존성에 심각한 취약점 없음."
+      },
+      "security": {
+        "title": "보안 헤더",
+        "body": "CSP, HSTS, 인증 미들웨어 존재."
+      },
+      "performance": {
+        "title": "성능",
+        "body": "번들 크기와 lazy routes 목표 내."
+      }
+    }
+  },
+  "usage": {
+    "title": "사용량 및 예측",
+    "subtitle": "크레dit, 빌드, 예상 지출",
+    "metrics": {
+      "credits": "남은 크레dit",
+      "builds": "이번 달 빌드",
+      "forecast": "예측 (30일)"
+    },
+    "values": {
+      "credits": "142",
+      "builds": "8 / 66",
+      "forecast": "~$24"
+    },
+    "chartTitle": "크레dit 사용량",
+    "chartSubtitle": "최근 6개월",
+    "months": {
+      "jan": "1월",
+      "feb": "2월",
+      "mar": "3월",
+      "apr": "4월",
+      "may": "5월",
+      "jun": "6월"
+    }
+  },
+  "analyticsPage": {
+    "title": "분석",
+    "subtitle": "워크스페이스 지표",
+    "metrics": {
+      "views": "미리보기 조회",
+      "signups": "가입",
+      "builds": "빌드",
+      "deploys": "배포"
+    },
+    "values": {
+      "views": "1,284",
+      "signups": "86",
+      "builds": "312",
+      "deploys": "47"
+    },
+    "delta": {
+      "views": "지난주 대비 +12%",
+      "signups": "+8%",
+      "builds": "+15%",
+      "deploys": "+5%"
+    }
+  },
+  "features": {
+    "badge": "플랫폼 기능",
+    "tryIt": "지금 사용해 보기",
+    "viewPricing": "요금 보기",
+    "howItWorks": "작동 방식",
+    "step": "단계 {n}",
+    "bestResults": "최상의 결과",
+    "whoItsFor": "대상",
+    "interactive": "인터랙티브 데모",
+    "orchestrator": {
+      "title": "멀티 에이전트 오케스트레이터",
+      "hero": "Planner, Coder, Reviewer 에이전트가 병렬로 앱을 더 빠르게 출시합니다.",
+      "howIntro": "AppForge에서 멀티 에이전트 오케스트레이터 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "livePreview": {
+      "title": "라이브 미리보기",
+      "hero": "에이전트가 코드를 작성하는 동안 실시간으로 앱 업데이트를 확인하세요.",
+      "howIntro": "AppForge에서 라이브 미리보기 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "deploy": {
+      "title": "원클릭 배포",
+      "hero": "헬스 체크와 롤백 지원으로 Fly.io 또는 Vercel에 배포.",
+      "howIntro": "AppForge에서 원클릭 배포 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "databaseWizard": {
+      "title": "데이터베이스 마법사",
+      "hero": "몇 분 만에 Postgres 프로비저닝, 마이그레이션, 인증 연결.",
+      "howIntro": "AppForge에서 데이터베이스 마법사 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "templates": {
+      "title": "템플릿 마켓플레이스",
+      "hero": "SaaS, 대시보드 등을 위한 프로덕션 준비 스캐폴드에서 시작.",
+    "howIntro": "AppForge에서 템플릿 마켓플레이스 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "versionHistory": {
+      "title": "버전 기록",
+      "hero": "프로젝트 버전 검토, 복원, 비교.",
+      "howIntro": "AppForge에서 버전 기록 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "collaboration": {
+      "title": "팀 협업",
+      "hero": "역할과 라이브 뷰로 팀과 협업.",
+      "howIntro": "AppForge에서 팀 협업 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "analytics": {
+      "title": "빌드 분석",
+      "hero": "빌드 성공률, 크레dit 사용량, 배포 상태 추적.",
+      "howIntro": "AppForge에서 빌드 분석 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "billing": {
+      "title": "유연한 결제",
+      "hero": "플랜, 체험, 크레dit 팩 — 한도 도달 시 빌드 일시 중지.",
+      "howIntro": "AppForge에서 유연한 결제 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "integrations": {
+      "title": "통합 허브",
+      "hero": "설정 패널에서 GitHub, Stripe, Supabase, SSO 연결.",
+      "howIntro": "AppForge에서 통합 허브 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "onboardingAssistant": {
+      "title": "AI 온보딩 어시스턴트",
+      "hero": "스택, 목표, 경험 수준에 따른 가이드 설정.",
+      "howIntro": "AppForge에서 AI 온보딩 어시스턴트 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "changelog": {
+      "title": "제품 변경 로그",
+      "hero": "출시 내용, 계획, 릴리스 노트 구독.",
+      "howIntro": "AppForge에서 제품 변경 로그 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로�uction 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "shortcuts": {
+      "title": "키보드 단축키",
+      "hero": "검색, 빌드, 저장, 탐색을 위한 고급 단축키.",
+      "howIntro": "AppForge에서 키보드 단축키 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "healthScanner": {
+      "title": "프로젝트 상태 스캐너",
+      "hero": "배포 전 환경 변수, 의존성, 보안 스캔.",
+      "howIntro": "AppForge에서 프로젝트 상태 스캐너 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "costForecast": {
+      "title": "비용 예측",
+      "hero": "빌드 중지 전 크레dit 소비 예측 및 업그레이드 계획.",
+      "howIntro": "AppForge에서 비용 예측 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "templateSuggest": {
+      "title": "스마트 템플릿 추천",
+      "hero": "AI가 프롬프트에서 최적의 시작 템플릿 추천.",
+      "howIntro": "AppForge에서 스마트 템플릿 추천 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "feedbackBoard": {
+      "title": "피드백 보드",
+      "hero": "기능 투표, 아이디어 제출, 개발 현황 추적.",
+      "howIntro": "AppForge에서 피드백 보드 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "seniorDev": {
+      "title": "시니어 개발 에이전트",
+      "hero": "심층 코드 리뷰, 아키텍처 조언, 프로덕션 강화.",
+      "howIntro": "AppForge에서 시니어 개발 에이전트 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    },
+    "revenueReadiness": {
+      "title": "수익 준비",
+      "hero": "Stripe 결제 스캐폴드, 인증 게이트, 출시 체크리스트.",
+      "howIntro": "AppForge에서 수익 준비 작동 방식.",
+      "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
+      "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
+      "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",
+      "bestIntro": "최상의 결과를 위한 팁.",
+      "best1": "스택과 제약 조건이 포함된 명확한 프롬프트를 작성하세요.",
+      "best2": "프로덕션 배포 전 에이전트 출력을 검토하세요.",
+      "best3": "출시 전 헬스 스캔과 수익 준비 확인을 사용하세요.",
+      "whoIntro": "모든 단계의 빌더를 위해 제작.",
+      "persona1Title": "인디 창업자",
+      "persona1Body": "전체 팀 없이 아이디어에서 배포된 MVP까지.",
+      "persona2Title": "제품 팀",
+      "persona2Body": "조직 전반에서 빌드, 결제, 배포를 표준화.",
+      "demoIntro": "아래에서 인터랙티브 미리보기를 사용해 보세요."
+    }
   }
 }

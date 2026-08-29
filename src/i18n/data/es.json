@@ -16,7 +16,8 @@
     "layout": "Diseño",
     "layoutAuto": "Auto",
     "layoutPhone": "Móvil",
-    "layoutDesktop": "Escritorio"
+    "layoutDesktop": "Escritorio",
+    "pricing": "Precios"
   },
   "home": {
     "tagline": "Crea aplicaciones web full-stack con IA. Describe tu idea y obtén código listo para producción.",
@@ -71,7 +72,10 @@
     "pending": "Iniciando sesión...",
     "failed": "Error al iniciar sesión.",
     "newTo": "¿Nuevo en AppForge?",
-    "createAccount": "Crear una cuenta"
+    "createAccount": "Crear una cuenta",
+    "ssoFailed": "Error en el inicio de sesión SSO empresarial. Inténtalo de nuevo o usa contraseña.",
+    "signInWithSso": "Iniciar sesión con SSO",
+    "ssoUses": "{org} usa SSO empresarial ({provider})."
   },
   "signup": {
     "title": "Crea tu cuenta",
@@ -147,7 +151,11 @@
     "planner": "Créditos del planificador",
     "coder": "Créditos del programador",
     "reviewer": "Créditos del revisor",
-    "howFooter": "Una compilación completa suele usar 6 créditos (2 + 3 + 1). Si se agotan a mitad de proceso, el proyecto se pausa y puedes recargar créditos o mejorar tu plan. Los créditos no usados se conservan 30 días."
+    "howFooter": "Una compilación completa suele usar 6 créditos (2 + 3 + 1). Si se agotan a mitad de proceso, el proyecto se pausa y puedes recargar créditos o mejorar tu plan. Los créditos no usados se conservan 30 días.",
+    "creditsNote": "Los builds reservan {buildCost} créditos al iniciar. Las sesiones Senior Dev cuestan {seniorCost} créditos. Enterprise es con ventas — contáctanos abajo (sin checkout automático).",
+    "checkoutNoUrl": "El checkout no devolvió una URL de pago.",
+    "checkoutFailed": "Error en el checkout",
+    "creditCheckoutFailed": "Error en el checkout de créditos"
   },
   "credits": {
     "title": "Sin créditos — trabajo en pausa",
@@ -159,10 +167,634 @@
   "footer": {
     "founder": "Anselm Perkins · Fundador y CEO",
     "ownerOf": "Propietario de AppForge y TrillionAI Tech",
-    "about": "Acerca de"
+    "about": "Acerca de",
+    "tagline": "Constructor de apps IA de TrillionAI Tech — planifica, codifica, revisa, despliega.",
+    "product": "Producto",
+    "company": "Empresa",
+    "help": "Centro de ayuda",
+    "pricing": "Precios",
+    "rights": "Todos los derechos reservados."
   },
   "about": {
     "title": "Acerca de AppForge",
     "body": "AppForge es el creador de apps con IA de TrillionAI Tech. Anselm Perkins es Fundador y CEO y propietario de AppForge y TrillionAI Tech."
+  },
+  "common": {
+    "noResults": "No se encontraron resultados.",
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "landing": {
+    "metaTitle": "Construye apps full-stack con IA",
+    "metaDesc": "AppForge convierte ideas en código de producción con pipelines multiagente.",
+    "navFeatures": "Funciones",
+    "navPricing": "Precios",
+    "navDiscover": "Descubrir",
+    "navHelp": "Ayuda",
+    "heroTitle": "Forja apps de producción con agentes IA",
+    "heroSubtitle": "Describe tu idea. AppForge planifica, codifica, revisa y despliega — con plantillas, facturación y herramientas de equipo.",
+    "ctaPrimary": "Empezar a construir",
+    "ctaSecondary": "Ver precios",
+    "featuresTitle": "Todo lo que necesitas para publicar",
+    "featuresSubtitle": "Del primer prompt al despliegue en producción — una plataforma.",
+    "learnMore": "Saber más",
+    "allFeatures": "Explorar todas las funciones",
+    "howTitle": "Cómo funciona",
+    "howSubtitle": "Tres pasos de la idea a la app en vivo.",
+    "howStep1Title": "Describe tu app",
+    "howStep1Body": "Dile a AppForge qué quieres — stack, funciones y preferencias de diseño.",
+    "howStep2Title": "Los agentes la construyen",
+    "howStep2Body": "Los agentes Planner, Coder y Reviewer generan y validan código de producción.",
+    "howStep3Title": "Despliega y crece",
+    "howStep3Body": "Despliegue con un clic, facturación, analítica y colaboración en equipo.",
+    "pricingTitle": "Precios simples y transparentes",
+    "pricingSubtitle": "Empieza gratis. Mejora cuando estés listo para publicar.",
+    "pricingBlurb": "El plan gratuito incluye 3 builds/mes. Los planes de pago añaden créditos, cola prioritaria y funciones de equipo.",
+    "viewPlans": "Comparar planes",
+    "trustedBy": "Confiado por creadores en todo el mundo",
+    "faqTitle": "Preguntas frecuentes",
+    "faq": {
+      "q1": "¿Qué stacks soporta AppForge?",
+      "q1A": "React, Next.js, Vue, scaffolds móviles, APIs, juegos y estudios de extensiones.",
+      "q2": "¿Puedo exportar mi código?",
+      "q2A": "Sí — exporta a GitHub y despliega en Fly.io o Vercel en cualquier momento.",
+      "q3": "¿Cómo funcionan los créditos?",
+      "q3A": "Cada fase de build consume créditos. Los créditos no usados se acumulan 30 días."
+    }
+  },
+  "discover": {
+    "title": "Descubrir",
+    "subtitle": "Explora las capacidades de AppForge",
+    "recommended": "Recomendado",
+    "new": "Nuevo",
+    "core": "Plataforma principal"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "displayName": "Nombre para mostrar",
+    "email": "Correo electrónico",
+    "tabs": {
+      "account": "Cuenta",
+      "security": "Seguridad",
+      "notifications": "Notificaciones",
+      "billing": "Facturación",
+      "language": "Idioma"
+    }
+  },
+  "help": {
+    "title": "Centro de ayuda",
+    "subtitle": "Guías, facturación, despliegue y agentes",
+    "search": "Buscar artículos de ayuda…",
+    "topics": {
+      "gettingStarted": {
+        "title": "Primeros pasos",
+        "body": "Crea una cuenta, ejecuta tu primer build y despliega."
+      },
+      "billing": {
+        "title": "Facturación y créditos",
+        "body": "Planes, pruebas, packs de créditos y builds pausados."
+      },
+      "deploy": {
+        "title": "Despliegue y hosting",
+        "body": "Fly.io, Vercel, variables de entorno y health checks."
+      },
+      "agents": {
+        "title": "Agentes IA",
+        "body": "Flujos Planner, Coder, Reviewer y Senior Dev."
+      }
+    }
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "body": "La página que buscas no existe o fue movida.",
+    "home": "Volver al inicio"
+  },
+  "dashboard": {
+    "searchPlaceholder": "Buscar comandos…",
+    "notifications": "Notificaciones",
+    "profile": "Perfil",
+    "signInPrompt": "Inicia sesión para ver tus apps.",
+    "signIn": "Iniciar sesión",
+    "currentPlan": "Plan actual",
+    "active": "Activo",
+    "buildsThisMonth": "Builds este mes",
+    "credits": "Créditos",
+    "getCredits": "Obtener créditos",
+    "upgrade": "Mejorar plan",
+    "myApps": "Mis apps",
+    "redeemCode": "Canjear código",
+    "newApp": "Nueva app",
+    "noApps": "Aún no has creado ninguna app.",
+    "createFirst": "Crea tu primera app",
+    "viewBuild": "Ver build",
+    "improve": "Mejorar",
+    "newBuild": "Nuevo build",
+    "stats": {
+      "totalBuilds": "Builds totales",
+      "successful": "Exitosos",
+      "successRate": "Tasa de éxito",
+      "deploys": "Despliegues"
+    }
+  },
+  "sidebar": {
+    "build": "Construir",
+    "ship": "Publicar",
+    "team": "Equipo",
+    "insights": "Información",
+    "discover": "Descubrir",
+    "studios": "Estudios creativos"
+  },
+  "onboarding": {
+    "title": "Bienvenido a AppForge",
+    "subtitle": "Personalicemos tu espacio de trabajo",
+    "welcomeTitle": "Bienvenido a bordo",
+    "welcomeBody": "Cuéntanos un poco sobre ti para personalizar sugerencias.",
+    "nameLabel": "Tu nombre",
+    "namePlaceholder": "Alex",
+    "stackTitle": "Stack preferido",
+    "stackBody": "Elige uno por defecto — puedes cambiarlo por proyecto.",
+    "stacks": {
+      "react": "React + Vite",
+      "next": "Next.js",
+      "vue": "Vue",
+      "mobile": "Mobile / Expo"
+    },
+    "goalTitle": "¿Qué estás construyendo?",
+    "goalBody": "Una frase basta — sugeriremos plantillas.",
+    "goalLabel": "Objetivo del proyecto",
+    "goalPlaceholder": "Una app de reservas para mi salón…",
+    "doneTitle": "Todo listo",
+    "doneBody": "Ve al constructor y describe tu primera app.",
+    "continue": "Continuar",
+    "back": "Atrás"
+  },
+  "changelog": {
+    "title": "Registro de cambios",
+    "subtitle": "Novedades en AppForge",
+    "latest": "Último",
+    "items": {
+      "premium": "Sitio de marketing premium, shell de dashboard y sistema de diseño",
+      "onboarding": "Asistente de onboarding guiado para nuevos usuarios",
+      "cmdk": "Paleta de comandos (⌘K) para navegación rápida",
+      "billing": "Checkout Stripe vinculado a auth y puerta RequirePro",
+      "studios": "Estudios de extensiones para juegos, CAD, legal y más",
+      "agents": "Pipeline multiagente con revisión Senior Dev",
+      "deploy": "Flujo de despliegue en producción Fly.io"
+    }
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "subtitle": "Muévete más rápido en AppForge",
+    "actions": {
+      "commandPalette": "Abrir paleta de comandos",
+      "generate": "Generar / enviar",
+      "save": "Guardar proyecto",
+      "build": "Iniciar build",
+      "search": "Enfocar búsqueda",
+      "close": "Cerrar panel / modal"
+    }
+  },
+  "feedback": {
+    "title": "Tablero de feedback",
+    "subtitle": "Ayuda a dar forma a AppForge",
+    "submitTitle": "Enviar una idea",
+    "ideaLabel": "Tu idea",
+    "ideaPlaceholder": "Me encantaría ver…",
+    "submit": "Enviar feedback",
+    "thanks": "Gracias — revisamos cada envío.",
+    "topRequests": "Solicitudes principales",
+    "votes": "{n} votos",
+    "requests": {
+      "dark-mode": "Alternar tema claro / oscuro",
+      "figma-import": "Importar desde Figma",
+      "team-workspaces": "Espacios de trabajo en equipo"
+    },
+    "status": {
+      "planned": "Planificado",
+      "review": "En revisión",
+      "shipped": "Publicado"
+    }
+  },
+  "health": {
+    "title": "Salud del proyecto",
+    "subtitle": "Comprobaciones pre-despliegue para tu espacio",
+    "scanNow": "Ejecutar escaneo",
+    "checks": {
+      "env": {
+        "title": "Variables de entorno",
+        "body": "Secretos y claves API requeridos configurados."
+      },
+      "deps": {
+        "title": "Dependencias",
+        "body": "Sin vulnerabilidades críticas en dependencias directas."
+      },
+      "security": {
+        "title": "Cabeceras de seguridad",
+        "body": "CSP, HSTS y middleware de auth presentes."
+      },
+      "performance": {
+        "title": "Rendimiento",
+        "body": "Tamaño del bundle y rutas lazy dentro de objetivos."
+      }
+    }
+  },
+  "usage": {
+    "title": "Uso y previsión",
+    "subtitle": "Créditos, builds y gasto proyectado",
+    "metrics": {
+      "credits": "Créditos restantes",
+      "builds": "Builds este mes",
+      "forecast": "Previsión (30d)"
+    },
+    "values": {
+      "credits": "142",
+      "builds": "8 / 66",
+      "forecast": "~$24"
+    },
+    "chartTitle": "Uso de créditos",
+    "chartSubtitle": "Últimos 6 meses",
+    "months": {
+      "jan": "Ene",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Abr",
+      "may": "May",
+      "jun": "Jun"
+    }
+  },
+  "analyticsPage": {
+    "title": "Analítica",
+    "subtitle": "Métricas del espacio de trabajo",
+    "metrics": {
+      "views": "Vistas de preview",
+      "signups": "Registros",
+      "builds": "Builds",
+      "deploys": "Despliegues"
+    },
+    "values": {
+      "views": "1,284",
+      "signups": "86",
+      "builds": "312",
+      "deploys": "47"
+    },
+    "delta": {
+      "views": "+12% vs semana pasada",
+      "signups": "+8%",
+      "builds": "+15%",
+      "deploys": "+5%"
+    }
+  },
+  "features": {
+    "badge": "Función de plataforma",
+    "tryIt": "Probar ahora",
+    "viewPricing": "Ver precios",
+    "howItWorks": "Cómo funciona",
+    "step": "Paso {n}",
+    "bestResults": "Mejores resultados",
+    "whoItsFor": "Para quién es",
+    "interactive": "Demo interactiva",
+    "orchestrator": {
+      "title": "Orquestador multiagente",
+      "hero": "Los agentes Planner, Coder y Reviewer trabajan en paralelo para publicar tu app más rápido.",
+      "howIntro": "Cómo funciona Orquestador multiagente en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "livePreview": {
+      "title": "Vista previa en vivo",
+      "hero": "Ve tu app actualizarse en tiempo real mientras los agentes escriben código.",
+      "howIntro": "Cómo funciona Vista previa en vivo en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "deploy": {
+      "title": "Despliegue con un clic",
+      "hero": "Publica en Fly.io o Vercel con comprobaciones de salud y soporte de rollback.",
+      "howIntro": "Cómo funciona Despliegue con un clic en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "databaseWizard": {
+      "title": "Asistente de base de datos",
+      "hero": "Provisiona Postgres, ejecuta migraciones y conecta auth en minutos.",
+      "howIntro": "Cómo funciona Asistente de base de datos en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "templates": {
+      "title": "Mercado de plantillas",
+      "hero": "Empieza desde andamiajes listos para producción para SaaS, dashboards y más.",
+      "howIntro": "Cómo funciona Mercado de plantillas en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "versionHistory": {
+      "title": "Historial de versiones",
+      "hero": "Revisa, restaura y compara versiones de tu proyecto.",
+      "howIntro": "Cómo funciona Historial de versiones en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "collaboration": {
+      "title": "Colaboración en equipo",
+      "hero": "Colabora con equipos con roles y vistas en vivo.",
+      "howIntro": "Cómo funciona Colaboración en equipo en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "analytics": {
+      "title": "Analítica de builds",
+      "hero": "Rastrea el éxito de builds, uso de créditos y salud de despliegues.",
+      "howIntro": "Cómo funciona Analítica de builds en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "billing": {
+      "title": "Facturación flexible",
+      "hero": "Planes, pruebas y paquetes de créditos — pausa builds cuando se alcancen límites.",
+      "howIntro": "Cómo funciona Facturación flexible en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "integrations": {
+      "title": "Centro de integraciones",
+      "hero": "Conecta GitHub, Stripe, Supabase y SSO desde un panel de ajustes.",
+      "howIntro": "Cómo funciona Centro de integraciones en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "onboardingAssistant": {
+      "title": "Asistente de onboarding IA",
+      "hero": "Obtén configuración guiada según tu stack, objetivos y experiencia.",
+      "howIntro": "Cómo funciona Asistente de onboarding IA en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "changelog": {
+      "title": "Registro de cambios",
+      "hero": "Ve qué se publicó, qué está planificado y suscríbete a las notas de versión.",
+      "howIntro": "Cómo funciona Registro de cambios en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "shortcuts": {
+      "title": "Atajos de teclado",
+      "hero": "Atajos avanzados para búsqueda, build, guardar y navegación.",
+      "howIntro": "Cómo funciona Atajos de teclado en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "healthScanner": {
+      "title": "Escáner de salud del proyecto",
+      "hero": "Escanea variables de entorno, dependencias y seguridad antes de desplegar.",
+      "howIntro": "Cómo funciona Escáner de salud del proyecto en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "costForecast": {
+      "title": "Previsión de costes",
+      "hero": "Predice el consumo de créditos y planifica upgrades antes de que se pausen builds.",
+      "howIntro": "Cómo funciona Previsión de costes en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "templateSuggest": {
+      "title": "Sugerencia inteligente de plantillas",
+      "hero": "La IA recomienda la mejor plantilla inicial desde tu prompt.",
+      "howIntro": "Cómo funciona Sugerencia inteligente de plantillas en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "feedbackBoard": {
+      "title": "Tablero de feedback",
+      "hero": "Vota funciones, envía ideas y sigue lo que estamos construyendo.",
+      "howIntro": "Cómo funciona Tablero de feedback en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "seniorDev": {
+      "title": "Agente Senior Dev",
+      "hero": "Revisión profunda de código, consejos de arquitectura y endurecimiento de producción.",
+      "howIntro": "Cómo funciona Agente Senior Dev en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    },
+    "revenueReadiness": {
+      "title": "Preparación de ingresos",
+      "hero": "Andamiaje de facturación Stripe, puertas de auth y checklist de lanzamiento.",
+      "howIntro": "Cómo funciona Preparación de ingresos en AppForge.",
+      "step1": "Conecta tu proyecto o empieza desde una plantilla.",
+      "step2": "Los agentes de AppForge configuran y validan el flujo de trabajo.",
+      "step3": "Publica con hooks de despliegue, monitorización y rollback listos.",
+      "bestIntro": "Consejos para mejores resultados.",
+      "best1": "Escribe prompts claros con stack y restricciones.",
+      "best2": "Revisa la salida del agente antes de desplegar a producción.",
+      "best3": "Usa escaneos de salud y comprobaciones de ingresos antes del lanzamiento.",
+      "whoIntro": "Diseñado para creadores en cada etapa.",
+      "persona1Title": "Fundadores independientes",
+      "persona1Body": "Pasa de la idea al MVP desplegado sin contratar un equipo completo.",
+      "persona2Title": "Equipos de producto",
+      "persona2Body": "Estandariza builds, facturación y despliegues en toda la organización.",
+      "demoIntro": "Prueba una vista previa interactiva abajo."
+    }
   }
 }
