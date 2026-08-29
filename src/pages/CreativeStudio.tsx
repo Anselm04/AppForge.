@@ -4,6 +4,7 @@ import {
   BUILD_CAPABILITY_IDS,
 } from "../lib/buildCapabilities.js";
 import { BuildPurposeStatement } from "../components/BuildPurposeStatement.js";
+import { CapabilityCoveragePanel } from "../components/CapabilityCoveragePanel.js";
 
 export function CreativeStudio() {
   return (
@@ -18,6 +19,10 @@ export function CreativeStudio() {
 
         <div className="mb-8">
           <BuildPurposeStatement />
+        </div>
+
+        <div className="mb-8">
+          <CapabilityCoveragePanel />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
