@@ -25,8 +25,13 @@ The AppForge **build engine** (Express API, tRPC, SSE `/api/build/:id`, live pre
 {
   "framework": "vite",
   "buildCommand": "npx vite build",
-  "outputDirectory": "dist/client"
+  "outputDirectory": "dist/client",
+  "git": {
+    "deploymentEnabled": false
+  }
 }
 ```
+
+Automatic Git deploys are **disabled** to avoid Vercel rate limits (>100 deploys/day). Use Fly.io for production (`deploy-production.yml`) or run `.github/workflows/deploy.yml` manually when you need a static client on Vercel.
 
 No serverless rewrite can replace long-running SSE builds. Do not expect `vercel.json` to host the builder.
