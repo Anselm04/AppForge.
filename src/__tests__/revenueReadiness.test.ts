@@ -27,14 +27,8 @@ describe("revenueReadiness", () => {
   });
 
   it("scores project files against checklist", () => {
-    const files = {
-      "src/pages/Login.tsx": "signup login session",
-      "src/app/api/checkout/route.ts": "checkout.sessions.create stripe",
-      "src/app/api/webhooks/stripe/route.ts": "webhook stripe",
-      "src/lib/billing/entitlements.ts": "subscription entitlement",
-      "package.json": '{"dependencies":{"stripe":"^14"}}',
-    };
-    const scan = scanProjectReadiness(files, { incomeIntent: true });
+    const merged = mergeBillingScaffold({}, "next-node");
+    const scan = scanProjectReadiness(merged, { incomeIntent: true });
     expect(scan.percent).toBeGreaterThan(40);
     expect(scan.items.length).toBe(INCOME_PRODUCT_CHECKLIST.length);
     expect(scan.stripeDetected).toBe(true);
@@ -68,6 +62,7 @@ describe("saasBillingScaffold", () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies.stripe).toBeDefined();
+    expect(pkg.dependencies.postgres).toBeDefined();
     expect(validateBillingScaffold(merged).passed).toBe(true);
   });
 });

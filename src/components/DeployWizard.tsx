@@ -29,6 +29,12 @@ export function DeployWizard({
     enabled: !!projectId && projectId > 0,
   });
 
+  const { data: dbSetup } = useQuery({
+    queryKey: ["projects", projectId, "databaseSetup"],
+    queryFn: () => trpc.projects.databaseSetup.query({ id: projectId! }),
+    enabled: !!projectId && projectId > 0,
+  });
+
   const healthCheck = useMutation({
     mutationFn: (url: string) =>
       trpc.projects.deployHealth.mutate({ id: projectId!, url }),
@@ -122,6 +128,30 @@ export function DeployWizard({
           <li key={step}>{step}</li>
         ))}
       </ol>
+
+      {dbSetup && (
+        <div className="mt-4 pt-4 border-t border-slate-600">
+          <h4 className="text-sm font-medium text-sky-300 mb-2">
+            Database setup ({dbSetup.label})
+          </h4>
+          <p className="text-xs text-slate-500 mb-2 font-mono">
+            {dbSetup.migrationCommand}
+          </p>
+          <ol className="list-decimal list-inside space-y-1 text-xs text-slate-400">
+            {dbSetup.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <a
+            href={dbSetup.consoleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mt-2 text-xs text-blue-400 hover:underline"
+          >
+            Open {dbSetup.label} console
+          </a>
+        </div>
+      )}
 
       {revenue?.stripeDetected && revenue.goLiveSteps.length > 0 && (
         <div className="mt-4 pt-4 border-t border-slate-600">
