@@ -3,6 +3,7 @@ import {
   BUILD_CAPABILITY_IDS,
   type BuildCapabilityId,
 } from "../lib/buildCapabilities.js";
+import { FULL_CREATIVE_PRESET } from "../lib/platformComparison.js";
 
 type Props = {
   selected: BuildCapabilityId[];
@@ -22,12 +23,32 @@ export function CapabilityPicker({ selected, onChange, disabled }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-        Build capabilities{" "}
-        <span className="font-normal text-slate-500">
-          (optional — use alongside any stack)
-        </span>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Build capabilities{" "}
+          <span className="font-normal text-slate-500">
+            (optional — combine any stack with studios below)
+          </span>
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange([...FULL_CREATIVE_PRESET])}
+            className="text-xs px-2 py-1 rounded-md border border-blue-500 text-blue-600 dark:text-blue-400 disabled:opacity-50"
+          >
+            Enable all
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange([])}
+            className="text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 disabled:opacity-50"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {BUILD_CAPABILITY_IDS.map((id) => {
           const meta = BUILD_CAPABILITIES[id];
