@@ -5,7 +5,7 @@
 
 export const APPFORGE_BUILD_PURPOSE = `AppForge add-on capabilities exist so AppForge can build virtually anything a user requests — regardless of who they are or where in the world they are building from. Because we cannot predict every possible combination of what users will want to create, capabilities are added broadly and preemptively across every major build category so no reasonable legitimate request falls outside what AppForge can produce.
 
-The goal is full coverage: any user, anywhere, with any legitimate idea, should be able to describe what they want and have AppForge combine whichever capabilities are needed — live search, video, graphics, music, marketing, AR, education, invention and patent drafting, architecture, or future add-ons — to build it for them, in any combination required.`;
+The goal is full coverage: any user, anywhere, with any legitimate idea, should be able to describe what they want and have AppForge combine whichever capabilities are needed — live search, video, graphics, music, marketing, AR, education, invention and patent drafting, architecture, game dev, 3D/CAD, legal, fintech, healthcare, mobile packaging, voice/podcast, data/BI, localization, team collab, or future add-ons — to build it for them, in any combination required.`;
 
 export const APPFORGE_BUILD_BOUNDARIES: readonly {
   id: string;
