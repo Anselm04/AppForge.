@@ -9,11 +9,33 @@ import {
   BUILD_CAPABILITIES,
 } from "../lib/buildCapabilities.js";
 import { architectureProcedures } from "./architectureProcedures.js";
+import {
+  PLATFORM_FEATURE_MATRIX,
+  COMPETITOR_LABELS,
+  scorePlatform,
+  capabilitySummary,
+  appforgeExclusiveCount,
+} from "../lib/platformComparison.js";
 
 export const capabilitiesRouter = router({
   list: protectedProcedure.query(() => {
     return Object.values(BUILD_CAPABILITIES);
   }),
+
+  platformComparison: protectedProcedure.query(() => ({
+    matrix: PLATFORM_FEATURE_MATRIX,
+    competitors: COMPETITOR_LABELS,
+    scores: {
+      appforge: scorePlatform("appforge"),
+      bolt: scorePlatform("bolt"),
+      replit: scorePlatform("replit"),
+      lovable: scorePlatform("lovable"),
+      v0: scorePlatform("v0"),
+      github_copilot: scorePlatform("github_copilot"),
+    },
+    capabilities: capabilitySummary(),
+    exclusiveFeatureCount: appforgeExclusiveCount(),
+  })),
 
   webSearch: protectedProcedure
     .input(
