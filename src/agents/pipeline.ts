@@ -27,6 +27,8 @@ import { capabilityHintsForPipeline } from "./capabilityHints.js";
 import { runResearchAgent } from "./researchAgent.js";
 import { attachGeneratedTests } from "./testingAgent.js";
 import { plannerLocaleHint } from "../lib/localePlanner.js";
+import { detectIncomeIntent } from "../lib/revenueReadiness.js";
+import { mergeBillingScaffold } from "../services/saasBillingScaffold.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
@@ -224,6 +226,8 @@ export async function runAgentPipeline(
   const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
   const activeCapabilities =
     capabilities.length > 0 ? capabilities : storedCaps;
+  const incomeIntent = detectIncomeIntent(description);
+  const mergeBilling = activeCapabilities.includes("fintech") || incomeIntent;
 
   const assetRows = await db.query.projectAssets.findMany({
     where: eq(schema.projectAssets.projectId, projectId),
@@ -278,7 +282,7 @@ export async function runAgentPipeline(
       { focus: researchFocus },
     );
 
-    // ── PLANNER ──────────────────────────────────────────────────────────────
+    // ── PLANNER ─────────────────────────────────────────────────────────────
     if (creditCheck) {
       const ok = await creditCheck();
       if (!ok) {
@@ -352,7 +356,7 @@ ${localeHint}`,
       tasks = [{ id: "1", module: "Core App", description: description }];
     }
 
-    // ── CODER ────────────────────────────────────────────────────────────────
+    // ── CODER ───────────────────────────────────────────────────────────────
     if (creditCheck) {
       const ok = await creditCheck();
       if (!ok) {
@@ -487,6 +491,18 @@ ${localeHint}`,
           generatedFiles,
         );
         generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
+        if (mergeBilling) {
+          const fintechSchema = generatedFiles["fintech/fintech-schema.json"];
+          generatedFiles = mergeBillingScaffold(
+            generatedFiles,
+            techStack,
+            fintechSchema,
+          );
+          emit("System", "info", {
+            message:
+              "Merged Stripe billing scaffold (checkout, webhook, entitlements, pricing UI).",
+          });
+        }
       } catch {
         /* non-fatal scaffold merge */
       }
@@ -500,7 +516,7 @@ ${localeHint}`,
         message: `Prepared ${Object.keys(testFiles).length} test file(s) for validation.`,
       });
 
-      // ── VALIDATOR (Build + Type Check + Test) ──────────────────────────────
+      // ── VALIDATOR (Build + Type Check + Test) ─────────────────────────────
       if (creditCheck) {
         const ok = await creditCheck();
         if (!ok) {
@@ -520,10 +536,10 @@ ${localeHint}`,
       validationResult = await validateGeneratedBuild(
         generatedFiles,
         techStack,
-        { testsBlocking },
+        { testsBlocking, validateBilling: mergeBilling },
       );
 
-      // ── Triple Audit (a11y + security + perf) ──────────────────────────────
+      // ── Triple Audit (a11y + security + perf) ─────────────────────────────
       const { runTripleAudit } = await import("./tripleAudit.js");
       lastAuditResult = await runTripleAudit(generatedFiles);
       emit("Validator", "audit", {
@@ -579,7 +595,7 @@ ${localeHint}`,
       // Still save files so the user can download and fix manually
     }
 
-    // ── REVIEWER ─────────────────────────────────────────────────────────────
+    // ── REVIEWER ────────────────────────────────────────────────────────────
     let reviewOutput = "";
     if (validationResult.passed) {
       if (creditCheck) {
@@ -657,7 +673,7 @@ ${localeHint}`,
     // Persist files incrementally so disconnect/deploy still have a usable tree
     await updateProjectFiles(projectId, generatedFiles);
 
-    // ── Snapshot + Audit + Cost at end of build ────────────────────────────
+    // ── Snapshot + Audit + Cost at end of build ─────────────────────────────
     const { logger } = await import("../_core/logger.js");
     const {
       createBuildSnapshot,
