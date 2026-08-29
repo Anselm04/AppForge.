@@ -306,27 +306,42 @@ export const projectsRouter = router({
         const { recordDeploy } = await import("../db/buildStats.js");
         await recordDeploy(ctx.user.id);
 
-        const { detectRequiredEnvVars, runPostDeploySmokeTest } =
-          await import("../services/deployHealth.js");
+        const {
+          detectRequiredEnvVars,
+          runPostDeploySmokeTest,
+          runBillingRouteSmokeTest,
+        } = await import("../services/deployHealth.js");
         const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } =
           await import("../lib/revenueReadiness.js");
+        const { databaseSetupGuide, hasBillingMigration } =
+          await import("../services/databaseProvision.js");
         const { normalizeCapabilities } =
           await import("../lib/buildCapabilities.js");
         const requiredEnv = detectRequiredEnvVars(files);
-        const smoke = result.url
-          ? await runPostDeploySmokeTest(result.url)
-          : null;
         const caps = normalizeCapabilities(project.buildCapabilities ?? []);
         const readiness = scanProjectReadiness(files, {
           incomeIntent:
             detectIncomeIntent(project.description ?? "") ||
             caps.includes("fintech"),
         });
+        const smoke = result.url
+          ? await runPostDeploySmokeTest(result.url)
+          : null;
+        const billingSmoke =
+          result.url && readiness.stripeDetected
+            ? await runBillingRouteSmokeTest(result.url)
+            : null;
+        const dbGuide = databaseSetupGuide(project.techStack ?? "next-node", {
+          projectName: project.title ?? undefined,
+          hasBillingSchema: hasBillingMigration(files),
+        });
 
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
           ...requiredEnv.map((k) => `Configure ${k} on your host.`),
-          "Run database migrations if your stack uses a DB.",
+          ...(readiness.stripeDetected || hasBillingMigration(files)
+            ? dbGuide.steps
+            : ["Run database migrations if your stack uses a DB."]),
           ...(readiness.stripeDetected
             ? revenueGoLiveSteps(result.url)
             : ["Configure Stripe/webhooks if billing is included."]),
@@ -338,6 +353,16 @@ export const projectsRouter = router({
             : smoke?.ok
               ? ["Post-deploy smoke test passed."]
               : []),
+          ...(billingSmoke && !billingSmoke.ok
+            ? [
+                `Billing route smoke: some routes returned 404 — check ${billingSmoke.routes
+                  .filter((r) => !r.ok)
+                  .map((r) => r.path)
+                  .join(", ")}`,
+              ]
+            : billingSmoke?.ok
+              ? ["Billing routes reachable (checkout/webhook/pricing)."]
+              : []),
         ];
 
         return {
@@ -346,6 +371,8 @@ export const projectsRouter = router({
           note: result.note,
           deployGuide,
           smokeTest: smoke,
+          billingSmokeTest: billingSmoke,
+          databaseSetup: dbGuide,
           options: listDeployDestinations(),
         };
       } catch (err: unknown) {
@@ -582,6 +609,8 @@ export const projectsRouter = router({
         detectIncomeIntent,
         PLATFORM_INCOME_GAPS,
       } = await import("../lib/revenueReadiness.js");
+      const { databaseSetupGuide, hasBillingMigration } =
+        await import("../services/databaseProvision.js");
       const { normalizeCapabilities } =
         await import("../lib/buildCapabilities.js");
       const files = await getProjectFiles(input.id);
@@ -595,7 +624,28 @@ export const projectsRouter = router({
         ...scan,
         platformGaps: PLATFORM_INCOME_GAPS,
         goLiveSteps: revenueGoLiveSteps(null),
+        databaseSetup: databaseSetupGuide(project.techStack ?? "next-node", {
+          projectName: project.title ?? undefined,
+          hasBillingSchema: hasBillingMigration(files),
+        }),
       };
+    }),
+
+  databaseSetup: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const { getProjectFiles } = await import("../db.js");
+      const { databaseSetupGuide, hasBillingMigration } =
+        await import("../services/databaseProvision.js");
+      const files = await getProjectFiles(input.id);
+      return databaseSetupGuide(project.techStack ?? "next-node", {
+        projectName: project.title ?? undefined,
+        hasBillingSchema: hasBillingMigration(files),
+      });
     }),
 
   deployHealth: protectedProcedure
