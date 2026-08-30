@@ -2,6 +2,11 @@ import { invokeLLM } from "../_core/llm.js";
 import type { Message } from "../_core/llm.js";
 import { logger } from "../_core/logger.js";
 import { validateProjectFiles } from "../lib/buildValidationHelpers.js";
+import {
+  hardenAfterIterate,
+  ensureIterateGreen,
+} from "../lib/iterateReliable.js";
+import { preferReactNodeStack } from "../lib/stackDefaults.js";
 
 // ── Types ──
 
@@ -64,7 +69,6 @@ export type ProgressEvent = {
   detail?: Record<string, unknown>;
 };
 
-// ── Credit costs per sub-stage ──
 const CREDIT_COSTS = {
   context: 1,
   plan: 2,
@@ -74,10 +78,7 @@ const CREDIT_COSTS = {
   summary: 1,
 };
 
-// ── Max retries for self-correction ──
 const MAX_FIX_RETRIES = 2;
-
-// ── System prompts ──
 
 const CONTEXT_SYSTEM_PROMPT = `You are a senior software engineer analysing an AppForge-generated project.
 Read the file structure, tech stack, naming conventions, and patterns.
@@ -139,14 +140,12 @@ Format:
 - Any known limitations or follow-up tasks
 Keep it under 200 words. Be direct.`;
 
-// ── Helper: extract JSON from LLM response ──
 function extractJSON<T>(text: string): T {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("No JSON found in LLM response");
   return JSON.parse(match[0]) as T;
 }
 
-// ── Helper: credit tracking ──
 function trackCredits(
   task: SeniorDevTask,
   costKey: keyof typeof CREDIT_COSTS,
@@ -160,7 +159,6 @@ function trackCredits(
   );
 }
 
-// ── Stage 1: Gather Project Context ──
 export async function gatherContext(
   files: Record<string, string>,
   techStack: string,
@@ -190,7 +188,6 @@ export async function gatherContext(
   return typeof text === "string" ? text : JSON.stringify(text);
 }
 
-// ── Stage 2: Create Plan ──
 export async function createPlan(
   task: SeniorDevTask,
   context: string,
@@ -226,7 +223,6 @@ export async function createPlan(
   return plan;
 }
 
-// ── Stage 3: Execute Plan ──
 export async function executePlan(
   task: SeniorDevTask,
   plan: AgentPlan,
@@ -287,7 +283,6 @@ export async function executePlan(
   return allChanges;
 }
 
-// ── Stage 4: Validate ──
 export async function validateWork(
   task: SeniorDevTask,
   originalFiles: Record<string, string>,
@@ -375,7 +370,6 @@ export async function validateWork(
   return results;
 }
 
-// ── Stage 5: Fix Issues ──
 export async function fixIssues(
   task: SeniorDevTask,
   validation: ValidationResult,
@@ -439,7 +433,6 @@ export async function fixIssues(
   return fixResult.changes;
 }
 
-// ── Stage 6: Summary ──
 export async function generateSummary(
   task: SeniorDevTask,
   plan: AgentPlan,
@@ -474,7 +467,6 @@ export async function generateSummary(
   return summary;
 }
 
-// ── Full Agent Loop ──
 export async function runSeniorDevAgent(
   task: SeniorDevTask,
   generatedFiles: Record<string, string>,
@@ -494,13 +486,9 @@ export async function runSeniorDevAgent(
   try {
     let context = "";
 
-    // Skip re-planning when resuming an already-approved collaborative plan
     if (!(task.planApproved && task.plan)) {
-      // 1. Gather context
       trackCredits(task, "context");
       context = await gatherContext(generatedFiles, techStack, onProgress);
-
-      // 2. Create plan
       task.plan = await createPlan(task, context, onProgress);
 
       if (task.mode === "collaborative" && !task.planApproved) {
@@ -524,7 +512,6 @@ export async function runSeniorDevAgent(
       throw new Error("No plan available to execute");
     }
 
-    // 3. Execute
     task.status = "executing";
     const originalFiles = { ...generatedFiles };
     const changes = await executePlan(
@@ -535,7 +522,13 @@ export async function runSeniorDevAgent(
     );
     task.changes = changes;
 
-    // 4. Validate
+    techStack = preferReactNodeStack(techStack);
+    Object.assign(generatedFiles, hardenAfterIterate(generatedFiles, techStack));
+    onProgress({
+      stage: "validating",
+      message: "Hardened post-edit tree (entrypoints, deps, file cap)…",
+    });
+
     task.status = "validating";
     let validations = await validateWork(
       task,
@@ -545,7 +538,6 @@ export async function runSeniorDevAgent(
       onProgress,
     );
 
-    // 4b. Triple Audit (a11y + security + perf)
     const { runTripleAudit } = await import("./tripleAudit.js");
     const audit = await runTripleAudit(generatedFiles);
     onProgress({
@@ -554,7 +546,6 @@ export async function runSeniorDevAgent(
       detail: { auditScores: audit },
     });
 
-    // 5. Self-correction loop
     for (let attempt = 1; attempt <= MAX_FIX_RETRIES; attempt++) {
       const lastValidation = validations[validations.length - 1];
       if (lastValidation.passed || lastValidation.errors.length === 0) break;
@@ -569,7 +560,6 @@ export async function runSeniorDevAgent(
       );
       task.changes.push(...fixChanges);
 
-      // Re-validate after fix
       const revalidation = await validateWork(
         task,
         originalFiles,
@@ -581,10 +571,48 @@ export async function runSeniorDevAgent(
     }
 
     task.validationResults = validations;
-    const finalPassed = validations[validations.length - 1]?.passed ?? false;
+    let finalPassed = validations[validations.length - 1]?.passed ?? false;
+
+    if (!finalPassed) {
+      onProgress({
+        stage: "fixing",
+        message: "Edits still failing validation — restoring last green snapshot…",
+      });
+      const outcome = await ensureIterateGreen({
+        baseline: originalFiles,
+        candidate: generatedFiles,
+        techStack,
+        validate: async (files) => {
+          const r = await validateProjectFiles(files, techStack, {
+            testsBlocking: false,
+          });
+          return {
+            stage: (r.stage as ValidationResult["stage"]) || "syntax",
+            passed: r.passed,
+            errors: r.errors,
+            warnings: r.warning ? [r.warning] : [],
+          };
+        },
+        maxFixAttempts: 1,
+      });
+      Object.keys(generatedFiles).forEach((k) => delete generatedFiles[k]);
+      Object.assign(generatedFiles, outcome.files);
+      if (outcome.rolledBack) {
+        finalPassed = true;
+        task.summary =
+          (task.summary || "") +
+          " Changes could not be applied cleanly; restored previous green files.";
+        onProgress({
+          stage: "completed",
+          message: "Rolled back to last green project files.",
+        });
+      } else if (outcome.validation?.passed) {
+        finalPassed = true;
+      }
+    }
+
     task.status = finalPassed ? "completed" : "failed";
 
-    // 6. Summary
     const summary = await generateSummary(
       task,
       task.plan,
@@ -615,7 +643,6 @@ export async function runSeniorDevAgent(
   }
 }
 
-// ── Resume after plan approval (collaborative mode) ──
 export async function resumeAfterApproval(
   task: SeniorDevTask,
   generatedFiles: Record<string, string>,
