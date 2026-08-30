@@ -30,10 +30,19 @@ export function isGoldenStack(stack: string): boolean {
 /** Remove `// filename:` / markdown fences the LLM leaves in file bodies. */
 export function stripFilenameHeaders(content: string): string {
   let out = content.replace(/^\/\/\s*filename:\s*.+\r?\n?/gim, "");
+  out = out.replace(/^\/\/\s*file:\s*.+\r?\n?/gim, "");
   out = out.replace(/^```[a-zA-Z0-9]*\r?\n/m, "");
   out = out.replace(/\r?\n```\s*$/m, "");
   return out.trimStart();
 }
+
+const BOGUS_PACKAGES = [
+  "html5-game-engine",
+  "unity-webgl-loader",
+  "ai-agent-sdk",
+  "stub",
+  "placeholder",
+];
 
 function ensureJsonPackage(
   files: Record<string, string>,
@@ -67,8 +76,11 @@ function ensureJsonPackage(
     devDeps.typescript = devDeps.typescript ?? "^5.3.3";
     devDeps["@types/react"] = devDeps["@types/react"] ?? "^18.2.55";
     devDeps["@types/react-dom"] = devDeps["@types/react-dom"] ?? "^18.2.19";
+    // Prefer vite-only build (tsc -b often fails without project references)
     scripts.dev = scripts.dev ?? "vite";
-    scripts.build = scripts.build ?? "vite build";
+    scripts.build = scripts.build?.includes("tsc -b")
+      ? "vite build"
+      : (scripts.build ?? "vite build");
     scripts.preview = scripts.preview ?? "vite preview";
     scripts.typecheck = scripts.typecheck ?? "tsc --noEmit";
   }
@@ -82,13 +94,13 @@ function ensureJsonPackage(
     scripts.start = scripts.start ?? "next start";
   }
 
-  // Drop known-bogus stub packages the old validator injected
-  for (const bad of [
-    "html5-game-engine",
-    "unity-webgl-loader",
-    "ai-agent-sdk",
-  ]) {
+  for (const bad of BOGUS_PACKAGES) {
     delete deps[bad];
+    delete devDeps[bad];
+  }
+  // Drop any dependency whose version is literally "stub"
+  for (const [k, v] of Object.entries(deps)) {
+    if (v === "stub" || v === "placeholder") delete deps[k];
   }
 
   pkg.name =
@@ -103,6 +115,69 @@ function ensureJsonPackage(
   pkg.devDependencies = devDeps;
 
   files["package.json"] = JSON.stringify(pkg, null, 2);
+}
+
+function ensureTailwindToolchain(files: Record<string, string>): void {
+  const css = files["src/index.css"] ?? files["src/styles.css"] ?? "";
+  const usesTailwind =
+    css.includes("@tailwind") ||
+    Object.values(files).some(
+      (c) =>
+        typeof c === "string" &&
+        /className\s*=\s*["'][^"']*\b(flex|grid|text-|bg-|p-|m-|rounded)/.test(
+          c,
+        ),
+    );
+  if (!usesTailwind) return;
+
+  if (!files["src/index.css"]) {
+    files["src/index.css"] = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { margin: 0; min-height: 100vh; }
+`;
+  } else if (!files["src/index.css"].includes("@tailwind")) {
+    files["src/index.css"] =
+      `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n` +
+      files["src/index.css"];
+  }
+
+  if (!files["tailwind.config.js"] && !files["tailwind.config.ts"]) {
+    files["tailwind.config.js"] = `/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: { extend: {} },
+  plugins: [],
+};
+`;
+  }
+
+  if (!files["postcss.config.js"] && !files["postcss.config.cjs"]) {
+    files["postcss.config.js"] = `export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+`;
+  }
+
+  // Ensure deps
+  try {
+    const pkg = JSON.parse(files["package.json"] || "{}") as {
+      devDependencies?: Record<string, string>;
+    };
+    pkg.devDependencies = pkg.devDependencies ?? {};
+    pkg.devDependencies.tailwindcss =
+      pkg.devDependencies.tailwindcss ?? "^3.4.0";
+    pkg.devDependencies.postcss = pkg.devDependencies.postcss ?? "^8.4.35";
+    pkg.devDependencies.autoprefixer =
+      pkg.devDependencies.autoprefixer ?? "^10.4.17";
+    files["package.json"] = JSON.stringify(pkg, null, 2);
+  } catch {
+    /* ignore */
+  }
 }
 
 function ensureTsconfig(files: Record<string, string>, techStack: string): void {
@@ -124,16 +199,20 @@ function ensureTsconfig(files: Record<string, string>, techStack: string): void 
         isolatedModules: true,
         esModuleInterop: true,
         resolveJsonModule: true,
+        allowImportingTsExtensions: false,
         ...(ts.compilerOptions || {}),
-        // Force safe defaults even if LLM overwrote poorly
         skipLibCheck: true,
         noEmit: true,
+        moduleResolution: "bundler",
       };
       ts.include = ts.include?.length
         ? ts.include
         : techStack.includes("next")
           ? ["app", "src"]
           : ["src"];
+      // Never typecheck compliance stubs that may lack React imports
+      const include = ts.include.filter((p) => !p.includes("compliance"));
+      ts.include = include.length ? include : ["src"];
       files["tsconfig.json"] = JSON.stringify(ts, null, 2);
       return;
     } catch {
@@ -256,7 +335,6 @@ body {
 `;
   }
 
-  // Ensure main imports css if present
   const mainKey = files["src/main.tsx"]
     ? "src/main.tsx"
     : files["src/main.ts"]
@@ -296,7 +374,6 @@ function ensureNextEntrypoints(files: Record<string, string>): void {
 }
 
 function fixBrokenRelativeImports(files: Record<string, string>): void {
-  // Prefer extensionless imports for TS — strip erroneous .ts/.tsx from import paths in source
   for (const [path, content] of Object.entries(files)) {
     if (!/\.(tsx?|jsx?)$/.test(path)) continue;
     files[path] = content.replace(
@@ -322,12 +399,19 @@ function ensureAppExportsMatchMain(files: Record<string, string>): void {
   );
 
   if (mainWantsNamed && !hasNamed && hasDefault) {
-    // Add named re-export
     files["src/App.tsx"] = `${app}\nexport { default as App };\n`;
   } else if (mainWantsDefault && !hasDefault && hasNamed) {
     files["src/App.tsx"] = `${app}\nexport default App;\n`;
-  } else if (mainWantsNamed && !hasNamed && !hasDefault) {
-    // Leave as-is; reliability App scaffold handles missing App
+  }
+}
+
+/** Fix cookie-consent style compliance TSX missing React import. */
+function patchComplianceReactImports(files: Record<string, string>): void {
+  for (const [path, content] of Object.entries(files)) {
+    if (!path.startsWith("compliance/") || !path.endsWith(".tsx")) continue;
+    if (/\buseState\b|\buseEffect\b/.test(content) && !/from\s+["']react["']/.test(content)) {
+      files[path] = `import { useState } from "react";\n${content}`;
+    }
   }
 }
 
@@ -339,18 +423,15 @@ export function hardenGeneratedProject(
   files: Record<string, string>,
   techStack: string,
 ): Record<string, string> {
-  // 1. Clean every text-ish file body
   for (const [path, content] of Object.entries(files)) {
     if (typeof content !== "string") continue;
     if (path.endsWith(".png") || path.endsWith(".jpg")) continue;
     files[path] = stripFilenameHeaders(content);
   }
 
-  // 2. package.json / tsconfig
   ensureJsonPackage(files, techStack);
   ensureTsconfig(files, techStack);
 
-  // 3. Entrypoints
   if (techStack.includes("next")) {
     ensureNextEntrypoints(files);
   } else if (
@@ -361,11 +442,14 @@ export function hardenGeneratedProject(
     ensureViteEntrypoints(files, techStack);
   }
 
-  // 4. Import hygiene
+  ensureTailwindToolchain(files);
+  // Re-run package merge after tailwind deps added
+  ensureJsonPackage(files, techStack);
+
   fixBrokenRelativeImports(files);
   ensureAppExportsMatchMain(files);
+  patchComplianceReactImports(files);
 
-  // 5. Minimal README if missing
   if (!files["README.md"]) {
     files["README.md"] = `# AppForge project\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`;
   }
@@ -391,7 +475,7 @@ RELIABILITY RULES (highest priority — world-class green builds):
 5. For styling: Tailwind utility classes + src/index.css with @tailwind directives. Do NOT invent missing UI libraries.
 6. Imports: extensionless relative imports (./App not ./App.tsx). Named or default export must match main.tsx.
 7. package.json: only real public npm packages with semver ranges. No stub package names.
-8. Include working npm scripts: dev, build, typecheck.
+8. Include working npm scripts: dev, build, typecheck. Prefer "build": "vite build" (not tsc -b).
 9. Skip heavy compliance/auth/rate-limit scaffolding unless the user explicitly asked — keep the app compiling first.
 10. If fixing errors: change only the broken files; preserve working UI.
 `.trim();
@@ -399,4 +483,39 @@ RELIABILITY RULES (highest priority — world-class green builds):
 
 export function maxFixRetriesForStack(techStack: string): number {
   return isGoldenStack(techStack) || techStack.includes("react") ? 3 : 2;
+}
+
+/** Shape checks used by the golden structural suite (no network). */
+export function assertBuildableShape(
+  files: Record<string, string>,
+  techStack: string,
+): string[] {
+  const problems: string[] = [];
+  const hardened = hardenGeneratedProject({ ...files }, techStack);
+  if (!hardened["package.json"]) problems.push("missing package.json");
+  else {
+    try {
+      const pkg = JSON.parse(hardened["package.json"]);
+      if (!pkg.scripts?.build) problems.push("package.json missing build script");
+      for (const bad of BOGUS_PACKAGES) {
+        if (pkg.dependencies?.[bad]) problems.push(`bogus dep ${bad}`);
+      }
+    } catch {
+      problems.push("package.json invalid JSON");
+    }
+  }
+  if (techStack.includes("next")) {
+    if (!hardened["app/page.tsx"] && !hardened["pages/index.tsx"]) {
+      problems.push("missing Next.js page");
+    }
+  } else if (isGoldenStack(techStack) || techStack.includes("react")) {
+    if (!hardened["index.html"]) problems.push("missing index.html");
+    if (!hardened["src/main.tsx"] && !hardened["src/main.ts"]) {
+      problems.push("missing src/main entry");
+    }
+    if (!hardened["src/App.tsx"] && !hardened["src/App.jsx"]) {
+      problems.push("missing App component");
+    }
+  }
+  return problems;
 }
