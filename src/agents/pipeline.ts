@@ -40,6 +40,11 @@ import {
   mergeSurgicalPatches,
 } from "../lib/surgicalFix.js";
 import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
+import {
+  classifyRecipe,
+  recipeCoderHint,
+  checkRecipeSpec,
+} from "../lib/appRecipes.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
@@ -166,11 +171,18 @@ export async function runAgentPipeline(
           ? "education"
           : "general";
 
-    const researchBrief = await runResearchAgent(
-      projectId, description, techStack,
-      (type, payload) => emit("Research", type, payload),
-      { focus: researchFocus },
-    );
+    let researchBrief = "";
+    if (isGoldenStack(techStack) || techStack.includes("react")) {
+      emit("Research", "skipped", {
+        message: "Golden path: research skipped for faster reliable builds.",
+      });
+    } else {
+      researchBrief = await runResearchAgent(
+        projectId, description, techStack,
+        (type, payload) => emit("Research", type, payload),
+        { focus: researchFocus },
+      );
+    }
 
     if (creditCheck && !(await creditCheck())) {
       write("pause", { reason: "credits_exhausted", agent: "Planner", message: "Build paused: insufficient credits." });
@@ -212,6 +224,12 @@ export async function runAgentPipeline(
     if (isGoldenStack(techStack) && tasks.length === 0) {
       tasks = [{ id: "1", module: "Core UI", description }];
     }
+
+    const activeRecipe = classifyRecipe(description);
+    emit("System", "info", {
+      message: `Recipe: ${activeRecipe.id} (${activeRecipe.label})`,
+      recipe: activeRecipe.id,
+    });
 
     if (creditCheck && !(await creditCheck())) {
       write("pause", { reason: "credits_exhausted", agent: "Coder", message: "Build paused: insufficient credits." });
@@ -299,7 +317,7 @@ ${localeHint}`,
             [
               {
                 role: "system",
-                content: `You are the Coder agent. Output files as // filename: path then full code.\n${goldenCoderRules(techStack)}\nPrefer compiling UI first.\n${designHints}\n${capabilityHints}\n${localeHint}`,
+                content: `You are the Coder agent. Output files as // filename: path then full code.\n${goldenCoderRules(techStack)}\nPrefer compiling UI first.\n${recipeCoderHint(description)}\n${designHints}\n${capabilityHints}\n${localeHint}`,
               },
               {
                 role: "user",
@@ -416,7 +434,7 @@ ${localeHint}`,
 
       if (isGoldenStack(techStack) || techStack.includes("react")) {
         emit("System", "info", {
-          message: "Applying guaranteed-green baseline so the app still runs (Bolt/Lovable parity).",
+          message: `Applying recipe-based guaranteed-green (${classifyRecipe(description).id}) so the app still runs and stays on-prompt.`,
         });
         generatedFiles = buildGuaranteedGreenApp({
           title: appTitle,
@@ -440,6 +458,20 @@ ${localeHint}`,
       }
     }
 
+    if (validationResult.passed) {
+      const spec = checkRecipeSpec(generatedFiles, activeRecipe);
+      if (!spec.ok) {
+        emit("System", "info", {
+          message: `Spec soft-miss for recipe ${activeRecipe.id}: missing ${spec.missing.join(", ")}. Keeping green build.`,
+          missing: spec.missing,
+        });
+      } else {
+        emit("System", "info", {
+          message: `Spec check passed for recipe ${activeRecipe.id}.`,
+        });
+      }
+    }
+
     let reviewOutput = "";
     if (validationResult.passed) {
       if (creditCheck && !(await creditCheck())) {
@@ -447,25 +479,30 @@ ${localeHint}`,
         await updateProjectStatus(projectId, "paused", "credits_exhausted");
         return;
       }
-      emit("Reviewer", "start", { message: "Reviewing generated code…" });
-      const reviewerLogId = await appendAgentLog({ projectId, agent: "Reviewer", content: "", isComplete: false });
-      const filesSummary = Object.keys(generatedFiles).map((n) => `- ${n}`).join("\n");
-      await streamLLM(
-        [
-          {
-            role: "system",
-            content: "Reviewer agent. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.",
-          },
-          {
-            role: "user",
-            content: `App: ${appTitle}\nFiles:\n${filesSummary}\nStack: ${techStack}\nValidation: PASSED`,
-          },
-        ],
-        (chunk) => { reviewOutput += chunk; emit("Reviewer", "chunk", { text: chunk }); },
-        signal, "reviewer",
-      );
-      await markAgentLogComplete(reviewerLogId);
-      emit("Reviewer", "complete", { message: "Code review complete." });
+      if (isGoldenStack(techStack)) {
+        reviewOutput = `# Review skipped\n\nGolden path: validation passed; reviewer skipped for speed.`;
+        emit("Reviewer", "skipped", { message: "Golden path: reviewer skipped after green validation." });
+      } else {
+        emit("Reviewer", "start", { message: "Reviewing generated code…" });
+        const reviewerLogId = await appendAgentLog({ projectId, agent: "Reviewer", content: "", isComplete: false });
+        const filesSummary = Object.keys(generatedFiles).map((n) => `- ${n}`).join("\n");
+        await streamLLM(
+          [
+            {
+              role: "system",
+              content: "Reviewer agent. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.",
+            },
+            {
+              role: "user",
+              content: `App: ${appTitle}\nFiles:\n${filesSummary}\nStack: ${techStack}\nValidation: PASSED`,
+            },
+          ],
+          (chunk) => { reviewOutput += chunk; emit("Reviewer", "chunk", { text: chunk }); },
+          signal, "reviewer",
+        );
+        await markAgentLogComplete(reviewerLogId);
+        emit("Reviewer", "complete", { message: "Code review complete." });
+      }
     } else {
       reviewOutput = `# Build review skipped\n\nValidation failed after ${maxFixRetries} attempts.\n\n## Errors\n${(validationResult.errors ?? []).map((e) => `- ${e}`).join("\n")}`;
       emit("Reviewer", "skipped", { message: "Review skipped — validation did not pass." });
