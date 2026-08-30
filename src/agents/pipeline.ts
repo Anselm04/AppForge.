@@ -35,6 +35,10 @@ import {
   isGoldenStack,
   maxFixRetriesForStack,
 } from "../lib/reliableBuild.js";
+import {
+  buildSurgicalFixPrompt,
+  mergeSurgicalPatches,
+} from "../lib/surgicalFix.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
@@ -216,72 +220,120 @@ export async function runAgentPipeline(
     let validationResult: ValidationResult | null = null;
     let lastAuditResult: TripleAuditResult | null = null;
     let fixAttempt = 0;
-    const testsBlocking = validationMode === "full";
+    const testsBlocking = validationMode === "full" && !isGoldenStack(techStack);
 
     do {
       if (fixAttempt > 0) {
         emit("Coder", "fix_start", {
-          message: `Auto-fix attempt ${fixAttempt}/${maxFixRetries}`,
+          message: `Surgical auto-fix attempt ${fixAttempt}/${maxFixRetries}`,
           errors: validationResult?.errors ?? [],
         });
-      }
-      generatedFiles = {};
 
-      for (const task of tasks) {
-        if (signal?.aborted) break;
-        emit("Coder", "task_start", { module: task.module, description: task.description });
-        const coderLogId = await appendAgentLog({
-          projectId, agent: "Coder", content: `# ${task.module}\n`, isComplete: false,
+        const fixPrompt = buildSurgicalFixPrompt({
+          appTitle,
+          techStack,
+          errors: validationResult?.errors ?? [],
+          files: generatedFiles,
         });
-
-        const fixContext =
-          fixAttempt > 0 && validationResult
-            ? `\n\nPREVIOUS ERRORS — FIX:\n${validationResult.errors.slice(0, 8).join("\n")}`
-            : "";
-
-        let fileContent = "";
+        const coderLogId = await appendAgentLog({
+          projectId,
+          agent: "Coder",
+          content: `# Surgical fix ${fixAttempt}\n`,
+          isComplete: false,
+        });
+        let fixContent = "";
         await streamLLM(
           [
             {
               role: "system",
-              content: `You are the Coder agent. Output files as // filename: path then full code.\n${goldenCoderRules(techStack)}\nPrefer compiling UI first. ${fixAttempt > 0 ? "FIX RETRY — surgical edits only." : ""}\n${designHints}\n${capabilityHints}\n${localeHint}`,
+              content: `You are the Coder agent performing a SURGICAL FIX.
+Output only corrected files with // filename: path markers.
+Do not regenerate the whole app. Minimal edits to clear the errors.
+${goldenCoderRules(techStack)}
+${localeHint}`,
             },
-            {
-              role: "user",
-              content: `App: ${appTitle}\nModule: ${task.module}\nTask: ${task.description}\nStack: ${techStack}${fixContext}`,
-            },
+            { role: "user", content: fixPrompt },
           ],
           (chunk) => {
-            fileContent += chunk;
-            emit("Coder", "chunk", { module: task.module, text: chunk });
+            fixContent += chunk;
+            emit("Coder", "chunk", { module: "fix", text: chunk });
           },
-          signal, "coder",
+          signal,
+          "coder",
         );
-
-        const parsedFiles = parseGeneratedFiles(fileContent);
-        if (Object.keys(parsedFiles).length > 0) {
-          Object.assign(generatedFiles, parsedFiles);
-          for (const filename of Object.keys(parsedFiles)) {
-            emit("Coder", "task_complete", { module: task.module, filename });
+        const patches = parseGeneratedFiles(fixContent);
+        if (Object.keys(patches).length > 0) {
+          generatedFiles = mergeSurgicalPatches(generatedFiles, patches);
+          for (const filename of Object.keys(patches)) {
+            emit("Coder", "task_complete", { module: "fix", filename });
           }
         } else {
-          const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
-          const filename = filenameMatch
-            ? filenameMatch[1].trim()
-            : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.tsx`;
-          generatedFiles[filename] = fileContent
-            .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
-            .trimStart();
-          emit("Coder", "task_complete", { module: task.module, filename });
+          const filenameMatch = fixContent.match(/\/\/\s*filename:\s*(.+)/);
+          if (filenameMatch) {
+            const filename = filenameMatch[1].trim();
+            generatedFiles[filename] = fixContent
+              .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
+              .trimStart();
+          }
         }
         await markAgentLogComplete(coderLogId);
-        if (Object.keys(generatedFiles).length > 0) {
-          await updateProjectFiles(projectId, { ...generatedFiles });
-          write("files_partial", { fileCount: Object.keys(generatedFiles).length });
-        }
-      }
+        emit("Coder", "complete", {
+          message: `Surgical fix applied (${Object.keys(patches).length} file(s)).`,
+        });
+      } else {
+        generatedFiles = {};
 
-      emit("Coder", "complete", { message: `Generated ${Object.keys(generatedFiles).length} files.` });
+        for (const task of tasks) {
+          if (signal?.aborted) break;
+          emit("Coder", "task_start", { module: task.module, description: task.description });
+          const coderLogId = await appendAgentLog({
+            projectId, agent: "Coder", content: `# ${task.module}\n`, isComplete: false,
+          });
+
+          let fileContent = "";
+          await streamLLM(
+            [
+              {
+                role: "system",
+                content: `You are the Coder agent. Output files as // filename: path then full code.\n${goldenCoderRules(techStack)}\nPrefer compiling UI first.\n${designHints}\n${capabilityHints}\n${localeHint}`,
+              },
+              {
+                role: "user",
+                content: `App: ${appTitle}\nModule: ${task.module}\nTask: ${task.description}\nStack: ${techStack}`,
+              },
+            ],
+            (chunk) => {
+              fileContent += chunk;
+              emit("Coder", "chunk", { module: task.module, text: chunk });
+            },
+            signal, "coder",
+          );
+
+          const parsedFiles = parseGeneratedFiles(fileContent);
+          if (Object.keys(parsedFiles).length > 0) {
+            Object.assign(generatedFiles, parsedFiles);
+            for (const filename of Object.keys(parsedFiles)) {
+              emit("Coder", "task_complete", { module: task.module, filename });
+            }
+          } else {
+            const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
+            const filename = filenameMatch
+              ? filenameMatch[1].trim()
+              : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.tsx`;
+            generatedFiles[filename] = fileContent
+              .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
+              .trimStart();
+            emit("Coder", "task_complete", { module: task.module, filename });
+          }
+          await markAgentLogComplete(coderLogId);
+          if (Object.keys(generatedFiles).length > 0) {
+            await updateProjectFiles(projectId, { ...generatedFiles });
+            write("files_partial", { fileCount: Object.keys(generatedFiles).length });
+          }
+        }
+
+        emit("Coder", "complete", { message: `Generated ${Object.keys(generatedFiles).length} files.` });
+      }
 
       try {
         generatedFiles = mergeScaffoldWithGenerated(getStackScaffold(techStack), generatedFiles);
@@ -296,10 +348,14 @@ export async function runAgentPipeline(
         }
       } catch { /* non-fatal */ }
 
-      emit("Testing", "start", { message: "Generating unit tests before validation…" });
-      const testFiles = await attachGeneratedTests(generatedFiles, techStack);
-      Object.assign(generatedFiles, testFiles);
-      emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s).` });
+      if (!isGoldenStack(techStack)) {
+        emit("Testing", "start", { message: "Generating unit tests before validation…" });
+        const testFiles = await attachGeneratedTests(generatedFiles, techStack);
+        Object.assign(generatedFiles, testFiles);
+        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s).` });
+      } else {
+        emit("Testing", "skipped", { message: "Golden path: tests deferred until UI is green." });
+      }
 
       if (creditCheck && !(await creditCheck())) {
         write("pause", { reason: "credits_exhausted", agent: "Validator", message: "Build paused: insufficient credits." });
@@ -390,8 +446,12 @@ export async function runAgentPipeline(
     generatedFiles["README.md"] =
       `# ${appTitle}\n\nGenerated by AppForge.\n\n**Stack:** ${techStack}\n\n**Validation:** ${validationResult?.passed ? "Passed" : "FAILED"}\n\n\`\`\`bash\nnpm install && npm run dev\n\`\`\`\n`;
 
-    injectComplianceScaffolding(generatedFiles);
-    generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    if (validationResult?.passed || !isGoldenStack(techStack)) {
+      injectComplianceScaffolding(generatedFiles);
+      generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    } else {
+      generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    }
     await updateProjectFiles(projectId, generatedFiles);
 
     const { logger } = await import("../_core/logger.js");
