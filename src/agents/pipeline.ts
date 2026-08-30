@@ -44,6 +44,8 @@ import {
   classifyRecipe,
   recipeCoderHint,
   checkRecipeSpec,
+  ensureRecipeFloor,
+  repairSpecWithRecipe,
 } from "../lib/appRecipes.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
@@ -231,6 +233,22 @@ export async function runAgentPipeline(
       recipe: activeRecipe.id,
     });
 
+    if (
+      (isGoldenStack(techStack) || techStack.includes("react")) &&
+      description.trim().length < 280
+    ) {
+      tasks = [
+        {
+          id: "1",
+          module: "Core UI",
+          description: `${description}\n\n${activeRecipe.coderHint}`,
+        },
+      ];
+      emit("System", "info", {
+        message: "Short prompt → single-shot Core UI task.",
+      });
+    }
+
     if (creditCheck && !(await creditCheck())) {
       write("pause", { reason: "credits_exhausted", agent: "Coder", message: "Build paused: insufficient credits." });
       await updateProjectStatus(projectId, "paused", "credits_exhausted");
@@ -361,6 +379,17 @@ ${localeHint}`,
         generatedFiles = mergeScaffoldWithGenerated(getStackScaffold(techStack), generatedFiles);
         generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
         generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+        if (isGoldenStack(techStack) || techStack.includes("react")) {
+          generatedFiles = ensureRecipeFloor(generatedFiles, {
+            title: appTitle,
+            description,
+            recipe: activeRecipe,
+          });
+          generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+          emit("System", "info", {
+            message: `Recipe floor applied (${activeRecipe.id}) under generated files.`,
+          });
+        }
         emit("System", "info", { message: "Reliability pass applied (entrypoints, package.json, imports)." });
         if (mergeBilling) {
           const fintechSchema = generatedFiles["fintech/fintech-schema.json"];
@@ -459,17 +488,30 @@ ${localeHint}`,
     }
 
     if (validationResult.passed) {
-      const spec = checkRecipeSpec(generatedFiles, activeRecipe);
-      if (!spec.ok) {
+      let spec = checkRecipeSpec(generatedFiles, activeRecipe);
+      if (!spec.ok && (isGoldenStack(techStack) || techStack.includes("react"))) {
         emit("System", "info", {
-          message: `Spec soft-miss for recipe ${activeRecipe.id}: missing ${spec.missing.join(", ")}. Keeping green build.`,
+          message: `Spec soft-miss for ${activeRecipe.id} (${spec.missing.join(", ")}). Swapping App to recipe UI.`,
           missing: spec.missing,
         });
-      } else {
-        emit("System", "info", {
-          message: `Spec check passed for recipe ${activeRecipe.id}.`,
+        generatedFiles = repairSpecWithRecipe(generatedFiles, {
+          title: appTitle,
+          description,
+          recipe: activeRecipe,
         });
+        generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+        validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
+          testsBlocking: false,
+          validateBilling: false,
+        });
+        spec = checkRecipeSpec(generatedFiles, activeRecipe);
       }
+      emit("System", "info", {
+        message: spec.ok
+          ? `Spec check passed for recipe ${activeRecipe.id}.`
+          : `Spec still soft-miss after recipe App repair (${spec.missing.join(", ")}).`,
+        missing: spec.missing,
+      });
     }
 
     let reviewOutput = "";
