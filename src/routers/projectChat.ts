@@ -72,7 +72,7 @@ export const projectChatRouter = router({
           userId: ctx.user.id,
           role: "assistant",
           content:
-            "Senior Dev is applying your changes — watch the stream below.",
+            "Senior Dev is applying your changes with green-preserving validation — watch the stream below.",
           metadata: { seniorDevTaskId },
         });
       } else {
@@ -101,6 +101,9 @@ export const projectChatRouter = router({
             metadata: {
               quickEdit: true,
               filesChanged: edit.filesChanged,
+              rolledBack: edit.rolledBack ?? false,
+              fixed: edit.fixed ?? false,
+              validationPassed: edit.validation?.passed ?? null,
             },
           });
         }
