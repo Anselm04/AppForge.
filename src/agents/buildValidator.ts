@@ -344,9 +344,10 @@ export async function validateGeneratedBuild(
                 strict: true,
                 esModuleInterop: true,
                 skipLibCheck: true,
-                moduleResolution: "node",
+                moduleResolution: "bundler",
                 resolveJsonModule: true,
                 noEmit: true,
+                isolatedModules: true,
               },
               include: ["src", "*.ts"],
             },
@@ -363,10 +364,14 @@ export async function validateGeneratedBuild(
         60_000,
       );
       if (tscResult.exitCode !== 0) {
-        const tscErrors = tscResult.stdout
+        const combined = `${tscResult.stdout}\n${tscResult.stderr}`;
+        const tscErrors = combined
           .split("\n")
-          .filter((l) => l.includes("error TS"))
-          .slice(0, 10);
+          .filter((l) => /error TS\d+/.test(l) || /\.tsx?\(\d+,\d+\)/.test(l))
+          .slice(0, 12);
+        if (tscErrors.length === 0) {
+          tscErrors.push(combined.slice(0, 600));
+        }
         errors.push(...tscErrors);
         return {
           passed: false,
@@ -416,7 +421,8 @@ export async function validateGeneratedBuild(
         60_000,
       );
       if (buildResult.exitCode !== 0) {
-        errors.push(`Build failed: ${buildResult.stderr.slice(0, 300)}`);
+        const buildLog = `${buildResult.stderr}\n${buildResult.stdout}`.slice(0, 500);
+        errors.push(`Build failed: ${buildLog}`);
         return {
           passed: false,
           stage: "build",
@@ -487,11 +493,9 @@ function techStackDeps(techStack: string): {
     commonProd.three = "^0.160.0";
     commonDev["@types/three"] = "^0.160.0";
   }
-  if (techStack.includes("godot")) commonProd["html5-game-engine"] = "stub";
-  if (techStack.includes("unity")) commonProd["unity-webgl-loader"] = "stub";
   if (techStack.includes("electron")) commonProd.electron = "^28.0.0";
-  if (techStack.includes("ai-agent")) commonProd["ai-agent-sdk"] = "^1.0.0";
   if (techStack.includes("openai")) commonProd.openai = "^4.28.0";
+  // Never inject non-existent stub packages — they break npm install
 
   return { prod: commonProd, dev: commonDev };
 }
