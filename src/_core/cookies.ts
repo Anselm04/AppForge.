@@ -12,7 +12,7 @@ export function getSessionCookieOptions(
   return {
     httpOnly: true,
     secure: isSecure,
-    sameSite: isSecure ? "strict" : "lax",
+    sameSite: "lax",
     path: "/",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
   };
