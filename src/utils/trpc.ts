@@ -1,6 +1,10 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "../routers/index.js";
-import { getAccessToken } from "../lib/auth.js";
+import {
+  ensureFreshSession,
+  getAccessToken,
+  refreshSession,
+} from "../lib/auth.js";
 
 function bearerHeaders(): Record<string, string> {
   const token = getAccessToken();
@@ -16,10 +20,25 @@ export const trpc = createTRPCProxyClient<AppRouter>({
         return bearerHeaders();
       },
       fetch(url, options) {
-        const token = getAccessToken();
-        const headers = new Headers(options?.headers);
-        if (token) headers.set("Authorization", `Bearer ${token}`);
-        return fetch(url, { ...options, headers });
+        const run = async (retried: boolean): Promise<Response> => {
+          if (!retried) {
+            await ensureFreshSession();
+          }
+          const token = getAccessToken();
+          const headers = new Headers(options?.headers);
+          if (token) headers.set("Authorization", `Bearer ${token}`);
+          const res = await fetch(url, {
+            ...options,
+            headers,
+            credentials: "same-origin",
+          });
+          if (res.status === 401 && !retried) {
+            const refreshed = await refreshSession();
+            if (refreshed) return run(true);
+          }
+          return res;
+        };
+        return run(false);
       },
     }),
   ],
