@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import * as Sentry from "@sentry/node";
 import { securityHeaders } from "./middleware/securityHeaders.js";
+import { corsOrigin } from "./middleware/corsOrigin.js";
 import { compressionMiddleware } from "./middleware/compression.js";
 import { createRateLimiter } from "./middleware/rateLimiter.js";
 import { createSlowDown } from "./middleware/slowDown.js";
@@ -77,7 +78,7 @@ if (ENV.isProduction) {
 app.use(securityHeaders());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || (ENV.isProduction ? false : true),
+    origin: corsOrigin,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
@@ -212,6 +213,7 @@ app.use(
   createExpressMiddleware({
     router: appRouter,
     createContext,
+    allowMethodOverride: true,
   }),
 );
 
