@@ -26,6 +26,7 @@ import {
   billingCompatRouter,
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
+import { hostedAppsRouter } from "./routes/hostedApps.js";
 import { sandboxDevProxyRouter } from "./routes/sandboxDevProxy.js";
 import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
@@ -115,7 +116,8 @@ app.use((req, res, next) => {
 // ── Request timeout middleware ──
 // SSE builds run up to ~5 minutes; do not kill those sockets at 30s.
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api/build") || req.path.startsWith("/live")) {
+  if (req.path.startsWith("/api/build") || req.path.startsWith("/live") ||
+      req.path.startsWith("/apps")) {
     req.setTimeout(0);
     res.setTimeout(0);
     return next();
@@ -201,6 +203,7 @@ app.use("/api/billing", billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);
 app.use("/api/sso", ssoHttpRouter);
 app.use("/live", supabaseAuthMiddleware, livePreviewRouter);
+app.use("/apps", hostedAppsRouter);
 app.use("/sandbox-dev", supabaseAuthMiddleware, sandboxDevProxyRouter);
 
 // ── tRPC routes ──
@@ -238,7 +241,8 @@ if (ENV.isProduction) {
     if (
       req.path.startsWith("/api") ||
       req.path === "/config.js" ||
-      req.path.startsWith("/live")
+      req.path.startsWith("/live") ||
+      req.path.startsWith("/apps")
     )
       return next();
     res.sendFile(path.join(clientDir, "index.html"), (err) => {
