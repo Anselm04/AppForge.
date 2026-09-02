@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
-import { getSession, signOut } from "../lib/auth.js";
+import { ensureFreshSession, getSession, signOut } from "../lib/auth.js";
 import { useLayoutMode, type LayoutMode } from "../lib/layout.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 import { useLocale } from "../i18n/LocaleContext.js";
@@ -256,9 +256,12 @@ export function TopNav() {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
 
+  const queryClient = useQueryClient();
+  const refreshAttempted = useRef(false);
   const { data: user, isSuccess: meReady } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
+    staleTime: 0,
   });
 
   const { data: subStatus } = useQuery({
@@ -290,10 +293,24 @@ export function TopNav() {
   }, [compact]);
 
   useEffect(() => {
-    if (meReady && !user && getSession()) {
-      signOut();
-    }
-  }, [meReady, user]);
+    if (!meReady || user) return;
+    if (!getSession()) return;
+    if (refreshAttempted.current) return;
+    refreshAttempted.current = true;
+    let cancelled = false;
+    void (async () => {
+      const next = await ensureFreshSession();
+      if (cancelled) return;
+      if (next) {
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      }
+      // Keep local JWT so Generate can still send it. Do not signOut here —
+      // that looped signed-in users back to login and hid owner Admin.
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [meReady, user, queryClient]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -314,8 +331,9 @@ export function TopNav() {
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  // Valid session = auth.me returned a user. Stale localStorage is logged out.
-  const isLoggedIn = !!user;
+  // Logged-in chrome follows a live JWT or auth.me. Admin is owner-only from
+  // the server (auth.me.isOwner) — never inferred from client email.
+  const isLoggedIn = !!user || !!getSession();
   const isOwner = !!user && !!user.isOwner;
 
   const closeMenu = () => setMenuOpen(false);
