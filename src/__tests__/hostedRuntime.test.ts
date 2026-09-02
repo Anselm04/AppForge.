@@ -26,7 +26,7 @@ describe("hostedRuntime", () => {
       description: "A simple todo list app for daily tasks",
       techStack: "react-node",
     });
-    expect(html).toContain("\u003c!doctype html>");
+    expect(html).toContain("<!doctype html>");
     expect(html).toContain("id=\"add-btn\"");
     expect(html).toContain("TrillionAI Tech");
     expect(html).toContain("hello@trillionaitech.com");
@@ -40,7 +40,7 @@ describe("hostedRuntime", () => {
       description: "A playable arcade game with orbs",
       techStack: "phaser-html5",
     });
-    expect(html).toContain("\u003ccanvas");
+    expect(html).toContain("<canvas");
     expect(html).toContain("id=\"score\"");
   });
 
