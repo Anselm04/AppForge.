@@ -92,9 +92,8 @@ function sessionFromAuth(result: {
 export function getSession(): AppForgeSession | null {
   const raw = readStorage(SESSION_KEY);
   if (!raw) {
-    cachedRaw = null;
-    cachedSession = null;
-    return null;
+    // Keep in-memory session if localStorage is blocked (Safari ITP / private).
+    return cachedSession;
   }
   if (raw === cachedRaw) return cachedSession;
   const parsed = parseSession(raw);
