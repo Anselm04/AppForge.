@@ -53,7 +53,7 @@ export function BuildLivePreview({
     ? deployUrl
     : useDevServer
       ? authedUrl(`/sandbox-dev/${projectId}/`)
-      : authedUrl(`/live/${projectId}?v=${refreshKey}`);
+      : `/apps/${projectId}?v=${refreshKey}`;
 
   return (
     <div className="flex flex-col gap-3 min-h-[420px]">
