@@ -37,7 +37,9 @@
     "src/lib/redis.ts",
     "src/lib/sentry.ts",
     "src/lib/ai-interface.ts",
-    "src/lib/app-generator.ts"
+    "src/lib/app-generator.ts",
+    "src/lib/hostedRuntime.ts",
+    "src/lib/appRecipes.ts"
   ],
   "exclude": [
     "src/pages",
