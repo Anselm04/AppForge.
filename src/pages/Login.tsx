@@ -40,6 +40,7 @@ export function Login() {
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
+    staleTime: 0,
   });
 
   const { data: ssoInfo } = useQuery({
@@ -60,6 +61,8 @@ export function Login() {
     setPending(true);
     try {
       await signIn(email.trim(), password);
+      const meNow = await trpc.auth.me.query();
+      queryClient.setQueryData(["auth", "me"], meNow);
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
       navigate(next, { replace: true });
     } catch (err) {

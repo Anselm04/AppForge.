@@ -2,12 +2,19 @@ import { Request, Response, NextFunction } from "express";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  "";
 
 let supabase: ReturnType<typeof createClient> | null = null;
-if (supabaseUrl && supabaseServiceKey) {
+if (supabaseUrl && supabaseKey) {
   try {
-    supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   } catch (err) {
     console.error("Failed to initialize Supabase auth client:", err);
     supabase = null;
@@ -32,8 +39,11 @@ function readAccessToken(req: Request): string | undefined {
   }
   const cookie = req.cookies?.["sb-access-token"];
   if (typeof cookie === "string" && cookie.length > 0) return cookie;
-  const queryToken = req.query?.token;
+  const queryToken = req.query?.token ?? req.query?.access_token;
   if (typeof queryToken === "string" && queryToken.length > 0) return queryToken;
+  if (Array.isArray(queryToken) && typeof queryToken[0] === "string") {
+    return queryToken[0];
+  }
   return undefined;
 }
 

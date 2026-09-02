@@ -111,13 +111,27 @@ export function getSession(): AppForgeSession | null {
 
 export function getAccessToken(): string | null {
   const token = getSession()?.accessToken;
-  return typeof token === "string" && token.length > 0 ? token : null;
+  return typeof token === 'string' && token.length > 0 ? token : null;
+}
+
+export function authHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** In-app login URL. Prompt draft stays in sessionStorage — do not wipe it. */
+export function loginPathWithReturn(next = '/'): string {
+  const path =
+    next.startsWith('/') && !next.startsWith('//') && !next.includes('\\')
+      ? next
+      : '/';
+  return `/login?next=${encodeURIComponent(path)}`;
 }
 
 export function authedUrl(path: string): string {
   const token = getAccessToken();
   if (!token) return path;
-  const sep = path.includes("?") ? "&" : "?";
+  const sep = path.includes('?') ? '&' : '?';
   return `${path}${sep}token=${encodeURIComponent(token)}`;
 }
 
@@ -158,14 +172,29 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   return refreshInFlight;
 }
 
+function accessTokenExpired(token: string, skewMs = 30_000): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return false;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const json = JSON.parse(atob(padded)) as { exp?: number };
+    if (typeof json.exp !== 'number') return false;
+    return json.exp * 1000 <= Date.now() + skewMs;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Ensure we have a usable access token. If auth.me would fail on a stale
- * access token, refresh once when a refresh_token is present.
+ * Ensure we have a usable access token. Refresh only when the JWT is expired
+ * (or about to be) so generate/SSE/auth.me keep a live session.
  */
 export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const session = getSession();
   if (!session) return null;
   if (!session.refreshToken) return session;
+  if (!accessTokenExpired(session.accessToken)) return session;
   const refreshed = await refreshSession();
   return refreshed || getSession();
 }
