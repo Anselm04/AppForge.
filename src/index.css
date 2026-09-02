@@ -3,130 +3,59 @@
 @tailwind utilities;
 
 :root {
-  --forge-bg: #f4f7fb;
-  --forge-bg-rgb: 244 247 251;
-  --forge-surface: #ffffff;
-  --forge-surface-rgb: 255 255 255;
-  --forge-surface-hover: #eef2f8;
-  --forge-surface-hover-rgb: 238 242 248;
-  --forge-text: #0f172a;
-  --forge-text-rgb: 15 23 42;
-  --forge-muted: #64748b;
-  --forge-muted-rgb: 100 116 139;
-  --forge-border: rgba(15, 23, 42, 0.1);
-  --forge-gold: #b8941f;
-  --forge-gold-rgb: 184 148 31;
-  --forge-cyan: #0ea5e9;
-  --forge-cyan-rgb: 14 165 233;
-  --forge-blue: #1a56ff;
-  --forge-blue-rgb: 26 86 255;
-  --forge-gradient: linear-gradient(135deg, #0ea5e9 0%, #1a56ff 100%);
-  --forge-radius: 16px;
-  --forge-transition: 200ms ease-out;
-  --forge-mesh-a: rgba(14, 165, 233, 0.08);
-  --forge-mesh-b: rgba(26, 86, 255, 0.06);
+  --forge-bg: #f4efe4;
+  --forge-bg-rgb: 244 239 228;
+  --forge-surface: #faf6ec;
+  --forge-surface-rgb: 250 246 236;
+  --forge-surface-hover: #efe6d4;
+  --forge-surface-hover-rgb: 239 230 212;
+  --forge-text: #1a1610;
+  --forge-text-rgb: 26 22 16;
+  --forge-muted: #6e6a62;
+  --forge-muted-rgb: 110 106 98;
+  --forge-border: rgba(141, 110, 50, 0.28);
+  --forge-gold: #c4a35a;
+  --forge-gold-rgb: 196 163 90;
+  --forge-gold-bright: #e8d5a3;
+  --forge-gold-deep: #8d6e32;
+  --forge-heading: #8d6e32;
+  --forge-cyan: #6ec9d0;
+  --forge-cyan-rgb: 110 201 208;
+  --forge-blue: #c4a35a;
+  --forge-blue-rgb: 196 163 90;
+  --forge-gradient: linear-gradient(135deg, #8d6e32 0%, #c4a35a 48%, #e8d5a3 100%);
+  --forge-radius: 2px;
+  --forge-transition: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  --forge-mesh-a: rgba(196, 163, 90, 0.14);
+  --forge-mesh-b: rgba(110, 201, 208, 0.06);
+  --font-serif: "Cormorant Garamond", "Iowan Old Style", Palatino, Georgia, serif;
+  --font-sans: "Outfit", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
 }
 
 .dark {
-  --forge-bg: #0a1224;
-  --forge-bg-rgb: 10 18 36;
-  --forge-surface: #101a33;
-  --forge-surface-rgb: 16 26 51;
-  --forge-surface-hover: #152040;
-  --forge-surface-hover-rgb: 21 32 64;
-  --forge-text: #e8ecf5;
-  --forge-text-rgb: 232 236 245;
-  --forge-muted: #8892a6;
-  --forge-muted-rgb: 136 146 166;
-  --forge-border: rgba(255, 255, 255, 0.08);
-  --forge-gold: #d4af37;
-  --forge-gold-rgb: 212 175 55;
-  --forge-cyan: #22b8ff;
-  --forge-cyan-rgb: 34 184 255;
-  --forge-blue: #1a56ff;
-  --forge-blue-rgb: 26 86 255;
-  --forge-gradient: linear-gradient(135deg, #22b8ff 0%, #1a56ff 100%);
-  --forge-mesh-a: rgba(34, 184, 255, 0.12);
-  --forge-mesh-b: rgba(26, 86, 255, 0.08);
+  --forge-bg: #07080b;
+  --forge-bg-rgb: 7 8 11;
+  --forge-surface: #0c0e14;
+  --forge-surface-rgb: 12 14 20;
+  --forge-surface-hover: #12151e;
+  --forge-surface-hover-rgb: 18 21 30;
+  --forge-text: #efeae0;
+  --forge-text-rgb: 239 234 224;
+  --forge-muted: #9a9488;
+  --forge-muted-rgb: 154 148 136;
+  --forge-border: rgba(196, 163, 90, 0.22);
+  --forge-gold: #c4a35a;
+  --forge-gold-rgb: 196 163 90;
+  --forge-gold-bright: #e8d5a3;
+  --forge-gold-deep: #8d6e32;
+  --forge-heading: #e8d5a3;
+  --forge-cyan: #6ec9d0;
+  --forge-cyan-rgb: 110 201 208;
+  --forge-blue: #c4a35a;
+  --forge-blue-rgb: 196 163 90;
+  --forge-gradient: linear-gradient(135deg, #8d6e32 0%, #c4a35a 45%, #e8d5a3 100%);
+  --forge-mesh-a: rgba(196, 163, 90, 0.16);
+  --forge-mesh-b: rgba(110, 201, 208, 0.08);
   color-scheme: dark;
-}
-
-@layer base {
-  html {
-    @apply scroll-smooth;
-  }
-
-  body {
-    @apply antialiased bg-forge-bg text-forge-text-primary;
-    font-family: Inter, Sora, "Noto Sans", ui-sans-serif, system-ui, sans-serif;
-  }
-
-  ::selection {
-    background: rgba(34, 184, 255, 0.25);
-    color: inherit;
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--forge-cyan);
-    outline-offset: 2px;
-  }
-}
-
-@layer components {
-  .forge-glass {
-    @apply bg-forge-surface/80 backdrop-blur-xl border border-forge-border;
-  }
-
-  .forge-gradient-text {
-    @apply bg-clip-text text-transparent bg-forge-gradient;
-  }
-
-  .forge-gradient-border {
-    position: relative;
-  }
-
-  .forge-gradient-border::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--forge-gradient);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.5;
-    transition: opacity var(--forge-transition);
-  }
-
-  .forge-gradient-border:hover::before {
-    opacity: 1;
-  }
-
-  .forge-section {
-    @apply py-22 md:py-30 px-4 md:px-8;
-  }
-
-  .forge-container {
-    @apply max-w-6xl mx-auto w-full;
-  }
-
-  .forge-h1 {
-    @apply font-display text-4xl md:text-5xl lg:text-[3.5rem] font-semibold tracking-tight leading-[1.1];
-  }
-
-  .forge-h2 {
-    @apply font-display text-2xl md:text-[2rem] font-semibold tracking-tight;
-  }
-
-  .forge-body {
-    @apply text-base leading-relaxed text-forge-text-muted;
-  }
 }
