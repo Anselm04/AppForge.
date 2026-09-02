@@ -64,6 +64,9 @@ primary_region = 'lhr'
   PORT = '3000'
   REQUEST_TIMEOUT_MS = '330000'
   SENTRY_TRACES_SAMPLE_RATE = '0.1'
+  APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
+  PUBLIC_APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
+  CORS_ORIGIN = 'https://appforge-unfurling-moon-9058.fly.dev'
 
 [processes]
   app = 'node dist/server.js'
