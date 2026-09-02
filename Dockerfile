@@ -14,7 +14,7 @@ WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm install && npm cache clean --force
+RUN npm install && npm install --no-save @rollup/rollup-linux-x64-musl && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
