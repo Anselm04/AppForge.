@@ -611,14 +611,13 @@ export async function deployProject(opts: {
       };
     case "preview": {
       if (!projectId) throw new Error("projectId required for preview deploy");
-      const base = (previewBaseUrl || process.env.APP_URL || "").replace(
-        /\/$/,
-        "",
-      );
-      if (!base)
-        throw new Error("APP_URL / previewBaseUrl required for preview");
-      const sig = previewSignature(projectId);
-      return { url: `${base}/live/${projectId}?sig=${sig}`, destination };
+      const base = (
+        previewBaseUrl ||
+        process.env.CORS_ORIGIN ||
+        process.env.APP_URL ||
+        "https://appforge-unfurling-moon-9058.fly.dev"
+      ).replace(/\/$/, "");
+      return { url: `${base}/apps/${projectId}`, destination };
     }
     default:
       throw new Error(`Unknown destination: ${destination as string}`);
