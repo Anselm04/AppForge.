@@ -106,12 +106,16 @@ export function Build() {
       }
       if (event === "done") {
         const data = JSON.parse(raw) as {
-          payload?: { creditsSpent?: number };
+          payload?: { creditsSpent?: number; liveUrl?: string };
           creditsSpent?: number;
+          liveUrl?: string;
         };
         setIsComplete(true);
         const spent = data.payload?.creditsSpent ?? data.creditsSpent;
         if (spent) setCreditsSpent(spent);
+        const live = data.liveUrl ?? data.payload?.liveUrl;
+        if (typeof live === "string" && live) setDeployUrl(live);
+        else if (projectId) setDeployUrl("/apps/" + projectId);
         closed = true;
         ac.abort();
         return;
