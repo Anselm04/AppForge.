@@ -205,6 +205,9 @@ export function Home() {
     createProjectMutation.mutate();
   };
 
+  const generateDisabled =
+    !description.trim() || createProjectMutation.isPending || overLimit;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-6xl mx-auto px-4 py-20">
@@ -385,7 +388,7 @@ export function Home() {
                 </optgroup>
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {t("home.techHint")} \u00b7 {validationModeLabel(validationMode)}
+                {t("home.techHint")} · {validationModeLabel(validationMode)}
               </p>
               <p className="text-xs mt-1 flex flex-wrap items-center gap-2">
                 <span
@@ -458,11 +461,7 @@ export function Home() {
             )}
             <button
               type="submit"
-              disabled={{
-                !description.trim() ||
-                createProjectMutation.isPending ||
-                overLimit
-              }}
+              disabled={generateDisabled}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               {outOfCredits
@@ -476,32 +475,32 @@ export function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-16">
           <FeatureCard
-            icon="\ud83d\udcf1"
+            icon="📱"
             title={t("home.catApps")}
             description={t("home.catAppsDesc")}
           />
           <FeatureCard
-            icon="\ud83c\udfae"
+            icon="🎮"
             title={t("home.catGames")}
             description={t("home.catGamesDesc")}
           />
           <FeatureCard
-            icon="\ud83e\udd16"
+            icon="🤖"
             title={t("home.catAgents")}
             description={t("home.catAgentsDesc")}
           />
           <FeatureCard
-            icon="\ud83d\udee0\ufe0f"
+            icon="🛠️"
             title={t("home.catTools")}
             description={t("home.catToolsDesc")}
           />
           <FeatureCard
-            icon="\ud83d\udcbb"
+            icon="💻"
             title={t("home.catSoftware")}
             description={t("home.catSoftwareDesc")}
           />
           <FeatureCard
-            icon="\ud83c\udf10"
+            icon="🌐"
             title={t("home.catWebsites")}
             description={t("home.catWebsitesDesc")}
           />
