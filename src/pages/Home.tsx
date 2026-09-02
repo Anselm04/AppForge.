@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
-import { getAccessToken, signOut } from "../lib/auth.js";
+import {
+  ensureFreshSession,
+  getAccessToken,
+  loginPathWithReturn,
+  refreshSession,
+} from "../lib/auth.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
@@ -103,9 +108,11 @@ export function Home() {
 
   const navigate = useNavigate();
   const { t, locale } = useLocale();
+  const retriedAuth = useRef(false);
   const { data: user } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
+    staleTime: 0,
   });
   const { data: tierStatus } = useQuery({
     queryKey: ["projects", "tierStatus"],
@@ -147,7 +154,7 @@ export function Home() {
       setIsBuilding(true);
       navigate(`/build/${data.id}`);
     },
-    onError: (err) => {
+    onError: async (err) => {
       const message = err instanceof Error ? err.message : String(err);
       const code =
         (
@@ -159,9 +166,16 @@ export function Home() {
         (err as { shape?: { data?: { code?: string } } })?.shape?.data?.code;
       writePromptDraft(description);
       if (code === "UNAUTHORIZED" || /not authenticated/i.test(message)) {
-        signOut();
+        if (!retriedAuth.current) {
+          retriedAuth.current = true;
+          const refreshed = await refreshSession();
+          if (refreshed) {
+            createProjectMutation.mutate();
+            return;
+          }
+        }
         setFormError(t("home.needAccount"));
-        navigate("/signup?next=/");
+        navigate(loginPathWithReturn("/"));
         return;
       }
       setFormError(message || t("home.generateFailed"));
@@ -177,15 +191,15 @@ export function Home() {
 
   const overLimit = description.length > PROMPT_MAX_CHARS;
 
-  const handleStartBuild = (e: React.FormEvent) => {
+  const handleStartBuild = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     if (!description.trim() || overLimit) return;
     writePromptDraft(description);
     writePromptStack(techStack);
-    const token = getAccessToken();
-    if (!token) {
-      navigate("/signup?next=/");
+    const session = await ensureFreshSession();
+    if (!session && !getAccessToken()) {
+      navigate(loginPathWithReturn("/"));
       return;
     }
     createProjectMutation.mutate();
@@ -371,7 +385,7 @@ export function Home() {
                 </optgroup>
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                {t("home.techHint")} · {validationModeLabel(validationMode)}
+                {t("home.techHint")} \u00b7 {validationModeLabel(validationMode)}
               </p>
               <p className="text-xs mt-1 flex flex-wrap items-center gap-2">
                 <span
@@ -444,11 +458,11 @@ export function Home() {
             )}
             <button
               type="submit"
-              disabled={
+              disabled={{
                 !description.trim() ||
                 createProjectMutation.isPending ||
                 overLimit
-              }
+              }}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               {outOfCredits
@@ -462,32 +476,32 @@ export function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-16">
           <FeatureCard
-            icon="📱"
+            icon="\ud83d\udcf1"
             title={t("home.catApps")}
             description={t("home.catAppsDesc")}
           />
           <FeatureCard
-            icon="🎮"
+            icon="\ud83c\udfae"
             title={t("home.catGames")}
             description={t("home.catGamesDesc")}
           />
           <FeatureCard
-            icon="🤖"
+            icon="\ud83e\udd16"
             title={t("home.catAgents")}
             description={t("home.catAgentsDesc")}
           />
           <FeatureCard
-            icon="🛠️"
+            icon="\ud83d\udee0\ufe0f"
             title={t("home.catTools")}
             description={t("home.catToolsDesc")}
           />
           <FeatureCard
-            icon="💻"
+            icon="\ud83d\udcbb"
             title={t("home.catSoftware")}
             description={t("home.catSoftwareDesc")}
           />
           <FeatureCard
-            icon="🌐"
+            icon="\ud83c\udf10"
             title={t("home.catWebsites")}
             description={t("home.catWebsitesDesc")}
           />
