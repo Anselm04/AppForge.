@@ -212,10 +212,31 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+/** Join OpenAI-compatible chat URL. Bases that already end in /v1 must not get another /v1. */
+export function resolveForgeChatCompletionsUrl(forgeApiUrl: string): string {
+  const raw = (forgeApiUrl || "").trim();
+  if (!raw) return "https://forge.manus.im/v1/chat/completions";
+  const base = raw.replace(/\/$/, "");
+  if (/\/v1\/chat\/completions$/i.test(base)) return base;
+  if (/\/chat\/completions$/i.test(base)) return base;
+  if (/\/v1$/i.test(base)) return `${base}/chat/completions`;
+  return `${base}/v1/chat/completions`;
+}
+
+export function resolveForgeModelsUrl(forgeApiUrl: string): string {
+  const raw = (forgeApiUrl || "").trim();
+  if (!raw) return "https://forge.manus.im/v1/models";
+  const base = raw.replace(/\/$/, "");
+  if (/\/v1\/models$/i.test(base)) return base;
+  if (/\/models$/i.test(base)) return base;
+  if (/\/v1$/i.test(base)) return `${base}/models`;
+  return `${base}/v1/models`;
+}
+
+const resolveApiUrl = () => resolveForgeChatCompletionsUrl(ENV.forgeApiUrl);
+
+const DEFAULT_CHAT_MODEL =
+  (process.env.LLM_MODEL_DEFAULT ?? "").trim() || "gpt-4o-mini";
 
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {
@@ -357,9 +378,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     messages: messages.map(normalizeMessage),
   };
 
-  if (model) {
-    payload.model = model;
-  }
+  payload.model = (model && model.trim()) || DEFAULT_CHAT_MODEL;
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -430,9 +449,7 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
+  const url = resolveForgeModelsUrl(ENV.forgeApiUrl);
 
   const response = await fetchWithBackoff(url, {
     headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
