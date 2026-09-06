@@ -48,7 +48,9 @@ describe("P0 reliable builds", () => {
       "react-node",
     );
     expect(hardened["package.json"]).toBeTruthy();
-    expect(JSON.parse(hardened["package.json"]).dependencies.react).toBeTruthy();
+    expect(
+      JSON.parse(hardened["package.json"]).dependencies.react,
+    ).toBeTruthy();
     expect(hardened["index.html"]).toContain("root");
     expect(hardened["src/main.tsx"]).toBeTruthy();
     expect(hardened["tsconfig.json"]).toContain("noEmit");
@@ -64,7 +66,9 @@ describe("P0 reliable builds", () => {
     const pkg = JSON.parse(hardened["package.json"]);
     expect(pkg.scripts.build).toBeTruthy();
     expect(hardened["src/App.tsx"]).toBeTruthy();
-    expect(hardened["vite.config.ts"] || hardened["vite.config.js"]).toBeTruthy();
+    expect(
+      hardened["vite.config.ts"] || hardened["vite.config.js"],
+    ).toBeTruthy();
   });
 
   it("aligns App default/named exports with main.tsx", () => {
