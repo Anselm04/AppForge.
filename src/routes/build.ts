@@ -84,12 +84,18 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   }
 
   const isActive = project.status === "running" || isBuildActive(projectId);
+  // Never-give-up pauses (retry_after_error, still_building*) must resume on SSE reconnect.
+  // Only user_cancelled stays paused without auto-restart.
+  const userCancelled =
+    project.status === "paused" &&
+    (project.pauseReason === "user_cancelled" ||
+      project.pauseReason === "user-cancelled");
   const shouldStart =
     !isActive &&
+    !userCancelled &&
     (project.status === "pending" ||
       project.status === "failed" ||
-      (project.status === "paused" &&
-        project.pauseReason === "credits_exhausted"));
+      project.status === "paused");
 
   if (shouldStart) {
     const concurrency = await canStartBuild(user.id);
@@ -118,10 +124,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
     }
 
-    if (
-      project.status === "paused" &&
-      project.pauseReason === "credits_exhausted"
-    ) {
+    if (project.status === "paused") {
       await resumeProject(projectId);
     }
 
