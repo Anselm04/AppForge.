@@ -68,8 +68,7 @@ export function Build() {
   });
 
   const creditBalance = tierStatus?.credits ?? 0;
-  const ownerUnlimited =
-    !!me?.isOwner || isOwnerEmail(me?.email);
+  const ownerUnlimited = !!me?.isOwner || isOwnerEmail(me?.email);
   const unlimited = !!tierStatus?.unlimited || ownerUnlimited;
   const outOfCredits =
     !ownerUnlimited &&
@@ -133,10 +132,7 @@ export function Build() {
             };
             reason = data.reason ?? data.payload?.reason ?? "";
             message =
-              data.message ??
-              data.payload?.message ??
-              data.payload?.text ??
-              "";
+              data.message ?? data.payload?.message ?? data.payload?.text ?? "";
             spent = data.spent ?? data.payload?.spent ?? 0;
           } catch {
             /* ignore parse errors */
