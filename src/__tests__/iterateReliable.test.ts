@@ -59,7 +59,8 @@ describe("iterateReliable (Priority 2)", () => {
       validate: async (files) => {
         calls++;
         const app = files["src/App.tsx"] || "";
-        const ok = app.includes("export function App") && !app.includes("<Broken");
+        const ok =
+          app.includes("export function App") && !app.includes("<Broken");
         return {
           passed: ok,
           stage: ok ? "build" : "typecheck",

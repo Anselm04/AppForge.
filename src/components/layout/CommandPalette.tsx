@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../i18n/LocaleContext.js";
-import {
-  PLATFORM_FEATURES,
-  featurePath,
-} from "../../lib/platformFeatures.js";
+import { PLATFORM_FEATURES, featurePath } from "../../lib/platformFeatures.js";
 
 type Props = {
   open: boolean;
@@ -20,8 +17,16 @@ export function CommandPalette({ open, onOpenChange }: Props) {
     () => [
       { id: "dashboard", label: t("nav.dashboard"), path: "/dashboard" },
       { id: "new", label: t("landing.ctaPrimary"), path: "/app/new" },
-      { id: "settings", label: t("nav.settings") || "Settings", path: "/settings" },
-      { id: "studio", label: t("sidebar.studios") || "Studios", path: "/studio" },
+      {
+        id: "settings",
+        label: t("nav.settings") || "Settings",
+        path: "/settings",
+      },
+      {
+        id: "studio",
+        label: t("sidebar.studios") || "Studios",
+        path: "/studio",
+      },
       ...PLATFORM_FEATURES.map((f) => ({
         id: f.id,
         label: t(`${f.i18nKey}.title`),
