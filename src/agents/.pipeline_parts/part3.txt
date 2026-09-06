@@ -1,0 +1,192 @@
+        const testFiles = await attachGeneratedTests(generatedFiles, techStack);
+        Object.assign(generatedFiles, testFiles);
+        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s).` });
+      } else {
+        emit("Testing", "skipped", { message: "Golden path: tests deferred until UI is green." });
+      }
+
+      if (creditCheck && !(await creditCheck())) {
+        write("pause", { reason: "credits_exhausted", agent: "Validator", message: "Build paused: insufficient credits." });
+        await updateProjectStatus(projectId, "paused", "credits_exhausted");
+        return;
+      }
+
+      emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
+      validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
+        testsBlocking, validateBilling: mergeBilling,
+      });
+
+      const { runTripleAudit } = await import("./tripleAudit.js");
+      lastAuditResult = await runTripleAudit(generatedFiles);
+      emit("Validator", "audit", {
+        passed: lastAuditResult.passed,
+        overallScore: lastAuditResult.overallScore,
+        a11y: lastAuditResult.a11y.score,
+        security: lastAuditResult.security.score,
+        perf: lastAuditResult.perf.score,
+        findings: [
+          ...lastAuditResult.a11y.findings,
+          ...lastAuditResult.security.findings,
+          ...lastAuditResult.perf.findings,
+        ].slice(0, 10),
+      });
+
+      const criticalSecurity = lastAuditResult.security.findings.filter((f) => f.severity === "critical");
+      if (criticalSecurity.length > 0 && validationResult.passed) {
+        validationResult = {
+          ...validationResult,
+          passed: false,
+          stage: "audit",
+          errors: [...validationResult.errors, ...criticalSecurity.map((f) => `Security: ${f.message}`)],
+        };
+      }
+
+      // Strict product quality bar — compile-green stubs are NOT success
+      if (validationResult.passed) {
+        const quality = assertProductQuality(generatedFiles, {
+          description,
+          recipe: activeRecipe,
+          title: appTitle,
+        });
+        if (!quality.ok) {
+          validationResult = {
+            ...validationResult,
+            passed: false,
+            stage: "quality",
+            errors: [...validationResult.errors, ...quality.errors],
+          };
+          emit("Validator", "quality_fail", {
+            message: "Quality bar not met — continuing never-give-up loop with real AI (not shipping stubs).",
+            errors: quality.errors,
+            outerAttempt,
+          });
+        }
+      }
+
+      emit("Validator", "complete", {
+        passed: validationResult.passed,
+        stage: validationResult.stage,
+        errors: validationResult.errors,
+        durationMs: validationResult.durationMs,
+        warning: validationResult.warning,
+      });
+      fixAttempt++;
+    } while (!validationResult.passed && fixAttempt <= maxFixRetries && !signal?.aborted);
+
+    if (validationResult.passed) {
+      emit("System", "info", {
+        message: `Validation + quality passed on outer attempt ${outerAttempt}.`,
+        outerAttempt,
+        provider: provider.id,
+      });
+      break outerLoop;
+    }
+
+    if (signal?.aborted) break outerLoop;
+
+    if (
+      shouldContinueNeverGiveUp({
+        passed: false,
+        aborted: false,
+        outerAttempt,
+        maxOuter,
+        neverGiveUp,
+      })
+    ) {
+      providerIndex = (providerIndex + 1) % providers.length;
+      const nextProvider = providerAt(providerIndex) ?? providers[0];
+      emit("System", "info", {
+        message: `Validation/quality not met — re-planning with next provider (${nextProvider.id}). Still building — iterating until it works.`,
+        outerAttempt,
+        nextProvider: nextProvider.id,
+        errors: (validationResult.errors ?? []).slice(0, 8),
+      });
+      continue outerLoop;
+    }
+
+    // Soft ceiling while never-give-up: pause (reconnect/resume) — never claim could-not-build
+    if (neverGiveUp) {
+      emit("System", "info", {
+        message: `Reached outer attempt soft ceiling (${maxOuter}) without a green high-quality build. Status paused — reconnect to continue. Never shipping stubs.`,
+        outerAttempt,
+        maxOuter,
+      });
+      await updateProjectStatus(projectId, "paused", `still_building_soft_ceiling_${maxOuter}`);
+      write("pause", {
+        reason: "still_building",
+        message: "Build still iterating. Reconnect or resume — we do not ship unfinished stubs.",
+        outerAttempt,
+      });
+      return;
+    }
+
+    // Legacy path (never-give-up OFF): optional debug GG, else fail
+    emit("Validator", "failed", {
+      message: `Build could not be auto-fixed after ${maxFixRetries} attempts.`,
+      errors: validationResult.errors,
+      stage: validationResult.stage,
+    });
+
+    const allowGuaranteedGreen = ["1", "true", "yes", "on"].includes(
+      (process.env.ALLOW_GUARANTEED_GREEN ?? "").trim().toLowerCase(),
+    );
+    if (
+      allowGuaranteedGreen &&
+      (isGoldenStack(techStack) || techStack.includes("react"))
+    ) {
+      emit("System", "info", {
+        message: `ALLOW_GUARANTEED_GREEN: applying recipe baseline (${classifyRecipe(description).id}) — not customer success.`,
+        guaranteedGreenDebug: true,
+      });
+      generatedFiles = buildGuaranteedGreenApp({
+        title: appTitle,
+        description,
+        techStack,
+      });
+      validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
+        testsBlocking: false,
+        validateBilling: false,
+      });
+      emit("Validator", "complete", {
+        passed: validationResult.passed,
+        stage: validationResult.stage,
+        errors: validationResult.errors,
+        durationMs: validationResult.durationMs,
+        warning: validationResult.passed
+          ? "Debug guaranteed-green baseline applied (ALLOW_GUARANTEED_GREEN)."
+          : validationResult.warning,
+        guaranteedGreen: true,
+        guaranteedGreenDebug: true,
+      });
+      break outerLoop;
+    }
+
+    await updateProjectStatus(
+      projectId,
+      "failed",
+      `Validation failed after ${maxFixRetries} attempts: ${(validationResult.errors ?? []).slice(0, 5).join("; ")}`,
+    );
+    write("error", {
+      message: `Build failed validation after ${maxFixRetries} attempts.`,
+      errors: validationResult.errors,
+      stage: validationResult.stage,
+      validationPassed: false,
+    });
+    return;
+    } // end outerLoop
+
+    if (validationResult?.passed) {
+      emit("System", "info", {
+        message: `Quality + validation bar met for recipe ${activeRecipe.id} (real AI output — no template swap).`,
+        recipe: activeRecipe.id,
+        outerAttempt,
+      });
+    }
+
+    if (signal?.aborted) {
+      await updateProjectStatus(projectId, "failed", "Build cancelled by user.");
+      write("error", { message: "Build cancelled." });
+      return;
+    }
+
+    if (!validationResult?.passed) {
