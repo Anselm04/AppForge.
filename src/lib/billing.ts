@@ -1,23 +1,33 @@
-export type AppForgePlan = 'starter' | 'builder' | 'studio';
+import { withCsrfHeaders } from "./csrf.js";
+
+export type AppForgePlan = "starter" | "builder" | "studio";
 
 export async function startCheckout(plan: AppForgePlan, accessToken: string) {
-  const r = await fetch('/api/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  const r = await fetch("/api/checkout", {
+    method: "POST",
+    headers: await withCsrfHeaders({
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    }),
+    credentials: "same-origin",
     body: JSON.stringify({ plan }),
   });
   const x = await r.json();
-  if (!r.ok) throw new Error(x.error || 'Unable to start checkout.');
+  if (!r.ok) throw new Error(x.error || "Unable to start checkout.");
   window.location.assign(x.url);
 }
 
 export async function buyExtraCredits(credits: number, accessToken: string) {
-  const r = await fetch('/api/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  const r = await fetch("/api/checkout", {
+    method: "POST",
+    headers: await withCsrfHeaders({
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    }),
+    credentials: "same-origin",
     body: JSON.stringify({ credits }),
   });
   const x = await r.json();
-  if (!r.ok) throw new Error(x.error || 'Unable to start credit checkout.');
+  if (!r.ok) throw new Error(x.error || "Unable to start credit checkout.");
   window.location.assign(x.url);
 }
