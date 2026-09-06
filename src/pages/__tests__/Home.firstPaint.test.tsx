@@ -3,10 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { LocaleProvider } from "../../i18n/LocaleContext";
+import { ThemeProvider } from "../../lib/theme";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TopNav } from "../../components/TopNav";
 import { Home } from "../Home";
-import { getAccessToken, getSession, authedUrl } from "../../lib/auth";
+import { getAccessToken, getSession, authedUrl, signOut } from "../../lib/auth";
 
 vi.mock("../../utils/trpc.js", () => ({
   trpc: {
@@ -54,14 +55,16 @@ function renderHome() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
-        <ErrorBoundary>
-          <BrowserRouter>
-            <TopNav />
-            <Home />
-          </BrowserRouter>
-        </ErrorBoundary>
-      </LocaleProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <ErrorBoundary>
+            <BrowserRouter>
+              <TopNav />
+              <Home />
+            </BrowserRouter>
+          </ErrorBoundary>
+        </LocaleProvider>
+      </ThemeProvider>
     </QueryClientProvider>,
   );
 }
@@ -69,6 +72,7 @@ function renderHome() {
 describe("Home first paint", () => {
   beforeEach(() => {
     installStorage(memoryStorage());
+    signOut();
   });
 
   it("renders Home chrome instead of ErrorBoundary when logged out", () => {

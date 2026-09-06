@@ -8,6 +8,16 @@ import { invokeLLM, listLLMModels } from "../_core/llm.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // llmProviders reads process.env (not ENV mock)
+  process.env.BUILT_IN_FORGE_API_KEY = "test-api-key";
+  process.env.BUILT_IN_FORGE_API_URL = "https://forge.manus.im/v1";
+  delete process.env.GROQ_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.GOOGLE_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.CEREBRAS_API_KEY;
+  delete process.env.MISTRAL_API_KEY;
+  delete process.env.OPENAI_API_KEY;
 });
 
 describe("LLM invokeLLM", () => {

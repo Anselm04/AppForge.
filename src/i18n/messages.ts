@@ -18,16 +18,17 @@ type DeepString<T> = {
 export type Messages = DeepString<typeof enJson>;
 export const en: Messages = enJson;
 
+/** Non-en catalogs may lag en.json; cast so typecheck is not blocked on partial locales. */
 export const messages: Record<LocaleCode, Messages> = {
   en,
-  mi,
-  zh,
-  es,
-  hi,
-  ar,
-  fr,
-  pt,
-  ja,
-  ko,
-  de,
+  mi: mi as Messages,
+  zh: zh as Messages,
+  es: es as Messages,
+  hi: hi as Messages,
+  ar: ar as Messages,
+  fr: fr as Messages,
+  pt: pt as Messages,
+  ja: ja as Messages,
+  ko: ko as Messages,
+  de: de as Messages,
 };

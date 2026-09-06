@@ -14,6 +14,7 @@ describe("guaranteedGreen", () => {
     expect(files["package.json"]).toContain("vite");
     const pkg = JSON.parse(files["package.json"]);
     expect(pkg.dependencies.react).toBeTruthy();
-    expect(pkg.devDependencies.tailwindcss).toBeTruthy();
+    expect(pkg.devDependencies.vite).toBeTruthy();
+    expect(files["tailwind.config.js"]).toBeTruthy();
   });
 });

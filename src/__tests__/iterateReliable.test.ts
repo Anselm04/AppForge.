@@ -65,6 +65,8 @@ describe("iterateReliable (Priority 2)", () => {
           stage: ok ? "build" : "typecheck",
           errors: ok ? [] : ["src/App.tsx: syntax error"],
           durationMs: 1,
+          fileCount: Object.keys(files).length,
+          warning: "",
         };
       },
       maxFixAttempts: 1,
