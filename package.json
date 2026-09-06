@@ -4,16 +4,16 @@
   "description": "Multi Agent app building app",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.server.json && vite build",
-    "start": "node dist/server.js",
+    "dev": "node scripts/assemble-pipeline.mjs && vite",
+    "build": "node scripts/assemble-pipeline.mjs && tsc -p tsconfig.server.json && vite build",
+    "start": "node dist.server.js",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:e2e": "vitest run src/__tests__/golden-path.e2e.spec.ts",
+    "test": "node scripts/assemble-pipeline.mjs && vitest",
+    "test:e2e": "node scripts/assemble-pipeline.mjs && vitest run src/__tests__/golden-path.e2e.spec.ts",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "typecheck": "node scripts/assemble-pipeline.mjs && tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "validate-env": "tsx scripts/validate-env.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
@@ -21,7 +21,8 @@
     "db:studio": "drizzle-kit studio",
     "sentry:release": "sentry-cli releases new",
     "sentry:sourcemaps": "sentry-cli sourcemaps upload",
-    "prepare": "husky || true"
+    "prepare": "node scripts/assemble-pipeline.mjs && (husky || true)",
+    "assemble:pipeline": "node scripts/assemble-pipeline.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
