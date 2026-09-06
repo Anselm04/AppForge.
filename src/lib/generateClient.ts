@@ -4,6 +4,7 @@ import {
   getSession,
   refreshSession,
 } from "./auth.js";
+import { clearCsrfToken, withCsrfHeaders } from "./csrf.js";
 
 export type GenerateResult = { id: number; liveUrl: string };
 
@@ -41,13 +42,18 @@ export async function postGenerate(body: {
   await ensureFreshSession();
 
   const open = async (retried: boolean): Promise<Response> => {
+    const headers = await withCsrfHeaders(generateAuthHeaders());
     const res = await fetch("/api/generate", {
       method: "POST",
-      headers: generateAuthHeaders(),
+      headers,
       credentials: "same-origin",
       cache: "no-store",
       body: JSON.stringify(body),
     });
+    if (res.status === 403 && !retried) {
+      clearCsrfToken();
+      return open(true);
+    }
     if (res.status === 401 && !retried) {
       const refreshed = await refreshSession();
       if (refreshed) return open(true);
@@ -98,9 +104,10 @@ export async function syncServerSession(): Promise<{
   const token = getAccessToken();
   if (!token) return null;
   try {
+    const headers = await withCsrfHeaders(generateAuthHeaders());
     const res = await fetch("/api/session", {
       method: "POST",
-      headers: generateAuthHeaders(),
+      headers,
       credentials: "same-origin",
       cache: "no-store",
       body: "{}",
