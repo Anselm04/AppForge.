@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/assemble-pipeline.mjs && vite",
     "build": "node scripts/assemble-pipeline.mjs && tsc -p tsconfig.server.json && vite build",
-    "start": "node dist.server.js",
+    "start": "node dist/server.js",
     "preview": "vite preview",
     "test": "node scripts/assemble-pipeline.mjs && vitest",
     "test:e2e": "node scripts/assemble-pipeline.mjs && vitest run src/__tests__/golden-path.e2e.spec.ts",
