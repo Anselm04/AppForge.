@@ -1,6 +1,8 @@
 /**
- * Last-resort deterministic app for golden stacks.
- * Uses recipe library so fallbacks stay on-prompt (not a generic hero only).
+ * Debug-only deterministic app for golden stacks.
+ * Customer success must NOT use this. Pipeline applies it only when
+ * ALLOW_GUARANTEED_GREEN=true (operator debug). Default: off / never-give-up
+ * keeps iterating with real LLMs instead.
  */
 
 import { hardenGeneratedProject } from "./reliableBuild.js";
@@ -9,6 +11,7 @@ import { buildRecipeApp, classifyRecipe } from "./appRecipes.js";
 /**
  * Build a minimal, known-good Vite React app that typechecks and vite-builds.
  * Shape follows the classified recipe from the user prompt.
+ * Not customer success — debug / ALLOW_GUARANTEED_GREEN only.
  */
 export function buildGuaranteedGreenApp(opts: {
   title: string;
