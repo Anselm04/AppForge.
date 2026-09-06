@@ -53,9 +53,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
   const controller = new AbortController();
   const timeoutMs = resolveBuildTimeoutMs();
   const timeout =
-    timeoutMs > 0
-      ? setTimeout(() => controller.abort(), timeoutMs)
-      : null;
+    timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   const write = (event: string, data: unknown) => {
     void emit(projectId, event, data);
