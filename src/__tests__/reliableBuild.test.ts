@@ -32,7 +32,7 @@ describe("P0 reliable builds", () => {
 
   it("parseGeneratedFiles does not leave filename headers in content", () => {
     const files = parseGeneratedFiles(
-      `// filename: src/App.tsx\nexport function App() { return <div>Hi</div> }\n// filename: src/main.tsx\nimport { App } from \"./App\";\n`,
+      `// filename: src/App.tsx\nexport function App() { return <div>Hi</div> }\n// filename: src/main.tsx\nimport { App } from "./App";\n`,
     );
     expect(files["src/App.tsx"]).toBeDefined();
     expect(files["src/App.tsx"]).not.toMatch(/filename:/);
@@ -48,7 +48,9 @@ describe("P0 reliable builds", () => {
       "react-node",
     );
     expect(hardened["package.json"]).toBeTruthy();
-    expect(JSON.parse(hardened["package.json"]).dependencies.react).toBeTruthy();
+    expect(
+      JSON.parse(hardened["package.json"]).dependencies.react,
+    ).toBeTruthy();
     expect(hardened["index.html"]).toContain("root");
     expect(hardened["src/main.tsx"]).toBeTruthy();
     expect(hardened["tsconfig.json"]).toContain("noEmit");
@@ -64,7 +66,9 @@ describe("P0 reliable builds", () => {
     const pkg = JSON.parse(hardened["package.json"]);
     expect(pkg.scripts.build).toBeTruthy();
     expect(hardened["src/App.tsx"]).toBeTruthy();
-    expect(hardened["vite.config.ts"] || hardened["vite.config.js"]).toBeTruthy();
+    expect(
+      hardened["vite.config.ts"] || hardened["vite.config.js"],
+    ).toBeTruthy();
   });
 
   it("aligns App default/named exports with main.tsx", () => {

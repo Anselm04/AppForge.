@@ -1,4 +1,5 @@
 import { runAgentPipeline } from "../agents/pipeline.js";
+import { resolveBuildTimeoutMs } from "../lib/neverGiveUp.js";
 import {
   getProjectById,
   getUserCredits,
@@ -50,11 +51,9 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     buildCapabilities,
   } = job;
   const controller = new AbortController();
-  const timeoutMs = parseInt(process.env.BUILD_SSE_TIMEOUT_MS ?? "1200000", 10);
-  const timeout = setTimeout(
-    () => controller.abort(),
-    Number.isNaN(timeoutMs) ? 1_200_000 : timeoutMs,
-  );
+  const timeoutMs = resolveBuildTimeoutMs();
+  const timeout =
+    timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   const write = (event: string, data: unknown) => {
     void emit(projectId, event, data);
@@ -78,10 +77,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
 
   try {
     const project = await getProjectById(projectId);
-    if (
-      project?.status === "paused" &&
-      project.pauseReason === "credits_exhausted"
-    ) {
+    if (project?.status === "paused") {
       await resumeProject(projectId);
     }
     await updateProjectStatus(projectId, "running");
@@ -117,7 +113,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     write("error", { message: msg });
     await updateProjectStatus(projectId, "failed", msg);
   } finally {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
     activeJobs.delete(projectId);
     clearRuntimeBuild(projectId);
   }

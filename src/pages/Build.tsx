@@ -5,6 +5,7 @@ import { trpc } from "../utils/trpc.js";
 import { consumeAuthedSse } from "../lib/authedSse.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { isOwnerEmail } from "../lib/ownerIdentity.js";
 import { ProjectCodeEditor } from "../components/ProjectCodeEditor.js";
 import { ProjectChat } from "../components/ProjectChat.js";
 import { DeployWizard } from "../components/DeployWizard.js";
@@ -61,10 +62,19 @@ export function Build() {
     queryFn: () => trpc.projects.deployOptions.query(),
   });
 
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => trpc.auth.me.query(),
+  });
+
   const creditBalance = tierStatus?.credits ?? 0;
-  const unlimited = !!tierStatus?.unlimited;
+  const ownerUnlimited = !!me?.isOwner || isOwnerEmail(me?.email);
+  const unlimited = !!tierStatus?.unlimited || ownerUnlimited;
   const outOfCredits =
-    tierStatus !== undefined && !unlimited && creditBalance < BUILD_CREDIT_COST;
+    !ownerUnlimited &&
+    tierStatus !== undefined &&
+    !unlimited &&
+    creditBalance < BUILD_CREDIT_COST;
 
   useEffect(() => {
     if (!projectId || pid <= 0) return;
@@ -74,92 +84,154 @@ export function Build() {
       return;
     }
 
-    const ac = new AbortController();
+    const effectAc = new AbortController();
     let closed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let streamAc: AbortController | null = null;
 
-    const handleEvent = (event: string, raw: string) => {
-      if (closed) return;
-      if (event === "agent") {
-        const data = JSON.parse(raw) as BuildLog;
-        setLogs((prev) => [...prev, data]);
-        if (
-          data.agent === "Coder" &&
-          (data.type === "task_complete" || data.type === "complete")
-        ) {
-          setHasPartialFiles(true);
-        }
-        return;
-      }
-      if (event === "files_partial") {
-        setHasPartialFiles(true);
-        return;
-      }
-      if (event === "pause") {
-        const data = JSON.parse(raw) as BuildLog;
-        setIsPaused(true);
-        setLogs((prev) => [
-          ...prev,
-          { agent: "System", type: "pause", payload: data.payload },
-        ]);
-        setCreditsSpent(data.payload?.spent || 0);
-        return;
-      }
-      if (event === "done") {
-        const data = JSON.parse(raw) as {
-          payload?: { creditsSpent?: number; liveUrl?: string };
-          creditsSpent?: number;
-          liveUrl?: string;
-        };
-        setIsComplete(true);
-        const spent = data.payload?.creditsSpent ?? data.creditsSpent;
-        if (spent) setCreditsSpent(spent);
-        const live = data.liveUrl ?? data.payload?.liveUrl;
-        if (typeof live === "string" && live) setDeployUrl(live);
-        else if (projectId) setDeployUrl("/apps/" + projectId);
-        closed = true;
-        ac.abort();
-        return;
-      }
-      if (event === "error") {
-        try {
-          const data = JSON.parse(raw) as {
-            message?: string;
-            error?: string;
-            reason?: string;
-          };
-          const msg = data?.message ?? "";
+    const connect = () => {
+      if (closed || effectAc.signal.aborted) return;
+      streamAc?.abort();
+      streamAc = new AbortController();
+      const thisStream = streamAc;
+      const onEffectAbort = () => thisStream.abort();
+      effectAc.signal.addEventListener("abort", onEffectAbort, { once: true });
+
+      const handleEvent = (event: string, raw: string) => {
+        if (closed) return;
+        if (event === "agent") {
+          const data = JSON.parse(raw) as BuildLog;
+          setLogs((prev) => [...prev, data]);
           if (
-            data?.error === "credits_exhausted" ||
-            data?.reason === "credits_exhausted" ||
-            /credit/i.test(msg)
+            data.agent === "Coder" &&
+            (data.type === "task_complete" || data.type === "complete")
           ) {
-            setIsPaused(true);
-          } else if (msg) {
-            setError(msg);
+            setHasPartialFiles(true);
           }
-        } catch {
-          setError("Build stream error");
+          return;
         }
-        closed = true;
-        ac.abort();
-      }
-    };
+        if (event === "files_partial") {
+          setHasPartialFiles(true);
+          return;
+        }
+        if (event === "pause") {
+          let reason = "";
+          let message = "";
+          let spent = 0;
+          try {
+            const data = JSON.parse(raw) as {
+              reason?: string;
+              message?: string;
+              spent?: number;
+              payload?: {
+                reason?: string;
+                message?: string;
+                spent?: number;
+                text?: string;
+              };
+            };
+            reason = data.reason ?? data.payload?.reason ?? "";
+            message =
+              data.message ?? data.payload?.message ?? data.payload?.text ?? "";
+            spent = data.spent ?? data.payload?.spent ?? 0;
+          } catch {
+            /* ignore parse errors */
+          }
 
-    void consumeAuthedSse(`/api/build/${projectId}`, handleEvent, ac.signal).catch(
-      (err: unknown) => {
-        if (closed || ac.signal.aborted) return;
+          setLogs((prev) => [
+            ...prev,
+            {
+              agent: "System",
+              type: "pause",
+              payload: { message: message || reason, type: reason },
+            },
+          ]);
+          if (spent) setCreditsSpent(spent);
+
+          // Never-give-up: soft pause — reconnect so the outer loop continues
+          const retryable =
+            reason === "retry_after_error" ||
+            reason === "still_building" ||
+            reason.startsWith("still_building");
+          if (retryable) {
+            setIsPaused(false);
+            setError(null);
+            thisStream.abort();
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+              if (!closed && !effectAc.signal.aborted) connect();
+            }, 3000);
+            return;
+          }
+
+          // credits_exhausted (and unknown pauses): stay on paused UI
+          setIsPaused(true);
+          return;
+        }
+        if (event === "done") {
+          const data = JSON.parse(raw) as {
+            payload?: { creditsSpent?: number; liveUrl?: string };
+            creditsSpent?: number;
+            liveUrl?: string;
+          };
+          setIsComplete(true);
+          const spent = data.payload?.creditsSpent ?? data.creditsSpent;
+          if (spent) setCreditsSpent(spent);
+          const live = data.liveUrl ?? data.payload?.liveUrl;
+          if (typeof live === "string" && live) setDeployUrl(live);
+          else if (projectId) setDeployUrl("/apps/" + projectId);
+          closed = true;
+          thisStream.abort();
+          return;
+        }
+        if (event === "error") {
+          try {
+            const data = JSON.parse(raw) as {
+              message?: string;
+              error?: string;
+              reason?: string;
+            };
+            const msg = data?.message ?? "";
+            if (
+              data?.error === "credits_exhausted" ||
+              data?.reason === "credits_exhausted" ||
+              /credit/i.test(msg)
+            ) {
+              setIsPaused(true);
+            } else if (msg) {
+              setError(msg);
+            }
+          } catch {
+            setError("Build stream error");
+          }
+          closed = true;
+          thisStream.abort();
+        }
+      };
+
+      void consumeAuthedSse(
+        `/api/build/${projectId}`,
+        handleEvent,
+        thisStream.signal,
+      ).catch((err: unknown) => {
+        if (closed || effectAc.signal.aborted || thisStream.signal.aborted) {
+          return;
+        }
         const msg = err instanceof Error ? err.message : "Build stream error";
         if (/not authenticated/i.test(msg)) {
           setError("Not authenticated");
           return;
         }
         setError(msg);
-      },
-    );
+      });
+    };
+
+    connect();
 
     return () => {
       closed = true;
-      ac.abort();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      effectAc.abort();
     };
   }, [projectId, pid, tierStatus, creditBalance, unlimited]);
 
@@ -245,14 +317,14 @@ export function Build() {
     <div className="min-h-screen bg-slate-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {isComplete ? "Build complete" : "Building your app\u2026"}
+          {isComplete ? "Build complete" : "Building your app…"}
         </h1>
         {project && (
           <p className="text-slate-400 mb-4">
-            {project.title} \u2014 {project.techStack}
+            {project.title} — {project.techStack}
             {project.status === "running" && (
               <span className="ml-2 text-amber-400 text-sm">
-                (runs in background \u2014 safe to refresh)
+                (runs in background — safe to refresh)
               </span>
             )}
           </p>
@@ -284,7 +356,7 @@ export function Build() {
             ))}
             {logs.length === 0 && !error && (
               <p className="text-slate-500 text-sm">
-                Waiting for build events\u2026
+                Waiting for build events…
               </p>
             )}
           </div>
@@ -384,7 +456,7 @@ export function Build() {
                   disabled={deploying || destinationDisabled(destination)}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying ? "Deploying\u2026" : "Deploy"}
+                  {deploying ? "Deploying…" : "Deploy"}
                 </button>
               )}
               <button
@@ -392,7 +464,7 @@ export function Build() {
                 disabled={downloading}
                 className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
               >
-                {downloading ? "Preparing ZIP\u2026" : "Download ZIP"}
+                {downloading ? "Preparing ZIP…" : "Download ZIP"}
               </button>
               <button
                 onClick={handleGitHubExport}
@@ -438,7 +510,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
             {log.payload?.message || log.payload?.type}
           </p>
         </div>
-        <span className="text-slate-400">{expanded ? "\u25bc" : "\u25b6"}</span>
+        <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
       </button>
       {expanded && log.payload?.text && (
         <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">

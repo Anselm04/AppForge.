@@ -3,10 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { LocaleProvider } from "../../i18n/LocaleContext";
+import { ThemeProvider } from "../../lib/theme";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TopNav } from "../../components/TopNav";
 import { Home } from "../Home";
-import { getAccessToken, getSession, authedUrl } from "../../lib/auth";
+import { getAccessToken, getSession, authedUrl, signOut } from "../../lib/auth";
 
 vi.mock("../../utils/trpc.js", () => ({
   trpc: {
@@ -27,7 +28,8 @@ vi.mock("../../utils/trpc.js", () => ({
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
   return {
-    getItem: (key: string) => (Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null),
+    getItem: (key: string) =>
+      Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null,
     setItem: (key: string, value: string) => {
       store[key] = String(value);
     },
@@ -44,8 +46,22 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
-function installStorage(storage: ReturnType<typeof memoryStorage> | { getItem: () => never; setItem: () => never; removeItem: () => never; clear: () => void; key: () => null; length: number }) {
-  Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
+function installStorage(
+  storage:
+    | ReturnType<typeof memoryStorage>
+    | {
+        getItem: () => never;
+        setItem: () => never;
+        removeItem: () => never;
+        clear: () => void;
+        key: () => null;
+        length: number;
+      },
+) {
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: storage,
+  });
 }
 
 function renderHome() {
@@ -54,14 +70,16 @@ function renderHome() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
-        <ErrorBoundary>
-          <BrowserRouter>
-            <TopNav />
-            <Home />
-          </BrowserRouter>
-        </ErrorBoundary>
-      </LocaleProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <ErrorBoundary>
+            <BrowserRouter>
+              <TopNav />
+              <Home />
+            </BrowserRouter>
+          </ErrorBoundary>
+        </LocaleProvider>
+      </ThemeProvider>
     </QueryClientProvider>,
   );
 }
@@ -69,6 +87,7 @@ function renderHome() {
 describe("Home first paint", () => {
   beforeEach(() => {
     installStorage(memoryStorage());
+    signOut();
   });
 
   it("renders Home chrome instead of ErrorBoundary when logged out", () => {
@@ -84,7 +103,9 @@ describe("Home first paint", () => {
       refreshToken: "dummy-refresh",
       user: { id: "user-1", email: "dummy@example.com" },
     };
-    installStorage(memoryStorage({ "appforge.session": JSON.stringify(dummy) }));
+    installStorage(
+      memoryStorage({ "appforge.session": JSON.stringify(dummy) }),
+    );
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
@@ -120,7 +141,9 @@ describe("Home first paint", () => {
 
   it("getSnapshot is stable for a valid session (authedUrl still appends token)", () => {
     const session = { accessToken: "tok", user: { id: "u1", email: "a@b.c" } };
-    installStorage(memoryStorage({ "appforge.session": JSON.stringify(session) }));
+    installStorage(
+      memoryStorage({ "appforge.session": JSON.stringify(session) }),
+    );
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);

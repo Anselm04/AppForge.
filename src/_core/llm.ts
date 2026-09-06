@@ -1,4 +1,12 @@
 import { ENV } from "./env.js";
+import {
+  assertAnyLlmProviderConfigured,
+  chatCompletionsUrl,
+  listConfiguredLlmProviders,
+  modelsUrl,
+  shouldFailoverStatus,
+  type LlmProvider,
+} from "../lib/llmProviders.js";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -19,7 +27,12 @@ export type FileContent = {
   type: "file_url";
   file_url: {
     url: string;
-    mime_type?: "audio/mpeg" | "audio/wav" | "application/pdf" | "audio/mp4" | "video/mp4";
+    mime_type?:
+      | "audio/mpeg"
+      | "audio/wav"
+      | "application/pdf"
+      | "audio/mp4"
+      | "video/mp4";
   };
 };
 
@@ -51,9 +64,7 @@ export type ToolChoiceExplicit = {
 };
 
 export type ToolChoice =
-  | ToolChoicePrimitive
-  | ToolChoiceByName
-  | ToolChoiceExplicit;
+  ToolChoicePrimitive | ToolChoiceByName | ToolChoiceExplicit;
 
 export type InvokeParams = {
   messages: Message[];
@@ -69,6 +80,10 @@ export type InvokeParams = {
   model?: string;
   thinking?: Record<string, unknown>;
   reasoning?: Record<string, unknown>;
+  /** Prefer this provider id first (failover still tries the rest). */
+  preferredProviderId?: string;
+  /** Rotate provider list so this index is tried first (never-give-up escalate). */
+  startProviderIndex?: number;
 };
 
 export type ToolCall = {
@@ -114,11 +129,11 @@ export type ResponseFormat =
   | { type: "json_schema"; json_schema: JsonSchema };
 
 const ensureArray = (
-  value: MessageContent | MessageContent[]
+  value: MessageContent | MessageContent[],
 ): MessageContent[] => (Array.isArray(value) ? value : [value]);
 
 const normalizeContentPart = (
-  part: MessageContent
+  part: MessageContent,
 ): TextContent | ImageContent | FileContent => {
   if (typeof part === "string") {
     return { type: "text", text: part };
@@ -144,7 +159,7 @@ const normalizeMessage = (message: Message) => {
 
   if (role === "tool" || role === "function") {
     const content = ensureArray(message.content)
-      .map(part => (typeof part === "string" ? part : JSON.stringify(part)))
+      .map((part) => (typeof part === "string" ? part : JSON.stringify(part)))
       .join("\n");
 
     return {
@@ -175,7 +190,7 @@ const normalizeMessage = (message: Message) => {
 
 const normalizeToolChoice = (
   toolChoice: ToolChoice | undefined,
-  tools: Tool[] | undefined
+  tools: Tool[] | undefined,
 ): "none" | "auto" | ToolChoiceExplicit | undefined => {
   if (!toolChoice) return undefined;
 
@@ -186,13 +201,13 @@ const normalizeToolChoice = (
   if (toolChoice === "required") {
     if (!tools || tools.length === 0) {
       throw new Error(
-        "tool_choice 'required' was provided but no tools were configured"
+        "tool_choice 'required' was provided but no tools were configured",
       );
     }
 
     if (tools.length > 1) {
       throw new Error(
-        "tool_choice 'required' needs a single tool or specify the tool name explicitly"
+        "tool_choice 'required' needs a single tool or specify the tool name explicitly",
       );
     }
 
@@ -235,13 +250,13 @@ export function resolveForgeModelsUrl(forgeApiUrl: string): string {
 
 const resolveApiUrl = () => resolveForgeChatCompletionsUrl(ENV.forgeApiUrl);
 
+/** @deprecated Prefer provider.defaultModel from llmProviders */
 const DEFAULT_CHAT_MODEL =
   (process.env.LLM_MODEL_DEFAULT ?? "").trim() || "gpt-4o-mini";
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("FORGE_API_KEY is not configured");
-  }
+  // Multi-provider: any configured key is enough. Throws clear error if zero.
+  assertAnyLlmProviderConfigured();
 };
 
 const normalizeResponseFormat = ({
@@ -266,7 +281,7 @@ const normalizeResponseFormat = ({
       !explicitFormat.json_schema?.schema
     ) {
       throw new Error(
-        "responseFormat json_schema requires a defined schema object"
+        "responseFormat json_schema requires a defined schema object",
       );
     }
     return explicitFormat;
@@ -296,7 +311,7 @@ const RETRY_MAX_DELAY_MS = 30_000;
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
 const sleep = (ms: number) =>
-  new Promise<void>(resolve => setTimeout(resolve, ms));
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const parseRetryAfter = (value: string | null): number | undefined => {
   if (!value) return undefined;
@@ -308,7 +323,7 @@ const parseRetryAfter = (value: string | null): number | undefined => {
 
 const computeBackoffDelay = (
   attempt: number,
-  retryAfterMs?: number
+  retryAfterMs?: number,
 ): number => {
   const cap = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
   const jittered = cap / 2 + Math.random() * (cap / 2);
@@ -317,7 +332,7 @@ const computeBackoffDelay = (
 
 const fetchWithBackoff = async (
   url: string,
-  init: FetchInit
+  init: FetchInit,
 ): Promise<Response> => {
   let lastError: unknown;
 
@@ -328,23 +343,21 @@ const fetchWithBackoff = async (
         return response;
       }
 
-      const retryAfterMs = parseRetryAfter(
-        response.headers.get("retry-after")
-      );
+      const retryAfterMs = parseRetryAfter(response.headers.get("retry-after"));
       try {
         await response.body?.cancel();
       } catch {
         // Body already settled; nothing to clean up.
       }
       console.warn(
-        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`
+        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`,
       );
       await sleep(computeBackoffDelay(attempt, retryAfterMs));
     } catch (error) {
       lastError = error;
       if (attempt === RETRY_MAX_RETRIES) throw error;
       console.warn(
-        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`
+        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`,
       );
       await sleep(computeBackoffDelay(attempt));
     }
@@ -355,8 +368,33 @@ const fetchWithBackoff = async (
     : new Error("LLM request failed after exhausting retries");
 };
 
+function orderProviders(
+  providers: LlmProvider[],
+  preferredProviderId?: string,
+  startProviderIndex?: number,
+): LlmProvider[] {
+  if (providers.length === 0) return providers;
+  let list = [...providers];
+  if (typeof startProviderIndex === "number" && startProviderIndex > 0) {
+    const i = ((startProviderIndex % list.length) + list.length) % list.length;
+    list = [...list.slice(i), ...list.slice(0, i)];
+  }
+  if (preferredProviderId) {
+    const idx = list.findIndex((p) => p.id === preferredProviderId);
+    if (idx > 0) {
+      const [hit] = list.splice(idx, 1);
+      list.unshift(hit);
+    }
+  }
+  return list;
+}
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
+  const providers = orderProviders(
+    assertAnyLlmProviderConfigured(),
+    params.preferredProviderId,
+    params.startProviderIndex,
+  );
 
   const {
     messages,
@@ -374,34 +412,32 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     max_tokens,
   } = params;
 
-  const payload: Record<string, unknown> = {
+  const basePayload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
   };
 
-  payload.model = (model && model.trim()) || DEFAULT_CHAT_MODEL;
-
   if (tools && tools.length > 0) {
-    payload.tools = tools;
+    basePayload.tools = tools;
   }
 
   const normalizedToolChoice = normalizeToolChoice(
     toolChoice || tool_choice,
-    tools
+    tools,
   );
   if (normalizedToolChoice) {
-    payload.tool_choice = normalizedToolChoice;
+    basePayload.tool_choice = normalizedToolChoice;
   }
 
   const resolvedMaxTokens = max_tokens ?? maxTokens;
   if (typeof resolvedMaxTokens === "number") {
-    payload.max_tokens = resolvedMaxTokens;
+    basePayload.max_tokens = resolvedMaxTokens;
   }
 
   if (thinking) {
-    payload.thinking = thinking;
+    basePayload.thinking = thinking;
   }
   if (reasoning) {
-    payload.reasoning = reasoning;
+    basePayload.reasoning = reasoning;
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({
@@ -412,26 +448,66 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   });
 
   if (normalizedResponseFormat) {
-    payload.response_format = normalizedResponseFormat;
+    basePayload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetchWithBackoff(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const explicitModel = (model && model.trim()) || "";
+  const errors: string[] = [];
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
+    const payload = {
+      ...basePayload,
+      model: explicitModel || provider.defaultModel || DEFAULT_CHAT_MODEL,
+    };
+    const url = chatCompletionsUrl(provider.baseUrl);
+    try {
+      const response = await fetchWithBackoff(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${provider.apiKey}`,
+          ...(provider.headers ?? {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        if (i > 0) {
+          console.warn(`LLM failover succeeded with provider=${provider.id}`);
+        }
+        return (await response.json()) as InvokeResult;
+      }
+
+      const errorText = await response.text();
+      const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
+      errors.push(detail);
+
+      if (shouldFailoverStatus(response.status) && i < providers.length - 1) {
+        console.warn(
+          `LLM provider ${provider.id} failed (${response.status}); trying next`,
+        );
+        continue;
+      }
+
+      throw new Error(`LLM invoke failed: ${detail}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith("LLM invoke failed:")) throw err;
+      errors.push(`${provider.id} network: ${msg}`);
+      if (i < providers.length - 1) {
+        console.warn(`LLM provider ${provider.id} network error; trying next`);
+        continue;
+      }
+      throw new Error(
+        `LLM invoke failed after all providers: ${errors.join(" | ")}`,
+      );
+    }
   }
 
-  return (await response.json()) as InvokeResult;
+  throw new Error(
+    `LLM invoke failed after all providers: ${errors.join(" | ") || "unknown"}`,
+  );
 }
 
 export type ModelInfo = {
@@ -447,20 +523,45 @@ export type ModelsResponse = {
 };
 
 export async function listLLMModels(): Promise<ModelsResponse> {
-  assertApiKey();
+  const providers = assertAnyLlmProviderConfigured();
+  const errors: string[] = [];
 
-  const url = resolveForgeModelsUrl(ENV.forgeApiUrl);
-
-  const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `List LLM models failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
+    const url = modelsUrl(provider.baseUrl);
+    try {
+      const response = await fetchWithBackoff(url, {
+        headers: {
+          authorization: `Bearer ${provider.apiKey}`,
+          ...(provider.headers ?? {}),
+        },
+      });
+      if (response.ok) {
+        return (await response.json()) as ModelsResponse;
+      }
+      const errorText = await response.text();
+      errors.push(
+        `${provider.id} ${response.status}: ${errorText.slice(0, 200)}`,
+      );
+      if (shouldFailoverStatus(response.status) && i < providers.length - 1) {
+        continue;
+      }
+      throw new Error(
+        `List LLM models failed: ${response.status} ${response.statusText} – ${errorText}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith("List LLM models failed:")) throw err;
+      errors.push(`${provider.id}: ${msg}`);
+      if (i < providers.length - 1) continue;
+      throw new Error(`List LLM models failed: ${errors.join(" | ")}`);
+    }
   }
 
-  return (await response.json()) as ModelsResponse;
+  throw new Error(`List LLM models failed: ${errors.join(" | ") || "unknown"}`);
+}
+
+/** Expose configured providers for diagnostics (ids only — no keys). */
+export function configuredLlmProviderIds(): string[] {
+  return listConfiguredLlmProviders().map((p: LlmProvider) => p.id);
 }

@@ -10,6 +10,7 @@ jobs:
     name: Deploy Preview
     # Official Vercel GitHub integration already deploys previews.
     # This workflow validates build health without a broken third-party action.
+    # Tip refresh: re-run CI after bot lockfile repair commit.
     steps:
       - name: Checkout
         uses: actions/checkout@v4

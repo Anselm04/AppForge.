@@ -1,0 +1,194 @@
+import {
+  appendAgentLog,
+  markAgentLogComplete,
+  updateProjectFiles,
+  updateProjectStatus,
+} from "../db.js";
+import { invokeLLM } from "../_core/llm.js";
+import { injectComplianceScaffolding } from "../services/compliance-template.js";
+import {
+  parseGeneratedFiles,
+  ensureEssentialFiles,
+} from "../services/multiFileCoder.js";
+import {
+  getStackScaffold,
+  mergeScaffoldWithGenerated,
+} from "../services/stackScaffolds.js";
+import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
+import { getValidationMode } from "../lib/validationMode.js";
+import { modelForAgent } from "../lib/llmModels.js";
+import { LOCALE_UI_HINT, designSystemPrompt } from "../lib/componentLibrary.js";
+import {
+  normalizeCapabilities,
+  type BuildCapabilityId,
+} from "../lib/buildCapabilities.js";
+import { capabilityHintsForPipeline } from "./capabilityHints.js";
+import { runResearchAgent } from "./researchAgent.js";
+import { attachGeneratedTests } from "./testingAgent.js";
+import { plannerLocaleHint } from "../lib/localePlanner.js";
+import { detectIncomeIntent } from "../lib/revenueReadiness.js";
+import { mergeBillingScaffold } from "../services/saasBillingScaffold.js";
+import {
+  goldenCoderRules,
+  hardenGeneratedProject,
+  isGoldenStack,
+  maxFixRetriesForStack,
+} from "../lib/reliableBuild.js";
+import {
+  buildSurgicalFixPrompt,
+  mergeSurgicalPatches,
+} from "../lib/surgicalFix.js";
+import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
+import {
+  classifyRecipe,
+  recipeCoderHint,
+  ensureRecipeFloor,
+} from "../lib/appRecipes.js";
+import {
+  assertProductQuality,
+  coderModelForAttempt,
+  configuredProviders,
+  isAbortError,
+  isMissingLlmKeysError,
+  isNeverGiveUpEnabled,
+  missingLlmKeysMessage,
+  plannerModelForAttempt,
+  providerAt,
+  resolveMaxFixRetries,
+  resolveMaxOuterAttempts,
+} from "../lib/neverGiveUp.js";
+import { applyDeterministicErrorFixes } from "../lib/errorFixTable.js";
+import {
+  stripComplianceFromGolden,
+  capGoldenFiles,
+} from "../lib/goldenLimits.js";
+import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import type { TripleAuditResult } from "./tripleAudit.js";
+import { db } from "../db.js";
+import * as schema from "../db/schema.js";
+import { eq } from "drizzle-orm";
+
+const SUPPORTED_TECH_STACKS = [
+  "react-node","react-python","vue-node","svelte-node","next-node","angular-node",
+  "vanilla-node","react-django","react-supabase","remix-node","astro-node",
+  "phaser-html5","three-js-3d","babylon-js-3d","unity-webgl","godot-html5",
+  "react-native-game","flutter-game","ai-agent-python","ai-agent-node","openai-tool",
+  "langchain-tool","crewai-agent","autogen-agent","electron-react","tauri-rust",
+  "react-native-expo","flutter-firebase","capacitor-ionic","chrome-extension",
+  "vscode-extension","discord-bot","telegram-bot","slack-bot","browser-automation",
+  "web-scraper","data-visualization","api-service","serverless-aws","serverless-vercel",
+] as const;
+
+export type TechStack = (typeof SUPPORTED_TECH_STACKS)[number];
+export function isValidTechStack(stack: string): stack is TechStack {
+  return (SUPPORTED_TECH_STACKS as readonly string[]).includes(stack);
+}
+export function getTechStackDescription(stack: TechStack): string {
+  return stack;
+}
+
+type AgentRole = "Planner"|"Coder"|"Reviewer"|"Validator"|"Cosine"|"Testing"|"Research"|"System";
+type SSEWriter = (event: string, data: unknown) => void;
+type CreditChecker = () => Promise<boolean>;
+
+type StreamOpts = {
+  signal?: AbortSignal;
+  modelRole?: "planner" | "coder" | "reviewer";
+  modelOverride?: string;
+  startProviderIndex?: number;
+  preferredProviderId?: string;
+};
+
+async function streamLLM(
+  messages: { role: string; content: string }[],
+  onChunk: (chunk: string) => void,
+  opts?: StreamOpts | AbortSignal,
+  modelRole?: "planner"|"coder"|"reviewer",
+): Promise<string> {
+  // Back-compat: (messages, onChunk, signal, role) OR (messages, onChunk, opts)
+  const normalized: StreamOpts =
+    opts && typeof opts === "object" && !("aborted" in (opts as object))
+      ? (opts as StreamOpts)
+      : { signal: opts as AbortSignal | undefined, modelRole };
+  if (modelRole && !normalized.modelRole) normalized.modelRole = modelRole;
+  const model =
+    normalized.modelOverride ||
+    (normalized.modelRole ? modelForAgent(normalized.modelRole) : undefined);
+  const result = await invokeLLM({
+    messages: messages as any,
+    model,
+    startProviderIndex: normalized.startProviderIndex,
+    preferredProviderId: normalized.preferredProviderId,
+  });
+  let fullText = "";
+  if (result.choices[0]?.message?.content) {
+    fullText =
+      typeof result.choices[0].message.content === "string"
+        ? result.choices[0].message.content
+        : result.choices[0].message.content
+            .filter((c: any) => c.type === "text")
+            .map((c: any) => c.text)
+            .join("");
+    const parts = fullText.match(/\S+\s*|\s+/g) ?? [fullText];
+    let buffer = "";
+    for (const part of parts) {
+      buffer += part;
+      if (buffer.length >= 32 || part.includes("\n")) {
+        onChunk(buffer);
+        buffer = "";
+      }
+    }
+    if (buffer) onChunk(buffer);
+  }
+  return fullText;
+}
+
+export interface PlanTask { id: string; module: string; description: string; }
+export interface PipelineOptions {
+  locale?: string;
+  buildCapabilities?: BuildCapabilityId[];
+}
+
+/** Pure helper — continue outer loop when validation/quality failed and retries remain. */
+export function shouldContinueNeverGiveUp(opts: {
+  passed: boolean;
+  aborted: boolean;
+  outerAttempt: number;
+  maxOuter: number;
+  neverGiveUp: boolean;
+}): boolean {
+  if (opts.passed || opts.aborted) return false;
+  if (!opts.neverGiveUp) return false;
+  return opts.outerAttempt < opts.maxOuter;
+}
+
+export async function runAgentPipeline(
+  projectId: number,
+  description: string,
+  techStack: string,
+  write: SSEWriter,
+  signal?: AbortSignal,
+  creditCheck?: CreditChecker,
+  options?: PipelineOptions,
+): Promise<void> {
+  techStack = preferReactNodeStack(techStack);
+  const locale = options?.locale ?? "en";
+  const localeHint = `${LOCALE_UI_HINT(locale)}\n${plannerLocaleHint(locale)}`.trim();
+  const capabilities = normalizeCapabilities(options?.buildCapabilities ?? []);
+  const capabilityHints = capabilityHintsForPipeline(capabilities);
+  const neverGiveUp = isNeverGiveUpEnabled();
+  const maxFixRetries = neverGiveUp
+    ? resolveMaxFixRetries(techStack)
+    : maxFixRetriesForStack(techStack);
+  const maxOuter = resolveMaxOuterAttempts();
+  const providers = configuredProviders();
+  let providerIndex = 0;
+  let outerAttempt = 0;
+
+  const projectRow = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, projectId),
+    columns: { buildCapabilities: true },
+  });
+  const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
+  const activeCapabilities = capabilities.length > 0 ? capabilities : storedCaps;

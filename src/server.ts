@@ -28,11 +28,17 @@ import {
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
 import { hostedAppsRouter } from "./routes/hostedApps.js";
+import { generateRouter } from "./routes/generate.js";
 import { sandboxDevProxyRouter } from "./routes/sandboxDevProxy.js";
 import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { webContainerHeaders } from "./middleware/webContainerHeaders.js";
+import {
+  csrfProtection,
+  csrfTokenHandler,
+  csrfErrorHandler,
+} from "./middleware/csrf.js";
 import { closeDbConnection } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
@@ -86,6 +92,8 @@ app.use(
       "Authorization",
       "x-api-key",
       "stripe-signature",
+      "x-csrf-token",
+      "x-xsrf-token",
     ],
   }),
 );
@@ -153,6 +161,10 @@ app.post(
   stripeWebhookHandler,
 );
 
+// ── CSRF (after webhook; CodeQL js/missing-token-validation) ──
+app.use(csrfProtection);
+app.get("/api/csrf-token", csrfTokenHandler);
+
 // ── Global middleware ──
 app.use(express.json({ limit: "10mb" }));
 
@@ -184,6 +196,7 @@ app.use(express.json({ limit: "10mb" }));
   app.use(globalLimiter);
   app.use(slowDown);
   app.use("/api/trpc/projects.create", buildLimiter);
+  app.use("/api/generate", buildLimiter);
   app.use("/api/trpc", apiLimiter);
 })().catch(() => {});
 
@@ -198,6 +211,7 @@ app.use("/api/trpc", supabaseAuthMiddleware);
 app.use("/api/ai", aiRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/build", buildRouter);
+app.use("/api/generate", generateRouter);
 app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
@@ -257,6 +271,9 @@ if (ENV.isProduction) {
 app.use((req, res) => {
   res.status(404).json({ error: "Not found", path: req.path });
 });
+
+// ── CSRF error mapping (before Sentry / generic handler) ──
+app.use(csrfErrorHandler);
 
 // ── Sentry error handler (captures 500s) ──
 app.use(sentryErrorHandler());

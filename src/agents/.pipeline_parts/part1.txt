@@ -1,0 +1,175 @@
+  const incomeIntent = detectIncomeIntent(description);
+  const mergeBilling = activeCapabilities.includes("fintech") || incomeIntent;
+
+  const assetRows = await db.query.projectAssets.findMany({
+    where: eq(schema.projectAssets.projectId, projectId),
+    columns: { filename: true },
+  });
+  const assetPaths = assetRows.map((a) => `public/assets/${a.filename}`);
+  const designHints = designSystemPrompt({ assetPaths, locale, stack: techStack });
+
+  const emit = (agent: AgentRole, type: string, payload: unknown) => {
+    write("agent", { agent, type, payload });
+  };
+
+  const validationMode = getValidationMode(techStack);
+  emit("System", "info", {
+    message: `Validation mode: ${validationMode === "full" ? "full compile sandbox" : "structure check only"}${isGoldenStack(techStack) ? " · golden reliability path" : ""}${neverGiveUp ? " · never-give-up loop ON" : ""}`,
+    validationMode,
+    goldenStack: isGoldenStack(techStack),
+    techStack,
+    neverGiveUp,
+    maxFixRetries,
+    maxOuterAttempts: maxOuter,
+  });
+
+  if (providers.length === 0) {
+    const msg = missingLlmKeysMessage();
+    emit("System", "error", { message: msg, infra: true, missingAiKeys: true });
+    write("error", { message: msg, error: "missing_ai_keys", infra: true });
+    await updateProjectStatus(projectId, "paused", "missing_ai_keys");
+    return;
+  }
+
+  try {
+    await updateProjectStatus(projectId, "running");
+
+    if (creditCheck && !(await creditCheck())) {
+      write("pause", { reason: "credits_exhausted", agent: "Research", message: "Build paused: insufficient credits." });
+      await updateProjectStatus(projectId, "paused", "credits_exhausted");
+      return;
+    }
+
+    const researchFocus = activeCapabilities.includes("patent")
+      ? "patent"
+      : activeCapabilities.includes("architecture")
+        ? "architecture"
+        : activeCapabilities.includes("education")
+          ? "education"
+          : "general";
+
+    let researchBrief = "";
+    if (isGoldenStack(techStack) || techStack.includes("react")) {
+      emit("Research", "skipped", {
+        message: "Golden path: research skipped for faster reliable builds.",
+      });
+    } else {
+      researchBrief = await runResearchAgent(
+        projectId, description, techStack,
+        (type, payload) => emit("Research", type, payload),
+        { focus: researchFocus },
+      );
+    }
+
+    if (creditCheck && !(await creditCheck())) {
+      write("pause", { reason: "credits_exhausted", agent: "Planner", message: "Build paused: insufficient credits." });
+      await updateProjectStatus(projectId, "paused", "credits_exhausted");
+      return;
+    }
+
+    let generatedFiles: Record<string, string> = {};
+    let validationResult: ValidationResult | null = null;
+    let lastAuditResult: TripleAuditResult | null = null;
+    let appTitle = description.slice(0, 60);
+    let activeRecipe = classifyRecipe(description);
+    let tasks: PlanTask[] = [];
+
+    // Outer never-give-up: re-plan → code → validate → escalate provider until real quality pass
+    outerLoop: while (!signal?.aborted) {
+      outerAttempt++;
+      const provider = providerAt(providerIndex) ?? providers[0];
+      const plannerModel = plannerModelForAttempt(outerAttempt, provider);
+      const coderModel = coderModelForAttempt(outerAttempt, provider);
+      emit("System", "info", {
+        message: `Still building — iterating until it works (attempt ${outerAttempt}${maxOuter < 10000 ? "/" + maxOuter : ""}) · provider=${provider.id} · model=${coderModel || provider.defaultModel}`,
+        outerAttempt,
+        maxOuterAttempts: maxOuter,
+        provider: provider.id,
+        model: coderModel || provider.defaultModel,
+        neverGiveUp,
+      });
+      await updateProjectStatus(projectId, "running");
+
+      if (creditCheck && !(await creditCheck())) {
+        write("pause", { reason: "credits_exhausted", agent: "Planner", message: "Build paused: insufficient credits." });
+        await updateProjectStatus(projectId, "paused", "credits_exhausted");
+        return;
+      }
+
+    emit("Planner", "start", {
+      message: outerAttempt > 1
+        ? `Re-planning architecture (attempt ${outerAttempt}) with ${provider.id}…`
+        : "Analyzing your request and creating an architecture plan…",
+      outerAttempt,
+      provider: provider.id,
+    });
+    const plannerLogId = await appendAgentLog({ projectId, agent: "Planner", content: "", isComplete: false });
+
+    let plannerOutput = "";
+    await streamLLM(
+      [
+        {
+          role: "system",
+          content: `You are the Planner agent. Output ONLY valid JSON: {"title":"...","overview":"...","tasks":[{"id":"1","module":"...","description":"..."}]}. For runnable UI-first builds use 2-3 focused tasks only. Stack: ${techStack}.\n${designHints}\n${capabilityHints}\n${researchBrief ? `RESEARCH:\n${researchBrief}` : ""}\n${localeHint}`,
+        },
+        { role: "user", content: `App: ${description}\nStack: ${techStack}` },
+      ],
+      (chunk) => { plannerOutput += chunk; emit("Planner", "chunk", { text: chunk }); },
+      {
+        signal,
+        modelRole: "planner",
+        modelOverride: plannerModel,
+        startProviderIndex: providerIndex,
+        preferredProviderId: provider.id,
+      },
+    );
+    await markAgentLogComplete(plannerLogId);
+    emit("Planner", "complete", { message: "Architecture plan complete." });
+
+    tasks = [];
+    appTitle = description.slice(0, 60);
+    try {
+      const jsonMatch = plannerOutput.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        tasks = parsed.tasks ?? [];
+        appTitle = parsed.title ?? appTitle;
+      }
+    } catch {
+      tasks = [{ id: "1", module: "Core App", description }];
+    }
+    if (isGoldenStack(techStack) && tasks.length > 3) tasks = tasks.slice(0, 3);
+    if (isGoldenStack(techStack) && tasks.length === 0) {
+      tasks = [{ id: "1", module: "Core UI", description }];
+    }
+
+    activeRecipe = classifyRecipe(description);
+    emit("System", "info", {
+      message: `Recipe: ${activeRecipe.id} (${activeRecipe.label})`,
+      recipe: activeRecipe.id,
+    });
+
+    if (
+      (isGoldenStack(techStack) || techStack.includes("react")) &&
+      description.trim().length < 280
+    ) {
+      tasks = [
+        {
+          id: "1",
+          module: "Core UI",
+          description: `${description}\n\n${activeRecipe.coderHint}`,
+        },
+      ];
+      emit("System", "info", { message: "Short prompt → single-shot Core UI task." });
+    }
+
+    if (creditCheck && !(await creditCheck())) {
+      write("pause", { reason: "credits_exhausted", agent: "Coder", message: "Build paused: insufficient credits." });
+      await updateProjectStatus(projectId, "paused", "credits_exhausted");
+      return;
+    }
+
+    emit("Coder", "start", {
+      message: `Writing high-quality code for ${tasks.length} modules… (${provider.id}/${coderModel || provider.defaultModel})`,
+      outerAttempt,
+      provider: provider.id,

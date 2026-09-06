@@ -5,6 +5,7 @@ import {
   getAccessToken,
   refreshSession,
 } from "../lib/auth.js";
+import { clearCsrfToken, withCsrfHeaders } from "../lib/csrf.js";
 
 function bearerHeaders(): Record<string, string> {
   const token = getAccessToken();
@@ -25,13 +26,18 @@ export const trpc = createTRPCProxyClient<AppRouter>({
             await ensureFreshSession();
           }
           const token = getAccessToken();
-          const headers = new Headers(options?.headers);
+          let headers = new Headers(options?.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
+          headers = await withCsrfHeaders(headers);
           const res = await fetch(url, {
             ...options,
             headers,
             credentials: "same-origin",
           });
+          if (res.status === 403 && !retried) {
+            clearCsrfToken();
+            return run(true);
+          }
           if (res.status === 401 && !retried) {
             const refreshed = await refreshSession();
             if (refreshed) return run(true);
