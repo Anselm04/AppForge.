@@ -32,7 +32,7 @@ describe("P0 reliable builds", () => {
 
   it("parseGeneratedFiles does not leave filename headers in content", () => {
     const files = parseGeneratedFiles(
-      `// filename: src/App.tsx\nexport function App() { return <div>Hi</div> }\n// filename: src/main.tsx\nimport { App } from \"./App\";\n`,
+      `// filename: src/App.tsx\nexport function App() { return <div>Hi</div> }\n// filename: src/main.tsx\nimport { App } from "./App";\n`,
     );
     expect(files["src/App.tsx"]).toBeDefined();
     expect(files["src/App.tsx"]).not.toMatch(/filename:/);
