@@ -69,9 +69,13 @@ export async function postGenerate(body: {
     /* ignore */
   }
   if (res.status === 401) {
-    const err = new Error(payload.message || payload.error || "Not authenticated");
+    const err = new Error(
+      payload.message || payload.error || "Not authenticated",
+    );
     (err as Error & { status?: number; data?: { code?: string } }).status = 401;
-    (err as Error & { data?: { code?: string } }).data = { code: "UNAUTHORIZED" };
+    (err as Error & { data?: { code?: string } }).data = {
+      code: "UNAUTHORIZED",
+    };
     throw err;
   }
   if (!res.ok || typeof payload.id !== "number") {
