@@ -40,15 +40,12 @@ function flagEnabled(v: string | undefined): boolean {
 
 const GROQ_DEFAULT =
   truthy(process.env.GROQ_MODEL) || "llama-3.3-70b-versatile";
-const DEEPSEEK_DEFAULT =
-  truthy(process.env.DEEPSEEK_MODEL) || "deepseek-chat";
-const GEMINI_DEFAULT =
-  truthy(process.env.GEMINI_MODEL) || "gemini-2.0-flash";
+const DEEPSEEK_DEFAULT = truthy(process.env.DEEPSEEK_MODEL) || "deepseek-chat";
+const GEMINI_DEFAULT = truthy(process.env.GEMINI_MODEL) || "gemini-2.0-flash";
 const OPENROUTER_FREE_DEFAULT =
   truthy(process.env.OPENROUTER_MODEL) ||
   "meta-llama/llama-3.3-70b-instruct:free";
-const CEREBRAS_DEFAULT =
-  truthy(process.env.CEREBRAS_MODEL) || "llama-3.3-70b";
+const CEREBRAS_DEFAULT = truthy(process.env.CEREBRAS_MODEL) || "llama-3.3-70b";
 const MISTRAL_DEFAULT =
   truthy(process.env.MISTRAL_MODEL) || "mistral-small-latest";
 const TOGETHER_DEFAULT =
@@ -58,10 +55,8 @@ const FIREWORKS_DEFAULT =
   truthy(process.env.FIREWORKS_MODEL) ||
   "accounts/fireworks/models/llama-v3p3-70b-instruct";
 const HF_DEFAULT =
-  truthy(process.env.HF_MODEL) ||
-  "Qwen/Qwen2.5-Coder-32B-Instruct";
-const OLLAMA_DEFAULT =
-  truthy(process.env.OLLAMA_MODEL) || "qwen2.5-coder";
+  truthy(process.env.HF_MODEL) || "Qwen/Qwen2.5-Coder-32B-Instruct";
+const OLLAMA_DEFAULT = truthy(process.env.OLLAMA_MODEL) || "qwen2.5-coder";
 const OPENAI_COMPAT_DEFAULT =
   truthy(process.env.OPENAI_COMPAT_MODEL) ||
   truthy(process.env.LLM_MODEL_DEFAULT) ||
@@ -123,7 +118,8 @@ export function listConfiguredLlmProviders(): LlmProvider[] {
   if (openrouter) {
     const headers: Record<string, string> = {};
     const referer =
-      truthy(process.env.OPENROUTER_HTTP_REFERER) || truthy(process.env.APP_URL);
+      truthy(process.env.OPENROUTER_HTTP_REFERER) ||
+      truthy(process.env.APP_URL);
     const title = truthy(process.env.OPENROUTER_APP_TITLE) || "AppForge";
     if (referer) headers["HTTP-Referer"] = referer;
     if (title) headers["X-Title"] = title;
@@ -182,8 +178,7 @@ export function listConfiguredLlmProviders(): LlmProvider[] {
     providers.push({
       id: "huggingface",
       baseUrl:
-        truthy(process.env.HF_BASE_URL) ||
-        "https://router.huggingface.co/v1",
+        truthy(process.env.HF_BASE_URL) || "https://router.huggingface.co/v1",
       apiKey: hf,
       defaultModel: HF_DEFAULT,
     });
@@ -192,7 +187,8 @@ export function listConfiguredLlmProviders(): LlmProvider[] {
   // Ollama: enable when URL/key/flag set (do not always hit localhost on Fly).
   const ollamaUrl = truthy(process.env.OLLAMA_BASE_URL);
   const ollamaKey = truthy(process.env.OLLAMA_API_KEY);
-  const ollamaOn = flagEnabled(process.env.OLLAMA_ENABLED) || !!ollamaUrl || !!ollamaKey;
+  const ollamaOn =
+    flagEnabled(process.env.OLLAMA_ENABLED) || !!ollamaUrl || !!ollamaKey;
   if (ollamaOn) {
     providers.push({
       id: "ollama",
@@ -236,7 +232,8 @@ export function listConfiguredLlmProviders(): LlmProvider[] {
   if (openai) {
     providers.push({
       id: "openai",
-      baseUrl: truthy(process.env.OPENAI_BASE_URL) || "https://api.openai.com/v1",
+      baseUrl:
+        truthy(process.env.OPENAI_BASE_URL) || "https://api.openai.com/v1",
       apiKey: openai,
       defaultModel:
         truthy(process.env.OPENAI_MODEL) ||

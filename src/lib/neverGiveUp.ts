@@ -149,9 +149,13 @@ export function assertProductQuality(
 ): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
   const appPath =
-    ["src/App.tsx", "src/App.jsx", "App.tsx", "app/page.tsx", "pages/index.tsx"].find(
-      (p) => files[p],
-    ) ?? null;
+    [
+      "src/App.tsx",
+      "src/App.jsx",
+      "App.tsx",
+      "app/page.tsx",
+      "pages/index.tsx",
+    ].find((p) => files[p]) ?? null;
   const app = appPath ? files[appPath] : "";
 
   if (!app || app.trim().length < 400) {
@@ -186,7 +190,12 @@ export function assertProductQuality(
     .filter(([p]) => /\.(tsx?|jsx?|html|md)$/.test(p))
     .map(([, c]) => c)
     .join("\n");
-  if (title.length >= 3 && !blob.toLowerCase().includes(title.toLowerCase().slice(0, Math.min(24, title.length)))) {
+  if (
+    title.length >= 3 &&
+    !blob
+      .toLowerCase()
+      .includes(title.toLowerCase().slice(0, Math.min(24, title.length)))
+  ) {
     errors.push(
       `Product quality: generated UI does not mention app title "${title.slice(0, 40)}" — product feels generic.`,
     );
@@ -232,7 +241,9 @@ export function missingLlmKeysMessage(): string {
 
 export function isMissingLlmKeysError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /no llm providers configured/i.test(msg) || /no llm api key/i.test(msg);
+  return (
+    /no llm providers configured/i.test(msg) || /no llm api key/i.test(msg)
+  );
 }
 
 export function isAbortError(err: unknown, signal?: AbortSignal): boolean {
