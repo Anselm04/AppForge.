@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const partsDir = join(root, "src/agents/.pipeline_parts");
-const out = join(root, "src/agents/pipeline.ts");
+const out = join(root, "src/agents/pipeline.generated.ts");
 
 if (!existsSync(join(partsDir, "part0.txt"))) {
   console.warn("assemble-pipeline: parts missing — skip (ok during docker deps install)");
