@@ -28,6 +28,7 @@ import {
 } from "./routes/legacyCompat.js";
 import { livePreviewRouter } from "./routes/livePreview.js";
 import { hostedAppsRouter } from "./routes/hostedApps.js";
+import { generateRouter } from "./routes/generate.js";
 import { sandboxDevProxyRouter } from "./routes/sandboxDevProxy.js";
 import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
@@ -184,6 +185,7 @@ app.use(express.json({ limit: "10mb" }));
   app.use(globalLimiter);
   app.use(slowDown);
   app.use("/api/trpc/projects.create", buildLimiter);
+  app.use("/api/generate", buildLimiter);
   app.use("/api/trpc", apiLimiter);
 })().catch(() => {});
 
@@ -198,6 +200,7 @@ app.use("/api/trpc", supabaseAuthMiddleware);
 app.use("/api/ai", aiRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/build", buildRouter);
+app.use("/api/generate", generateRouter);
 app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
