@@ -34,6 +34,11 @@ import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { webContainerHeaders } from "./middleware/webContainerHeaders.js";
+import {
+  csrfProtection,
+  csrfTokenHandler,
+  csrfErrorHandler,
+} from "./middleware/csrf.js";
 import { closeDbConnection } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
@@ -87,6 +92,8 @@ app.use(
       "Authorization",
       "x-api-key",
       "stripe-signature",
+      "x-csrf-token",
+      "x-xsrf-token",
     ],
   }),
 );
@@ -153,6 +160,10 @@ app.post(
   express.raw({ type: "application/json" }),
   stripeWebhookHandler,
 );
+
+// ── CSRF (after webhook; CodeQL js/missing-token-validation) ──
+app.use(csrfProtection);
+app.get("/api/csrf-token", csrfTokenHandler);
 
 // ── Global middleware ──
 app.use(express.json({ limit: "10mb" }));
@@ -260,6 +271,9 @@ if (ENV.isProduction) {
 app.use((req, res) => {
   res.status(404).json({ error: "Not found", path: req.path });
 });
+
+// ── CSRF error mapping (before Sentry / generic handler) ──
+app.use(csrfErrorHandler);
 
 // ── Sentry error handler (captures 500s) ──
 app.use(sentryErrorHandler());
