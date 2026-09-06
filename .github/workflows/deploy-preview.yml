@@ -21,8 +21,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        # npm install until package-lock includes csurf
-        run: npm install --no-fund --no-audit
+        run: npm ci
 
       - name: Lint
         run: npm run lint
