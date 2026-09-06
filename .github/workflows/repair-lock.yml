@@ -1,0 +1,48 @@
+name: Repair lockfile once
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-lock.yml'
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/readme-real-generate
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Restore prior lock then install csurf
+        run: |
+          set -euo pipefail
+          git checkout 1305eb0122123a6da1d269f8fb3601e85a0c073d -- package-lock.json
+          npm install --no-fund --no-audit
+          node -e "const a=require('./package-lock.json'); if(!a.packages['node_modules/csurf']) process.exit(1); console.log('csurf ok');"
+      - name: Restore clean install in workflows
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          needle = 'npm install --no-fund --no-audit'
+          repl = 'npm ci'
+          for name in ['ci.yml', 'deploy-preview.yml']:
+              p = Path('.github/workflows') / name
+              t = p.read_text()
+              t = t.replace(needle, repl)
+              lines = [ln for ln in t.splitlines(True) if 'until package-lock includes csurf' not in ln and 'until lock has csurf' not in ln]
+              p.write_text(''.join(lines))
+              print('updated', name)
+          PY
+      - name: Commit and cleanup
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/repair-lock.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status
+          git commit -m "chore: sync package-lock with csurf; restore npm ci in CI"
+          git push origin HEAD:fix/readme-real-generate
