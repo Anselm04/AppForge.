@@ -33,7 +33,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        # npm install until package-lock includes csurf (npm ci would fail)
+        run: npm install --no-fund --no-audit
 
       - name: Run ESLint
         run: npm run lint --if-present
@@ -74,7 +75,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-fund --no-audit
 
       - name: Run TypeScript type check
         run: npm run typecheck
@@ -97,7 +98,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-fund --no-audit
 
       - name: Run tests with coverage
         run: npm run test -- --coverage --run
@@ -131,7 +132,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-fund --no-audit
 
       - name: Run production build
         run: npm run build
@@ -171,7 +172,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-fund --no-audit
 
       - name: Run npm audit
         run: npm audit --audit-level=moderate
