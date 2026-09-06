@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const partsDir = join(root, "src/agents/.pipeline_parts");
@@ -26,3 +27,19 @@ if (content.includes("guaranteed-green-fallback") || content.includes("recovered
 
 writeFileSync(out, content);
 console.log(`assemble-pipeline: wrote ${out} (${content.length} chars)`);
+
+// Keep CI prettier --check green: npm ci runs prepare → assemble before lint.
+try {
+  const prettierBin = join(root, "node_modules", "prettier", "bin", "prettier.cjs");
+  if (existsSync(prettierBin)) {
+    execFileSync(process.execPath, [prettierBin, "--write", out], {
+      cwd: root,
+      stdio: "inherit",
+    });
+  }
+} catch (err) {
+  console.warn(
+    "assemble-pipeline: prettier write skipped",
+    err instanceof Error ? err.message : err,
+  );
+}
