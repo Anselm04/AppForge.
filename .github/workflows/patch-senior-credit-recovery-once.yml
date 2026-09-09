@@ -1,0 +1,53 @@
+name: Patch Senior Dev credit recovery once
+
+on:
+  push:
+    branches:
+      - hardening/senior-dev-credit-recovery
+    paths:
+      - .github/workflows/patch-senior-credit-recovery-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/senior-dev-credit-recovery
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply exact Senior Dev refund patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/routes/build.ts')
+          s = p.read_text()
+          old_import = '  deductCredits,\n  getUserCredits,'
+          new_import = '  deductCredits,\n  addCredits,\n  getUserCredits,'
+          if old_import not in s:
+              raise SystemExit('expected import anchor not found')
+          s = s.replace(old_import, new_import, 1)
+          old_catch = '''  } catch (err: unknown) {\n    const msg = err instanceof Error ? err.message : "Unknown error";\n    logger.error({ taskId: task.id, error: msg }, "senior_dev_pipeline_error");\n    write("error", { message: msg });\n    await updateSeniorDevTaskStatus(task.id, "failed");\n  } finally {'''
+          new_catch = '''  } catch (err: unknown) {\n    const msg = err instanceof Error ? err.message : "Unknown error";\n    logger.error({ taskId: task.id, error: msg }, "senior_dev_pipeline_error");\n    write("error", { message: msg });\n    try {\n      await addCredits(\n        user.id,\n        SENIOR_DEV_BASE_COST,\n        "senior_dev_refund",\n        `Senior Dev Agent failed reservation refund for task ${task.id}`,\n        `senior-dev-refund-${task.id}`,\n      );\n    } catch (refundErr: unknown) {\n      logger.error(\n        {\n          taskId: task.id,\n          error: refundErr instanceof Error ? refundErr.message : "Unknown refund error",\n        },\n        "senior_dev_refund_error",\n      );\n    }\n    await updateSeniorDevTaskStatus(task.id, "failed");\n  } finally {'''
+          if old_catch not in s:
+              raise SystemExit('expected catch anchor not found')
+          s = s.replace(old_catch, new_catch, 1)
+          p.write_text(s)
+          PY
+      - name: Verify targeted diff only
+        run: |
+          git diff --check
+          git diff -- src/routes/build.ts
+          git status --short
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/build.ts
+          git commit -m "fix: refund failed Senior Dev reservations"
+          git push origin HEAD:hardening/senior-dev-credit-recovery
