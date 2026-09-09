@@ -1,0 +1,32 @@
+name: Format billing hardening
+
+on:
+  push:
+    paths:
+      - '.github/workflows/format-billing-hardening.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format billing files
+        run: npx prettier --write src/pages/Pricing.tsx src/routes/checkout.ts src/routers/subscriptions.ts
+      - name: Commit formatting only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Pricing.tsx src/routes/checkout.ts src/routers/subscriptions.ts
+          git diff --cached --quiet || git commit -m 'style(billing): apply repository formatting'
+          git pull --rebase origin main
+          git push
