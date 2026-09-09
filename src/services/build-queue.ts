@@ -114,25 +114,43 @@ export async function enqueueBuild(job: BuildJob): Promise<void> {
     await initBullMQ();
   }
   if (bullQueue) {
-    await bullQueue.add("build", job, {
-      jobId: `build-${job.projectId}-${Date.now()}`,
-      removeOnComplete: 100,
-      removeOnFail: 50,
-      attempts: 2,
-      backoff: { type: "exponential", delay: 5000 },
-    });
-    logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
-    return;
+    try {
+      await bullQueue.add("build", job, {
+        jobId: `build-${job.projectId}-${Date.now()}`,
+        removeOnComplete: 100,
+        removeOnFail: 50,
+        attempts: 2,
+        backoff: { type: "exponential", delay: 5000 },
+      });
+      logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
+      return;
+    } catch (err) {
+      logger.error(
+        { err, projectId: job.projectId },
+        "build_enqueue_bullmq_failed_fallback",
+      );
+    }
   }
 
-  const redis = await getRedis();
-  if (redis) {
-    await redis.lPush(QUEUE_KEY, JSON.stringify(job));
-    logger.info({ projectId: job.projectId }, "build_enqueued_redis");
-    return;
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      await redis.lPush(QUEUE_KEY, JSON.stringify(job));
+      logger.info({ projectId: job.projectId }, "build_enqueued_redis");
+      return;
+    }
+  } catch (err) {
+    logger.error(
+      { err, projectId: job.projectId },
+      "build_enqueue_redis_failed_fallback_memory",
+    );
   }
+
   memoryQueue.push(job);
-  logger.info({ projectId: job.projectId }, "build_enqueued_memory");
+  logger.warn(
+    { projectId: job.projectId },
+    "build_enqueued_memory_degraded_mode",
+  );
   void processMemoryQueue();
 }
 
