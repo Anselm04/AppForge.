@@ -1,6 +1,10 @@
 import Stripe from "stripe";
 import type { Request, Response } from "express";
-import { db, grantPlanCredits, addCredits } from "../db.js";
+import { db } from "../db.js";
+import {
+  addCreditsSafe,
+  grantPlanCreditsSafe,
+} from "../services/creditLedger.js";
 import { subscriptions, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -102,14 +106,12 @@ async function resolveUserIdFromCustomer(customerId: string | null): Promise<str
 export async function stripeWebhookHandler(req: Request, res: Response): Promise<void> {
   const signature = req.headers["stripe-signature"] as string | undefined;
 
-  // Guard: no secret configured -> reject immediately
   if (!webhookSecret) {
     console.error("Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured");
     res.status(500).json({ error: "Webhook secret not configured" });
     return;
   }
 
-  // Guard: missing signature -> 400
   if (!signature) {
     console.error("Stripe webhook rejected: missing stripe-signature header");
     res.status(400).json({ error: "Missing stripe-signature header" });
@@ -145,8 +147,6 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
           subscription,
           tier,
         });
-        // Credits are granted on checkout.session.completed and invoice.paid,
-        // not on every subscription.updated (Stripe sends those often).
       }
       break;
     }
@@ -187,7 +187,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
           tier,
         });
 
-        const result = await grantPlanCredits(
+        const result = await grantPlanCreditsSafe(
           parseInt(userId, 10),
           tier,
           `checkout-${session.id}`
@@ -201,7 +201,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         const credits = parseInt(session.metadata?.credits || "0", 10);
         if (credits > 0) {
           const paymentRef = (session.payment_intent as string) || `checkout-${session.id}`;
-          await addCredits(
+          await addCreditsSafe(
             parseInt(userId, 10),
             credits,
             "purchase",
@@ -253,7 +253,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         }
 
         if (userId) {
-          const result = await grantPlanCredits(userId, tier ?? "starter", invoice.id);
+          const result = await grantPlanCreditsSafe(userId, tier ?? "starter", invoice.id);
           if (!result.skipped) {
             console.log(`Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`);
           }
