@@ -101,9 +101,7 @@ export function Pricing() {
         t("pricing.starterF6"),
       ],
       cta:
-        currentTier === "starter"
-          ? t("pricing.currentPlan")
-          : t("pricing.buy"),
+        currentTier === "starter" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled:
         currentTier === "starter" ||
@@ -126,9 +124,7 @@ export function Pricing() {
         t("pricing.builderF6"),
       ],
       cta:
-        currentTier === "builder"
-          ? t("pricing.currentPlan")
-          : t("pricing.buy"),
+        currentTier === "builder" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: true,
       disabled:
         currentTier === "builder" ||
@@ -150,9 +146,7 @@ export function Pricing() {
         t("pricing.studioF6"),
       ],
       cta:
-        currentTier === "studio"
-          ? t("pricing.currentPlan")
-          : t("pricing.buy"),
+        currentTier === "studio" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled: currentTier === "studio" || currentTier === "enterprise",
     },

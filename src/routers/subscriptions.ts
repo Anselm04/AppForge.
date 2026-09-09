@@ -18,9 +18,13 @@ type CreditPack = (typeof CREDIT_PACKS)[number];
 
 const TIER_PRICE_IDS: Record<PlanTier, string> = {
   starter:
-    process.env.STRIPE_STARTER_PRICE_ID || process.env.STRIPE_PRICE_STARTER || "",
+    process.env.STRIPE_STARTER_PRICE_ID ||
+    process.env.STRIPE_PRICE_STARTER ||
+    "",
   builder:
-    process.env.STRIPE_BUILDER_PRICE_ID || process.env.STRIPE_PRICE_BUILDER || "",
+    process.env.STRIPE_BUILDER_PRICE_ID ||
+    process.env.STRIPE_PRICE_BUILDER ||
+    "",
   studio:
     process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
   enterprise:
@@ -31,14 +35,11 @@ const TIER_PRICE_IDS: Record<PlanTier, string> = {
 
 const CREDIT_PRICE_IDS: Record<CreditPack, string> = {
   50:
-    process.env.STRIPE_CREDITS_50_PRICE_ID ||
-    "price_1UB11YKFfiU4ONpq9lxQxD0t",
+    process.env.STRIPE_CREDITS_50_PRICE_ID || "price_1UB11YKFfiU4ONpq9lxQxD0t",
   100:
-    process.env.STRIPE_CREDITS_100_PRICE_ID ||
-    "price_1UB11YKFfiU4ONpqxG2boP66",
+    process.env.STRIPE_CREDITS_100_PRICE_ID || "price_1UB11YKFfiU4ONpqxG2boP66",
   250:
-    process.env.STRIPE_CREDITS_250_PRICE_ID ||
-    "price_1UB11ZKFfiU4ONpq3bUBdUuS",
+    process.env.STRIPE_CREDITS_250_PRICE_ID || "price_1UB11ZKFfiU4ONpq3bUBdUuS",
 };
 
 const TIER_LIMITS: Record<string, number | null> = {
@@ -104,8 +105,7 @@ export const subscriptionsRouter = router({
       stripeCustomerId: sub?.stripeCustomerId ?? null,
       buildsThisMonth,
       limit,
-      remaining:
-        limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
+      remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
       credits: credits?.balance ?? 0,
     };
   }),
@@ -152,11 +152,7 @@ export const subscriptionsRouter = router({
   buyCredits: protectedProcedure
     .input(
       z.object({
-        credits: z.union([
-          z.literal(50),
-          z.literal(100),
-          z.literal(250),
-        ]),
+        credits: z.union([z.literal(50), z.literal(100), z.literal(250)]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
