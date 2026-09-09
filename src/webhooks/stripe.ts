@@ -7,7 +7,6 @@ import { eq } from "drizzle-orm";
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
-// Harden: refuse to initialize if secrets are missing in production
 if (process.env.NODE_ENV === "production" && (!secretKey || !webhookSecret)) {
   console.error(
     "FATAL: Stripe secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are required in production",
@@ -15,8 +14,6 @@ if (process.env.NODE_ENV === "production" && (!secretKey || !webhookSecret)) {
   process.exit(1);
 }
 
-// Stripe SDK v14 — use `as any` to bypass strict enum typing since the SDK
-// pins to a specific date and the source file is already using 2024-06-20.
 const stripe = new Stripe(secretKey, {
   apiVersion: "2024-06-20" as any,
 });
@@ -29,18 +26,21 @@ const PAID_TIERS = new Set([
   "custom",
 ]);
 
-function priceIdsForTier(tier: "starter" | "builder" | "studio"): string[] {
-  const envKeys: Record<typeof tier, string[]> = {
+type StandardTier = "starter" | "builder" | "studio" | "enterprise";
+
+function priceIdsForTier(tier: StandardTier): string[] {
+  const envKeys: Record<StandardTier, string[]> = {
     starter: ["STRIPE_STARTER_PRICE_ID", "STRIPE_PRICE_STARTER"],
     builder: ["STRIPE_BUILDER_PRICE_ID", "STRIPE_PRICE_BUILDER"],
     studio: ["STRIPE_STUDIO_PRICE_ID", "STRIPE_PRICE_STUDIO"],
+    enterprise: ["STRIPE_ENTERPRISE_PRICE_ID", "STRIPE_PRICE_ENTERPRISE"],
   };
   return envKeys[tier].map((k) => process.env[k] || "").filter(Boolean);
 }
 
-function tierFromPriceId(priceId?: string | null): string | null {
+function tierFromPriceId(priceId?: string | null): StandardTier | null {
   if (!priceId) return null;
-  for (const tier of ["starter", "builder", "studio"] as const) {
+  for (const tier of ["starter", "builder", "studio", "enterprise"] as const) {
     if (priceIdsForTier(tier).includes(priceId)) return tier;
   }
   return null;
@@ -62,9 +62,9 @@ function resolveTier(
     return mappedTier;
   }
 
-  // Enterprise/custom may be invoice-assisted flows without a standard price map,
-  // but ordinary subscription prices must be recognized explicitly.
-  if (fromMeta === "enterprise" || fromMeta === "custom") return fromMeta;
+  // Custom plans may be invoice-assisted and intentionally lack a standard price.
+  // All standard self-serve tiers, including Enterprise, must match a configured price ID.
+  if (fromMeta === "custom") return fromMeta;
 
   throw new Error(
     `Unrecognized Stripe price; refusing to provision access: ${priceId || "missing"}`,
