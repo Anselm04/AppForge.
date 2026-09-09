@@ -13,7 +13,9 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 // Harden: refuse to initialize if secrets are missing in production
 if (process.env.NODE_ENV === "production" && (!secretKey || !webhookSecret)) {
-  console.error("FATAL: Stripe secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are required in production");
+  console.error(
+    "FATAL: Stripe secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are required in production",
+  );
   process.exit(1);
 }
 
@@ -23,7 +25,13 @@ const stripe = new Stripe(secretKey, {
   apiVersion: "2024-06-20" as any,
 });
 
-const PAID_TIERS = new Set(["starter", "builder", "studio", "enterprise", "custom"]);
+const PAID_TIERS = new Set([
+  "starter",
+  "builder",
+  "studio",
+  "enterprise",
+  "custom",
+]);
 
 function priceIdsForTier(tier: "starter" | "builder" | "studio"): string[] {
   const envKeys: Record<typeof tier, string[]> = {
@@ -44,11 +52,27 @@ function tierFromPriceId(priceId?: string | null): string | null {
 
 function resolveTier(
   meta?: Stripe.Metadata | null,
-  priceId?: string | null
+  priceId?: string | null,
 ): string {
   const fromMeta = (meta?.tier || meta?.plan || "").toLowerCase();
-  if (fromMeta && PAID_TIERS.has(fromMeta)) return fromMeta;
-  return tierFromPriceId(priceId) ?? "starter";
+  const mappedTier = tierFromPriceId(priceId);
+
+  if (mappedTier) {
+    if (fromMeta && PAID_TIERS.has(fromMeta) && fromMeta !== mappedTier) {
+      throw new Error(
+        `Stripe tier metadata mismatch: metadata=${fromMeta}, price=${priceId}`,
+      );
+    }
+    return mappedTier;
+  }
+
+  // Enterprise/custom may be invoice-assisted flows without a standard price map,
+  // but ordinary subscription prices must be recognized explicitly.
+  if (fromMeta === "enterprise" || fromMeta === "custom") return fromMeta;
+
+  throw new Error(
+    `Unrecognized Stripe price; refusing to provision access: ${priceId || "missing"}`,
+  );
 }
 
 function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
@@ -95,7 +119,9 @@ async function upsertSubscription(opts: {
     });
 }
 
-async function resolveUserIdFromCustomer(customerId: string | null): Promise<string | undefined> {
+async function resolveUserIdFromCustomer(
+  customerId: string | null,
+): Promise<string | undefined> {
   if (!customerId) return undefined;
   const existing = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.stripeCustomerId, customerId),
@@ -103,11 +129,16 @@ async function resolveUserIdFromCustomer(customerId: string | null): Promise<str
   return existing ? String(existing.userId) : undefined;
 }
 
-export async function stripeWebhookHandler(req: Request, res: Response): Promise<void> {
+export async function stripeWebhookHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const signature = req.headers["stripe-signature"] as string | undefined;
 
   if (!webhookSecret) {
-    console.error("Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured");
+    console.error(
+      "Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured",
+    );
     res.status(500).json({ error: "Webhook secret not configured" });
     return;
   }
@@ -137,7 +168,9 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       const tier = resolveTier(subscription.metadata, priceId);
 
       if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(subscription.customer as string);
+        userId = await resolveUserIdFromCustomer(
+          subscription.customer as string,
+        );
       }
 
       if (userId) {
@@ -155,7 +188,9 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       const subscription = event.data.object as Stripe.Subscription;
       let userId: string | undefined = subscription.metadata?.userId;
       if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(subscription.customer as string);
+        userId = await resolveUserIdFromCustomer(
+          subscription.customer as string,
+        );
       }
 
       if (userId) {
@@ -173,11 +208,13 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       const mode = session.mode;
 
       if (userId && mode === "subscription" && session.subscription) {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription as string,
+        );
         const priceId = subscriptionPriceId(subscription);
         const tier = resolveTier(
           { ...(subscription.metadata || {}), ...(session.metadata || {}) },
-          priceId
+          priceId,
         );
 
         await upsertSubscription({
@@ -190,23 +227,26 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         const result = await grantPlanCreditsSafe(
           parseInt(userId, 10),
           tier,
-          `checkout-${session.id}`
+          `checkout-${session.id}`,
         );
         if (!result.skipped) {
-          console.log(`Granted ${result.granted} ${tier} credits to user ${userId} from checkout`);
+          console.log(
+            `Granted ${result.granted} ${tier} credits to user ${userId} from checkout`,
+          );
         }
       }
 
       if (userId && mode === "payment") {
         const credits = parseInt(session.metadata?.credits || "0", 10);
         if (credits > 0) {
-          const paymentRef = (session.payment_intent as string) || `checkout-${session.id}`;
+          const paymentRef =
+            (session.payment_intent as string) || `checkout-${session.id}`;
           await addCreditsSafe(
             parseInt(userId, 10),
             credits,
             "purchase",
             `Stripe checkout credit purchase (${credits} credits)`,
-            paymentRef
+            paymentRef,
           );
           console.log(`Added ${credits} extra credits to user ${userId}`);
         }
@@ -232,10 +272,13 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
 
         if (!userId) {
           try {
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const subscription =
+              await stripe.subscriptions.retrieve(subscriptionId);
             const priceId = subscriptionPriceId(subscription);
             tier = resolveTier(subscription.metadata, priceId);
-            const fromCustomer = await resolveUserIdFromCustomer(subscription.customer as string);
+            const fromCustomer = await resolveUserIdFromCustomer(
+              subscription.customer as string,
+            );
             const fromMeta = subscription.metadata?.userId;
             const resolved = fromMeta || fromCustomer;
             if (resolved) {
@@ -248,14 +291,23 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
               });
             }
           } catch (lookupErr) {
-            console.error("invoice.paid subscription lookup failed:", lookupErr);
+            console.error(
+              "invoice.paid subscription lookup failed:",
+              lookupErr,
+            );
           }
         }
 
         if (userId) {
-          const result = await grantPlanCreditsSafe(userId, tier ?? "starter", invoice.id);
+          const result = await grantPlanCreditsSafe(
+            userId,
+            tier ?? "starter",
+            invoice.id,
+          );
           if (!result.skipped) {
-            console.log(`Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`);
+            console.log(
+              `Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`,
+            );
           }
         }
       }
@@ -270,12 +322,18 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
           .update(subscriptions)
           .set({ status: "past_due", updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-        console.warn(`Invoice payment failed for subscription ${subscriptionId}, status set to past_due`);
+        console.warn(
+          `Invoice payment failed for subscription ${subscriptionId}, status set to past_due`,
+        );
         try {
           const { notifyPaymentFailed } = await import("../services/email.js");
-          const userEmail = await db.select({ email: users.email })
+          const userEmail = await db
+            .select({ email: users.email })
             .from(users)
-            .innerJoin(subscriptions, eq(subscriptions.stripeSubscriptionId, subscriptionId))
+            .innerJoin(
+              subscriptions,
+              eq(subscriptions.stripeSubscriptionId, subscriptionId),
+            )
             .limit(1);
           if (userEmail[0]?.email) {
             await notifyPaymentFailed(userEmail[0].email);

@@ -365,39 +365,44 @@ export async function refillMonthlyCredits(
   userId: number,
   tier?: string,
 ): Promise<void> {
-  const credits = await getUserCredits(userId);
-  if (!credits) return;
+  await ensureUserCredits(userId);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const rows = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    const credits = rows[0];
+    if (!credits) return;
 
-  const effectiveTier = tier ?? credits.tier ?? "free";
-  const refillAmount = getTierCreditRefill(effectiveTier);
-  if (refillAmount === null) return; // unlimited tiers don't need refills
+    const effectiveTier = tier ?? credits.tier ?? "free";
+    const refillAmount = getTierCreditRefill(effectiveTier);
+    if (refillAmount === null) return;
 
-  const now = new Date();
-  const lastRefill = credits.lastRefillAt ?? credits.createdAt ?? now;
-  const daysSinceRefill =
-    (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
+    const now = new Date();
+    const lastRefill = credits.lastRefillAt ?? credits.createdAt ?? now;
+    const daysSinceRefill =
+      (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceRefill < 30) return;
 
-  if (daysSinceRefill >= 30) {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(schema.userCredits)
-        .set({
-          balance: refillAmount,
-          tier: effectiveTier,
-          monthlyAllowance: getTierBuildLimit(effectiveTier) ?? 0,
-          lastRefillAt: now,
-          updatedAt: now,
-        })
-        .where(eq(schema.userCredits.id, credits.id));
-
-      await tx.insert(schema.creditTransactions).values({
-        userId,
-        amount: refillAmount,
-        type: "subscription_grant",
-        description: `Monthly credit refill for ${effectiveTier} tier (${refillAmount} credits)`,
-      });
+    await tx
+      .update(schema.userCredits)
+      .set({
+        balance: refillAmount,
+        tier: effectiveTier,
+        monthlyAllowance: getTierBuildLimit(effectiveTier) ?? 0,
+        lastRefillAt: now,
+        updatedAt: now,
+      })
+      .where(eq(schema.userCredits.id, credits.id));
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount: refillAmount,
+      type: "subscription_grant",
+      description: `Monthly credit refill for ${effectiveTier} tier (${refillAmount} credits)`,
     });
-  }
+  });
 }
 
 export async function syncTierFromSubscription(userId: number): Promise<void> {
