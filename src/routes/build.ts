@@ -19,6 +19,7 @@ import {
   resumeProject,
   ensureUserCredits,
   deductCredits,
+  addCredits,
   getUserCredits,
   updateProjectFiles,
   getSeniorDevTaskById,
@@ -349,6 +350,23 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ taskId: task.id, error: msg }, "senior_dev_pipeline_error");
     write("error", { message: msg });
+    try {
+      await addCredits(
+        user.id,
+        SENIOR_DEV_BASE_COST,
+        "senior_dev_refund",
+        `Senior Dev Agent failed reservation refund for task ${task.id}`,
+        `senior-dev-refund-${task.id}`,
+      );
+    } catch (refundErr: unknown) {
+      logger.error(
+        {
+          taskId: task.id,
+          error: refundErr instanceof Error ? refundErr.message : "Unknown refund error",
+        },
+        "senior_dev_refund_error",
+      );
+    }
     await updateSeniorDevTaskStatus(task.id, "failed");
   } finally {
     clearTimeout(timeout);
