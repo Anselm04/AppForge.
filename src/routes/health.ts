@@ -27,7 +27,7 @@ router.get('/', async (_req: Request, res: Response) => {
   const statusCode = health.status === 'ok' ? 200 : 503;
   res.setHeader(
     'Cache-Control',
-    'no-store, no-cache, must-revalidate, proxy-revalidate'
+    'no-store, no-cache, must-revalidate, proxy-revalidate',
   );
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
@@ -54,7 +54,7 @@ router.get('/integrations', (_req: Request, res: Response) => {
   const summary = summarizeTeamIntegrations();
   res.setHeader(
     'Cache-Control',
-    'no-store, no-cache, must-revalidate, proxy-revalidate'
+    'no-store, no-cache, must-revalidate, proxy-revalidate',
   );
   return res.status(200).json({
     status: summary.productionReady ? 'configured' : 'incomplete',
