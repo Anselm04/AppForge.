@@ -1,0 +1,276 @@
+from pathlib import Path
+
+p = Path("src/db.ts")
+s = p.read_text()
+
+old = '''export async function ensureUserCredits(userId: number) {
+  const existing = await getUserCredits(userId);
+  if (existing) return existing;
+
+  // Default free tier credits
+  const result = await db
+    .insert(schema.userCredits)
+    .values({ userId, balance: 20, tier: "free", monthlyAllowance: 3 })
+    .returning();
+  return result[0];
+}'''
+new = '''export async function ensureUserCredits(userId: number) {
+  const existing = await getUserCredits(userId);
+  if (existing) return existing;
+
+  // Concurrent first requests must not race into duplicate rows/credits.
+  await db
+    .insert(schema.userCredits)
+    .values({ userId, balance: 20, tier: "free", monthlyAllowance: 3 })
+    .onConflictDoNothing({ target: schema.userCredits.userId });
+
+  const created = await getUserCredits(userId);
+  if (!created) throw new Error(`Failed to initialize credits for user ${userId}`);
+  return created;
+}'''
+assert old in s, "ensureUserCredits target not found"
+s = s.replace(old, new)
+
+old = '''export async function getUserTier(userId: number): Promise<string> {
+  const sub = await getSubscriptionByUserId(userId);
+  if (sub && (sub.status === "active" || sub.status === "trialing")) {
+    return sub.tier ?? "starter";
+  }
+  const credits = await getUserCredits(userId);
+  return credits?.tier ?? "free";
+}'''
+new = '''export async function getUserTier(userId: number): Promise<string> {
+  const sub = await getSubscriptionByUserId(userId);
+  const now = new Date();
+  const activeStatus = sub?.status === "active" || sub?.status === "trialing";
+  const periodValid = !sub?.currentPeriodEnd || sub.currentPeriodEnd >= now;
+  const trialValid =
+    sub?.status !== "trialing" || !sub.trialEnd || sub.trialEnd >= now;
+  if (sub && activeStatus && periodValid && trialValid) {
+    return sub.tier ?? "starter";
+  }
+  return "free";
+}'''
+assert old in s, "getUserTier target not found"
+s = s.replace(old, new)
+
+start = s.index("export async function deductCredits(")
+end = s.index("\nexport async function addCredits(", start)
+s = s[:start] + '''export async function deductCredits(
+  userId: number,
+  amount: number,
+  projectId?: number,
+  description?: string,
+) {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error("Credit deduction amount must be a positive integer");
+  }
+  await ensureUserCredits(userId);
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const rows = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    const credits = rows[0];
+    if (!credits) throw new Error(`Insufficient credits: need ${amount}, have 0`);
+
+    if (credits.unlimited) {
+      await tx.insert(schema.creditTransactions).values({
+        userId,
+        amount: 0,
+        type: "build_usage",
+        projectId: projectId ?? null,
+        description: `${description ?? "Build agent usage"} (unlimited)`,
+      });
+      return credits.balance;
+    }
+    if (credits.balance < amount) {
+      throw new Error(
+        `Insufficient credits: need ${amount}, have ${credits.balance}`,
+      );
+    }
+
+    const newBalance = credits.balance - amount;
+    await tx
+      .update(schema.userCredits)
+      .set({ balance: newBalance, updatedAt: new Date() })
+      .where(eq(schema.userCredits.id, credits.id));
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount: -amount,
+      type: "build_usage",
+      projectId: projectId ?? null,
+      description: description ?? "Build agent usage",
+    });
+    return newBalance;
+  });
+}
+''' + s[end:]
+
+start = s.index("export async function addCredits(")
+end = s.index("\n/** Resume projects paused", start)
+s = s[:start] + '''export async function addCredits(
+  userId: number,
+  amount: number,
+  type: string,
+  description?: string,
+  stripePaymentIntentId?: string,
+) {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error("Credit grant amount must be a positive integer");
+  }
+  await ensureUserCredits(userId);
+
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+
+    if (stripePaymentIntentId) {
+      const prior = await tx
+        .select({ id: schema.creditTransactions.id })
+        .from(schema.creditTransactions)
+        .where(
+          eq(
+            schema.creditTransactions.stripePaymentIntentId,
+            stripePaymentIntentId,
+          ),
+        )
+        .limit(1);
+      if (prior[0]) {
+        const current = await tx
+          .select({ balance: schema.userCredits.balance })
+          .from(schema.userCredits)
+          .where(eq(schema.userCredits.userId, userId))
+          .limit(1);
+        return { balance: current[0]?.balance ?? 0, skipped: true };
+      }
+    }
+
+    const current = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    const credits = current[0];
+    if (!credits) throw new Error(`Credits row missing for user ${userId}`);
+    const newBalance = credits.balance + amount;
+
+    await tx
+      .update(schema.userCredits)
+      .set({ balance: newBalance, updatedAt: new Date() })
+      .where(eq(schema.userCredits.id, credits.id));
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount,
+      type,
+      description: description ?? "Credit purchase",
+      stripePaymentIntentId: stripePaymentIntentId ?? null,
+    });
+    return { balance: newBalance, skipped: false };
+  });
+
+  if (!result.skipped) await unpauseCreditExhaustedProjects(userId);
+  return result.balance;
+}
+''' + s[end:]
+
+start = s.index("export async function grantPlanCredits(")
+end = s.index("\nexport async function updateProjectCreditsSpent(", start)
+s = s[:start] + '''export async function grantPlanCredits(
+  userId: number,
+  tier: string,
+  idempotencyKey?: string,
+): Promise<{ granted: number; skipped: boolean }> {
+  await ensureUserCredits(userId);
+  const refillAmount = getTierCreditRefill(tier);
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+
+    if (idempotencyKey) {
+      const prior = await tx
+        .select({ id: schema.creditTransactions.id })
+        .from(schema.creditTransactions)
+        .where(
+          eq(
+            schema.creditTransactions.stripePaymentIntentId,
+            idempotencyKey,
+          ),
+        )
+        .limit(1);
+      if (prior[0]) return { granted: 0, skipped: true };
+    }
+
+    const creditRows = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    const credits = creditRows[0];
+    if (!credits) return { granted: 0, skipped: true };
+
+    const grants = await tx
+      .select({ createdAt: schema.creditTransactions.createdAt })
+      .from(schema.creditTransactions)
+      .where(
+        and(
+          eq(schema.creditTransactions.userId, userId),
+          eq(schema.creditTransactions.type, "subscription_grant"),
+        ),
+      )
+      .orderBy(desc(schema.creditTransactions.createdAt))
+      .limit(1);
+    const recentGrant = grants[0];
+    if (recentGrant?.createdAt && refillAmount !== null) {
+      const daysSinceGrant =
+        (now.getTime() - new Date(recentGrant.createdAt).getTime()) /
+        (1000 * 60 * 60 * 24);
+      const samePaidTier = (credits.tier ?? "free") === tier && tier !== "free";
+      if (samePaidTier && daysSinceGrant < 25) {
+        return { granted: 0, skipped: true };
+      }
+    }
+
+    if (refillAmount === null) {
+      await tx
+        .update(schema.userCredits)
+        .set({
+          tier,
+          monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+          lastRefillAt: now,
+          updatedAt: now,
+        })
+        .where(eq(schema.userCredits.id, credits.id));
+      return { granted: 0, skipped: false };
+    }
+
+    const newBalance = credits.balance + refillAmount;
+    await tx
+      .update(schema.userCredits)
+      .set({
+        balance: newBalance,
+        tier,
+        monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+        lastRefillAt: now,
+        updatedAt: now,
+      })
+      .where(eq(schema.userCredits.id, credits.id));
+    await tx.insert(schema.creditTransactions).values({
+      userId,
+      amount: refillAmount,
+      type: "subscription_grant",
+      description: `Plan credits for ${tier} (${refillAmount} credits)`,
+      stripePaymentIntentId: idempotencyKey ?? null,
+    });
+    return { granted: refillAmount, skipped: false };
+  });
+
+  await unpauseCreditExhaustedProjects(userId);
+  return result;
+}
+''' + s[end:]
+
+p.write_text(s)
