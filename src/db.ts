@@ -461,6 +461,19 @@ export async function addCredits(
 ) {
   const credits = await getUserCredits(userId);
   const currentBalance = credits?.balance ?? 0;
+
+  if (stripePaymentIntentId) {
+    const existing = await db.query.creditTransactions.findFirst({
+      where: eq(
+        schema.creditTransactions.stripePaymentIntentId,
+        stripePaymentIntentId,
+      ),
+    });
+    if (existing) {
+      await unpauseCreditExhaustedProjects(userId);
+      return currentBalance;
+    }
+  }
   await db.transaction(async (tx) => {
     if (credits) {
       await tx

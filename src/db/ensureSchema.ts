@@ -210,6 +210,7 @@ CREATE INDEX IF NOT EXISTS "user_credits_balance_idx" ON "user_credits" ("balanc
 CREATE INDEX IF NOT EXISTS "credit_tx_user_idx" ON "credit_transactions" ("user_id");
 CREATE INDEX IF NOT EXISTS "credit_tx_type_idx" ON "credit_transactions" ("type");
 CREATE INDEX IF NOT EXISTS "credit_tx_project_idx" ON "credit_transactions" ("project_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "credit_tx_stripe_ref_unique" ON "credit_transactions" ("stripe_payment_intent_id");
 CREATE INDEX IF NOT EXISTS "projects_user_id_idx" ON "projects" ("user_id");
 CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects" ("status");
 CREATE INDEX IF NOT EXISTS "projects_created_at_idx" ON "projects" ("created_at");
@@ -345,6 +346,9 @@ CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("org
 
 export async function ensureAppSchema(): Promise<void> {
   if (!ENV.databaseUrl) {
+    if (ENV.isProduction) {
+      throw new Error("DATABASE_URL is required in production");
+    }
     console.warn("Skipping schema ensure: DATABASE_URL is not set");
     return;
   }

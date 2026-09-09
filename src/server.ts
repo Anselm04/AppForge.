@@ -125,8 +125,11 @@ app.use((req, res, next) => {
 // ── Request timeout middleware ──
 // SSE builds run up to ~5 minutes; do not kill those sockets at 30s.
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api/build") || req.path.startsWith("/live") ||
-      req.path.startsWith("/apps")) {
+  if (
+    req.path.startsWith("/api/build") ||
+    req.path.startsWith("/live") ||
+    req.path.startsWith("/apps")
+  ) {
     req.setTimeout(0);
     res.setTimeout(0);
     return next();
@@ -340,6 +343,7 @@ async function start() {
     await ensureAppSchema();
   } catch (err) {
     console.error("Schema ensure failed:", err);
+    if (ENV.isProduction) throw err;
   }
   server = app.listen(PORT, () => {
     console.log(`AppForge server running on http://localhost:${PORT}`);

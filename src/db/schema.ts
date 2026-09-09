@@ -8,6 +8,7 @@ import {
   boolean,
   integer,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -90,6 +91,7 @@ export const creditTransactions = pgTable(
     index("credit_tx_user_idx").on(table.userId),
     index("credit_tx_type_idx").on(table.type),
     index("credit_tx_project_idx").on(table.projectId),
+    uniqueIndex("credit_tx_stripe_ref_unique").on(table.stripePaymentIntentId),
   ],
 );
 
