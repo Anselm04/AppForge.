@@ -41,12 +41,7 @@ function priceIdsForTier(tier: StandardTier): string[] {
 
 function tierFromPriceId(priceId?: string | null): StandardTier | null {
   if (!priceId) return null;
-  for (const tier of [
-    "starter",
-    "builder",
-    "studio",
-    "enterprise",
-  ] as const) {
+  for (const tier of ["starter", "builder", "studio", "enterprise"] as const) {
     if (priceIdsForTier(tier).includes(priceId)) return tier;
   }
   return null;
