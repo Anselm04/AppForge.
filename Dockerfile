@@ -17,7 +17,10 @@ WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts && npm cache clean --force
+RUN npm ci --ignore-scripts \
+  && ROLLUP_VERSION="$(node -p "require('./node_modules/rollup/package.json').version")" \
+  && npm install --no-save --package-lock=false --ignore-scripts "@rollup/rollup-linux-x64-musl@${ROLLUP_VERSION}" \
+  && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
