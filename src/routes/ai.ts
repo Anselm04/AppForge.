@@ -2,8 +2,7 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { AIService } from "../services/ai-service.js";
 import { AppBuilder } from "../services/app-builder.js";
-import { ensureUserCredits } from "../db.js";
-import { deductCreditsSafe } from "../services/creditLedger.js";
+import { ensureUserCredits, deductCredits } from "../db.js";
 import {
   AI_GENERATE_CREDIT_COST,
   creditsExhaustedBody,
@@ -64,7 +63,7 @@ async function requireCredits(
     });
     return null;
   }
-  await deductCreditsSafe(user.id, cost, undefined, action);
+  await deductCredits(user.id, cost, undefined, action);
   return user;
 }
 
