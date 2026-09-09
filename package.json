@@ -1,7 +1,7 @@
 {
   "name": "appforge",
   "version": "1.0.0",
-  "description": "Multi Agent app building app",
+  "description": "AI-powered multi-agent application builder",
   "type": "module",
   "engines": { "node": ">=22.0.0" },
   "scripts": {
