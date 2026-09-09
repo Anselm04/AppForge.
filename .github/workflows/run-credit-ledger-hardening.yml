@@ -20,13 +20,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Execute reviewed hardening patch
         run: python3 .github/scripts/harden_credit_ledger.py
-      - run: npx prettier --write src/db.ts
+      - run: npx prettier --write src/db.ts src/webhooks/stripe.ts
       - run: npm run typecheck
       - run: npm run test -- --run
-      - name: Commit hardened ledger
+      - name: Commit hardened revenue path
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/db.ts
-          git diff --cached --quiet || git commit -m 'security: serialize credit ledger mutations'
+          git add src/db.ts src/webhooks/stripe.ts
+          git diff --cached --quiet || git commit -m 'security: harden credit refills and Stripe tier mapping'
           git push
