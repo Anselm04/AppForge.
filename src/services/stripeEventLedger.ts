@@ -5,7 +5,9 @@ let ledgerReady: Promise<void> | null = null;
 
 function databaseUrl(): string {
   if (!ENV.databaseUrl) {
-    throw new Error("DATABASE_URL is required for Stripe webhook replay protection");
+    throw new Error(
+      "DATABASE_URL is required for Stripe webhook replay protection",
+    );
   }
   return ENV.databaseUrl;
 }
