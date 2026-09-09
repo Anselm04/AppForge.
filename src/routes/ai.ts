@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { AIService } from "../services/ai-service.js";
 import { AppBuilder } from "../services/app-builder.js";
-import { ensureUserCredits, deductCredits } from "../db.js";
+import { ensureUserCredits } from "../db.js";
+import { deductCreditsSafe } from "../services/creditLedger.js";
 import {
   AI_GENERATE_CREDIT_COST,
   creditsExhaustedBody,
@@ -12,7 +13,6 @@ const router = Router();
 const aiService = new AIService();
 const appBuilder = new AppBuilder();
 
-// Zod schemas for AI routes
 const extractSchema = z.object({
   prompt: z.string().min(1).max(5000),
 });
@@ -64,7 +64,7 @@ async function requireCredits(
     });
     return null;
   }
-  await deductCredits(user.id, cost, undefined, action);
+  await deductCreditsSafe(user.id, cost, undefined, action);
   return user;
 }
 
@@ -82,7 +82,6 @@ function validateInput(schema: z.ZodSchema, body: any) {
   return { valid: true, data: result.data };
 }
 
-// Extract requirements from user prompt
 router.post("/extract", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(extractSchema, req.body);
@@ -104,7 +103,6 @@ router.post("/extract", async (req: Request, res: Response) => {
   }
 });
 
-// Generate clarification questions
 router.post("/clarify", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(clarifySchema, req.body);
@@ -127,7 +125,6 @@ router.post("/clarify", async (req: Request, res: Response) => {
   }
 });
 
-// Generate complete app — legacy stub retired
 router.post("/generate", async (req: Request, res: Response) => {
   const validation = validateInput(generateSchema, req.body);
   if (!validation.valid) {
@@ -148,7 +145,6 @@ router.post("/generate", async (req: Request, res: Response) => {
   });
 });
 
-// Iterate on existing app — use Senior Dev Agent instead
 router.post("/iterate", async (req: Request, res: Response) => {
   const validation = validateInput(iterateSchema, req.body);
   if (!validation.valid) {
@@ -165,7 +161,6 @@ router.post("/iterate", async (req: Request, res: Response) => {
   });
 });
 
-// Deploy app to Vercel
 router.post("/deploy/:appId", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(deploySchema, req.params);
@@ -185,7 +180,6 @@ router.post("/deploy/:appId", async (req: Request, res: Response) => {
   }
 });
 
-// Export app to GitHub
 router.post("/export/:appId", async (req: Request, res: Response) => {
   try {
     const validation = validateInput(exportSchema, {
