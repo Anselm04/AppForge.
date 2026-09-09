@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { addCredits, db, grantPlanCredits } from "../db.js";
 import { subscriptions, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -62,8 +63,6 @@ function resolveTier(
     return mappedTier;
   }
 
-  // Custom plans may be invoice-assisted and intentionally lack a standard price.
-  // All standard self-serve tiers, including Enterprise, must match a configured price ID.
   if (fromMeta === "custom") return fromMeta;
 
   throw new Error(
@@ -125,36 +124,7 @@ async function resolveUserIdFromCustomer(
   return existing ? String(existing.userId) : undefined;
 }
 
-export async function stripeWebhookHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const signature = req.headers["stripe-signature"] as string | undefined;
-
-  if (!webhookSecret) {
-    console.error(
-      "Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured",
-    );
-    res.status(500).json({ error: "Webhook secret not configured" });
-    return;
-  }
-
-  if (!signature) {
-    console.error("Stripe webhook rejected: missing stripe-signature header");
-    res.status(400).json({ error: "Missing stripe-signature header" });
-    return;
-  }
-
-  let event: Stripe.Event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-  } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message);
-    res.status(400).json({ error: "Invalid signature", detail: err.message });
-    return;
-  }
-
+async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated": {
@@ -341,6 +311,52 @@ export async function stripeWebhookHandler(
       console.log(`Unhandled Stripe webhook event: ${event.type}`);
     }
   }
+}
 
-  res.json({ received: true });
+export async function stripeWebhookHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const signature = req.headers["stripe-signature"] as string | undefined;
+
+  if (!webhookSecret) {
+    console.error(
+      "Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured",
+    );
+    res.status(500).json({ error: "Webhook secret not configured" });
+    return;
+  }
+
+  if (!signature) {
+    console.error("Stripe webhook rejected: missing stripe-signature header");
+    res.status(400).json({ error: "Missing stripe-signature header" });
+    return;
+  }
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    res.status(400).json({ error: "Invalid signature", detail: err.message });
+    return;
+  }
+
+  try {
+    const processed = await processStripeEventOnce(
+      event.id,
+      event.type,
+      async () => {
+        await handleStripeEvent(event);
+      },
+    );
+    if (!processed) {
+      console.log(`Duplicate Stripe webhook ignored: ${event.id}`);
+    }
+    res.json({ received: true, duplicate: !processed });
+  } catch (err) {
+    console.error(`Stripe webhook processing failed for ${event.id}:`, err);
+    res.status(500).json({ error: "Webhook processing failed" });
+  }
 }
