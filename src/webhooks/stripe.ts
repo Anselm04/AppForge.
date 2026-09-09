@@ -1,10 +1,6 @@
 import Stripe from "stripe";
 import type { Request, Response } from "express";
-import { db } from "../db.js";
-import {
-  addCreditsSafe,
-  grantPlanCreditsSafe,
-} from "../services/creditLedger.js";
+import { addCredits, db, grantPlanCredits } from "../db.js";
 import { subscriptions, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -224,7 +220,7 @@ export async function stripeWebhookHandler(
           tier,
         });
 
-        const result = await grantPlanCreditsSafe(
+        const result = await grantPlanCredits(
           parseInt(userId, 10),
           tier,
           `checkout-${session.id}`,
@@ -241,14 +237,14 @@ export async function stripeWebhookHandler(
         if (credits > 0) {
           const paymentRef =
             (session.payment_intent as string) || `checkout-${session.id}`;
-          await addCreditsSafe(
+          await addCredits(
             parseInt(userId, 10),
             credits,
             "purchase",
             `Stripe checkout credit purchase (${credits} credits)`,
             paymentRef,
           );
-          console.log(`Added ${credits} extra credits to user ${userId}`);
+          console.log(`Processed ${credits} extra credits for user ${userId}`);
         }
       }
       break;
@@ -268,9 +264,9 @@ export async function stripeWebhookHandler(
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
 
         let userId = existing?.userId;
-        let tier = existing?.tier ?? "starter";
+        let tier = existing?.tier;
 
-        if (!userId) {
+        if (!userId || !tier) {
           try {
             const subscription =
               await stripe.subscriptions.retrieve(subscriptionId);
@@ -298,12 +294,8 @@ export async function stripeWebhookHandler(
           }
         }
 
-        if (userId) {
-          const result = await grantPlanCreditsSafe(
-            userId,
-            tier ?? "starter",
-            invoice.id,
-          );
+        if (userId && tier) {
+          const result = await grantPlanCredits(userId, tier, invoice.id);
           if (!result.skipped) {
             console.log(
               `Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`,
