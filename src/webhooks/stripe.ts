@@ -41,7 +41,12 @@ function priceIdsForTier(tier: StandardTier): string[] {
 
 function tierFromPriceId(priceId?: string | null): StandardTier | null {
   if (!priceId) return null;
-  for (const tier of ["starter", "builder", "studio", "enterprise"] as const) {
+  for (const tier of [
+    "starter",
+    "builder",
+    "studio",
+    "enterprise",
+  ] as const) {
     if (priceIdsForTier(tier).includes(priceId)) return tier;
   }
   return null;
@@ -134,7 +139,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       const tier = resolveTier(subscription.metadata, priceId);
 
       if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(subscription.customer as string);
+        userId = await resolveUserIdFromCustomer(
+          subscription.customer as string,
+        );
       }
 
       if (userId) {
@@ -152,7 +159,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       const subscription = event.data.object as Stripe.Subscription;
       let userId: string | undefined = subscription.metadata?.userId;
       if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(subscription.customer as string);
+        userId = await resolveUserIdFromCustomer(
+          subscription.customer as string,
+        );
       }
 
       if (userId) {
@@ -253,7 +262,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
               });
             }
           } catch (lookupErr) {
-            console.error("invoice.paid subscription lookup failed:", lookupErr);
+            console.error(
+              "invoice.paid subscription lookup failed:",
+              lookupErr,
+            );
           }
         }
 
