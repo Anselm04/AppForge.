@@ -362,7 +362,10 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       logger.error(
         {
           taskId: task.id,
-          error: refundErr instanceof Error ? refundErr.message : "Unknown refund error",
+          error:
+            refundErr instanceof Error
+              ? refundErr.message
+              : "Unknown refund error",
         },
         "senior_dev_refund_error",
       );
