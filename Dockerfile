@@ -7,14 +7,14 @@ WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm install && npm install --no-save @rollup/rollup-linux-x64-musl && npm cache clean --force
+RUN npm ci && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
