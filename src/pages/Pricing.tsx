@@ -10,14 +10,10 @@ import { GlassCard } from "../design-system/GlassCard.js";
 import { Badge } from "../design-system/Badge.js";
 import { cn } from "../lib/cn.js";
 
-const TIER_CONFIG = {
-  free: { price: 0, credits: 20, builds: 3, label: "Free" },
-  starter: { price: 49, credits: 100, builds: 16, label: "Starter" },
-  builder: { price: 149, credits: 400, builds: 66, label: "Builder" },
-  studio: { price: 399, credits: 1500, builds: null, label: "Studio" },
-  enterprise: { price: 896, credits: null, builds: null, label: "Enterprise" },
-  custom: { price: null, credits: null, builds: null, label: "Custom" },
-};
+type PaidTier = "starter" | "builder" | "studio" | "enterprise";
+type CreditPack = 50 | 100 | 250;
+
+const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -38,20 +34,8 @@ export function Pricing() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const createCheckout = useMutation({
-    mutationFn: async (tier: keyof typeof TIER_CONFIG) => {
-      if (tier === "enterprise" || tier === "custom") {
-        const origin = window.location.origin;
-        return trpc.subscriptions.createCheckoutSession.mutate({
-          tier,
-          successUrl: `${origin}/dashboard?checkout=success`,
-          cancelUrl: `${origin}/pricing?checkout=cancel`,
-          trialDays: tier === "enterprise" ? 14 : 7,
-        });
-      }
-      return trpc.subscriptions.getPaymentLink.mutate({
-        tier: tier as "starter" | "builder" | "studio",
-      });
-    },
+    mutationFn: (tier: PaidTier) =>
+      trpc.subscriptions.createCheckoutSession.mutate({ tier }),
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
@@ -67,7 +51,7 @@ export function Pricing() {
   });
 
   const buyCredits = useMutation({
-    mutationFn: (credits: number) =>
+    mutationFn: (credits: CreditPack) =>
       trpc.subscriptions.buyCredits.mutate({ credits }),
     onSuccess: (data) => {
       if (data.url) {
@@ -119,14 +103,13 @@ export function Pricing() {
       cta:
         currentTier === "starter"
           ? t("pricing.currentPlan")
-          : t("pricing.startTrial"),
+          : t("pricing.buy"),
       popular: false,
       disabled:
         currentTier === "starter" ||
         currentTier === "builder" ||
         currentTier === "studio" ||
-        currentTier === "enterprise" ||
-        currentTier === "custom",
+        currentTier === "enterprise",
     },
     {
       key: "builder" as const,
@@ -145,13 +128,12 @@ export function Pricing() {
       cta:
         currentTier === "builder"
           ? t("pricing.currentPlan")
-          : t("pricing.startTrial"),
+          : t("pricing.buy"),
       popular: true,
       disabled:
         currentTier === "builder" ||
         currentTier === "studio" ||
-        currentTier === "enterprise" ||
-        currentTier === "custom",
+        currentTier === "enterprise",
     },
     {
       key: "studio" as const,
@@ -170,17 +152,14 @@ export function Pricing() {
       cta:
         currentTier === "studio"
           ? t("pricing.currentPlan")
-          : t("pricing.startTrial"),
+          : t("pricing.buy"),
       popular: false,
-      disabled:
-        currentTier === "studio" ||
-        currentTier === "enterprise" ||
-        currentTier === "custom",
+      disabled: currentTier === "studio" || currentTier === "enterprise",
     },
     {
       key: "enterprise" as const,
       name: t("pricing.enterpriseName"),
-      price: "$896+",
+      price: "$1,499",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.enterpriseDesc"),
       features: [
@@ -191,10 +170,12 @@ export function Pricing() {
         t("pricing.enterpriseF5"),
         t("pricing.enterpriseF6"),
       ],
-      cta: t("pricing.contactSales"),
+      cta:
+        currentTier === "enterprise"
+          ? t("pricing.currentPlan")
+          : t("pricing.buy"),
       popular: false,
-      disabled: false,
-      isEnterprise: true,
+      disabled: currentTier === "enterprise",
     },
   ];
 
@@ -202,7 +183,7 @@ export function Pricing() {
     <div className="forge-section">
       <div className="forge-container">
         <div className="text-center mb-4">
-          <Badge tone="success">{t("pricing.trialBadge")}</Badge>
+          <Badge tone="success">Secure checkout powered by Stripe</Badge>
         </div>
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
         <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
@@ -271,7 +252,7 @@ export function Pricing() {
                     navigate("/signup?next=/pricing");
                     return;
                   }
-                  if (!tier.disabled) {
+                  if (tier.key !== "free" && !tier.disabled) {
                     setCheckoutError(null);
                     createCheckout.mutate(tier.key);
                   }
@@ -300,7 +281,7 @@ export function Pricing() {
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[50, 100, 250].map((pack) => (
+            {CREDIT_PACKS.map((pack) => (
               <button
                 key={pack}
                 type="button"
