@@ -234,7 +234,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
         if (!userId || !tier) {
           try {
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const subscription =
+              await stripe.subscriptions.retrieve(subscriptionId);
             const priceId = subscriptionPriceId(subscription);
             tier = resolveTier(subscription.metadata, priceId);
             const fromCustomer = await resolveUserIdFromCustomer(
@@ -336,9 +337,13 @@ export async function stripeWebhookHandler(
   }
 
   try {
-    const processed = await processStripeEventOnce(event.id, event.type, async () => {
-      await handleStripeEvent(event);
-    });
+    const processed = await processStripeEventOnce(
+      event.id,
+      event.type,
+      async () => {
+        await handleStripeEvent(event);
+      },
+    );
     if (!processed) {
       console.log(`Duplicate Stripe webhook ignored: ${event.id}`);
     }
