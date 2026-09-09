@@ -3,17 +3,19 @@ import { z } from "zod";
 
 const router = Router();
 
-const APP_URL = "https://appforge-unfurling-moon-9058.fly.dev";
+const APP_URL = process.env.PUBLIC_APP_URL || "https://appforge-unfurling-moon-9058.fly.dev";
 
-const checkoutSchema = z.object({
-  plan: z.enum(["starter", "builder", "studio"]).optional(),
-  credits: z.number().int().positive().max(10000).optional(),
-  priceId: z.string().optional(),
-  successUrl: z.string().url().default(`${APP_URL}/dashboard`),
-  cancelUrl: z.string().url().default(`${APP_URL}/pricing`),
-}).refine((d) => Boolean(d.plan || d.priceId || d.credits), {
-  message: "plan, priceId, or credits is required",
-});
+const checkoutSchema = z
+  .object({
+    plan: z.enum(["starter", "builder", "studio", "enterprise"]).optional(),
+    credits: z.enum([50, 100, 250]).optional(),
+  })
+  .refine((d) => Boolean(d.plan || d.credits), {
+    message: "plan or supported credit pack is required",
+  })
+  .refine((d) => !(d.plan && d.credits), {
+    message: "Choose either a subscription plan or a credit pack",
+  });
 
 async function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -36,21 +38,18 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    const { plan, credits, priceId, successUrl, cancelUrl } = parse.data;
+    const { plan, credits } = parse.data;
     const stripe = await getStripe();
-
-    const mode = plan || priceId ? "subscription" : "payment";
-    const lineItems = plan || priceId
-      ? [{ price: priceId ?? getPriceId(plan!), quantity: 1 }]
-      : [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: `${credits} Build Credits` } }, quantity: credits! }];
-
+    const mode = plan ? "subscription" : "payment";
+    const price = plan ? getPlanPriceId(plan) : getCreditPriceId(credits!);
     const tier = plan ?? "";
+
     const session = await stripe.checkout.sessions.create({
-      mode: mode as any,
+      mode,
       payment_method_types: ["card"],
-      line_items: lineItems as any,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      line_items: [{ price, quantity: 1 }],
+      success_url: `${APP_URL}/dashboard?checkout=success`,
+      cancel_url: `${APP_URL}/pricing?checkout=cancelled`,
       client_reference_id: String(user.id),
       metadata: {
         userId: String(user.id),
@@ -75,15 +74,25 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-function getPriceId(plan: string): string {
-  const map: Record<string, string> = {
+function getPlanPriceId(plan: "starter" | "builder" | "studio" | "enterprise"): string {
+  const map: Record<typeof plan, string> = {
     starter: process.env.STRIPE_STARTER_PRICE_ID || process.env.STRIPE_PRICE_STARTER || "",
     builder: process.env.STRIPE_BUILDER_PRICE_ID || process.env.STRIPE_PRICE_BUILDER || "",
     studio: process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
+    enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID || process.env.STRIPE_PRICE_ENTERPRISE || "",
   };
   const id = map[plan];
   if (!id) throw new Error(`Stripe price ID not configured for plan: ${plan}`);
   return id;
+}
+
+function getCreditPriceId(credits: 50 | 100 | 250): string {
+  const map: Record<typeof credits, string> = {
+    50: process.env.STRIPE_CREDITS_50_PRICE_ID || "price_1UB11YKFfiU4ONpq9lxQxD0t",
+    100: process.env.STRIPE_CREDITS_100_PRICE_ID || "price_1UB11YKFfiU4ONpqxG2boP66",
+    250: process.env.STRIPE_CREDITS_250_PRICE_ID || "price_1UB11ZKFfiU4ONpq3bUBdUuS",
+  };
+  return map[credits];
 }
 
 export default router;
