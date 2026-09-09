@@ -8,7 +8,7 @@ const APP_URL = process.env.PUBLIC_APP_URL || "https://appforge-unfurling-moon-9
 const checkoutSchema = z
   .object({
     plan: z.enum(["starter", "builder", "studio", "enterprise"]).optional(),
-    credits: z.enum([50, 100, 250]).optional(),
+    credits: z.union([z.literal(50), z.literal(100), z.literal(250)]).optional(),
   })
   .refine((d) => Boolean(d.plan || d.credits), {
     message: "plan or supported credit pack is required",
