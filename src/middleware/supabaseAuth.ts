@@ -37,13 +37,13 @@ function readAccessToken(req: Request): string | undefined {
     const match = header.match(/^Bearer\s+(.+)$/i);
     if (match?.[1]) return match[1].trim();
   }
+
+  // A cookie is retained for existing browser sessions. Access tokens are never
+  // accepted from query strings because URLs can leak through browser history,
+  // referrer headers, reverse-proxy logs, analytics, and support screenshots.
   const cookie = req.cookies?.["sb-access-token"];
   if (typeof cookie === "string" && cookie.length > 0) return cookie;
-  const queryToken = req.query?.token ?? req.query?.access_token;
-  if (typeof queryToken === "string" && queryToken.length > 0) return queryToken;
-  if (Array.isArray(queryToken) && typeof queryToken[0] === "string") {
-    return queryToken[0];
-  }
+
   return undefined;
 }
 
