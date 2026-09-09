@@ -1,46 +1,67 @@
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-// CodeQL recognizes the `csurf` package as CSRF middleware (js/missing-token-validation).
-const csurf = require("csurf") as (options?: {
-  cookie?:
-    | boolean
-    | {
-        key?: string;
-        httpOnly?: boolean;
-        sameSite?: "lax" | "strict" | "none";
-        secure?: boolean;
-        path?: string;
-      };
-  ignoreMethods?: string[];
-}) => RequestHandler;
 
 const isProd = process.env.NODE_ENV === "production";
+const COOKIE_NAME = "appforge_csrf";
+const HEADER_NAMES = ["x-csrf-token", "x-xsrf-token"] as const;
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function equalTokens(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
 
 /**
- * Double-submit cookie CSRF via csurf (CodeQL-recognized).
- * Stripe webhooks must be registered BEFORE this middleware.
+ * Signed synchronizer-token CSRF protection.
+ * cookie-parser verifies the HttpOnly signed cookie before this middleware runs.
+ * Unsafe requests must echo the token in an explicit request header.
+ * Stripe webhooks are registered before this middleware because Stripe uses its
+ * own signature verification and cannot supply a browser CSRF token.
  */
-export const csrfProtection: RequestHandler = csurf({
-  cookie: {
-    key: "_csrf",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd,
-    path: "/",
-  },
-  ignoreMethods: ["GET", "HEAD", "OPTIONS"],
-});
+export const csrfProtection: RequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (SAFE_METHODS.has(req.method.toUpperCase())) {
+    next();
+    return;
+  }
 
-/** Issue a CSRF token for SPA clients (safe method; sets cookie). */
-export function csrfTokenHandler(req: Request, res: Response): void {
-  const token = (req as Request & { csrfToken(): string }).csrfToken();
+  const cookieToken = req.signedCookies?.[COOKIE_NAME];
+  const headerToken = HEADER_NAMES
+    .map((name) => req.get(name))
+    .find((value): value is string => typeof value === "string" && value.length > 0);
+
+  if (
+    typeof cookieToken !== "string" ||
+    typeof headerToken !== "string" ||
+    !equalTokens(cookieToken, headerToken)
+  ) {
+    const error = new Error("Invalid CSRF token") as Error & { code?: string };
+    error.code = "EBADCSRFTOKEN";
+    next(error);
+    return;
+  }
+
+  next();
+};
+
+/** Issue a fresh CSRF token for SPA clients. */
+export function csrfTokenHandler(_req: Request, res: Response): void {
+  const token = randomBytes(32).toString("base64url");
+  res.cookie(COOKIE_NAME, token, {
+    signed: true,
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "strict",
+    path: "/",
+  });
   res.setHeader("Cache-Control", "no-store");
   res.json({ csrfToken: token });
 }
 
-/** Map csurf failures to a clear JSON body. */
 export function csrfErrorHandler(
   err: any,
   _req: Request,
@@ -51,7 +72,7 @@ export function csrfErrorHandler(
     res.status(403).json({
       error: "Invalid CSRF token",
       code: "EBADCSRFTOKEN",
-      message: "Invalid CSRF token",
+      message: "Refresh the page and retry the request.",
     });
     return;
   }
