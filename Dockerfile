@@ -7,14 +7,17 @@ WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# Production dependencies do not need AppForge's prepare hook. At this stage
+# the scripts/ source tree has intentionally not been copied yet, so lifecycle
+# scripts must be disabled rather than running prepare against missing files.
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
+RUN npm ci --ignore-scripts && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
