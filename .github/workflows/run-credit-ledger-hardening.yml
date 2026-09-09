@@ -19,15 +19,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Execute reviewed hardening patch
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import textwrap
-          yml = Path('.github/workflows/harden-credit-ledger-once.yml').read_text()
-          marker = "python3 - <<'PY'\n"
-          block = yml.split(marker, 1)[1].split("\n          PY", 1)[0]
-          exec(textwrap.dedent(block), {})
-          PY
+        run: python3 .github/scripts/harden_credit_ledger.py
       - run: npx prettier --write src/db.ts
       - run: npm run typecheck
       - run: npm run test -- --run
