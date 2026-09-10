@@ -10,6 +10,10 @@ const queue = readFileSync(
   resolve(process.cwd(), "src/services/build-queue.ts"),
   "utf8",
 );
+const route = readFileSync(
+  resolve(process.cwd(), "src/routes/build.ts"),
+  "utf8",
+);
 
 describe("concurrent build start protection", () => {
   it("atomically claims a startable project before build execution", () => {
@@ -18,6 +22,16 @@ describe("concurrent build start protection", () => {
       "inArray(schema.projects.status, STARTABLE_BUILD_STATUSES)",
     );
     expect(claim).toContain("return claimed.length === 1");
+  });
+
+  it("requires the route to claim before charging or enqueueing", () => {
+    expect(route).toContain('from "../services/build-claim.js"');
+    expect(route).toContain("await claimProjectBuildStart(projectId, user.id)");
+    expect(route.indexOf("claimProjectBuildStart(projectId, user.id)")).toBeLessThan(
+      route.indexOf("await deductCredits(user.id, BUILD_COST"),
+    );
+    expect(route).toContain("releaseProjectBuildClaim(");
+    expect(route).toContain("build-start-refund-");
   });
 
   it("deduplicates every queue backend and refunds a duplicate paid reservation", () => {
