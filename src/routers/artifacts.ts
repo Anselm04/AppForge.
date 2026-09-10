@@ -22,6 +22,17 @@ async function requireOwnedProject(projectId: number, userId: number) {
   return project;
 }
 
+async function requireCompletedProject(projectId: number, userId: number) {
+  const project = await requireOwnedProject(projectId, userId);
+  if (project.status !== "completed") {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Artifacts can only be added after the project build is complete",
+    });
+  }
+  return project;
+}
+
 const projectInput = z.object({ projectId: z.number().int().positive() });
 
 export const artifactsRouter = router({
@@ -42,12 +53,18 @@ export const artifactsRouter = router({
     .query(async ({ ctx, input }) => {
       await requireOwnedProject(input.projectId, ctx.user.id);
       if (!input.path.startsWith("artifacts/") || input.path.includes("..")) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid artifact path" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid artifact path",
+        });
       }
       const files = await getProjectFiles(input.projectId);
       const content = files[input.path];
       if (content === undefined) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Artifact not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Artifact not found",
+        });
       }
       return {
         path: input.path,
@@ -73,7 +90,7 @@ export const artifactsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireOwnedProject(input.projectId, ctx.user.id);
+      await requireCompletedProject(input.projectId, ctx.user.id);
       const name = sanitizeArtifactName(input.filename, "document");
       const extension = input.format === "html" ? "html" : "md";
       const path = `artifacts/documents/${name}.${extension}`;
@@ -81,7 +98,11 @@ export const artifactsRouter = router({
         input.format === "html"
           ? createDocumentHtml({ title: input.title, content: input.content })
           : `# ${input.title}\n\n${input.content}\n`;
-      return saveProjectArtifact({ projectId: input.projectId, path, content });
+      return saveProjectArtifact({
+        projectId: input.projectId,
+        path,
+        content,
+      });
     }),
 
   createSpreadsheet: protectedProcedure
@@ -89,11 +110,15 @@ export const artifactsRouter = router({
       projectInput.extend({
         filename: z.string().min(1).max(120),
         headers: z.array(z.string().max(255)).min(1).max(100),
-        rows: z.array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()]))).max(10_000),
+        rows: z
+          .array(
+            z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
+          )
+          .max(10_000),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireOwnedProject(input.projectId, ctx.user.id);
+      await requireCompletedProject(input.projectId, ctx.user.id);
       if (input.rows.some((row) => row.length > input.headers.length)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -104,9 +129,16 @@ export const artifactsRouter = router({
       const path = `artifacts/spreadsheets/${name}.csv`;
       const content = createCsv(input.headers, input.rows);
       if (Buffer.byteLength(content, "utf8") > 2_000_000) {
-        throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Spreadsheet is too large" });
+        throw new TRPCError({
+          code: "PAYLOAD_TOO_LARGE",
+          message: "Spreadsheet is too large",
+        });
       }
-      return saveProjectArtifact({ projectId: input.projectId, path, content });
+      return saveProjectArtifact({
+        projectId: input.projectId,
+        path,
+        content,
+      });
     }),
 
   createPresentation: protectedProcedure
@@ -127,14 +159,18 @@ export const artifactsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireOwnedProject(input.projectId, ctx.user.id);
+      await requireCompletedProject(input.projectId, ctx.user.id);
       const name = sanitizeArtifactName(input.filename, "presentation");
       const path = `artifacts/presentations/${name}.html`;
       const content = createPresentationHtml({
         title: input.title,
         slides: input.slides,
       });
-      return saveProjectArtifact({ projectId: input.projectId, path, content });
+      return saveProjectArtifact({
+        projectId: input.projectId,
+        path,
+        content,
+      });
     }),
 
   createPdf: protectedProcedure
@@ -146,7 +182,7 @@ export const artifactsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireOwnedProject(input.projectId, ctx.user.id);
+      await requireCompletedProject(input.projectId, ctx.user.id);
       const name = sanitizeArtifactName(input.filename, "report");
       const path = `artifacts/pdf/${name}.pdf.base64`;
       const pdf = createSimplePdf({ title: input.title, lines: input.lines });
