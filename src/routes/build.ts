@@ -41,7 +41,6 @@ import { logger } from "../_core/logger.js";
 const router = Router();
 
 const BUILD_COST = BUILD_CREDIT_COST;
-
 const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
 /** SSE endpoint that streams the multi-agent pipeline with credit tracking */
@@ -64,7 +63,6 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     return;
   }
 
-  // Already completed — stream done immediately without recharging
   const existingFiles =
     (project.generatedFiles as Record<string, string> | null) ?? {};
   if (project.status === "completed" && Object.keys(existingFiles).length > 0) {
@@ -85,8 +83,6 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   }
 
   const isActive = project.status === "running" || isBuildActive(projectId);
-  // Never-give-up pauses (retry_after_error, still_building*) must resume on SSE reconnect.
-  // Only user_cancelled stays paused without auto-restart.
   const userCancelled =
     project.status === "paused" &&
     (project.pauseReason === "user_cancelled" ||
@@ -144,7 +140,6 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     });
   }
 
-  // SSE stream — replay persisted events + live fan-out (reconnect-safe)
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -442,7 +437,9 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   }
 
   const resumeCredits = await ensureUserCredits(user.id);
-  if (resumeCredits.balance < 1) {
+  const resumeUnlimited =
+    !!resumeCredits.unlimited || resumeCredits.tier === "lifetime";
+  if (!resumeUnlimited && resumeCredits.balance < 1) {
     res
       .status(402)
       .json(creditsExhaustedBody(resumeCredits.balance, 1, "resume this task"));
@@ -539,7 +536,6 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   }
 });
 
-// ── Deploy + Auto-Heal Watch ──
 router.post("/deploy", async (req: Request, res: Response) => {
   if (!req.user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -579,7 +575,6 @@ router.post("/deploy", async (req: Request, res: Response) => {
     );
 
     watchProject(projectId, req.user.id, deployUrl);
-
     res.json({ success: true, deployUrl });
   } catch (err: any) {
     logger.error({ projectId, error: err?.message }, "deploy_error");
