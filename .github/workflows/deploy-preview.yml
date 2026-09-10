@@ -8,8 +8,8 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     name: Deploy Preview
-    # Official Vercel GitHub integration already deploys previews.
-    # This workflow validates build health without a broken third-party action.
+    # Production hosts on Fly.io.
+    # This workflow validates build health without depending on Vercel free deploy quota.
     # Tip refresh: re-run CI after bot lockfile repair commit.
     steps:
       - name: Checkout
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -38,5 +38,5 @@ jobs:
 
       - name: Preview note
         run: |
-          echo "Vercel GitHub app handles preview URLs for this PR."
-          echo "Local build+typecheck+test passed — preview is safe to promote."
+          echo "Fly is the production runtime; this job validates build health without Vercel free-tier deploy."
+          echo "Build+typecheck+test passed — safe for Fly deploy after merge."
