@@ -7,6 +7,7 @@ import {
   AI_GENERATE_CREDIT_COST,
   creditsExhaustedBody,
 } from "../lib/credits.js";
+import { logger } from "../_core/logger.js";
 
 const router = Router();
 const aiService = new AIService();
@@ -95,7 +96,7 @@ router.post("/extract", async (req: Request, res: Response) => {
     const requirements = await aiService.extractRequirements(prompt);
     res.json({ success: true, data: requirements });
   } catch (error) {
-    console.error("Error extracting requirements:", error);
+    logger.error({ error }, "ai_extract_requirements_failed");
     res
       .status(500)
       .json({ success: false, error: "Failed to extract requirements" });
@@ -117,7 +118,7 @@ router.post("/clarify", async (req: Request, res: Response) => {
       await aiService.generateClarificationQuestions(requirements);
     res.json({ success: true, data: questions });
   } catch (error) {
-    console.error("Error generating questions:", error);
+    logger.error({ error }, "ai_clarification_questions_failed");
     res
       .status(500)
       .json({ success: false, error: "Failed to generate questions" });
@@ -174,7 +175,7 @@ router.post("/deploy/:appId", async (req: Request, res: Response) => {
     const deployUrl = await appBuilder.deploy(appId);
     res.json({ success: true, data: { deployUrl } });
   } catch (error) {
-    console.error("Error deploying app:", error);
+    logger.error({ error }, "ai_deploy_failed");
     res.status(500).json({ success: false, error: "Failed to deploy app" });
   }
 });
@@ -196,7 +197,7 @@ router.post("/export/:appId", async (req: Request, res: Response) => {
     const repoUrl = await appBuilder.exportToGitHub(appId, repoName);
     res.json({ success: true, data: { repoUrl } });
   } catch (error) {
-    console.error("Error exporting app:", error);
+    logger.error({ error }, "ai_export_failed");
     res.status(500).json({ success: false, error: "Failed to export app" });
   }
 });
