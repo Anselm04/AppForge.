@@ -117,7 +117,8 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!unlimited) {
+    const reservationCharged = !unlimited;
+    if (reservationCharged) {
       await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
     }
 
@@ -137,6 +138,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       buildCapabilities:
         (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
       createdAt: new Date().toISOString(),
+      reservationCharged,
     });
   }
 
