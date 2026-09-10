@@ -12,9 +12,11 @@ const pricing = readFileSync(
 );
 
 describe("duplicate subscription protection", () => {
-  it("rejects a second checkout for an active or trialing Stripe subscription", () => {
-    expect(router).toContain('existing.status === "active"');
-    expect(router).toContain('existing.status === "trialing"');
+  it("rejects a second checkout only while the effective paid entitlement is active", () => {
+    expect(router).toContain(
+      "const existingTier = await getUserTier(ctx.user.id)",
+    );
+    expect(router).toContain('existingTier !== "free"');
     expect(router).toContain('code: "CONFLICT"');
     expect(router).toContain("without creating a second subscription");
   });
