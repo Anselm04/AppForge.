@@ -6,7 +6,10 @@ import { getSandboxDevPort } from "../services/projectSandbox.js";
 /** Reverse-proxy sandbox Vite dev server for live preview (HTTP; WS upgrade optional). */
 export const sandboxDevProxyRouter = Router();
 
-function readScopedPreviewUserId(req: Request, projectId: number): number | null {
+function readScopedPreviewUserId(
+  req: Request,
+  projectId: number,
+): number | null {
   const value = req.signedCookies?.[`appforge-preview-${projectId}`];
   if (typeof value !== "string") return null;
   const userId = Number.parseInt(value, 10);
