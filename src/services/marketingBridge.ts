@@ -24,7 +24,11 @@ function bridgeConfig() {
   return { baseUrl: baseUrl.replace(/\/$/, ""), secret };
 }
 
-export function signEcosystemPayload(secret: string, timestamp: string, body: string) {
+export function signEcosystemPayload(
+  secret: string,
+  timestamp: string,
+  body: string,
+) {
   return createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
 }
 
@@ -34,20 +38,26 @@ export async function sendProjectToMarketing(payload: MarketingBridgePayload) {
   const timestamp = String(Date.now());
   const signature = signEcosystemPayload(secret, timestamp, body);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), payload.mode === "generate" ? 120_000 : 20_000);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    payload.mode === "generate" ? 120_000 : 20_000,
+  );
 
   try {
-    const response = await fetch(`${baseUrl}/api/integrations/appforge/campaign`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-trillion-source": "appforge",
-        "x-trillion-timestamp": timestamp,
-        "x-trillion-signature": signature,
+    const response = await fetch(
+      `${baseUrl}/api/integrations/appforge/campaign`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-trillion-source": "appforge",
+          "x-trillion-timestamp": timestamp,
+          "x-trillion-signature": signature,
+        },
+        body,
+        signal: controller.signal,
       },
-      body,
-      signal: controller.signal,
-    });
+    );
 
     const raw = await response.text();
     let parsed: unknown = null;
@@ -59,10 +69,15 @@ export async function sendProjectToMarketing(payload: MarketingBridgePayload) {
 
     if (!response.ok) {
       const publicMessage =
-        parsed && typeof parsed === "object" && "error" in parsed && typeof (parsed as { error?: unknown }).error === "string"
+        parsed &&
+        typeof parsed === "object" &&
+        "error" in parsed &&
+        typeof (parsed as { error?: unknown }).error === "string"
           ? (parsed as { error: string }).error
           : `Marketing service returned HTTP ${response.status}`;
-      const error = new Error(publicMessage) as Error & { statusCode?: number };
+      const error = new Error(publicMessage) as Error & {
+        statusCode?: number;
+      };
       error.statusCode = response.status;
       throw error;
     }
