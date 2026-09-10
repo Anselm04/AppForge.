@@ -18,6 +18,10 @@ const serverlessCheckout = readFileSync(
   resolve(process.cwd(), "api/checkout.js"),
   "utf8",
 );
+const buildWorker = readFileSync(
+  resolve(process.cwd(), "src/services/build-worker.ts"),
+  "utf8",
+);
 
 describe("public error sanitization", () => {
   it("does not expose raw checkout exceptions", () => {
@@ -46,5 +50,16 @@ describe("public error sanitization", () => {
       'error: "Unable to start checkout."',
     );
     expect(serverlessCheckout).not.toContain("session.error?.message");
+  });
+
+  it("does not expose raw build-worker exceptions through SSE or project status", () => {
+    expect(buildWorker).toContain('error: "build_failed"');
+    expect(buildWorker).toContain(
+      'message: "Build failed. Please retry or contact support."',
+    );
+    expect(buildWorker).toContain(
+      'updateProjectStatus(projectId, "failed", "build_failed")',
+    );
+    expect(buildWorker).not.toContain('write("error", { message: msg })');
   });
 });
