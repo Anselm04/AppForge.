@@ -7,13 +7,19 @@ const source = readFileSync(
   "utf8",
 );
 
-describe("Senior Dev unlimited resume entitlement", () => {
-  it("exempts unlimited and lifetime users from the resume balance gate", () => {
-    expect(source).toContain(
+describe("Senior Dev resume billing entitlement", () => {
+  it("does not require a second credit balance after the initial reservation", () => {
+    const resumeStart = source.indexOf(
+      'router.post("/senior/:taskId/resume"',
+    );
+    const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
+    const resumeRoute = source.slice(resumeStart, deployStart);
+
+    expect(resumeRoute).toContain(
       '!!resumeCredits.unlimited || resumeCredits.tier === "lifetime"',
     );
-    expect(source).toContain(
-      "if (!resumeUnlimited && resumeCredits.balance < 1)",
-    );
+    expect(resumeRoute).not.toContain("resumeCredits.balance <");
+    expect(resumeRoute).not.toContain("deductCredits(");
+    expect(resumeRoute).toContain("await claimSeniorDevResume(task.id, user.id)");
   });
 });
