@@ -1,8 +1,4 @@
-import {
-  ensureFreshSession,
-  getAccessToken,
-  refreshSession,
-} from "./auth.js";
+import { ensureFreshSession, getAccessToken, refreshSession } from "./auth.js";
 
 export type SseHandler = (event: string, data: string) => void;
 
