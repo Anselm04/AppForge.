@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-const source = readFileSync(new URL("../services/build-worker.ts", import.meta.url), "utf8");
+const source = readFileSync(
+  new URL("../services/build-worker.ts", import.meta.url),
+  "utf8",
+);
 
 describe("failed build credit recovery", () => {
   it("refunds failed reservations with an idempotent attempt key", () => {
