@@ -1,23 +1,26 @@
-import { and, eq, gt, like, lt, or } from "drizzle-orm";
-import { db } from "../db.js";
+import { and, asc, eq, gt, like, lt, or } from "drizzle-orm";
+import { addCredits, db } from "../db.js";
 import * as schema from "../db/schema.js";
+import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 
-/**
- * Returns whether a Senior Dev task still has an outstanding paid reservation.
- * Refund eligibility is derived from the immutable credit ledger instead of the
- * user's current plan/tier. Summing matching charges and refunds also prevents
- * an older refunded retry from being mistaken for a currently charged attempt.
- */
-export async function wasSeniorDevReservationCharged(
+type LedgerEntry = {
+  id: number;
+  amount: number;
+};
+
+async function getSeniorDevReservationLedger(
   userId: number,
   projectId: number,
   taskId: number,
-): Promise<boolean> {
+): Promise<LedgerEntry[]> {
   const reservationPattern = `Senior Dev Agent reservation senior-dev-${taskId}-%`;
   const refundPattern = `%task ${taskId}%`;
 
-  const rows = await db
-    .select({ amount: schema.creditTransactions.amount })
+  return db
+    .select({
+      id: schema.creditTransactions.id,
+      amount: schema.creditTransactions.amount,
+    })
     .from(schema.creditTransactions)
     .where(
       and(
@@ -36,8 +39,74 @@ export async function wasSeniorDevReservationCharged(
           ),
         ),
       ),
-    );
+    )
+    .orderBy(asc(schema.creditTransactions.id));
+}
 
-  const netAmount = rows.reduce((sum, row) => sum + row.amount, 0);
-  return netAmount < 0;
+/**
+ * Returns the ledger id of the paid Senior Dev reservation that still needs a
+ * refund. Charges and refunds are paired chronologically, so completed retries
+ * cannot make an older refunded attempt look outstanding again.
+ */
+export async function getOutstandingSeniorDevReservationChargeId(
+  userId: number,
+  projectId: number,
+  taskId: number,
+): Promise<number | null> {
+  const entries = await getSeniorDevReservationLedger(userId, projectId, taskId);
+  const outstanding: number[] = [];
+
+  for (const entry of entries) {
+    if (entry.amount < 0) {
+      outstanding.push(entry.id);
+      continue;
+    }
+    if (entry.amount > 0 && outstanding.length > 0) {
+      outstanding.shift();
+    }
+  }
+
+  return outstanding[0] ?? null;
+}
+
+export async function wasSeniorDevReservationCharged(
+  userId: number,
+  projectId: number,
+  taskId: number,
+): Promise<boolean> {
+  return (
+    (await getOutstandingSeniorDevReservationChargeId(
+      userId,
+      projectId,
+      taskId,
+    )) !== null
+  );
+}
+
+/**
+ * Refunds exactly one outstanding paid reservation. The charge id is embedded
+ * in the credit-ledger idempotency key, so duplicate or concurrent failure
+ * handlers converge on the same refund transaction.
+ */
+export async function refundOutstandingSeniorDevReservation(
+  userId: number,
+  projectId: number,
+  taskId: number,
+  description: string,
+): Promise<boolean> {
+  const chargeId = await getOutstandingSeniorDevReservationChargeId(
+    userId,
+    projectId,
+    taskId,
+  );
+  if (chargeId === null) return false;
+
+  await addCredits(
+    userId,
+    SENIOR_DEV_CREDIT_COST,
+    "senior_dev_refund",
+    description,
+    `senior-dev-ledger-refund-${taskId}-${chargeId}`,
+  );
+  return true;
 }
