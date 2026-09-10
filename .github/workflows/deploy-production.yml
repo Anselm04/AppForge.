@@ -22,8 +22,8 @@ jobs:
     environment: production
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -42,7 +42,7 @@ jobs:
     environment: production
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - name: Require Fly production token
         env:
@@ -55,16 +55,39 @@ jobs:
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+      - name: Verify production runtime and auth boundaries
         run: |
-          flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+          set -euo pipefail
           URL="https://appforge-unfurling-moon-9058.fly.dev"
+
+          healthy=false
           for i in $(seq 1 30); do
-            if curl -sf "$URL/api/health/live"; then
-              echo "Live health check passed"
-              exit 0
+            if curl --fail --silent --show-error --max-time 10 "$URL/api/health/live" >/dev/null; then
+              healthy=true
+              break
             fi
             echo "Waiting for production health (attempt $i/30)..."
             sleep 10
           done
-          echo "Production health check failed after deploy"
-          exit 1
+
+          if [ "$healthy" != "true" ]; then
+            echo "Production live health check failed after deploy"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --max-time 10 "$URL/api/health/ready" >/dev/null
+
+          assert_status() {
+            expected="$1"
+            endpoint="$2"
+            actual=$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "$URL$endpoint")
+            if [ "$actual" != "$expected" ]; then
+              echo "Expected $endpoint to return HTTP $expected without authentication, got $actual"
+              exit 1
+            fi
+          }
+
+          assert_status 401 "/api/preview-auth/1"
+          assert_status 401 "/api/build/1"
+          echo "Production live, readiness, and anonymous-access smoke gates passed"
