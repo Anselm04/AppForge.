@@ -23,4 +23,18 @@ describe("logout session revocation", () => {
     expect(auth).toContain("generationAtStart !== sessionGeneration");
     expect(auth).toContain("sessionGeneration += 1");
   });
+
+  it("does not reuse an expired access token after refresh fails", () => {
+    const ensureStart = auth.indexOf(
+      "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
+    );
+    const signUpStart = auth.indexOf("export async function signUp", ensureStart);
+    const ensureSource = auth.slice(ensureStart, signUpStart);
+
+    expect(ensureSource).toContain("const refreshed = await refreshSession()");
+    expect(ensureSource).toContain("if (refreshed) return refreshed");
+    expect(ensureSource).toContain("signOut()");
+    expect(ensureSource).toContain("return null");
+    expect(ensureSource).not.toContain("return refreshed || getSession()");
+  });
 });
