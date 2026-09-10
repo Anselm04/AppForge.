@@ -215,15 +215,3 @@ export async function signIn(email: string, password: string): Promise<AppForgeS
   saveSession(session);
   return session;
 }
-
-export async function listProjects() {
-  const session = getSession();
-  if (!session) throw new Error('You must sign in first.');
-  return supabaseClient.getProjects(session.accessToken);
-}
-
-export async function createProject(name: string, idea: string) {
-  const session = getSession();
-  if (!session) throw new Error('You must sign in first.');
-  return supabaseClient.createProject(session.accessToken, { owner_id: session.user.id, name, idea });
-}
