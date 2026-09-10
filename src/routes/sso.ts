@@ -15,6 +15,8 @@ const appBaseUrl =
 
 const SSO_VERIFIER_COOKIE = "appforge_sso_verifier";
 const SSO_NEXT_COOKIE = "appforge_sso_next";
+const SSO_SESSION_COOKIE = "appforge_sso_session";
+const SSO_SESSION_PATH = "/api/sso/session";
 
 function safeNext(value: unknown): string {
   if (
@@ -101,7 +103,7 @@ ssoHttpRouter.get("/login", async (req: Request, res: Response) => {
   }
 });
 
-/** Supabase SSO callback — exchange auth code for session and hand off to SPA. */
+/** Supabase SSO callback — exchange auth code and stage a one-time session handoff. */
 ssoHttpRouter.get("/callback", async (req: Request, res: Response) => {
   const code = typeof req.query.code === "string" ? req.query.code : "";
   const verifier = req.cookies?.[SSO_VERIFIER_COOKIE] as string | undefined;
@@ -118,20 +120,53 @@ ssoHttpRouter.get("/callback", async (req: Request, res: Response) => {
 
   try {
     const tokens = await exchangeSupabaseSsoCode(code, verifier);
-    const sessionPayload = encodeURIComponent(
-      JSON.stringify({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        user: tokens.user,
-      }),
-    );
-    res.redirect(
-      `/auth/sso/callback?session=${sessionPayload}&next=${encodeURIComponent(next)}`,
-    );
+    const sessionPayload = JSON.stringify({
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      user: tokens.user,
+    });
+
+    res.cookie(SSO_SESSION_COOKIE, sessionPayload, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      signed: true,
+      maxAge: 60 * 1000,
+      path: SSO_SESSION_PATH,
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(`/auth/sso/callback?next=${encodeURIComponent(next)}`);
   } catch (err) {
     logger.error({ error: err }, "sso_callback_exchange_failed");
     res.redirect(
       `/login?error=sso_exchange_failed&next=${encodeURIComponent(next)}`,
     );
+  }
+});
+
+/** One-time same-origin handoff used by the SPA after the SSO callback. */
+ssoHttpRouter.get("/session", (req: Request, res: Response) => {
+  const raw = req.signedCookies?.[SSO_SESSION_COOKIE] as string | undefined;
+  res.clearCookie(SSO_SESSION_COOKIE, { path: SSO_SESSION_PATH });
+  res.setHeader("Cache-Control", "no-store");
+
+  if (!raw) {
+    res.status(401).json({ error: "SSO session unavailable" });
+    return;
+  }
+
+  try {
+    const session = JSON.parse(raw) as {
+      accessToken?: string;
+      refreshToken?: string;
+      user?: { id?: string; email?: string };
+    };
+    if (!session.accessToken || !session.user?.id) {
+      throw new Error("Invalid SSO session");
+    }
+    res.status(200).json(session);
+  } catch (err) {
+    logger.warn({ error: err }, "sso_session_handoff_invalid");
+    res.status(401).json({ error: "SSO session unavailable" });
   }
 });
