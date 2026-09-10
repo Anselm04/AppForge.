@@ -144,10 +144,16 @@ export function useSession(): AppForgeSession | null {
 }
 
 export function signOut() {
+  const session = getSession();
   removeStorage(SESSION_KEY);
   cachedRaw = null;
   cachedSession = null;
+  refreshInFlight = null;
   emitSessionChange();
+
+  if (session?.accessToken) {
+    void supabaseClient.signOut(session.accessToken).catch(() => undefined);
+  }
 }
 
 /** Refresh access token using stored refresh_token. Returns null if refresh fails. */
