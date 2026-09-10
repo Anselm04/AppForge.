@@ -3,30 +3,46 @@ import type { Queue, Worker } from "bullmq";
 import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
 import { runBuildJob, type BuildJob } from "./build-worker.js";
+import { addCredits } from "../db.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
 
 let redisClient: RedisClientType | null = null;
 const memoryQueue: BuildJob[] = [];
+const memoryQueuedProjects = new Set<number>();
 let memoryWorkerRunning = false;
 let bullWorker: Worker | null = null;
 let bullQueue: Queue | null = null;
 
 const QUEUE_KEY = "appforge:build:queue";
 const BULL_QUEUE_NAME = "appforge-builds";
+const queueClaimKey = (projectId: number) => `appforge:build:queued:${projectId}`;
+
+async function refundDuplicateReservation(job: BuildJob): Promise<void> {
+  if (!job.reservationCharged) return;
+  try {
+    await addCredits(
+      job.userId,
+      BUILD_CREDIT_COST,
+      "build_refund",
+      `Duplicate build reservation refund for project ${job.projectId}`,
+      `build-duplicate-refund-${job.projectId}-${job.createdAt}`,
+    );
+  } catch (err) {
+    logger.error({ err, projectId: job.projectId }, "duplicate_build_refund_failed");
+  }
+}
 
 async function getRedis(): Promise<RedisClientType | null> {
   if (!ENV.redisUrl) return null;
   if (!redisClient) {
     redisClient = createClient({ url: ENV.redisUrl }) as RedisClientType;
-    redisClient.on("error", (err) =>
-      logger.error({ err }, "build_queue_redis_error"),
-    );
+    redisClient.on("error", (err) => logger.error({ err }, "build_queue_redis_error"));
     await redisClient.connect();
     logger.info("Build queue Redis connected");
   }
   return redisClient;
 }
 
-/** Prefer BullMQ when available — durable jobs and horizontal workers. */
 async function initBullMQ(): Promise<boolean> {
   if (bullQueue) return true;
   if (!ENV.redisUrl) return false;
@@ -36,20 +52,12 @@ async function initBullMQ(): Promise<boolean> {
     bullQueue = new Queue(BULL_QUEUE_NAME, { connection });
     bullWorker = new Worker(
       BULL_QUEUE_NAME,
-      async (job) => {
-        await runBuildJob(job.data as BuildJob);
-      },
+      async (job) => { await runBuildJob(job.data as BuildJob); },
       { connection, concurrency: 2 },
     );
-    bullWorker.on(
-      "failed",
-      (job: { data?: BuildJob } | undefined, err: Error) => {
-        logger.error(
-          { err, projectId: (job?.data as BuildJob)?.projectId },
-          "bullmq_job_failed",
-        );
-      },
-    );
+    bullWorker.on("failed", (job: { data?: BuildJob } | undefined, err: Error) => {
+      logger.error({ err, projectId: (job?.data as BuildJob)?.projectId }, "bullmq_job_failed");
+    });
     logger.info("BullMQ build worker started");
     return true;
   } catch (err) {
@@ -67,10 +75,9 @@ async function processMemoryQueue(): Promise<void> {
       try {
         await runBuildJob(job);
       } catch (err) {
-        logger.error(
-          { err, projectId: job.projectId },
-          "memory_queue_job_failed",
-        );
+        logger.error({ err, projectId: job.projectId }, "memory_queue_job_failed");
+      } finally {
+        memoryQueuedProjects.delete(job.projectId);
       }
     }
   }
@@ -82,18 +89,19 @@ async function processRedisQueue(): Promise<void> {
   if (!redis) return;
   const raw = await redis.rPop(QUEUE_KEY);
   if (!raw) return;
+  let job: BuildJob | null = null;
   try {
-    const job = JSON.parse(raw) as BuildJob;
+    job = JSON.parse(raw) as BuildJob;
     await runBuildJob(job);
   } catch (err) {
     logger.error({ err }, "redis_queue_job_failed");
+  } finally {
+    if (job) await redis.del(queueClaimKey(job.projectId));
   }
 }
 
-/** Start background worker loop (BullMQ, Redis list, or in-memory). */
 export function startBuildQueueWorker(intervalMs = 2000): () => void {
   void initBullMQ();
-
   const timer = setInterval(() => {
     if (!bullWorker) {
       void processRedisQueue();
@@ -110,65 +118,66 @@ export function startBuildQueueWorker(intervalMs = 2000): () => void {
 }
 
 export async function enqueueBuild(job: BuildJob): Promise<void> {
-  if (!bullQueue) {
-    await initBullMQ();
-  }
+  if (!bullQueue) await initBullMQ();
+
   if (bullQueue) {
     try {
-      // runBuildJob owns terminal failure handling and idempotent reservation
-      // refunds. Queue-level retries would retry after that terminal recovery,
-      // which can produce a successful free build after the reservation was
-      // already returned. Keep one durable queue delivery; pipeline-level
-      // retry/recovery remains inside the worker/agent pipeline.
-      await bullQueue.add("build", job, {
-        jobId: `build-${job.projectId}-${job.createdAt}`,
+      const queued = await bullQueue.add("build", job, {
+        jobId: `build-${job.projectId}`,
         removeOnComplete: 100,
         removeOnFail: 50,
         attempts: 1,
       });
+      const queuedData = queued.data as BuildJob;
+      if (queuedData.createdAt !== job.createdAt) {
+        logger.warn({ projectId: job.projectId }, "duplicate_build_enqueue_blocked_bullmq");
+        await refundDuplicateReservation(job);
+        return;
+      }
       logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
       return;
     } catch (err) {
-      logger.error(
-        { err, projectId: job.projectId },
-        "build_enqueue_bullmq_failed_fallback",
-      );
+      logger.error({ err, projectId: job.projectId }, "build_enqueue_bullmq_failed_fallback");
     }
   }
 
   try {
     const redis = await getRedis();
     if (redis) {
-      await redis.lPush(QUEUE_KEY, JSON.stringify(job));
+      const claimed = await redis.set(queueClaimKey(job.projectId), job.createdAt, { NX: true, EX: 1800 });
+      if (!claimed) {
+        logger.warn({ projectId: job.projectId }, "duplicate_build_enqueue_blocked_redis");
+        await refundDuplicateReservation(job);
+        return;
+      }
+      try {
+        await redis.lPush(QUEUE_KEY, JSON.stringify(job));
+      } catch (err) {
+        await redis.del(queueClaimKey(job.projectId));
+        throw err;
+      }
       logger.info({ projectId: job.projectId }, "build_enqueued_redis");
       return;
     }
   } catch (err) {
-    logger.error(
-      { err, projectId: job.projectId },
-      "build_enqueue_redis_failed_fallback_memory",
-    );
+    logger.error({ err, projectId: job.projectId }, "build_enqueue_redis_failed_fallback_memory");
   }
 
+  if (memoryQueuedProjects.has(job.projectId)) {
+    logger.warn({ projectId: job.projectId }, "duplicate_build_enqueue_blocked_memory");
+    await refundDuplicateReservation(job);
+    return;
+  }
+  memoryQueuedProjects.add(job.projectId);
   memoryQueue.push(job);
-  logger.warn(
-    { projectId: job.projectId },
-    "build_enqueued_memory_degraded_mode",
-  );
+  logger.warn({ projectId: job.projectId }, "build_enqueued_memory_degraded_mode");
   void processMemoryQueue();
 }
 
-export async function publishBuildEvent(
-  projectId: number,
-  event: string,
-  data: unknown,
-): Promise<void> {
+export async function publishBuildEvent(projectId: number, event: string, data: unknown): Promise<void> {
   const redis = await getRedis();
   if (!redis) return;
-  await redis.publish(
-    `appforge:build:${projectId}`,
-    JSON.stringify({ event, data }),
-  );
+  await redis.publish(`appforge:build:${projectId}`, JSON.stringify({ event, data }));
 }
 
 export async function subscribeBuildEvents(
@@ -184,9 +193,7 @@ export async function subscribeBuildEvents(
     try {
       const parsed = JSON.parse(message) as { event: string; data: unknown };
       handler(parsed.event, parsed.data);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   });
   return async () => {
     await sub.unsubscribe(channel);
