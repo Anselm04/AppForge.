@@ -1,0 +1,38 @@
+name: Format auth SSE once
+
+on:
+  push:
+    branches:
+      - hardening/auth-cookie-no-query-token
+    paths:
+      - .github/workflows/format-auth-sse-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/auth-cookie-no-query-token
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx prettier --write src/lib/authedSse.ts
+      - run: |
+          git diff --check
+          npx prettier --check src/lib/authedSse.ts
+          npm run typecheck
+          npm run test -- --run
+      - name: Commit format-only change
+        run: |
+          if git diff --quiet -- src/lib/authedSse.ts; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/authedSse.ts
+          git commit -m "style: format hardened SSE client"
+          git push origin HEAD:hardening/auth-cookie-no-query-token
