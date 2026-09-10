@@ -14,7 +14,9 @@ async function getSeniorDevReservationLedger(
   taskId: number,
 ): Promise<LedgerEntry[]> {
   const reservationPattern = `Senior Dev Agent reservation senior-dev-${taskId}-%`;
-  const refundPattern = `%task ${taskId}%`;
+  const ledgerRefundPattern = `senior-dev-ledger-refund-${taskId}-%`;
+  const legacyInitialRefundPattern = `senior-dev-refund-senior-dev-${taskId}-%`;
+  const legacyResumeRefundKey = `senior-dev-resume-refund-${taskId}`;
 
   return db
     .select({
@@ -35,7 +37,20 @@ async function getSeniorDevReservationLedger(
           and(
             eq(schema.creditTransactions.type, "senior_dev_refund"),
             gt(schema.creditTransactions.amount, 0),
-            like(schema.creditTransactions.description, refundPattern),
+            or(
+              like(
+                schema.creditTransactions.stripePaymentIntentId,
+                ledgerRefundPattern,
+              ),
+              like(
+                schema.creditTransactions.stripePaymentIntentId,
+                legacyInitialRefundPattern,
+              ),
+              eq(
+                schema.creditTransactions.stripePaymentIntentId,
+                legacyResumeRefundKey,
+              ),
+            ),
           ),
         ),
       ),
