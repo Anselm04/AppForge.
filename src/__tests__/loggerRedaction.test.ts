@@ -26,4 +26,22 @@ describe("structured logger redaction", () => {
 
     spy.mockRestore();
   });
+
+  it("redacts bearer tokens and key-value secrets embedded in strings", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    logger.error("request failed authorization=Bearer abc.def.ghi password=hunter2");
+    logger.error({
+      error: new Error("upstream failed token=token-value apiKey=secret-key"),
+    });
+
+    const output = spy.mock.calls.flat().join(" ");
+    expect(output).not.toContain("abc.def.ghi");
+    expect(output).not.toContain("hunter2");
+    expect(output).not.toContain("token-value");
+    expect(output).not.toContain("secret-key");
+    expect(output).toContain("[REDACTED]");
+
+    spy.mockRestore();
+  });
 });
