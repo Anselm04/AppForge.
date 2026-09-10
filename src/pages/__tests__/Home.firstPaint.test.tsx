@@ -7,7 +7,12 @@ import { ThemeProvider } from "../../lib/theme";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TopNav } from "../../components/TopNav";
 import { Home } from "../Home";
-import { authHeaders, getAccessToken, getSession, signOut } from "../../lib/auth";
+import {
+  authHeaders,
+  getAccessToken,
+  getSession,
+  signOut,
+} from "../../lib/auth";
 
 vi.mock("../../utils/trpc.js", () => ({
   trpc: {
@@ -140,7 +145,10 @@ describe("Home first paint", () => {
   });
 
   it("getSnapshot is stable for a valid session and auth stays header-only", () => {
-    const session = { accessToken: "tok", user: { id: "u1", email: "a@b.c" } };
+    const session = {
+      accessToken: "tok",
+      user: { id: "u1", email: "a@b.c" },
+    };
     installStorage(
       memoryStorage({ "appforge.session": JSON.stringify(session) }),
     );
