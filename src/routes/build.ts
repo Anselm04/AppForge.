@@ -35,7 +35,11 @@ import {
   type ProgressEvent,
 } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
-import { claimSeniorDevResume } from "../services/senior-dev-claim.js";
+import {
+  claimSeniorDevResume,
+  claimSeniorDevStart,
+  releaseSeniorDevStartClaim,
+} from "../services/senior-dev-claim.js";
 import {
   claimProjectBuildStart,
   releaseProjectBuildClaim,
@@ -316,14 +320,33 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     return;
   }
 
+  const claimed = await claimSeniorDevStart(task.id, user.id);
+  if (!claimed) {
+    res.status(409).json({
+      error: "senior_dev_task_active",
+      message: "This Senior Dev task was already started by another request.",
+    });
+    return;
+  }
+
   const reservationId = `senior-dev-${task.id}-${crypto.randomUUID()}`;
   if (!seniorUnlimited) {
-    await deductCredits(
-      user.id,
-      SENIOR_DEV_BASE_COST,
-      task.projectId,
-      `Senior Dev Agent reservation ${reservationId}`,
-    );
+    try {
+      await deductCredits(
+        user.id,
+        SENIOR_DEV_BASE_COST,
+        task.projectId,
+        `Senior Dev Agent reservation ${reservationId}`,
+      );
+    } catch (err: unknown) {
+      await releaseSeniorDevStartClaim(task.id, user.id, task.status);
+      logger.error(
+        { taskId: task.id, error: err },
+        "senior_dev_start_charge_failed",
+      );
+      res.status(500).json({ error: "senior_dev_start_failed" });
+      return;
+    }
   }
 
   res.setHeader("Content-Type", "text/event-stream");
