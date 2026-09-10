@@ -90,4 +90,20 @@ describe("build runtime subscription catch-up", () => {
 
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it("self-detaches immediately after a live terminal event", async () => {
+    getLatestTerminalBuildEvent.mockResolvedValueOnce(null);
+    const handler = vi.fn();
+
+    subscribeRuntimeBuildEvents(101, handler);
+    publishRuntimeBuildEvent(101, "done", { status: "completed" });
+    publishRuntimeBuildEvent(101, "progress", { step: 99 });
+    await Promise.resolve();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith({
+      event: "done",
+      data: { status: "completed" },
+    });
+  });
 });
