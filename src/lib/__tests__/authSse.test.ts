@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { authHeaders, getAccessToken, loginPathWithReturn } from "../auth.js";
-import { parseSseFrame } from "../authedSse.js";
+import { parseSseFrame, readSseBody } from "../authedSse.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
@@ -49,5 +49,26 @@ describe("generate auth helpers", () => {
     );
     expect(parsed?.event).toBe("agent");
     expect(parsed?.data).toContain("Planner");
+  });
+
+  it("reads CRLF-delimited SSE frames", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode('event: agent\r\ndata: {"type":"start"}\r\n\r\n'),
+        );
+        controller.close();
+      },
+    });
+    const events: Array<{ event: string; data: string }> = [];
+
+    await readSseBody(body, (event, data) => {
+      events.push({ event, data });
+    });
+
+    expect(events).toEqual([
+      { event: "agent", data: '{"type":"start"}' },
+    ]);
   });
 });
