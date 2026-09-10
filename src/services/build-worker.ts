@@ -1,6 +1,7 @@
 import { runAgentPipeline } from "../agents/pipeline.js";
 import { resolveBuildTimeoutMs } from "../lib/neverGiveUp.js";
 import {
+  addCredits,
   getProjectById,
   getUserCredits,
   pauseProject,
@@ -49,6 +50,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     techStack,
     locale,
     buildCapabilities,
+    createdAt,
   } = job;
   const controller = new AbortController();
   const timeoutMs = resolveBuildTimeoutMs();
@@ -109,7 +111,40 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ projectId, err: msg }, "background_build_failed");
-    await recordBuildOutcome(userId, false, BUILD_CREDIT_COST);
+
+    // The build route reserves BUILD_CREDIT_COST before enqueueing. If the
+    // background pipeline throws, return that reservation. `createdAt` is
+    // stable across BullMQ retries for this queued attempt, so addCredits'
+    // idempotency key prevents duplicate refunds.
+    try {
+      const credits = await getUserCredits(userId);
+      const unlimited = !!credits?.unlimited || credits?.tier === "lifetime";
+      if (!unlimited) {
+        const refundKey = `build-refund-${projectId}-${createdAt}`;
+        await addCredits(
+          userId,
+          BUILD_CREDIT_COST,
+          "build_refund",
+          `Failed build reservation refund for project ${projectId}`,
+          refundKey,
+        );
+        await updateProjectCreditsSpent(projectId, 0);
+        logger.info({ projectId, refundKey }, "failed_build_reservation_refunded");
+      }
+    } catch (refundErr: unknown) {
+      logger.error(
+        {
+          projectId,
+          error:
+            refundErr instanceof Error
+              ? refundErr.message
+              : "Unknown refund error",
+        },
+        "failed_build_refund_error",
+      );
+    }
+
+    await recordBuildOutcome(userId, false, 0);
     write("error", { message: msg });
     await updateProjectStatus(projectId, "failed", msg);
   } finally {
