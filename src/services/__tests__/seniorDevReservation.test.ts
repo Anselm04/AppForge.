@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const { selectMock, addCreditsMock } = vi.hoisted(() => ({
   selectMock: vi.fn(),
@@ -20,6 +22,7 @@ vi.mock("../../db/schema.js", () => ({
     type: "type",
     amount: "amount",
     description: "description",
+    stripePaymentIntentId: "stripe_payment_intent_id",
   },
 }));
 
@@ -28,6 +31,11 @@ import {
   refundOutstandingSeniorDevReservation,
   wasSeniorDevReservationCharged,
 } from "../senior-dev-reservation.js";
+
+const serviceSource = readFileSync(
+  resolve(process.cwd(), "src/services/senior-dev-reservation.ts"),
+  "utf8",
+);
 
 function mockRows(rows: Array<{ id: number; amount: number }>) {
   const orderBy = vi.fn().mockResolvedValue(rows);
@@ -110,5 +118,15 @@ describe("Senior Dev reservation ledger", () => {
     ).resolves.toBe(false);
 
     expect(addCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes refund history by idempotency key instead of loose task descriptions", () => {
+    expect(serviceSource).toContain("stripePaymentIntentId");
+    expect(serviceSource).toContain("senior-dev-ledger-refund-${taskId}-%");
+    expect(serviceSource).toContain(
+      "senior-dev-refund-senior-dev-${taskId}-%",
+    );
+    expect(serviceSource).toContain("senior-dev-resume-refund-${taskId}");
+    expect(serviceSource).not.toContain("const refundPattern = `%task ${taskId}%`");
   });
 });
