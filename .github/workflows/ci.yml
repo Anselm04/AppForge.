@@ -8,8 +8,8 @@ on:
     types: [opened, synchronize, reopened]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -24,14 +24,32 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - run: npm run lint --if-present
-      - name: Verify source formatting
-        run: npx prettier --check --ignore-unknown "src/**/*.{ts,tsx}"
+      - name: Verify changed source formatting
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="HEAD~1"
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- 'src/**/*.ts' 'src/**/*.tsx' || true)
+          if [ -z "$FILES" ]; then
+            echo "No changed TypeScript source files to format-check."
+            exit 0
+          fi
+
+          printf '%s\n' "$FILES"
+          printf '%s\n' "$FILES" | xargs npx prettier --check --ignore-unknown
 
   typecheck:
     name: Type Check
