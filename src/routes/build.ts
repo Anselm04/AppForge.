@@ -37,6 +37,7 @@ import {
   type ProgressEvent,
 } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
+import { claimSeniorDevResume } from "../services/senior-dev-claims.js";
 
 const router = Router();
 
@@ -448,6 +449,16 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     return;
   }
 
+  const claimed = await claimSeniorDevResume(task.id, user.id);
+  if (!claimed) {
+    res.status(409).json({
+      error: "senior_dev_task_active",
+      message:
+        "This Senior Dev task has already been resumed or is no longer awaiting approval.",
+    });
+    return;
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -480,11 +491,6 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   };
 
   try {
-    await updateSeniorDevTask(task.id, {
-      planApproved: true,
-      status: "executing",
-    });
-
     const project = await getProjectById(task.projectId);
     const files =
       (project?.generatedFiles as Record<string, string> | null) ?? {};
