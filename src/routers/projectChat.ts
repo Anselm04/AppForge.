@@ -48,7 +48,8 @@ export const projectChatRouter = router({
       let seniorDevTaskId: number | null = null;
       if (input.triggerSeniorDev) {
         const credits = await ensureUserCredits(ctx.user.id);
-        if (credits.balance < SENIOR_DEV_CREDIT_COST) {
+        const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+        if (!unlimited && credits.balance < SENIOR_DEV_CREDIT_COST) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: `Senior Dev requires ${SENIOR_DEV_CREDIT_COST} credits.`,
