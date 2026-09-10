@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 
@@ -8,7 +8,8 @@ type StartableBuildStatus = (typeof STARTABLE_BUILD_STATUSES)[number];
 /**
  * Atomically claims a project for one build starter. Concurrent requests race
  * on the conditional UPDATE; exactly one can transition a startable project
- * to running and therefore proceed to charge/enqueue it.
+ * to running and therefore proceed to charge/enqueue it. User-cancelled paused
+ * projects remain non-startable even when a request is racing on stale state.
  */
 export async function claimProjectBuildStart(
   projectId: number,
@@ -22,6 +23,19 @@ export async function claimProjectBuildStart(
         eq(schema.projects.id, projectId),
         eq(schema.projects.userId, userId),
         inArray(schema.projects.status, STARTABLE_BUILD_STATUSES),
+        or(
+          ne(schema.projects.status, "paused"),
+          and(
+            eq(schema.projects.status, "paused"),
+            or(
+              isNull(schema.projects.pauseReason),
+              and(
+                ne(schema.projects.pauseReason, "user_cancelled"),
+                ne(schema.projects.pauseReason, "user-cancelled"),
+              ),
+            ),
+          ),
+        ),
       ),
     )
     .returning({ id: schema.projects.id });
