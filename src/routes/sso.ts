@@ -6,6 +6,7 @@ import {
   exchangeSupabaseSsoCode,
   initiateSupabaseSso,
 } from "../services/supabaseSso.js";
+import { logger } from "../_core/logger.js";
 
 export const ssoHttpRouter = Router();
 
@@ -24,6 +25,20 @@ function safeNext(value: unknown): string {
     return value;
   }
   return "/dashboard";
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]!,
+  );
 }
 
 /** SP-initiated enterprise login — redirects through Supabase SSO to the org IdP. */
@@ -48,7 +63,7 @@ ssoHttpRouter.get("/login", async (req: Request, res: Response) => {
       res.status(404).type("html").send(`
         <!doctype html><html><body style="font-family:system-ui;padding:2rem">
         <h1>SSO not configured</h1>
-        <p>Domain <strong>${domain}</strong> is not verified or SSO is disabled.</p>
+        <p>Domain <strong>${escapeHtml(domain)}</strong> is not verified or SSO is disabled.</p>
         </body></html>`);
       return;
     }
@@ -76,11 +91,11 @@ ssoHttpRouter.get("/login", async (req: Request, res: Response) => {
     });
     res.redirect(init.url);
   } catch (err) {
-    console.error("SSO login failed:", err);
+    logger.error({ error: err }, "sso_login_failed");
     res.status(500).type("html").send(`
       <!doctype html><html><body style="font-family:system-ui;padding:2rem">
       <h1>SSO login failed</h1>
-      <p>${err instanceof Error ? err.message : "Unknown error"}</p>
+      <p>Unable to start SSO. Please try again.</p>
       <p><a href="/login">Back to sign in</a></p>
       </body></html>`);
   }
@@ -114,7 +129,7 @@ ssoHttpRouter.get("/callback", async (req: Request, res: Response) => {
       `/auth/sso/callback?session=${sessionPayload}&next=${encodeURIComponent(next)}`,
     );
   } catch (err) {
-    console.error("SSO callback exchange failed:", err);
+    logger.error({ error: err }, "sso_callback_exchange_failed");
     res.redirect(
       `/login?error=sso_exchange_failed&next=${encodeURIComponent(next)}`,
     );
