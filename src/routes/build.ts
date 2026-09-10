@@ -40,6 +40,7 @@ import {
   claimSeniorDevStart,
   releaseSeniorDevStartClaim,
 } from "../services/senior-dev-claim.js";
+import { refundOutstandingSeniorDevReservation } from "../services/senior-dev-reservation.js";
 import {
   claimProjectBuildStart,
   releaseProjectBuildClaim,
@@ -449,15 +450,12 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       message: "Senior Dev could not complete this task.",
     });
     try {
-      if (!seniorUnlimited) {
-        await addCredits(
-          user.id,
-          SENIOR_DEV_BASE_COST,
-          "senior_dev_refund",
-          `Senior Dev Agent failed reservation refund for task ${task.id}`,
-          `senior-dev-refund-${reservationId}`,
-        );
-      }
+      await refundOutstandingSeniorDevReservation(
+        user.id,
+        task.projectId,
+        task.id,
+        `Senior Dev Agent failed reservation refund for task ${task.id}`,
+      );
     } catch (refundErr: unknown) {
       logger.error(
         { taskId: task.id, error: refundErr },
@@ -496,10 +494,6 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Task not awaiting approval" });
     return;
   }
-
-  const resumeCredits = await ensureUserCredits(user.id);
-  const resumeUnlimited =
-    !!resumeCredits.unlimited || resumeCredits.tier === "lifetime";
 
   const claimed = await claimSeniorDevResume(task.id, user.id);
   if (!claimed) {
@@ -591,15 +585,12 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       message: "Senior Dev could not resume this task.",
     });
     try {
-      if (!resumeUnlimited) {
-        await addCredits(
-          user.id,
-          SENIOR_DEV_BASE_COST,
-          "senior_dev_refund",
-          `Senior Dev Agent resume failed reservation refund for task ${task.id}`,
-          `senior-dev-resume-refund-${task.id}`,
-        );
-      }
+      await refundOutstandingSeniorDevReservation(
+        user.id,
+        task.projectId,
+        task.id,
+        `Senior Dev Agent resume failed reservation refund for task ${task.id}`,
+      );
     } catch (refundErr: unknown) {
       logger.error(
         { taskId: task.id, error: refundErr },
