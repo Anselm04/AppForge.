@@ -23,7 +23,8 @@ export function parseSseFrame(
   for (const rawLine of frame.split("\n")) {
     const line = rawLine.replace(/\r$/, "");
     if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+    else if (line.startsWith("data:"))
+      dataLines.push(line.slice(5).trimStart());
   }
   if (dataLines.length === 0) return null;
   return { event, data: dataLines.join("\n") };
