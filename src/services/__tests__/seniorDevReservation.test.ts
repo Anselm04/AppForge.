@@ -120,13 +120,18 @@ describe("Senior Dev reservation ledger", () => {
     expect(addCreditsMock).not.toHaveBeenCalled();
   });
 
-  it("scopes refund history by idempotency key instead of loose task descriptions", () => {
-    expect(serviceSource).toContain("stripePaymentIntentId");
-    expect(serviceSource).toContain("senior-dev-ledger-refund-${taskId}-%");
-    expect(serviceSource).toContain(
-      "senior-dev-refund-senior-dev-${taskId}-%",
-    );
-    expect(serviceSource).toContain("senior-dev-resume-refund-${taskId}");
-    expect(serviceSource).not.toContain("const refundPattern = `%task ${taskId}%`");
-  });
+  it(
+    "scopes refund history by idempotency key instead of loose task descriptions",
+    () => {
+      expect(serviceSource).toContain("stripePaymentIntentId");
+      expect(serviceSource).toContain("senior-dev-ledger-refund-${taskId}-%");
+      expect(serviceSource).toContain(
+        "senior-dev-refund-senior-dev-${taskId}-%",
+      );
+      expect(serviceSource).toContain("senior-dev-resume-refund-${taskId}");
+      expect(serviceSource).not.toContain(
+        "const refundPattern = `%task ${taskId}%`",
+      );
+    },
+  );
 });
