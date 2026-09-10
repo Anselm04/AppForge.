@@ -139,13 +139,6 @@ export function loginPathWithReturn(next = "/"): string {
   return `/login?next=${encodeURIComponent(path)}`;
 }
 
-export function authedUrl(path: string): string {
-  const token = getAccessToken();
-  if (!token) return path;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}token=${encodeURIComponent(token)}`;
-}
-
 export function useSession(): AppForgeSession | null {
   return useSyncExternalStore(subscribeSession, getSession, () => null);
 }
