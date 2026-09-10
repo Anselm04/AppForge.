@@ -22,6 +22,10 @@ const buildWorker = readFileSync(
   resolve(process.cwd(), "src/services/build-worker.ts"),
   "utf8",
 );
+const buildRoute = readFileSync(
+  resolve(process.cwd(), "src/routes/build.ts"),
+  "utf8",
+);
 
 describe("public error sanitization", () => {
   it("does not expose raw checkout exceptions", () => {
@@ -61,5 +65,17 @@ describe("public error sanitization", () => {
       'updateProjectStatus(projectId, "failed", "build_failed")',
     );
     expect(buildWorker).not.toContain('write("error", { message: msg })');
+  });
+
+  it("does not expose raw Senior Dev exceptions through SSE", () => {
+    expect(buildRoute).toContain('error: "senior_dev_failed"');
+    expect(buildRoute).toContain(
+      'message: "Senior Dev could not complete this task."',
+    );
+    expect(buildRoute).toContain('error: "senior_dev_resume_failed"');
+    expect(buildRoute).toContain(
+      'message: "Senior Dev could not resume this task."',
+    );
+    expect(buildRoute).not.toContain('write("error", { message: msg })');
   });
 });
