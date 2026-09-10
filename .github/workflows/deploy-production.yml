@@ -56,15 +56,16 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+          flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058 --build-arg APPFORGE_RELEASE_SHA="$GITHUB_SHA"
           URL="https://appforge-unfurling-moon-9058.fly.dev"
           for i in $(seq 1 30); do
-            if curl -sf "$URL/api/health/live"; then
-              echo "Live health check passed"
+            READY="$(curl -sf "$URL/api/health/ready" || true)"
+            if echo "$READY" | grep -q '"ready":true' && echo "$READY" | grep -q "\"revision\":\"$GITHUB_SHA\""; then
+              echo "Production readiness and exact revision check passed"
               exit 0
             fi
-            echo "Waiting for production health (attempt $i/30)..."
+            echo "Waiting for exact production revision (attempt $i/30)..."
             sleep 10
           done
-          echo "Production health check failed after deploy"
+          echo "Production readiness/revision check failed after deploy"
           exit 1
