@@ -24,6 +24,11 @@ describe("concurrent build start protection", () => {
     expect(claim).toContain("return claimed.length === 1");
   });
 
+  it("keeps explicitly user-cancelled paused projects non-startable", () => {
+    expect(claim).toContain('ne(schema.projects.pauseReason, "user_cancelled")');
+    expect(claim).toContain('ne(schema.projects.pauseReason, "user-cancelled")');
+  });
+
   it("requires the route to claim before charging or enqueueing", () => {
     expect(route).toContain('from "../services/build-claim.js"');
     expect(route).toContain("await claimProjectBuildStart(projectId, user.id)");
