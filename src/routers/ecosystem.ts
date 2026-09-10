@@ -77,7 +77,7 @@ export const ecosystemRouter = router({
           });
         }
         throw new TRPCError({
-          code: "BAD_GATEWAY",
+          code: "INTERNAL_SERVER_ERROR",
           message: "Marketing service unavailable",
         });
       }
