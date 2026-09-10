@@ -257,12 +257,10 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   }
 
   if (task.status === "executing") {
-    res
-      .status(409)
-      .json({
-        error: "senior_dev_task_active",
-        message: "This Senior Dev task is already executing.",
-      });
+    res.status(409).json({
+      error: "senior_dev_task_active",
+      message: "This Senior Dev task is already executing.",
+    });
     return;
   }
 
