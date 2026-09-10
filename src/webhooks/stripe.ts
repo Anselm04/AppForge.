@@ -4,14 +4,13 @@ import { addCredits, db, grantPlanCredits } from "../db.js";
 import { subscriptions, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
+import { logger } from "../_core/logger.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 if (process.env.NODE_ENV === "production" && (!secretKey || !webhookSecret)) {
-  console.error(
-    "FATAL: Stripe secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are required in production",
-  );
+  logger.error({}, "stripe_production_secrets_missing");
   process.exit(1);
 }
 
@@ -196,8 +195,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           `checkout-${session.id}`,
         );
         if (!result.skipped) {
-          console.log(
-            `Granted ${result.granted} ${tier} credits to user ${userId} from checkout`,
+          logger.info(
+            { userId, tier, creditsGranted: result.granted, eventId: event.id },
+            "stripe_checkout_plan_credits_granted",
           );
         }
       }
@@ -214,7 +214,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             `Stripe checkout credit purchase (${credits} credits)`,
             paymentRef,
           );
-          console.log(`Processed ${credits} extra credits for user ${userId}`);
+          logger.info(
+            { userId, credits, eventId: event.id },
+            "stripe_credit_purchase_processed",
+          );
         }
       }
       break;
@@ -257,9 +260,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
               });
             }
           } catch (lookupErr) {
-            console.error(
-              "invoice.paid subscription lookup failed:",
-              lookupErr,
+            logger.error(
+              { error: lookupErr, eventId: event.id },
+              "stripe_invoice_subscription_lookup_failed",
             );
           }
         }
@@ -267,8 +270,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         if (userId && tier) {
           const result = await grantPlanCredits(userId, tier, invoice.id);
           if (!result.skipped) {
-            console.log(
-              `Invoice ${invoice.id} granted ${result.granted} ${tier} credits to user ${userId}`,
+            logger.info(
+              { userId, tier, creditsGranted: result.granted, eventId: event.id },
+              "stripe_invoice_plan_credits_granted",
             );
           }
         }
@@ -284,8 +288,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           .update(subscriptions)
           .set({ status: "past_due", updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-        console.warn(
-          `Invoice payment failed for subscription ${subscriptionId}, status set to past_due`,
+        logger.warn(
+          { eventId: event.id },
+          "stripe_invoice_payment_failed",
         );
         try {
           const { notifyPaymentFailed } = await import("../services/email.js");
@@ -301,14 +306,17 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             await notifyPaymentFailed(userEmail[0].email);
           }
         } catch (emailErr) {
-          console.error("Failed to send payment failure email:", emailErr);
+          logger.error(
+            { error: emailErr, eventId: event.id },
+            "stripe_payment_failure_email_failed",
+          );
         }
       }
       break;
     }
 
     default: {
-      console.log(`Unhandled Stripe webhook event: ${event.type}`);
+      logger.info({ eventType: event.type, eventId: event.id }, "stripe_webhook_unhandled_event");
     }
   }
 }
@@ -320,15 +328,13 @@ export async function stripeWebhookHandler(
   const signature = req.headers["stripe-signature"] as string | undefined;
 
   if (!webhookSecret) {
-    console.error(
-      "Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured",
-    );
+    logger.error({}, "stripe_webhook_secret_not_configured");
     res.status(500).json({ error: "Webhook secret not configured" });
     return;
   }
 
   if (!signature) {
-    console.error("Stripe webhook rejected: missing stripe-signature header");
+    logger.warn({}, "stripe_webhook_signature_missing");
     res.status(400).json({ error: "Missing stripe-signature header" });
     return;
   }
@@ -337,9 +343,9 @@ export async function stripeWebhookHandler(
 
   try {
     event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-  } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message);
-    res.status(400).json({ error: "Invalid signature", detail: err.message });
+  } catch (err: unknown) {
+    logger.warn({ error: err }, "stripe_webhook_signature_invalid");
+    res.status(400).json({ error: "Invalid signature" });
     return;
   }
 
@@ -352,11 +358,14 @@ export async function stripeWebhookHandler(
       },
     );
     if (!processed) {
-      console.log(`Duplicate Stripe webhook ignored: ${event.id}`);
+      logger.info({ eventId: event.id, eventType: event.type }, "stripe_webhook_duplicate_ignored");
     }
     res.json({ received: true, duplicate: !processed });
   } catch (err) {
-    console.error(`Stripe webhook processing failed for ${event.id}:`, err);
+    logger.error(
+      { error: err, eventId: event.id, eventType: event.type },
+      "stripe_webhook_processing_failed",
+    );
     res.status(500).json({ error: "Webhook processing failed" });
   }
 }
