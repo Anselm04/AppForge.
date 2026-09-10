@@ -53,6 +53,31 @@ describe("saasBillingScaffold", () => {
     );
   });
 
+  it("generates server-owned billing identity and pricing", () => {
+    for (const techStack of ["next-node", "react-node"]) {
+      const files = billingScaffoldFiles(techStack);
+      const checkoutPath = techStack.includes("next")
+        ? "src/app/api/checkout/route.ts"
+        : "src/server/routes/billing/checkout.ts";
+      const checkout = files[checkoutPath] ?? "";
+      const pricing = files["src/pages/PricingPage.tsx"] ?? "";
+      const session = files["src/lib/auth/session.ts"] ?? "";
+
+      expect(checkout).toContain("process.env.STRIPE_PRICE_ID");
+      expect(checkout).toContain("getUserIdFromRequest");
+      expect(checkout).toContain("Not authenticated");
+      expect(checkout).not.toContain("body.priceId");
+      expect(checkout).not.toContain("body.userId");
+      expect(checkout).not.toContain("customerEmail");
+      expect(pricing).not.toContain("VITE_STRIPE_PRICE_ID");
+      expect(pricing).not.toContain("localStorage.getItem");
+      expect(session).toContain("createHmac");
+      expect(session).toContain("timingSafeEqual");
+      expect(session).toContain("SESSION_SECRET");
+      expect(validateBillingScaffold(files).passed).toBe(true);
+    }
+  });
+
   it("merges scaffold and adds stripe dependency", () => {
     const merged = mergeBillingScaffold(
       { "package.json": '{"name":"app","dependencies":{}}' },
