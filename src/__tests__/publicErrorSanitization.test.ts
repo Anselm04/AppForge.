@@ -56,16 +56,19 @@ describe("public error sanitization", () => {
     expect(serverlessCheckout).not.toContain("session.error?.message");
   });
 
-  it("does not expose raw build-worker exceptions through SSE or project status", () => {
-    expect(buildWorker).toContain('error: "build_failed"');
-    expect(buildWorker).toContain(
-      'message: "Build failed. Please retry or contact support."',
-    );
-    expect(buildWorker).toContain(
-      'updateProjectStatus(projectId, "failed", "build_failed")',
-    );
-    expect(buildWorker).not.toContain('write("error", { message: msg })');
-  });
+  it(
+    "does not expose raw build-worker exceptions through SSE or project status",
+    () => {
+      expect(buildWorker).toContain('error: "build_failed"');
+      expect(buildWorker).toContain(
+        'message: "Build failed. Please retry or contact support."',
+      );
+      expect(buildWorker).toContain(
+        'updateProjectStatus(projectId, "failed", "build_failed")',
+      );
+      expect(buildWorker).not.toContain('write("error", { message: msg })');
+    },
+  );
 
   it("does not expose raw Senior Dev exceptions through SSE", () => {
     expect(buildRoute).toContain('error: "senior_dev_failed"');
