@@ -59,7 +59,8 @@ const RULES: SecurityRule[] = [
   {
     id: "code.shell-exec-interpolation",
     severity: "high",
-    message: "Shell command execution contains template interpolation and needs strict validation.",
+    message:
+      "Shell command execution contains template interpolation and needs strict validation.",
     pattern: /\b(?:exec|execSync)\s*\(\s*`[^`]*\$\{/,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
@@ -74,7 +75,8 @@ const RULES: SecurityRule[] = [
     id: "web.cors-wildcard",
     severity: "medium",
     message: "Wildcard CORS can expose authenticated APIs to untrusted origins.",
-    pattern: /(?:origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*)/i,
+    pattern:
+      /(?:origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*)/i,
     paths: /\.(?:js|ts|mjs|cjs|json)$/i,
   },
   {
@@ -88,19 +90,23 @@ const RULES: SecurityRule[] = [
     id: "auth.token-in-url",
     severity: "high",
     message: "Authentication token appears to be placed in a URL or query string.",
-    pattern: /(?:\?|&)(?:token|access_token|jwt|api_key)=\$?\{?[A-Za-z0-9_.-]+/i,
+    pattern:
+      /(?:\?|&)(?:token|access_token|jwt|api_key)=\$?\{?[A-Za-z0-9_.-]+/i,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
   {
     id: "sql.string-interpolation",
     severity: "high",
-    message: "SQL query appears to contain template interpolation; parameterize database input.",
-    pattern: /(?:query|execute)\s*\(\s*`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*\$\{/i,
+    message:
+      "SQL query appears to contain template interpolation; parameterize database input.",
+    pattern:
+      /(?:query|execute)\s*\(\s*`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*\$\{/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
 ];
 
-const SKIP_PATHS = /(?:^|\/)(?:node_modules|dist|build|coverage|\.git)(?:\/|$)/i;
+const SKIP_PATHS =
+  /(?:^|\/)(?:node_modules|dist|build|coverage|\.git)(?:\/|$)/i;
 const MAX_FILE_BYTES = 750_000;
 const MAX_FINDINGS = 250;
 
@@ -123,7 +129,10 @@ function evidenceAround(content: string, offset: number): string {
     .slice(0, 240);
 }
 
-function scanDependencyManifest(path: string, content: string): ProjectSecurityFinding[] {
+function scanDependencyManifest(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
   if (!/(?:^|\/)package\.json$/i.test(path)) return [];
 
   try {
