@@ -45,25 +45,41 @@ export async function upsertUserFromAuth(data: {
   name?: string;
   picture?: string | null;
 }) {
-  const existing = await getUserByOpenId(data.openId);
-  if (existing) {
-    const result = await db
-      .update(schema.users)
-      .set({
-        email: data.email || existing.email,
-        name: data.name || existing.name,
-        picture: data.picture ?? existing.picture,
-        updatedAt: new Date(),
+  return db.transaction(async (tx) => {
+    // Multiple authenticated requests can arrive together immediately after
+    // sign-in. Serialize first-login creation by the verified provider UID so
+    // one request creates the canonical integer user row and the rest reuse it.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${data.openId}, 0))`,
+    );
+
+    const existing = await tx.query.users.findFirst({
+      where: eq(schema.users.openId, data.openId),
+    });
+    if (existing) {
+      const result = await tx
+        .update(schema.users)
+        .set({
+          email: data.email || existing.email,
+          name: data.name || existing.name,
+          picture: data.picture ?? existing.picture,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, existing.id))
+        .returning();
+      return result[0] ?? existing;
+    }
+
+    const result = await tx
+      .insert(schema.users)
+      .values({
+        openId: data.openId,
+        email: data.email,
+        name: data.name,
+        picture: data.picture ?? undefined,
       })
-      .where(eq(schema.users.id, existing.id))
       .returning();
-    return result[0] ?? existing;
-  }
-  return createUser({
-    openId: data.openId,
-    email: data.email,
-    name: data.name,
-    picture: data.picture ?? undefined,
+    return result[0];
   });
 }
 
