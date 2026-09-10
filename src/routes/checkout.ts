@@ -58,7 +58,8 @@ router.post("/", async (req: Request, res: Response) => {
   } catch (err: unknown) {
     logger.error({ error: err }, "checkout_error");
     res.status(500).json({
-      error: err instanceof Error ? err.message : "Checkout failed",
+      error: "checkout_failed",
+      message: "Unable to create checkout session. Please try again.",
     });
   }
 });
