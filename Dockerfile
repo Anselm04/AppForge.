@@ -36,8 +36,11 @@ RUN npm run build \
 
 FROM node:22-alpine AS production
 RUN apk add --no-cache dumb-init
+ARG APPFORGE_RELEASE_SHA=unknown
 ENV NODE_ENV=production
 ENV HUSKY=0
+ENV APPFORGE_RELEASE_SHA=$APPFORGE_RELEASE_SHA
+ENV SENTRY_RELEASE=$APPFORGE_RELEASE_SHA
 WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
