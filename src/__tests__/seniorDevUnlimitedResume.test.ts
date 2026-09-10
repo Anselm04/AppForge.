@@ -20,6 +20,8 @@ describe("Senior Dev resume billing entitlement", () => {
     );
     expect(resumeRoute).not.toContain("resumeCredits.balance <");
     expect(resumeRoute).not.toContain("deductCredits(");
-    expect(resumeRoute).toContain("await claimSeniorDevResume(task.id, user.id)");
+    expect(resumeRoute).toContain(
+      "await claimSeniorDevResume(task.id, user.id)",
+    );
   });
 });
