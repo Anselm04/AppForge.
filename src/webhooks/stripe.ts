@@ -157,7 +157,7 @@ async function resolveUserIdFromCustomer(
   const existing = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.stripeCustomerId, customerId),
   });
-  return existing?.userId;
+  return existing?.userId ?? undefined;
 }
 
 async function handleStripeEvent(event: Stripe.Event): Promise<void> {
