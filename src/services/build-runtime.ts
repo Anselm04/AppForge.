@@ -16,6 +16,10 @@ function getEmitter(projectId: number): EventEmitter {
   return emitter;
 }
 
+function isTerminalEvent(event: string): boolean {
+  return event === "done" || event === "error";
+}
+
 export function publishRuntimeBuildEvent(
   projectId: number,
   event: string,
@@ -33,20 +37,30 @@ export function subscribeRuntimeBuildEvents(
 ): () => void {
   const emitter = getEmitter(projectId);
   let active = true;
-  const listener = (payload: BuildEventPayload) => {
-    if (active) handler(payload);
+  let listener: (payload: BuildEventPayload) => void;
+
+  const unsubscribe = () => {
+    if (!active) return;
+    active = false;
+    emitter.off("event", listener);
+  };
+
+  listener = (payload: BuildEventPayload) => {
+    if (!active) return;
+    handler(payload);
+    if (isTerminalEvent(payload.event)) unsubscribe();
   };
   emitter.on("event", listener);
 
   // Attach the listener first, then check persisted terminal state. Because the
   // worker persists before publishing, this covers an event that lands between
-  // the route's historical replay and this subscription. If the same terminal
-  // event also arrives live, the route's closed guard makes the second signal a
-  // no-op.
+  // the route's historical replay and this subscription. Terminal delivery also
+  // self-cleans the listener so route-level close timing cannot leak it.
   void getLatestTerminalBuildEvent(projectId)
     .then((terminal) => {
       if (!active || !terminal) return;
       handler({ event: terminal.event, data: terminal.payload });
+      unsubscribe();
     })
     .catch((error: unknown) => {
       logger.error(
@@ -55,10 +69,7 @@ export function subscribeRuntimeBuildEvents(
       );
     });
 
-  return () => {
-    active = false;
-    emitter.off("event", listener);
-  };
+  return unsubscribe;
 }
 
 export function clearRuntimeBuild(projectId: number): void {
