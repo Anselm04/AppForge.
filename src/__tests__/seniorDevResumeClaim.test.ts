@@ -11,8 +11,28 @@ const route = readFileSync(
   "utf8",
 );
 
-describe("Senior Dev resume claim", () => {
-  it("atomically transitions only awaiting approval tasks to executing", () => {
+describe("Senior Dev execution claims", () => {
+  it("atomically claims new or retryable tasks before first execution", () => {
+    expect(source).toContain("claimSeniorDevStart");
+    expect(source).toContain("STARTABLE_SENIOR_DEV_STATUSES");
+    expect(source).toContain(
+      "inArray(schema.seniorDevTasks.status, STARTABLE_SENIOR_DEV_STATUSES)",
+    );
+    expect(source).toContain("releaseSeniorDevStartClaim");
+  });
+
+  it("requires the first-run route to claim before charging", () => {
+    const claimIndex = route.indexOf("await claimSeniorDevStart(task.id, user.id)");
+    const chargeIndex = route.indexOf(
+      "await deductCredits(\n        user.id,\n        SENIOR_DEV_BASE_COST",
+      claimIndex,
+    );
+    expect(claimIndex).toBeGreaterThan(-1);
+    expect(chargeIndex).toBeGreaterThan(claimIndex);
+    expect(route).toContain("releaseSeniorDevStartClaim(task.id, user.id, task.status)");
+  });
+
+  it("atomically transitions only awaiting approval tasks on resume", () => {
     expect(source).toContain("claimSeniorDevResume");
     expect(source).toContain(
       'eq(schema.seniorDevTasks.status, "awaiting_approval")',
