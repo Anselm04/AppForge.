@@ -121,58 +121,64 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     }
 
     const claimed = await claimProjectBuildStart(projectId, user.id);
-    if (claimed) {
-      const createdAt = new Date().toISOString();
-      const reservationCharged = !unlimited;
-      let charged = false;
+    if (!claimed) {
+      res.status(409).json({
+        error: "build_already_started",
+        message: "This build was already started by another request.",
+      });
+      return;
+    }
 
-      try {
-        if (reservationCharged) {
-          await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
-          charged = true;
-        }
+    const createdAt = new Date().toISOString();
+    const reservationCharged = !unlimited;
+    let charged = false;
 
-        await clearBuildEvents(projectId);
-        await enqueueBuild({
-          projectId,
-          userId: user.id,
-          description: project.description || "",
-          techStack: project.techStack || "react-node",
-          locale: (project as { locale?: string }).locale ?? "en",
-          buildCapabilities:
-            (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
-          createdAt,
-          reservationCharged,
-        });
-      } catch (err: unknown) {
-        if (charged) {
-          const refundKey = `build-start-refund-${projectId}-${createdAt}`;
-          try {
-            await addCredits(
-              user.id,
-              BUILD_COST,
-              "build_refund",
-              `Build start refund for project ${projectId}`,
-              refundKey,
-            );
-          } catch (refundErr: unknown) {
-            logger.error(
-              { projectId, refundKey, error: refundErr },
-              "build_start_refund_error",
-            );
-          }
-        }
-
-        await releaseProjectBuildClaim(
-          projectId,
-          user.id,
-          project.status,
-          project.pauseReason ?? null,
-        );
-        logger.error({ projectId, error: err }, "build_start_failed");
-        res.status(500).json({ error: "build_start_failed" });
-        return;
+    try {
+      if (reservationCharged) {
+        await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
+        charged = true;
       }
+
+      await clearBuildEvents(projectId);
+      await enqueueBuild({
+        projectId,
+        userId: user.id,
+        description: project.description || "",
+        techStack: project.techStack || "react-node",
+        locale: (project as { locale?: string }).locale ?? "en",
+        buildCapabilities:
+          (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
+        createdAt,
+        reservationCharged,
+      });
+    } catch (err: unknown) {
+      if (charged) {
+        const refundKey = `build-start-refund-${projectId}-${createdAt}`;
+        try {
+          await addCredits(
+            user.id,
+            BUILD_COST,
+            "build_refund",
+            `Build start refund for project ${projectId}`,
+            refundKey,
+          );
+        } catch (refundErr: unknown) {
+          logger.error(
+            { projectId, refundKey, error: refundErr },
+            "build_start_refund_error",
+          );
+        }
+      }
+
+      await releaseProjectBuildClaim(
+        projectId,
+        user.id,
+        project.status,
+        project.pauseReason ?? null,
+      );
+      logger.error({ projectId, error: err }, "build_start_failed");
+      res.status(500).json({ error: "build_start_failed" });
+      return;
     }
   }
 
@@ -636,9 +642,9 @@ router.post("/deploy", async (req: Request, res: Response) => {
 
     watchProject(projectId, req.user.id, deployUrl);
     res.json({ success: true, deployUrl });
-  } catch (err: any) {
-    logger.error({ projectId, error: err?.message }, "deploy_error");
-    res.status(500).json({ error: err?.message ?? "Deploy failed" });
+  } catch (err: unknown) {
+    logger.error({ projectId, error: err }, "deploy_error");
+    res.status(500).json({ error: "Deploy failed" });
   }
 });
 
