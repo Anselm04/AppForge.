@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
@@ -9,14 +9,6 @@ import { useLocale } from "../i18n/LocaleContext.js";
 import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
 import { Badge } from "../design-system/Badge.js";
-
-interface TierStatus {
-  tier: string;
-  isPaid: boolean;
-  buildsThisMonth: number;
-  limit: number | null;
-  credits: number;
-}
 
 interface Project {
   id: number;
@@ -61,6 +53,18 @@ export function Dashboard() {
     queryFn: () => trpc.analytics.me.query(),
     enabled: !!session,
     retry: false,
+  });
+
+  const {
+    data: integrationHealth,
+    isFetching: integrationsRefreshing,
+    refetch: refreshIntegrations,
+  } = useQuery({
+    queryKey: ["ecosystem", "integrations"],
+    queryFn: () => trpc.ecosystem.integrations.query(),
+    enabled: !!session,
+    retry: false,
+    staleTime: 30_000,
   });
 
   const unauthError =
@@ -154,6 +158,79 @@ export function Dashboard() {
           </div>
         )}
 
+        {integrationHealth && (
+          <section aria-labelledby="connected-power-heading" className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-forge-cyan">
+                  Connected Power
+                </p>
+                <h2
+                  id="connected-power-heading"
+                  className="forge-h2 text-forge-text-primary"
+                >
+                  Plugin Management
+                </h2>
+                <p className="text-sm text-forge-text-muted mt-1">
+                  {integrationHealth.connected} of {integrationHealth.total} capabilities
+                  verified. Production-critical: {integrationHealth.requiredConnected} of{" "}
+                  {integrationHealth.requiredTotal}.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  tone={integrationHealth.productionReady ? "success" : "gold"}
+                >
+                  {integrationHealth.productionReady
+                    ? "All required systems verified"
+                    : "Production gates remain"}
+                </Badge>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={integrationsRefreshing}
+                  onClick={() => void refreshIntegrations()}
+                >
+                  {integrationsRefreshing ? "Checking…" : "Test connections"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {integrationHealth.integrations.map((integration) => (
+                <GlassCard key={integration.id} padding="sm" hover={false}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-forge-text-primary">
+                        {integration.name}
+                      </h3>
+                      <p className="text-xs text-forge-text-muted mt-1">
+                        {integration.job}
+                      </p>
+                    </div>
+                    <Badge tone={integrationTone(integration.state)}>
+                      {integrationLabel(integration.state)}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {integration.capabilities.slice(0, 4).map((capability) => (
+                      <span
+                        key={capability}
+                        className="text-[11px] rounded-full border border-white/10 px-2 py-1 text-forge-text-muted"
+                      >
+                        {capability}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-forge-text-muted mt-3">
+                    {integration.message}
+                  </p>
+                </GlassCard>
+              ))}
+            </div>
+          </section>
+        )}
+
         {tierStatus && (tierStatus.credits ?? 0) < BUILD_CREDIT_COST && (
           <CreditsPauseBanner
             credits={tierStatus.credits ?? 0}
@@ -206,6 +283,10 @@ export function Dashboard() {
 function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
   const { t } = useLocale();
+  const [marketingState, setMarketingState] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
+  const [marketingMessage, setMarketingMessage] = useState("");
 
   const statusTone: Record<string, "success" | "cyan" | "gold" | "default"> = {
     completed: "success",
@@ -217,6 +298,24 @@ function ProjectCard({ project }: { project: Project }) {
 
   const canImprove =
     project.status === "completed" || project.status === "paused";
+
+  const sendToMarketing = async () => {
+    setMarketingState("sending");
+    setMarketingMessage("");
+    try {
+      await trpc.ecosystem.sendToMarketing.mutate({
+        projectId: project.id,
+        mode: "draft",
+      });
+      setMarketingState("sent");
+      setMarketingMessage("Marketing draft created.");
+    } catch (error) {
+      setMarketingState("error");
+      setMarketingMessage(
+        error instanceof Error ? error.message : "Marketing handoff failed.",
+      );
+    }
+  };
 
   return (
     <GlassCard className="flex flex-col h-full">
@@ -236,7 +335,7 @@ function ProjectCard({ project }: { project: Project }) {
             : "—"}
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
           className="flex-1 text-xs"
@@ -256,6 +355,21 @@ function ProjectCard({ project }: { project: Project }) {
             {t("dashboard.improve")}
           </Button>
         )}
+        {project.status === "completed" && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1 text-xs"
+            disabled={marketingState === "sending" || marketingState === "sent"}
+            onClick={() => void sendToMarketing()}
+          >
+            {marketingState === "sending"
+              ? "Sending…"
+              : marketingState === "sent"
+                ? "Sent to Marketing"
+                : "Send to Marketing"}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -265,8 +379,36 @@ function ProjectCard({ project }: { project: Project }) {
           {t("dashboard.newBuild")}
         </Button>
       </div>
+      {marketingMessage && (
+        <p
+          className={`text-xs mt-3 ${
+            marketingState === "error"
+              ? "text-red-300"
+              : "text-forge-text-muted"
+          }`}
+          role={marketingState === "error" ? "alert" : "status"}
+        >
+          {marketingMessage}
+        </p>
+      )}
     </GlassCard>
   );
+}
+
+function integrationTone(
+  state: string,
+): "success" | "cyan" | "gold" | "default" {
+  if (state === "connected") return "success";
+  if (state === "needs_attention") return "gold";
+  if (state === "configuration_required") return "gold";
+  return "default";
+}
+
+function integrationLabel(state: string) {
+  if (state === "connected") return "Connected";
+  if (state === "needs_attention") return "Needs attention";
+  if (state === "configuration_required") return "Configuration required";
+  return "Not connected";
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
