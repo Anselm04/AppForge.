@@ -48,12 +48,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   const body = await response.json().catch(() => null);
-  if (!response.ok)
+  if (!response.ok) {
+    if (response.status >= 500) {
+      throw new Error("Authentication service is temporarily unavailable.");
+    }
     throw new Error(
       body?.message ||
         body?.error_description ||
-        `Supabase request failed: ${response.status}`,
+        `Authentication request failed: ${response.status}`,
     );
+  }
   return body as T;
 }
 
