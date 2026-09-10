@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import { sql } from "drizzle-orm";
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
+import { logger } from "../_core/logger.js";
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get("/", async (_req: Request, res: Response) => {
   } catch (error) {
     health.status = "degraded";
     health.database = "disconnected";
-    console.error("Health check failed: database connection failed", error);
+    logger.error({ error }, "health_database_check_failed");
   }
 
   const statusCode = health.status === "ok" ? 200 : 503;
@@ -42,7 +43,8 @@ router.get("/ready", async (_req: Request, res: Response) => {
   try {
     await db.execute(sql`SELECT 1`);
     res.status(200).json({ status: "ok", ready: true });
-  } catch {
+  } catch (error) {
+    logger.error({ error }, "readiness_database_check_failed");
     res
       .status(503)
       .json({ status: "degraded", ready: false, reason: "database" });
