@@ -41,6 +41,13 @@ function escapePdfText(value: string): string {
     .replace(/[\r\n]+/g, " ");
 }
 
+function unescapePdfText(value: string): string {
+  return value
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\");
+}
+
 function encodeCsvCell(value: unknown): string {
   const text = value === null || value === undefined ? "" : String(value);
   if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
@@ -173,6 +180,23 @@ export function createSimplePdf(input: {
   }
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
   return Buffer.from(pdf, "utf8");
+}
+
+export function extractPdfText(pdf: Buffer): string {
+  if (!pdf.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error("Invalid PDF header");
+  }
+
+  const source = pdf.toString("latin1");
+  const text: string[] = [];
+  const directText = /\(((?:\\.|[^\\)])*)\)\s*Tj/g;
+  let match: RegExpExecArray | null;
+  while ((match = directText.exec(source)) !== null) {
+    text.push(unescapePdfText(match[1]));
+    if (text.join("\n").length > 200_000) break;
+  }
+
+  return text.join("\n").trim();
 }
 
 export async function saveProjectArtifact(input: {
