@@ -4,6 +4,7 @@ import {
   createDocumentHtml,
   createPresentationHtml,
   createSimplePdf,
+  extractPdfText,
   sanitizeArtifactName,
 } from "../services/artifactEngine.js";
 
@@ -53,7 +54,7 @@ describe("artifact engine", () => {
     expect(html).toContain("Ready &amp; verified");
   });
 
-  it("creates a valid PDF envelope with a cross-reference table", () => {
+  it("creates and extracts text from AppForge text-based PDFs", () => {
     const pdf = createSimplePdf({
       title: "AppForge Report",
       lines: ["Production verification", "Second line"],
@@ -63,5 +64,10 @@ describe("artifact engine", () => {
     expect(text).toContain("/Type /Catalog");
     expect(text).toContain("xref");
     expect(text.endsWith("%%EOF\n")).toBe(true);
+
+    const extracted = extractPdfText(pdf);
+    expect(extracted).toContain("AppForge Report");
+    expect(extracted).toContain("Production verification");
+    expect(extracted).toContain("Second line");
   });
 });
