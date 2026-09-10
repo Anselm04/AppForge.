@@ -13,6 +13,7 @@ export interface AppForgeSession {
 let cachedRaw: string | null | undefined;
 let cachedSession: AppForgeSession | null = null;
 let refreshInFlight: Promise<AppForgeSession | null> | null = null;
+let sessionGeneration = 0;
 
 function emitSessionChange() {
   listeners.forEach((listener) => listener());
@@ -145,6 +146,7 @@ export function useSession(): AppForgeSession | null {
 
 export function signOut() {
   const session = getSession();
+  sessionGeneration += 1;
   removeStorage(SESSION_KEY);
   cachedRaw = null;
   cachedSession = null;
@@ -161,22 +163,25 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const current = getSession();
   if (!current?.refreshToken) return null;
   if (refreshInFlight) return refreshInFlight;
+  const generationAtStart = sessionGeneration;
   refreshInFlight = (async () => {
     try {
       const result = await supabaseClient.refreshSession(current.refreshToken!);
-      if (result.error) return null;
+      if (result.error || generationAtStart !== sessionGeneration) return null;
       const next = sessionFromAuth({
         access_token: result.access_token,
         refresh_token: result.refresh_token || current.refreshToken,
         user: result.user || current.user,
       });
-      if (!next) return null;
+      if (!next || generationAtStart !== sessionGeneration) return null;
       saveSession(next);
       return next;
     } catch {
       return null;
     } finally {
-      refreshInFlight = null;
+      if (generationAtStart === sessionGeneration) {
+        refreshInFlight = null;
+      }
     }
   })();
   return refreshInFlight;
@@ -213,7 +218,10 @@ export async function signUp(email: string, password: string) {
   const result = await supabaseClient.signUp(email, password);
   if (result.error) throw new Error(result.error.message);
   const session = sessionFromAuth(result);
-  if (session) saveSession(session);
+  if (session) {
+    sessionGeneration += 1;
+    saveSession(session);
+  }
   return result;
 }
 
@@ -226,6 +234,7 @@ export async function signIn(
   if (!session) {
     throw new Error(result.error?.message || "Sign-in failed.");
   }
+  sessionGeneration += 1;
   saveSession(session);
   return session;
 }
