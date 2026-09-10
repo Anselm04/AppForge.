@@ -29,6 +29,8 @@ export interface BuildJob {
   locale?: string;
   buildCapabilities?: string[];
   createdAt: string;
+  /** True only when this queued attempt actually deducted the build reservation. */
+  reservationCharged: boolean;
 }
 
 const activeJobs = new Set<number>();
@@ -51,6 +53,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     locale,
     buildCapabilities,
     createdAt,
+    reservationCharged,
   } = job;
   const controller = new AbortController();
   const timeoutMs = resolveBuildTimeoutMs();
@@ -112,14 +115,13 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ projectId, err: msg }, "background_build_failed");
 
-    // The build route reserves BUILD_CREDIT_COST before enqueueing. If the
-    // background pipeline throws, return that reservation. `createdAt` is
-    // stable across BullMQ retries for this queued attempt, so addCredits'
-    // idempotency key prevents duplicate refunds.
+    // Refund based on what happened at reservation time, not the user's current
+    // entitlement. A customer may upgrade to lifetime while a charged build is
+    // running; that must never erase the refund owed for the earlier charge.
+    // createdAt is stable for this queued attempt and addCredits uses the key as
+    // a unique ledger reference, making recovery exactly-once.
     try {
-      const credits = await getUserCredits(userId);
-      const unlimited = !!credits?.unlimited || credits?.tier === "lifetime";
-      if (!unlimited) {
+      if (reservationCharged) {
         const refundKey = `build-refund-${projectId}-${createdAt}`;
         await addCredits(
           userId,
