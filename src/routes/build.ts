@@ -232,8 +232,43 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     return;
   }
 
+  if (task.status === "completed") {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+    res.write(
+      `event: done\ndata: ${JSON.stringify({ status: "completed", summary: task.summary ?? "", creditsSpent: task.creditsSpent ?? 0, reused: true })}\n\n`,
+    );
+    res.end();
+    return;
+  }
+
+  if (task.status === "awaiting_approval") {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+    res.write(
+      `event: awaiting_approval\ndata: ${JSON.stringify({ status: "awaiting_approval", plan: task.plan, summary: task.summary ?? "", reused: true })}\n\n`,
+    );
+    res.end();
+    return;
+  }
+
+  if (task.status === "executing") {
+    res
+      .status(409)
+      .json({
+        error: "senior_dev_task_active",
+        message: "This Senior Dev task is already executing.",
+      });
+    return;
+  }
+
   const credits = await ensureUserCredits(user.id);
-  if (credits.balance < SENIOR_DEV_BASE_COST) {
+  const seniorUnlimited = !!credits.unlimited || credits.tier === "lifetime";
+  if (!seniorUnlimited && credits.balance < SENIOR_DEV_BASE_COST) {
     res
       .status(402)
       .json(
@@ -246,12 +281,15 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     return;
   }
 
-  await deductCredits(
-    user.id,
-    SENIOR_DEV_BASE_COST,
-    task.projectId,
-    "Senior Dev Agent reservation",
-  );
+  const reservationId = `senior-dev-${task.id}-${crypto.randomUUID()}`;
+  if (!seniorUnlimited) {
+    await deductCredits(
+      user.id,
+      SENIOR_DEV_BASE_COST,
+      task.projectId,
+      `Senior Dev Agent reservation ${reservationId}`,
+    );
+  }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -351,13 +389,15 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     logger.error({ taskId: task.id, error: msg }, "senior_dev_pipeline_error");
     write("error", { message: msg });
     try {
-      await addCredits(
-        user.id,
-        SENIOR_DEV_BASE_COST,
-        "senior_dev_refund",
-        `Senior Dev Agent failed reservation refund for task ${task.id}`,
-        `senior-dev-refund-${task.id}`,
-      );
+      if (!seniorUnlimited) {
+        await addCredits(
+          user.id,
+          SENIOR_DEV_BASE_COST,
+          "senior_dev_refund",
+          `Senior Dev Agent failed reservation refund for task ${task.id}`,
+          `senior-dev-refund-${reservationId}`,
+        );
+      }
     } catch (refundErr: unknown) {
       logger.error(
         {
