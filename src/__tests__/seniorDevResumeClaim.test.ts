@@ -55,9 +55,9 @@ describe("Senior Dev execution claims", () => {
     expect(route).toContain(
       'from "../services/senior-dev-reservation.js"',
     );
-    expect(route.match(/await refundOutstandingSeniorDevReservation\(/g)).toHaveLength(
-      2,
-    );
+    expect(
+      route.match(/await refundOutstandingSeniorDevReservation\(/g),
+    ).toHaveLength(2);
     expect(route).not.toContain("if (!resumeUnlimited)");
     expect(route).not.toContain("senior-dev-resume-refund-${task.id}");
   });
