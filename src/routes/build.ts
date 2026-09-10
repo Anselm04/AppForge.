@@ -447,7 +447,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   }
 });
 
-/** Resume Senior Dev Agent after plan approval */
+/** Resume Senior Dev Agent after plan approval. The initial Senior Dev request already reserved the base credits, so resume must never require or deduct a second balance. */
 router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   const taskId = parseInt(req.params.taskId, 10);
   if (Number.isNaN(taskId)) {
@@ -475,12 +475,6 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
   const resumeCredits = await ensureUserCredits(user.id);
   const resumeUnlimited =
     !!resumeCredits.unlimited || resumeCredits.tier === "lifetime";
-  if (!resumeUnlimited && resumeCredits.balance < 1) {
-    res
-      .status(402)
-      .json(creditsExhaustedBody(resumeCredits.balance, 1, "resume this task"));
-    return;
-  }
 
   const claimed = await claimSeniorDevResume(task.id, user.id);
   if (!claimed) {
