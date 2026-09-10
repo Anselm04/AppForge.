@@ -18,6 +18,7 @@ import { sandboxRouter } from "./sandbox.js";
 import { orgsRouter } from "./orgs.js";
 import { ssoRouter } from "./sso.js";
 import { ecosystemRouter } from "./ecosystem.js";
+import { artifactsRouter } from "./artifacts.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -54,6 +55,7 @@ export const appRouter = router({
   orgs: orgsRouter,
   sso: ssoRouter,
   ecosystem: ecosystemRouter,
+  artifacts: artifactsRouter,
 });
 
 export type AppRouter = typeof appRouter;
