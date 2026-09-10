@@ -22,6 +22,7 @@ import { aiRouter } from "./routes/ai.js";
 import { agentsRouter } from "./routes/agents.js";
 import { buildRouter } from "./routes/build.js";
 import { checkoutRouter } from "./routes/checkout.js";
+import { authSessionRouter } from "./routes/authSession.js";
 import {
   appsCompatRouter,
   billingCompatRouter,
@@ -216,6 +217,7 @@ app.use("/api/agents", agentsRouter);
 app.use("/api/build", buildRouter);
 app.use("/api/generate", generateRouter);
 app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);
+app.use("/api/auth", authSessionRouter);
 app.use("/api/apps", appsCompatRouter);
 app.use("/api/billing", billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);

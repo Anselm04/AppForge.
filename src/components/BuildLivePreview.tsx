@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { authedUrl } from "../lib/auth.js";
 import { onPreviewUpdate } from "../lib/previewEvents.js";
 import { trpc } from "../utils/trpc.js";
 
@@ -52,7 +51,7 @@ export function BuildLivePreview({
   const previewSrc = deployUrl
     ? deployUrl
     : useDevServer
-      ? authedUrl(`/sandbox-dev/${projectId}/`)
+      ? `/sandbox-dev/${projectId}/`
       : `/apps/${projectId}?v=${refreshKey}`;
 
   return (

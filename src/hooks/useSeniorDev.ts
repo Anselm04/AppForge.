@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { getAccessToken, authedUrl } from "../lib/auth.js";
+import { getAccessToken } from "../lib/auth.js";
 
 export type DevMode = "collaborative" | "autonomous";
 
@@ -72,7 +72,7 @@ export function useSeniorDev() {
       setStage("planning");
       setActiveTaskId(taskId);
 
-      const es = new EventSource(authedUrl(`/api/build/senior/${taskId}`));
+      const es = new EventSource(`/api/build/senior/${taskId}`);
       eventSourceRef.current = es;
 
       es.addEventListener("progress", (e: MessageEvent) => {
@@ -195,14 +195,11 @@ export function useSeniorDev() {
       });
 
       // Resume uses POST /resume — open a short-lived fetch stream via EventSource
-      // after kicking resume (GET SSE on resume endpoint via query-token EventSource).
-      const resumeRes = await fetch(
-        authedUrl(`/api/build/senior/${taskId}/resume`),
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
-        },
-      );
+      // after kicking resume; authorization stays in the request header.
+      const resumeRes = await fetch(`/api/build/senior/${taskId}/resume`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
+      });
       if (!resumeRes.ok || !resumeRes.body) {
         throw new Error("Failed to resume Senior Dev after approval");
       }

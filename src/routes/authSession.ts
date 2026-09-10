@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import { getCsrfToken } from "../lib/csrf.js";
 
 export const authSessionRouter = Router();
 
@@ -18,11 +17,16 @@ function accessTokenMaxAgeMs(token: string): number {
     if (!payload) return 55 * 60 * 1000;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const decoded = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as {
+    const decoded = JSON.parse(
+      Buffer.from(padded, "base64").toString("utf8"),
+    ) as {
       exp?: number;
     };
     if (typeof decoded.exp !== "number") return 55 * 60 * 1000;
-    return Math.max(1_000, Math.min(decoded.exp * 1000 - Date.now(), 60 * 60 * 1000));
+    return Math.max(
+      1_000,
+      Math.min(decoded.exp * 1000 - Date.now(), 60 * 60 * 1000),
+    );
   } catch {
     return 55 * 60 * 1000;
   }
