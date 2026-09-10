@@ -1,0 +1,32 @@
+name: Format Senior Dev once
+
+on:
+  push:
+    branches:
+      - hardening/senior-dev-idempotency
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/senior-dev-idempotency
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/routes/build.ts
+      - name: Commit formatting
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/routes/build.ts
+          git commit -m "style: format Senior Dev hardening" || exit 0
+          git push origin HEAD:hardening/senior-dev-idempotency
