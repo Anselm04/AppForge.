@@ -25,9 +25,15 @@ export type IntegrationHealth = {
 };
 
 const INTERNAL_IMPLEMENTED = new Set([
+  "deep-research",
+  "documents",
   "default-templates",
+  "pdf",
   "plugin-management",
+  "presentations",
   "security",
+  "spreadsheets",
+  "template-creator",
 ]);
 
 const value = (name: string) => process.env[name]?.trim() || "";
@@ -113,12 +119,13 @@ async function verifyRemote(
   switch (definition.id) {
     case "github": {
       const token = value("GITHUB_TOKEN");
-      if (!token)
+      if (!token) {
         return result(
           definition,
           "not_connected",
           "GITHUB_TOKEN is not configured",
         );
+      }
       const check = await probe("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -128,11 +135,17 @@ async function verifyRemote(
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "stripe": {
       const secret = value("STRIPE_SECRET_KEY");
       const webhookSecret = value("STRIPE_WEBHOOK_SECRET");
-      if (!secret && !webhookSecret)
-        return result(definition, "not_connected", "Stripe is not configured");
+      if (!secret && !webhookSecret) {
+        return result(
+          definition,
+          "not_connected",
+          "Stripe is not configured",
+        );
+      }
       if (!secret || !webhookSecret) {
         return result(
           definition,
@@ -146,55 +159,67 @@ async function verifyRemote(
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "vercel": {
       const token = value("VERCEL_TOKEN");
-      if (!token)
+      if (!token) {
         return result(
           definition,
           "not_connected",
           "VERCEL_TOKEN is not configured",
         );
+      }
       const check = await probe("https://api.vercel.com/v2/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "supabase": {
       const url = value("SUPABASE_URL") || value("VITE_SUPABASE_URL");
       const key =
         value("SUPABASE_ANON_KEY") ||
         value("VITE_SUPABASE_PUBLISHABLE_KEY") ||
         value("VITE_SUPABASE_ANON_KEY");
-      if (!url && !key)
+      if (!url && !key) {
         return result(
           definition,
           "not_connected",
           "Supabase is not configured",
         );
-      if (!url || !key)
+      }
+      if (!url || !key) {
         return result(
           definition,
           "configuration_required",
           "Supabase URL and publishable key are required",
           true,
         );
+      }
       const check = await probe(`${url.replace(/\/$/, "")}/auth/v1/health`, {
         headers: { apikey: key },
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "twilio": {
       const sid = value("TWILIO_ACCOUNT_SID");
       const token = value("TWILIO_AUTH_TOKEN");
-      if (!sid && !token)
-        return result(definition, "not_connected", "Twilio is not configured");
-      if (!sid || !token)
+      if (!sid && !token) {
+        return result(
+          definition,
+          "not_connected",
+          "Twilio is not configured",
+        );
+      }
+      if (!sid || !token) {
         return result(
           definition,
           "configuration_required",
           "Twilio account SID and auth token are required",
           true,
         );
+      }
       const auth = Buffer.from(`${sid}:${token}`).toString("base64");
       const check = await probe(
         `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`,
@@ -202,30 +227,34 @@ async function verifyRemote(
       );
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "datadog": {
       const apiKey = value("DD_API_KEY");
       const site = value("DD_SITE") || "datadoghq.com";
-      if (!apiKey)
+      if (!apiKey) {
         return result(
           definition,
           "not_connected",
           "DD_API_KEY is not configured",
         );
+      }
       const check = await probe(`https://api.${site}/api/v1/validate`, {
         headers: { "DD-API-KEY": apiKey },
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "posthog": {
       const host = value("POSTHOG_HOST") || value("VITE_POSTHOG_HOST");
       const token = value("POSTHOG_PERSONAL_API_KEY");
       const projectId = value("POSTHOG_PROJECT_ID");
-      if (!host && !token && !projectId)
+      if (!host && !token && !projectId) {
         return result(
           definition,
           "not_connected",
           "PostHog verification is not configured",
         );
+      }
       if (!host || !token || !projectId) {
         return result(
           definition,
@@ -240,20 +269,29 @@ async function verifyRemote(
       );
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "sprites-fly": {
       const appName = value("FLY_APP_NAME");
-      if (!appName)
+      if (!appName) {
         return result(
           definition,
           "not_connected",
           "FLY_APP_NAME is not configured",
         );
+      }
       const check = await probe(`https://${appName}.fly.dev/api/health/live`);
-      return check.ok ? pass(check.message) : fail(check.message);
+      return check.ok
+        ? pass("Fly.io runtime verified; Sprites connector remains separately managed")
+        : fail(check.message);
     }
+
     case "make": {
       if (!any("MAKE_API_TOKEN", "MAKE_WEBHOOK_URL", "MAKE_HEALTH_URL")) {
-        return result(definition, "not_connected", "Make is not configured");
+        return result(
+          definition,
+          "not_connected",
+          "Make is not configured",
+        );
       }
       const healthUrl = value("MAKE_HEALTH_URL");
       const token = value("MAKE_API_TOKEN");
@@ -261,7 +299,7 @@ async function verifyRemote(
         return result(
           definition,
           "configuration_required",
-          "Make needs a non-mutating health URL and API token before AppForge will mark it connected",
+          "Make runtime exists, but safe health verification still needs MAKE_HEALTH_URL and MAKE_API_TOKEN",
           true,
         );
       }
@@ -270,9 +308,14 @@ async function verifyRemote(
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "bubblav": {
-      if (!any("BUBBLAV_API_KEY", "BUBBLAV_WIDGET_ID", "BUBBLAV_HEALTH_URL")) {
-        return result(definition, "not_connected", "BubblaV is not configured");
+      if (!any("BUBBLAV_API_KEY", "BUBBLAV_CHAT_URL", "BUBBLAV_HEALTH_URL")) {
+        return result(
+          definition,
+          "not_connected",
+          "BubblaV is not configured",
+        );
       }
       const healthUrl = value("BUBBLAV_HEALTH_URL");
       const apiKey = value("BUBBLAV_API_KEY");
@@ -280,7 +323,7 @@ async function verifyRemote(
         return result(
           definition,
           "configuration_required",
-          "BubblaV needs an API key and explicit non-mutating health URL before AppForge will mark it connected",
+          "BubblaV runtime exists, but safe health verification still needs BUBBLAV_HEALTH_URL and BUBBLAV_API_KEY",
           true,
         );
       }
@@ -289,52 +332,60 @@ async function verifyRemote(
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "codex-security": {
       const healthUrl = value("CODEX_SECURITY_WEBHOOK_URL");
       const token = value("CODEX_SECURITY_TOKEN");
-      if (!healthUrl && !token)
+      if (!healthUrl && !token) {
         return result(
           definition,
           "not_connected",
           "Codex Security runtime bridge is not configured",
         );
+      }
       return result(
         definition,
         "configuration_required",
-        "A ChatGPT Codex Security connection is not itself a deployable AppForge API. Configure an approved runtime webhook/API before enabling it.",
+        "ChatGPT Codex Security is not a deployable AppForge API; an approved runtime endpoint is still required",
         true,
       );
     }
+
     case "marketing-app": {
       const url = value("MARKETING_APP_URL");
       const secret = value("TRILLION_ECOSYSTEM_SHARED_SECRET");
-      if (!url && !secret)
+      if (!url && !secret) {
         return result(
           definition,
           "not_connected",
           "Marketing app bridge is not configured",
         );
-      if (!url || !secret)
+      }
+      if (!url || !secret) {
         return result(
           definition,
           "configuration_required",
           "Marketing app URL and ecosystem shared secret are required",
           true,
         );
+      }
       const check = await probe(`${url.replace(/\/$/, "")}/health`);
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     case "trillionaitech-site": {
       const url = value("TRILLION_PUBLIC_SITE_URL");
-      if (!url)
+      if (!url) {
         return result(
           definition,
           "not_connected",
           "TRILLION_PUBLIC_SITE_URL is not configured",
         );
+      }
       const check = await probe(url);
       return check.ok ? pass(check.message) : fail(check.message);
     }
+
     default:
       return result(
         definition,
