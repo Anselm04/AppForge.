@@ -48,9 +48,9 @@ describe("AppForge ecosystem integration contract", () => {
 
   it("marks revenue-critical platform dependencies as production requirements", () => {
     const required = new Set(
-      APPFORGE_INTEGRATIONS.filter((integration) => integration.requiredForProduction).map(
-        (integration) => integration.id,
-      ),
+      APPFORGE_INTEGRATIONS.filter(
+        (integration) => integration.requiredForProduction,
+      ).map((integration) => integration.id),
     );
 
     for (const id of [
