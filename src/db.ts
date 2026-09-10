@@ -456,7 +456,7 @@ export async function deductCredits(
     if (!credits)
       throw new Error(`Insufficient credits: need ${amount}, have 0`);
 
-    if (credits.unlimited) {
+    if (credits.unlimited || credits.tier === "lifetime") {
       await tx.insert(schema.creditTransactions).values({
         userId,
         amount: 0,
