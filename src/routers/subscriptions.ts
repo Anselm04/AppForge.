@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   getSubscriptionByUserId,
   getUserCredits,
+  getUserTier,
   countBuildsThisMonth,
 } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
@@ -20,6 +21,8 @@ const TIER_LIMITS: Record<string, number | null> = {
   builder: 66,
   studio: null,
   enterprise: null,
+  custom: null,
+  lifetime: null,
 };
 
 async function getStripe() {
@@ -38,17 +41,18 @@ export const subscriptionsRouter = router({
   status: protectedProcedure.query(async ({ ctx }) => {
     const sub = await getSubscriptionByUserId(ctx.user.id);
     const credits = await getUserCredits(ctx.user.id);
-    const tier = sub?.tier ?? credits?.tier ?? "free";
-    const isPaid =
-      tier !== "free" &&
-      (sub?.status === "active" || sub?.status === "trialing");
+    const activeSubscriptionTier = await getUserTier(ctx.user.id);
+    const hasLifetimeAccess =
+      !!credits?.unlimited || credits?.tier === "lifetime";
+    const tier = hasLifetimeAccess ? "lifetime" : activeSubscriptionTier;
+    const isPaid = tier !== "free";
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
     const limit = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
 
     return {
       tier,
       isPaid,
-      isTrialing: sub?.status === "trialing",
+      isTrialing: sub?.status === "trialing" && tier !== "free",
       trialEnd: sub?.trialEnd ?? null,
       status: sub?.status ?? "none",
       currentPeriodEnd: sub?.currentPeriodEnd ?? null,
@@ -70,7 +74,8 @@ export const subscriptionsRouter = router({
       if (input.tier === "enterprise") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Enterprise plans are sales-led. Contact AppForge for provisioning.",
+          message:
+            "Enterprise plans are sales-led. Contact AppForge for provisioning.",
         });
       }
       try {
