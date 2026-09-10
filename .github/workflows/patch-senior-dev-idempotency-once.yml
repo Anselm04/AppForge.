@@ -1,0 +1,48 @@
+name: Patch Senior Dev idempotency once
+
+on:
+  push:
+    branches:
+      - hardening/senior-dev-idempotency
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/senior-dev-idempotency
+          fetch-depth: 0
+      - name: Patch Senior Dev billing semantics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/routes/build.ts')
+          s = p.read_text()
+          old = '''  const project = await getProjectById(task.projectId);\n  if (!project) {\n    res.status(404).json({ error: "Project not found" });\n    return;\n  }\n\n  const credits = await ensureUserCredits(user.id);\n  if (credits.balance < SENIOR_DEV_BASE_COST) {\n'''
+          new = '''  const project = await getProjectById(task.projectId);\n  if (!project) {\n    res.status(404).json({ error: "Project not found" });\n    return;\n  }\n\n  if (task.status === "completed") {\n    res.setHeader("Content-Type", "text/event-stream");\n    res.setHeader("Cache-Control", "no-cache");\n    res.setHeader("Connection", "keep-alive");\n    res.flushHeaders?.();\n    res.write(`event: done\\ndata: ${JSON.stringify({ status: "completed", summary: task.summary ?? "", creditsSpent: task.creditsSpent ?? 0, reused: true })}\\n\\n`);\n    res.end();\n    return;\n  }\n\n  if (task.status === "awaiting_approval") {\n    res.setHeader("Content-Type", "text/event-stream");\n    res.setHeader("Cache-Control", "no-cache");\n    res.setHeader("Connection", "keep-alive");\n    res.flushHeaders?.();\n    res.write(`event: awaiting_approval\\ndata: ${JSON.stringify({ status: "awaiting_approval", plan: task.plan, summary: task.summary ?? "", reused: true })}\\n\\n`);\n    res.end();\n    return;\n  }\n\n  if (task.status === "executing") {\n    res.status(409).json({ error: "senior_dev_task_active", message: "This Senior Dev task is already executing." });\n    return;\n  }\n\n  const credits = await ensureUserCredits(user.id);\n  const seniorUnlimited = !!credits.unlimited || credits.tier === "lifetime";\n  if (!seniorUnlimited && credits.balance < SENIOR_DEV_BASE_COST) {\n'''
+          if old not in s: raise SystemExit('guard pattern not found')
+          s = s.replace(old, new, 1)
+          old = '''  await deductCredits(\n    user.id,\n    SENIOR_DEV_BASE_COST,\n    task.projectId,\n    "Senior Dev Agent reservation",\n  );\n\n  res.setHeader("Content-Type", "text/event-stream");\n'''
+          new = '''  const reservationId = `senior-dev-${task.id}-${crypto.randomUUID()}`;\n  if (!seniorUnlimited) {\n    await deductCredits(\n      user.id,\n      SENIOR_DEV_BASE_COST,\n      task.projectId,\n      `Senior Dev Agent reservation ${reservationId}`,\n    );\n  }\n\n  res.setHeader("Content-Type", "text/event-stream");\n'''
+          if old not in s: raise SystemExit('reservation pattern not found')
+          s = s.replace(old, new, 1)
+          old = '''    try {\n      await addCredits(\n        user.id,\n        SENIOR_DEV_BASE_COST,\n        "senior_dev_refund",\n        `Senior Dev Agent failed reservation refund for task ${task.id}`,\n        `senior-dev-refund-${task.id}`,\n      );\n    } catch (refundErr: unknown) {\n'''
+          new = '''    try {\n      if (!seniorUnlimited) {\n        await addCredits(\n          user.id,\n          SENIOR_DEV_BASE_COST,\n          "senior_dev_refund",\n          `Senior Dev Agent failed reservation refund for task ${task.id}`,\n          `senior-dev-refund-${reservationId}`,\n        );\n      }\n    } catch (refundErr: unknown) {\n'''
+          if old not in s: raise SystemExit('refund pattern not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Format changed file
+        run: npx prettier --write src/routes/build.ts
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/routes/build.ts
+          git commit -m "fix: make Senior Dev reservations retry-safe" || exit 0
+          git push origin HEAD:hardening/senior-dev-idempotency
