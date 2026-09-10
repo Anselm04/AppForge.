@@ -39,7 +39,7 @@ import {
   csrfTokenHandler,
   csrfErrorHandler,
 } from "./middleware/csrf.js";
-import { closeDbConnection } from "./db.js";
+import { closeDbConnection, getProjectById } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
 import { AppError } from "./utils/errorReporting.js";
@@ -209,6 +209,39 @@ app.use("/api/health", healthRouter);
 // ── Auth middleware (sets req.user for all protected routes below) ──
 app.use("/api", supabaseAuthMiddleware);
 app.use("/api/trpc", supabaseAuthMiddleware);
+
+// Issue a short-lived, signed preview cookie scoped to one sandbox project.
+// The bearer token is validated by supabaseAuthMiddleware and is never copied
+// into the iframe URL, browser history, referrers, or proxy logs.
+app.get("/api/preview-auth/:projectId", async (req, res) => {
+  const authorization = req.headers.authorization;
+  const userId = req.user?.id;
+  const projectId = Number.parseInt(String(req.params.projectId), 10);
+  if (
+    !userId ||
+    !Number.isFinite(projectId) ||
+    typeof authorization !== "string" ||
+    !/^Bearer\s+\S+/i.test(authorization)
+  ) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const project = await getProjectById(projectId);
+  if (!project || project.userId !== userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  res.cookie(`appforge-preview-${projectId}`, String(userId), {
+    httpOnly: true,
+    secure: ENV.isProduction,
+    sameSite: "strict",
+    signed: true,
+    path: `/sandbox-dev/${projectId}`,
+    maxAge: 10 * 60 * 1000,
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(204).end();
+});
 
 // ── REST API routes ──
 app.use("/api/ai", aiRouter);

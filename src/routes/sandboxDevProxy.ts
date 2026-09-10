@@ -6,16 +6,33 @@ import { getSandboxDevPort } from "../services/projectSandbox.js";
 /** Reverse-proxy sandbox Vite dev server for live preview (HTTP; WS upgrade optional). */
 export const sandboxDevProxyRouter = Router();
 
+function readScopedPreviewUserId(
+  req: Request,
+  projectId: number,
+): number | null {
+  const value = req.signedCookies?.[`appforge-preview-${projectId}`];
+  if (typeof value !== "string") return null;
+  const userId = Number.parseInt(value, 10);
+  return Number.isFinite(userId) && userId > 0 ? userId : null;
+}
+
 async function authorize(
   req: Request,
   res: Response,
 ): Promise<{ projectId: number; userId: number; port: number } | null> {
   const projectId = parseInt(String(req.params.projectId), 10);
-  const userId = (req as Request & { user?: { id: number } }).user?.id;
-  if (!userId || !Number.isFinite(projectId)) {
+  if (!Number.isFinite(projectId)) {
     res.status(401).json({ error: "Unauthorized" });
     return null;
   }
+
+  const requestUserId = (req as Request & { user?: { id: number } }).user?.id;
+  const userId = requestUserId ?? readScopedPreviewUserId(req, projectId);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
+  }
+
   const project = await getProjectById(projectId);
   if (!project || project.userId !== userId) {
     res.status(403).json({ error: "Forbidden" });

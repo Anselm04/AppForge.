@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { authedUrl, getAccessToken, loginPathWithReturn } from "../auth.js";
+import { authHeaders, getAccessToken, loginPathWithReturn } from "../auth.js";
 import { parseSseFrame } from "../authedSse.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -27,7 +27,7 @@ describe("generate auth helpers", () => {
     });
   });
 
-  it("sends JWT on generate SSE URL when a session exists", () => {
+  it("exposes JWT only through Authorization headers", () => {
     window.localStorage.setItem(
       "appforge.session",
       JSON.stringify({
@@ -36,7 +36,7 @@ describe("generate auth helpers", () => {
       }),
     );
     expect(getAccessToken()).toBe("jwt-token");
-    expect(authedUrl("/api/build/42")).toBe("/api/build/42?token=jwt-token");
+    expect(authHeaders()).toEqual({ Authorization: "Bearer jwt-token" });
   });
 
   it("sends unsigned users to /login with next preserved (not signup)", () => {
