@@ -10,7 +10,7 @@ import {
 describe("artifact engine", () => {
   it("sanitizes filenames and removes path traversal characters", () => {
     expect(sanitizeArtifactName("../../Quarterly Report", "artifact")).toBe(
-      "..-..-Quarterly-Report",
+      "Quarterly-Report",
     );
   });
 
