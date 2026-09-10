@@ -81,7 +81,7 @@ export const supabaseClient = {
     });
   },
   signOut(accessToken: string) {
-    return request<Record<string, never>>("/auth/v1/logout", {
+    return request<Record<string, never>>("/auth/v1/logout?scope=local", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
