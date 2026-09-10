@@ -73,9 +73,7 @@ export function BuildLivePreview({
 
   if (useDevServer && previewAuthLoading) {
     return (
-      <p className="text-slate-400 text-sm">
-        Preparing secure live preview…
-      </p>
+      <p className="text-slate-400 text-sm">Preparing secure live preview…</p>
     );
   }
 
