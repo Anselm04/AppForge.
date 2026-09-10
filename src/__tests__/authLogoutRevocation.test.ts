@@ -9,12 +9,17 @@ const client = readFileSync(
 );
 
 describe("logout session revocation", () => {
-  it("clears local state and revokes the current Supabase access token", () => {
+  it("clears local state and revokes only the current Supabase session", () => {
     expect(auth).toContain("const session = getSession()");
     expect(auth).toContain("removeStorage(SESSION_KEY)");
     expect(auth).toContain("supabaseClient.signOut(session.accessToken)");
-    expect(client).toContain('request<Record<string, never>>("/auth/v1/logout"');
+    expect(client).toContain(
+      'request<Record<string, never>>("/auth/v1/logout?scope=local"',
+    );
     expect(client).toContain("Authorization: `Bearer ${accessToken}`");
+    expect(client).not.toContain(
+      'request<Record<string, never>>("/auth/v1/logout",',
+    );
   });
 
   it("prevents an in-flight refresh from restoring a logged-out session", () => {
