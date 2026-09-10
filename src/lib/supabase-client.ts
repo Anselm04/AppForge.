@@ -4,6 +4,9 @@ declare global {
       supabaseUrl?: string;
       supabasePublishableKey?: string;
       stripePublicKey?: string;
+      hcaptchaSiteKey?: string;
+      posthogKey?: string;
+      posthogHost?: string;
     };
   }
 }

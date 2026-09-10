@@ -217,20 +217,30 @@ async function verifyRemote(
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "posthog": {
-      const host = value("POSTHOG_HOST") || value("VITE_POSTHOG_HOST");
+      const projectKey =
+        value("VITE_PUBLIC_POSTHOG_KEY") || value("POSTHOG_PROJECT_API_KEY");
+      const host =
+        value("POSTHOG_HOST") ||
+        value("VITE_PUBLIC_POSTHOG_HOST") ||
+        value("VITE_POSTHOG_HOST") ||
+        "https://us.i.posthog.com";
       const token = value("POSTHOG_PERSONAL_API_KEY");
       const projectId = value("POSTHOG_PROJECT_ID");
-      if (!host && !token && !projectId)
+      if (!projectKey && !token && !projectId)
         return result(
           definition,
           "not_connected",
           "PostHog verification is not configured",
         );
+      // Project API key alone is enough for client analytics ingestion.
+      if (projectKey && !token) {
+        return pass("PostHog project API key configured for client analytics");
+      }
       if (!host || !token || !projectId) {
         return result(
           definition,
           "configuration_required",
-          "PostHog verification requires host, personal API key, and project ID",
+          "PostHog admin verification requires host, personal API key, and project ID",
           true,
         );
       }
