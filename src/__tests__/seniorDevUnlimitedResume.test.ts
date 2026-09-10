@@ -15,13 +15,14 @@ describe("Senior Dev resume billing entitlement", () => {
     const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
     const resumeRoute = source.slice(resumeStart, deployStart);
 
-    expect(resumeRoute).toContain(
-      '!!resumeCredits.unlimited || resumeCredits.tier === "lifetime"',
-    );
+    expect(resumeRoute).not.toContain("ensureUserCredits(");
     expect(resumeRoute).not.toContain("resumeCredits.balance <");
     expect(resumeRoute).not.toContain("deductCredits(");
     expect(resumeRoute).toContain(
       "await claimSeniorDevResume(task.id, user.id)",
+    );
+    expect(resumeRoute).toContain(
+      "await refundOutstandingSeniorDevReservation(",
     );
   });
 });
