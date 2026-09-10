@@ -69,6 +69,22 @@ export function Pricing() {
     },
   });
 
+  const manageBilling = useMutation({
+    mutationFn: () => trpc.subscriptions.billingPortal.mutate(),
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setCheckoutError("Stripe did not return a billing portal URL.");
+      }
+    },
+    onError: (err) => {
+      setCheckoutError(
+        err instanceof Error ? err.message : "Unable to open billing portal.",
+      );
+    },
+  });
+
   const currentTier = subStatus?.tier ?? "free";
 
   const tiers = [
@@ -185,12 +201,32 @@ export function Pricing() {
         <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
           {t("pricing.subtitle")}
         </p>
-        <p className="text-center text-sm text-forge-text-muted mb-12 max-w-2xl mx-auto">
+        <p className="text-center text-sm text-forge-text-muted mb-6 max-w-2xl mx-auto">
           {t("pricing.creditsNote", {
             buildCost: BUILD_CREDIT_COST,
             seniorCost: SENIOR_DEV_CREDIT_COST,
           })}
         </p>
+
+        {subStatus?.stripeCustomerId && (
+          <div className="mb-10 flex flex-col items-center gap-3">
+            <p className="text-sm text-forge-text-muted text-center">
+              Current Stripe plan: <span className="capitalize">{currentTier}</span>
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={manageBilling.isPending}
+              loading={manageBilling.isPending}
+              onClick={() => {
+                setCheckoutError(null);
+                manageBilling.mutate();
+              }}
+            >
+              Manage billing & subscription
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {tiers.map((tier) => (
