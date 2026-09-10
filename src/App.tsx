@@ -26,6 +26,7 @@ import { EducationStudio } from "./pages/EducationStudio.js";
 import { PatentStudio } from "./pages/PatentStudio.js";
 import { ArchitectureStudio } from "./pages/ArchitectureStudio.js";
 import { ExtensionStudio } from "./pages/ExtensionStudio.js";
+import { PluginWorkspace } from "./pages/PluginWorkspace.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { OrgSettings } from "./pages/OrgSettings.js";
@@ -49,6 +50,7 @@ function AppShell() {
           <Route path="/settings/org" element={<OrgSettings />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tools" element={<PluginWorkspace />} />
           <Route path="/build/:projectId" element={<Build />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/admin" element={<Admin />} />
