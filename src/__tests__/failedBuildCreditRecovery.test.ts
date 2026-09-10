@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const source = readFileSync(
-  new URL("../services/build-worker.ts", import.meta.url),
+  resolve(process.cwd(), "src/services/build-worker.ts"),
   "utf8",
 );
 
