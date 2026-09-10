@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getProjectsByUserId, ensureUserCredits } from "../db.js";
+import { logger } from "../_core/logger.js";
 
 const appsCompatRouter = Router();
 const billingCompatRouter = Router();
@@ -19,8 +20,9 @@ appsCompatRouter.get("/", async (req: Request, res: Response) => {
   try {
     const projects = await getProjectsByUserId(user.id);
     res.json({ apps: projects, projects });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || "Failed to list apps" });
+  } catch (err: unknown) {
+    logger.error({ error: err, userId: user.id }, "legacy_apps_list_failed");
+    res.status(500).json({ error: "Failed to list apps" });
   }
 });
 
@@ -40,8 +42,12 @@ appsCompatRouter.get("/:id", async (req: Request, res: Response) => {
       return;
     }
     res.json(project);
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || "Failed to load app" });
+  } catch (err: unknown) {
+    logger.error(
+      { error: err, userId: user.id, projectId: req.params.id },
+      "legacy_app_load_failed",
+    );
+    res.status(500).json({ error: "Failed to load app" });
   }
 });
 
@@ -55,8 +61,9 @@ billingCompatRouter.get("/credits", async (req: Request, res: Response) => {
       balance: credits.balance,
       tier: credits.tier,
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || "Failed to load credits" });
+  } catch (err: unknown) {
+    logger.error({ error: err, userId: user.id }, "legacy_credits_load_failed");
+    res.status(500).json({ error: "Failed to load credits" });
   }
 });
 
