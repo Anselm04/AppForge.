@@ -9,7 +9,32 @@ import {
 } from "../db.js";
 import { sanitizeArtifactName } from "../services/artifactEngine.js";
 
-function isSafeTemplatePath(path: string): boolean {
+const SECRET_PATH_SEGMENTS = [
+  "credentials.json",
+  "credentials.yml",
+  "credentials.yaml",
+  "service-account.json",
+  "service_account.json",
+  "secrets.json",
+  "secrets.yml",
+  "secrets.yaml",
+  ".npmrc",
+  ".pypirc",
+  ".netrc",
+];
+
+const SECRET_CONTENT_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
+  /\bsk_live_[A-Za-z0-9]+\b/,
+  /\bwhsec_[A-Za-z0-9]+\b/,
+  /\bgithub_pat_[A-Za-z0-9_]+\b/,
+  /\bghp_[A-Za-z0-9]+\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]+\b/,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /\b(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|TWILIO_AUTH_TOKEN|GITHUB_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY)\s*[=:]\s*["']?(?!your-|replace-|example|test-|\$\{|<)[^\s"']{12,}/i,
+];
+
+export function isSafeTemplatePath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").toLowerCase();
   if (normalized.includes("..")) return false;
   if (normalized.startsWith("node_modules/")) return false;
@@ -19,12 +44,30 @@ function isSafeTemplatePath(path: string): boolean {
     return false;
   }
   if (/\.(pem|key|p12|pfx|jks)$/i.test(normalized)) return false;
+  if (
+    SECRET_PATH_SEGMENTS.some(
+      (segment) =>
+        normalized === segment || normalized.endsWith(`/${segment}`),
+    )
+  ) {
+    return false;
+  }
   return true;
 }
 
-function safeTemplateFiles(files: Record<string, string>): Record<string, string> {
+export function isSafeTemplateContent(content: string): boolean {
+  const sample = content.slice(0, 500_000);
+  return !SECRET_CONTENT_PATTERNS.some((pattern) => pattern.test(sample));
+}
+
+export function safeTemplateFiles(
+  files: Record<string, string>,
+): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(files).filter(([path]) => isSafeTemplatePath(path)),
+    Object.entries(files).filter(
+      ([path, content]) =>
+        isSafeTemplatePath(path) && isSafeTemplateContent(content),
+    ),
   );
 }
 
