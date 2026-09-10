@@ -33,13 +33,20 @@ export async function claimProjectBuildStart(
 export async function releaseProjectBuildClaim(
   projectId: number,
   userId: number,
-  previousStatus: StartableBuildStatus,
+  previousStatus: string | null,
   previousPauseReason: string | null,
 ): Promise<void> {
+  const rollbackStatus: StartableBuildStatus =
+    previousStatus === "pending" ||
+    previousStatus === "paused" ||
+    previousStatus === "failed"
+      ? previousStatus
+      : "failed";
+
   await db
     .update(schema.projects)
     .set({
-      status: previousStatus,
+      status: rollbackStatus,
       pauseReason: previousPauseReason,
       updatedAt: new Date(),
     })
