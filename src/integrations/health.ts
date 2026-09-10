@@ -1,6 +1,7 @@
 import {
   APPFORGE_INTEGRATIONS,
   type AppForgeIntegrationDefinition,
+  type AppForgeIntegrationKind,
 } from "./catalog.js";
 
 export type IntegrationConnectionState =
@@ -12,6 +13,9 @@ export type IntegrationConnectionState =
 export type IntegrationHealth = {
   id: string;
   name: string;
+  kind: AppForgeIntegrationKind;
+  job: string;
+  capabilities: string[];
   state: IntegrationConnectionState;
   configured: boolean;
   verified: boolean;
@@ -39,6 +43,9 @@ function result(
   return {
     id: definition.id,
     name: definition.name,
+    kind: definition.kind,
+    job: definition.job,
+    capabilities: definition.capabilities,
     state,
     configured,
     verified,
