@@ -48,6 +48,8 @@ describe("logout session revocation", () => {
     expect(client).toContain(
       'throw new Error("Authentication service is temporarily unavailable.")',
     );
-    expect(client).not.toContain("`Supabase request failed: ${response.status}`");
+    expect(client).not.toContain(
+      "`Supabase request failed: ${response.status}`",
+    );
   });
 });
