@@ -1,4 +1,5 @@
-import { createClient as createRedisClient } from 'redis';
+import { createClient as createRedisClient } from "redis";
+import { logger } from "../_core/logger.js";
 
 export interface RedisConfig {
   host: string;
@@ -13,10 +14,10 @@ export function createClient(config?: RedisConfig) {
   if (redisClient) return redisClient;
 
   const redisConfig: RedisConfig = {
-    host: config?.host || process.env.REDIS_HOST || 'localhost',
-    port: config?.port || parseInt(process.env.REDIS_PORT || '6379'),
+    host: config?.host || process.env.REDIS_HOST || "localhost",
+    port: config?.port || parseInt(process.env.REDIS_PORT || "6379"),
     password: config?.password || process.env.REDIS_PASSWORD,
-    db: config?.db || parseInt(process.env.REDIS_DB || '0'),
+    db: config?.db || parseInt(process.env.REDIS_DB || "0"),
   };
 
   redisClient = createRedisClient({
@@ -25,14 +26,20 @@ export function createClient(config?: RedisConfig) {
     database: redisConfig.db,
   });
 
-  redisClient.on('error', (err) => console.error('Redis Client Error:', err));
-  redisClient.on('connect', () => console.log('Redis Client Connected'));
-  redisClient.connect().catch(console.error);
+  redisClient.on("error", (err) =>
+    logger.error({ error: err }, "redis_client_error"),
+  );
+  redisClient.on("connect", () => logger.info({}, "redis_client_connected"));
+  redisClient
+    .connect()
+    .catch((err) => logger.error({ error: err }, "redis_connect_failed"));
 
   return redisClient;
 }
 
-export function getRedisClient() { return redisClient; }
+export function getRedisClient() {
+  return redisClient;
+}
 export async function closeRedisClient() {
   if (redisClient) {
     await redisClient.quit();
