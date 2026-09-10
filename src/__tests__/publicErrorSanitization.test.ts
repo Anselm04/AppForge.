@@ -26,7 +26,9 @@ describe("public error sanitization", () => {
   });
 
   it("does not expose raw generate exceptions", () => {
-    expect(generate).toContain('logger.error({ error: err }, "generate_failed")');
+    expect(generate).toContain(
+      'logger.error({ error: err }, "generate_failed")',
+    );
     expect(generate).toContain('error: "generate_failed"');
     expect(generate).not.toContain('console.error("generate failed:"');
     expect(generate).not.toContain("err instanceof Error ? err.message");
@@ -40,7 +42,9 @@ describe("public error sanitization", () => {
   });
 
   it("does not expose Stripe provider errors from serverless checkout", () => {
-    expect(serverlessCheckout).toContain('error: "Unable to start checkout."');
+    expect(serverlessCheckout).toContain(
+      'error: "Unable to start checkout."',
+    );
     expect(serverlessCheckout).not.toContain("session.error?.message");
   });
 });
