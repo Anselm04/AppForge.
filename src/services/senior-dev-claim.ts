@@ -1,10 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 
+const STARTABLE_SENIOR_DEV_STATUSES = ["planning", "failed"];
+type StartableSeniorDevStatus = (typeof STARTABLE_SENIOR_DEV_STATUSES)[number];
+
 /**
- * Atomically claims a newly-created Senior Dev task for its first execution.
- * Exactly one concurrent starter can transition planning -> executing.
+ * Atomically claims a new or retryable Senior Dev task for execution.
+ * Exactly one concurrent starter can transition planning/failed -> executing.
  */
 export async function claimSeniorDevStart(
   taskId: number,
@@ -17,7 +20,7 @@ export async function claimSeniorDevStart(
       and(
         eq(schema.seniorDevTasks.id, taskId),
         eq(schema.seniorDevTasks.userId, userId),
-        eq(schema.seniorDevTasks.status, "planning"),
+        inArray(schema.seniorDevTasks.status, STARTABLE_SENIOR_DEV_STATUSES),
       ),
     )
     .returning({ id: schema.seniorDevTasks.id });
@@ -25,14 +28,18 @@ export async function claimSeniorDevStart(
   return claimed.length === 1;
 }
 
-/** Restore a first-run claim if reservation charging fails before execution. */
+/** Restore the pre-claim state if reservation charging fails before execution. */
 export async function releaseSeniorDevStartClaim(
   taskId: number,
   userId: number,
+  previousStatus: string | null,
 ): Promise<void> {
+  const rollbackStatus: StartableSeniorDevStatus =
+    previousStatus === "failed" ? "failed" : "planning";
+
   await db
     .update(schema.seniorDevTasks)
-    .set({ status: "planning", updatedAt: new Date() })
+    .set({ status: rollbackStatus, updatedAt: new Date() })
     .where(
       and(
         eq(schema.seniorDevTasks.id, taskId),
