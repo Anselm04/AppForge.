@@ -155,7 +155,7 @@ app.use(cookieParser(ENV.cookieSecret));
       "Webhook rate limit exceeded. Please retry with exponential backoff.",
   });
   app.use("/api/webhooks/stripe", webhookLimiter);
-})().catch(() => {});
+})().catch((error) => logger.error({ error }, "webhook_rate_limiter_init_failed"));
 
 // Stripe webhook (raw body required — before JSON parser)
 app.post(
@@ -201,7 +201,7 @@ app.use(express.json({ limit: "10mb" }));
   app.use("/api/trpc/projects.create", buildLimiter);
   app.use("/api/generate", buildLimiter);
   app.use("/api/trpc", apiLimiter);
-})().catch(() => {});
+})().catch((error) => logger.error({ error }, "api_rate_limiter_init_failed"));
 
 // ── Health check (with DB verification on / , liveness on /live) ──
 app.use("/api/health", healthRouter);
@@ -329,7 +329,10 @@ app.use(
     const isDev = process.env.NODE_ENV === "development";
 
     if (status >= 500) {
-      console.error(`Unhandled error: ${err.message}`, err.stack);
+      logger.error(
+        { error: err, method: req.method, path: req.path, status },
+        "unhandled_http_error",
+      );
     }
 
     if (res.headersSent) return;
@@ -344,10 +347,10 @@ app.use(
 
 // ── Graceful shutdown ──
 process.on("unhandledRejection", (reason) => {
-  console.error("unhandledRejection", reason);
+  logger.error({ reason }, "unhandled_rejection");
 });
 process.on("uncaughtException", (err) => {
-  console.error("uncaughtException", err);
+  logger.error({ error: err }, "uncaught_exception");
 });
 
 let server: ReturnType<typeof app.listen>;
@@ -355,12 +358,10 @@ let server: ReturnType<typeof app.listen>;
 async function start() {
   const envResult = validateEnv(process.env as any);
   if (envResult.errors.length > 0) {
-    console.error("Environment validation errors:");
-    envResult.errors.forEach((e) => console.error(`  - ${e}`));
+    logger.error({ errors: envResult.errors }, "environment_validation_failed");
   }
   if (envResult.warnings.length > 0) {
-    console.warn("Environment validation warnings:");
-    envResult.warnings.forEach((w) => console.warn(`  - ${w}`));
+    logger.warn({ warnings: envResult.warnings }, "environment_validation_warnings");
   }
   if (
     process.env.ENFORCE_ENV_VALIDATION !== "false" &&
@@ -375,25 +376,25 @@ async function start() {
   try {
     await ensureAppSchema();
   } catch (err) {
-    console.error("Schema ensure failed:", err);
+    logger.error({ error: err }, "schema_ensure_failed");
     if (ENV.isProduction) throw err;
   }
   server = app.listen(PORT, () => {
-    console.log(`AppForge server running on http://localhost:${PORT}`);
+    logger.info({ port: PORT }, "appforge_server_started");
     import("./services/build-queue.js")
       .then(({ startBuildQueueWorker }) => {
         const stopQueue = startBuildQueueWorker(2000);
         process.on("SIGTERM", () => stopQueue());
         process.on("SIGINT", () => stopQueue());
       })
-      .catch(() => {});
+      .catch((error) => logger.error({ error }, "build_queue_worker_start_failed"));
     import("./services/vantaSync.js")
       .then(({ startVantaPoller }) => {
         const stopVanta = startVantaPoller();
         process.on("SIGTERM", () => stopVanta());
         process.on("SIGINT", () => stopVanta());
       })
-      .catch(() => {});
+      .catch((error) => logger.error({ error }, "vanta_poller_start_failed"));
     if (ENV.isProduction && ENV.sentryDsn) {
       import("./agents/selfHealing.js")
         .then(({ startSelfHealingWatcher }) => {
@@ -401,7 +402,7 @@ async function start() {
           process.on("SIGTERM", () => stopWatcher());
           process.on("SIGINT", () => stopWatcher());
         })
-        .catch(() => {});
+        .catch((error) => logger.error({ error }, "self_healing_watcher_start_failed"));
     }
   });
   server.keepAliveTimeout = 65000;
@@ -409,23 +410,23 @@ async function start() {
 }
 
 function shutdown(signal: string) {
-  console.log(`${signal} received, shutting down gracefully`);
+  logger.info({ signal }, "shutdown_requested");
   if (!server) {
     process.exit(0);
     return;
   }
   server.close(async () => {
-    console.log("HTTP server closed");
+    logger.info({}, "http_server_closed");
     try {
       await closeDbConnection();
-      console.log("Database connection closed");
+      logger.info({}, "database_connection_closed");
     } catch (err) {
-      console.error("Error closing DB:", err);
+      logger.error({ error: err }, "database_close_failed");
     }
     process.exit(0);
   });
   setTimeout(() => {
-    console.error("Forced shutdown after timeout");
+    logger.error({}, "forced_shutdown_timeout");
     process.exit(1);
   }, 30000);
 }
