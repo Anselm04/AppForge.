@@ -1,0 +1,64 @@
+name: Patch auth cookie hardening v2 once
+
+on:
+  push:
+    branches:
+      - hardening/auth-cookie-no-query-token
+    paths:
+      - .github/workflows/patch-auth-cookie-v2-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/auth-cookie-no-query-token
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Apply exact auth hardening patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def replace(path, old, new, count=1):
+              p=Path(path); s=p.read_text()
+              if old not in s: raise SystemExit(f'expected anchor not found in {path}: {old[:80]!r}')
+              p.write_text(s.replace(old,new,count))
+          replace('src/routes/authSession.ts','import { getCsrfToken } from "../lib/csrf.js";\n','')
+          replace('src/server.ts','import { checkoutRouter } from "./routes/checkout.js";\n','import { checkoutRouter } from "./routes/checkout.js";\nimport { authSessionRouter } from "./routes/authSession.js";\n')
+          replace('src/server.ts','app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);\n','app.use("/api/checkout", supabaseAuthMiddleware, checkoutRouter);\napp.use("/api/auth", authSessionRouter);\n')
+          replace('src/lib/auth.ts',"import { supabaseClient } from './supabase-client';\n","import { supabaseClient } from './supabase-client';\nimport { withCsrfHeaders } from './csrf';\n")
+          replace('src/lib/auth.ts', '''export function authedUrl(path: string): string {\n  const token = getAccessToken();\n  if (!token) return path;\n  const sep = path.includes('?') ? '&' : '?';\n  return `${path}${sep}token=${encodeURIComponent(token)}`;\n}\n''', '''/** Same-origin authenticated URLs rely on the Secure HttpOnly access cookie. */\nexport function authedUrl(path: string): string {\n  return path;\n}\n\nasync function syncServerSession(accessToken: string): Promise<void> {\n  const headers = await withCsrfHeaders({ Authorization: `Bearer ${accessToken}`, Accept: 'application/json' });\n  const res = await fetch('/api/auth/session', { method: 'POST', credentials: 'same-origin', headers });\n  if (!res.ok) throw new Error(`Failed to establish secure browser session (${res.status})`);\n}\n''')
+          replace('src/lib/auth.ts','''      saveSession(next);\n      return next;''','''      saveSession(next);\n      await syncServerSession(next.accessToken);\n      return next;''')
+          replace('src/lib/auth.ts','''  if (session) saveSession(session);\n  return result;''','''  if (session) {\n    saveSession(session);\n    await syncServerSession(session.accessToken);\n  }\n  return result;''')
+          replace('src/lib/auth.ts','''  saveSession(session);\n  return session;\n}\n\nexport async function listProjects''','''  saveSession(session);\n  await syncServerSession(session.accessToken);\n  return session;\n}\n\nexport async function listProjects''')
+          replace('src/hooks/useSeniorDev.ts','import { getAccessToken, authedUrl } from "../lib/auth.js";','import { getAccessToken } from "../lib/auth.js";')
+          replace('src/hooks/useSeniorDev.ts','new EventSource(authedUrl(`/api/build/senior/${taskId}`))','new EventSource(`/api/build/senior/${taskId}`)')
+          replace('src/hooks/useSeniorDev.ts','authedUrl(`/api/build/senior/${taskId}/resume`),','`/api/build/senior/${taskId}/resume`,')
+          replace('src/hooks/useSeniorDev.ts','// after kicking resume (GET SSE on resume endpoint via query-token EventSource).','// after kicking resume; authorization stays in the request header.')
+          replace('src/components/BuildLivePreview.tsx','import { authedUrl } from "../lib/auth.js";\n','')
+          replace('src/components/BuildLivePreview.tsx','authedUrl(`/sandbox-dev/${projectId}/`)','`/sandbox-dev/${projectId}/`')
+          replace('src/routers/index.ts','      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });\n','      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });\n      ctx.res.clearCookie("sb-access-token", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });\n')
+          replace('src/lib/__tests__/authSse.test.ts','it("sends JWT on generate SSE URL when a session exists", () => {','it("never places JWTs in authenticated URLs", () => {')
+          replace('src/lib/__tests__/authSse.test.ts','expect(authedUrl("/api/build/42")).toBe("/api/build/42?token=jwt-token");','expect(authedUrl("/api/build/42")).toBe("/api/build/42");\n    expect(authedUrl("/api/build/42")).not.toContain("jwt-token");')
+          replace('src/pages/__tests__/Home.firstPaint.test.tsx','expect(authedUrl("/api/build/9")).toBe("/api/build/9?token=tok");','expect(authedUrl("/api/build/9")).toBe("/api/build/9");')
+          PY
+      - name: Format and verify
+        run: |
+          npx prettier --write src/routes/authSession.ts src/server.ts src/lib/auth.ts src/hooks/useSeniorDev.ts src/components/BuildLivePreview.tsx src/routers/index.ts src/lib/__tests__/authSse.test.ts src/pages/__tests__/Home.firstPaint.test.tsx
+          git diff --check
+          npm run typecheck
+          npm run test -- --run
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/authSession.ts src/server.ts src/lib/auth.ts src/hooks/useSeniorDev.ts src/components/BuildLivePreview.tsx src/routers/index.ts src/lib/__tests__/authSse.test.ts src/pages/__tests__/Home.firstPaint.test.tsx
+          git commit -m "fix: move browser auth from URL tokens to HttpOnly cookie"
+          git push origin HEAD:hardening/auth-cookie-no-query-token
