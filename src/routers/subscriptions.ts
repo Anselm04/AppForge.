@@ -78,6 +78,19 @@ export const subscriptionsRouter = router({
             "Enterprise plans are sales-led. Contact AppForge for provisioning.",
         });
       }
+
+      const existing = await getSubscriptionByUserId(ctx.user.id);
+      if (
+        existing?.stripeCustomerId &&
+        (existing.status === "active" || existing.status === "trialing")
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "You already have an active subscription. Use Manage billing to change your plan without creating a second subscription.",
+        });
+      }
+
       try {
         return await createPlanCheckout(
           { id: ctx.user.id, email: ctx.user.email },
