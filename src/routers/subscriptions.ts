@@ -80,10 +80,8 @@ export const subscriptionsRouter = router({
       }
 
       const existing = await getSubscriptionByUserId(ctx.user.id);
-      if (
-        existing?.stripeCustomerId &&
-        (existing.status === "active" || existing.status === "trialing")
-      ) {
+      const existingTier = await getUserTier(ctx.user.id);
+      if (existing?.stripeCustomerId && existingTier !== "free") {
         throw new TRPCError({
           code: "CONFLICT",
           message:
