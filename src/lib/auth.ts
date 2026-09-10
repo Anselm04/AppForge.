@@ -210,8 +210,19 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
   if (!session.refreshToken) return session;
   if (!accessTokenExpired(session.accessToken)) return session;
+
+  const generationAtStart = sessionGeneration;
   const refreshed = await refreshSession();
-  return refreshed || getSession();
+  if (refreshed) return refreshed;
+
+  // If auth state changed while refresh was in flight, never overwrite the
+  // newer state (for example a successful login in another flow).
+  if (generationAtStart !== sessionGeneration) return getSession();
+
+  // The only remaining session is expired and could not be refreshed. Clear
+  // it instead of sending protected requests with a known-dead access token.
+  signOut();
+  return null;
 }
 
 export async function signUp(email: string, password: string) {
