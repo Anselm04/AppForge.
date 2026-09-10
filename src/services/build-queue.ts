@@ -18,6 +18,7 @@ const QUEUE_KEY = "appforge:build:queue";
 const BULL_QUEUE_NAME = "appforge-builds";
 const queueClaimKey = (projectId: number) =>
   `appforge:build:queued:${projectId}`;
+const isTerminalEvent = (event: string) => event === "done" || event === "error";
 
 async function refundDuplicateReservation(job: BuildJob): Promise<void> {
   if (!job.reservationCharged) return;
@@ -236,13 +237,30 @@ export async function subscribeBuildEvents(
 
   const sub = redis.duplicate() as RedisClientType;
   let active = true;
+  let closing: Promise<void> | null = null;
   await sub.connect();
   const channel = `appforge:build:${projectId}`;
+
+  const closeSubscription = (): Promise<void> => {
+    if (closing) return closing;
+    if (!active) return Promise.resolve();
+    active = false;
+    closing = (async () => {
+      try {
+        await sub.unsubscribe(channel);
+      } finally {
+        if (sub.isOpen) await sub.quit();
+      }
+    })();
+    return closing;
+  };
+
   await sub.subscribe(channel, (message) => {
     if (!active) return;
     try {
       const parsed = JSON.parse(message) as { event: string; data: unknown };
       handler(parsed.event, parsed.data);
+      if (isTerminalEvent(parsed.event)) void closeSubscription();
     } catch {
       logger.warn({ projectId }, "build_event_message_invalid");
     }
@@ -250,11 +268,13 @@ export async function subscribeBuildEvents(
 
   // Subscribe first, then read persisted terminal state. The worker stores each
   // event before Redis publication, so this closes the cross-instance gap
-  // between the route's historical replay and Redis subscription setup.
+  // between the route's historical replay and Redis subscription setup. A
+  // terminal result self-closes so route-level close timing cannot leak a sub.
   try {
     const terminal = await getLatestTerminalBuildEvent(projectId);
     if (active && terminal) {
       handler(terminal.event, terminal.payload);
+      await closeSubscription();
     }
   } catch (error: unknown) {
     logger.error(
@@ -263,15 +283,7 @@ export async function subscribeBuildEvents(
     );
   }
 
-  return async () => {
-    if (!active) return;
-    active = false;
-    try {
-      await sub.unsubscribe(channel);
-    } finally {
-      if (sub.isOpen) await sub.quit();
-    }
-  };
+  return closeSubscription;
 }
 
 export async function closeBuildQueue(): Promise<void> {
