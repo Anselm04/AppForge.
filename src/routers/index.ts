@@ -17,6 +17,7 @@ import { capabilitiesRouter } from "./capabilities.js";
 import { sandboxRouter } from "./sandbox.js";
 import { orgsRouter } from "./orgs.js";
 import { ssoRouter } from "./sso.js";
+import { ecosystemRouter } from "./ecosystem.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -52,6 +53,7 @@ export const appRouter = router({
   sandbox: sandboxRouter,
   orgs: orgsRouter,
   sso: ssoRouter,
+  ecosystem: ecosystemRouter,
 });
 
 export type AppRouter = typeof appRouter;
