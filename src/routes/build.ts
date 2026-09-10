@@ -528,7 +528,32 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ taskId: task.id, error: msg }, "senior_dev_resume_error");
     write("error", { message: msg });
-    await updateSeniorDevTaskStatus(task.id, "failed");
+    try {
+      if (!resumeUnlimited) {
+        await addCredits(
+          user.id,
+          SENIOR_DEV_BASE_COST,
+          "senior_dev_refund",
+          `Senior Dev Agent resume failed reservation refund for task ${task.id}`,
+          `senior-dev-resume-refund-${task.id}`,
+        );
+      }
+    } catch (refundErr: unknown) {
+      logger.error(
+        {
+          taskId: task.id,
+          error:
+            refundErr instanceof Error
+              ? refundErr.message
+              : "Unknown refund error",
+        },
+        "senior_dev_resume_refund_error",
+      );
+    }
+    await updateSeniorDevTask(task.id, {
+      status: "failed",
+      creditsSpent: 0,
+    });
   } finally {
     clearTimeout(timeout);
     clearInterval(heartbeat);
