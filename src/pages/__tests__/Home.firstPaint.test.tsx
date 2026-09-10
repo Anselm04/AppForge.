@@ -7,7 +7,7 @@ import { ThemeProvider } from "../../lib/theme";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { TopNav } from "../../components/TopNav";
 import { Home } from "../Home";
-import { getAccessToken, getSession, authedUrl, signOut } from "../../lib/auth";
+import { authHeaders, getAccessToken, getSession, signOut } from "../../lib/auth";
 
 vi.mock("../../utils/trpc.js", () => ({
   trpc: {
@@ -133,13 +133,13 @@ describe("Home first paint", () => {
     installStorage(throwing);
     expect(getSession()).toBeNull();
     expect(getAccessToken()).toBeNull();
-    expect(authedUrl("/api/build/1")).toBe("/api/build/1");
+    expect(authHeaders()).toEqual({});
     renderHome();
     expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
     expect(screen.getAllByText("AppForge").length).toBeGreaterThan(0);
   });
 
-  it("getSnapshot is stable for a valid session (authedUrl still appends token)", () => {
+  it("getSnapshot is stable for a valid session and auth stays header-only", () => {
     const session = { accessToken: "tok", user: { id: "u1", email: "a@b.c" } };
     installStorage(
       memoryStorage({ "appforge.session": JSON.stringify(session) }),
@@ -147,6 +147,6 @@ describe("Home first paint", () => {
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
-    expect(authedUrl("/api/build/9")).toBe("/api/build/9?token=tok");
+    expect(authHeaders()).toEqual({ Authorization: "Bearer tok" });
   });
 });
