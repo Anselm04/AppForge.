@@ -52,6 +52,43 @@ jobs:
             echo "FLY_API_TOKEN is not configured; refusing to report a false production deployment."
             exit 1
           fi
+      - name: Require revenue-critical Fly runtime secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          APP="appforge-unfurling-moon-9058"
+          SECRET_JSON="$(flyctl secrets list --app "$APP" --json)"
+          SECRET_NAMES="$(printf '%s' "$SECRET_JSON" | jq -r '.[] | (.Name // .name // empty)')"
+          required=(
+            DATABASE_URL
+            JWT_SECRET
+            COOKIE_SECRET
+            SUPABASE_URL
+            SUPABASE_SERVICE_ROLE_KEY
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_STARTER_PRICE_ID
+            STRIPE_BUILDER_PRICE_ID
+            STRIPE_STUDIO_PRICE_ID
+            STRIPE_CREDITS_50_PRICE_ID
+            STRIPE_CREDITS_100_PRICE_ID
+            STRIPE_CREDITS_250_PRICE_ID
+            BUILT_IN_FORGE_API_KEY
+            OWNER_EMAIL
+          )
+          missing=0
+          for name in "${required[@]}"; do
+            if ! grep -Fxq "$name" <<<"$SECRET_NAMES"; then
+              echo "Missing Fly runtime secret required for production: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, or collect money with the current Fly secret set."
+            exit 1
+          fi
+          echo "Revenue-critical Fly runtime secret names are configured."
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
