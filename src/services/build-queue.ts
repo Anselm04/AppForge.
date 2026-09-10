@@ -26,7 +26,7 @@ async function getRedis(): Promise<RedisClientType | null> {
   return redisClient;
 }
 
-/** Prefer BullMQ when available — durable jobs, retries, horizontal workers. */
+/** Prefer BullMQ when available — durable jobs and horizontal workers. */
 async function initBullMQ(): Promise<boolean> {
   if (bullQueue) return true;
   if (!ENV.redisUrl) return false;
@@ -115,12 +115,16 @@ export async function enqueueBuild(job: BuildJob): Promise<void> {
   }
   if (bullQueue) {
     try {
+      // runBuildJob owns terminal failure handling and idempotent reservation
+      // refunds. Queue-level retries would retry after that terminal recovery,
+      // which can produce a successful free build after the reservation was
+      // already returned. Keep one durable queue delivery; pipeline-level
+      // retry/recovery remains inside the worker/agent pipeline.
       await bullQueue.add("build", job, {
-        jobId: `build-${job.projectId}-${Date.now()}`,
+        jobId: `build-${job.projectId}-${job.createdAt}`,
         removeOnComplete: 100,
         removeOnFail: 50,
-        attempts: 2,
-        backoff: { type: "exponential", delay: 5000 },
+        attempts: 1,
       });
       logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
       return;
