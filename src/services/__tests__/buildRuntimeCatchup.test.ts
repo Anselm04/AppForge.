@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getLatestTerminalBuildEvent = vi.fn();
+const { getLatestTerminalBuildEvent } = vi.hoisted(() => ({
+  getLatestTerminalBuildEvent: vi.fn(),
+}));
 
 vi.mock("../build-event-store.js", () => ({
   getLatestTerminalBuildEvent,
@@ -11,6 +13,12 @@ import {
   publishRuntimeBuildEvent,
   subscribeRuntimeBuildEvents,
 } from "../build-runtime.js";
+
+type TerminalEvent = {
+  id: number;
+  event: string;
+  payload: unknown;
+};
 
 describe("build runtime subscription catch-up", () => {
   beforeEach(() => {
@@ -37,10 +45,8 @@ describe("build runtime subscription catch-up", () => {
     unsubscribe();
   });
 
-  it("attaches the live listener before the persisted catch-up resolves", async () => {
-    let resolveCatchup: (
-      value: { id: number; event: string; payload: unknown } | null,
-    ) => void = () => undefined;
+  it("attaches the live listener before persisted catch-up resolves", async () => {
+    let resolveCatchup: (value: TerminalEvent | null) => void = () => undefined;
     getLatestTerminalBuildEvent.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -63,9 +69,7 @@ describe("build runtime subscription catch-up", () => {
   });
 
   it("does not deliver a late catch-up after unsubscribe", async () => {
-    let resolveCatchup: (
-      value: { id: number; event: string; payload: unknown } | null,
-    ) => void = () => undefined;
+    let resolveCatchup: (value: TerminalEvent | null) => void = () => undefined;
     getLatestTerminalBuildEvent.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -76,7 +80,11 @@ describe("build runtime subscription catch-up", () => {
 
     const unsubscribe = subscribeRuntimeBuildEvents(101, handler);
     unsubscribe();
-    resolveCatchup({ id: 10, event: "error", payload: { error: "build_failed" } });
+    resolveCatchup({
+      id: 10,
+      event: "error",
+      payload: { error: "build_failed" },
+    });
     await Promise.resolve();
     await Promise.resolve();
 
