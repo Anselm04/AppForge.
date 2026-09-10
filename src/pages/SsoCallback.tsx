@@ -14,44 +14,52 @@ export function SsoCallback() {
   const [params] = useSearchParams();
 
   useEffect(() => {
-    const raw = params.get("session");
     const next = safeNext(params.get("next"));
-    if (!raw) {
-      navigate(
-        `/login?error=sso_session_missing&next=${encodeURIComponent(next)}`,
-        {
-          replace: true,
-        },
-      );
-      return;
-    }
-    try {
-      const session = JSON.parse(decodeURIComponent(raw)) as {
-        accessToken?: string;
-        refreshToken?: string;
-        user?: { id: string; email?: string };
-      };
-      if (!session.accessToken || !session.user?.id) {
-        throw new Error("Invalid SSO session payload");
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/sso/session", {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error("SSO session unavailable");
+        }
+
+        const session = (await response.json()) as {
+          accessToken?: string;
+          refreshToken?: string;
+          user?: { id: string; email?: string };
+        };
+        if (!session.accessToken || !session.user?.id) {
+          throw new Error("Invalid SSO session payload");
+        }
+
+        localStorage.setItem(
+          "appforge.session",
+          JSON.stringify({
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            user: session.user,
+          }),
+        );
+        void queryClient.invalidateQueries({ queryKey: ["auth"] });
+        if (!cancelled) navigate(next, { replace: true });
+      } catch {
+        if (!cancelled) {
+          navigate(
+            `/login?error=sso_session_invalid&next=${encodeURIComponent(next)}`,
+            { replace: true },
+          );
+        }
       }
-      localStorage.setItem(
-        "appforge.session",
-        JSON.stringify({
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          user: session.user,
-        }),
-      );
-      void queryClient.invalidateQueries({ queryKey: ["auth"] });
-      navigate(next, { replace: true });
-    } catch {
-      navigate(
-        `/login?error=sso_session_invalid&next=${encodeURIComponent(next)}`,
-        {
-          replace: true,
-        },
-      );
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [params, navigate, queryClient]);
 
   return (
