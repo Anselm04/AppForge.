@@ -6,12 +6,12 @@ import {
   billingExpressMeRoute,
   billingMeRoute,
   billingSchemaSql,
-  billingSessionModule,
   billingSetupReadme,
   billingSubscriptionsModule,
   billingWebhookHandlers,
   requireProComponent,
 } from "../lib/billingScaffoldTemplates.js";
+import { secureBillingSessionModule } from "../lib/secureBillingSessionTemplate.js";
 
 type Files = Record<string, string>;
 
@@ -33,29 +33,28 @@ import { getUserIdFromRequest } from "../../../lib/auth/session.js";
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) {
-    return NextResponse.json({ error: "STRIPE_SECRET_KEY not configured" }, { status: 503 });
+  const priceId = process.env.STRIPE_PRICE_ID;
+  if (!stripeKey || !priceId) {
+    return NextResponse.json({ error: "Billing is not configured" }, { status: 503 });
+  }
+  const sessionUserId = getUserIdFromRequest(req);
+  if (!sessionUserId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const body = (await req.json()) as {
-    priceId?: string;
-    customerEmail?: string;
-    userId?: string;
-  };
-  const sessionUserId = getUserIdFromRequest(req) ?? body.userId;
-  const priceId = body.priceId ?? process.env.STRIPE_PRICE_ID;
-  if (!priceId) {
-    return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) {
+    return NextResponse.json({ error: "APP_URL not configured" }, { status: 503 });
   }
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
-    cancel_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/pricing\`,
-    customer_email: body.customerEmail,
-    client_reference_id: sessionUserId ?? body.customerEmail,
-    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
+    success_url: \`\${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
+    cancel_url: \`\${appUrl}/pricing\`,
+    client_reference_id: sessionUserId,
+    metadata: { userId: sessionUserId },
+    subscription_data: { metadata: { userId: sessionUserId } },
   });
   return NextResponse.json({ url: session.url });
 }
@@ -65,34 +64,45 @@ import { getUserIdFromRequest } from "../../lib/auth/session.js";
 
 export async function createCheckoutSession(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) {
-    res.status(503).json({ error: "STRIPE_SECRET_KEY not configured" });
+  const priceId = process.env.STRIPE_PRICE_ID;
+  if (!stripeKey || !priceId) {
+    res.status(503).json({ error: "Billing is not configured" });
+    return;
+  }
+  const sessionUserId = getUserIdFromRequest(req);
+  if (!sessionUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) {
+    res.status(503).json({ error: "APP_URL not configured" });
     return;
   }
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const { priceId, customerEmail, userId } = req.body as {
-    priceId?: string;
-    customerEmail?: string;
-    userId?: string;
-  };
-  const resolvedPrice = priceId ?? process.env.STRIPE_PRICE_ID;
-  if (!resolvedPrice) {
-    res.status(400).json({ error: "Missing priceId" });
-    return;
-  }
-  const sessionUserId = getUserIdFromRequest(req) ?? userId;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: resolvedPrice, quantity: 1 }],
-    success_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
-    cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
-    customer_email: customerEmail,
-    client_reference_id: sessionUserId ?? customerEmail,
-    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: \`\${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
+    cancel_url: \`\${appUrl}/pricing\`,
+    client_reference_id: sessionUserId,
+    metadata: { userId: sessionUserId },
+    subscription_data: { metadata: { userId: sessionUserId } },
   });
   res.json({ url: session.url });
 }
+`;
+
+  const securitySetup = `
+
+## Required authentication integration
+
+- Set \`SESSION_SECRET\` to a cryptographically random value of at least 32 characters.
+- The generated billing session cookie is HMAC-signed, HttpOnly, Secure, and SameSite=Lax.
+- Only call \`createSignedUserSessionCookie(userId)\` after your server has verified the user through your real authentication provider (for example Supabase Auth, Clerk, or Auth.js).
+- Never accept a billing user ID, Stripe price ID, customer email, success URL, or cancel URL from browser input as authority.
+- Checkout fails closed unless the signed user session, \`STRIPE_PRICE_ID\`, \`STRIPE_SECRET_KEY\`, and \`APP_URL\` are configured.
 `;
 
   return {
@@ -106,6 +116,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
           "STRIPE_WEBHOOK_SECRET",
           "STRIPE_PRICE_ID",
           "APP_URL",
+          "SESSION_SECRET",
         ],
         clientEnv: ["VITE_STRIPE_PUBLISHABLE_KEY"],
         webhookEvents: [
@@ -120,11 +131,11 @@ export async function createCheckoutSession(req: Request, res: Response) {
       null,
       2,
     ),
-    "billing/SETUP.md": billingSetupReadme(isNext),
+    "billing/SETUP.md": billingSetupReadme(isNext) + securitySetup,
     "src/lib/billing/db.ts": billingDbModule(),
     "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
     "src/lib/billing/entitlements.ts": billingEntitlementsModule(),
-    "src/lib/auth/session.ts": billingSessionModule(),
+    "src/lib/auth/session.ts": secureBillingSessionModule(),
     "src/components/RequirePro.tsx": requireProComponent(),
     "database/billing-schema.sql": billingSchemaSql(),
     ...(isNext
@@ -146,7 +157,7 @@ export function PricingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function startCheckout(priceId?: string) {
+  async function startCheckout() {
     setLoading(true);
     setError(null);
     try {
@@ -154,11 +165,6 @@ export function PricingPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: priceId ?? import.meta.env.VITE_STRIPE_PRICE_ID,
-          customerEmail: localStorage.getItem("userEmail") ?? undefined,
-          userId: localStorage.getItem("userId") ?? undefined,
-        }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Checkout failed");
@@ -239,6 +245,13 @@ export function validateBillingScaffold(files: Files): {
   const missing: string[] = [];
   const text = Object.keys(files).join("\n").toLowerCase();
   const content = Object.values(files).join("\n").toLowerCase();
+  const checkoutContent = Object.entries(files)
+    .filter(([path]) => path.toLowerCase().includes("checkout"))
+    .map(([, value]) => value)
+    .join("\n")
+    .toLowerCase();
+  const pricingContent = (files["src/pages/PricingPage.tsx"] ?? "").toLowerCase();
+  const sessionContent = (files["src/lib/auth/session.ts"] ?? "").toLowerCase();
 
   if (!text.includes("checkout") && !content.includes("checkout.sessions")) {
     missing.push("checkout route");
@@ -269,6 +282,32 @@ export function validateBillingScaffold(files: Files): {
     !content.includes("getuseridfromrequest")
   ) {
     missing.push("auth session linked to checkout");
+  }
+  if (
+    !sessionContent.includes("createhmac") ||
+    !sessionContent.includes("timingsafeequal") ||
+    !sessionContent.includes("session_secret")
+  ) {
+    missing.push("cryptographically verified billing session");
+  }
+  if (
+    !checkoutContent.includes("process.env.stripe_price_id") ||
+    checkoutContent.includes("body.priceid") ||
+    checkoutContent.includes("req.body") && checkoutContent.includes("priceid")
+  ) {
+    missing.push("server-owned Stripe price");
+  }
+  if (
+    checkoutContent.includes("body.userid") ||
+    checkoutContent.includes("customeremail") ||
+    pricingContent.includes("vite_stripe_price_id") ||
+    pricingContent.includes("localstorage.getitem(\"userid\")") ||
+    pricingContent.includes("localstorage.getitem(\"useremail\")")
+  ) {
+    missing.push("server-owned billing identity");
+  }
+  if (!checkoutContent.includes("not authenticated") || !checkoutContent.includes("401")) {
+    missing.push("checkout fails closed for unauthenticated users");
   }
   if (
     !content.includes("requirepro") &&
