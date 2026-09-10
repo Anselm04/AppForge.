@@ -6,6 +6,15 @@ import { logger } from "../_core/logger.js";
 
 const router = Router();
 
+function setNoStoreHeaders(res: Response) {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate",
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
+
 router.get("/", async (_req: Request, res: Response) => {
   const health = {
     status: "ok",
@@ -26,20 +35,17 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 
   const statusCode = health.status === "ok" ? 200 : 503;
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate",
-  );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
+  setNoStoreHeaders(res);
   return res.status(statusCode).json(health);
 });
 
 router.get("/live", (_req: Request, res: Response) => {
+  setNoStoreHeaders(res);
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 router.get("/ready", async (_req: Request, res: Response) => {
+  setNoStoreHeaders(res);
   try {
     await db.execute(sql`SELECT 1`);
     res.status(200).json({ status: "ok", ready: true });
@@ -56,10 +62,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
 // whether each integration has the minimum expected configuration present.
 router.get("/integrations", (_req: Request, res: Response) => {
   const summary = summarizeTeamIntegrations();
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate",
-  );
+  setNoStoreHeaders(res);
   return res.status(200).json({
     status: summary.productionReady ? "configured" : "incomplete",
     configured: summary.configured,
