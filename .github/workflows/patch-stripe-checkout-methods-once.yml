@@ -1,0 +1,48 @@
+name: Patch Stripe checkout methods once
+
+on:
+  push:
+    branches:
+      - hardening/stripe-checkout-dynamic-methods
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/stripe-checkout-dynamic-methods
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Use Stripe dynamic payment methods
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          changed=[]
+          for name in ['src/routes/checkout.ts','src/routers/subscriptions.ts']:
+              p=Path(name)
+              s=p.read_text()
+              old='        payment_method_types: ["card"],\n'
+              count=s.count(old)
+              if count == 0:
+                  raise SystemExit(f'payment_method_types pattern not found in {name}')
+              p.write_text(s.replace(old,''))
+              changed.append((name,count))
+          print(changed)
+          PY
+      - run: npx prettier --write src/routes/checkout.ts src/routers/subscriptions.ts
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/routes/checkout.ts src/routers/subscriptions.ts
+          git commit -m "fix: use Stripe dynamic checkout payment methods" || exit 0
+          git push origin HEAD:hardening/stripe-checkout-dynamic-methods
