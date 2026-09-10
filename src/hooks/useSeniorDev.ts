@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
-import { getAccessToken, authedUrl } from "../lib/auth.js";
+import { getAccessToken } from "../lib/auth.js";
+import { consumeAuthedSse, readSseBody } from "../lib/authedSse.js";
 
 export type DevMode = "collaborative" | "autonomous";
 
@@ -47,19 +48,75 @@ export function useSeniorDev() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const streamControllerRef = useRef<AbortController | null>(null);
 
   const disconnect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = null;
   }, []);
 
   const addMessage = useCallback((msg: ProgressMessage) => {
     setMessages((prev) => [...prev, msg]);
     setStage(msg.stage);
   }, []);
+
+  const handleStreamEvent = useCallback(
+    (event: string, raw: string) => {
+      if (event === "progress") {
+        try {
+          const data = JSON.parse(raw) as ProgressMessage;
+          addMessage(data);
+          if ((data.detail?.steps as unknown[])?.length) {
+            setPlan(data.detail as unknown as AgentPlan);
+          }
+        } catch {
+          addMessage({ stage: "executing", message: raw });
+        }
+        return;
+      }
+
+      if (event === "awaiting_approval") {
+        try {
+          const data = JSON.parse(raw) as { plan?: AgentPlan };
+          if (data.plan) setPlan(data.plan);
+        } catch {
+          /* keep the state transition even if payload parsing fails */
+        }
+        setStage("awaiting_approval");
+        addMessage({
+          stage: "awaiting_approval",
+          message: "Plan ready — review and approve to continue.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (event === "done") {
+        try {
+          setResult(JSON.parse(raw) as DevResult);
+        } catch {
+          /* noop */
+        }
+        setIsLoading(false);
+        disconnect();
+        return;
+      }
+
+      if (event === "error") {
+        try {
+          const data = JSON.parse(raw) as { message?: string };
+          setError(data.message ?? "Unknown error");
+          addMessage({ stage: "failed", message: data.message ?? raw });
+        } catch {
+          setError("Stream error");
+          addMessage({ stage: "failed", message: raw });
+        }
+        setIsLoading(false);
+        disconnect();
+      }
+    },
+    [addMessage, disconnect],
+  );
 
   const attachSeniorDevStream = useCallback(
     (taskId: number) => {
@@ -72,59 +129,25 @@ export function useSeniorDev() {
       setStage("planning");
       setActiveTaskId(taskId);
 
-      const es = new EventSource(authedUrl(`/api/build/senior/${taskId}`));
-      eventSourceRef.current = es;
+      const controller = new AbortController();
+      streamControllerRef.current = controller;
 
-      es.addEventListener("progress", (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data) as ProgressMessage;
-          addMessage(data);
-          if ((data.detail?.steps as unknown[])?.length) {
-            setPlan(data.detail as unknown as AgentPlan);
-          }
-        } catch {
-          addMessage({ stage: "executing", message: e.data });
-        }
-      });
-
-      es.addEventListener("awaiting_approval", (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data) as { plan?: AgentPlan };
-          if (data.plan) setPlan(data.plan);
-          setStage("awaiting_approval");
-          addMessage({
-            stage: "awaiting_approval",
-            message: "Plan ready — review and approve to continue.",
-          });
-        } catch {
-          setStage("awaiting_approval");
-        }
+      void consumeAuthedSse(
+        `/api/build/senior/${taskId}`,
+        handleStreamEvent,
+        controller.signal,
+      ).catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+        setStage("failed");
         setIsLoading(false);
-      });
-
-      es.addEventListener("done", (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data) as DevResult;
-          setResult(data);
-        } catch {
-          /* noop */
+        if (streamControllerRef.current === controller) {
+          streamControllerRef.current = null;
         }
-        setIsLoading(false);
-        disconnect();
-      });
-
-      es.addEventListener("error", (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data) as { message: string };
-          setError(data.message ?? "Unknown error");
-        } catch {
-          setError("Stream error");
-        }
-        setIsLoading(false);
-        disconnect();
       });
     },
-    [disconnect, addMessage],
+    [disconnect, handleStreamEvent],
   );
 
   const startTask = useCallback(
@@ -189,81 +212,39 @@ export function useSeniorDev() {
       }
 
       setStage("executing");
+      setIsLoading(true);
       addMessage({
         stage: "executing",
         message: "Plan approved. Executing changes...",
       });
 
-      // Resume uses POST /resume — open a short-lived fetch stream via EventSource
-      // after kicking resume (GET SSE on resume endpoint via query-token EventSource).
-      const resumeRes = await fetch(
-        authedUrl(`/api/build/senior/${taskId}/resume`),
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
+      const token = getAccessToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const resumeRes = await fetch(`/api/build/senior/${taskId}/resume`, {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          "Cache-Control": "no-cache",
+          "X-No-Compression": "1",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        credentials: "same-origin",
+        cache: "no-store",
+      });
       if (!resumeRes.ok || !resumeRes.body) {
         throw new Error("Failed to resume Senior Dev after approval");
       }
 
-      // Parse SSE from fetch body (resume is POST, not EventSource-compatible)
-      const reader = resumeRes.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const processChunk = async () => {
-        let reading = true;
-        while (reading) {
-          const { done, value } = await reader.read();
-          if (done) {
-            reading = false;
-            break;
-          }
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split("\n\n");
-          buffer = parts.pop() ?? "";
-          for (const part of parts) {
-            const lines = part.split("\n");
-            let event = "message";
-            let data = "";
-            for (const line of lines) {
-              if (line.startsWith("event:")) event = line.slice(6).trim();
-              if (line.startsWith("data:")) data += line.slice(5).trim();
-            }
-            if (!data) continue;
-            if (event === "progress") {
-              try {
-                addMessage(JSON.parse(data) as ProgressMessage);
-              } catch {
-                addMessage({ stage: "executing", message: data });
-              }
-            } else if (event === "done") {
-              try {
-                setResult(JSON.parse(data) as DevResult);
-              } catch {
-                /* noop */
-              }
-              setIsLoading(false);
-            } else if (event === "error") {
-              try {
-                const err = JSON.parse(data) as { message?: string };
-                addMessage({ stage: "failed", message: err.message ?? data });
-              } catch {
-                addMessage({ stage: "failed", message: data });
-              }
-              setIsLoading(false);
-            }
-          }
-        }
-      };
-      await processChunk();
+      await readSseBody(resumeRes.body, handleStreamEvent);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
+      setStage("failed");
       setIsLoading(false);
       throw err;
     }
-  }, [activeTaskId, addMessage]);
+  }, [activeTaskId, addMessage, handleStreamEvent]);
 
   const reset = useCallback(() => {
     disconnect();
@@ -273,6 +254,7 @@ export function useSeniorDev() {
     setResult(null);
     setError(null);
     setIsLoading(false);
+    setActiveTaskId(null);
   }, [disconnect]);
 
   return {
