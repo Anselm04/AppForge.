@@ -10,8 +10,9 @@ import {
   createCreditCheckout,
   createPlanCheckout,
   CREDIT_PACKS,
-  SELF_SERVE_PLAN_TIERS,
 } from "../services/stripeCheckout.js";
+
+const CHECKOUT_TIERS = ["starter", "builder", "studio", "enterprise"] as const;
 
 const TIER_LIMITS: Record<string, number | null> = {
   free: 3,
@@ -62,10 +63,16 @@ export const subscriptionsRouter = router({
   createCheckoutSession: protectedProcedure
     .input(
       z.object({
-        tier: z.enum(SELF_SERVE_PLAN_TIERS),
+        tier: z.enum(CHECKOUT_TIERS),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.tier === "enterprise") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Enterprise plans are sales-led. Contact AppForge for provisioning.",
+        });
+      }
       try {
         return await createPlanCheckout(
           { id: ctx.user.id, email: ctx.user.email },
