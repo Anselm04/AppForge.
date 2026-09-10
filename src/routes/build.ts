@@ -443,9 +443,11 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       creditsSpent: agentTask.creditsSpent,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    logger.error({ taskId: task.id, error: msg }, "senior_dev_pipeline_error");
-    write("error", { message: msg });
+    logger.error({ taskId: task.id, error: err }, "senior_dev_pipeline_error");
+    write("error", {
+      error: "senior_dev_failed",
+      message: "Senior Dev could not complete this task.",
+    });
     try {
       if (!seniorUnlimited) {
         await addCredits(
@@ -458,13 +460,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       }
     } catch (refundErr: unknown) {
       logger.error(
-        {
-          taskId: task.id,
-          error:
-            refundErr instanceof Error
-              ? refundErr.message
-              : "Unknown refund error",
-        },
+        { taskId: task.id, error: refundErr },
         "senior_dev_refund_error",
       );
     }
@@ -589,9 +585,11 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       filesChanged: result.changes.map((c) => c.path),
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    logger.error({ taskId: task.id, error: msg }, "senior_dev_resume_error");
-    write("error", { message: msg });
+    logger.error({ taskId: task.id, error: err }, "senior_dev_resume_error");
+    write("error", {
+      error: "senior_dev_resume_failed",
+      message: "Senior Dev could not resume this task.",
+    });
     try {
       if (!resumeUnlimited) {
         await addCredits(
@@ -604,13 +602,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       }
     } catch (refundErr: unknown) {
       logger.error(
-        {
-          taskId: task.id,
-          error:
-            refundErr instanceof Error
-              ? refundErr.message
-              : "Unknown refund error",
-        },
+        { taskId: task.id, error: refundErr },
         "senior_dev_resume_refund_error",
       );
     }
