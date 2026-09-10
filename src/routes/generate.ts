@@ -11,6 +11,7 @@ import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
+import { logger } from "../_core/logger.js";
 
 export const generateRouter = Router();
 
@@ -118,9 +119,11 @@ generateRouter.post("/", async (req: Request, res: Response) => {
     });
 
     res.json({ id });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Generate failed";
-    console.error("generate failed:", message);
-    res.status(500).json({ error: "generate_failed", message });
+  } catch (err: unknown) {
+    logger.error({ error: err }, "generate_failed");
+    res.status(500).json({
+      error: "generate_failed",
+      message: "Unable to create the project. Please try again.",
+    });
   }
 });
