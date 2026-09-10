@@ -3,6 +3,7 @@ import {
   type AppForgeIntegrationDefinition,
   type AppForgeIntegrationKind,
 } from "./catalog.js";
+import { verifyOptionalServiceAccount } from "./serviceVerifiers.js";
 
 export type IntegrationConnectionState =
   | "connected"
@@ -289,6 +290,23 @@ async function verifyRemote(
       });
       return check.ok ? pass(check.message) : fail(check.message);
     }
+    case "sentry":
+    case "cloudflare":
+    case "sprites": {
+      const optional = await verifyOptionalServiceAccount(definition, {
+        value,
+        any,
+        probe,
+        result,
+      });
+      if (optional) return optional;
+      return result(
+        definition,
+        "configuration_required",
+        "No safe runtime verifier has been configured for this integration",
+        definition.env.some((name) => Boolean(value(name))),
+      );
+    }
     case "codex-security": {
       const healthUrl = value("CODEX_SECURITY_WEBHOOK_URL");
       const token = value("CODEX_SECURITY_TOKEN");
@@ -356,6 +374,18 @@ export async function verifyIntegration(
         "Capability is implemented inside AppForge",
         true,
         true,
+      );
+    }
+    if (
+      definition.id === "deep-research" &&
+      any("OPENAI_API_KEY", "BUILT_IN_FORGE_API_KEY")
+    ) {
+      return result(
+        definition,
+        "configuration_required",
+        "An AI provider is configured, but Deep Research is not marked connected until its dedicated production workflow is verified",
+        true,
+        false,
       );
     }
     return result(
