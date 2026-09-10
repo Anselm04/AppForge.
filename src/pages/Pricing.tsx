@@ -14,6 +14,8 @@ type PaidTier = "starter" | "builder" | "studio" | "enterprise";
 type CreditPack = 50 | 100 | 250;
 
 const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
+const ENTERPRISE_CONTACT =
+  "mailto:hello@trillionaitech.com?subject=AppForge%20Enterprise";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -167,7 +169,7 @@ export function Pricing() {
       cta:
         currentTier === "enterprise"
           ? t("pricing.currentPlan")
-          : t("pricing.buy"),
+          : t("pricing.contactSales"),
       popular: false,
       disabled: currentTier === "enterprise",
     },
@@ -242,6 +244,10 @@ export function Pricing() {
                 }
                 className="w-full"
                 onClick={() => {
+                  if (tier.key === "enterprise" && !tier.disabled) {
+                    window.location.href = ENTERPRISE_CONTACT;
+                    return;
+                  }
                   if (!isAuthed) {
                     navigate("/signup?next=/pricing");
                     return;
