@@ -14,9 +14,10 @@ describe("failed build credit recovery", () => {
     expect(source).toContain("await addCredits(");
   });
 
-  it("does not refund unlimited or lifetime accounts", () => {
-    expect(source).toContain('credits?.tier === "lifetime"');
-    expect(source).toContain("if (!unlimited)");
+  it("refunds only attempts that actually charged a reservation", () => {
+    expect(source).toContain("reservationCharged: boolean");
+    expect(source).toContain("if (reservationCharged)");
+    expect(source).toContain('current.tier === "lifetime"');
   });
 
   it("records zero billable cost after a refunded failure", () => {

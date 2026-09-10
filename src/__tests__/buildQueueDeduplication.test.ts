@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const queue = readFileSync(resolve(process.cwd(), "src/services/build-queue.ts"), "utf8");
+const queue = readFileSync(
+  resolve(process.cwd(), "src/services/build-queue.ts"),
+  "utf8",
+);
 
 describe("build queue duplicate-start protection", () => {
   it("uses a stable per-project BullMQ job id", () => {
@@ -22,6 +25,8 @@ describe("build queue duplicate-start protection", () => {
 
   it("refunds a paid reservation when a duplicate enqueue is blocked", () => {
     expect(queue).toContain("if (!job.reservationCharged) return");
-    expect(queue).toContain("build-duplicate-refund-${job.projectId}-${job.createdAt}");
+    expect(queue).toContain(
+      "build-duplicate-refund-${job.projectId}-${job.createdAt}",
+    );
   });
 });

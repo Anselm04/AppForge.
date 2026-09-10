@@ -13,8 +13,9 @@ describe("build queue billing semantics", () => {
     expect(source).not.toContain("attempts: 2");
   });
 
-  it("uses the stable build attempt timestamp in the BullMQ job id", () => {
-    expect(source).toContain("build-${job.projectId}-${job.createdAt}");
+  it("uses a stable per-project BullMQ id to deduplicate starts", () => {
+    expect(source).toContain('jobId: `build-${job.projectId}`');
+    expect(source).toContain("queuedData.createdAt !== job.createdAt");
     expect(source).not.toContain("build-${job.projectId}-${Date.now()}");
   });
 });
