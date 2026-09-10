@@ -62,9 +62,9 @@ export async function readSseBody(
 
 /**
  * Open an authenticated SSE stream for generate/build.
- * Sends the session JWT as Authorization (EventSource cannot) and as
- * `?token=` fallback. Refreshes once on 401 instead of treating the
- * user as logged out.
+ * Sends the session JWT only in the Authorization header and uses the
+ * same-origin HttpOnly cookie as browser-session support. Never places JWTs in URLs.
+ * Refreshes once on 401 instead of treating the user as logged out.
  */
 export async function consumeAuthedSse(
   path: string,
@@ -82,9 +82,7 @@ export async function consumeAuthedSse(
     }
     const headers = new Headers();
     applyAuthHeaders(headers);
-    const sep = path.includes("?") ? "&" : "?";
-    const url = `${path}${sep}token=${encodeURIComponent(token)}`;
-    const res = await fetch(url, {
+    const res = await fetch(path, {
       method: "GET",
       headers,
       credentials: "same-origin",
