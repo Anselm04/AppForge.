@@ -1,6 +1,11 @@
 import { getProjectFiles, updateProjectFiles } from "../db.js";
 
-export type ArtifactFormat = "markdown" | "html" | "csv" | "presentation" | "pdf";
+export type ArtifactFormat =
+  | "markdown"
+  | "html"
+  | "csv"
+  | "presentation"
+  | "pdf";
 
 export type StoredArtifact = {
   path: string;
@@ -13,7 +18,8 @@ export function sanitizeArtifactName(value: string, fallback: string): string {
   const cleaned = value
     .trim()
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^[.-]+|[.-]+$/g, "")
     .slice(0, 120);
   return cleaned || fallback;
 }
@@ -55,7 +61,10 @@ export function createDocumentHtml(input: {
 }): string {
   const paragraphs = input.content
     .split(/\n{2,}/)
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .map(
+      (paragraph) =>
+        `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`,
+    )
     .join("\n");
 
   return `<!doctype html>
@@ -180,7 +189,9 @@ export async function saveProjectArtifact(input: {
   const isBase64Pdf = input.path.endsWith(".pdf.base64");
   return {
     path: input.path,
-    mimeType: isBase64Pdf ? "application/pdf" : "text/plain; charset=utf-8",
+    mimeType: isBase64Pdf
+      ? "application/pdf"
+      : "text/plain; charset=utf-8",
     encoding: isBase64Pdf ? "base64" : "utf8",
     size: Buffer.byteLength(input.content, "utf8"),
   };
