@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { authHeaders, getAccessToken, loginPathWithReturn } from "../auth.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  authHeaders,
+  ensureFreshSession,
+  getAccessToken,
+  loginPathWithReturn,
+} from "../auth.js";
 import { parseSseFrame, readSseBody } from "../authedSse.js";
+import { supabaseClient } from "../supabase-client.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
@@ -27,6 +33,10 @@ describe("generate auth helpers", () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("exposes JWT only through Authorization headers", () => {
     window.localStorage.setItem(
       "appforge.session",
@@ -41,6 +51,29 @@ describe("generate auth helpers", () => {
 
   it("sends unsigned users to /login with next preserved (not signup)", () => {
     expect(loginPathWithReturn("/")).toBe("/login?next=%2F");
+  });
+
+  it("clears an expired session when refresh fails", async () => {
+    const expiredToken = "e30.eyJleHAiOjF9.sig";
+    window.localStorage.setItem(
+      "appforge.session",
+      JSON.stringify({
+        accessToken: expiredToken,
+        refreshToken: "refresh-token",
+        user: { id: "u1" },
+      }),
+    );
+    vi.spyOn(supabaseClient, "refreshSession").mockRejectedValue(
+      new Error("refresh failed"),
+    );
+    const signOutSpy = vi
+      .spyOn(supabaseClient, "signOut")
+      .mockResolvedValue({});
+
+    await expect(ensureFreshSession()).resolves.toBeNull();
+    expect(getAccessToken()).toBeNull();
+    expect(window.localStorage.getItem("appforge.session")).toBeNull();
+    expect(signOutSpy).toHaveBeenCalledWith(expiredToken);
   });
 
   it("parses SSE agent frames used by generate", () => {
