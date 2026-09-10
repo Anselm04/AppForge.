@@ -25,7 +25,6 @@ const INTERNAL_IMPLEMENTED = new Set([
 
 const value = (name: string) => process.env[name]?.trim() || "";
 const any = (...names: string[]) => names.some((name) => Boolean(value(name)));
-const all = (...names: string[]) => names.every((name) => Boolean(value(name)));
 
 function result(
   definition: AppForgeIntegrationDefinition,
@@ -77,13 +76,16 @@ async function probe(
     return {
       ok,
       status: response.status,
-      message: ok ? `Verified with HTTP ${response.status}` : `Verification returned HTTP ${response.status}`,
+      message: ok
+        ? `Verified with HTTP ${response.status}`
+        : `Verification returned HTTP ${response.status}`,
     };
   } catch (error) {
     return {
       ok: false,
       status: 0,
-      message: error instanceof Error ? error.message : "Verification request failed",
+      message:
+        error instanceof Error ? error.message : "Verification request failed",
     };
   } finally {
     clearTimeout(timeout);
@@ -95,12 +97,18 @@ async function verifyRemote(
 ): Promise<IntegrationHealth> {
   const fail = (message: string, configured = true) =>
     result(definition, "needs_attention", message, configured, false);
-  const pass = (message: string) => result(definition, "connected", message, true, true);
+  const pass = (message: string) =>
+    result(definition, "connected", message, true, true);
 
   switch (definition.id) {
     case "github": {
       const token = value("GITHUB_TOKEN");
-      if (!token) return result(definition, "not_connected", "GITHUB_TOKEN is not configured");
+      if (!token)
+        return result(
+          definition,
+          "not_connected",
+          "GITHUB_TOKEN is not configured",
+        );
       const check = await probe("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -113,9 +121,15 @@ async function verifyRemote(
     case "stripe": {
       const secret = value("STRIPE_SECRET_KEY");
       const webhookSecret = value("STRIPE_WEBHOOK_SECRET");
-      if (!secret && !webhookSecret) return result(definition, "not_connected", "Stripe is not configured");
+      if (!secret && !webhookSecret)
+        return result(definition, "not_connected", "Stripe is not configured");
       if (!secret || !webhookSecret) {
-        return result(definition, "configuration_required", "Stripe requires both API and webhook secrets", true);
+        return result(
+          definition,
+          "configuration_required",
+          "Stripe requires both API and webhook secrets",
+          true,
+        );
       }
       const check = await probe("https://api.stripe.com/v1/balance", {
         headers: { Authorization: `Bearer ${secret}` },
@@ -124,7 +138,12 @@ async function verifyRemote(
     }
     case "vercel": {
       const token = value("VERCEL_TOKEN");
-      if (!token) return result(definition, "not_connected", "VERCEL_TOKEN is not configured");
+      if (!token)
+        return result(
+          definition,
+          "not_connected",
+          "VERCEL_TOKEN is not configured",
+        );
       const check = await probe("https://api.vercel.com/v2/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -132,9 +151,23 @@ async function verifyRemote(
     }
     case "supabase": {
       const url = value("SUPABASE_URL") || value("VITE_SUPABASE_URL");
-      const key = value("SUPABASE_ANON_KEY") || value("VITE_SUPABASE_PUBLISHABLE_KEY") || value("VITE_SUPABASE_ANON_KEY");
-      if (!url && !key) return result(definition, "not_connected", "Supabase is not configured");
-      if (!url || !key) return result(definition, "configuration_required", "Supabase URL and publishable key are required", true);
+      const key =
+        value("SUPABASE_ANON_KEY") ||
+        value("VITE_SUPABASE_PUBLISHABLE_KEY") ||
+        value("VITE_SUPABASE_ANON_KEY");
+      if (!url && !key)
+        return result(
+          definition,
+          "not_connected",
+          "Supabase is not configured",
+        );
+      if (!url || !key)
+        return result(
+          definition,
+          "configuration_required",
+          "Supabase URL and publishable key are required",
+          true,
+        );
       const check = await probe(`${url.replace(/\/$/, "")}/auth/v1/health`, {
         headers: { apikey: key },
       });
@@ -143,18 +176,31 @@ async function verifyRemote(
     case "twilio": {
       const sid = value("TWILIO_ACCOUNT_SID");
       const token = value("TWILIO_AUTH_TOKEN");
-      if (!sid && !token) return result(definition, "not_connected", "Twilio is not configured");
-      if (!sid || !token) return result(definition, "configuration_required", "Twilio account SID and auth token are required", true);
+      if (!sid && !token)
+        return result(definition, "not_connected", "Twilio is not configured");
+      if (!sid || !token)
+        return result(
+          definition,
+          "configuration_required",
+          "Twilio account SID and auth token are required",
+          true,
+        );
       const auth = Buffer.from(`${sid}:${token}`).toString("base64");
-      const check = await probe(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`, {
-        headers: { Authorization: `Basic ${auth}` },
-      });
+      const check = await probe(
+        `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`,
+        { headers: { Authorization: `Basic ${auth}` } },
+      );
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "datadog": {
       const apiKey = value("DD_API_KEY");
       const site = value("DD_SITE") || "datadoghq.com";
-      if (!apiKey) return result(definition, "not_connected", "DD_API_KEY is not configured");
+      if (!apiKey)
+        return result(
+          definition,
+          "not_connected",
+          "DD_API_KEY is not configured",
+        );
       const check = await probe(`https://api.${site}/api/v1/validate`, {
         headers: { "DD-API-KEY": apiKey },
       });
@@ -164,18 +210,34 @@ async function verifyRemote(
       const host = value("POSTHOG_HOST") || value("VITE_POSTHOG_HOST");
       const token = value("POSTHOG_PERSONAL_API_KEY");
       const projectId = value("POSTHOG_PROJECT_ID");
-      if (!host && !token && !projectId) return result(definition, "not_connected", "PostHog verification is not configured");
+      if (!host && !token && !projectId)
+        return result(
+          definition,
+          "not_connected",
+          "PostHog verification is not configured",
+        );
       if (!host || !token || !projectId) {
-        return result(definition, "configuration_required", "PostHog verification requires host, personal API key, and project ID", true);
+        return result(
+          definition,
+          "configuration_required",
+          "PostHog verification requires host, personal API key, and project ID",
+          true,
+        );
       }
-      const check = await probe(`${host.replace(/\/$/, "")}/api/projects/${encodeURIComponent(projectId)}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const check = await probe(
+        `${host.replace(/\/$/, "")}/api/projects/${encodeURIComponent(projectId)}/`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "sprites-fly": {
       const appName = value("FLY_APP_NAME");
-      if (!appName) return result(definition, "not_connected", "FLY_APP_NAME is not configured");
+      if (!appName)
+        return result(
+          definition,
+          "not_connected",
+          "FLY_APP_NAME is not configured",
+        );
       const check = await probe(`https://${appName}.fly.dev/api/health/live`);
       return check.ok ? pass(check.message) : fail(check.message);
     }
@@ -186,9 +248,16 @@ async function verifyRemote(
       const healthUrl = value("MAKE_HEALTH_URL");
       const token = value("MAKE_API_TOKEN");
       if (!healthUrl || !token) {
-        return result(definition, "configuration_required", "Make needs a non-mutating health URL and API token before AppForge will mark it connected", true);
+        return result(
+          definition,
+          "configuration_required",
+          "Make needs a non-mutating health URL and API token before AppForge will mark it connected",
+          true,
+        );
       }
-      const check = await probe(healthUrl, { headers: { Authorization: `Bearer ${token}` } });
+      const check = await probe(healthUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "bubblav": {
@@ -198,67 +267,144 @@ async function verifyRemote(
       const healthUrl = value("BUBBLAV_HEALTH_URL");
       const apiKey = value("BUBBLAV_API_KEY");
       if (!healthUrl || !apiKey) {
-        return result(definition, "configuration_required", "BubblaV needs an API key and explicit non-mutating health URL before AppForge will mark it connected", true);
+        return result(
+          definition,
+          "configuration_required",
+          "BubblaV needs an API key and explicit non-mutating health URL before AppForge will mark it connected",
+          true,
+        );
       }
-      const check = await probe(healthUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
+      const check = await probe(healthUrl, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "codex-security": {
       const healthUrl = value("CODEX_SECURITY_WEBHOOK_URL");
       const token = value("CODEX_SECURITY_TOKEN");
-      if (!healthUrl && !token) return result(definition, "not_connected", "Codex Security runtime bridge is not configured");
-      return result(definition, "configuration_required", "A ChatGPT Codex Security connection is not itself a deployable AppForge API. Configure an approved runtime webhook/API before enabling it.", true);
+      if (!healthUrl && !token)
+        return result(
+          definition,
+          "not_connected",
+          "Codex Security runtime bridge is not configured",
+        );
+      return result(
+        definition,
+        "configuration_required",
+        "A ChatGPT Codex Security connection is not itself a deployable AppForge API. Configure an approved runtime webhook/API before enabling it.",
+        true,
+      );
     }
     case "marketing-app": {
       const url = value("MARKETING_APP_URL");
       const secret = value("TRILLION_ECOSYSTEM_SHARED_SECRET");
-      if (!url && !secret) return result(definition, "not_connected", "Marketing app bridge is not configured");
-      if (!url || !secret) return result(definition, "configuration_required", "Marketing app URL and ecosystem shared secret are required", true);
+      if (!url && !secret)
+        return result(
+          definition,
+          "not_connected",
+          "Marketing app bridge is not configured",
+        );
+      if (!url || !secret)
+        return result(
+          definition,
+          "configuration_required",
+          "Marketing app URL and ecosystem shared secret are required",
+          true,
+        );
       const check = await probe(`${url.replace(/\/$/, "")}/health`);
       return check.ok ? pass(check.message) : fail(check.message);
     }
     case "trillionaitech-site": {
       const url = value("TRILLION_PUBLIC_SITE_URL");
-      if (!url) return result(definition, "not_connected", "TRILLION_PUBLIC_SITE_URL is not configured");
+      if (!url)
+        return result(
+          definition,
+          "not_connected",
+          "TRILLION_PUBLIC_SITE_URL is not configured",
+        );
       const check = await probe(url);
       return check.ok ? pass(check.message) : fail(check.message);
     }
     default:
-      return result(definition, "configuration_required", "No safe runtime verifier has been configured for this integration", definition.env.some((name) => Boolean(value(name))));
+      return result(
+        definition,
+        "configuration_required",
+        "No safe runtime verifier has been configured for this integration",
+        definition.env.some((name) => Boolean(value(name))),
+      );
   }
 }
 
-export async function verifyIntegration(definition: AppForgeIntegrationDefinition): Promise<IntegrationHealth> {
+export async function verifyIntegration(
+  definition: AppForgeIntegrationDefinition,
+): Promise<IntegrationHealth> {
   if (definition.kind === "internal") {
     if (INTERNAL_IMPLEMENTED.has(definition.id)) {
-      return result(definition, "connected", "Capability is implemented inside AppForge", true, true);
+      return result(
+        definition,
+        "connected",
+        "Capability is implemented inside AppForge",
+        true,
+        true,
+      );
     }
-    if (definition.id === "deep-research" && any("OPENAI_API_KEY", "BUILT_IN_FORGE_API_KEY")) {
-      return result(definition, "connected", "Research capability has an AI provider configured", true, true);
+    if (
+      definition.id === "deep-research" &&
+      any("OPENAI_API_KEY", "BUILT_IN_FORGE_API_KEY")
+    ) {
+      return result(
+        definition,
+        "configuration_required",
+        "An AI provider is configured, but Deep Research is not marked connected until its dedicated production workflow is verified",
+        true,
+        false,
+      );
     }
-    return result(definition, "configuration_required", "Capability is registered but its production implementation is not yet verified", false, false);
+    return result(
+      definition,
+      "configuration_required",
+      "Capability is registered but its production implementation is not yet verified",
+      false,
+      false,
+    );
   }
 
   return verifyRemote(definition);
 }
 
 export async function verifyAllIntegrations(): Promise<IntegrationHealth[]> {
-  const settled = await Promise.allSettled(APPFORGE_INTEGRATIONS.map((definition) => verifyIntegration(definition)));
+  const settled = await Promise.allSettled(
+    APPFORGE_INTEGRATIONS.map((definition) => verifyIntegration(definition)),
+  );
   return settled.map((entry, index) => {
     if (entry.status === "fulfilled") return entry.value;
     const definition = APPFORGE_INTEGRATIONS[index];
-    return result(definition, "needs_attention", "Verification failed unexpectedly", true, false);
+    return result(
+      definition,
+      "needs_attention",
+      "Verification failed unexpectedly",
+      true,
+      false,
+    );
   });
 }
 
 export async function summarizeIntegrationHealth() {
   const integrations = await verifyAllIntegrations();
-  const required = integrations.filter((integration) => integration.requiredForProduction);
+  const required = integrations.filter(
+    (integration) => integration.requiredForProduction,
+  );
   return {
-    productionReady: required.every((integration) => integration.state === "connected"),
-    connected: integrations.filter((integration) => integration.state === "connected").length,
+    productionReady: required.every(
+      (integration) => integration.state === "connected",
+    ),
+    connected: integrations.filter(
+      (integration) => integration.state === "connected",
+    ).length,
     total: integrations.length,
-    requiredConnected: required.filter((integration) => integration.state === "connected").length,
+    requiredConnected: required.filter(
+      (integration) => integration.state === "connected",
+    ).length,
     requiredTotal: required.length,
     integrations,
   };
