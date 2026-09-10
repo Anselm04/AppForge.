@@ -6,6 +6,7 @@ import {
   CREDIT_PACKS,
   SELF_SERVE_PLAN_TIERS,
 } from "../services/stripeCheckout.js";
+import { logger } from "../_core/logger.js";
 
 const router = Router();
 
@@ -54,9 +55,11 @@ router.post("/", async (req: Request, res: Response) => {
       : await createCreditCheckout(checkoutUser, credits!);
 
     res.json(result);
-  } catch (err: any) {
-    console.error("Checkout error:", err);
-    res.status(500).json({ error: err.message || "Checkout failed" });
+  } catch (err: unknown) {
+    logger.error({ error: err }, "checkout_error");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Checkout failed",
+    });
   }
 });
 
