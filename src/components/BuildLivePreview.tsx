@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { authedUrl } from "../lib/auth.js";
+import { authHeaders } from "../lib/auth.js";
 import { onPreviewUpdate } from "../lib/previewEvents.js";
 import { trpc } from "../utils/trpc.js";
 
@@ -28,6 +28,28 @@ export function BuildLivePreview({
 
   const useDevServer = !!devStatus?.running && !deployUrl;
 
+  const {
+    data: previewAuthReady,
+    error: previewAuthError,
+    isLoading: previewAuthLoading,
+  } = useQuery({
+    queryKey: ["sandbox", "previewAuth", projectId],
+    queryFn: async () => {
+      const response = await fetch(`/api/preview-auth/${projectId}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`Preview authorization failed: ${response.status}`);
+      }
+      return true;
+    },
+    enabled: enabled && projectId > 0 && useDevServer,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (!enabled || projectId <= 0 || useDevServer) return;
     return onPreviewUpdate((detail) => {
@@ -49,10 +71,26 @@ export function BuildLivePreview({
     );
   }
 
+  if (useDevServer && previewAuthLoading) {
+    return (
+      <p className="text-slate-400 text-sm">
+        Preparing secure live preview…
+      </p>
+    );
+  }
+
+  if (useDevServer && previewAuthError) {
+    return (
+      <p className="text-red-400 text-sm">
+        Live preview authorization failed. Refresh the page or sign in again.
+      </p>
+    );
+  }
+
   const previewSrc = deployUrl
     ? deployUrl
-    : useDevServer
-      ? authedUrl(`/sandbox-dev/${projectId}/`)
+    : useDevServer && previewAuthReady
+      ? `/sandbox-dev/${projectId}/`
       : `/apps/${projectId}?v=${refreshKey}`;
 
   return (
