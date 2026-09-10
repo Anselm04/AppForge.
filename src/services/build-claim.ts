@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 
 const STARTABLE_BUILD_STATUSES = ["pending", "failed", "paused"];
+type StartableBuildStatus = (typeof STARTABLE_BUILD_STATUSES)[number];
 
 /**
  * Atomically claims a project for one build starter. Concurrent requests race
@@ -32,7 +33,7 @@ export async function claimProjectBuildStart(
 export async function releaseProjectBuildClaim(
   projectId: number,
   userId: number,
-  previousStatus: string,
+  previousStatus: StartableBuildStatus,
   previousPauseReason: string | null,
 ): Promise<void> {
   await db
