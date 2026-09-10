@@ -79,6 +79,7 @@ function NavChrome({ stacked, isLoggedIn, isOwner, isPaid, isTrialing, tier, lay
           {isOwner && (<button type="button" onClick={() => go("/admin")} className={adminBtn}>{t("nav.admin")}</button>)}
           <button type="button" onClick={() => go("/dashboard")} className={item}>{t("nav.dashboard")}</button>
           <button type="button" onClick={() => go("/templates")} className={item}>Templates</button>
+          <button type="button" onClick={() => go("/tools")} className={item}>Tools</button>
           <button type="button" onClick={() => go("/editor")} className={item}>{t("nav.editor")}</button>
           <button type="button" onClick={() => go("/studio")} className={item}>Studio</button>
           {!isPaid && !isTrialing && (<button type="button" onClick={() => go("/pricing")} className={primaryBtn}>{t("nav.upgrade")}</button>)}
