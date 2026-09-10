@@ -112,8 +112,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       });
     }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    logger.error({ projectId, err: msg }, "background_build_failed");
+    logger.error({ projectId, error: err }, "background_build_failed");
 
     // Refund based on what happened at reservation time, not the user's current
     // entitlement. A customer may upgrade to lifetime while a charged build is
@@ -135,20 +134,17 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       }
     } catch (refundErr: unknown) {
       logger.error(
-        {
-          projectId,
-          error:
-            refundErr instanceof Error
-              ? refundErr.message
-              : "Unknown refund error",
-        },
+        { projectId, error: refundErr },
         "failed_build_refund_error",
       );
     }
 
     await recordBuildOutcome(userId, false, 0);
-    write("error", { message: msg });
-    await updateProjectStatus(projectId, "failed", msg);
+    write("error", {
+      error: "build_failed",
+      message: "Build failed. Please retry or contact support.",
+    });
+    await updateProjectStatus(projectId, "failed", "build_failed");
   } finally {
     if (timeout) clearTimeout(timeout);
     activeJobs.delete(projectId);
