@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { logger } from "../_core/logger.js";
+
+const errorReportingSource = readFileSync(
+  resolve(process.cwd(), "src/utils/errorReporting.ts"),
+  "utf8",
+);
 
 describe("structured logger redaction", () => {
   it("redacts nested credentials before writing logs", () => {
@@ -43,5 +50,15 @@ describe("structured logger redaction", () => {
     expect(output).toContain("[REDACTED]");
 
     spy.mockRestore();
+  });
+
+  it("keeps shared error reporting behind the sanitized telemetry boundary", () => {
+    expect(errorReportingSource).toContain(
+      'logger.error({ error, context: context ?? "AppError" }, "application_error")',
+    );
+    expect(errorReportingSource).toContain("sanitizeContext(context.metadata)");
+    expect(errorReportingSource).toContain("Sentry.setUser({ id: String(context.userId) })");
+    expect(errorReportingSource).not.toContain("email: context.userEmail");
+    expect(errorReportingSource).not.toContain("console.error(error.stack)");
   });
 });
