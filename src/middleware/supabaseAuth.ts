@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "../_core/logger.js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const supabaseKey =
@@ -16,7 +17,7 @@ if (supabaseUrl && supabaseKey) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
   } catch (err) {
-    console.error("Failed to initialize Supabase auth client:", err);
+    logger.error({ error: err }, "supabase_auth_client_init_failed");
     supabase = null;
   }
 }
@@ -80,7 +81,7 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
     });
 
     if (!dbUser?.id) {
-      console.error("Supabase auth: user upsert returned no row");
+      logger.error({}, "supabase_auth_user_upsert_missing");
       return next();
     }
 
@@ -93,7 +94,7 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
       supabaseUid,
     };
   } catch (err) {
-    console.error("Supabase auth verification error:", err);
+    logger.error({ error: err }, "supabase_auth_verification_failed");
   }
 
   next();
