@@ -65,7 +65,11 @@ export const ecosystemRouter = router({
           properties: { workflowEvent: input.event },
         });
 
-        return { success: true as const, status: result.status, result: result.data };
+        return {
+          success: true as const,
+          status: result.status,
+          result: result.data,
+        };
       } catch (error) {
         logger.error(
           { error, userId: ctx.user.id, event: input.event },
@@ -102,7 +106,11 @@ export const ecosystemRouter = router({
           userId: ctx.user.id,
         });
 
-        return { success: true as const, status: result.status, result: result.data };
+        return {
+          success: true as const,
+          status: result.status,
+          result: result.data,
+        };
       } catch (error) {
         logger.error(
           { error, userId: ctx.user.id },
@@ -126,7 +134,10 @@ export const ecosystemRouter = router({
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
       }
 
       if (project.status !== "completed") {
