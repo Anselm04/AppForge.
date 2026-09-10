@@ -42,4 +42,12 @@ describe("logout session revocation", () => {
     expect(ensureSource).toContain("return null");
     expect(ensureSource).not.toContain("return refreshed || getSession()");
   });
+
+  it("does not expose raw Supabase 5xx responses to the UI", () => {
+    expect(client).toContain("if (response.status >= 500)");
+    expect(client).toContain(
+      'throw new Error("Authentication service is temporarily unavailable.")',
+    );
+    expect(client).not.toContain("`Supabase request failed: ${response.status}`");
+  });
 });
