@@ -5,6 +5,11 @@ import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 
 const router = Router();
 
+function releaseRevision(): string {
+  const value = process.env.APPFORGE_RELEASE_SHA?.trim();
+  return value && /^[0-9a-f]{7,40}$/i.test(value) ? value : "unknown";
+}
+
 router.get("/", async (_req: Request, res: Response) => {
   const health = {
     status: "ok",
@@ -12,6 +17,7 @@ router.get("/", async (_req: Request, res: Response) => {
     uptime: process.uptime(),
     database: "unknown",
     version: process.env.npm_package_version ?? "unknown",
+    revision: releaseRevision(),
     environment: process.env.NODE_ENV ?? "unknown",
   };
 
@@ -41,11 +47,18 @@ router.get("/live", (_req: Request, res: Response) => {
 router.get("/ready", async (_req: Request, res: Response) => {
   try {
     await db.execute(sql`SELECT 1`);
-    res.status(200).json({ status: "ok", ready: true });
+    res.status(200).json({
+      status: "ok",
+      ready: true,
+      revision: releaseRevision(),
+    });
   } catch {
-    res
-      .status(503)
-      .json({ status: "degraded", ready: false, reason: "database" });
+    res.status(503).json({
+      status: "degraded",
+      ready: false,
+      reason: "database",
+      revision: releaseRevision(),
+    });
   }
 });
 
