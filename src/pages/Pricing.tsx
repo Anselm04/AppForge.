@@ -86,6 +86,8 @@ export function Pricing() {
   });
 
   const currentTier = subStatus?.tier ?? "free";
+  const hasManagedSubscription =
+    !!subStatus?.stripeCustomerId && !!subStatus?.isPaid;
 
   const tiers = [
     {
@@ -290,11 +292,22 @@ export function Pricing() {
                   }
                   if (tier.key !== "free" && !tier.disabled) {
                     setCheckoutError(null);
+                    if (hasManagedSubscription) {
+                      manageBilling.mutate();
+                      return;
+                    }
                     createCheckout.mutate(tier.key);
                   }
                 }}
-                disabled={tier.disabled || createCheckout.isPending}
-                loading={createCheckout.isPending && !tier.disabled}
+                disabled={
+                  tier.disabled ||
+                  createCheckout.isPending ||
+                  manageBilling.isPending
+                }
+                loading={
+                  !tier.disabled &&
+                  (createCheckout.isPending || manageBilling.isPending)
+                }
               >
                 {tier.cta}
               </Button>
