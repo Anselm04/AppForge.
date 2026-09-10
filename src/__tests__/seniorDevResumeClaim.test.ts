@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const source = readFileSync(
-  resolve(process.cwd(), "src/services/senior-dev-claims.ts"),
+  resolve(process.cwd(), "src/services/senior-dev-claim.ts"),
   "utf8",
 );
 const route = readFileSync(
@@ -22,7 +22,7 @@ describe("Senior Dev resume claim", () => {
   });
 
   it("requires the resume route to acquire the atomic claim before execution", () => {
-    expect(route).toContain('from "../services/senior-dev-claims.js"');
+    expect(route).toContain('from "../services/senior-dev-claim.js"');
     expect(route).toContain("await claimSeniorDevResume(task.id, user.id)");
     expect(route).toContain('error: "senior_dev_task_active"');
   });
