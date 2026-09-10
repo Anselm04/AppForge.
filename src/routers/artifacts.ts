@@ -1,12 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc.js";
+import { invokeLLM } from "../_core/llm.js";
 import { getProjectById, getProjectFiles } from "../db.js";
+import { modelForAgent } from "../lib/llmModels.js";
 import {
   createCsv,
   createDocumentHtml,
   createPresentationHtml,
   createSimplePdf,
+  extractPdfText,
   sanitizeArtifactName,
   saveProjectArtifact,
 } from "../services/artifactEngine.js";
@@ -33,7 +36,57 @@ async function requireCompletedProject(projectId: number, userId: number) {
   return project;
 }
 
+function validateArtifactPath(path: string) {
+  if (!path.startsWith("artifacts/") || path.includes("..")) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Invalid artifact path",
+    });
+  }
+}
+
+async function readOwnedArtifact(
+  projectId: number,
+  userId: number,
+  path: string,
+): Promise<string> {
+  await requireOwnedProject(projectId, userId);
+  validateArtifactPath(path);
+  const files = await getProjectFiles(projectId);
+  const content = files[path];
+  if (content === undefined) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Artifact not found",
+    });
+  }
+  return content;
+}
+
+function artifactMimeType(path: string): string {
+  if (path.endsWith(".pdf.base64")) return "application/pdf";
+  if (path.endsWith(".csv")) return "text/csv; charset=utf-8";
+  if (path.endsWith(".html")) return "text/html; charset=utf-8";
+  return "text/markdown; charset=utf-8";
+}
+
+function normalizeArtifactForAnalysis(path: string, content: string): string {
+  if (path.endsWith(".pdf.base64")) {
+    return extractPdfText(Buffer.from(content, "base64"));
+  }
+  if (path.endsWith(".html")) {
+    return content
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return content;
+}
+
 const projectInput = z.object({ projectId: z.number().int().positive() });
+const artifactPath = z.string().min(1).max(240);
 
 export const artifactsRouter = router({
   list: protectedProcedure.input(projectInput).query(async ({ ctx, input }) => {
@@ -45,37 +98,17 @@ export const artifactsRouter = router({
   }),
 
   read: protectedProcedure
-    .input(
-      projectInput.extend({
-        path: z.string().min(1).max(240),
-      }),
-    )
+    .input(projectInput.extend({ path: artifactPath }))
     .query(async ({ ctx, input }) => {
-      await requireOwnedProject(input.projectId, ctx.user.id);
-      if (!input.path.startsWith("artifacts/") || input.path.includes("..")) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid artifact path",
-        });
-      }
-      const files = await getProjectFiles(input.projectId);
-      const content = files[input.path];
-      if (content === undefined) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Artifact not found",
-        });
-      }
+      const content = await readOwnedArtifact(
+        input.projectId,
+        ctx.user.id,
+        input.path,
+      );
       return {
         path: input.path,
         encoding: input.path.endsWith(".pdf.base64") ? "base64" : "utf8",
-        mimeType: input.path.endsWith(".pdf.base64")
-          ? "application/pdf"
-          : input.path.endsWith(".csv")
-            ? "text/csv; charset=utf-8"
-            : input.path.endsWith(".html")
-              ? "text/html; charset=utf-8"
-              : "text/markdown; charset=utf-8",
+        mimeType: artifactMimeType(input.path),
         content,
       };
     }),
@@ -195,6 +228,113 @@ export const artifactsRouter = router({
       return {
         ...stored,
         downloadFilename: `${name}.pdf`,
+      };
+    }),
+
+  importPdf: protectedProcedure
+    .input(
+      projectInput.extend({
+        filename: z.string().min(1).max(120),
+        base64: z.string().min(8).max(7_000_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireCompletedProject(input.projectId, ctx.user.id);
+      const pdf = Buffer.from(input.base64, "base64");
+      if (pdf.length === 0 || pdf.length > 5_000_000) {
+        throw new TRPCError({
+          code: "PAYLOAD_TOO_LARGE",
+          message: "PDF must be 5 MB or smaller",
+        });
+      }
+      try {
+        extractPdfText(pdf);
+      } catch {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid PDF file",
+        });
+      }
+      const name = sanitizeArtifactName(input.filename, "imported-pdf");
+      const path = `artifacts/pdf/${name}.pdf.base64`;
+      return saveProjectArtifact({
+        projectId: input.projectId,
+        path,
+        content: pdf.toString("base64"),
+      });
+    }),
+
+  extractPdf: protectedProcedure
+    .input(projectInput.extend({ path: artifactPath }))
+    .query(async ({ ctx, input }) => {
+      if (!input.path.endsWith(".pdf.base64")) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Artifact is not a PDF",
+        });
+      }
+      const content = await readOwnedArtifact(
+        input.projectId,
+        ctx.user.id,
+        input.path,
+      );
+      const text = extractPdfText(Buffer.from(content, "base64"));
+      return {
+        path: input.path,
+        text,
+        textBasedExtraction: true,
+      };
+    }),
+
+  analyze: protectedProcedure
+    .input(
+      projectInput.extend({
+        path: artifactPath,
+        question: z.string().trim().min(1).max(2_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const content = await readOwnedArtifact(
+        input.projectId,
+        ctx.user.id,
+        input.path,
+      );
+      let normalized: string;
+      try {
+        normalized = normalizeArtifactForAnalysis(input.path, content);
+      } catch {
+        throw new TRPCError({
+          code: "UNPROCESSABLE_CONTENT",
+          message: "Artifact text could not be extracted",
+        });
+      }
+      if (!normalized) {
+        throw new TRPCError({
+          code: "UNPROCESSABLE_CONTENT",
+          message: "Artifact contains no extractable text",
+        });
+      }
+
+      const excerpt = normalized.slice(0, 80_000);
+      const result = await invokeLLM({
+        model: modelForAgent("planner"),
+        messages: [
+          {
+            role: "system",
+            content:
+              "Analyze the supplied project artifact carefully. Base the answer only on the artifact content. If the artifact does not support a requested conclusion, say so.",
+          },
+          {
+            role: "user",
+            content: `Question: ${input.question}\n\nArtifact (${input.path}):\n${excerpt}`,
+          },
+        ],
+      });
+      const answer = result.choices[0]?.message?.content;
+      return {
+        path: input.path,
+        answer: typeof answer === "string" ? answer : "",
+        truncated: normalized.length > excerpt.length,
       };
     }),
 });
