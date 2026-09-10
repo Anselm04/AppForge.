@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { addCredits, db, grantPlanCredits } from "../db.js";
 import { subscriptions, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { logger } from "../_core/logger.js";
 
@@ -25,8 +26,44 @@ const PAID_TIERS = new Set([
   "enterprise",
   "custom",
 ]);
+const CREDIT_PACK_SET = new Set<number>(CREDIT_PACKS);
 
 type StandardTier = "starter" | "builder" | "studio" | "enterprise";
+
+function parsePositiveUserId(value?: string | null): number | null {
+  if (!value || !/^\d+$/.test(value)) return null;
+  const userId = Number(value);
+  return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+}
+
+function resolveCheckoutUserId(session: Stripe.Checkout.Session): number | null {
+  const metadataUserId = parsePositiveUserId(session.metadata?.userId);
+  const referenceUserId = parsePositiveUserId(session.client_reference_id);
+
+  if (
+    metadataUserId !== null &&
+    referenceUserId !== null &&
+    metadataUserId !== referenceUserId
+  ) {
+    throw new Error("Stripe checkout user reference mismatch");
+  }
+
+  return metadataUserId ?? referenceUserId;
+}
+
+function parseCreditPack(value?: string | null): number | null {
+  if (!value || !/^\d+$/.test(value)) return null;
+  const credits = Number(value);
+  return CREDIT_PACK_SET.has(credits) ? credits : null;
+}
+
+function customerIdFromSubscription(
+  subscription: Stripe.Subscription,
+): string | null {
+  return typeof subscription.customer === "string"
+    ? subscription.customer
+    : null;
+}
 
 function priceIdsForTier(tier: StandardTier): string[] {
   const envKeys: Record<StandardTier, string[]> = {
@@ -115,12 +152,12 @@ async function upsertSubscription(opts: {
 
 async function resolveUserIdFromCustomer(
   customerId: string | null,
-): Promise<string | undefined> {
+): Promise<number | undefined> {
   if (!customerId) return undefined;
   const existing = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.stripeCustomerId, customerId),
   });
-  return existing ? String(existing.userId) : undefined;
+  return existing?.userId;
 }
 
 async function handleStripeEvent(event: Stripe.Event): Promise<void> {
@@ -128,20 +165,19 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.created":
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      let userId: string | undefined = subscription.metadata?.userId;
+      const customerId = customerIdFromSubscription(subscription);
+      let userId = parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
       const priceId = subscriptionPriceId(subscription);
       const tier = resolveTier(subscription.metadata, priceId);
 
-      if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(
-          subscription.customer as string,
-        );
+      if (!userId && customerId) {
+        userId = await resolveUserIdFromCustomer(customerId);
       }
 
-      if (userId) {
+      if (userId && customerId) {
         await upsertSubscription({
-          userId: parseInt(userId, 10),
-          customerId: subscription.customer as string,
+          userId,
+          customerId,
           subscription,
           tier,
         });
@@ -151,31 +187,37 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      let userId: string | undefined = subscription.metadata?.userId;
-      if (!userId && subscription.customer) {
-        userId = await resolveUserIdFromCustomer(
-          subscription.customer as string,
-        );
+      const customerId = customerIdFromSubscription(subscription);
+      let userId = parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
+      if (!userId && customerId) {
+        userId = await resolveUserIdFromCustomer(customerId);
       }
 
       if (userId) {
         await db
           .update(subscriptions)
           .set({ status: "canceled", tier: "free", updatedAt: new Date() })
-          .where(eq(subscriptions.userId, parseInt(userId, 10)));
+          .where(eq(subscriptions.userId, userId));
       }
       break;
     }
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.metadata?.userId ?? session.client_reference_id;
+      const userId = resolveCheckoutUserId(session);
       const mode = session.mode;
 
       if (userId && mode === "subscription" && session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string,
         );
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : customerIdFromSubscription(subscription);
+        if (!customerId) {
+          throw new Error("Stripe subscription customer is missing");
+        }
         const priceId = subscriptionPriceId(subscription);
         const tier = resolveTier(
           { ...(subscription.metadata || {}), ...(session.metadata || {}) },
@@ -183,14 +225,14 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         );
 
         await upsertSubscription({
-          userId: parseInt(userId, 10),
-          customerId: (session.customer || subscription.customer) as string,
+          userId,
+          customerId,
           subscription,
           tier,
         });
 
         const result = await grantPlanCredits(
-          parseInt(userId, 10),
+          userId,
           tier,
           `checkout-${session.id}`,
         );
@@ -202,13 +244,13 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         }
       }
 
-      if (userId && mode === "payment") {
-        const credits = parseInt(session.metadata?.credits || "0", 10);
-        if (credits > 0) {
+      if (userId && mode === "payment" && session.payment_status === "paid") {
+        const credits = parseCreditPack(session.metadata?.credits);
+        if (credits !== null) {
           const paymentRef =
             (session.payment_intent as string) || `checkout-${session.id}`;
           await addCredits(
-            parseInt(userId, 10),
+            userId,
             credits,
             "purchase",
             `Stripe checkout credit purchase (${credits} credits)`,
@@ -218,6 +260,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             { userId, credits, eventId: event.id },
             "stripe_credit_purchase_processed",
           );
+        } else {
+          throw new Error("Unrecognized Stripe credit pack metadata");
         }
       }
       break;
@@ -243,18 +287,17 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           try {
             const subscription =
               await stripe.subscriptions.retrieve(subscriptionId);
+            const customerId = customerIdFromSubscription(subscription);
             const priceId = subscriptionPriceId(subscription);
             tier = resolveTier(subscription.metadata, priceId);
-            const fromCustomer = await resolveUserIdFromCustomer(
-              subscription.customer as string,
-            );
-            const fromMeta = subscription.metadata?.userId;
-            const resolved = fromMeta || fromCustomer;
-            if (resolved) {
-              userId = parseInt(resolved, 10);
+            const fromCustomer = await resolveUserIdFromCustomer(customerId);
+            const fromMeta = parsePositiveUserId(subscription.metadata?.userId);
+            const resolved = fromMeta ?? fromCustomer;
+            if (resolved && customerId) {
+              userId = resolved;
               await upsertSubscription({
                 userId,
-                customerId: subscription.customer as string,
+                customerId,
                 subscription,
                 tier,
               });
@@ -316,7 +359,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     }
 
     default: {
-      logger.info({ eventType: event.type, eventId: event.id }, "stripe_webhook_unhandled_event");
+      logger.info(
+        { eventType: event.type, eventId: event.id },
+        "stripe_webhook_unhandled_event",
+      );
     }
   }
 }
@@ -358,7 +404,10 @@ export async function stripeWebhookHandler(
       },
     );
     if (!processed) {
-      logger.info({ eventId: event.id, eventType: event.type }, "stripe_webhook_duplicate_ignored");
+      logger.info(
+        { eventId: event.id, eventType: event.type },
+        "stripe_webhook_duplicate_ignored",
+      );
     }
     res.json({ received: true, duplicate: !processed });
   } catch (err) {
