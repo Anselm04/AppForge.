@@ -14,9 +14,7 @@ import { isBuildActive } from "../services/build-worker.js";
 import { canStartBuild } from "../lib/buildConcurrency.js";
 import {
   getProjectById,
-  updateProjectStatus,
   pauseProject,
-  resumeProject,
   ensureUserCredits,
   deductCredits,
   addCredits,
@@ -37,7 +35,11 @@ import {
   type ProgressEvent,
 } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
-import { claimSeniorDevResume } from "../services/senior-dev-claims.js";
+import { claimSeniorDevResume } from "../services/senior-dev-claim.js";
+import {
+  claimProjectBuildStart,
+  releaseProjectBuildClaim,
+} from "../services/build-claim.js";
 
 const router = Router();
 
@@ -118,29 +120,60 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    const reservationCharged = !unlimited;
-    if (reservationCharged) {
-      await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
+    const claimed = await claimProjectBuildStart(projectId, user.id);
+    if (claimed) {
+      const createdAt = new Date().toISOString();
+      const reservationCharged = !unlimited;
+      let charged = false;
+
+      try {
+        if (reservationCharged) {
+          await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
+          charged = true;
+        }
+
+        await clearBuildEvents(projectId);
+        await enqueueBuild({
+          projectId,
+          userId: user.id,
+          description: project.description || "",
+          techStack: project.techStack || "react-node",
+          locale: (project as { locale?: string }).locale ?? "en",
+          buildCapabilities:
+            (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
+          createdAt,
+          reservationCharged,
+        });
+      } catch (err: unknown) {
+        if (charged) {
+          const refundKey = `build-start-refund-${projectId}-${createdAt}`;
+          try {
+            await addCredits(
+              user.id,
+              BUILD_COST,
+              "build_refund",
+              `Build start refund for project ${projectId}`,
+              refundKey,
+            );
+          } catch (refundErr: unknown) {
+            logger.error(
+              { projectId, refundKey, error: refundErr },
+              "build_start_refund_error",
+            );
+          }
+        }
+
+        await releaseProjectBuildClaim(
+          projectId,
+          user.id,
+          project.status,
+          project.pauseReason ?? null,
+        );
+        logger.error({ projectId, error: err }, "build_start_failed");
+        res.status(500).json({ error: "build_start_failed" });
+        return;
+      }
     }
-
-    if (project.status === "paused") {
-      await resumeProject(projectId);
-    }
-
-    await clearBuildEvents(projectId);
-    await updateProjectStatus(projectId, "running");
-
-    await enqueueBuild({
-      projectId,
-      userId: user.id,
-      description: project.description || "",
-      techStack: project.techStack || "react-node",
-      locale: (project as { locale?: string }).locale ?? "en",
-      buildCapabilities:
-        (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
-      createdAt: new Date().toISOString(),
-      reservationCharged,
-    });
   }
 
   res.setHeader("Content-Type", "text/event-stream");
