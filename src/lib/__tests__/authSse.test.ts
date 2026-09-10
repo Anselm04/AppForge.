@@ -27,7 +27,7 @@ describe("generate auth helpers", () => {
     });
   });
 
-  it("sends JWT on generate SSE URL when a session exists", () => {
+  it("never places JWTs in authenticated URLs", () => {
     window.localStorage.setItem(
       "appforge.session",
       JSON.stringify({
@@ -36,7 +36,8 @@ describe("generate auth helpers", () => {
       }),
     );
     expect(getAccessToken()).toBe("jwt-token");
-    expect(authedUrl("/api/build/42")).toBe("/api/build/42?token=jwt-token");
+    expect(authedUrl("/api/build/42")).toBe("/api/build/42");
+    expect(authedUrl("/api/build/42")).not.toContain("jwt-token");
   });
 
   it("sends unsigned users to /login with next preserved (not signup)", () => {

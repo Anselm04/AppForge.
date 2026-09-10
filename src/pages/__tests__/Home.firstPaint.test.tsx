@@ -147,6 +147,6 @@ describe("Home first paint", () => {
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
-    expect(authedUrl("/api/build/9")).toBe("/api/build/9?token=tok");
+    expect(authedUrl("/api/build/9")).toBe("/api/build/9");
   });
 });
