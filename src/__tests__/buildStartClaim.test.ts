@@ -27,11 +27,16 @@ describe("concurrent build start protection", () => {
   it("requires the route to claim before charging or enqueueing", () => {
     expect(route).toContain('from "../services/build-claim.js"');
     expect(route).toContain("await claimProjectBuildStart(projectId, user.id)");
-    expect(route.indexOf("claimProjectBuildStart(projectId, user.id)")).toBeLessThan(
-      route.indexOf("await deductCredits(user.id, BUILD_COST"),
-    );
+    expect(
+      route.indexOf("claimProjectBuildStart(projectId, user.id)"),
+    ).toBeLessThan(route.indexOf("await deductCredits(user.id, BUILD_COST"));
     expect(route).toContain("releaseProjectBuildClaim(");
     expect(route).toContain("build-start-refund-");
+  });
+
+  it("rejects a stale simultaneous starter instead of replaying old SSE history", () => {
+    expect(route).toContain("if (!claimed)");
+    expect(route).toContain('error: "build_already_started"');
   });
 
   it("deduplicates every queue backend and refunds a duplicate paid reservation", () => {
