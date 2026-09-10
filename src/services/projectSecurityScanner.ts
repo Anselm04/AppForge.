@@ -74,7 +74,8 @@ const RULES: SecurityRule[] = [
   {
     id: "web.cors-wildcard",
     severity: "medium",
-    message: "Wildcard CORS can expose authenticated APIs to untrusted origins.",
+    message:
+      "Wildcard CORS can expose authenticated APIs to untrusted origins.",
     pattern:
       /(?:origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*)/i,
     paths: /\.(?:js|ts|mjs|cjs|json)$/i,
@@ -89,7 +90,8 @@ const RULES: SecurityRule[] = [
   {
     id: "auth.token-in-url",
     severity: "high",
-    message: "Authentication token appears to be placed in a URL or query string.",
+    message:
+      "Authentication token appears to be placed in a URL or query string.",
     pattern:
       /(?:\?|&)(?:token|access_token|jwt|api_key)=\$?\{?[A-Za-z0-9_.-]+/i,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
