@@ -22,14 +22,18 @@ describe("Senior Dev execution claims", () => {
   });
 
   it("requires the first-run route to claim before charging", () => {
-    const claimIndex = route.indexOf("await claimSeniorDevStart(task.id, user.id)");
+    const claimIndex = route.indexOf(
+      "await claimSeniorDevStart(task.id, user.id)",
+    );
     const chargeIndex = route.indexOf(
       "await deductCredits(\n        user.id,\n        SENIOR_DEV_BASE_COST",
       claimIndex,
     );
     expect(claimIndex).toBeGreaterThan(-1);
     expect(chargeIndex).toBeGreaterThan(claimIndex);
-    expect(route).toContain("releaseSeniorDevStartClaim(task.id, user.id, task.status)");
+    expect(route).toContain(
+      "releaseSeniorDevStartClaim(task.id, user.id, task.status)",
+    );
   });
 
   it("atomically transitions only awaiting approval tasks on resume", () => {
