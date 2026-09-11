@@ -17,14 +17,23 @@ describe("Stripe revenue fulfillment boundaries", () => {
     expect(webhook).toContain("Stripe credit metadata mismatch");
   });
 
-  it("reconciles full credit-pack refunds without negative balances", () => {
+  it("reconciles partial and full credit-pack refunds deterministically", () => {
     const webhook = source("src/webhooks/stripe.ts");
     const refund = source("src/services/stripeCreditRefund.ts");
 
     expect(webhook).toContain('case "charge.refunded"');
-    expect(webhook).toContain("revokeFullyRefundedCreditPurchase(");
-    expect(webhook).toContain("if (!charge.refunded)");
-    expect(refund).toContain("Math.min(credits.balance, original.amount)");
+    expect(webhook).toContain("reconcileCreditPurchaseRefund(");
+    expect(webhook).toContain("charge.amount_refunded");
+    expect(webhook).not.toContain(
+      "stripe_partial_refund_requires_manual_credit_reconciliation",
+    );
+    expect(refund).toContain(
+      "Math.floor((original.amount * amountRefunded) / chargeAmount)",
+    );
+    expect(refund).toContain("fullyRefunded");
+    expect(refund).toContain("stateKey = `stripe_refund:${paymentIntentId}`");
+    expect(refund).toContain("accountedCredits");
+    expect(refund).toContain("Math.min(credits.balance, delta)");
     expect(refund).toContain('type: "purchase_refund"');
     expect(refund).toContain("stripePaymentIntentId: refundEventId");
   });
