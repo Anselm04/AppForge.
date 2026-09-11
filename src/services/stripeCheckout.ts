@@ -6,6 +6,8 @@ export type SelfServePlanTier = (typeof SELF_SERVE_PLAN_TIERS)[number];
 export const CREDIT_PACKS = [50, 100, 250] as const;
 export type CreditPack = (typeof CREDIT_PACKS)[number];
 
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set(["canceled", "incomplete_expired"]);
+
 const APP_URL =
   process.env.PUBLIC_APP_URL || "https://appforge-unfurling-moon-9058.fly.dev";
 
@@ -54,9 +56,34 @@ function requireCreditPriceId(credits: CreditPack) {
   return id;
 }
 
-export async function createPlanCheckout(user: CheckoutUser, tier: SelfServePlanTier) {
+function assertCanCreateSubscription(
+  sub: Awaited<ReturnType<typeof getSubscriptionByUserId>>,
+) {
+  if (!sub) return;
+
+  const status = sub.status ?? "";
+  const hasManagedSubscription =
+    !!sub.stripeSubscriptionId && !TERMINAL_SUBSCRIPTION_STATUSES.has(status);
+  const hasActivePaidEntitlement =
+    (status === "active" || status === "trialing") &&
+    !!sub.tier &&
+    sub.tier !== "free";
+
+  if (hasManagedSubscription || hasActivePaidEntitlement) {
+    throw new Error(
+      "An existing Stripe subscription must be managed or recovered before starting another checkout.",
+    );
+  }
+}
+
+export async function createPlanCheckout(
+  user: CheckoutUser,
+  tier: SelfServePlanTier,
+) {
   const stripe = await getStripe();
   const sub = await getSubscriptionByUserId(user.id);
+  assertCanCreateSubscription(sub);
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     payment_method_types: ["card"],
@@ -83,7 +110,10 @@ export async function createPlanCheckout(user: CheckoutUser, tier: SelfServePlan
   return { url: session.url };
 }
 
-export async function createCreditCheckout(user: CheckoutUser, credits: CreditPack) {
+export async function createCreditCheckout(
+  user: CheckoutUser,
+  credits: CreditPack,
+) {
   const stripe = await getStripe();
   const sub = await getSubscriptionByUserId(user.id);
   const session = await stripe.checkout.sessions.create({
