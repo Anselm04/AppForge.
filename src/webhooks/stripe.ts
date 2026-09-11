@@ -90,10 +90,15 @@ function resolveTier(
   const fromMeta = (meta?.tier || meta?.plan || "").toLowerCase();
   const mappedTier = tierFromPriceId(priceId);
 
+  // The configured Stripe price is authoritative. Customer Portal plan changes
+  // update the subscription price but can leave the subscription metadata on the
+  // previous tier. Rejecting that normal stale metadata would take payment while
+  // failing to provision the customer's new entitlement.
   if (mappedTier) {
     if (fromMeta && PAID_TIERS.has(fromMeta) && fromMeta !== mappedTier) {
-      throw new Error(
-        `Stripe tier metadata mismatch: metadata=${fromMeta}, price=${priceId}`,
+      logger.warn(
+        { metadataTier: fromMeta, mappedTier, priceId },
+        "stripe_tier_metadata_stale_using_price",
       );
     }
     return mappedTier;
@@ -331,90 +336,43 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           .update(subscriptions)
           .set({ status: "past_due", updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-        logger.warn(
-          { eventId: event.id },
-          "stripe_invoice_payment_failed",
-        );
-        try {
-          const { notifyPaymentFailed } = await import("../services/email.js");
-          const userEmail = await db
-            .select({ email: users.email })
-            .from(users)
-            .innerJoin(
-              subscriptions,
-              eq(subscriptions.stripeSubscriptionId, subscriptionId),
-            )
-            .limit(1);
-          if (userEmail[0]?.email) {
-            await notifyPaymentFailed(userEmail[0].email);
-          }
-        } catch (emailErr) {
-          logger.error(
-            { error: emailErr, eventId: event.id },
-            "stripe_payment_failure_email_failed",
-          );
-        }
       }
       break;
     }
 
-    default: {
-      logger.info(
-        { eventType: event.type, eventId: event.id },
-        "stripe_webhook_unhandled_event",
-      );
-    }
+    default:
+      break;
   }
 }
 
-export async function stripeWebhookHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const signature = req.headers["stripe-signature"] as string | undefined;
-
+export async function handleStripeWebhook(req: Request, res: Response) {
   if (!webhookSecret) {
-    logger.error({}, "stripe_webhook_secret_not_configured");
-    res.status(500).json({ error: "Webhook secret not configured" });
-    return;
+    return res.status(500).json({ error: "Stripe webhook not configured" });
   }
 
-  if (!signature) {
-    logger.warn({}, "stripe_webhook_signature_missing");
-    res.status(400).json({ error: "Missing stripe-signature header" });
-    return;
+  const signature = req.headers["stripe-signature"];
+  if (!signature || typeof signature !== "string") {
+    return res.status(400).json({ error: "Missing Stripe signature" });
   }
 
   let event: Stripe.Event;
-
   try {
     event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-  } catch (err: unknown) {
-    logger.warn({ error: err }, "stripe_webhook_signature_invalid");
-    res.status(400).json({ error: "Invalid signature" });
-    return;
+  } catch (error) {
+    logger.warn({ error }, "stripe_webhook_signature_invalid");
+    return res.status(400).json({ error: "Invalid Stripe signature" });
   }
 
   try {
-    const processed = await processStripeEventOnce(
-      event.id,
-      event.type,
-      async () => {
-        await handleStripeEvent(event);
-      },
+    await processStripeEventOnce(event.id, event.type, () =>
+      handleStripeEvent(event),
     );
-    if (!processed) {
-      logger.info(
-        { eventId: event.id, eventType: event.type },
-        "stripe_webhook_duplicate_ignored",
-      );
-    }
-    res.json({ received: true, duplicate: !processed });
-  } catch (err) {
+    return res.json({ received: true });
+  } catch (error) {
     logger.error(
-      { error: err, eventId: event.id, eventType: event.type },
+      { error, eventId: event.id, eventType: event.type },
       "stripe_webhook_processing_failed",
     );
-    res.status(500).json({ error: "Webhook processing failed" });
+    return res.status(500).json({ error: "Webhook processing failed" });
   }
 }
