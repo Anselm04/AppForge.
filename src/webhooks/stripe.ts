@@ -115,6 +115,13 @@ function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
   return subscription.items?.data?.[0]?.price?.id ?? null;
 }
 
+function shouldGrantMonthlyPlanCredits(invoice: Stripe.Invoice): boolean {
+  return (
+    invoice.billing_reason === "subscription_create" ||
+    invoice.billing_reason === "subscription_cycle"
+  );
+}
+
 async function upsertSubscription(opts: {
   userId: number;
   customerId: string;
@@ -315,7 +322,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           }
         }
 
-        if (userId && tier) {
+        if (userId && tier && shouldGrantMonthlyPlanCredits(invoice)) {
           const result = await grantPlanCredits(userId, tier, invoice.id);
           if (!result.skipped) {
             logger.info(
@@ -323,6 +330,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
               "stripe_invoice_plan_credits_granted",
             );
           }
+        } else if (userId && tier) {
+          logger.info(
+            { userId, tier, billingReason: invoice.billing_reason, eventId: event.id },
+            "stripe_invoice_plan_credit_grant_skipped_for_billing_reason",
+          );
         }
       }
       break;
