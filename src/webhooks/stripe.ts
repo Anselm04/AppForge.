@@ -1,10 +1,11 @@
 import Stripe from "stripe";
 import type { Request, Response } from "express";
-import { addCredits, db, grantPlanCredits } from "../db.js";
+import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
+import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
@@ -51,6 +52,18 @@ function resolveCheckoutUserId(
   }
 
   return metadataUserId ?? referenceUserId;
+}
+
+function resolveConsistentUserId(
+  ...values: Array<number | null | undefined>
+): number | undefined {
+  const present = values.filter(
+    (value): value is number => typeof value === "number",
+  );
+  if (new Set(present).size > 1) {
+    throw new Error("Stripe subscription user identity mismatch");
+  }
+  return present[0];
 }
 
 function parseCreditPack(value?: string | null): number | null {
@@ -239,14 +252,13 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = customerIdFromSubscription(subscription);
-      let userId =
-        parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
+      const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
+      const customerUserId = customerId
+        ? await resolveUserIdFromCustomer(customerId)
+        : undefined;
+      const userId = resolveConsistentUserId(metadataUserId, customerUserId);
       const priceId = subscriptionPriceId(subscription);
       const tier = resolveTier(subscription.metadata, priceId);
-
-      if (!userId && customerId) {
-        userId = await resolveUserIdFromCustomer(customerId);
-      }
 
       if (userId && customerId) {
         await upsertSubscription({
@@ -262,11 +274,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = customerIdFromSubscription(subscription);
-      let userId =
-        parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
-      if (!userId && customerId) {
-        userId = await resolveUserIdFromCustomer(customerId);
-      }
+      const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
+      const customerUserId = customerId
+        ? await resolveUserIdFromCustomer(customerId)
+        : undefined;
+      const userId = resolveConsistentUserId(metadataUserId, customerUserId);
 
       if (userId) {
         await db
@@ -293,6 +305,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         if (!customerId) {
           throw new Error("Stripe subscription customer is missing");
         }
+        const metadataUserId = parsePositiveUserId(
+          subscription.metadata?.userId,
+        );
+        const customerUserId = await resolveUserIdFromCustomer(customerId);
+        resolveConsistentUserId(userId, metadataUserId, customerUserId);
         const priceId = subscriptionPriceId(subscription);
         const tier = resolveTier(
           { ...(subscription.metadata || {}), ...(session.metadata || {}) },
@@ -352,7 +369,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           tier = resolveTier(subscription.metadata, priceId);
           const fromCustomer = await resolveUserIdFromCustomer(customerId);
           const fromMeta = parsePositiveUserId(subscription.metadata?.userId);
-          const resolved = fromMeta ?? userId ?? fromCustomer;
+          const resolved = resolveConsistentUserId(
+            fromMeta,
+            userId,
+            fromCustomer,
+          );
 
           if (!resolved || !customerId) {
             throw new Error(
@@ -376,7 +397,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         }
 
         if (userId && tier && shouldGrantMonthlyPlanCredits(invoice)) {
-          const result = await grantPlanCredits(userId, tier, invoice.id);
+          const result = await grantStripeInvoicePlanCredits(
+            userId,
+            tier,
+            invoice.id,
+          );
           if (!result.skipped) {
             logger.info(
               {
