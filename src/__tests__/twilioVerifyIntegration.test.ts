@@ -6,10 +6,7 @@ const twilioSms = readFileSync(
   resolve(process.cwd(), "src/lib/twilioSms.ts"),
   "utf8",
 );
-const env = readFileSync(
-  resolve(process.cwd(), "src/_core/env.ts"),
-  "utf8",
-);
+const env = readFileSync(resolve(process.cwd(), "src/_core/env.ts"), "utf8");
 
 describe("Twilio Verify integration", () => {
   it("supports a Twilio Verify Service SID", () => {
@@ -20,7 +17,9 @@ describe("Twilio Verify integration", () => {
   });
 
   it("preserves the legacy Twilio phone-number sender as a fallback", () => {
-    expect(twilioSms).toContain("ENV.twilioVerifyServiceSid || ENV.twilioPhoneNumber");
+    expect(twilioSms).toContain(
+      "ENV.twilioVerifyServiceSid || ENV.twilioPhoneNumber",
+    );
     expect(twilioSms).toContain("Messages.json");
   });
 });
