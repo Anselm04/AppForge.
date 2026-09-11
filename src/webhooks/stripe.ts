@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import type { Request, Response } from "express";
 import { addCredits, db, grantPlanCredits } from "../db.js";
-import { subscriptions, users } from "../db/schema.js";
+import { subscriptions } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
@@ -55,6 +55,24 @@ function parseCreditPack(value?: string | null): number | null {
   if (!value || !/^\d+$/.test(value)) return null;
   const credits = Number(value);
   return CREDIT_PACK_SET.has(credits) ? credits : null;
+}
+
+function creditPriceId(credits: number): string | null {
+  const envKeys: Record<number, string> = {
+    50: "STRIPE_CREDITS_50_PRICE_ID",
+    100: "STRIPE_CREDITS_100_PRICE_ID",
+    250: "STRIPE_CREDITS_250_PRICE_ID",
+  };
+  const envKey = envKeys[credits];
+  return envKey ? process.env[envKey] || null : null;
+}
+
+function creditPackFromPriceId(priceId?: string | null): number | null {
+  if (!priceId) return null;
+  for (const credits of CREDIT_PACKS) {
+    if (creditPriceId(credits) === priceId) return credits;
+  }
+  return null;
 }
 
 function customerIdFromSubscription(
@@ -120,6 +138,45 @@ function shouldGrantMonthlyPlanCredits(invoice: Stripe.Invoice): boolean {
     invoice.billing_reason === "subscription_create" ||
     invoice.billing_reason === "subscription_cycle"
   );
+}
+
+async function paidCreditPackForSession(
+  session: Stripe.Checkout.Session,
+): Promise<number> {
+  if (session.payment_status !== "paid") {
+    throw new Error(
+      `Stripe credit checkout is not paid: ${session.payment_status}`,
+    );
+  }
+
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+    limit: 10,
+  });
+  if (lineItems.data.length !== 1) {
+    throw new Error("Stripe credit checkout must contain exactly one line item");
+  }
+
+  const lineItem = lineItems.data[0];
+  if ((lineItem.quantity ?? 0) !== 1) {
+    throw new Error("Stripe credit checkout quantity must be exactly one");
+  }
+
+  const paidPriceId = lineItem.price?.id ?? null;
+  const paidCredits = creditPackFromPriceId(paidPriceId);
+  if (paidCredits === null) {
+    throw new Error(
+      `Unrecognized Stripe credit price; refusing fulfillment: ${paidPriceId || "missing"}`,
+    );
+  }
+
+  const metadataCredits = parseCreditPack(session.metadata?.credits);
+  if (metadataCredits !== null && metadataCredits !== paidCredits) {
+    throw new Error(
+      `Stripe credit metadata mismatch: paid=${paidCredits}, metadata=${metadataCredits}`,
+    );
+  }
+
+  return paidCredits;
 }
 
 async function upsertSubscription(opts: {
@@ -236,45 +293,32 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           priceId,
         );
 
+        // Persist the subscription immediately, but do not grant recurring plan
+        // credits here. invoice.paid is the canonical settled-money event and is
+        // the only event allowed to mint subscription credits.
         await upsertSubscription({
           userId,
           customerId,
           subscription,
           tier,
         });
-
-        const result = await grantPlanCredits(
-          userId,
-          tier,
-          `checkout-${session.id}`,
-        );
-        if (!result.skipped) {
-          logger.info(
-            { userId, tier, creditsGranted: result.granted, eventId: event.id },
-            "stripe_checkout_plan_credits_granted",
-          );
-        }
       }
 
-      if (userId && mode === "payment" && session.payment_status === "paid") {
-        const credits = parseCreditPack(session.metadata?.credits);
-        if (credits !== null) {
-          const paymentRef =
-            (session.payment_intent as string) || `checkout-${session.id}`;
-          await addCredits(
-            userId,
-            credits,
-            "purchase",
-            `Stripe checkout credit purchase (${credits} credits)`,
-            paymentRef,
-          );
-          logger.info(
-            { userId, credits, eventId: event.id },
-            "stripe_credit_purchase_processed",
-          );
-        } else {
-          throw new Error("Unrecognized Stripe credit pack metadata");
-        }
+      if (userId && mode === "payment") {
+        const credits = await paidCreditPackForSession(session);
+        const paymentRef =
+          (session.payment_intent as string) || `checkout-${session.id}`;
+        await addCredits(
+          userId,
+          credits,
+          "purchase",
+          `Stripe checkout credit purchase (${credits} credits)`,
+          paymentRef,
+        );
+        logger.info(
+          { userId, credits, eventId: event.id },
+          "stripe_credit_purchase_processed",
+        );
       }
       break;
     }
@@ -332,7 +376,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           }
         } else if (userId && tier) {
           logger.info(
-            { userId, tier, billingReason: invoice.billing_reason, eventId: event.id },
+            {
+              userId,
+              tier,
+              billingReason: invoice.billing_reason,
+              eventId: event.id,
+            },
             "stripe_invoice_plan_credit_grant_skipped_for_billing_reason",
           );
         }
