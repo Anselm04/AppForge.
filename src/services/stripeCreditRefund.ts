@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, ensureUserCredits } from "../db.js";
 import * as schema from "../db/schema.js";
+import { calculateCreditRefundAdjustment } from "./stripeCreditRefundMath.js";
 
 type RefundState = {
   accountedCredits: number;
@@ -110,11 +111,13 @@ export async function reconcileCreditPurchaseRefund(
       throw new Error("Stripe cumulative refund amount moved backwards");
     }
 
-    const targetCredits = fullyRefunded
-      ? original.amount
-      : Math.floor((original.amount * amountRefunded) / chargeAmount);
-    const cappedTarget = Math.min(original.amount, targetCredits);
-    const delta = Math.max(0, cappedTarget - prior.accountedCredits);
+    const { targetCredits, delta } = calculateCreditRefundAdjustment({
+      originalCredits: original.amount,
+      chargeAmount,
+      amountRefunded,
+      fullyRefunded,
+      accountedCredits: prior.accountedCredits,
+    });
 
     if (delta === 0) {
       await tx
@@ -138,7 +141,7 @@ export async function reconcileCreditPurchaseRefund(
           },
         });
       return {
-        targetCredits: cappedTarget,
+        targetCredits,
         revoked: 0,
         unrecovered: 0,
         skipped: true,
@@ -179,7 +182,7 @@ export async function reconcileCreditPurchaseRefund(
       .values({
         key: stateKey,
         value: JSON.stringify({
-          accountedCredits: cappedTarget,
+          accountedCredits: targetCredits,
           amountRefunded,
         }),
         updatedAt: new Date(),
@@ -188,7 +191,7 @@ export async function reconcileCreditPurchaseRefund(
         target: schema.appSettings.key,
         set: {
           value: JSON.stringify({
-            accountedCredits: cappedTarget,
+            accountedCredits: targetCredits,
             amountRefunded,
           }),
           updatedAt: new Date(),
@@ -196,7 +199,7 @@ export async function reconcileCreditPurchaseRefund(
       });
 
     return {
-      targetCredits: cappedTarget,
+      targetCredits,
       revoked,
       unrecovered,
       skipped: false,
