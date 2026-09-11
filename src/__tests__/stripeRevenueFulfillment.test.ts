@@ -17,6 +17,18 @@ describe("Stripe revenue fulfillment boundaries", () => {
     expect(webhook).toContain("Stripe credit metadata mismatch");
   });
 
+  it("reconciles full credit-pack refunds without negative balances", () => {
+    const webhook = source("src/webhooks/stripe.ts");
+    const refund = source("src/services/stripeCreditRefund.ts");
+
+    expect(webhook).toContain('case "charge.refunded"');
+    expect(webhook).toContain("revokeFullyRefundedCreditPurchase(");
+    expect(webhook).toContain("if (!charge.refunded)");
+    expect(refund).toContain("Math.min(credits.balance, original.amount)");
+    expect(refund).toContain('type: "purchase_refund"');
+    expect(refund).toContain("stripePaymentIntentId: refundEventId");
+  });
+
   it("grants recurring plan credits only from paid subscription invoices", () => {
     const webhook = source("src/webhooks/stripe.ts");
     const checkoutCase = webhook.slice(
