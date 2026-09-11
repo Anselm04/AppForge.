@@ -5,6 +5,7 @@ import { getProjectById } from "../db.js";
 import { summarizeIntegrationHealth } from "../integrations/health.js";
 import {
   capturePostHogEvent,
+  runCodexSecurityReview,
   runMakeWorkflow,
   runSpritesAgentTask,
   sendBubblaVSupportMessage,
@@ -135,6 +136,66 @@ export const ecosystemRouter = router({
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message: "Agent execution service unavailable",
+        });
+      }
+    }),
+
+  runSecurityReview: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        focus: z.string().trim().max(4_000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
+      }
+
+      const generatedFiles = project.generatedFiles ?? {};
+      if (JSON.stringify(generatedFiles).length > 1_000_000) {
+        throw new TRPCError({
+          code: "PAYLOAD_TOO_LARGE",
+          message: "Project source is too large for a single security review",
+        });
+      }
+
+      try {
+        const result = await runCodexSecurityReview({
+          actor: { id: ctx.user.id, email: ctx.user.email },
+          project: {
+            id: project.id,
+            title: project.title?.trim() || `AppForge Project ${project.id}`,
+            description: project.description?.trim() || "",
+            techStack: project.techStack?.trim() || "unknown",
+            generatedFiles,
+          },
+          focus: input.focus,
+        });
+
+        await observeEcosystemAction({
+          event: "appforge_codex_security_review_submitted",
+          userId: ctx.user.id,
+          properties: { projectId: project.id },
+        });
+
+        return {
+          success: true as const,
+          status: result.status,
+          result: result.data,
+        };
+      } catch (error) {
+        logger.error(
+          { error, userId: ctx.user.id, projectId: project.id },
+          "codex_security_review_failed",
+        );
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: "Security review service unavailable",
         });
       }
     }),
