@@ -337,39 +337,42 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           where: eq(subscriptions.stripeSubscriptionId, subscriptionId),
         });
 
-        await db
-          .update(subscriptions)
-          .set({ status: "active", updatedAt: new Date() })
-          .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
-
         let userId = existing?.userId;
-        let tier = existing?.tier;
+        let tier: string | undefined;
 
-        if (!userId || !tier) {
-          try {
-            const subscription =
-              await stripe.subscriptions.retrieve(subscriptionId);
-            const customerId = customerIdFromSubscription(subscription);
-            const priceId = subscriptionPriceId(subscription);
-            tier = resolveTier(subscription.metadata, priceId);
-            const fromCustomer = await resolveUserIdFromCustomer(customerId);
-            const fromMeta = parsePositiveUserId(subscription.metadata?.userId);
-            const resolved = fromMeta ?? fromCustomer;
-            if (resolved && customerId) {
-              userId = resolved;
-              await upsertSubscription({
-                userId,
-                customerId,
-                subscription,
-                tier,
-              });
-            }
-          } catch (lookupErr) {
-            logger.error(
-              { error: lookupErr, eventId: event.id },
-              "stripe_invoice_subscription_lookup_failed",
+        // Always resolve the current Stripe subscription on settled invoices.
+        // The paid Stripe price is authoritative for plan entitlements; relying
+        // on the stored tier can mis-grant credits when plan-change webhooks are
+        // delivered out of order.
+        try {
+          const subscription =
+            await stripe.subscriptions.retrieve(subscriptionId);
+          const customerId = customerIdFromSubscription(subscription);
+          const priceId = subscriptionPriceId(subscription);
+          tier = resolveTier(subscription.metadata, priceId);
+          const fromCustomer = await resolveUserIdFromCustomer(customerId);
+          const fromMeta = parsePositiveUserId(subscription.metadata?.userId);
+          const resolved = fromMeta ?? userId ?? fromCustomer;
+
+          if (!resolved || !customerId) {
+            throw new Error(
+              "Unable to resolve AppForge user/customer for paid subscription",
             );
           }
+
+          userId = resolved;
+          await upsertSubscription({
+            userId,
+            customerId,
+            subscription,
+            tier,
+          });
+        } catch (lookupErr) {
+          logger.error(
+            { error: lookupErr, eventId: event.id, subscriptionId },
+            "stripe_invoice_subscription_lookup_failed",
+          );
+          throw lookupErr;
         }
 
         if (userId && tier && shouldGrantMonthlyPlanCredits(invoice)) {
