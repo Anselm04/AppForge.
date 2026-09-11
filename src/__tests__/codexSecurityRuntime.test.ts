@@ -14,7 +14,10 @@ const router = readFileSync(
   resolve(process.cwd(), "src/routers/ecosystem.ts"),
   "utf8",
 );
-const envExample = readFileSync(resolve(process.cwd(), ".env.example"), "utf8");
+const envExample = readFileSync(
+  resolve(process.cwd(), ".env.example"),
+  "utf8",
+);
 
 describe("Codex Security runtime bridge", () => {
   it("has separate health and review execution configuration", () => {
@@ -28,12 +31,16 @@ describe("Codex Security runtime bridge", () => {
   it("exposes a protected project-owned review route", () => {
     expect(router).toContain("runSecurityReview: protectedProcedure");
     expect(router).toContain("project.userId !== ctx.user.id");
-    expect(router).toContain("Project source is too large for a single security review");
+    expect(router).toContain(
+      "Project source is too large for a single security review",
+    );
     expect(router).toContain("runCodexSecurityReview");
   });
 
   it("does not expose a raw shell execution contract", () => {
-    expect(runtime).toContain('"x-appforge-security-runtime": "codex-security"');
+    expect(runtime).toContain(
+      '"x-appforge-security-runtime": "codex-security"',
+    );
     expect(runtime).not.toContain("shellCommand");
     expect(runtime).not.toContain("execSync");
   });
