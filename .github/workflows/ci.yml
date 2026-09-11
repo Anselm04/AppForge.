@@ -128,9 +128,9 @@ jobs:
         run: |
           set -euo pipefail
           test -s dist/server.js
-          test -s dist/index.html
-          test -d dist/assets
-          test -n "$(find dist/assets -type f -print -quit)"
+          test -s dist/client/index.html
+          test -d dist/client/assets
+          test -n "$(find dist/client/assets -type f -print -quit)"
           echo "Verified server bundle, SPA entrypoint, and static assets."
       - name: Verify build does not mutate tracked source
         shell: bash
