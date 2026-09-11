@@ -15,6 +15,7 @@ import {
 import { ensureAppForgeBillingPortalConfiguration } from "../services/stripeBillingPortal.js";
 
 const CHECKOUT_TIERS = ["starter", "builder", "studio", "enterprise"] as const;
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
 const TIER_LIMITS: Record<string, number | null> = {
   free: 3,
@@ -82,11 +83,18 @@ export const subscriptionsRouter = router({
 
       const existing = await getSubscriptionByUserId(ctx.user.id);
       const existingTier = await getUserTier(ctx.user.id);
-      if (existing?.stripeCustomerId && existingTier !== "free") {
+      const hasManagedSubscription =
+        !!existing?.stripeSubscriptionId &&
+        !TERMINAL_SUBSCRIPTION_STATUSES.has(existing.status ?? "");
+
+      if (
+        existing?.stripeCustomerId &&
+        (existingTier !== "free" || hasManagedSubscription)
+      ) {
         throw new TRPCError({
           code: "CONFLICT",
           message:
-            "You already have an active subscription. Use Manage billing to change your plan without creating a second subscription.",
+            "You already have a Stripe subscription. Use Manage billing to change your plan or recover payment without creating a second subscription.",
         });
       }
 
