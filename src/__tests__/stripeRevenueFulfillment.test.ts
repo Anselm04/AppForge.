@@ -47,7 +47,9 @@ describe("Stripe revenue fulfillment boundaries", () => {
     const grantAt = invoiceCase.indexOf("grantStripeInvoicePlanCredits(");
     expect(retrieveAt).toBeGreaterThanOrEqual(0);
     expect(grantAt).toBeGreaterThan(retrieveAt);
-    expect(invoiceCase).toContain("resolveTier(subscription.metadata, priceId)");
+    expect(invoiceCase).toContain(
+      "resolveTier(subscription.metadata, priceId)",
+    );
   });
 
   it("rejects conflicting Stripe/AppForge user identities", () => {
@@ -75,7 +77,9 @@ describe("Stripe revenue fulfillment boundaries", () => {
     const schema = source("src/db/ensureSchema.ts");
     const ledger = source("src/services/stripeEventLedger.ts");
 
-    expect(schema).toContain('CREATE TABLE IF NOT EXISTS "stripe_webhook_events"');
+    expect(schema).toContain(
+      'CREATE TABLE IF NOT EXISTS "stripe_webhook_events"',
+    );
     expect(schema).toContain('"event_id" VARCHAR(255) PRIMARY KEY');
     expect(ledger).not.toContain("CREATE TABLE");
     expect(ledger).not.toContain("CREATE INDEX");
