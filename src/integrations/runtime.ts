@@ -161,3 +161,34 @@ export async function sendDatadogLog(input: {
     ],
   });
 }
+
+export async function runSpritesAgentTask(input: {
+  task: string;
+  actor: { id: number; email: string };
+  projectId?: number;
+  context?: JsonRecord;
+}) {
+  const execUrl = value("SPRITES_EXEC_URL");
+  const token = value("SPRITES_API_TOKEN");
+  if (!execUrl || !token) {
+    throw new Error("Sprites execution bridge is not configured");
+  }
+
+  return requestJson(execUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      "x-appforge-agent-runtime": "sprites",
+    },
+    body: {
+      task: input.task,
+      actor: input.actor,
+      projectId: input.projectId,
+      context: input.context ?? {},
+      source: "appforge",
+      requestedAt: new Date().toISOString(),
+    },
+    timeoutMs: 60_000,
+  });
+}
