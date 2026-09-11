@@ -35,7 +35,7 @@ The platform stores users, projects, credits, and generated files in **PostgreSQ
 | Manage projects       | `/dashboard`                | List builds, credits, tier, links to improve/rebuild    |
 | Improve existing code | `/ai-builder` (Improve tab) | Senior Dev Agent with plan approval or autonomous mode  |
 | Design assets         | `/editor`                   | Standalone SVG graphics editor (not wired into builds)  |
-| Billing               | `/pricing`                  | Stripe Payment Links + credit packs                     |
+| Billing               | `/pricing`                  | Stripe Checkout, Customer Portal, and credit packs      |
 | Redeem codes          | `/redeem`                   | Owner-issued god codes                                  |
 | Admin                 | `/admin`                    | Owner-only analytics + god code minting (`OWNER_EMAIL`) |
 
@@ -102,17 +102,19 @@ Iterates on an **existing** project's generated files (`src/agents/seniorDevAgen
 
 ## Subscription tiers
 
-| Tier       | Price    | Monthly builds | Credit refill |
-| ---------- | -------- | -------------- | ------------- |
-| Free       | $0       | 3              | 20 (initial)  |
-| Starter    | $49/mo   | 16             | 100           |
-| Builder    | $149/mo  | 66             | 400           |
-| Studio     | $399/mo  | Unlimited      | 1,500         |
-| Enterprise | $896+/mo | Custom         | Unlimited     |
+| Tier       | Price     | Monthly builds | Credit refill |
+| ---------- | --------- | -------------- | ------------- |
+| Free       | $0        | 3              | 20 (initial)  |
+| Starter    | $49/mo    | 16             | 100           |
+| Builder    | $149/mo   | 66             | 400           |
+| Studio     | $399/mo   | Unlimited      | 1,500         |
+| Enterprise | $1,499/mo | Custom         | Unlimited     |
 
-Billing: Stripe Payment Links, Checkout Sessions, webhooks (`/api/webhooks/stripe`), and optional credit packs.
+Billing uses Stripe Checkout Sessions for new Starter/Builder/Studio subscriptions, the Stripe Customer Portal for plan changes, payment-method updates and cancellation, verified webhooks at `/api/webhooks/stripe`, and one-time credit packs. Enterprise remains sales-led rather than self-serve checkout.
 
-**God codes:** Owner mints encrypted one-time codes in `/admin`. Users redeem at `/redeem` for lifetime unlimited or bonus credits. SMS OTP tables exist in schema but redemption does **not** require SMS in current code.
+Plan changes use the configured Stripe price as the authoritative tier. Proration invoices update entitlement without minting an extra monthly credit allowance; monthly credits are granted on subscription creation and normal billing cycles.
+
+**God codes:** Owner mints encrypted one-time codes in `/admin`. Users redeem at `/redeem` for lifetime unlimited or bonus credits. SMS OTP can be enabled for redemption when the Twilio environment variables are configured.
 
 ---
 
@@ -144,17 +146,17 @@ Defined in `src/agents/pipeline.ts` and `src/services/stackScaffolds.ts`. Scaffo
 
 ## Platform tech stack
 
-| Layer          | Technology                                                              |
-| -------------- | ----------------------------------------------------------------------- |
-| Frontend       | React 18, Vite, Tailwind CSS, TanStack Query, React Router              |
-| API            | tRPC v11, Zod, Express 4                                                |
-| Auth           | Supabase Auth (JWT); server verifies via service role → Drizzle `users` |
-| Database       | PostgreSQL + Drizzle ORM (`ensureAppSchema` on boot)                    |
-| Payments       | Stripe (subscriptions, webhooks, billing portal)                        |
-| LLM            | OpenAI-compatible API (`BUILT_IN_FORGE_*`)                              |
-| Deploy targets | Vercel, Netlify, Fly, GitHub Pages, signed preview, ZIP                 |
-| Observability  | Sentry (optional), structured logging, health probes                    |
-| CI             | GitHub Actions — lint, typecheck, test, build, security scan            |
+| Layer          | Technology                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| Frontend       | React 18, Vite, Tailwind CSS, TanStack Query, React Router                                     |
+| API            | tRPC v11, Zod, Express 4                                                                       |
+| Auth           | Supabase Auth (JWT); server verifies with service role when present, otherwise publishable key |
+| Database       | PostgreSQL + Drizzle ORM (`ensureAppSchema` on boot)                                           |
+| Payments       | Stripe (subscriptions, webhooks, managed billing portal, credit packs)                         |
+| LLM            | OpenAI-compatible API (`BUILT_IN_FORGE_*`)                                                     |
+| Deploy targets | Vercel, Netlify, Fly, GitHub Pages, signed preview, ZIP                                        |
+| Observability  | Sentry (optional), structured logging, health probes                                           |
+| CI             | GitHub Actions — lint, typecheck, test, build, security scan                                   |
 
 ---
 
@@ -238,9 +240,12 @@ On first start, `ensureAppSchema()` creates tables if missing. You do **not** ne
 DATABASE_URL=postgresql://...
 
 # Supabase Auth (REQUIRED)
+SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-key
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+
+# Optional: privileged Supabase admin/SSO operations only
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # LLM (REQUIRED for builds)
 BUILT_IN_FORGE_API_KEY=your-key
@@ -257,6 +262,9 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_STARTER_PRICE_ID=price_...
 STRIPE_BUILDER_PRICE_ID=price_...
 STRIPE_STUDIO_PRICE_ID=price_...
+STRIPE_CREDIT_50_PRICE_ID=price_...
+STRIPE_CREDIT_100_PRICE_ID=price_...
+STRIPE_CREDIT_250_PRICE_ID=price_...
 
 # Production
 NODE_ENV=production
@@ -271,6 +279,8 @@ GITHUB_TOKEN=...
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 ```
+
+The production `fly.toml` pins public Supabase configuration and public Stripe price IDs. Secret Stripe credentials, database credentials, signing secrets, and LLM credentials remain Fly secrets.
 
 See `.env.example` for the full list.
 
@@ -300,7 +310,7 @@ fly deploy --config fly.toml
 fly secrets set DATABASE_URL=... BUILT_IN_FORGE_API_KEY=... # etc.
 ```
 
-Runtime public config is injected at `/config.js` so Supabase/Stripe keys can change without rebuilding.
+Runtime public config is injected at `/config.js` so Supabase/Stripe public configuration can change without rebuilding.
 
 **Vercel:** Static client only. Connect repo, set `VITE_*` env vars, deploy. Point API calls to your Fly (or other) backend — or users only get a static shell.
 
@@ -308,9 +318,12 @@ Runtime public config is injected at `/config.js` so Supabase/Stripe keys can ch
 
 - [ ] `npm run validate-env -- --strict` passes
 - [ ] Stripe webhook → `https://yourdomain.com/api/webhooks/stripe`
+- [ ] Stripe Customer Portal can be opened by an authenticated paid customer
 - [ ] `CORS_ORIGIN` and `APP_URL` match your domain
 - [ ] Health checks: `/api/health`, `/api/health/live`, `/api/health/ready`
 - [ ] `npm run typecheck && npm run test -- --run && npm run build` pass locally
+
+The production GitHub Actions workflow additionally validates pinned billing/auth configuration, required Fly secrets, deploys to Fly.io, checks liveness/readiness, and confirms protected build/preview endpoints reject unauthenticated access.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) and [DOCKER.md](DOCKER.md) for more detail.
 
