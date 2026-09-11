@@ -367,21 +367,29 @@ async function verifyRemote(
     }
 
     case "codex-security": {
-      const healthUrl = value("CODEX_SECURITY_WEBHOOK_URL");
+      const healthUrl = value("CODEX_SECURITY_HEALTH_URL");
+      const execUrl =
+        value("CODEX_SECURITY_EXEC_URL") || value("CODEX_SECURITY_WEBHOOK_URL");
       const token = value("CODEX_SECURITY_TOKEN");
-      if (!healthUrl && !token) {
+      if (!healthUrl && !execUrl && !token) {
         return result(
           definition,
           "not_connected",
           "Codex Security runtime bridge is not configured",
         );
       }
-      return result(
-        definition,
-        "configuration_required",
-        "ChatGPT Codex Security is not a deployable AppForge API; an approved runtime endpoint is still required",
-        true,
-      );
+      if (!healthUrl || !execUrl || !token) {
+        return result(
+          definition,
+          "configuration_required",
+          "Codex Security requires health URL, execution URL, and API token",
+          true,
+        );
+      }
+      const check = await probe(healthUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return check.ok ? pass(check.message) : fail(check.message);
     }
 
     case "marketing-app": {
