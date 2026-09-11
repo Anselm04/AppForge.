@@ -388,3 +388,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 }
+
+// Preserve the server's established import name while keeping the descriptive
+// handler export available to tests and other internal callers.
+export const stripeWebhookHandler = handleStripeWebhook;
