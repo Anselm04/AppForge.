@@ -5,9 +5,12 @@
 #   fly secrets set DATABASE_URL="..." JWT_SECRET="..." COOKIE_SECRET="..." \
 #     SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." \
 #     VITE_SUPABASE_URL="..." VITE_SUPABASE_PUBLISHABLE_KEY="..." \
-#     STRIPE_SECRET_KEY="..." BUILT_IN_FORGE_API_KEY="..." \
-#     OWNER_EMAIL="anselm.perkins@gmail.com" CORS_ORIGIN="https://appforge-unfurling-moon-9058.fly.dev"
+#     STRIPE_SECRET_KEY="..." STRIPE_WEBHOOK_SECRET="..." \
+#     BUILT_IN_FORGE_API_KEY="..." \
+#     OWNER_EMAIL="owner@example.com"
 #
+# Stripe price IDs are public identifiers, not secrets. They are pinned in
+# [env] below so production checkout cannot drift from the verified live catalog.
 # Runtime /config.js is enough for auth without rebuilds.
 
 app = 'appforge-unfurling-moon-9058'
@@ -67,6 +70,15 @@ primary_region = 'lhr'
   APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
   PUBLIC_APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
   CORS_ORIGIN = 'https://appforge-unfurling-moon-9058.fly.dev'
+
+  # Verified live Trillionaitech Stripe catalog (public identifiers)
+  STRIPE_STARTER_PRICE_ID = 'price_1UB11WKFfiU4ONpqujQV0YA1'
+  STRIPE_BUILDER_PRICE_ID = 'price_1UB11WKFfiU4ONpqcI7FYT9F'
+  STRIPE_STUDIO_PRICE_ID = 'price_1UB11XKFfiU4ONpq5vNU84rn'
+  STRIPE_ENTERPRISE_PRICE_ID = 'price_1UB11XKFfiU4ONpqWm4VsqWi'
+  STRIPE_CREDITS_50_PRICE_ID = 'price_1UB11YKFfiU4ONpq9lxQxD0t'
+  STRIPE_CREDITS_100_PRICE_ID = 'price_1UB11YKFfiU4ONpqxG2boP66'
+  STRIPE_CREDITS_250_PRICE_ID = 'price_1UB11ZKFfiU4ONpq3bUBdUuS'
 
 [processes]
   app = 'node dist/server.js'
