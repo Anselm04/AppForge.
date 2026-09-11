@@ -12,13 +12,21 @@ const pricing = readFileSync(
 );
 
 describe("duplicate subscription protection", () => {
-  it("rejects a second checkout only while the effective paid entitlement is active", () => {
+  it("blocks a second checkout while any non-terminal Stripe subscription exists", () => {
     expect(router).toContain(
       "const existingTier = await getUserTier(ctx.user.id)",
     );
-    expect(router).toContain('existingTier !== "free"');
+    expect(router).toContain("TERMINAL_SUBSCRIPTION_STATUSES");
+    expect(router).toContain("hasManagedSubscription");
+    expect(router).toContain('existingTier !== "free" || hasManagedSubscription');
     expect(router).toContain('code: "CONFLICT"');
     expect(router).toContain("without creating a second subscription");
+  });
+
+  it("treats canceled and incomplete-expired subscriptions as terminal", () => {
+    expect(router).toContain(
+      'new Set(["canceled", "incomplete_expired"])',
+    );
   });
 
   it("routes plan changes for existing customers through the billing portal", () => {
