@@ -34,10 +34,10 @@ jobs:
       - name: Block vulnerable production dependencies
         run: npm audit --omit=dev --audit-level=moderate
       - run: npm run build
-      - name: Require pinned production billing IDs
+      - name: Require pinned production public configuration
         run: |
           set -euo pipefail
-          required=(
+          billing_ids=(
             STRIPE_STARTER_PRICE_ID
             STRIPE_BUILDER_PRICE_ID
             STRIPE_STUDIO_PRICE_ID
@@ -47,17 +47,25 @@ jobs:
             STRIPE_CREDITS_250_PRICE_ID
           )
           missing=0
-          for name in "${required[@]}"; do
+          for name in "${billing_ids[@]}"; do
             if ! grep -Eq "^[[:space:]]*${name}[[:space:]]*=[[:space:]]*'price_[^']+'" fly.toml; then
               echo "Missing or invalid production billing identifier in fly.toml: $name"
               missing=1
             fi
           done
+
+          for name in SUPABASE_URL VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if ! grep -Eq "^[[:space:]]*${name}[[:space:]]*=[[:space:]]*'[^']+'" fly.toml; then
+              echo "Missing production Supabase public configuration in fly.toml: $name"
+              missing=1
+            fi
+          done
+
           if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because the public Stripe billing catalog is incomplete."
+            echo "Production deploy blocked because public auth/billing configuration is incomplete."
             exit 1
           fi
-          echo "Production Stripe billing identifiers are pinned."
+          echo "Production Supabase and Stripe public configuration is pinned."
 
   deploy-fly:
     runs-on: ubuntu-latest
@@ -88,8 +96,6 @@ jobs:
             DATABASE_URL
             JWT_SECRET
             COOKIE_SECRET
-            SUPABASE_URL
-            SUPABASE_SERVICE_ROLE_KEY
             STRIPE_SECRET_KEY
             STRIPE_WEBHOOK_SECRET
             BUILT_IN_FORGE_API_KEY
