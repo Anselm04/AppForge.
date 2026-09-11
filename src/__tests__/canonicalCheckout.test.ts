@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -15,6 +15,7 @@ describe("canonical Stripe checkout boundary", () => {
     expect(canonical).toContain("stripe.checkout.sessions.create");
     expect(route).not.toContain("stripe.checkout.sessions.create");
     expect(subscriptions).not.toContain("stripe.checkout.sessions.create");
+    expect(existsSync(resolve(process.cwd(), "api/checkout.js"))).toBe(false);
   });
 
   it("does not ship hard-coded live Stripe price IDs in the checkout service", () => {
