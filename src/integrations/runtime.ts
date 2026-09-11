@@ -192,3 +192,39 @@ export async function runSpritesAgentTask(input: {
     timeoutMs: 60_000,
   });
 }
+
+export async function runCodexSecurityReview(input: {
+  actor: { id: number; email: string };
+  project: {
+    id: number;
+    title: string;
+    description: string;
+    techStack: string;
+    generatedFiles: unknown;
+  };
+  focus?: string;
+}) {
+  const execUrl =
+    value("CODEX_SECURITY_EXEC_URL") || value("CODEX_SECURITY_WEBHOOK_URL");
+  const token = value("CODEX_SECURITY_TOKEN");
+  if (!execUrl || !token) {
+    throw new Error("Codex Security execution bridge is not configured");
+  }
+
+  return requestJson(execUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      "x-appforge-security-runtime": "codex-security",
+    },
+    body: {
+      actor: input.actor,
+      project: input.project,
+      focus: input.focus,
+      source: "appforge",
+      requestedAt: new Date().toISOString(),
+    },
+    timeoutMs: 90_000,
+  });
+}
