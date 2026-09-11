@@ -18,6 +18,7 @@ async function searchTavily(
   query: string,
   maxResults: number,
   apiKey: string,
+  signal?: AbortSignal,
 ): Promise<WebSearchResponse | null> {
   try {
     const res = await fetch("https://api.tavily.com/search", {
@@ -30,6 +31,7 @@ async function searchTavily(
         include_answer: true,
         search_depth: "basic",
       }),
+      signal,
     });
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -48,6 +50,8 @@ async function searchTavily(
       })),
     };
   } catch (err) {
+    if (signal?.aborted || (err instanceof Error && err.name === "AbortError"))
+      throw err;
     logger.warn({ err }, "tavily_search_failed");
     return null;
   }
@@ -57,13 +61,14 @@ async function searchSerpApi(
   query: string,
   maxResults: number,
   apiKey: string,
+  signal?: AbortSignal,
 ): Promise<WebSearchResponse | null> {
   try {
     const url = new URL("https://serpapi.com/search.json");
     url.searchParams.set("q", query);
     url.searchParams.set("api_key", apiKey);
     url.searchParams.set("num", String(maxResults));
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if (!res.ok) return null;
     const data = (await res.json()) as {
       organic_results?: { title: string; link: string; snippet: string }[];
@@ -83,6 +88,8 @@ async function searchSerpApi(
       })),
     };
   } catch (err) {
+    if (signal?.aborted || (err instanceof Error && err.name === "AbortError"))
+      throw err;
     logger.warn({ err }, "serpapi_search_failed");
     return null;
   }
@@ -92,10 +99,12 @@ async function searchSerpApi(
 async function searchDuckDuckGo(
   query: string,
   maxResults: number,
+  signal?: AbortSignal,
 ): Promise<WebSearchResponse> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1`;
   const res = await fetch(url, {
     headers: { "User-Agent": "AppForge-Research/1.0" },
+    signal,
   });
   const data = (await res.json()) as {
     AbstractText?: string;
@@ -152,19 +161,20 @@ async function searchDuckDuckGo(
 export async function searchWeb(
   query: string,
   maxResults = 6,
+  signal?: AbortSignal,
 ): Promise<WebSearchResponse> {
   const tavilyKey = process.env.TAVILY_API_KEY ?? "";
   const serpKey = process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY ?? "";
 
   if (tavilyKey) {
-    const r = await searchTavily(query, maxResults, tavilyKey);
+    const r = await searchTavily(query, maxResults, tavilyKey, signal);
     if (r && r.results.length > 0) return r;
   }
   if (serpKey) {
-    const r = await searchSerpApi(query, maxResults, serpKey);
+    const r = await searchSerpApi(query, maxResults, serpKey, signal);
     if (r && r.results.length > 0) return r;
   }
-  return searchDuckDuckGo(query, maxResults);
+  return searchDuckDuckGo(query, maxResults, signal);
 }
 
 export function formatSearchForPrompt(response: WebSearchResponse): string {

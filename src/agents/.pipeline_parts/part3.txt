@@ -93,6 +93,21 @@
         neverGiveUp,
       })
     ) {
+      redesignBrief = buildFailureDossier({
+        outerAttempt,
+        techStack,
+        stage: validationResult?.stage ?? null,
+        errors: validationResult?.errors ?? [],
+        previousTasks: tasks,
+        provider: provider.id,
+        model: coderModel || provider.defaultModel,
+      });
+      emit("Planner", "redesign_required", {
+        message: "Repair burst exhausted. Returning failure evidence to design for a materially different plan.",
+        outerAttempt,
+        stage: validationResult?.stage,
+        errors: (validationResult?.errors ?? []).slice(0, 8),
+      });
       providerIndex = (providerIndex + 1) % providers.length;
       const nextProvider = providerAt(providerIndex) ?? providers[0];
       emit("System", "info", {

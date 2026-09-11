@@ -47,6 +47,7 @@ import {
 } from "../lib/appRecipes.js";
 import {
   assertProductQuality,
+  buildFailureDossier,
   coderModelForAttempt,
   configuredProviders,
   isAbortError,

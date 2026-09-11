@@ -16,9 +16,13 @@ export async function runResearchAgent(
   description: string,
   techStack: string,
   emit: (type: string, payload: unknown) => void,
-  options?: { focus?: "education" | "patent" | "architecture" | "general" },
+  options?: {
+    focus?: "education" | "patent" | "architecture" | "general";
+    signal?: AbortSignal;
+  },
 ): Promise<string> {
   const focus = options?.focus ?? "general";
+  const signal = options?.signal;
   const query =
     focus === "education"
       ? `${description.slice(0, 100)} curriculum standards lesson plans teaching resources 2026`.trim()
@@ -52,6 +56,7 @@ export async function runResearchAgent(
     focus === "education" || focus === "patent" || focus === "architecture"
       ? 8
       : 6,
+    signal,
   );
   let brief = formatSearchForPrompt(response);
 
@@ -59,6 +64,7 @@ export async function runResearchAgent(
     const supplemental = await searchWeb(
       `${description.slice(0, 80)} virtual classroom AR education technology`,
       4,
+      signal,
     );
     brief += `\n\n--- AR / EdTech sources ---\n${formatSearchForPrompt(supplemental)}`;
   }
@@ -67,6 +73,7 @@ export async function runResearchAgent(
     const supplemental = await searchWeb(
       `${description.slice(0, 80)} patent USPTO similar invention products`,
       5,
+      signal,
     );
     brief += `\n\n--- Prior art / patent databases ---\n${formatSearchForPrompt(supplemental)}`;
   }
@@ -75,6 +82,7 @@ export async function runResearchAgent(
     const supplemental = await searchWeb(
       `${description.slice(0, 80)} building regulations accessibility fire safety construction cost`,
       5,
+      signal,
     );
     brief += `\n\n--- Building code / compliance sources ---\n${formatSearchForPrompt(supplemental)}`;
   }

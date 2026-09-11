@@ -47,6 +47,7 @@ import {
 } from "../lib/appRecipes.js";
 import {
   assertProductQuality,
+  buildFailureDossier,
   coderModelForAttempt,
   configuredProviders,
   isAbortError,
@@ -160,6 +161,7 @@ async function streamLLM(
     model,
     startProviderIndex: normalized.startProviderIndex,
     preferredProviderId: normalized.preferredProviderId,
+    signal: normalized.signal,
   });
   let fullText = "";
   if (result.choices[0]?.message?.content) {
@@ -307,7 +309,7 @@ export async function runAgentPipeline(
         description,
         techStack,
         (type, payload) => emit("Research", type, payload),
-        { focus: researchFocus },
+        { focus: researchFocus, signal },
       );
     }
 
@@ -327,6 +329,7 @@ export async function runAgentPipeline(
     let appTitle = description.slice(0, 60);
     let activeRecipe = classifyRecipe(description);
     let tasks: PlanTask[] = [];
+    let redesignBrief = "";
 
     // Outer never-give-up: re-plan → code → validate → escalate provider until real quality pass
     outerLoop: while (!signal?.aborted) {
@@ -374,9 +377,12 @@ export async function runAgentPipeline(
         [
           {
             role: "system",
-            content: `You are the Planner agent. Output ONLY valid JSON: {"title":"...","overview":"...","tasks":[{"id":"1","module":"...","description":"..."}]}. For runnable UI-first builds use 2-3 focused tasks only. Stack: ${techStack}.\n${designHints}\n${capabilityHints}\n${researchBrief ? `RESEARCH:\n${researchBrief}` : ""}\n${localeHint}`,
+            content: `You are the Planner agent. Output ONLY valid JSON: {"title":"...","overview":"...","tasks":[{"id":"1","module":"...","description":"..."}]}. For runnable UI-first builds use 2-3 focused tasks only. Stack: ${techStack}.\n${designHints}\n${capabilityHints}\n${researchBrief ? `RESEARCH:\n${researchBrief}` : ""}\n${redesignBrief ? `FAILURE DOSSIER FROM THE SANDBOX — USE THIS TO REDESIGN, DO NOT REPEAT THE FAILED PLAN:\n${redesignBrief}` : ""}\n${localeHint}`,
           },
-          { role: "user", content: `App: ${description}\nStack: ${techStack}` },
+          {
+            role: "user",
+            content: `App: ${description}\nStack: ${techStack}${redesignBrief ? `\nThis is a redesign cycle. The new plan must address the recorded sandbox failures instead of retrying the same design.` : ""}`,
+          },
         ],
         (chunk) => {
           plannerOutput += chunk;
@@ -770,6 +776,22 @@ export async function runAgentPipeline(
           neverGiveUp,
         })
       ) {
+        redesignBrief = buildFailureDossier({
+          outerAttempt,
+          techStack,
+          stage: validationResult?.stage ?? null,
+          errors: validationResult?.errors ?? [],
+          previousTasks: tasks,
+          provider: provider.id,
+          model: coderModel || provider.defaultModel,
+        });
+        emit("Planner", "redesign_required", {
+          message:
+            "Repair burst exhausted. Returning failure evidence to design for a materially different plan.",
+          outerAttempt,
+          stage: validationResult?.stage,
+          errors: (validationResult?.errors ?? []).slice(0, 8),
+        });
         providerIndex = (providerIndex + 1) % providers.length;
         const nextProvider = providerAt(providerIndex) ?? providers[0];
         emit("System", "info", {

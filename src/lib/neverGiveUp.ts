@@ -32,20 +32,19 @@ export function isNeverGiveUpEnabled(): boolean {
 
 /**
  * Inner surgical fix attempts per plan/code cycle.
- * BUILD_MAX_FIX_RETRIES default 50; when never-give-up and unset → 50.
- * Set BUILD_MAX_FIX_RETRIES=0 with never-give-up for "unlimited" via a huge cap.
+ * BUILD_MAX_FIX_RETRIES is a bounded repair burst. Default 3 so a stuck
+ * implementation returns to design quickly instead of repeating the same fix.
+ * Set BUILD_MAX_FIX_RETRIES=0 only to disable surgical retries for a cycle.
  */
 export function resolveMaxFixRetries(techStack: string): number {
   const envRaw = (process.env.BUILD_MAX_FIX_RETRIES ?? "").trim();
   if (envRaw !== "") {
     const n = parseInt(envRaw, 10);
     if (Number.isFinite(n) && n >= 0) {
-      // 0 with never-give-up ⇒ effectively unlimited (soft ceiling)
-      if (n === 0 && isNeverGiveUpEnabled()) return 10_000;
       return n;
     }
   }
-  if (isNeverGiveUpEnabled()) return 50;
+  if (isNeverGiveUpEnabled()) return 3;
   return isGoldenStack(techStack) || techStack.includes("react") ? 3 : 2;
 }
 
@@ -119,6 +118,37 @@ export function rotateProviders<T>(list: T[], startIndex: number): T[] {
   if (list.length === 0) return list;
   const i = ((startIndex % list.length) + list.length) % list.length;
   return [...list.slice(i), ...list.slice(0, i)];
+}
+
+export type BuildFailureDossierInput = {
+  outerAttempt: number;
+  techStack: string;
+  stage?: string | null;
+  errors?: string[];
+  previousTasks?: Array<{ id?: string; module?: string; description?: string }>;
+  provider?: string;
+  model?: string;
+};
+
+/**
+ * Compact evidence artifact passed back to the Planner when a repair burst
+ * cannot get green. This prevents blind repetition of the same architecture.
+ */
+export function buildFailureDossier(input: BuildFailureDossierInput): string {
+  const errors = (input.errors ?? []).slice(0, 12);
+  const tasks = (input.previousTasks ?? []).slice(0, 8);
+  return [
+    `REDESIGN REQUIRED AFTER FAILED BUILD CYCLE ${input.outerAttempt}.`,
+    `Stack: ${input.techStack}.`,
+    input.stage
+      ? `Last failing gate: ${input.stage}.`
+      : `Last failing gate: unknown.`,
+    input.provider ? `Provider: ${input.provider}.` : `Provider: unknown.`,
+    input.model ? `Model: ${input.model}.` : `Model: unknown.`,
+    `Previous plan tasks: ${tasks.length ? tasks.map((t, i) => `${i + 1}. ${t.module ?? "task"}: ${t.description ?? ""}`).join(" | ") : "none recorded"}.`,
+    `Observed failures: ${errors.length ? errors.join(" | ") : "no detailed errors captured"}.`,
+    `Do NOT simply return the same task breakdown. Redesign the architecture or implementation strategy where the evidence indicates the prior design was fragile. Preserve the user goal and acceptance criteria, but materially change the failed approach.`,
+  ].join("\n");
 }
 
 const STUB_PATTERNS = [
@@ -255,7 +285,7 @@ export function isAbortError(err: unknown, signal?: AbortSignal): boolean {
 /** Env knobs documented for operators. */
 export const NEVER_GIVE_UP_ENV = {
   BUILD_NEVER_GIVE_UP: "true",
-  BUILD_MAX_FIX_RETRIES: "50",
+  BUILD_MAX_FIX_RETRIES: "3",
   BUILD_MAX_OUTER_ATTEMPTS: "100",
   BUILD_SSE_TIMEOUT_MS: "14400000",
   LLM_MODEL_CODER_STRONG: "(optional stronger coder model on escalate)",
