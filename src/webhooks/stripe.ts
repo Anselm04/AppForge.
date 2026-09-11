@@ -36,7 +36,9 @@ function parsePositiveUserId(value?: string | null): number | null {
   return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
 }
 
-function resolveCheckoutUserId(session: Stripe.Checkout.Session): number | null {
+function resolveCheckoutUserId(
+  session: Stripe.Checkout.Session,
+): number | null {
   const metadataUserId = parsePositiveUserId(session.metadata?.userId);
   const referenceUserId = parsePositiveUserId(session.client_reference_id);
 
@@ -153,7 +155,9 @@ async function paidCreditPackForSession(
     limit: 10,
   });
   if (lineItems.data.length !== 1) {
-    throw new Error("Stripe credit checkout must contain exactly one line item");
+    throw new Error(
+      "Stripe credit checkout must contain exactly one line item",
+    );
   }
 
   const lineItem = lineItems.data[0];
@@ -235,7 +239,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = customerIdFromSubscription(subscription);
-      let userId = parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
+      let userId =
+        parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
       const priceId = subscriptionPriceId(subscription);
       const tier = resolveTier(subscription.metadata, priceId);
 
@@ -257,7 +262,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = customerIdFromSubscription(subscription);
-      let userId = parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
+      let userId =
+        parsePositiveUserId(subscription.metadata?.userId) ?? undefined;
       if (!userId && customerId) {
         userId = await resolveUserIdFromCustomer(customerId);
       }
@@ -370,7 +376,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           const result = await grantPlanCredits(userId, tier, invoice.id);
           if (!result.skipped) {
             logger.info(
-              { userId, tier, creditsGranted: result.granted, eventId: event.id },
+              {
+                userId,
+                tier,
+                creditsGranted: result.granted,
+                eventId: event.id,
+              },
               "stripe_invoice_plan_credits_granted",
             );
           }
