@@ -6,6 +6,7 @@ import { summarizeIntegrationHealth } from "../integrations/health.js";
 import {
   capturePostHogEvent,
   runMakeWorkflow,
+  runSpritesAgentTask,
   sendBubblaVSupportMessage,
   sendDatadogLog,
 } from "../integrations/runtime.js";
@@ -16,6 +17,12 @@ const automationPayloadSchema = z
   .record(z.unknown())
   .refine((payload) => JSON.stringify(payload).length <= 50_000, {
     message: "Automation payload is too large",
+  });
+
+const agentContextSchema = z
+  .record(z.unknown())
+  .refine((context) => JSON.stringify(context).length <= 50_000, {
+    message: "Agent task context is too large",
   });
 
 async function observeEcosystemAction(input: {
@@ -78,6 +85,56 @@ export const ecosystemRouter = router({
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message: "Automation service unavailable",
+        });
+      }
+    }),
+
+  runAgentTask: protectedProcedure
+    .input(
+      z.object({
+        task: z.string().trim().min(1).max(20_000),
+        projectId: z.number().int().positive().optional(),
+        context: agentContextSchema.default({}),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.projectId) {
+        const project = await getProjectById(input.projectId);
+        if (!project || project.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Project not found",
+          });
+        }
+      }
+
+      try {
+        const result = await runSpritesAgentTask({
+          task: input.task,
+          projectId: input.projectId,
+          context: input.context,
+          actor: { id: ctx.user.id, email: ctx.user.email },
+        });
+
+        await observeEcosystemAction({
+          event: "appforge_sprites_agent_task_submitted",
+          userId: ctx.user.id,
+          properties: { projectId: input.projectId ?? null },
+        });
+
+        return {
+          success: true as const,
+          status: result.status,
+          result: result.data,
+        };
+      } catch (error) {
+        logger.error(
+          { error, userId: ctx.user.id, projectId: input.projectId },
+          "sprites_agent_task_failed",
+        );
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: "Agent execution service unavailable",
         });
       }
     }),
