@@ -49,7 +49,9 @@ export async function reconcileCreditPurchaseRefund(
     throw new Error("A valid Stripe PaymentIntent ID is required for refund");
   }
   if (!refundEventId.startsWith("evt_")) {
-    throw new Error("A valid Stripe event ID is required for refund idempotency");
+    throw new Error(
+      "A valid Stripe event ID is required for refund idempotency",
+    );
   }
   if (
     !Number.isSafeInteger(chargeAmount) ||
