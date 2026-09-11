@@ -76,11 +76,12 @@ export async function reconcileCreditPurchaseRefund(
     };
   }
 
-  await ensureUserCredits(original.userId);
+  const userId = original.userId;
+  await ensureUserCredits(userId);
   const stateKey = `stripe_refund:${paymentIntentId}`;
 
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${original.userId})`);
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
 
     const priorEvent = await tx
       .select({ id: schema.creditTransactions.id })
@@ -145,11 +146,11 @@ export async function reconcileCreditPurchaseRefund(
     const rows = await tx
       .select()
       .from(schema.userCredits)
-      .where(eq(schema.userCredits.userId, original.userId))
+      .where(eq(schema.userCredits.userId, userId))
       .limit(1);
     const credits = rows[0];
     if (!credits) {
-      throw new Error(`Credits row missing for user ${original.userId}`);
+      throw new Error(`Credits row missing for user ${userId}`);
     }
 
     const revoked = Math.min(credits.balance, delta);
@@ -161,7 +162,7 @@ export async function reconcileCreditPurchaseRefund(
       .where(eq(schema.userCredits.id, credits.id));
 
     await tx.insert(schema.creditTransactions).values({
-      userId: original.userId,
+      userId,
       amount: -revoked,
       type: "purchase_refund",
       description:
