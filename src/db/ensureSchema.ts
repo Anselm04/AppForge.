@@ -211,6 +211,13 @@ CREATE INDEX IF NOT EXISTS "credit_tx_user_idx" ON "credit_transactions" ("user_
 CREATE INDEX IF NOT EXISTS "credit_tx_type_idx" ON "credit_transactions" ("type");
 CREATE INDEX IF NOT EXISTS "credit_tx_project_idx" ON "credit_transactions" ("project_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "credit_tx_stripe_ref_unique" ON "credit_transactions" ("stripe_payment_intent_id");
+
+CREATE TABLE IF NOT EXISTS "stripe_webhook_events" (
+  "event_id" VARCHAR(255) PRIMARY KEY,
+  "event_type" VARCHAR(100) NOT NULL,
+  "processed_at" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "stripe_webhook_events_processed_at_idx" ON "stripe_webhook_events" ("processed_at");
 CREATE INDEX IF NOT EXISTS "projects_user_id_idx" ON "projects" ("user_id");
 CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects" ("status");
 CREATE INDEX IF NOT EXISTS "projects_created_at_idx" ON "projects" ("created_at");
