@@ -18,6 +18,15 @@ describe("canonical Stripe checkout boundary", () => {
     expect(existsSync(resolve(process.cwd(), "api/checkout.js"))).toBe(false);
   });
 
+  it("enforces duplicate-subscription protection inside the checkout service", () => {
+    const canonical = source("src/services/stripeCheckout.ts");
+
+    expect(canonical).toContain("assertCanCreateSubscription(sub)");
+    expect(canonical).toContain("TERMINAL_SUBSCRIPTION_STATUSES");
+    expect(canonical).toContain("hasManagedSubscription");
+    expect(canonical).toContain("hasActivePaidEntitlement");
+  });
+
   it("does not ship hard-coded live Stripe price IDs in the checkout service", () => {
     const canonical = source("src/services/stripeCheckout.ts");
     expect(canonical).not.toMatch(/price_[A-Za-z0-9]{8,}/);
