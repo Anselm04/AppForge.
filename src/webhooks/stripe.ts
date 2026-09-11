@@ -4,7 +4,7 @@ import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
-import { revokeFullyRefundedCreditPurchase } from "../services/stripeCreditRefund.js";
+import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
@@ -356,40 +356,32 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
       const paymentIntentId = paymentIntentIdFromCharge(charge);
 
-      if (!charge.refunded) {
-        logger.warn(
-          {
-            chargeId: charge.id,
-            paymentIntentId,
-            amount: charge.amount,
-            amountRefunded: charge.amount_refunded,
-            eventId: event.id,
-          },
-          "stripe_partial_refund_requires_manual_credit_reconciliation",
-        );
-        break;
-      }
-
       if (!paymentIntentId) {
         logger.warn(
           { chargeId: charge.id, eventId: event.id },
-          "stripe_full_refund_missing_payment_intent",
+          "stripe_refund_missing_payment_intent",
         );
         break;
       }
 
-      const result = await revokeFullyRefundedCreditPurchase(
+      const result = await reconcileCreditPurchaseRefund(
         paymentIntentId,
         event.id,
+        charge.amount,
+        charge.amount_refunded,
+        charge.refunded,
       );
       logger.info(
         {
           chargeId: charge.id,
           paymentIntentId,
+          amount: charge.amount,
+          amountRefunded: charge.amount_refunded,
+          fullyRefunded: charge.refunded,
           eventId: event.id,
           ...result,
         },
-        "stripe_full_credit_refund_reconciled",
+        "stripe_credit_refund_reconciled",
       );
       break;
     }
