@@ -4,6 +4,7 @@ import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
+import { revokeFullyRefundedCreditPurchase } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
@@ -96,6 +97,11 @@ function customerIdFromSubscription(
   return typeof subscription.customer === "string"
     ? subscription.customer
     : null;
+}
+
+function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
+  if (typeof charge.payment_intent === "string") return charge.payment_intent;
+  return charge.payment_intent?.id ?? null;
 }
 
 function priceIdsForTier(tier: StandardTier): string[] {
@@ -343,6 +349,48 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           "stripe_credit_purchase_processed",
         );
       }
+      break;
+    }
+
+    case "charge.refunded": {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = paymentIntentIdFromCharge(charge);
+
+      if (!charge.refunded) {
+        logger.warn(
+          {
+            chargeId: charge.id,
+            paymentIntentId,
+            amount: charge.amount,
+            amountRefunded: charge.amount_refunded,
+            eventId: event.id,
+          },
+          "stripe_partial_refund_requires_manual_credit_reconciliation",
+        );
+        break;
+      }
+
+      if (!paymentIntentId) {
+        logger.warn(
+          { chargeId: charge.id, eventId: event.id },
+          "stripe_full_refund_missing_payment_intent",
+        );
+        break;
+      }
+
+      const result = await revokeFullyRefundedCreditPurchase(
+        paymentIntentId,
+        event.id,
+      );
+      logger.info(
+        {
+          chargeId: charge.id,
+          paymentIntentId,
+          eventId: event.id,
+          ...result,
+        },
+        "stripe_full_credit_refund_reconciled",
+      );
       break;
     }
 
