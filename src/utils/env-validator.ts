@@ -15,9 +15,9 @@ export interface EnvConfig {
   STRIPE_STUDIO_PRICE_ID?: string;
   STRIPE_ENTERPRISE_PRICE_ID?: string;
   STRIPE_CUSTOM_PRICE_ID?: string;
-  STRIPE_STARTER_PAYMENT_LINK?: string;
-  STRIPE_BUILDER_PAYMENT_LINK?: string;
-  STRIPE_STUDIO_PAYMENT_LINK?: string;
+  STRIPE_CREDITS_50_PRICE_ID?: string;
+  STRIPE_CREDITS_100_PRICE_ID?: string;
+  STRIPE_CREDITS_250_PRICE_ID?: string;
   REDIS_URL?: string;
   SENTRY_DSN?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string;
@@ -61,6 +61,15 @@ export interface ValidationResult {
   errors: string[];
   warnings: string[];
 }
+
+const REQUIRED_BILLING_PRICE_KEYS = [
+  "STRIPE_STARTER_PRICE_ID",
+  "STRIPE_BUILDER_PRICE_ID",
+  "STRIPE_STUDIO_PRICE_ID",
+  "STRIPE_CREDITS_50_PRICE_ID",
+  "STRIPE_CREDITS_100_PRICE_ID",
+  "STRIPE_CREDITS_250_PRICE_ID",
+] as const;
 
 export function validateEnv(
   config: Partial<EnvConfig> = process.env as any,
@@ -127,12 +136,13 @@ export function validateEnv(
     }
   }
 
-  // Request timeout validation (optional)
+  // Request timeout validation. Production builds can legitimately run for
+  // several minutes; Fly currently uses 330 seconds for the AI build path.
   if (config.REQUEST_TIMEOUT_MS) {
     const timeout = parseInt(config.REQUEST_TIMEOUT_MS, 10);
-    if (isNaN(timeout) || timeout < 5000 || timeout > 300000) {
+    if (isNaN(timeout) || timeout < 5000 || timeout > 360000) {
       errors.push(
-        "REQUEST_TIMEOUT_MS must be a number between 5000 and 300000",
+        "REQUEST_TIMEOUT_MS must be a number between 5000 and 360000",
       );
     }
   }
@@ -144,7 +154,15 @@ export function validateEnv(
     );
   }
 
-  // Stripe validation (optional)
+  // Stripe validation. Stripe is revenue-critical in production, so missing
+  // credentials or catalog IDs must fail validation instead of becoming a
+  // customer-facing checkout error after deployment.
+  if (isProduction && !config.STRIPE_SECRET_KEY) {
+    errors.push("STRIPE_SECRET_KEY is required in production");
+  }
+  if (isProduction && !config.STRIPE_WEBHOOK_SECRET) {
+    errors.push("STRIPE_WEBHOOK_SECRET is required in production");
+  }
   if (config.STRIPE_SECRET_KEY && !config.STRIPE_SECRET_KEY.startsWith("sk_")) {
     errors.push("Invalid STRIPE_SECRET_KEY format. Should start with sk_");
   }
@@ -160,6 +178,18 @@ export function validateEnv(
     );
   }
 
+  const missingBillingPriceIds = REQUIRED_BILLING_PRICE_KEYS.filter(
+    (key) => !config[key],
+  );
+  if (missingBillingPriceIds.length > 0) {
+    const message = `Missing Stripe billing price IDs: ${missingBillingPriceIds.join(", ")}`;
+    if (isProduction) {
+      errors.push(message);
+    } else if (config.STRIPE_SECRET_KEY) {
+      warnings.push(message);
+    }
+  }
+
   // Redis validation (optional)
   if (
     config.REDIS_URL &&
@@ -167,28 +197,6 @@ export function validateEnv(
     !config.REDIS_URL.startsWith("rediss://")
   ) {
     errors.push("Invalid REDIS_URL format. Expected redis:// or rediss://");
-  }
-
-  // Stripe price IDs (optional but needed for paid features)
-  if (
-    config.STRIPE_SECRET_KEY &&
-    (!config.STRIPE_STARTER_PRICE_ID ||
-      !config.STRIPE_BUILDER_PRICE_ID ||
-      !config.STRIPE_STUDIO_PRICE_ID)
-  ) {
-    warnings.push(
-      "Stripe is configured but one or more STRIPE_*_PRICE_ID is missing. Billing tiers may not work.",
-    );
-  }
-  if (
-    config.STRIPE_SECRET_KEY &&
-    (!config.STRIPE_STARTER_PAYMENT_LINK ||
-      !config.STRIPE_BUILDER_PAYMENT_LINK ||
-      !config.STRIPE_STUDIO_PAYMENT_LINK)
-  ) {
-    warnings.push(
-      "Stripe payment links missing. Users cannot use direct checkout without these.",
-    );
   }
 
   // Owner / Admin settings (critical for moderation and god codes)
@@ -287,7 +295,6 @@ export function validateEnv(
     );
   }
 
-  // Return summary including new variables
   return { valid: errors.length === 0, errors, warnings };
 }
 
@@ -309,14 +316,18 @@ export function validateEnvOrThrow(
 export function getEnvSummary(
   config: Partial<EnvConfig> = process.env as any,
 ): string {
+  const billingCatalogReady = REQUIRED_BILLING_PRICE_KEYS.every(
+    (key) => !!config[key],
+  );
+
   return [
     "Environment Configuration:",
     `  NODE_ENV: ${config.NODE_ENV || "❌ Not set"}`,
     `  Database: ${config.DATABASE_URL || config.SUPABASE_URL || config.SUPABASE_DB_URL ? "✅" : "❌"}`,
     `  Auth Secrets: ${config.JWT_SECRET && config.COOKIE_SECRET ? "✅" : "❌"}`,
     `  Supabase Service Role: ${config.SUPABASE_SERVICE_ROLE_KEY ? "✅" : "❌"}`,
-    `  Stripe: ${config.STRIPE_SECRET_KEY ? "✅" : "❌"}`,
-    `  Stripe Price IDs: ${config.STRIPE_STARTER_PRICE_ID && config.STRIPE_BUILDER_PRICE_ID && config.STRIPE_STUDIO_PRICE_ID ? "✅" : "⚠️"}`,
+    `  Stripe: ${config.STRIPE_SECRET_KEY && config.STRIPE_WEBHOOK_SECRET ? "✅" : "❌"}`,
+    `  Stripe Billing Catalog: ${billingCatalogReady ? "✅" : "❌"}`,
     `  Owner Email: ${config.OWNER_EMAIL ? "✅" : "❌ (required for admin)"}`,
     `  hCaptcha: ${config.HCAPTCHA_SECRET ? "✅" : "⚠️"}`,
     `  Twilio SMS: ${config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN ? "✅" : "⚠️"}`,
