@@ -3,8 +3,6 @@ import { resolveBuildTimeoutMs } from "../lib/neverGiveUp.js";
 import {
   addCredits,
   getProjectById,
-  getUserCredits,
-  pauseProject,
   resumeProject,
   updateProjectCreditsSpent,
   updateProjectStatus,
@@ -64,20 +62,23 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     void emit(projectId, event, data);
   };
 
-  const checkCredits = async () => {
-    const current = await getUserCredits(userId);
-    if (!current) return false;
-    if (current.unlimited || current.tier === "lifetime") return true;
-    if (current.balance < 1) {
-      await pauseProject(projectId, "credits_exhausted");
-      write("pause", {
-        reason: "credits_exhausted",
-        message: "Build paused: your credits ran out. Purchase more to resume.",
-        spent: BUILD_CREDIT_COST,
-      });
-      return false;
-    }
-    return true;
+  // Admission already reserved the full build price. Pipeline phases are not
+  // separately billable, so a customer with exactly BUILD_CREDIT_COST must not
+  // be paused just because the reservation reduced their remaining balance to 0.
+  const checkCredits = async () => true;
+
+  const refundReservation = async (reason: string) => {
+    if (!reservationCharged) return;
+    const refundKey = `build-refund-${projectId}-${createdAt}`;
+    await addCredits(
+      userId,
+      BUILD_CREDIT_COST,
+      "build_refund",
+      `${reason} reservation refund for project ${projectId}`,
+      refundKey,
+    );
+    await updateProjectCreditsSpent(projectId, 0);
+    logger.info({ projectId, refundKey }, "build_reservation_refunded");
   };
 
   try {
@@ -100,38 +101,31 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       },
     );
 
-    await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
     const updated = await getProjectById(projectId);
     const passed = updated?.status === "completed";
-    await recordBuildOutcome(userId, passed, BUILD_CREDIT_COST);
 
     if (passed) {
+      await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
+      await recordBuildOutcome(userId, true, BUILD_CREDIT_COST);
       void syncComplianceToVanta(projectId, {
         techStack,
         exportedAt: new Date().toISOString(),
       });
+    } else {
+      // The pipeline intentionally returns for paused, failed, cancelled and
+      // recoverable states. Those are not completed paid builds. Refund the
+      // reservation now so a later resume/retry cannot double-charge it.
+      await refundReservation("Incomplete build");
+      await updateProjectCreditsSpent(projectId, 0);
+      await recordBuildOutcome(userId, false, 0);
     }
   } catch (err: unknown) {
     logger.error({ projectId, error: err }, "background_build_failed");
 
     // Refund based on what happened at reservation time, not the user's current
-    // entitlement. A customer may upgrade to lifetime while a charged build is
-    // running; that must never erase the refund owed for the earlier charge.
-    // createdAt is stable for this queued attempt and addCredits uses the key as
-    // a unique ledger reference, making recovery exactly-once.
+    // entitlement. The attempt key makes recovery exactly-once.
     try {
-      if (reservationCharged) {
-        const refundKey = `build-refund-${projectId}-${createdAt}`;
-        await addCredits(
-          userId,
-          BUILD_CREDIT_COST,
-          "build_refund",
-          `Failed build reservation refund for project ${projectId}`,
-          refundKey,
-        );
-        await updateProjectCreditsSpent(projectId, 0);
-        logger.info({ projectId, refundKey }, "failed_build_reservation_refunded");
-      }
+      await refundReservation("Failed build");
     } catch (refundErr: unknown) {
       logger.error(
         { projectId, error: refundErr },

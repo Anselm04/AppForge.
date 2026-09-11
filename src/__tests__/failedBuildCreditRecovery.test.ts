@@ -16,8 +16,8 @@ describe("failed build credit recovery", () => {
 
   it("refunds only attempts that actually charged a reservation", () => {
     expect(source).toContain("reservationCharged: boolean");
-    expect(source).toContain("if (reservationCharged)");
-    expect(source).toContain('current.tier === "lifetime"');
+    expect(source).toContain("if (!reservationCharged) return");
+    expect(source).toContain("build-refund-${projectId}-${createdAt}");
   });
 
   it("records zero billable cost after a refunded failure", () => {
