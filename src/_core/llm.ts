@@ -64,7 +64,9 @@ export type ToolChoiceExplicit = {
 };
 
 export type ToolChoice =
-  ToolChoicePrimitive | ToolChoiceByName | ToolChoiceExplicit;
+  | ToolChoicePrimitive
+  | ToolChoiceByName
+  | ToolChoiceExplicit;
 
 export type InvokeParams = {
   messages: Message[];
@@ -379,10 +381,16 @@ const fetchWithBackoff = async (
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`,
       );
-      await sleep(computeBackoffDelay(attempt, retryAfterMs), init.signal ?? undefined);
+      await sleep(
+        computeBackoffDelay(attempt, retryAfterMs),
+        init.signal ?? undefined,
+      );
     } catch (error) {
       lastError = error;
-      if (init.signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+      if (
+        init.signal?.aborted ||
+        (error instanceof Error && error.name === "AbortError")
+      ) {
         throw error;
       }
       if (attempt === RETRY_MAX_RETRIES) throw error;
@@ -524,7 +532,10 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
       throw new Error(`LLM invoke failed: ${detail}`);
     } catch (err) {
-      if (signal?.aborted || (err instanceof Error && err.name === "AbortError")) {
+      if (
+        signal?.aborted ||
+        (err instanceof Error && err.name === "AbortError")
+      ) {
         throw err;
       }
       const msg = err instanceof Error ? err.message : String(err);
