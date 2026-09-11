@@ -272,6 +272,9 @@ async function verifyRemote(
 
     case "sprites-fly": {
       const appName = value("FLY_APP_NAME");
+      const spritesHealthUrl = value("SPRITES_HEALTH_URL");
+      const spritesToken = value("SPRITES_API_TOKEN");
+
       if (!appName) {
         return result(
           definition,
@@ -279,10 +282,40 @@ async function verifyRemote(
           "FLY_APP_NAME is not configured",
         );
       }
-      const check = await probe(`https://${appName}.fly.dev/api/health/live`);
-      return check.ok
-        ? pass("Fly.io runtime verified; Sprites connector remains separately managed")
-        : fail(check.message);
+
+      const flyCheck = await probe(`https://${appName}.fly.dev/api/health/live`);
+      if (!flyCheck.ok) {
+        return fail(`Fly.io runtime: ${flyCheck.message}`);
+      }
+
+      if (!spritesHealthUrl && !spritesToken) {
+        return result(
+          definition,
+          "configuration_required",
+          "Fly.io runtime is healthy, but the Sprites runtime bridge is not configured",
+          true,
+          false,
+        );
+      }
+
+      if (!spritesHealthUrl || !spritesToken) {
+        return result(
+          definition,
+          "configuration_required",
+          "Sprites runtime verification requires both SPRITES_HEALTH_URL and SPRITES_API_TOKEN",
+          true,
+          false,
+        );
+      }
+
+      const spritesCheck = await probe(spritesHealthUrl, {
+        headers: { Authorization: `Bearer ${spritesToken}` },
+      });
+      return spritesCheck.ok
+        ? pass(`Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`)
+        : fail(
+            `Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`,
+          );
     }
 
     case "make": {
