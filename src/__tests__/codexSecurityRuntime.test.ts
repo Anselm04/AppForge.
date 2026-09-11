@@ -14,10 +14,7 @@ const router = readFileSync(
   resolve(process.cwd(), "src/routers/ecosystem.ts"),
   "utf8",
 );
-const envExample = readFileSync(
-  resolve(process.cwd(), ".env.example"),
-  "utf8",
-);
+const envExample = readFileSync(resolve(process.cwd(), ".env.example"), "utf8");
 
 describe("Codex Security runtime bridge", () => {
   it("has separate health and review execution configuration", () => {
