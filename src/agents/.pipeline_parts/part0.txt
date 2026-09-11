@@ -120,6 +120,7 @@ async function streamLLM(
     model,
     startProviderIndex: normalized.startProviderIndex,
     preferredProviderId: normalized.preferredProviderId,
+    signal: normalized.signal,
   });
   let fullText = "";
   if (result.choices[0]?.message?.content) {
