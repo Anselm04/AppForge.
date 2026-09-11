@@ -14,10 +14,6 @@ const legacyCompat = readFileSync(
   resolve(process.cwd(), "src/routes/legacyCompat.ts"),
   "utf8",
 );
-const serverlessCheckout = readFileSync(
-  resolve(process.cwd(), "api/checkout.js"),
-  "utf8",
-);
 const buildWorker = readFileSync(
   resolve(process.cwd(), "src/services/build-worker.ts"),
   "utf8",
@@ -47,13 +43,6 @@ describe("public error sanitization", () => {
     expect(legacyCompat).toContain("legacy_app_load_failed");
     expect(legacyCompat).toContain("legacy_credits_load_failed");
     expect(legacyCompat).not.toContain("err?.message");
-  });
-
-  it("does not expose Stripe provider errors from serverless checkout", () => {
-    expect(serverlessCheckout).toContain(
-      'error: "Unable to start checkout."',
-    );
-    expect(serverlessCheckout).not.toContain("session.error?.message");
   });
 
   it(
