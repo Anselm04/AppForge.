@@ -12,6 +12,7 @@ import {
   createPlanCheckout,
   CREDIT_PACKS,
 } from "../services/stripeCheckout.js";
+import { ensureAppForgeBillingPortalConfiguration } from "../services/stripeBillingPortal.js";
 
 const CHECKOUT_TIERS = ["starter", "builder", "studio", "enterprise"] as const;
 
@@ -141,11 +142,27 @@ export const subscriptionsRouter = router({
     const appUrl =
       process.env.PUBLIC_APP_URL ||
       "https://appforge-unfurling-moon-9058.fly.dev";
-    const session = await stripe.billingPortal.sessions.create({
-      customer: sub.stripeCustomerId,
-      return_url: `${appUrl}/dashboard`,
-    });
 
-    return { url: session.url };
+    try {
+      const configuration = await ensureAppForgeBillingPortalConfiguration(
+        stripe,
+        appUrl,
+      );
+      const session = await stripe.billingPortal.sessions.create({
+        customer: sub.stripeCustomerId,
+        configuration,
+        return_url: `${appUrl}/dashboard`,
+      });
+
+      return { url: session.url };
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to open Stripe billing portal",
+      });
+    }
   }),
 });
