@@ -34,6 +34,7 @@ export const ENV = {
   // Admin / SMS / Moderation / Captcha / Email
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? "",
+  twilioVerifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? "",
   twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER ?? "",
   hCaptchaSecret: process.env.HCAPTCHA_SECRET ?? "",
   vantaWorkspaceId: process.env.VANTA_WORKSPACE_ID ?? "",
