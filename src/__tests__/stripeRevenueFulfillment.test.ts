@@ -28,15 +28,57 @@ describe("Stripe revenue fulfillment boundaries", () => {
       webhook.indexOf('case "invoice.payment_failed"'),
     );
 
-    expect(checkoutCase).not.toContain("grantPlanCredits(");
-    expect(invoiceCase).toContain("grantPlanCredits(userId, tier, invoice.id)");
+    expect(checkoutCase).not.toContain("grantStripeInvoicePlanCredits(");
+    expect(invoiceCase).toContain("grantStripeInvoicePlanCredits(");
+    expect(invoiceCase).toContain("invoice.id");
     expect(invoiceCase).toContain("shouldGrantMonthlyPlanCredits(invoice)");
   });
 
-  it("rejects conflicting checkout user identities", () => {
+  it("resolves the paid plan from the current Stripe subscription before granting", () => {
+    const webhook = source("src/webhooks/stripe.ts");
+    const invoiceCase = webhook.slice(
+      webhook.indexOf('case "invoice.paid"'),
+      webhook.indexOf('case "invoice.payment_failed"'),
+    );
+
+    const retrieveAt = invoiceCase.indexOf(
+      "stripe.subscriptions.retrieve(subscriptionId)",
+    );
+    const grantAt = invoiceCase.indexOf("grantStripeInvoicePlanCredits(");
+    expect(retrieveAt).toBeGreaterThanOrEqual(0);
+    expect(grantAt).toBeGreaterThan(retrieveAt);
+    expect(invoiceCase).toContain("resolveTier(subscription.metadata, priceId)");
+  });
+
+  it("rejects conflicting Stripe/AppForge user identities", () => {
     const webhook = source("src/webhooks/stripe.ts");
 
     expect(webhook).toContain("Stripe checkout user reference mismatch");
     expect(webhook).toContain("metadataUserId !== referenceUserId");
+    expect(webhook).toContain("Stripe subscription user identity mismatch");
+    expect(webhook).toContain("resolveConsistentUserId(");
+  });
+
+  it("uses the Stripe invoice ID as the exact recurring-credit idempotency key", () => {
+    const grants = source("src/services/stripePlanCredits.ts");
+
+    expect(grants).toContain('invoiceId.startsWith("in_")');
+    expect(grants).toContain(
+      "eq(schema.creditTransactions.stripePaymentIntentId, invoiceId)",
+    );
+    expect(grants).toContain("stripePaymentIntentId: invoiceId");
+    expect(grants).not.toContain("daysSinceGrant");
+    expect(grants).not.toContain("25");
+  });
+
+  it("provisions the replay ledger at startup instead of during a webhook", () => {
+    const schema = source("src/db/ensureSchema.ts");
+    const ledger = source("src/services/stripeEventLedger.ts");
+
+    expect(schema).toContain('CREATE TABLE IF NOT EXISTS "stripe_webhook_events"');
+    expect(schema).toContain('"event_id" VARCHAR(255) PRIMARY KEY');
+    expect(ledger).not.toContain("CREATE TABLE");
+    expect(ledger).not.toContain("CREATE INDEX");
+    expect(ledger).toContain("pg_advisory_xact_lock");
   });
 });
