@@ -5,8 +5,11 @@ import { queryClient } from "./utils/queryClient.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { LocaleProvider } from "./i18n/LocaleContext.js";
 import { ThemeProvider } from "./lib/theme.js";
+import { initPostHog } from "./lib/posthog.js";
 import App from "./App.js";
 import "./index.css";
+
+initPostHog();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

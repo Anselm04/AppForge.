@@ -280,6 +280,14 @@ app.get("/config.js", (_req, res) => {
     stripePublicKey: process.env.VITE_STRIPE_PUBLIC_KEY || "",
     hcaptchaSiteKey:
       process.env.VITE_HCAPTCHA_SITE_KEY || process.env.HCAPTCHA_SITE_KEY || "",
+    posthogKey:
+      process.env.VITE_PUBLIC_POSTHOG_KEY ||
+      process.env.POSTHOG_PROJECT_API_KEY ||
+      "",
+    posthogHost:
+      process.env.VITE_PUBLIC_POSTHOG_HOST ||
+      process.env.POSTHOG_HOST ||
+      "https://us.i.posthog.com",
   };
   res.setHeader("Cache-Control", "no-store");
   res.type("application/javascript");
