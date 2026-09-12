@@ -9,6 +9,8 @@ const supabaseKey =
   process.env.VITE_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_ANON_KEY ||
   "";
+const ACCESS_COOKIE = "sb-access-token";
+const SESSION_PATH = "/api/auth/session";
 
 let supabase: ReturnType<typeof createClient> | null = null;
 if (supabaseUrl && supabaseKey) {
@@ -39,28 +41,65 @@ function readAccessToken(req: Request): string | undefined {
     if (match?.[1]) return match[1].trim();
   }
 
-  // A cookie is retained for existing browser sessions. Access tokens are never
-  // accepted from query strings because URLs can leak through browser history,
-  // referrer headers, reverse-proxy logs, analytics, and support screenshots.
-  const cookie = req.cookies?.["sb-access-token"];
+  const cookie = req.cookies?.[ACCESS_COOKIE];
   if (typeof cookie === "string" && cookie.length > 0) return cookie;
 
   return undefined;
 }
 
-export async function supabaseAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
+function accessTokenMaxAgeMs(token: string): number {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return 55 * 60 * 1000;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const decoded = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as {
+      exp?: number;
+    };
+    if (typeof decoded.exp !== "number") return 55 * 60 * 1000;
+    return Math.max(
+      1_000,
+      Math.min(decoded.exp * 1000 - Date.now(), 60 * 60 * 1000),
+    );
+  } catch {
+    return 55 * 60 * 1000;
+  }
+}
+
+function isSessionEndpoint(req: Request): boolean {
+  return req.originalUrl.split("?", 1)[0] === SESSION_PATH;
+}
+
+export async function supabaseAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  if (isSessionEndpoint(req) && req.method === "DELETE") {
+    res.clearCookie(ACCESS_COOKIE, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(204).end();
+  }
+
   if (!supabase) {
     return next();
   }
 
   const token = readAccessToken(req);
   if (!token) {
+    if (isSessionEndpoint(req) && req.method === "POST") {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     return next();
   }
 
   try {
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {
+      if (isSessionEndpoint(req) && req.method === "POST") {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
       return next();
     }
 
@@ -82,19 +121,35 @@ export async function supabaseAuthMiddleware(req: Request, _res: Response, next:
 
     if (!dbUser?.id) {
       logger.error({}, "supabase_auth_user_upsert_missing");
+      if (isSessionEndpoint(req) && req.method === "POST") {
+        return res.status(500).json({ error: "Unable to establish session" });
+      }
       return next();
     }
 
     req.user = {
       id: dbUser.id,
-      // Prefer the verified JWT email so isOwner matches the signed-in Gmail
-      // even if the users row still has a stale or empty address.
       email: email || dbUser.email || "",
       name: dbUser.name ?? name,
       supabaseUid,
     };
+
+    if (isSessionEndpoint(req) && req.method === "POST") {
+      res.cookie(ACCESS_COOKIE, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: accessTokenMaxAgeMs(token),
+      });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(204).end();
+    }
   } catch (err) {
     logger.error({ error: err }, "supabase_auth_verification_failed");
+    if (isSessionEndpoint(req) && req.method === "POST") {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
   }
 
   next();
