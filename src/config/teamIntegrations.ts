@@ -25,7 +25,7 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
       key: 'vercel',
       role: 'frontend-hosting-preview-deployments',
       configured: has('VERCEL_PROJECT_ID', 'VERCEL_URL', 'VERCEL_ENV'),
-      requiredForProduction: true,
+      requiredForProduction: false,
     },
     {
       key: 'fly',
@@ -54,7 +54,18 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
     {
       key: 'posthog-eu',
       role: 'product-analytics-feature-flags',
-      configured: has('POSTHOG_KEY', 'VITE_POSTHOG_KEY') && has('POSTHOG_HOST', 'VITE_POSTHOG_HOST'),
+      configured:
+        has(
+          'POSTHOG_KEY',
+          'POSTHOG_PROJECT_API_KEY',
+          'VITE_POSTHOG_KEY',
+          'VITE_PUBLIC_POSTHOG_KEY',
+        ) &&
+        has(
+          'POSTHOG_HOST',
+          'VITE_POSTHOG_HOST',
+          'VITE_PUBLIC_POSTHOG_HOST',
+        ),
       requiredForProduction: true,
     },
     {
@@ -94,11 +105,14 @@ export function summarizeTeamIntegrations() {
   const integrations = getTeamIntegrationStatus();
   const configured = integrations.filter((item) => item.configured).length;
   const required = integrations.filter((item) => item.requiredForProduction).length;
+  const configuredRequired = integrations.filter(
+    (item) => item.requiredForProduction && item.configured,
+  ).length;
 
   return {
     configured,
     required,
-    productionReady: configured === required,
+    productionReady: configuredRequired === required,
     integrations,
   };
 }
