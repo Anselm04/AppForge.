@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabaseClient } from "./supabase-client";
+import { withCsrfHeaders } from "./csrf";
 
 const SESSION_KEY = "appforge.session";
 const listeners = new Set<() => void>();
@@ -33,7 +34,6 @@ function readStorage(key: string): string | null {
     if (!storage) return null;
     return storage.getItem(key);
   } catch {
-    /* iOS Safari private / ITP / blocked cookies: getItem throws SecurityError */
     return null;
   }
 }
@@ -45,7 +45,7 @@ function writeStorage(key: string, value: string) {
     if (!storage) return;
     storage.setItem(key, value);
   } catch {
-    /* quota / private mode */
+    // quota/private mode: keep the in-memory session below
   }
 }
 
@@ -56,7 +56,7 @@ function removeStorage(key: string) {
     if (!storage) return;
     storage.removeItem(key);
   } catch {
-    /* ignore */
+    // ignore blocked storage
   }
 }
 
@@ -102,10 +102,39 @@ function sessionFromAuth(result: {
   };
 }
 
+async function syncServerSession(accessToken: string): Promise<void> {
+  const headers = await withCsrfHeaders({
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  });
+  const res = await fetch("/api/auth/session", {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to establish secure browser session (${res.status})`);
+  }
+}
+
+async function clearServerSession(accessToken?: string): Promise<void> {
+  try {
+    const headers = await withCsrfHeaders(
+      accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    );
+    await fetch("/api/auth/session", {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers,
+    });
+  } catch {
+    // Local sign-out must still complete even if the server is unreachable.
+  }
+}
+
 export function getSession(): AppForgeSession | null {
   const raw = readStorage(SESSION_KEY);
   if (!raw) {
-    // Keep in-memory session if localStorage is blocked (Safari ITP / private).
     return cachedSession;
   }
   if (raw === cachedRaw) return cachedSession;
@@ -131,7 +160,6 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** In-app login URL. Prompt draft stays in sessionStorage — do not wipe it. */
 export function loginPathWithReturn(next = "/"): string {
   const path =
     next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
@@ -153,12 +181,12 @@ export function signOut() {
   refreshInFlight = null;
   emitSessionChange();
 
+  void clearServerSession(session?.accessToken);
   if (session?.accessToken) {
     void supabaseClient.signOut(session.accessToken).catch(() => undefined);
   }
 }
 
-/** Refresh access token using stored refresh_token. Returns null if refresh fails. */
 export async function refreshSession(): Promise<AppForgeSession | null> {
   const current = getSession();
   if (!current?.refreshToken) return null;
@@ -175,6 +203,7 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       });
       if (!next || generationAtStart !== sessionGeneration) return null;
       saveSession(next);
+      await syncServerSession(next.accessToken);
       return next;
     } catch {
       return null;
@@ -201,10 +230,6 @@ function accessTokenExpired(token: string, skewMs = 30_000): boolean {
   }
 }
 
-/**
- * Ensure we have a usable access token. Refresh only when the JWT is expired
- * (or about to be) so generate/SSE/auth.me keep a live session.
- */
 export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const session = getSession();
   if (!session) return null;
@@ -215,12 +240,8 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const refreshed = await refreshSession();
   if (refreshed) return refreshed;
 
-  // If auth state changed while refresh was in flight, never overwrite the
-  // newer state (for example a successful login in another flow).
   if (generationAtStart !== sessionGeneration) return getSession();
 
-  // The only remaining session is expired and could not be refreshed. Clear
-  // it instead of sending protected requests with a known-dead access token.
   signOut();
   return null;
 }
@@ -232,6 +253,7 @@ export async function signUp(email: string, password: string) {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
+    await syncServerSession(session.accessToken);
   }
   return result;
 }
@@ -247,5 +269,6 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
+  await syncServerSession(session.accessToken);
   return session;
 }
