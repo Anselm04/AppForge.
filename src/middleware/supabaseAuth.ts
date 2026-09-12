@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "../_core/logger.js";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+const supabaseUrl =
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
@@ -24,7 +25,12 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-export type AuthUser = { id: number; email: string; name: string; supabaseUid: string };
+export type AuthUser = {
+  id: number;
+  email: string;
+  name: string;
+  supabaseUid: string;
+};
 
 declare global {
   namespace Express {
@@ -53,9 +59,9 @@ function accessTokenMaxAgeMs(token: string): number {
     if (!payload) return 55 * 60 * 1000;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const decoded = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as {
-      exp?: number;
-    };
+    const decoded = JSON.parse(
+      Buffer.from(padded, "base64").toString("utf8"),
+    ) as { exp?: number };
     if (typeof decoded.exp !== "number") return 55 * 60 * 1000;
     return Math.max(
       1_000,
@@ -67,10 +73,15 @@ function accessTokenMaxAgeMs(token: string): number {
 }
 
 function isSessionEndpoint(req: Request): boolean {
-  return req.originalUrl.split("?", 1)[0] === SESSION_PATH;
+  const url = req.originalUrl || req.url || "";
+  return url.split("?", 1)[0] === SESSION_PATH;
 }
 
-export async function supabaseAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function supabaseAuthMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   if (isSessionEndpoint(req) && req.method === "DELETE") {
     res.clearCookie(ACCESS_COOKIE, {
       httpOnly: true,
