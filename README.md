@@ -1,394 +1,355 @@
 # AppForge
 
-> AI-powered app, game, agent, tool, and website builder. Describe what you want, and a multi-agent pipeline plans, codes, validates, and helps you deploy a starter project — with optional iteration via the Senior Dev Agent.
+> **Production direction:** describe a software product in plain language, let AppForge plan and build it with AI agents, validate the generated product, iterate on it, and export or deploy it — with reliable authentication, access control, billing, administration and production monitoring around the complete customer journey.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/Node-20+-green.svg)](https://nodejs.org)
+## Current status — September 2026
 
-**Honest disclaimer:** AppForge uses large language models to generate code. It includes a **Build Validation Agent** that compiles Node/Vite projects in a sandbox and retries with error feedback — but **complex apps still need human review.** AppForge is a rapid prototype accelerator, not a guarantee of production-ready software.
+AppForge is an **active production-hardening project**. It is not being represented here as 100% production-proven.
 
----
+The repository already contains substantial infrastructure: React + Express, Supabase authentication, PostgreSQL/Drizzle persistence, Stripe billing, AI build agents, validation, build streaming, project history, deployment/export paths, administrator tooling, God Codes, health probes, tests and CI/CD.
 
-## What AppForge is
+The current priority is **not adding more headline features**. It is proving and hardening the real customer golden path:
 
-AppForge is a **full-stack web application** (Express + React) where users:
+**Sign up → confirm/login → remain authenticated → receive the correct entitlement → describe a product → create a project → run the agent pipeline → validate the generated product → deploy/export it → test the result → iterate from feedback.**
 
-1. Sign in with **Supabase Auth** (email/password)
-2. Describe an app on the home page and pick one of **40 tech stacks**
-3. Watch a **credit-metered AI pipeline** stream live over Server-Sent Events (SSE)
-4. Download a ZIP, deploy to several destinations, or push to **GitHub**
-5. Optionally iterate on an existing project with the **Senior Dev Agent**
+Until that complete path is repeatedly demonstrated with real tester accounts and real generated products, AppForge should not be assessed as 100% production-ready.
 
-The platform stores users, projects, credits, and generated files in **PostgreSQL via Drizzle ORM**. Schema is applied automatically on server boot (`ensureAppSchema`).
+## Current launch blockers
 
-**Production hosting:** The full app (API + SSE builds + SPA) runs on **Fly.io** (`fly.toml`). **Vercel** in this repo only builds the static client (`vercel.json`) — it does **not** run the Express build server or SSE pipeline.
+1. **Authentication reliability** — signup, confirmation, login, refresh and server-session handoff must work without users being bounced back to sign-in.
+2. **Tester/admin access** — authorized testers must receive owner-issued access without being incorrectly forced into Stripe checkout.
+3. **Entitlement consistency** — subscription, credits and God Code access must be interpreted consistently by project creation and build execution.
+4. **Real build execution** — a normal-language request must create a project and start the actual multi-agent pipeline.
+5. **Validation quality** — generated products must be compiled/tested as deeply as their target stack permits and failures must be surfaced.
+6. **Deployment proof** — successful builds must reach a usable preview/export/deployment destination.
+7. **Tester feedback loop** — testers must be able to use what AppForge produced and judge it against what they requested.
+8. **Production observability** — authentication, projects, builds, agent runs, deployments and critical dependencies must be measurable.
 
----
-
-## Primary user flow
-
-| Step                  | Route                       | What happens                                            |
-| --------------------- | --------------------------- | ------------------------------------------------------- |
-| Sign up / log in      | `/signup`, `/login`         | Supabase Auth; session stored in browser `localStorage` |
-| Create build          | `/` (Home)                  | `trpc.projects.create` → redirects to `/build/:id`      |
-| Watch build           | `/build/:projectId`         | SSE `GET /api/build/:projectId` streams agent logs      |
-| Manage projects       | `/dashboard`                | List builds, credits, tier, links to improve/rebuild    |
-| Improve existing code | `/ai-builder` (Improve tab) | Senior Dev Agent with plan approval or autonomous mode  |
-| Design assets         | `/editor`                   | Standalone SVG graphics editor (not wired into builds)  |
-| Billing               | `/pricing`                  | Stripe Checkout, Customer Portal, and credit packs      |
-| Redeem codes          | `/redeem`                   | Owner-issued god codes                                  |
-| Admin                 | `/admin`                    | Owner-only analytics + god code minting (`OWNER_EMAIL`) |
-
-**Credit gates:** A new build requires **5 credits** upfront. Senior Dev sessions require **6 credits**. Users with `unlimited` (lifetime god codes) skip balance checks.
+These are launch blockers, not optional polish.
 
 ---
 
-## Build pipeline (what actually runs)
+## Product goal
 
-Entry: `src/agents/pipeline.ts` via `src/routes/build.ts`.
+AppForge is being built to let people worldwide turn an idea into a working digital product without manually assembling the entire software-development toolchain.
 
-| Phase | Agent              | What it does                                                            |
-| ----- | ------------------ | ----------------------------------------------------------------------- |
-| 1     | **Planner**        | LLM produces an architecture plan (tasks, modules)                      |
-| 2     | **Coder**          | LLM generates source files per task; parses multi-file output           |
-| 3     | **Validator**      | Sandbox: `npm install` → `tsc` → Vitest → Vite build (Node stacks only) |
-| —     | **Auto-fix**       | Up to 2 retries: validation errors fed back to Coder                    |
-| 4     | **Triple audit**   | Static regex scans (accessibility, security, performance scores)        |
-| 5     | **Reviewer**       | LLM quality report written to `REVIEW.md`                               |
-| 6     | **Testing agent**  | Generates Vitest test files for modules                                 |
-| Post  | **Scaffold merge** | Baseline files from `stackScaffolds.ts` merged with generated code      |
-| Post  | **Compliance**     | Vanta-style scaffolding injected (`compliance-template.ts`)             |
-| Post  | **Snapshot**       | Version stored in `build_snapshots` for rollback                        |
+The intended journey is:
 
-**LLM:** `BUILT_IN_FORGE_API_KEY` + `BUILT_IN_FORGE_API_URL` (OpenAI-compatible; Forge or OpenAI).
+1. Describe the product in normal language.
+2. Select or let AppForge determine an appropriate technology stack and capabilities.
+3. Have specialized AI agents plan, implement, review, test and improve it.
+4. Watch build progress and receive understandable failures instead of silent errors.
+5. Preview and inspect the generated product.
+6. Iterate with the Senior Dev Agent and future automated improvement workflows.
+7. Export to source control or deploy to supported hosting targets.
+8. Configure external credentials, databases, billing and services required by the generated product.
+9. Test the deployed product as a real customer would.
+10. Continue improving it from real feedback.
 
-**Validation depth varies by stack:** React/Vite/Node stacks get full compile + test + build. Python, Flutter, game exports, and extensions get structural checks with warnings — not full execution.
-
-**Credits:** The server deducts **5 credits once** when a build starts. Phase costs (Planner 2, Coder 3, Validator 2, Reviewer 1) are shown in the SSE stream for transparency but are **not** charged separately.
-
-If credits run out mid-build, the pipeline **pauses** and can resume after top-up.
+This is the **direction and acceptance target**, not a claim that every supported stack already completes every step autonomously.
 
 ---
 
-## Deploy & export
+## Real production architecture
 
-From the build page (`src/pages/Build.tsx`, `src/services/deployer.ts`):
+| Layer | Current role |
+| --- | --- |
+| Frontend | React 18, Vite, Tailwind CSS, TanStack Query, React Router |
+| API | Express 4, tRPC v11, Zod |
+| Authentication | Supabase Auth plus AppForge server-side authenticated request/session handling |
+| Application data | PostgreSQL + Drizzle ORM |
+| Billing | Stripe subscriptions, webhooks, billing portal and credit packs |
+| AI generation | OpenAI-compatible model endpoint used by AppForge agents |
+| Build execution | Multi-agent pipeline with SSE progress streaming and optional Redis fan-out |
+| Validation | Sandbox validation, tests/build checks where supported, review and retry logic |
+| Deployment/export | Preview, ZIP, Vercel, Netlify, Fly.io, GitHub Pages and GitHub repository paths where configured |
+| Full production hosting | Fly.io runs the complete AppForge API/build/SSE path |
+| Observability | Health probes, structured logging, optional Sentry and production monitoring |
+| CI/CD | GitHub Actions for lint/format, type checking, tests, security, build and deployment gates |
 
-| Destination      | Requires                                 | Notes                                                              |
-| ---------------- | ---------------------------------------- | ------------------------------------------------------------------ |
-| **Live preview** | `APP_URL` or `CORS_ORIGIN`               | Signed URL → `/live/:projectId`; Vite apps are built in a temp dir |
-| **ZIP download** | —                                        | Always available                                                   |
-| **Vercel**       | `VERCEL_TOKEN`                           | Deployments API v13                                                |
-| **Netlify**      | `NETLIFY_AUTH_TOKEN`                     | ZIP upload                                                         |
-| **Fly.io**       | `FLY_API_TOKEN`                          | `flyctl deploy` in temp dir                                        |
-| **GitHub Pages** | `GITHUB_TOKEN`                           | Trees API + `gh-pages` branch                                      |
-| **GitHub repo**  | GitHub OAuth (`GITHUB_CLIENT_ID/SECRET`) | Creates repo and pushes `generated_files`                          |
+### Supabase and AppForge data
 
-Deploy options show as configured/unconfigured via `trpc.projects.deployOptions`.
+Supabase is production-critical for authentication and connected production data. A successful Supabase login alone is **not proof that a customer can use AppForge**. Production acceptance includes the complete bridge from authenticated identity to AppForge entitlement, project creation, build execution and deployment activity.
 
----
-
-## Senior Dev Agent
-
-Iterates on an **existing** project's generated files (`src/agents/seniorDevAgent.ts`):
-
-- **Collaborative mode:** Produces a plan → user approves → executes step-by-step
-- **Autonomous mode:** Plans and executes without approval
-- Validates changes in a sandbox (same auto-fix loop as main pipeline)
-- Costs **6 credits** per session
-- Entry: Dashboard "Improve" or `/ai-builder?projectId=X&mode=improve`
+**Authentication traffic is not the same as successful AppForge product usage.**
 
 ---
 
-## Subscription tiers
+## Customer golden path
 
-| Tier       | Price     | Monthly builds | Credit refill |
-| ---------- | --------- | -------------- | ------------- |
-| Free       | $0        | 3              | 20 (initial)  |
-| Starter    | $49/mo    | 16             | 100           |
-| Builder    | $149/mo   | 66             | 400           |
-| Studio     | $399/mo   | Unlimited      | 1,500         |
-| Enterprise | $1,499/mo | Custom         | Unlimited     |
+This is the primary readiness benchmark:
 
-Billing uses Stripe Checkout Sessions for new Starter/Builder/Studio subscriptions, the Stripe Customer Portal for plan changes, payment-method updates and cancellation, verified webhooks at `/api/webhooks/stripe`, and one-time credit packs. Enterprise remains sales-led rather than self-serve checkout.
+| Stage | Required production behaviour |
+| --- | --- |
+| Account creation | User can create an account and receives clear confirmation/error feedback |
+| Authentication | User can log in and remain logged in across normal navigation/refresh |
+| AppForge identity | Authenticated identity resolves to the correct AppForge user/session |
+| Access | Subscription, tester grant or God Code entitlement is recognized before build gating |
+| Prompt | User can describe the product they want |
+| Project | AppForge creates the project successfully |
+| Build | The multi-agent pipeline actually starts and reports progress |
+| Validation | Generated files are checked and failures are visible/actionable |
+| Completion | Generated files and project state are persisted |
+| Deployment/export | User can obtain or deploy the generated product |
+| Customer test | The result can be tested against the original request |
+| Iteration | Feedback can drive another improvement cycle |
 
-Plan changes use the configured Stripe price as the authoritative tier. Proration invoices update entitlement without minting an extra monthly credit allowance; monthly credits are granted on subscription creation and normal billing cycles.
-
-**God codes:** Owner mints encrypted one-time codes in `/admin`. Users redeem at `/redeem` for lifetime unlimited or bonus credits. SMS OTP can be enabled for redemption when the Twilio environment variables are configured.
-
----
-
-## Supported tech stacks (40)
-
-Defined in `src/agents/pipeline.ts` and `src/services/stackScaffolds.ts`. Scaffold depth varies — React/Vite shells are runnable; Unity/Godot exports are HTML placeholders; unknown stacks fall back to a generic Vite React shell.
-
-### Web (11)
-
-`react-node`, `react-python`, `vue-node`, `svelte-node`, `next-node`, `angular-node`, `vanilla-node`, `react-django`, `react-supabase`, `remix-node`, `astro-node`
-
-### Games (7)
-
-`phaser-html5`, `three-js-3d`, `babylon-js-3d`, `unity-webgl`, `godot-html5`, `react-native-game`, `flutter-game`
-
-### AI / agents (6)
-
-`ai-agent-python`, `ai-agent-node`, `openai-tool`, `langchain-tool`, `crewai-agent`, `autogen-agent`
-
-### Desktop & mobile (5)
-
-`electron-react`, `tauri-rust`, `react-native-expo`, `flutter-firebase`, `capacitor-ionic`
-
-### Extensions, bots & APIs (11)
-
-`chrome-extension`, `vscode-extension`, `discord-bot`, `telegram-bot`, `slack-bot`, `browser-automation`, `web-scraper`, `data-visualization`, `api-service`, `serverless-aws`, `serverless-vercel`
+A green CI build alone does **not** prove this journey. Real browser/customer-path testing is required.
 
 ---
 
-## Platform tech stack
+## Tester access and God Codes
 
-| Layer          | Technology                                                                                     |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Frontend       | React 18, Vite, Tailwind CSS, TanStack Query, React Router                                     |
-| API            | tRPC v11, Zod, Express 4                                                                       |
-| Auth           | Supabase Auth (JWT); server verifies with service role when present, otherwise publishable key |
-| Database       | PostgreSQL + Drizzle ORM (`ensureAppSchema` on boot)                                           |
-| Payments       | Stripe (subscriptions, webhooks, managed billing portal, credit packs)                         |
-| LLM            | OpenAI-compatible API (`BUILT_IN_FORGE_*`)                                                     |
-| Deploy targets | Vercel, Netlify, Fly, GitHub Pages, signed preview, ZIP                                        |
-| Observability  | Sentry (optional), structured logging, health probes                                           |
-| CI             | GitHub Actions — lint, typecheck, test, build, security scan                                   |
+AppForge includes owner/admin tooling for issuing **God Codes** so approved testers can receive access without purchasing a normal subscription.
 
----
+Current code supports:
 
-## What is NOT the production path
+- lifetime/unlimited access grants;
+- limited credit grants;
+- one-time redemption controls;
+- administrator management through the protected `/admin` surface.
 
-Legacy or auxiliary surfaces — **Home → `/build/:id`** is the real build flow:
+### Direction being hardened
 
-| Item                                                            | Status                                                               |
-| --------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `POST /api/ai/generate`, `/api/ai/iterate`, `/api/agents/build` | **410 Gone** — use `projects.create` + SSE build                     |
-| AI Builder **"Build New"** (`/ai-builder?mode=build`)           | Redirects to Home — use **Home** to start builds                     |
-| `supabase/migrations/`                                          | Supabase integration only — Express uses `ensureAppSchema()`         |
-| Cosine integration router                                       | API exists; no UI route                                              |
-| Vanta API sync                                                  | Compliance files injected into generated apps; no live Vanta polling |
-| ML content moderation                                           | Regex keyword filter + 3-strike ban only                             |
+The admin access system is intended to support:
 
-**Now wired (when env vars set):** hCaptcha on project create, SMS OTP on god-code redeem, `/templates` marketplace, GitHub export from build snapshots (Trees API), Enterprise tier is sales-led (no self-serve Stripe checkout).
+- lifetime access;
+- monthly or multi-month tester access;
+- custom expiry dates;
+- fixed-credit grants where appropriate;
+- clear user/access status in the administrator dashboard;
+- safe revocation/expiry behaviour;
+- auditability of who received and redeemed access.
+
+**Time-limited access is work in progress until implemented and production-tested.** Do not infer it is already complete merely because lifetime God Codes exist.
+
+Tester entitlements must bypass the appropriate payment/build gates only for the authorized account and duration. They are not a global billing bypass.
 
 ---
 
-## Limitations (read this)
+## Primary application routes
 
-| Expectation                       | Reality                                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Any app works perfectly           | **No.** LLMs make mistakes. Complex systems need developer fixes.                                                                       |
-| All 40 stacks compile in CI       | **No.** Full sandbox validation is for Node/npm stacks; Python/Flutter/extensions get structural checks with warnings (see build log).  |
-| Deploy and forget                 | **No.** You configure env vars, databases, and API keys in the target host.                                                             |
-| Vercel hosts the builder          | **No.** Vercel deploys static client only. Full app needs Fly (or similar). See `docs/VERCEL.md`.                                       |
-| Builds are background jobs        | **No.** Builds stream over SSE on one HTTP connection (default timeout 20 min). Optional Redis pub/sub for multi-instance fan-out only. |
-| Enterprise self-checkout          | **No.** Enterprise is contact/sales-led; Starter/Builder/Studio use Stripe.                                                             |
-| AI speaks your UI locale          | **No.** UI has 11 locales; AI pipeline output is English-only.                                                                          |
-| Games run at 60fps                | **No.** Phaser/Three templates are starters, not polished games.                                                                        |
-| AI agents are autonomous          | **No.** Generated agents need real API keys, tools, and error handling wired by you.                                                    |
-| Graphics editor saves to projects | **No.** `/editor` is standalone; export SVG/PNG locally.                                                                                |
+| Purpose | Route |
+| --- | --- |
+| Sign up | `/signup` |
+| Login | `/login` |
+| Describe/start a build | `/` |
+| Watch a build | `/build/:projectId` |
+| Projects/account | `/dashboard` |
+| Improve an existing project | `/ai-builder` |
+| Pricing/billing | `/pricing` |
+| Redeem an owner-issued code | `/redeem` |
+| Owner administration | `/admin` |
+| Graphics editor | `/editor` |
 
-**Honest value:** AppForge saves days of boilerplate for CRUD apps, landing pages, and API starters. For games, agents, and native apps it produces scaffolding you still need to finish.
-
----
-
-## Prerequisites
-
-- Node.js 20+ (22 in `Dockerfile`)
-- npm 10+
-- PostgreSQL (`DATABASE_URL` or `SUPABASE_DB_URL`)
-- **Supabase project** (auth)
-- **Stripe account** (billing)
-- **OpenAI-compatible API key** (`BUILT_IN_FORGE_API_KEY`) — required for builds
-- Optional: `VERCEL_TOKEN`, `NETLIFY_AUTH_TOKEN`, `FLY_API_TOKEN`, `GITHUB_TOKEN`, `GITHUB_CLIENT_ID/SECRET`, `SENTRY_DSN`, `REDIS_URL`
+The canonical new-build path is **Home → project creation → `/build/:projectId`**. Legacy generation endpoints and auxiliary experiments should not be used to judge the production path unless they are explicitly part of this flow.
 
 ---
 
-## Local setup
+## Multi-agent build pipeline
+
+The production build path is driven from `src/agents/pipeline.ts` and `src/routes/build.ts`.
+
+Its responsibilities include:
+
+1. **Planning** — turn the user's request into an implementation plan.
+2. **Coding** — generate project source files.
+3. **Validation** — execute supported compile/test/build checks in a sandbox.
+4. **Repair/retry** — feed validation failures back into generation where supported.
+5. **Review** — inspect generated output and produce quality feedback.
+6. **Testing support** — generate/add tests where applicable.
+7. **Scaffolding** — merge required baseline project files.
+8. **Persistence/snapshots** — retain generated state for history and iteration.
+9. **Deployment/export** — hand a completed project to a configured destination.
+
+### Validation is stack-dependent
+
+AppForge exposes web, mobile, game, agent, extension, bot and service targets. They do **not** all currently receive identical runtime validation.
+
+Node/Vite-compatible targets can receive deeper automated compile/test/build validation. Flutter, native/mobile, game-engine, Python and other specialized targets may require structural checks and external/native toolchains before they can be considered fully proven.
+
+Therefore the existence of a stack option is **not** a guarantee that AppForge can already produce a production-ready application for that stack without human review.
+
+---
+
+## Deployment and export
+
+Configured projects can use supported paths including signed/live preview, ZIP export, Vercel, Netlify, Fly.io, GitHub Pages and GitHub repository export.
+
+Each destination depends on its required production credentials and target-specific configuration. A generated product may also require its own environment variables, database, API keys, domains, payment configuration or third-party services.
+
+**Deployment success means the generated artifact reached its target and passed the checks available for that target. It does not mean every business workflow inside the generated application has automatically been proven.**
+
+---
+
+## Billing and credits
+
+AppForge contains Stripe-based subscription and credit infrastructure. Current commercial pricing and allowances should be read from production code/configuration and Stripe rather than treating this README as an immutable price sheet.
+
+Build and Senior Dev operations can consume credits. Lifetime/unlimited entitlements bypass applicable balance checks. Production hardening must ensure every relevant endpoint interprets the same entitlement consistently so a tester is not accepted by one screen and rejected by another.
+
+---
+
+## Administrator dashboard
+
+The `/admin` surface is owner-only and is intended to become AppForge's operational control centre.
+
+The production direction includes user/account visibility, tester and entitlement management, God Code management, lifetime/time-limited access, subscription/access status, project/build status, deployment failures, analytics, moderation/security operations and production-health signals.
+
+A feature appearing in this direction describes the **target operating model** unless it is explicitly implemented and verified in code/tests.
+
+---
+
+## Production-readiness rules
+
+When auditing AppForge, do **not** derive a readiness percentage from feature names in this README.
+
+### Count as verified when appropriate evidence exists
+
+- Code exists on the production branch.
+- Required production configuration is present.
+- Relevant CI/test gates pass.
+- Production deployment succeeds.
+- Runtime health checks pass.
+- For customer-facing features, the real browser/customer path succeeds.
+
+### Do not count as verified merely because
+
+- this README says a feature exists;
+- a route/component/file exists;
+- a mocked test passes while production dependencies are absent;
+- a deployment job is skipped;
+- a static client deployment is green while the Express/SSE builder is broken;
+- Supabase Auth contains users but they cannot create projects/builds;
+- generated files exist but have not passed applicable validation;
+- a deployment URL exists but the generated application has not been tested.
+
+### Evidence labels
+
+Use these labels when assessing the repository:
+
+- **Implemented** — code exists.
+- **Configured** — required production configuration is present.
+- **CI verified** — automated repository gates pass.
+- **Runtime verified** — deployed service/probe works.
+- **Golden-path verified** — a real user completes the customer journey.
+- **Production-proven** — repeated real usage succeeds with monitoring and recoverable failure behaviour.
+
+This prevents README wording from artificially raising or lowering an assessment score.
+
+---
+
+## Immediate production-hardening work
+
+The current workstream is deliberately narrow:
+
+- eliminate signup/login/session bounce failures;
+- synchronize authenticated users with AppForge identity and entitlements;
+- make authorized tester access reliable without unwanted Stripe blocking;
+- finish flexible admin-issued access durations;
+- prove prompt → project → build → validation → deployment end to end;
+- verify generated products from the tester/customer perspective;
+- keep CI/release gates green;
+- monitor Supabase/database/auth and deployment-critical dependencies;
+- improve diagnostics so a failed customer action has a traceable cause.
+
+---
+
+## Security principles
+
+- Never expose Supabase service-role credentials, Stripe secret keys, deployment tokens or LLM secrets to the browser.
+- Verify protected operations server-side.
+- Keep admin access owner/authorized-admin only.
+- Keep God Codes controlled, auditable and scoped to the intended entitlement.
+- Never give generated applications AppForge production secrets automatically.
+- Monitoring does not replace authorization.
+
+---
+
+## Local development
+
+Prerequisites include Node.js 20+, npm, PostgreSQL/Supabase configuration and an OpenAI-compatible model credential for real AI builds. Stripe/deployment credentials are required for the production capabilities being exercised.
 
 ```bash
 git clone https://github.com/Anselm04/AppForge.git
 cd AppForge
 npm install
 cp .env.example .env
-# Edit .env — see .env.example for all variables
 
 npm run validate-env -- --strict
-
-# Full stack (recommended): API + SPA on one port
 npm run build
 npm start
-# → http://localhost:3000
-
-# Frontend-only hot reload (API/SSE won't work without a proxy to Express)
-npm run dev
-# → http://localhost:5173
 ```
 
-On first start, `ensureAppSchema()` creates tables if missing. You do **not** need to run `supabase/migrations` for the Express app.
-
----
-
-## Critical environment variables
+Useful checks:
 
 ```bash
-# Database (REQUIRED)
-DATABASE_URL=postgresql://...
-
-# Supabase Auth (REQUIRED)
-SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-
-# Optional: privileged Supabase admin/SSO operations only
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# LLM (REQUIRED for builds)
-BUILT_IN_FORGE_API_KEY=your-key
-BUILT_IN_FORGE_API_URL=https://api.openai.com/v1
-
-# Secrets (REQUIRED in production)
-JWT_SECRET=<openssl rand -base64 48>
-COOKIE_SECRET=<openssl rand -base64 48>
-OWNER_EMAIL=you@example.com
-
-# Stripe (REQUIRED for billing)
-STRIPE_SECRET_KEY=sk_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_STARTER_PRICE_ID=price_...
-STRIPE_BUILDER_PRICE_ID=price_...
-STRIPE_STUDIO_PRICE_ID=price_...
-STRIPE_CREDIT_50_PRICE_ID=price_...
-STRIPE_CREDIT_100_PRICE_ID=price_...
-STRIPE_CREDIT_250_PRICE_ID=price_...
-
-# Production
-NODE_ENV=production
-CORS_ORIGIN=https://yourdomain.com
-APP_URL=https://yourdomain.com
-
-# Deploy (optional — only destinations you use)
-VERCEL_TOKEN=...
-NETLIFY_AUTH_TOKEN=...
-FLY_API_TOKEN=...
-GITHUB_TOKEN=...
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
-The production `fly.toml` pins public Supabase configuration and public Stripe price IDs. Secret Stripe credentials, database credentials, signing secrets, and LLM credentials remain Fly secrets.
-
-See `.env.example` for the full list.
+See `.env.example`, deployment configuration and GitHub Actions workflows for current environment requirements. Never commit production secrets to documentation.
 
 ---
 
-## Commands
+## Production hosting
 
-| Command                | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
-| `npm run build`        | Compile server (`dist/server.js`) + Vite client (`dist/client/`) |
-| `npm start`            | Run production server (`node dist/server.js`)                    |
-| `npm run dev`          | Vite dev server only (frontend)                                  |
-| `npm run test`         | Vitest                                                           |
-| `npm run typecheck`    | TypeScript check (client + server)                               |
-| `npm run lint`         | ESLint                                                           |
-| `npm run validate-env` | Validate environment variables                                   |
-| `npm run db:studio`    | Drizzle Studio (inspect DB)                                      |
+The full AppForge application requires its Express API/build server and SSE/runtime behaviour. The current architecture uses **Fly.io** for that full application path.
+
+A successful static-client deployment elsewhere must not be treated as proof that AppForge's server-side builder, authentication bridge, build stream or deployment services are healthy.
 
 ---
 
-## Production deployment
+## What AppForge is not claiming yet
 
-**Fly.io (full app):**
+AppForge is **not currently claiming** that:
 
-```bash
-fly deploy --config fly.toml
-fly secrets set DATABASE_URL=... BUILT_IN_FORGE_API_KEY=... # etc.
-```
+- every supported stack produces flawless production software;
+- every generated product deploys without target-specific configuration;
+- AI-generated code never requires human review;
+- all customer golden-path issues have been eliminated;
+- the administrator access-duration system is fully complete;
+- every generated product has been tested by real customers;
+- the platform is 100% production-proven.
 
-Runtime public config is injected at `/config.js` so Supabase/Stripe public configuration can change without rebuilding.
-
-**Vercel:** Static client only. Connect repo, set `VITE_*` env vars, deploy. Point API calls to your Fly (or other) backend — or users only get a static shell.
-
-**Checklist:**
-
-- [ ] `npm run validate-env -- --strict` passes
-- [ ] Stripe webhook → `https://yourdomain.com/api/webhooks/stripe`
-- [ ] Stripe Customer Portal can be opened by an authenticated paid customer
-- [ ] `CORS_ORIGIN` and `APP_URL` match your domain
-- [ ] Health checks: `/api/health`, `/api/health/live`, `/api/health/ready`
-- [ ] `npm run typecheck && npm run test -- --run && npm run build` pass locally
-
-The production GitHub Actions workflow additionally validates pinned billing/auth configuration, required Fly secrets, deploys to Fly.io, checks liveness/readiness, and confirms protected build/preview endpoints reject unauthenticated access.
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) and [DOCKER.md](DOCKER.md) for more detail.
+Those statements should change only when production evidence supports them.
 
 ---
 
-## Security & governance
+## Assessment guidance
 
-- **Owner-only admin** — hard-locked to `OWNER_EMAIL`
-- **Content moderation** — regex keyword filter on project descriptions; 3-strike auto-ban
-- **God codes** — SHA256-hashed, one-use, owner-minted
-- **Compliance scaffolding** — injected into generated apps (audit logger, policies, etc.)
-- **Rate limiting** — per-user + per-IP; Redis optional
-- **Stripe webhook verification** — signature required
-- **Signed live previews** — HMAC URLs for `/live/:projectId`
+**For automated or human assessments:** treat this README as a map of architecture, direction, acceptance criteria and known hardening work — **not as proof of completion**.
 
----
+For a true readiness assessment, inspect in this order:
 
-## Health endpoints
+1. current production commit;
+2. latest GitHub CI/security/release results;
+3. production deployment result;
+4. runtime health/readiness probes;
+5. Supabase/database/authentication health;
+6. current entitlement/billing behaviour;
+7. real signup/login/session test;
+8. real tester God Code/access test;
+9. real prompt/project/build run;
+10. generated-product validation and deployment;
+11. tester/customer verification of the deployed result.
 
-| Endpoint                | Purpose                     |
-| ----------------------- | --------------------------- |
-| `GET /api/health`       | Full health (DB, uptime)    |
-| `GET /api/health/live`  | Liveness probe              |
-| `GET /api/health/ready` | Readiness (DB connectivity) |
-
----
-
-## Graphics editor & brand kit
-
-**`/editor`** — Standalone SVG canvas with drawing tools, templates, gradients, neon effects, and SVG/PNG export. Not connected to the build pipeline.
-
-**`public/branding/`** — Logo, wordmark, hero banner, feature illustrations, and `BRAND-GUIDELINES.md`.
+If a required stage fails, report that failure explicitly rather than averaging it away because unrelated features exist.
 
 ---
 
-## FAQ
+## Next milestone
 
-**Q: Where do I start a build?**  
-A: Home (`/`), not the AI Builder "Build New" tab.
+> **A real tester can create an account, receive authorized access, describe a product, have AppForge build it, deploy/export it, use the result, and give meaningful feedback without manual database intervention or being incorrectly blocked by authentication or billing.**
 
-**Q: How many credits does a build cost?**  
-A: **5 credits** reserved when the build starts. Senior Dev costs **6**.
+That milestone — not the number of files, routes, agents or advertised stacks — is the current definition of progress.
 
-**Q: Will my deployed app work without configuration?**  
-A: Probably not. You need to set environment variables and external services on the host.
-
-**Q: What if validation fails after auto-fix?**  
-A: Download the ZIP, read `REVIEW.md`, and fix manually. The Validator tells you what failed.
-
-**Q: Can I use generated code commercially?**  
-A: Yes. You own the output; review security and compliance before production use.
+AppForge's destination is a dependable TrillionAi Tech product-building platform that can take a user from **idea to tested, deployable digital product** while keeping access, billing, security, observability and administration reliable enough for real customers.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-## Support
-
-Open a GitHub issue with:
-
-1. Tech stack and app description
-2. `REVIEW.md` from the build (if available)
-3. Validation errors or SSE log excerpt
-4. Tier and project ID
-
-**Do not paste API keys or secrets in public issues.**
+MIT
