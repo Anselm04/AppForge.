@@ -9,6 +9,7 @@ on:
       - 'docs/OFFSITE_BACKUP.md'
       - 'docs/OWNER_BREAK_GLASS.md'
       - 'docs/RECOVERY_INVENTORY.md'
+      - 'docs/PLATINUM_SECURITY_PROTOCOL.md'
       - 'scripts/recovery-governance.sh'
       - 'fly.toml'
   schedule:
@@ -43,6 +44,7 @@ jobs:
             docs/OFFSITE_BACKUP.md
             docs/OWNER_BREAK_GLASS.md
             docs/RECOVERY_INVENTORY.md
+            docs/PLATINUM_SECURITY_PROTOCOL.md
             scripts/recovery-governance.sh
             .github/workflows/repository-backup.yml
             .github/workflows/repository-metadata-backup.yml
@@ -62,6 +64,18 @@ jobs:
           grep -Fq 'Never store recovery codes or private keys here.' docs/RECOVERY_INVENTORY.md
           grep -Fq 'OFFSITE_BACKUP_PASSPHRASE' docs/RECOVERY_INVENTORY.md
           grep -Fq 'known-good production' docs/OWNER_BREAK_GLASS.md
+
+      - name: Verify platinum owner-safety invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/PLATINUM_SECURITY_PROTOCOL.md
+          grep -Fq 'never create a single point of lockout' "$file"
+          grep -Fq 'Maintain two independent recovery kits.' "$file"
+          grep -Fq 'AI systems and automation are treated as untrusted change producers.' "$file"
+          grep -Fq 'The off-site backup decryption passphrase must exist outside GitHub.' "$file"
+          grep -Fq 'At least quarterly, conduct a full owner-access disaster simulation' "$file"
+          grep -Fq 'A security control that the legitimate owner cannot recover from is a failed security control.' "$file"
 
       - name: Verify repository backup invariants
         shell: bash
@@ -111,6 +125,7 @@ jobs:
           set -euo pipefail
           grep -Fq 'docs/OWNER_BREAK_GLASS' scripts/recovery-governance.sh
           grep -Fq 'docs/RECOVERY_INVENTORY' scripts/recovery-governance.sh
+          grep -Fq 'docs/PLATINUM_SECURITY_PROTOCOL' scripts/recovery-governance.sh
           grep -Fq 'recovery-readiness' scripts/recovery-governance.sh
 
       - name: Report GitHub main protection state
@@ -135,6 +150,7 @@ jobs:
         run: |
           echo 'Owner break-glass protocol present.'
           echo 'Recovery inventory present.'
+          echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
           echo 'Production deploy remains bound to successful CI and exact SHA.'
           echo 'Recovery governance remains active.'
