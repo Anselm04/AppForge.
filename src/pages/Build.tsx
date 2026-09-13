@@ -30,6 +30,16 @@ type DeployDestination =
 
 type BuildTab = "logs" | "code" | "chat" | "preview" | "terminal";
 
+export function normalizeLiveProductUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function Build() {
   const { projectId } = useParams<{ projectId: string }>();
   const pid = parseInt(projectId ?? "0", 10);
@@ -174,9 +184,17 @@ export function Build() {
           setIsComplete(true);
           const spent = data.payload?.creditsSpent ?? data.creditsSpent;
           if (spent) setCreditsSpent(spent);
-          const live = data.liveUrl ?? data.payload?.liveUrl;
-          if (typeof live === "string" && live) setDeployUrl(live);
-          else if (projectId) setDeployUrl("/apps/" + projectId);
+          const live = normalizeLiveProductUrl(
+            data.liveUrl ?? data.payload?.liveUrl,
+          );
+          if (live) {
+            setDeployUrl(live);
+            closed = true;
+            thisStream.abort();
+            window.location.assign(live);
+            return;
+          }
+          if (projectId) setDeployUrl("/apps/" + projectId);
           closed = true;
           thisStream.abort();
           return;
@@ -221,7 +239,9 @@ export function Build() {
           return;
         }
         if (/not authenticated/i.test(msg)) {
-          setError("Authentication could not be refreshed. Your build was not discarded; sign in again and reopen this project.");
+          setError(
+            "Authentication could not be refreshed. Your build was not discarded; sign in again and reopen this project.",
+          );
           return;
         }
         setError(msg);
