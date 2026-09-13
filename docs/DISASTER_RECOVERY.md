@@ -23,20 +23,25 @@ A restored revision is never deployed merely because it exists in backup. The ex
 Use a 3-2-1 model:
 
 1. Primary Git repository on GitHub.
-2. Verified recovery archive produced by `.github/workflows/repository-backup.yml`.
-3. At least one independent off-GitHub copy in versioned or immutable storage under a separate credential boundary; two independent targets are preferred.
+2. Verified source/history recovery archive produced by `.github/workflows/repository-backup.yml`.
+3. GitHub development-metadata archive produced by `.github/workflows/repository-metadata-backup.yml`.
+4. At least one independent off-GitHub copy in versioned or immutable storage under a separate credential boundary; two independent targets are preferred.
 
-The GitHub Actions artifact is a recovery copy, not the only long-term backup. Deleting a workflow run can also delete its artifacts.
+The GitHub Actions artifacts are recovery copies, not the only long-term backups. Deleting a workflow run can also delete its artifacts.
 
 ## What is protected by the Git bundle
 
-The bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive. The recovery package also records the exact HEAD SHA, refs, bundle heads, commit metadata, and a source archive of the backed-up revision.
+The source/history bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive. The recovery package also records the exact HEAD SHA, refs, bundle heads, commit metadata, and a source archive of the backed-up revision.
 
-A Git bundle does not contain GitHub account settings, GitHub Actions secrets, external database state, Stripe state, Supabase data, Fly.io secrets/configuration, DNS state, or credentials held by other providers. Those systems require their own backup/export and recovery procedures.
+## What is protected by the GitHub metadata archive
+
+The metadata workflow runs only from trusted `main`, schedule, or manual execution and uses read-only GitHub permissions. It exports repository metadata, pull requests, issues, issue comments, pull-review comments, releases, branches, tags, and workflow inventory. The archive is checksummed and can be encrypted and copied to the same independent off-GitHub storage targets.
+
+This metadata archive improves forensic and operational recovery if the GitHub repository/account is lost or damaged, but it is not a byte-for-byte backup of every GitHub account setting. GitHub Actions secrets, account MFA/recovery settings, branch/ruleset configuration that is not exposed to the workflow, external database state, Stripe state, Supabase data, Fly.io secrets/configuration, DNS state, and credentials held by other providers still require their own recovery procedures.
 
 ## Restore procedure
 
-1. Obtain the newest trusted recovery archive from an independent copy.
+1. Obtain the newest trusted source/history recovery archive from an independent copy.
 2. Verify the encrypted object's SHA-256 and HMAC before decryption when restoring from an off-site target.
 3. Decrypt the archive using the separately retained recovery passphrase.
 4. Extract `appforge-repository.bundle`.
@@ -44,12 +49,13 @@ A Git bundle does not contain GitHub account settings, GitHub Actions secrets, e
 6. Clone into a clean directory.
 7. Confirm the restored HEAD matches the recorded `HEAD.sha`.
 8. Run `git fsck --full --strict`.
-9. Review the restored SHA against the last known successful CI/security/production records.
-10. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
-11. Run the complete CI and security suite.
-12. Deploy only the exact SHA that passes the release gate.
-13. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
-14. Re-enable normal deployment only after the incident is contained and documented.
+9. Restore/reference the newest trusted GitHub metadata archive for PR, issue, release, branch/tag, and workflow history as needed.
+10. Review the restored SHA against the last known successful CI/security/production records.
+11. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
+12. Run the complete CI and security suite.
+13. Deploy only the exact SHA that passes the release gate.
+14. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
+15. Re-enable normal deployment only after the incident is contained and documented.
 
 ## Suspected GitHub or credential compromise
 
@@ -60,9 +66,10 @@ A Git bundle does not contain GitHub account settings, GitHub Actions secrets, e
 5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, webhook, signing, AI-provider, off-site-backup, and other privileged credentials.
 6. Treat every exposed credential as compromised even if it was later removed from Git history.
 7. Restore the repository from a verified independent recovery point if repository integrity is uncertain.
-8. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
-9. Deploy using fresh credentials.
-10. Verify live production before reopening normal development/deployment.
+8. Restore/reference the GitHub metadata archive to reconstruct development history and support incident forensics.
+9. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
+10. Deploy using fresh credentials.
+11. Verify live production before reopening normal development/deployment.
 
 ## AI-assisted development threat model
 
@@ -116,8 +123,10 @@ For these changes, update at least one of the following when recovery behavior o
 - `docs/DISASTER_RECOVERY.md`
 - `docs/OFFSITE_BACKUP.md`
 - `.github/workflows/repository-backup.yml`
+- `.github/workflows/repository-metadata-backup.yml`
+- `scripts/recovery-governance.sh`
 
-The CI Recovery Governance check is intended to enforce this rule for high-risk changes before production deployment.
+The CI Security Gate runs the Recovery Governance check. Because production deployment waits for the CI Pipeline to succeed, a recovery-impacting change that violates this policy blocks the normal production path.
 
 ## Provider-level recovery inventory
 
@@ -133,9 +142,9 @@ Maintain and periodically test independent recovery procedures for:
 
 ## Independent backup cadence
 
-- Every trusted `main` push: create and verify a new repository recovery point.
+- Every trusted `main` push: create and verify a new repository recovery point and export current GitHub development metadata.
 - Every production release: copy the newest verified recovery package outside GitHub.
-- Daily: retain at least one current independent copy.
+- Daily: retain at least one current independent source/history copy and metadata copy.
 - Weekly: verify the independent copy's checksum/HMAC and perform a clean restore rehearsal when practical.
 - Monthly: confirm recovery credentials, MFA/recovery keys, the newest known-good production SHA, and provider-level recovery procedures.
 - Never store production secret values inside the repository bundle or backup archive.
@@ -148,8 +157,9 @@ At least monthly:
 2. Verify checksum/HMAC, Git bundle, Git object integrity, and expected HEAD.
 3. Confirm dependency lockfile installation works with lifecycle scripts disabled.
 4. Run the standard CI/test/security/build pipeline against the restored tree.
-5. Verify at least one independent off-GitHub copy can be downloaded and decrypted using credentials stored outside GitHub.
-6. Record whether the target recovery objectives were met.
-7. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
+5. Verify at least one independent off-GitHub source/history copy can be downloaded and decrypted using credentials stored outside GitHub.
+6. Verify a recent GitHub metadata archive is readable and contains the expected repository/PR/issue/release inventories.
+7. Record whether the target recovery objectives were met.
+8. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
 
 A backup that cannot be restored is not a backup.
