@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { prepareProductionFiles } from "../services/productionAutoDeploy.js";
+import {
+  prepareProductionFiles,
+  requireVerifiedLiveUrl,
+} from "../services/productionAutoDeploy.js";
 
 describe("production auto deploy packaging", () => {
   it("uses vite preview when a validated Vite app has no start script", () => {
@@ -36,5 +39,17 @@ describe("production auto deploy packaging", () => {
     });
 
     expect(files.Dockerfile).toBe(dockerfile);
+  });
+
+  it("accepts only a valid HTTPS live product URL", () => {
+    expect(requireVerifiedLiveUrl("https://app.example.test")).toBe(
+      "https://app.example.test/",
+    );
+    expect(() => requireVerifiedLiveUrl("http://app.example.test")).toThrow(
+      "must return an HTTPS live URL",
+    );
+    expect(() => requireVerifiedLiveUrl("not-a-url")).toThrow(
+      "returned an invalid live URL",
+    );
   });
 });
