@@ -1,0 +1,22 @@
+# AppForge repository ownership
+# This file does not alter runtime behavior. It becomes enforceable when
+# GitHub branch protection/rulesets require Code Owner review.
+
+* @Anselm04
+
+# Security- and release-critical areas
+/.github/ @Anselm04
+/fly.toml @Anselm04
+/Dockerfile @Anselm04
+/package.json @Anselm04
+/package-lock.json @Anselm04
+/src/lib/auth.ts @Anselm04
+/src/routers/admin.ts @Anselm04
+/src/routers/subscriptions.ts @Anselm04
+/src/services/build-worker.ts @Anselm04
+/src/services/productionAutoDeploy.ts @Anselm04
+/src/services/deployHealth.ts @Anselm04
+/src/services/stripeCheckout.ts @Anselm04
+/src/services/stripeEventLedger.ts @Anselm04
+/src/webhooks/stripe.ts @Anselm04
+/src/agents/ @Anselm04
