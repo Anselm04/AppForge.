@@ -38,7 +38,9 @@ describe("critical customer flow contract", () => {
     expect(auth).toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).toContain("refreshToken?: string;");
     expect(auth).toContain("export async function refreshSession");
-    expect(auth).toContain("await supabaseClient.refreshSession(current.refreshToken!)");
+    expect(auth).toContain(
+      "await supabaseClient.refreshSession(current.refreshToken!)",
+    );
     expect(auth).toContain("saveSession(next);");
     expect(auth).toContain("export async function ensureFreshSession");
     expect(auth).toContain("signOut();");
@@ -77,9 +79,13 @@ describe("critical customer flow contract", () => {
     expect(checkout).toContain("client_reference_id: String(user.id)");
     expect(checkout).toContain("userId: String(user.id)");
     expect(checkout).toContain("subscription_data:");
-    expect(checkout).toContain('success_url: `${APP_URL}/dashboard?checkout=success`');
+    expect(checkout).toContain(
+      'success_url: `${APP_URL}/dashboard?checkout=success`',
+    );
     expect(webhook).toContain("resolveCheckoutUserId(session)");
-    expect(webhook).toContain("resolveConsistentUserId(userId, metadataUserId, customerUserId)");
+    expect(webhook).toContain(
+      "resolveConsistentUserId(userId, metadataUserId, customerUserId)",
+    );
     expect(webhook).toContain("await upsertSubscription({");
     expect(webhook).toContain("await paidCreditPackForSession(session)");
   });
@@ -120,7 +126,9 @@ describe("critical customer flow contract", () => {
     expect(new Set(prices).size).toBe(priceNames.length);
 
     const supabase = fly.match(/SUPABASE_URL = '(https:\/\/[^']+)'/)?.[1];
-    const viteSupabase = fly.match(/VITE_SUPABASE_URL = '(https:\/\/[^']+)'/)?.[1];
+    const viteSupabase = fly.match(
+      /VITE_SUPABASE_URL = '(https:\/\/[^']+)'/,
+    )?.[1];
     expect(supabase).toBeTruthy();
     expect(viteSupabase).toBe(supabase);
   });
@@ -135,7 +143,9 @@ describe("critical customer flow contract", () => {
       'return { id, status: "running" as const };',
     ]);
     expect(projects).toContain("Build start refund for project ${id}");
-    expect(projects).toContain("await releaseProjectBuildClaim(id, ctx.user.id, \"pending\", null)");
+    expect(projects).toContain(
+      'await releaseProjectBuildClaim(id, ctx.user.id, "pending", null)',
+    );
   });
 
   it("requires agent completion before production deploy and emits done only after deploy", () => {
@@ -149,15 +159,21 @@ describe("critical customer flow contract", () => {
     ]);
     expect(worker).toContain('if (event === "done") {');
     expect(worker).toContain("pendingDone = data;");
-    expect(worker).toContain("await refundReservation(\"Failed build\")");
-    expect(worker).toContain('await updateProjectStatus(projectId, "failed", "build_failed")');
+    expect(worker).toContain('await refundReservation("Failed build")');
+    expect(worker).toContain(
+      'await updateProjectStatus(projectId, "failed", "build_failed")',
+    );
   });
 
   it("keeps validation in the agent pipeline before a build can complete", () => {
     const pipeline = source("../agents/pipeline.generated.ts");
 
-    expect(pipeline).toContain("validateGeneratedBuild");
-    expect(pipeline).toContain('status: "completed"');
+    expectInOrder(pipeline, [
+      "validationResult = await validateGeneratedBuild(",
+      "if (!validationResult?.passed) {",
+      'await updateProjectStatus(projectId, "completed");',
+      'write("done", {',
+    ]);
   });
 
   it("requires root content plus same-origin JS/CSS assets before production success", () => {
