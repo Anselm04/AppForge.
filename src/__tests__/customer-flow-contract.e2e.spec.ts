@@ -1,0 +1,97 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+function source(relativePath: string): string {
+  return readFileSync(new URL(relativePath, import.meta.url), "utf8");
+}
+
+function expectInOrder(text: string, markers: string[]) {
+  let previous = -1;
+  for (const marker of markers) {
+    const index = text.indexOf(marker);
+    expect(index, `Missing customer-flow marker: ${marker}`).toBeGreaterThan(-1);
+    expect(index, `Customer-flow marker out of order: ${marker}`).toBeGreaterThan(
+      previous,
+    );
+    previous = index;
+  }
+}
+
+describe("critical customer flow contract", () => {
+  it("preserves signup destination through confirmation and login", () => {
+    const auth = source("../lib/auth.ts");
+    const signup = source("../pages/Signup.tsx");
+
+    expect(auth).toContain('const SESSION_KEY = "appforge.session"');
+    expect(auth).toContain("export async function completeAuthRedirect");
+    expect(auth).toContain("saveSession(session);");
+    expect(auth).toContain("export function loginPathWithReturn");
+    expect(signup).toContain("await signUp(email.trim(), password, next);");
+    expect(signup).toContain(
+      "navigate(`/login?next=${encodeURIComponent(next)}`)",
+    );
+  });
+
+  it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {
+    const pricing = source("../pages/Pricing.tsx");
+    const admin = source("../routers/admin.ts");
+
+    expect(pricing).toContain("trpc.subscriptions.createCheckoutSession.mutate");
+    expect(pricing).toContain('navigate("/signup?next=/pricing")');
+    expect(admin).toContain("redeemCode: protectedProcedure");
+    expect(admin).toContain("await applyGodCodeGrant(");
+  });
+
+  it("creates a project once and automatically claims and enqueues its build", () => {
+    const projects = source("../routers/projects.ts");
+
+    expectInOrder(projects, [
+      "const id = await createProject({",
+      "const claimed = await claimProjectBuildStart(id, ctx.user.id);",
+      "await enqueueBuild({",
+      'return { id, status: "running" as const };',
+    ]);
+  });
+
+  it("requires agent completion before production deploy and emits done only after deploy", () => {
+    const worker = source("../services/build-worker.ts");
+
+    expectInOrder(worker, [
+      "await runAgentPipeline(",
+      'const passed = updated?.status === "completed";',
+      "const deployed = await deployValidatedProject({",
+      'await emit(projectId, "done", donePayload);',
+    ]);
+    expect(worker).toContain('if (event === "done") {');
+    expect(worker).toContain("pendingDone = data;");
+  });
+
+  it("keeps validation in the agent pipeline before a build can complete", () => {
+    const pipeline = source("../agents/pipeline.generated.ts");
+
+    expect(pipeline).toContain("validateGeneratedBuild");
+    expect(pipeline).toContain('status: "completed"');
+  });
+
+  it("requires a real production URL and post-deploy smoke proof", () => {
+    const autoDeploy = source("../services/productionAutoDeploy.ts");
+    const health = source("../services/deployHealth.ts");
+
+    expect(autoDeploy).toContain("runPostDeploySmokeTest");
+    expect(autoDeploy).toContain("liveUrl");
+    expect(health).toContain("Empty response body");
+    expect(health).toContain("probeDeployUrl(base, 15_000, true)");
+  });
+
+  it("opens only the verified live generated product after terminal success", () => {
+    const buildPage = source("../pages/Build.tsx");
+
+    expect(buildPage).toContain("normalizeLiveProductUrl(");
+    expect(buildPage).toContain("window.location.assign(live);");
+    expectInOrder(buildPage, [
+      'if (event === "done") {',
+      "const live = normalizeLiveProductUrl(",
+      "window.location.assign(live);",
+    ]);
+  });
+});
