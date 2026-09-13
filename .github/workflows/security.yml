@@ -19,6 +19,28 @@ env:
   NODE_VERSION: '22'
 
 jobs:
+  workflow-integrity:
+    name: Workflow Supply-Chain Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Require immutable action references
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(grep -RhoE 'uses:[[:space:]]+[^[:space:]]+' .github/workflows/*.yml \
+            | sed -E 's/^uses:[[:space:]]+//' \
+            | grep -vE '^\./' \
+            | grep -vE '@[0-9a-f]{40}$' || true)"
+          if [ -n "$bad" ]; then
+            echo "Unpinned GitHub Actions references are forbidden:"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          echo "All external GitHub Actions are pinned to immutable commit SHAs."
+
   npm-audit:
     name: NPM Audit
     runs-on: ubuntu-latest
@@ -51,7 +73,7 @@ jobs:
 
       - name: Scan for verified secrets in changed history
         if: github.event_name != 'schedule' && (github.event_name == 'pull_request' || github.event.before != github.sha)
-        uses: trufflesecurity/trufflehog@v3.97.1
+        uses: trufflesecurity/trufflehog@20652fbbdefffcdaa493a5bf57ab2ac6b1db715b
         with:
           path: ./
           base: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -60,7 +82,7 @@ jobs:
 
       - name: Scan full repository history for verified secrets
         if: github.event_name == 'schedule' || (github.event_name == 'push' && github.event.before == github.sha)
-        uses: trufflesecurity/trufflehog@v3.97.1
+        uses: trufflesecurity/trufflehog@20652fbbdefffcdaa493a5bf57ab2ac6b1db715b
         with:
           path: ./
           extra_args: --only-verified
@@ -82,9 +104,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca
         with:
           languages: ${{ matrix.language }}
           build-mode: none
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca
