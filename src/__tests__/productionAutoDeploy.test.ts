@@ -9,7 +9,7 @@ describe("production auto deploy packaging", () => {
         devDependencies: { vite: "^5.0.0" },
       }),
       "vite.config.ts": "export default {}",
-      "index.html": "<div id=\"root\"></div>",
+      "index.html": '<div id="root"></div>',
     });
 
     expect(files.Dockerfile).toContain("npm run build");
