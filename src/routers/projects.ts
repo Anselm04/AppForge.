@@ -354,14 +354,6 @@ export const projectsRouter = router({
           watchProject(input.id, ctx.user.id, result.url);
         }
 
-        await db
-          .update(schema.projects)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(schema.projects.id, input.id));
-
-        const { recordDeploy } = await import("../db/buildStats.js");
-        await recordDeploy(ctx.user.id);
-
         const {
           detectRequiredEnvVars,
           runPostDeploySmokeTest,
@@ -383,6 +375,17 @@ export const projectsRouter = router({
         const smoke = result.url
           ? await runPostDeploySmokeTest(result.url)
           : null;
+        const productionDestination =
+          input.destination === "vercel" ||
+          input.destination === "netlify" ||
+          input.destination === "fly";
+        if (productionDestination && (!smoke || !smoke.ok)) {
+          const status = smoke?.root.statusCode ?? "unreachable";
+          throw new Error(
+            `Production deployment failed live verification (HTTP ${status}) at ${result.url ?? "unknown URL"}`,
+          );
+        }
+
         const billingSmoke =
           result.url && readiness.stripeDetected
             ? await runBillingRouteSmokeTest(result.url)
@@ -391,6 +394,14 @@ export const projectsRouter = router({
           projectName: project.title ?? undefined,
           hasBillingSchema: hasBillingMigration(files),
         });
+
+        await db
+          .update(schema.projects)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(schema.projects.id, input.id));
+
+        const { recordDeploy } = await import("../db/buildStats.js");
+        await recordDeploy(ctx.user.id);
 
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
