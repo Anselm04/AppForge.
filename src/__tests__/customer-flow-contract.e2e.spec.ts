@@ -48,6 +48,7 @@ describe("critical customer flow contract", () => {
     const pricing = source("../pages/Pricing.tsx");
     const subscriptions = source("../routers/subscriptions.ts");
     const admin = source("../routers/admin.ts");
+    const redeem = source("../pages/Redeem.tsx");
 
     expect(pricing).toContain("trpc.subscriptions.createCheckoutSession.mutate");
     expect(pricing).toContain('navigate("/signup?next=/pricing")');
@@ -61,6 +62,26 @@ describe("critical customer flow contract", () => {
     expect(admin).toContain("found.redeemedAt ||");
     expect(admin).toContain("eq(schema.godCodes.isUsed, false)");
     expect(admin).toContain("redeemedByUserId: ctx.user.id");
+    expect(redeem).toContain(
+      'queryClient.invalidateQueries({ queryKey: ["projects", "tierStatus"] })',
+    );
+    expect(redeem).toContain(
+      'queryClient.invalidateQueries({ queryKey: ["auth"] })',
+    );
+  });
+
+  it("binds Stripe checkout and webhook fulfillment to the same AppForge user", () => {
+    const checkout = source("../services/stripeCheckout.ts");
+    const webhook = source("../webhooks/stripe.ts");
+
+    expect(checkout).toContain("client_reference_id: String(user.id)");
+    expect(checkout).toContain("userId: String(user.id)");
+    expect(checkout).toContain("subscription_data:");
+    expect(checkout).toContain('success_url: `${APP_URL}/dashboard?checkout=success`');
+    expect(webhook).toContain("resolveCheckoutUserId(session)");
+    expect(webhook).toContain("resolveConsistentUserId(userId, metadataUserId, customerUserId)");
+    expect(webhook).toContain("await upsertSubscription({");
+    expect(webhook).toContain("await paidCreditPackForSession(session)");
   });
 
   it("processes each Stripe webhook event at most once", () => {
@@ -113,6 +134,8 @@ describe("critical customer flow contract", () => {
       "await enqueueBuild({",
       'return { id, status: "running" as const };',
     ]);
+    expect(projects).toContain("Build start refund for project ${id}");
+    expect(projects).toContain("await releaseProjectBuildClaim(id, ctx.user.id, \"pending\", null)");
   });
 
   it("requires agent completion before production deploy and emits done only after deploy", () => {
@@ -126,6 +149,8 @@ describe("critical customer flow contract", () => {
     ]);
     expect(worker).toContain('if (event === "done") {');
     expect(worker).toContain("pendingDone = data;");
+    expect(worker).toContain("await refundReservation(\"Failed build\")");
+    expect(worker).toContain('await updateProjectStatus(projectId, "failed", "build_failed")');
   });
 
   it("keeps validation in the agent pipeline before a build can complete", () => {
@@ -140,6 +165,8 @@ describe("critical customer flow contract", () => {
     const health = source("../services/deployHealth.ts");
 
     expect(autoDeploy).toContain("runPostDeploySmokeTest");
+    expect(autoDeploy).toContain("requireVerifiedLiveUrl");
+    expect(autoDeploy).toContain('parsed.protocol !== "https:"');
     expect(autoDeploy).toContain("liveUrl");
     expect(health).toContain("Empty response body");
     expect(health).toContain("probeDeployUrl(base, 15_000, true)");
