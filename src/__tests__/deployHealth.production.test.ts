@@ -34,6 +34,21 @@ describe("production deployment health gate", () => {
     expect(result.statusCode).toBe(404);
   });
 
+  it("rejects an empty production root even when HTTP status is successful", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("   ", { status: 200 })),
+    );
+
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.root.statusCode).toBe(200);
+    expect(result.root.error).toBe("Empty response body");
+  });
+
   it("allows apps without a dedicated /health route when root works", async () => {
     const fetchMock = vi
       .fn()
