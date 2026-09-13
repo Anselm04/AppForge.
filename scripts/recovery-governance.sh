@@ -19,7 +19,7 @@ fi
 printf '%s\n' "$changed"
 
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
-recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
+recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
 critical="$(printf '%s\n' "$changed" | grep -E "$critical_regex" || true)"
 
@@ -33,7 +33,7 @@ recovery_updates="$(printf '%s\n' "$changed" | grep -E "$recovery_regex" || true
 if [ -z "$recovery_updates" ]; then
   echo "Recovery-impacting files changed without a recovery protocol review:" >&2
   printf '%s\n' "$critical" >&2
-  echo "Update the disaster/off-site/owner recovery docs, recovery inventory, a recovery workflow, or this governance policy in the same change." >&2
+  echo "Update the disaster/off-site/owner/platinum recovery docs, recovery inventory, a recovery workflow, or this governance policy in the same change." >&2
   exit 1
 fi
 
