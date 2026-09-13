@@ -23,6 +23,16 @@
 - [ ] No TypeScript errors
 - [ ] Linting passes
 
+## Security and recovery impact
+
+<!-- High-risk infrastructure/security changes must review recovery coverage in the same PR. -->
+
+- [ ] I checked whether this change affects authentication, billing, database/RLS, deployment, GitHub Actions, secrets, backups, external providers, or disaster recovery.
+- [ ] If recovery assumptions changed, I updated the relevant recovery documentation/workflow/inventory in this PR.
+- [ ] No secret values, recovery codes, private keys, backup passphrases, or production credentials are included in this PR, issue text, logs, fixtures, or screenshots.
+- [ ] Any new production-critical provider/dependency has been added to `docs/RECOVERY_INVENTORY.md`.
+- [ ] Break-glass owner access remains possible after this change.
+
 ## Checklist
 
 <!-- Mark completed items with an [x] -->
