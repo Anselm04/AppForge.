@@ -3,6 +3,7 @@ export type HealthCheckResult = {
   statusCode?: number;
   latencyMs: number;
   error?: string;
+  body?: string;
 };
 
 export function isSuccessfulDeployStatus(status: number): boolean {
@@ -25,8 +26,9 @@ export async function probeDeployUrl(
     });
     const successfulStatus = isSuccessfulDeployStatus(res.status);
     let hasBody = true;
+    let body: string | undefined;
     if (successfulStatus && requireBody) {
-      const body = await res.text();
+      body = await res.text();
       hasBody = body.trim().length > 0;
     }
     clearTimeout(timer);
@@ -35,6 +37,7 @@ export async function probeDeployUrl(
       statusCode: res.status,
       latencyMs: Date.now() - start,
       error: successfulStatus && !hasBody ? "Empty response body" : undefined,
+      body,
     };
   } catch (err) {
     clearTimeout(timer);
@@ -44,6 +47,47 @@ export async function probeDeployUrl(
       error: err instanceof Error ? err.message : "Probe failed",
     };
   }
+}
+
+function sameOriginAssetUrls(baseUrl: string, html: string): string[] {
+  const base = new URL(baseUrl);
+  const urls = new Set<string>();
+  const refs = html.matchAll(/(?:src|href)=["']([^"']+)["']/gi);
+
+  for (const match of refs) {
+    const ref = match[1]?.trim();
+    if (!ref || ref.startsWith("data:") || ref.startsWith("#")) continue;
+    try {
+      const url = new URL(ref, base);
+      if (url.origin !== base.origin) continue;
+      if (!/\.(?:js|mjs|css)(?:$|[?#])/i.test(url.href)) continue;
+      urls.add(url.href);
+      if (urls.size >= 12) break;
+    } catch {
+      // Ignore malformed non-critical references; generated build validation
+      // catches source-level issues before this production smoke gate runs.
+    }
+  }
+
+  return [...urls];
+}
+
+export type AssetProbeResult = {
+  url: string;
+  result: HealthCheckResult;
+};
+
+export async function probeGeneratedProductAssets(
+  deployUrl: string,
+  html: string,
+): Promise<AssetProbeResult[]> {
+  const urls = sameOriginAssetUrls(deployUrl, html);
+  return Promise.all(
+    urls.map(async (url) => ({
+      url,
+      result: await probeDeployUrl(url, 10_000, false),
+    })),
+  );
 }
 
 /** Infer env vars the generated app likely needs from file contents. */
@@ -66,15 +110,24 @@ export function detectRequiredEnvVars(files: Record<string, string>): string[] {
   return [...found].sort();
 }
 
-/** Post-deploy smoke test — root must be reachable and render non-empty content; /health is optional. */
+/**
+ * Post-deploy smoke test — root must render non-empty content, all same-origin
+ * JS/CSS assets referenced by that root must load, and /health is optional.
+ */
 export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
   ok: boolean;
   root: HealthCheckResult;
+  assets: AssetProbeResult[];
   health?: HealthCheckResult;
 }> {
   const base = deployUrl.replace(/\/$/, "");
   const root = await probeDeployUrl(base, 15_000, true);
-  if (!root.ok) return { ok: false, root };
+  if (!root.ok) return { ok: false, root, assets: [] };
+
+  const assets = await probeGeneratedProductAssets(base, root.body ?? "");
+  if (assets.some((asset) => !asset.result.ok)) {
+    return { ok: false, root, assets };
+  }
 
   const healthProbe = await probeDeployUrl(`${base}/health`, 10_000);
   const health =
@@ -82,7 +135,12 @@ export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
       ? undefined
       : healthProbe;
 
-  return { ok: root.ok && (health ? health.ok : true), root, health };
+  return {
+    ok: root.ok && assets.every((asset) => asset.result.ok) && (health ? health.ok : true),
+    root,
+    assets,
+    health,
+  };
 }
 
 type RouteProbe = {
