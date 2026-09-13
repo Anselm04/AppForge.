@@ -94,6 +94,21 @@ export async function supabaseAuthMiddleware(
   }
 
   if (!supabase) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error(
+        {
+          hasSupabaseUrl: Boolean(supabaseUrl),
+          hasSupabaseKey: Boolean(supabaseKey),
+          path: req.originalUrl || req.url,
+        },
+        "supabase_auth_unavailable",
+      );
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).json({
+        error: "Authentication service unavailable",
+        code: "AUTH_UNAVAILABLE",
+      });
+    }
     return next();
   }
 
