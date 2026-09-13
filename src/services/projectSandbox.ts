@@ -41,6 +41,48 @@ function sessionKey(projectId: number, userId: number): string {
   return `${userId}:${projectId}`;
 }
 
+function assertLocalSandboxAllowed(): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Local host sandbox execution is disabled in production. Configure the isolated Sprites execution bridge instead.",
+    );
+  }
+}
+
+function safeRelativePath(value: string): string | null {
+  const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts = normalized.split("/").filter((part) => part && part !== ".");
+  if (parts.length === 0 || parts.some((part) => part === "..")) return null;
+  return parts.join("/");
+}
+
+function sandboxEnv(): NodeJS.ProcessEnv {
+  // Do not pass AppForge provider keys, database credentials, auth secrets, or
+  // billing secrets into customer-generated processes, even in development.
+  const keep = [
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+    "NODE_PATH",
+  ] as const;
+  const env: NodeJS.ProcessEnv = {
+    NODE_ENV: "development",
+    FORCE_COLOR: "0",
+  };
+  for (const key of keep) {
+    const value = process.env[key];
+    if (value) env[key] = value;
+  }
+  return env;
+}
+
 function pushLog(
   session: SandboxSession,
   text: string,
@@ -62,7 +104,10 @@ async function syncProjectFiles(session: SandboxSession): Promise<void> {
   await rm(session.dir, { recursive: true, force: true });
   await mkdir(session.dir, { recursive: true });
   for (const [path, content] of Object.entries(files)) {
-    const full = join(session.dir, path);
+    if (typeof content !== "string") continue;
+    const safePath = safeRelativePath(path);
+    if (!safePath) continue;
+    const full = join(session.dir, safePath);
     await mkdir(join(full, ".."), { recursive: true });
     await writeFile(full, content, "utf-8");
   }
@@ -100,6 +145,7 @@ export async function ensureSandboxSession(
   projectId: number,
   userId: number,
 ): Promise<SandboxSession> {
+  assertLocalSandboxAllowed();
   const key = sessionKey(projectId, userId);
   let session = sessions.get(key);
   if (!session) {
@@ -115,7 +161,7 @@ export async function ensureSandboxSession(
     };
     pushLog(
       session,
-      "AppForge micro-VM sandbox ready — npm install / npm run dev supported.",
+      "Local development sandbox ready. Production execution uses the isolated Sprites runtime.",
       "info",
     );
     sessions.set(key, session);
@@ -129,6 +175,7 @@ export async function execSandboxCommand(
   userId: number,
   command: string,
 ): Promise<{ lines: TerminalLine[]; exitCode: number | null }> {
+  assertLocalSandboxAllowed();
   const session = await ensureSandboxSession(projectId, userId);
   const parsed = parseCommand(command);
   const newLines: TerminalLine[] = [];
@@ -192,6 +239,7 @@ async function startDevServer(
   session: SandboxSession,
   newLines: TerminalLine[],
 ): Promise<void> {
+  assertLocalSandboxAllowed();
   if (session.devProcess) {
     newLines.push(pushLog(session, "Dev server already running.", "info"));
     return;
@@ -206,7 +254,7 @@ async function startDevServer(
     {
       cwd: session.dir,
       shell: false,
-      env: { ...process.env, FORCE_COLOR: "0" },
+      env: sandboxEnv(),
     },
   );
   session.devProcess = child;
@@ -241,7 +289,7 @@ function runCmd(
   timeoutMs: number,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, shell: false, env: process.env });
+    const child = spawn(cmd, args, { cwd, shell: false, env: sandboxEnv() });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
