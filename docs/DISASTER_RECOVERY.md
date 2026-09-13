@@ -9,10 +9,14 @@ This runbook protects AppForge against accidental deletion, destructive changes,
 - Recovery point objective (RPO): every push to `main`, plus a daily scheduled verified backup.
 - Recovery requirement: a backup is valid only after checksum creation, `git bundle verify`, clean restore, restored HEAD comparison, and `git fsck --full --strict`.
 - Recovery target: restore source history and refs first, then restore/recreate infrastructure credentials and external services.
+- Operational RTO target: **under 30 minutes** to restore the repository from a verified recovery package when GitHub/replacement source control and the backup artifact are available.
 
 ### Production
 
 A restored revision is never deployed merely because it exists in backup. The exact restored SHA must pass AppForge's normal CI, security, test, build, release, and production verification gates before it can return to service.
+
+- Operational RTO target: **30–60 minutes** to return a known-good revision to service when GitHub/replacement source control, Fly.io, Supabase, Stripe, DNS, required secrets, and the network are healthy.
+- These are targets, not guarantees, because external providers may be unavailable during a major incident.
 
 ## Backup layers
 
@@ -20,13 +24,13 @@ Use a 3-2-1 model:
 
 1. Primary Git repository on GitHub.
 2. Verified recovery archive produced by `.github/workflows/disaster-recovery.yml`.
-3. At least one independent off-GitHub copy in versioned or immutable storage.
+3. At least one independent off-GitHub copy in versioned or immutable storage under a separate credential boundary.
 
 The GitHub Actions artifact is a recovery copy, not the only long-term backup. Deleting a workflow run can also delete its artifacts.
 
 ## What is protected by the Git bundle
 
-The bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive.
+The bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive. The recovery package also records the exact HEAD SHA, branch/tag inventory, refs, bundle heads, commit metadata, and a source archive of the backed-up revision.
 
 A Git bundle does not contain GitHub account settings, GitHub Actions secrets, external database state, Stripe state, Supabase data, Fly.io secrets/configuration, DNS state, or credentials held by other providers. Those systems require their own backup/export and recovery procedures.
 
@@ -55,7 +59,7 @@ A Git bundle does not contain GitHub account settings, GitHub Actions secrets, e
 5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, webhook, signing, AI-provider, and other privileged credentials.
 6. Treat every exposed credential as compromised even if it was later removed from Git history.
 7. Restore the repository from a verified independent recovery point if repository integrity is uncertain.
-8. Re-run secret scanning, dependency audit, CodeQL, tests, typecheck, build, and customer-flow contracts.
+8. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
 9. Deploy using fresh credentials.
 10. Verify live production before reopening normal development/deployment.
 
@@ -71,6 +75,7 @@ AI systems are treated as untrusted change producers, not security authorities.
 - Workflows must use least-privilege `GITHUB_TOKEN` permissions.
 - Production must deploy the exact SHA that passed the release gate.
 - Do not allow automated systems to approve their own security-sensitive changes.
+- Do not give an AI agent repository-administration credentials or production secrets merely to make a task easier.
 
 ## Required GitHub controls
 
@@ -101,6 +106,14 @@ Maintain and periodically test independent recovery procedures for:
 - DNS/domain registrar configuration.
 - AI-provider credentials and quotas.
 - Any external object storage used for off-site recovery archives.
+
+## Independent backup cadence
+
+- Every production release: copy the newest verified recovery package outside GitHub.
+- Daily: retain at least one current independent copy.
+- Weekly: verify the independent copy's checksum and perform a clean restore rehearsal when practical.
+- Monthly: confirm recovery credentials, MFA/recovery keys, and the newest known-good production SHA.
+- Never store production secret values inside the repository bundle or backup archive.
 
 ## Recovery drill
 
