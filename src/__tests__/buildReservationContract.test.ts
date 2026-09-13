@@ -23,9 +23,11 @@ describe("build reservation contract", () => {
     expect(worker).toContain("reservationCharged: boolean");
   });
 
-  it("keeps unlimited and lifetime builds uncharged", () => {
-    expect(createRoute).toContain('credits.tier === "lifetime"');
+  it("keeps active owner God Code unlimited builds uncharged", () => {
+    expect(createRoute).toContain("getActiveGodCodeEntitlement");
+    expect(createRoute).toContain("const unlimited = godCodeEntitlement.unlimited;");
     expect(createRoute).toContain("const reservationCharged = !unlimited");
+    expect(createRoute).not.toContain('credits.tier === "lifetime"');
   });
 
   it("keeps the SSE endpoint read-only for normal builds", () => {
