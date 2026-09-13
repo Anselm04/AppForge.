@@ -36,6 +36,19 @@ export function prepareProductionFiles(
   return prepared;
 }
 
+export function requireVerifiedLiveUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("Fly production deployment returned an invalid live URL");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("Fly production deployment must return an HTTPS live URL");
+  }
+  return parsed.toString();
+}
+
 export async function deployValidatedProject(opts: {
   projectId: number;
   projectName: string;
@@ -59,12 +72,13 @@ export async function deployValidatedProject(opts: {
     throw new Error("Fly production deployment did not return a live URL");
   }
 
-  const smoke = await runPostDeploySmokeTest(deployed.url);
+  const liveUrl = requireVerifiedLiveUrl(deployed.url);
+  const smoke = await runPostDeploySmokeTest(liveUrl);
   if (!smoke.ok) {
     throw new Error(
-      `Production deployment failed live verification (HTTP ${smoke.root.statusCode ?? "unreachable"}) at ${deployed.url}`,
+      `Production deployment failed live verification (HTTP ${smoke.root.statusCode ?? "unreachable"}) at ${liveUrl}`,
     );
   }
 
-  return { liveUrl: deployed.url };
+  return { liveUrl };
 }
