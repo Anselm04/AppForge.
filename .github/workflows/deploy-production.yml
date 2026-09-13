@@ -31,6 +31,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test -- --run
+      - name: Run production golden-path contract explicitly
+        run: npm run test:e2e
+        env:
+          CI: true
       - name: Block vulnerable production dependencies
         run: npm audit --omit=dev --audit-level=moderate
       - run: npm run build
@@ -152,3 +156,36 @@ jobs:
           assert_status 401 "/api/preview-auth/1"
           assert_status 401 "/api/build/1"
           echo "Production live, readiness, and anonymous-access smoke gates passed"
+
+      - name: Verify customer flow entry routes after deploy
+        run: |
+          set -euo pipefail
+          URL="https://appforge-unfurling-moon-9058.fly.dev"
+          routes=(
+            "/"
+            "/signup"
+            "/signup?next=/pricing"
+            "/login"
+            "/login?next=%2Fpricing"
+            "/pricing"
+            "/redeem"
+          )
+
+          for route in "${routes[@]}"; do
+            body="$(mktemp)"
+            status=$(curl --silent --show-error --max-time 10 --location --output "$body" --write-out '%{http_code}' "$URL$route")
+            if [ "$status" != "200" ]; then
+              echo "Customer-flow route $route returned HTTP $status after deploy"
+              cat "$body"
+              rm -f "$body"
+              exit 1
+            fi
+            if [ ! -s "$body" ]; then
+              echo "Customer-flow route $route returned an empty response after deploy"
+              rm -f "$body"
+              exit 1
+            fi
+            rm -f "$body"
+          done
+
+          echo "Customer-flow entry and deep-link routes are live after deploy"
