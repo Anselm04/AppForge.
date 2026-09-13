@@ -59,7 +59,7 @@ export function Signup() {
     }
     setPending(true);
     try {
-      await signUp(email.trim(), password);
+      await signUp(email.trim(), password, next);
       if (getSession()) {
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
         navigate(next, { replace: true });
