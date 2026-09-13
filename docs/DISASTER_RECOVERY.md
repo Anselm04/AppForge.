@@ -23,32 +23,33 @@ A restored revision is never deployed merely because it exists in backup. The ex
 Use a 3-2-1 model:
 
 1. Primary Git repository on GitHub.
-2. Verified recovery archive produced by `.github/workflows/disaster-recovery.yml`.
-3. At least one independent off-GitHub copy in versioned or immutable storage under a separate credential boundary.
+2. Verified recovery archive produced by `.github/workflows/repository-backup.yml`.
+3. At least one independent off-GitHub copy in versioned or immutable storage under a separate credential boundary; two independent targets are preferred.
 
 The GitHub Actions artifact is a recovery copy, not the only long-term backup. Deleting a workflow run can also delete its artifacts.
 
 ## What is protected by the Git bundle
 
-The bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive. The recovery package also records the exact HEAD SHA, branch/tag inventory, refs, bundle heads, commit metadata, and a source archive of the backed-up revision.
+The bundle contains Git objects, source history, refs, branches, and tags available to the workflow. SHA-256 checksums are produced with the recovery archive. The recovery package also records the exact HEAD SHA, refs, bundle heads, commit metadata, and a source archive of the backed-up revision.
 
 A Git bundle does not contain GitHub account settings, GitHub Actions secrets, external database state, Stripe state, Supabase data, Fly.io secrets/configuration, DNS state, or credentials held by other providers. Those systems require their own backup/export and recovery procedures.
 
 ## Restore procedure
 
 1. Obtain the newest trusted recovery archive from an independent copy.
-2. Verify the archive SHA-256 checksum before extraction.
-3. Extract `appforge-repository.bundle`.
-4. Run `git bundle verify appforge-repository.bundle`.
-5. Clone into a clean directory.
-6. Confirm the restored HEAD matches `HEAD_SHA.txt`.
-7. Run `git fsck --full --strict`.
-8. Review the restored SHA against the last known successful CI/security/production records.
-9. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
-10. Run the complete CI and security suite.
-11. Deploy only the exact SHA that passes the release gate.
-12. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
-13. Re-enable normal deployment only after the incident is contained and documented.
+2. Verify the encrypted object's SHA-256 and HMAC before decryption when restoring from an off-site target.
+3. Decrypt the archive using the separately retained recovery passphrase.
+4. Extract `appforge-repository.bundle`.
+5. Run `git bundle verify appforge-repository.bundle`.
+6. Clone into a clean directory.
+7. Confirm the restored HEAD matches the recorded `HEAD.sha`.
+8. Run `git fsck --full --strict`.
+9. Review the restored SHA against the last known successful CI/security/production records.
+10. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
+11. Run the complete CI and security suite.
+12. Deploy only the exact SHA that passes the release gate.
+13. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
+14. Re-enable normal deployment only after the incident is contained and documented.
 
 ## Suspected GitHub or credential compromise
 
@@ -56,7 +57,7 @@ A Git bundle does not contain GitHub account settings, GitHub Actions secrets, e
 2. Preserve evidence: suspicious SHAs, workflow IDs, timestamps, deployment IDs, logs, affected accounts, and credential names.
 3. Do not assume the current `main` HEAD is trustworthy.
 4. Identify the newest known-good SHA that passed CI, security, build, deploy, and production checks.
-5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, webhook, signing, AI-provider, and other privileged credentials.
+5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, webhook, signing, AI-provider, off-site-backup, and other privileged credentials.
 6. Treat every exposed credential as compromised even if it was later removed from Git history.
 7. Restore the repository from a verified independent recovery point if repository integrity is uncertain.
 8. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
@@ -95,11 +96,34 @@ Where repository/account settings permit, enable:
 - Protected `production` environment restricted to trusted refs.
 - Prevention of Actions workflows creating/approving changes unless explicitly required.
 
+## Recovery impact governance
+
+Recovery documentation is part of the release surface. A change that modifies critical infrastructure or security behavior must also review recovery coverage in the same change.
+
+Critical recovery-impact areas include:
+
+- `.github/workflows/**`
+- `fly.toml` and container/deployment configuration
+- Supabase/database migrations, RLS/policy configuration, and storage configuration
+- authentication/session infrastructure
+- Stripe billing/webhook infrastructure
+- production auto-deploy, deploy-health, and build-worker infrastructure
+- secret handling and environment configuration
+- off-site backup configuration
+
+For these changes, update at least one of the following when recovery behavior or assumptions change:
+
+- `docs/DISASTER_RECOVERY.md`
+- `docs/OFFSITE_BACKUP.md`
+- `.github/workflows/repository-backup.yml`
+
+The CI Recovery Governance check is intended to enforce this rule for high-risk changes before production deployment.
+
 ## Provider-level recovery inventory
 
 Maintain and periodically test independent recovery procedures for:
 
-- GitHub repository and access controls.
+- GitHub repository, pull requests/issues/releases metadata, and access controls.
 - Supabase database, auth configuration, RLS/policies, and storage.
 - Fly.io application configuration, deployment settings, and secrets inventory.
 - Stripe product/price/webhook configuration and authoritative billing data.
@@ -109,10 +133,11 @@ Maintain and periodically test independent recovery procedures for:
 
 ## Independent backup cadence
 
+- Every trusted `main` push: create and verify a new repository recovery point.
 - Every production release: copy the newest verified recovery package outside GitHub.
 - Daily: retain at least one current independent copy.
-- Weekly: verify the independent copy's checksum and perform a clean restore rehearsal when practical.
-- Monthly: confirm recovery credentials, MFA/recovery keys, and the newest known-good production SHA.
+- Weekly: verify the independent copy's checksum/HMAC and perform a clean restore rehearsal when practical.
+- Monthly: confirm recovery credentials, MFA/recovery keys, the newest known-good production SHA, and provider-level recovery procedures.
 - Never store production secret values inside the repository bundle or backup archive.
 
 ## Recovery drill
@@ -120,10 +145,11 @@ Maintain and periodically test independent recovery procedures for:
 At least monthly:
 
 1. Restore the newest recovery bundle into a clean environment.
-2. Verify checksum, Git bundle, Git object integrity, and expected HEAD.
+2. Verify checksum/HMAC, Git bundle, Git object integrity, and expected HEAD.
 3. Confirm dependency lockfile installation works with lifecycle scripts disabled.
 4. Run the standard CI/test/security/build pipeline against the restored tree.
-5. Record whether the target recovery objectives were met.
-6. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
+5. Verify at least one independent off-GitHub copy can be downloaded and decrypted using credentials stored outside GitHub.
+6. Record whether the target recovery objectives were met.
+7. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
 
 A backup that cannot be restored is not a backup.
