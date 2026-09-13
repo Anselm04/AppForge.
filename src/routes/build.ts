@@ -11,6 +11,7 @@ import {
   getProjectById,
   pauseProject,
   ensureUserCredits,
+  getActiveGodCodeEntitlement,
   deductCredits,
   addCredits,
   getUserCredits,
@@ -209,7 +210,8 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   }
 
   const credits = await ensureUserCredits(user.id);
-  const seniorUnlimited = !!credits.unlimited || credits.tier === "lifetime";
+  const seniorGodCode = await getActiveGodCodeEntitlement(user.id);
+  const seniorUnlimited = seniorGodCode.unlimited;
   if (!seniorUnlimited && credits.balance < SENIOR_DEV_BASE_COST) {
     res
       .status(402)
