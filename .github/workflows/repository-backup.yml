@@ -125,7 +125,7 @@ jobs:
           printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -md sha256 \
             -pass stdin -in "$archive" -out "$encrypted"
           sha256sum "$encrypted" > "${encrypted}.sha256"
-          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" "$encrypted" > "${encrypted}.hmac-sha256"
+          openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" "$encrypted" > "${encrypted}.hmac-sha256"
           rm -f "$archive"
 
           echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -139,7 +139,7 @@ jobs:
           encrypted="${{ steps.offsite-package.outputs.encrypted_file }}"
           sha256sum --check "${encrypted}.sha256"
 
-          actual_hmac="$(printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" "$encrypted")"
+          actual_hmac="$(openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" "$encrypted")"
           expected_hmac="$(cat "${encrypted}.hmac-sha256")"
           test "$actual_hmac" = "$expected_hmac"
 
@@ -181,13 +181,12 @@ jobs:
 
           rm -rf /tmp/offsite-1 && mkdir -p /tmp/offsite-1
           aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}" /tmp/offsite-1/recovery.enc --no-progress
-          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}.sha256" /tmp/offsite-1/recovery.enc.sha256 --no-progress
           aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}.hmac-sha256" /tmp/offsite-1/recovery.enc.hmac-sha256 --no-progress
 
           expected_sha="$(cut -d' ' -f1 "${encrypted}.sha256")"
           actual_sha="$(sha256sum /tmp/offsite-1/recovery.enc | cut -d' ' -f1)"
           test "$actual_sha" = "$expected_sha"
-          actual_hmac="$(printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" /tmp/offsite-1/recovery.enc)"
+          actual_hmac="$(openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" /tmp/offsite-1/recovery.enc)"
           expected_hmac="$(sed 's#'"$encrypted"'#/tmp/offsite-1/recovery.enc#' "${encrypted}.hmac-sha256")"
           test "$actual_hmac" = "$expected_hmac"
 
@@ -225,9 +224,14 @@ jobs:
 
           rm -rf /tmp/offsite-2 && mkdir -p /tmp/offsite-2
           aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_2_BUCKET}/${key}" /tmp/offsite-2/recovery.enc --no-progress
+          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_2_BUCKET}/${key}.hmac-sha256" /tmp/offsite-2/recovery.enc.hmac-sha256 --no-progress
+
           expected_sha="$(cut -d' ' -f1 "${encrypted}.sha256")"
           actual_sha="$(sha256sum /tmp/offsite-2/recovery.enc | cut -d' ' -f1)"
           test "$actual_sha" = "$expected_sha"
+          actual_hmac="$(openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" /tmp/offsite-2/recovery.enc)"
+          expected_hmac="$(sed 's#'"$encrypted"'#/tmp/offsite-2/recovery.enc#' "${encrypted}.hmac-sha256")"
+          test "$actual_hmac" = "$expected_hmac"
 
           printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 \
             -pass stdin -in /tmp/offsite-2/recovery.enc -out /tmp/offsite-2/recovery.tar.gz
