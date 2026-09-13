@@ -1,8 +1,10 @@
 import { test, expect } from "vitest";
 
 /**
- * Golden-path smoke tests (mock-friendly).
- * Full Playwright E2E runs in CI when PLAYWRIGHT_E2E=1.
+ * Golden-path contract tests.
+ * These protect the critical customer path in CI. Production browser proof is
+ * still required separately, but this suite must fail when a core handoff is
+ * accidentally disconnected.
  */
 test("home route module exports", async () => {
   const mod = await import("../pages/Home.js");
@@ -20,6 +22,17 @@ test("deploy health detects env vars", async () => {
     "src/db.ts": "const url = process.env.DATABASE_URL;",
   });
   expect(vars).toContain("DATABASE_URL");
+});
+
+test("production deployment gate rejects a missing live product", async () => {
+  const { isSuccessfulDeployStatus } =
+    await import("../services/deployHealth.js");
+  expect(isSuccessfulDeployStatus(200)).toBe(true);
+  expect(isSuccessfulDeployStatus(302)).toBe(true);
+  expect(isSuccessfulDeployStatus(401)).toBe(false);
+  expect(isSuccessfulDeployStatus(403)).toBe(false);
+  expect(isSuccessfulDeployStatus(404)).toBe(false);
+  expect(isSuccessfulDeployStatus(503)).toBe(false);
 });
 
 test("build capabilities registry", async () => {
