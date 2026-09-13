@@ -220,9 +220,6 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       await syncServerSession(next.accessToken);
       return next;
     } catch {
-      // Do not destroy a browser session because of a transient network or
-      // server-session handoff error. Callers can surface the request failure
-      // and retry without bouncing the user back to the login screen.
       return null;
     } finally {
       if (generationAtStart === sessionGeneration) {
@@ -252,14 +249,14 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!accessTokenExpired(session.accessToken)) {
-    // Re-establish the HttpOnly server-side session opportunistically. The
-    // bearer token remains the source of truth for API/SSE requests, so a
-    // temporary cookie-sync failure must not log the user out.
     void syncServerSession(session.accessToken).catch(() => undefined);
     return session;
   }
 
-  if (!session.refreshToken) return session;
+  if (!session.refreshToken) {
+    signOut();
+    return null;
+  }
 
   const generationAtStart = sessionGeneration;
   const refreshed = await refreshSession();
@@ -267,17 +264,14 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
 
   if (generationAtStart !== sessionGeneration) return getSession();
 
-  // Keep the local session instead of force-signing-out on an ambiguous
-  // refresh failure. The next authenticated request will either succeed after
-  // recovery or return a real 401 that the UI can report explicitly.
-  return getSession();
+  // An expired access token is never usable. If it cannot be refreshed, clear
+  // it rather than repeatedly sending a known-expired credential to API/SSE.
+  signOut();
+  return null;
 }
 
 /**
  * Complete Supabase's email-confirmation implicit redirect.
- * Direct /auth/v1/signup confirmations return access/refresh tokens in the URL
- * fragment. Previously /login ignored them, so a correctly confirmed account
- * still looked signed out and testers were sent back through login again.
  */
 export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   if (typeof window === "undefined") return null;
@@ -286,9 +280,7 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   const search = new URLSearchParams(window.location.search);
   const errorDescription =
     hash.get("error_description") || search.get("error_description");
-  if (errorDescription) {
-    throw new Error(errorDescription);
-  }
+  if (errorDescription) throw new Error(errorDescription);
 
   const accessToken = hash.get("access_token") || search.get("access_token");
   const refreshToken = hash.get("refresh_token") || search.get("refresh_token");
@@ -306,7 +298,6 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   saveSession(session);
   await syncServerSession(accessToken);
 
-  // Remove credentials from browser history immediately after consuming them.
   const cleanUrl = `${window.location.pathname}${window.location.search
     .replace(/([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g, "$1")
     .replace(/[?&]$/, "")}`;
