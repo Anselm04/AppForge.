@@ -257,7 +257,8 @@ export const projectsRouter = router({
           ).catch(() => undefined);
         }
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
-        const message = err instanceof Error ? err.message : "Unable to enqueue build";
+        const message =
+          err instanceof Error ? err.message : "Unable to enqueue build";
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
 

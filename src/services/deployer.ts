@@ -14,12 +14,7 @@ interface VercelDeployResponse {
 const VERCEL_POLL_INTERVAL = 5000;
 const VERCEL_POLL_MAX = 24;
 export type DeployDestination =
-  | "vercel"
-  | "netlify"
-  | "fly"
-  | "github-pages"
-  | "zip"
-  | "preview";
+  "vercel" | "netlify" | "fly" | "github-pages" | "zip" | "preview";
 export type DeployDestinationStatus = Record<
   DeployDestination,
   { configured: boolean; label: string }
@@ -33,7 +28,11 @@ function runCmd(
   env?: Record<string, string>,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolvePromise) => {
-    const child = spawn(cmd, args, { cwd, shell: false, env: env ?? process.env });
+    const child = spawn(cmd, args, {
+      cwd,
+      shell: false,
+      env: env ?? process.env,
+    });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
@@ -50,7 +49,11 @@ function runCmd(
 }
 
 function detectVercelFramework(files: Record<string, string>): string | null {
-  if (files["next.config.mjs"] || files["next.config.js"] || files["app/page.tsx"])
+  if (
+    files["next.config.mjs"] ||
+    files["next.config.js"] ||
+    files["app/page.tsx"]
+  )
     return "nextjs";
   if (files["astro.config.mjs"] || files["astro.config.ts"]) return "astro";
   if (files["remix.config.js"] || files["app/root.tsx"]) return "remix";
@@ -171,15 +174,18 @@ async function deployToNetlify(
     siteId = ((await r.json()) as { id: string }).id;
   }
   const zip = await zipFiles(projectName, files);
-  const r = await fetch(`https://api.netlify.com/api/v1/sites/${siteId}/deploys`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/zip",
+  const r = await fetch(
+    `https://api.netlify.com/api/v1/sites/${siteId}/deploys`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/zip",
+      },
+      body: Buffer.from(zip.base64, "base64"),
+      signal: AbortSignal.timeout(120000),
     },
-    body: Buffer.from(zip.base64, "base64"),
-    signal: AbortSignal.timeout(120000),
-  });
+  );
   if (!r.ok) throw new Error(`Netlify deploy failed: ${await r.text()}`);
   const d = (await r.json()) as {
     ssl_url?: string;
@@ -235,7 +241,9 @@ async function ensureFlyApp(appName: string, token: string): Promise<void> {
 }
 
 async function flyctlBinary(): Promise<"flyctl" | "fly" | null> {
-  if ((await runCmd("flyctl", ["version"], process.cwd(), 10000)).exitCode === 0) {
+  if (
+    (await runCmd("flyctl", ["version"], process.cwd(), 10000)).exitCode === 0
+  ) {
     return "flyctl";
   }
   if ((await runCmd("fly", ["version"], process.cwd(), 10000)).exitCode === 0) {
@@ -283,17 +291,22 @@ async function deployToFly(
   }
 
   if (!files["Dockerfile"]) {
-    files["Dockerfile"] = `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\nCMD ["npm", "run", "start"]\n`;
+    files["Dockerfile"] =
+      `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\nCMD ["npm", "run", "start"]\n`;
   }
   if (!files["fly.toml"]) {
-    files["fly.toml"] = `app = "${appName}"\nprimary_region = "syd"\n\n[build]\n\n[http_service]\n  internal_port = 3000\n  force_https = true\n  auto_stop_machines = true\n  auto_start_machines = true\n  min_machines_running = 0\n`;
+    files["fly.toml"] =
+      `app = "${appName}"\nprimary_region = "syd"\n\n[build]\n\n[http_service]\n  internal_port = 3000\n  force_https = true\n  auto_stop_machines = true\n  auto_start_machines = true\n  min_machines_running = 0\n`;
   }
   if (!files[".dockerignore"]) {
     files[".dockerignore"] = "node_modules\n.git\ndist\n.env\n.env.*\n";
   }
 
   await ensureFlyApp(appName, token);
-  const dir = resolve(tmpdir(), `appforge-fly-${projectId ?? "project"}-${Date.now()}`);
+  const dir = resolve(
+    tmpdir(),
+    `appforge-fly-${projectId ?? "project"}-${Date.now()}`,
+  );
   try {
     await mkdir(dir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
@@ -335,7 +348,8 @@ async function deployToGitHubPages(
       "GITHUB_TOKEN not configured. Connect GitHub OAuth or set GITHUB_TOKEN, then retry.",
     );
   }
-  const owner = process.env.GITHUB_PAGES_OWNER || process.env.GITHUB_OWNER || "";
+  const owner =
+    process.env.GITHUB_PAGES_OWNER || process.env.GITHUB_OWNER || "";
   if (!owner) {
     throw new Error(
       "Set GITHUB_PAGES_OWNER (or GITHUB_OWNER) to enable one-click GitHub Pages deploy.",
@@ -358,7 +372,10 @@ export async function zipFiles(
   });
   return {
     base64: b.toString("base64"),
-    filename: `${projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 30)}-appforge.zip`,
+    filename: `${projectName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .slice(0, 30)}-appforge.zip`,
   };
 }
 

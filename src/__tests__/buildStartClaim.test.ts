@@ -29,13 +29,19 @@ describe("concurrent build start protection", () => {
   });
 
   it("keeps explicitly user-cancelled paused projects non-startable", () => {
-    expect(claim).toContain('ne(schema.projects.pauseReason, "user_cancelled")');
-    expect(claim).toContain('ne(schema.projects.pauseReason, "user-cancelled")');
+    expect(claim).toContain(
+      'ne(schema.projects.pauseReason, "user_cancelled")',
+    );
+    expect(claim).toContain(
+      'ne(schema.projects.pauseReason, "user-cancelled")',
+    );
   });
 
   it("requires project creation to claim before charging or enqueueing", () => {
     expect(createRoute).toContain('await import("../services/build-claim.js")');
-    expect(createRoute).toContain("await claimProjectBuildStart(id, ctx.user.id)");
+    expect(createRoute).toContain(
+      "await claimProjectBuildStart(id, ctx.user.id)",
+    );
     expect(
       createRoute.indexOf("claimProjectBuildStart(id, ctx.user.id)"),
     ).toBeLessThan(
@@ -56,7 +62,7 @@ describe("concurrent build start protection", () => {
   });
 
   it("deduplicates every queue backend and refunds a duplicate paid reservation", () => {
-    expect(queue).toContain('jobId: `build-${job.projectId}`');
+    expect(queue).toContain("jobId: `build-${job.projectId}`");
     expect(queue).toContain("NX: true");
     expect(queue).toContain("memoryQueuedProjects.has(job.projectId)");
     expect(queue).toContain("if (!job.reservationCharged) return");
