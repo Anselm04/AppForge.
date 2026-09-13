@@ -206,7 +206,63 @@ export const projectsRouter = router({
           .where(eq(schema.projects.id, id));
       }
 
-      return { id };
+      const { claimProjectBuildStart, releaseProjectBuildClaim } =
+        await import("../services/build-claim.js");
+      const { enqueueBuild } = await import("../services/build-queue.js");
+      const { deductCredits, addCredits } = await import("../db.js");
+
+      // Project creation is the single build-start authority. The atomic claim
+      // makes the later SSE GET a subscriber only and prevents a second enqueue
+      // for the same project.
+      const claimed = await claimProjectBuildStart(id, ctx.user.id);
+      if (!claimed) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Unable to start the newly created project build",
+        });
+      }
+
+      const reservationCharged = !unlimited;
+      const createdAt = new Date().toISOString();
+      let charged = false;
+      try {
+        if (reservationCharged) {
+          await deductCredits(
+            ctx.user.id,
+            BUILD_CREDIT_COST,
+            id,
+            "Build reservation",
+          );
+          charged = true;
+        }
+
+        await enqueueBuild({
+          projectId: id,
+          userId: ctx.user.id,
+          description: input.description,
+          techStack: input.techStack,
+          locale: input.locale || "en",
+          buildCapabilities: input.buildCapabilities ?? [],
+          createdAt,
+          reservationCharged,
+        });
+      } catch (err: unknown) {
+        if (charged) {
+          await addCredits(
+            ctx.user.id,
+            BUILD_CREDIT_COST,
+            "build_refund",
+            `Build start refund for project ${id}`,
+            `projects-create-refund-${id}-${createdAt}`,
+          ).catch(() => undefined);
+        }
+        await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
+        const message =
+          err instanceof Error ? err.message : "Unable to enqueue build";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      }
+
+      return { id, status: "running" as const };
     }),
 
   tierStatus: protectedProcedure.query(async ({ ctx }) => {

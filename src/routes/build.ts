@@ -4,14 +4,9 @@ import * as schema from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import { deployToVercel } from "../services/deployer.js";
 import { watchProject } from "../agents/selfHealing.js";
-import {
-  getBuildEventsSince,
-  clearBuildEvents,
-} from "../services/build-event-store.js";
+import { getBuildEventsSince } from "../services/build-event-store.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
-import { enqueueBuild, subscribeBuildEvents } from "../services/build-queue.js";
-import { isBuildActive } from "../services/build-worker.js";
-import { canStartBuild } from "../lib/buildConcurrency.js";
+import { subscribeBuildEvents } from "../services/build-queue.js";
 import {
   getProjectById,
   pauseProject,
@@ -25,7 +20,6 @@ import {
   updateSeniorDevTaskStatus,
 } from "../db.js";
 import {
-  BUILD_CREDIT_COST,
   SENIOR_DEV_CREDIT_COST,
   creditsExhaustedBody,
 } from "../lib/credits.js";
@@ -41,17 +35,12 @@ import {
   releaseSeniorDevStartClaim,
 } from "../services/senior-dev-claim.js";
 import { refundOutstandingSeniorDevReservation } from "../services/senior-dev-reservation.js";
-import {
-  claimProjectBuildStart,
-  releaseProjectBuildClaim,
-} from "../services/build-claim.js";
 
 const router = Router();
 
-const BUILD_COST = BUILD_CREDIT_COST;
 const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
-/** SSE endpoint that streams the multi-agent pipeline with credit tracking */
+/** SSE endpoint that only streams the existing multi-agent pipeline. */
 router.get("/:projectId", async (req: Request, res: Response) => {
   const projectId = parseInt(req.params.projectId, 10);
   if (Number.isNaN(projectId)) {
@@ -90,101 +79,9 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     return;
   }
 
-  const isActive = project.status === "running" || isBuildActive(projectId);
-  const userCancelled =
-    project.status === "paused" &&
-    (project.pauseReason === "user_cancelled" ||
-      project.pauseReason === "user-cancelled");
-  const shouldStart =
-    !isActive &&
-    !userCancelled &&
-    (project.status === "pending" ||
-      project.status === "failed" ||
-      project.status === "paused");
-
-  if (shouldStart) {
-    const concurrency = await canStartBuild(user.id);
-    if (!concurrency.allowed) {
-      res.status(429).json({
-        error: "concurrent_build_limit",
-        message: `You have ${concurrency.active} builds running (limit ${concurrency.limit}). Wait for one to finish.`,
-        active: concurrency.active,
-        limit: concurrency.limit,
-      });
-      return;
-    }
-
-    const credits = await ensureUserCredits(user.id);
-    const unlimited = !!credits.unlimited || credits.tier === "lifetime";
-    if (!unlimited && credits.balance < BUILD_COST) {
-      res
-        .status(402)
-        .json(
-          creditsExhaustedBody(credits.balance, BUILD_COST, "start this build"),
-        );
-      return;
-    }
-
-    const claimed = await claimProjectBuildStart(projectId, user.id);
-    if (!claimed) {
-      res.status(409).json({
-        error: "build_already_started",
-        message: "This build was already started by another request.",
-      });
-      return;
-    }
-
-    const createdAt = new Date().toISOString();
-    const reservationCharged = !unlimited;
-    let charged = false;
-
-    try {
-      if (reservationCharged) {
-        await deductCredits(user.id, BUILD_COST, projectId, "Build reservation");
-        charged = true;
-      }
-
-      await clearBuildEvents(projectId);
-      await enqueueBuild({
-        projectId,
-        userId: user.id,
-        description: project.description || "",
-        techStack: project.techStack || "react-node",
-        locale: (project as { locale?: string }).locale ?? "en",
-        buildCapabilities:
-          (project as { buildCapabilities?: string[] }).buildCapabilities ?? [],
-        createdAt,
-        reservationCharged,
-      });
-    } catch (err: unknown) {
-      if (charged) {
-        const refundKey = `build-start-refund-${projectId}-${createdAt}`;
-        try {
-          await addCredits(
-            user.id,
-            BUILD_COST,
-            "build_refund",
-            `Build start refund for project ${projectId}`,
-            refundKey,
-          );
-        } catch (refundErr: unknown) {
-          logger.error(
-            { projectId, refundKey, error: refundErr },
-            "build_start_refund_error",
-          );
-        }
-      }
-
-      await releaseProjectBuildClaim(
-        projectId,
-        user.id,
-        project.status,
-        project.pauseReason ?? null,
-      );
-      logger.error({ projectId, error: err }, "build_start_failed");
-      res.status(500).json({ error: "build_start_failed" });
-      return;
-    }
+  if (project.status === "pending") {
+    res.status(202).json({ projectId, status: project.status });
+    return;
   }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -206,7 +103,12 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     }
   };
 
-  const historical = await getBuildEventsSince(projectId, 0);
+  const lastEventIdHeader = req.get("Last-Event-ID");
+  const parsedLastEventId = Number.parseInt(lastEventIdHeader ?? "0", 10);
+  const sinceEventId = Number.isFinite(parsedLastEventId)
+    ? Math.max(0, parsedLastEventId)
+    : 0;
+  const historical = await getBuildEventsSince(projectId, sinceEventId);
   let sawTerminal = false;
   for (const row of historical) {
     write(row.event, row.payload);

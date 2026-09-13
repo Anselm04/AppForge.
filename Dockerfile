@@ -35,7 +35,10 @@ RUN npm run build \
   && test -f /app/dist/client/index.html
 
 FROM node:22-alpine AS production
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init curl bash \
+  && curl -L https://fly.io/install.sh | sh \
+  && mv /root/.fly/bin/flyctl /usr/local/bin/flyctl \
+  && flyctl version
 ENV NODE_ENV=production
 ENV HUSKY=0
 WORKDIR /app
