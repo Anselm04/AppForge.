@@ -5,6 +5,10 @@ export type HealthCheckResult = {
   error?: string;
 };
 
+export function isSuccessfulDeployStatus(status: number): boolean {
+  return status >= 200 && status < 400;
+}
+
 export async function probeDeployUrl(
   url: string,
   timeoutMs = 15_000,
@@ -20,7 +24,7 @@ export async function probeDeployUrl(
     });
     clearTimeout(timer);
     return {
-      ok: res.ok || res.status < 500,
+      ok: isSuccessfulDeployStatus(res.status),
       statusCode: res.status,
       latencyMs: Date.now() - start,
     };
@@ -54,22 +58,23 @@ export function detectRequiredEnvVars(files: Record<string, string>): string[] {
   return [...found].sort();
 }
 
-/** Post-deploy smoke test — probes root and optional /health. */
+/** Post-deploy smoke test — root must be genuinely reachable; /health is optional. */
 export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
   ok: boolean;
   root: HealthCheckResult;
   health?: HealthCheckResult;
 }> {
-  const root = await probeDeployUrl(deployUrl.replace(/\/$/, ""));
-  const healthUrl = `${deployUrl.replace(/\/$/, "")}/health`;
-  let health: HealthCheckResult | undefined;
-  try {
-    health = await probeDeployUrl(healthUrl, 10_000);
-  } catch {
-    health = undefined;
-  }
-  const ok = root.ok && (health ? health.ok : true);
-  return { ok, root, health };
+  const base = deployUrl.replace(/\/$/, "");
+  const root = await probeDeployUrl(base);
+  if (!root.ok) return { ok: false, root };
+
+  const healthProbe = await probeDeployUrl(`${base}/health`, 10_000);
+  const health =
+    healthProbe.statusCode === 404 || healthProbe.statusCode === 405
+      ? undefined
+      : healthProbe;
+
+  return { ok: root.ok && (health ? health.ok : true), root, health };
 }
 
 type RouteProbe = {
