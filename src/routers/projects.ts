@@ -13,6 +13,7 @@ import {
   updateProjectStatus,
   updateProjectFiles,
   ensureUserCredits,
+  getActiveGodCodeEntitlement,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
@@ -31,9 +32,7 @@ import {
 
 const FREE_TIER_LIMIT = 3;
 
-// ── Validated tech stack options ──
 const techStackEnum = z.enum([
-  // Web apps
   "react-node",
   "react-python",
   "vue-node",
@@ -45,7 +44,6 @@ const techStackEnum = z.enum([
   "react-supabase",
   "remix-node",
   "astro-node",
-  // Games
   "phaser-html5",
   "three-js-3d",
   "babylon-js-3d",
@@ -53,20 +51,17 @@ const techStackEnum = z.enum([
   "godot-html5",
   "react-native-game",
   "flutter-game",
-  // AI / Agents
   "ai-agent-python",
   "ai-agent-node",
   "openai-tool",
   "langchain-tool",
   "crewai-agent",
   "autogen-agent",
-  // Desktop / Mobile
   "electron-react",
   "tauri-rust",
   "react-native-expo",
   "flutter-firebase",
   "capacitor-ionic",
-  // Specialized
   "chrome-extension",
   "vscode-extension",
   "discord-bot",
@@ -80,7 +75,6 @@ const techStackEnum = z.enum([
   "serverless-vercel",
 ]);
 
-// ── Input sanitization helpers ──
 function sanitizeString(input: string): string {
   return input.trim().replace(/[<>]/g, "").slice(0, PROMPT_MAX_CHARS);
 }
@@ -89,10 +83,7 @@ const projectCreateSchema = z.object({
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
-    .max(
-      PROMPT_MAX_CHARS,
-      `Description must be at most ${PROMPT_MAX_CHARS} characters`,
-    )
+    .max(PROMPT_MAX_CHARS, `Description must be at most ${PROMPT_MAX_CHARS} characters`)
     .transform(sanitizeString),
   techStack: techStackEnum.default("react-node"),
   title: z
@@ -117,13 +108,8 @@ export const projectsRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Project not found",
-        });
-      if (project.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       return project;
     }),
 
@@ -131,13 +117,8 @@ export const projectsRouter = router({
     .input(z.object({ projectId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
-      if (!project)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Project not found",
-        });
-      if (project.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       return getAgentLogsByProject(input.projectId);
     }),
 
@@ -147,46 +128,29 @@ export const projectsRouter = router({
       const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
       const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
       if (!captchaOk) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Captcha verification failed. Complete the challenge and try again.",
-        });
+        throw new TRPCError({ code: "FORBIDDEN", message: "Captcha verification failed. Complete the challenge and try again." });
       }
 
-      // ── Content moderation ──
       const { moderateUserContent } = await import("./moderation.js");
-      const moderation = await moderateUserContent(
-        ctx.user.id,
-        input.description + " " + input.title,
-      );
+      const moderation = await moderateUserContent(ctx.user.id, input.description + " " + input.title);
       if (!moderation.allowed) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: moderation.reason ?? "Content flagged",
-        });
-      }
-
-      // Backend tier enforcement
-      const tier = await getUserTier(ctx.user.id);
-      const limit = getTierBuildLimit(tier);
-      if (limit !== null) {
-        const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
-        if (buildsThisMonth >= limit) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: `Tier limit reached (${limit} builds/month on ${tier} plan). Upgrade for more builds.`,
-          });
-        }
+        throw new TRPCError({ code: "FORBIDDEN", message: moderation.reason ?? "Content flagged" });
       }
 
       const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      const godCodeEntitlement = await getActiveGodCodeEntitlement(ctx.user.id);
+      const unlimited = godCodeEntitlement.unlimited;
+      const tier = await getUserTier(ctx.user.id);
+      const limit = unlimited ? null : getTierBuildLimit(tier);
+      if (limit !== null) {
+        const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
+        if (buildsThisMonth >= limit) {
+          throw new TRPCError({ code: "FORBIDDEN", message: `Tier limit reached (${limit} builds/month on ${tier} plan). Upgrade for more builds.` });
+        }
+      }
+
       if (!unlimited && credits.balance < BUILD_CREDIT_COST) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}). Subscribe or buy extra credits to start a build.`,
-        });
+        throw new TRPCError({ code: "FORBIDDEN", message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}). Subscribe or buy extra credits to start a build.` });
       }
 
       const id = await createProject({
@@ -200,26 +164,15 @@ export const projectsRouter = router({
       });
 
       if (input.locale) {
-        await db
-          .update(schema.projects)
-          .set({ locale: input.locale, updatedAt: new Date() })
-          .where(eq(schema.projects.id, id));
+        await db.update(schema.projects).set({ locale: input.locale, updatedAt: new Date() }).where(eq(schema.projects.id, id));
       }
 
-      const { claimProjectBuildStart, releaseProjectBuildClaim } =
-        await import("../services/build-claim.js");
+      const { claimProjectBuildStart, releaseProjectBuildClaim } = await import("../services/build-claim.js");
       const { enqueueBuild } = await import("../services/build-queue.js");
       const { deductCredits, addCredits } = await import("../db.js");
-
-      // Project creation is the single build-start authority. The atomic claim
-      // makes the later SSE GET a subscriber only and prevents a second enqueue
-      // for the same project.
       const claimed = await claimProjectBuildStart(id, ctx.user.id);
       if (!claimed) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Unable to start the newly created project build",
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Unable to start the newly created project build" });
       }
 
       const reservationCharged = !unlimited;
@@ -227,15 +180,9 @@ export const projectsRouter = router({
       let charged = false;
       try {
         if (reservationCharged) {
-          await deductCredits(
-            ctx.user.id,
-            BUILD_CREDIT_COST,
-            id,
-            "Build reservation",
-          );
+          await deductCredits(ctx.user.id, BUILD_CREDIT_COST, id, "Build reservation");
           charged = true;
         }
-
         await enqueueBuild({
           projectId: id,
           userId: ctx.user.id,
@@ -248,17 +195,10 @@ export const projectsRouter = router({
         });
       } catch (err: unknown) {
         if (charged) {
-          await addCredits(
-            ctx.user.id,
-            BUILD_CREDIT_COST,
-            "build_refund",
-            `Build start refund for project ${id}`,
-            `projects-create-refund-${id}-${createdAt}`,
-          ).catch(() => undefined);
+          await addCredits(ctx.user.id, BUILD_CREDIT_COST, "build_refund", `Build start refund for project ${id}`, `projects-create-refund-${id}-${createdAt}`).catch(() => undefined);
         }
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
-        const message =
-          err instanceof Error ? err.message : "Unable to enqueue build";
+        const message = err instanceof Error ? err.message : "Unable to enqueue build";
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
 
@@ -269,77 +209,48 @@ export const projectsRouter = router({
     const tier = await getUserTier(ctx.user.id);
     const isPaid = await isUserPro(ctx.user.id);
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
-    const { getUserCredits } = await import("../db.js");
-    const credits = await getUserCredits(ctx.user.id);
-    const limit = getTierBuildLimit(tier);
+    const credits = await ensureUserCredits(ctx.user.id);
+    const godCodeEntitlement = await getActiveGodCodeEntitlement(ctx.user.id);
+    const limit = godCodeEntitlement.unlimited ? null : getTierBuildLimit(tier);
     return {
       tier,
       isPaid,
       buildsThisMonth,
       limit,
       remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
-      credits: credits?.balance ?? 0,
-      unlimited: !!credits?.unlimited || tier === "lifetime",
+      credits: credits.balance,
+      unlimited: godCodeEntitlement.unlimited,
+      godCodeGrantType: godCodeEntitlement.grantType,
+      godCodeExpiresAt: godCodeEntitlement.expiresAt?.toISOString() ?? null,
     };
   }),
 
   deploy: protectedProcedure
-    .input(
-      z.object({
-        id: z.number().int().positive(),
-        destination: z
-          .enum(["vercel", "netlify", "fly", "preview", "zip", "github-pages"])
-          .default("preview"),
-      }),
-    )
+    .input(z.object({
+      id: z.number().int().positive(),
+      destination: z.enum(["vercel", "netlify", "fly", "preview", "zip", "github-pages"]).default("preview"),
+    }))
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" });
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const deployableStatuses = new Set(["completed", "paused", "failed"]);
       if (!project.status || !deployableStatuses.has(project.status)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "Project not ready for deployment (still building or cancelled)",
-        });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Project not ready for deployment (still building or cancelled)" });
       }
 
       const { getCurrentSnapshot } = await import("../db.js");
       const snapshot = await getCurrentSnapshot(input.id);
-      const files =
-        (snapshot?.files as Record<string, string> | null) ??
-        (project.generatedFiles as Record<string, string> | null) ??
-        {};
-      if (Object.keys(files).length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No generated files to deploy",
-        });
-      }
+      const files = (snapshot?.files as Record<string, string> | null) ?? (project.generatedFiles as Record<string, string> | null) ?? {};
+      if (Object.keys(files).length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to deploy" });
 
-      const { deployProject, zipFiles, listDeployDestinations } =
-        await import("../services/deployer.js");
-
+      const { deployProject, zipFiles, listDeployDestinations } = await import("../services/deployer.js");
       if (input.destination === "zip") {
-        const { base64, filename } = await zipFiles(
-          project.title || "appforge-app",
-          files,
-        );
-        return {
-          deployUrl: null as string | null,
-          destination: "zip" as const,
-          base64,
-          filename,
-        };
+        const { base64, filename } = await zipFiles(project.title || "appforge-app", files);
+        return { deployUrl: null as string | null, destination: "zip" as const, base64, filename };
       }
 
-      const origin =
-        process.env.CORS_ORIGIN ||
-        process.env.APP_URL ||
-        "https://appforge-unfurling-moon-9058.fly.dev";
-
+      const origin = process.env.CORS_ORIGIN || process.env.APP_URL || "https://appforge-unfurling-moon-9058.fly.dev";
       try {
         const result = await deployProject({
           destination: input.destination,
@@ -354,71 +265,28 @@ export const projectsRouter = router({
           watchProject(input.id, ctx.user.id, result.url);
         }
 
-        await db
-          .update(schema.projects)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(schema.projects.id, input.id));
-
+        await db.update(schema.projects).set({ status: "completed", updatedAt: new Date() }).where(eq(schema.projects.id, input.id));
         const { recordDeploy } = await import("../db/buildStats.js");
         await recordDeploy(ctx.user.id);
-
-        const {
-          detectRequiredEnvVars,
-          runPostDeploySmokeTest,
-          runBillingRouteSmokeTest,
-        } = await import("../services/deployHealth.js");
-        const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } =
-          await import("../lib/revenueReadiness.js");
-        const { databaseSetupGuide, hasBillingMigration } =
-          await import("../services/databaseProvision.js");
-        const { normalizeCapabilities } =
-          await import("../lib/buildCapabilities.js");
+        const { detectRequiredEnvVars, runPostDeploySmokeTest, runBillingRouteSmokeTest } = await import("../services/deployHealth.js");
+        const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } = await import("../lib/revenueReadiness.js");
+        const { databaseSetupGuide, hasBillingMigration } = await import("../services/databaseProvision.js");
+        const { normalizeCapabilities } = await import("../lib/buildCapabilities.js");
         const requiredEnv = detectRequiredEnvVars(files);
         const caps = normalizeCapabilities(project.buildCapabilities ?? []);
-        const readiness = scanProjectReadiness(files, {
-          incomeIntent:
-            detectIncomeIntent(project.description ?? "") ||
-            caps.includes("fintech"),
-        });
-        const smoke = result.url
-          ? await runPostDeploySmokeTest(result.url)
-          : null;
-        const billingSmoke =
-          result.url && readiness.stripeDetected
-            ? await runBillingRouteSmokeTest(result.url)
-            : null;
-        const dbGuide = databaseSetupGuide(project.techStack ?? "next-node", {
-          projectName: project.title ?? undefined,
-          hasBillingSchema: hasBillingMigration(files),
-        });
+        const readiness = scanProjectReadiness(files, { incomeIntent: detectIncomeIntent(project.description ?? "") || caps.includes("fintech") });
+        const smoke = result.url ? await runPostDeploySmokeTest(result.url) : null;
+        const billingSmoke = result.url && readiness.stripeDetected ? await runBillingRouteSmokeTest(result.url) : null;
+        const dbGuide = databaseSetupGuide(project.techStack ?? "next-node", { projectName: project.title ?? undefined, hasBillingSchema: hasBillingMigration(files) });
 
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
           ...requiredEnv.map((k) => `Configure ${k} on your host.`),
-          ...(readiness.stripeDetected || hasBillingMigration(files)
-            ? dbGuide.steps
-            : ["Run database migrations if your stack uses a DB."]),
-          ...(readiness.stripeDetected
-            ? revenueGoLiveSteps(result.url)
-            : ["Configure Stripe/webhooks if billing is included."]),
+          ...(readiness.stripeDetected || hasBillingMigration(files) ? dbGuide.steps : ["Run database migrations if your stack uses a DB."]),
+          ...(readiness.stripeDetected ? revenueGoLiveSteps(result.url) : ["Configure Stripe/webhooks if billing is included."]),
           "Review REVIEW.md for known issues from the AI pipeline.",
-          ...(smoke && !smoke.ok
-            ? [
-                `Post-deploy smoke test warning: HTTP ${smoke.root.statusCode ?? "error"} at ${result.url}`,
-              ]
-            : smoke?.ok
-              ? ["Post-deploy smoke test passed."]
-              : []),
-          ...(billingSmoke && !billingSmoke.ok
-            ? [
-                `Billing route smoke: some routes returned 404 — check ${billingSmoke.routes
-                  .filter((r) => !r.ok)
-                  .map((r) => r.path)
-                  .join(", ")}`,
-              ]
-            : billingSmoke?.ok
-              ? ["Billing routes reachable (checkout/webhook/pricing)."]
-              : []),
+          ...(smoke && !smoke.ok ? [`Post-deploy smoke test warning: HTTP ${smoke.root.statusCode ?? "error"} at ${result.url}`] : smoke?.ok ? ["Post-deploy smoke test passed."] : []),
+          ...(billingSmoke && !billingSmoke.ok ? [`Billing route smoke: some routes returned 404 — check ${billingSmoke.routes.filter((r) => !r.ok).map((r) => r.path).join(", ")}`] : billingSmoke?.ok ? ["Billing routes reachable (checkout/webhook/pricing)."] : []),
         ];
 
         return {
@@ -447,191 +315,103 @@ export const projectsRouter = router({
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" });
-
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getCurrentSnapshot } = await import("../db.js");
       const snapshot = await getCurrentSnapshot(input.id);
-      const files =
-        (snapshot?.files as Record<string, string> | null) ??
-        (project.generatedFiles as Record<string, string> | null) ??
-        {};
-      if (Object.keys(files).length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No generated files to download",
-        });
-      }
+      const files = (snapshot?.files as Record<string, string> | null) ?? (project.generatedFiles as Record<string, string> | null) ?? {};
+      if (Object.keys(files).length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "No generated files to download" });
       const { zipFiles } = await import("../services/deployer.js");
-      const { base64, filename } = await zipFiles(
-        project.title || "appforge-app",
-        files,
-      );
+      const { base64, filename } = await zipFiles(project.title || "appforge-app", files);
       return { base64, filename };
     }),
 
-  // ── Senior Dev Agent: Create Task ──
   seniorDev: protectedProcedure
-    .input(
-      z.object({
-        projectId: z.number().int().positive(),
-        request: z.string().min(5).max(5000),
-        mode: z.enum(["collaborative", "autonomous"]).default("collaborative"),
-      }),
-    )
+    .input(z.object({ projectId: z.number().int().positive(), request: z.string().min(5).max(5000), mode: z.enum(["collaborative", "autonomous"]).default("collaborative") }))
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-      if (project.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" });
-
+      if (project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const seniorCredits = await ensureUserCredits(ctx.user.id);
-      if (seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `credits_exhausted: Out of credits (${seniorCredits.balance}/${SENIOR_DEV_CREDIT_COST}). Subscribe or buy extra credits to use the Senior Dev Agent.`,
-        });
+      const seniorGodCode = await getActiveGodCodeEntitlement(ctx.user.id);
+      if (!seniorGodCode.unlimited && seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
+        throw new TRPCError({ code: "FORBIDDEN", message: `credits_exhausted: Out of credits (${seniorCredits.balance}/${SENIOR_DEV_CREDIT_COST}). Subscribe or buy extra credits to use the Senior Dev Agent.` });
       }
-
-      const taskId = await createSeniorDevTask({
-        projectId: input.projectId,
-        userId: ctx.user.id,
-        request: input.request,
-        mode: input.mode,
-      });
-
+      const taskId = await createSeniorDevTask({ projectId: input.projectId, userId: ctx.user.id, request: input.request, mode: input.mode });
       return { taskId, status: "planning" };
     }),
 
-  // ── Senior Dev Agent: Approve Plan ──
   seniorDevApprove: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const task = await getSeniorDevTaskById(input.taskId);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-      if (task.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" });
-      if (task.status !== "awaiting_approval") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Task not awaiting approval",
-        });
-      }
-
-      await updateSeniorDevTask(input.taskId, {
-        planApproved: true,
-        status: "executing",
-      });
+      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (task.status !== "awaiting_approval") throw new TRPCError({ code: "BAD_REQUEST", message: "Task not awaiting approval" });
+      await updateSeniorDevTask(input.taskId, { planApproved: true, status: "executing" });
       return { success: true, status: "executing" };
     }),
 
-  // ── Senior Dev Agent: Get Task ──
   seniorDevTask: protectedProcedure
     .input(z.object({ taskId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const task = await getSeniorDevTaskById(input.taskId);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-      if (task.userId !== ctx.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" });
+      if (task.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       return task;
     }),
 
-  /** List all build snapshots for a project (version history) */
   snapshots: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const { getSnapshotsByProject } = await import("../db.js");
       const project = await getProjectById(input.projectId);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       return getSnapshotsByProject(input.projectId);
     }),
 
-  /** Rollback to a specific snapshot version */
   rollback: protectedProcedure
-    .input(
-      z.object({
-        projectId: z.number().int().positive(),
-        snapshotId: z.number().int().positive(),
-      }),
-    )
+    .input(z.object({ projectId: z.number().int().positive(), snapshotId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } =
-        await import("../db.js");
+      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } = await import("../db.js");
       const project = await getProjectById(input.projectId);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       const snapshot = await getSnapshotById(input.snapshotId);
-      if (!snapshot || snapshot.projectId !== input.projectId) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Snapshot not found",
-        });
-      }
+      if (!snapshot || snapshot.projectId !== input.projectId) throw new TRPCError({ code: "NOT_FOUND", message: "Snapshot not found" });
       await markSnapshotAsCurrent(input.snapshotId, input.projectId);
-      await updateProjectFiles(
-        input.projectId,
-        snapshot.files as Record<string, string>,
-      );
-      return {
-        success: true,
-        version: snapshot.version,
-        label: snapshot.label,
-      };
+      await updateProjectFiles(input.projectId, snapshot.files as Record<string, string>);
+      return { success: true, version: snapshot.version, label: snapshot.label };
     }),
 
   getFiles: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
       return getProjectFiles(input.id);
     }),
 
   updateFile: protectedProcedure
-    .input(
-      z.object({
-        id: z.number().int().positive(),
-        path: z.string().min(1).max(500),
-        content: z.string().max(500_000),
-      }),
-    )
+    .input(z.object({ id: z.number().int().positive(), path: z.string().min(1).max(500), content: z.string().max(500_000) }))
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
       const files = await getProjectFiles(input.id);
       files[input.path] = input.content;
       await updateProjectFiles(input.id, files);
-      const { invalidatePreviewCache } =
-        await import("../routes/livePreview.js");
+      const { invalidatePreviewCache } = await import("../routes/livePreview.js");
       invalidatePreviewCache(input.id);
       return { ok: true, path: input.path };
     }),
 
   validateFile: protectedProcedure
-    .input(
-      z.object({
-        id: z.number().int().positive(),
-        path: z.string().min(1).max(500),
-        content: z.string().max(500_000).optional(),
-      }),
-    )
+    .input(z.object({ id: z.number().int().positive(), path: z.string().min(1).max(500), content: z.string().max(500_000).optional() }))
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
-      const { validateSingleFile } =
-        await import("../lib/validateSingleFile.js");
+      const { validateSingleFile } = await import("../lib/validateSingleFile.js");
       const files = await getProjectFiles(input.id);
       const content = input.content ?? files[input.path] ?? "";
       return validateSingleFile(input.path, content, files);
@@ -641,12 +421,9 @@ export const projectsRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
-      const { detectRequiredEnvVars } =
-        await import("../services/deployHealth.js");
+      const { detectRequiredEnvVars } = await import("../services/deployHealth.js");
       const files = await getProjectFiles(input.id);
       return detectRequiredEnvVars(files);
     }),
@@ -655,38 +432,20 @@ export const projectsRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
-      const {
-        scanProjectReadiness,
-        revenueGoLiveSteps,
-        detectIncomeIntent,
-        PLATFORM_INCOME_GAPS,
-      } = await import("../lib/revenueReadiness.js");
-      const { databaseSetupGuide, hasBillingMigration } =
-        await import("../services/databaseProvision.js");
-      const { normalizeCapabilities } =
-        await import("../lib/buildCapabilities.js");
+      const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent, PLATFORM_INCOME_GAPS } = await import("../lib/revenueReadiness.js");
+      const { databaseSetupGuide, hasBillingMigration } = await import("../services/databaseProvision.js");
+      const { normalizeCapabilities } = await import("../lib/buildCapabilities.js");
       const files = await getProjectFiles(input.id);
       const caps = normalizeCapabilities(project.buildCapabilities ?? []);
-      const scan = scanProjectReadiness(files, {
-        incomeIntent:
-          detectIncomeIntent(project.description ?? "") ||
-          caps.includes("fintech"),
-      });
+      const scan = scanProjectReadiness(files, { incomeIntent: detectIncomeIntent(project.description ?? "") || caps.includes("fintech") });
       return {
         ...scan,
         platformGaps: PLATFORM_INCOME_GAPS,
         goLiveSteps: revenueGoLiveSteps(null),
-        databaseSetup: databaseSetupGuide(project.techStack ?? "next-node", {
-          projectName: project.title ?? undefined,
-          hasBillingSchema: hasBillingMigration(files),
-        }),
-        billingGoldenPath: (
-          await import("../services/billingE2eValidator.js")
-        ).validateBillingGoldenPath(files),
+        databaseSetup: databaseSetupGuide(project.techStack ?? "next-node", { projectName: project.title ?? undefined, hasBillingSchema: hasBillingMigration(files) }),
+        billingGoldenPath: (await import("../services/billingE2eValidator.js")).validateBillingGoldenPath(files),
       };
     }),
 
@@ -694,31 +453,18 @@ export const projectsRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { getProjectFiles } = await import("../db.js");
-      const { databaseSetupGuide, hasBillingMigration } =
-        await import("../services/databaseProvision.js");
+      const { databaseSetupGuide, hasBillingMigration } = await import("../services/databaseProvision.js");
       const files = await getProjectFiles(input.id);
-      return databaseSetupGuide(project.techStack ?? "next-node", {
-        projectName: project.title ?? undefined,
-        hasBillingSchema: hasBillingMigration(files),
-      });
+      return databaseSetupGuide(project.techStack ?? "next-node", { projectName: project.title ?? undefined, hasBillingSchema: hasBillingMigration(files) });
     }),
 
   deployHealth: protectedProcedure
-    .input(
-      z.object({
-        id: z.number().int().positive(),
-        url: z.string().url(),
-      }),
-    )
+    .input(z.object({ id: z.number().int().positive(), url: z.string().url() }))
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.id);
-      if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (!project || project.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const { probeDeployUrl } = await import("../services/deployHealth.js");
       return probeDeployUrl(input.url);
     }),
