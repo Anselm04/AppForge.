@@ -6,7 +6,10 @@
 export interface EnvConfig {
   NODE_ENV: string;
   SUPABASE_URL?: string;
+  VITE_SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
+  VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
@@ -33,25 +36,18 @@ export interface EnvConfig {
   COSINE_API_KEY?: string;
   COSINE_API_URL?: string;
   VITE_APP_ID?: string;
-  // Admin / Owner
   OWNER_EMAIL?: string;
   OWNER_PHONE?: string;
   OWNER_OPEN_ID?: string;
-  // SMS (Twilio)
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_PHONE_NUMBER?: string;
-  // Captcha
   HCAPTCHA_SECRET?: string;
-  // Vanta
   VANTA_WORKSPACE_ID?: string;
   VANTA_API_TOKEN?: string;
-  // Email
   RESEND_API_KEY?: string;
-  // Vercel
   VERCEL_TOKEN?: string;
   VERCEL_TEAM_ID?: string;
-  // LLM
   BUILT_IN_FORGE_API_URL?: string;
   BUILT_IN_FORGE_API_KEY?: string;
 }
@@ -78,7 +74,6 @@ export function validateEnv(
   const warnings: string[] = [];
   const isProduction = config.NODE_ENV === "production";
 
-  // NODE_ENV validation
   if (!config.NODE_ENV) {
     errors.push(
       "NODE_ENV is not set. Set to development, staging, or production.",
@@ -91,30 +86,42 @@ export function validateEnv(
     );
   }
 
-  // Database validation (required)
-  if (!config.SUPABASE_URL && !config.DATABASE_URL && !config.SUPABASE_DB_URL) {
+  // Drizzle needs a PostgreSQL connection string. A Supabase HTTPS API URL is
+  // not a database connection and must never satisfy this production gate.
+  const databaseUrl = config.DATABASE_URL || config.SUPABASE_DB_URL;
+  if (!databaseUrl) {
     if (isProduction) {
       errors.push(
-        "Database connection required: Set SUPABASE_URL, DATABASE_URL, or SUPABASE_DB_URL",
+        "PostgreSQL connection required: Set DATABASE_URL or SUPABASE_DB_URL",
       );
     } else {
-      warnings.push("No database connection configured.");
+      warnings.push("No PostgreSQL connection configured.");
     }
-  } else {
-    const dbUrl =
-      config.SUPABASE_URL || config.DATABASE_URL || config.SUPABASE_DB_URL;
-    if (
-      dbUrl &&
-      !dbUrl.startsWith("postgresql://") &&
-      !dbUrl.startsWith("https://")
-    ) {
-      errors.push(
-        "Invalid database URL format. Expected postgresql:// or https://",
-      );
-    }
+  } else if (!databaseUrl.startsWith("postgresql://")) {
+    errors.push("Invalid database URL format. Expected postgresql://");
   }
 
-  // JWT / Cookie secret validation (required in production)
+  // Supabase Auth is a separate production dependency from PostgreSQL.
+  const supabaseUrl = config.VITE_SUPABASE_URL || config.SUPABASE_URL;
+  const supabaseAuthKey =
+    config.SUPABASE_SERVICE_ROLE_KEY ||
+    config.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    config.VITE_SUPABASE_ANON_KEY ||
+    config.SUPABASE_ANON_KEY;
+  if (isProduction && !supabaseUrl) {
+    errors.push(
+      "Supabase Auth URL required: Set VITE_SUPABASE_URL or SUPABASE_URL",
+    );
+  }
+  if (isProduction && !supabaseAuthKey) {
+    errors.push(
+      "Supabase Auth key required: Set a publishable/anon key or SUPABASE_SERVICE_ROLE_KEY",
+    );
+  }
+  if (supabaseUrl && !supabaseUrl.startsWith("https://")) {
+    errors.push("Invalid Supabase URL format. Expected https://");
+  }
+
   if (!config.JWT_SECRET || config.JWT_SECRET.length < 32) {
     if (isProduction) {
       errors.push(
@@ -136,8 +143,6 @@ export function validateEnv(
     }
   }
 
-  // Request timeout validation. Production builds can legitimately run for
-  // several minutes; Fly currently uses 330 seconds for the AI build path.
   if (config.REQUEST_TIMEOUT_MS) {
     const timeout = parseInt(config.REQUEST_TIMEOUT_MS, 10);
     if (isNaN(timeout) || timeout < 5000 || timeout > 360000) {
@@ -147,16 +152,12 @@ export function validateEnv(
     }
   }
 
-  // CORS origin validation (optional, recommended in production)
   if (isProduction && !config.CORS_ORIGIN) {
     warnings.push(
       "CORS_ORIGIN not set. For production, explicitly set your allowed origin.",
     );
   }
 
-  // Stripe validation. Stripe is revenue-critical in production, so missing
-  // credentials or catalog IDs must fail validation instead of becoming a
-  // customer-facing checkout error after deployment.
   if (isProduction && !config.STRIPE_SECRET_KEY) {
     errors.push("STRIPE_SECRET_KEY is required in production");
   }
@@ -190,7 +191,6 @@ export function validateEnv(
     }
   }
 
-  // Redis validation (optional)
   if (
     config.REDIS_URL &&
     !config.REDIS_URL.startsWith("redis://") &&
@@ -199,7 +199,6 @@ export function validateEnv(
     errors.push("Invalid REDIS_URL format. Expected redis:// or rediss://");
   }
 
-  // Owner / Admin settings (critical for moderation and god codes)
   if (!config.OWNER_EMAIL) {
     errors.push(
       "OWNER_EMAIL is required. Used for admin dashboard access, ban notifications, and compliance records.",
@@ -207,46 +206,40 @@ export function validateEnv(
   }
   if (!config.SUPABASE_SERVICE_ROLE_KEY && isProduction) {
     warnings.push(
-      "SUPABASE_SERVICE_ROLE_KEY not set. Auth middleware may fail in production.",
+      "SUPABASE_SERVICE_ROLE_KEY not set. Auth can use a publishable/anon key, but admin Supabase operations may be unavailable.",
     );
   }
 
-  // Twilio SMS (optional — for god code activation)
   if (config.TWILIO_ACCOUNT_SID && !config.TWILIO_AUTH_TOKEN) {
     warnings.push(
       "TWILIO_ACCOUNT_SID set but TWILIO_AUTH_TOKEN missing. SMS verification will not work.",
     );
   }
 
-  // hCaptcha (optional — bot protection)
   if (!config.HCAPTCHA_SECRET && isProduction) {
     warnings.push(
       "HCAPTCHA_SECRET not set. Project creation has no bot protection in production.",
     );
   }
 
-  // Vanta (optional — compliance sync)
   if (config.VANTA_WORKSPACE_ID && !config.VANTA_API_TOKEN) {
     warnings.push(
       "VANTA_WORKSPACE_ID set but VANTA_API_TOKEN missing. Direct API sync disabled; JSON export still works.",
     );
   }
 
-  // Resend Email (optional)
   if (config.OWNER_EMAIL && !config.RESEND_API_KEY && isProduction) {
     warnings.push(
       "RESEND_API_KEY not set. Email notifications (bans, god codes, welcome) will not be sent.",
     );
   }
 
-  // Vercel (optional — needed for one-click deploy)
   if (!config.VERCEL_TOKEN) {
     warnings.push(
       "VERCEL_TOKEN not set. One-click deployments disabled. ZIP download still works.",
     );
   }
 
-  // LLM / Forge API (required for all AI features)
   if (!config.BUILT_IN_FORGE_API_KEY) {
     if (isProduction) {
       errors.push(
@@ -259,7 +252,6 @@ export function validateEnv(
     }
   }
 
-  // Security warnings
   const weakSecrets = ["password", "secret", "changeme", "123456", "admin"];
   const secretKeys = ["secret", "key", "jwt", "cookie"];
   Object.entries(config).forEach(([key, value]) => {
@@ -278,7 +270,6 @@ export function validateEnv(
     }
   });
 
-  // Deploy destinations
   if (
     isProduction &&
     !config.VERCEL_TOKEN &&
@@ -319,13 +310,21 @@ export function getEnvSummary(
   const billingCatalogReady = REQUIRED_BILLING_PRICE_KEYS.every(
     (key) => !!config[key],
   );
+  const authReady = Boolean(
+    (config.VITE_SUPABASE_URL || config.SUPABASE_URL) &&
+      (config.SUPABASE_SERVICE_ROLE_KEY ||
+        config.VITE_SUPABASE_PUBLISHABLE_KEY ||
+        config.VITE_SUPABASE_ANON_KEY ||
+        config.SUPABASE_ANON_KEY),
+  );
 
   return [
     "Environment Configuration:",
     `  NODE_ENV: ${config.NODE_ENV || "❌ Not set"}`,
-    `  Database: ${config.DATABASE_URL || config.SUPABASE_URL || config.SUPABASE_DB_URL ? "✅" : "❌"}`,
+    `  Database: ${config.DATABASE_URL || config.SUPABASE_DB_URL ? "✅" : "❌"}`,
+    `  Supabase Auth: ${authReady ? "✅" : "❌"}`,
     `  Auth Secrets: ${config.JWT_SECRET && config.COOKIE_SECRET ? "✅" : "❌"}`,
-    `  Supabase Service Role: ${config.SUPABASE_SERVICE_ROLE_KEY ? "✅" : "❌"}`,
+    `  Supabase Service Role: ${config.SUPABASE_SERVICE_ROLE_KEY ? "✅" : "⚠️"}`,
     `  Stripe: ${config.STRIPE_SECRET_KEY && config.STRIPE_WEBHOOK_SECRET ? "✅" : "❌"}`,
     `  Stripe Billing Catalog: ${billingCatalogReady ? "✅" : "❌"}`,
     `  Owner Email: ${config.OWNER_EMAIL ? "✅" : "❌ (required for admin)"}`,
@@ -339,7 +338,7 @@ export function getEnvSummary(
     `  Sentry: ${config.SENTRY_DSN ? "✅" : "⚠️"}`,
     `  CORS: ${config.CORS_ORIGIN ? "✅" : "⚠️"}`,
     `  GitHub OAuth: ${config.GITHUB_CLIENT_ID ? "✅" : "⚠️"}`,
-    `  Request Timeout: ${config.REQUEST_TIMEOUT_MS ? "✅" : "⚠️ (defaulting to 30s)"}`,
+    `  Request Timeout: ${config.REQUEST_TIMEOUT_MS ? "✅" : "⚠️ (defaulting to 330s)"}`,
   ].join("\n");
 }
 
