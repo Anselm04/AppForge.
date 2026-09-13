@@ -70,11 +70,26 @@ jobs:
             .env*
             package-lock.json
 
-      - name: Warn about .env changes
-        if: steps.changed-files.outputs.any_changed == 'true' && contains(steps.changed-files.outputs.all_changed_files, '.env')
+      - name: Block committed secret environment files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        shell: bash
+        env:
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
-          echo "WARNING: .env files should not be committed!"
-          echo "Please add .env to .gitignore"
+          set -euo pipefail
+          blocked=0
+          for file in $CHANGED_FILES; do
+            case "$file" in
+              .env|.env.local|.env.production|.env.preview|.env.*.local)
+                echo "Blocked secret-bearing environment file in PR: $file"
+                blocked=1
+                ;;
+            esac
+          done
+          if [ "$blocked" -ne 0 ]; then
+            echo "Use GitHub/Fly/Supabase secret managers. Example files with empty values remain allowed."
+            exit 1
+          fi
 
       - name: Check for lockfile changes
         if: contains(steps.changed-files.outputs.all_changed_files, 'package-lock.json')
