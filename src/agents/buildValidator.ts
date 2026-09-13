@@ -510,7 +510,10 @@ export async function validateGeneratedBuild(
         60_000,
       );
       if (buildResult.exitCode !== 0) {
-        const buildLog = `${buildResult.stderr}\n${buildResult.stdout}`.slice(0, 500);
+        const buildLog = `${buildResult.stderr}\n${buildResult.stdout}`.slice(
+          0,
+          500,
+        );
         errors.push(`Build failed: ${buildLog}`);
         return {
           passed: false,
@@ -524,7 +527,9 @@ export async function validateGeneratedBuild(
 
       const runtime = await verifyViteRuntime(tmpDir);
       if (!runtime.passed) {
-        errors.push(runtime.error || "Generated app failed runtime verification");
+        errors.push(
+          runtime.error || "Generated app failed runtime verification",
+        );
         return {
           passed: false,
           stage: "runtime",
