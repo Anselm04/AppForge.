@@ -51,6 +51,31 @@ describe("critical customer flow contract", () => {
     expect(admin).toContain("redeemedByUserId: ctx.user.id");
   });
 
+  it("pins unique production Stripe prices and one production Supabase target", () => {
+    const fly = source("../../fly.toml");
+    const priceNames = [
+      "STRIPE_STARTER_PRICE_ID",
+      "STRIPE_BUILDER_PRICE_ID",
+      "STRIPE_STUDIO_PRICE_ID",
+      "STRIPE_ENTERPRISE_PRICE_ID",
+      "STRIPE_CREDITS_50_PRICE_ID",
+      "STRIPE_CREDITS_100_PRICE_ID",
+      "STRIPE_CREDITS_250_PRICE_ID",
+    ];
+    const prices = priceNames.map((name) => {
+      const match = fly.match(new RegExp(`${name} = '(price_[^']+)'`));
+      expect(match, `Missing production Stripe price: ${name}`).not.toBeNull();
+      return match?.[1] ?? "";
+    });
+
+    expect(new Set(prices).size).toBe(priceNames.length);
+
+    const supabase = fly.match(/SUPABASE_URL = '(https:\/\/[^']+)'/)?.[1];
+    const viteSupabase = fly.match(/VITE_SUPABASE_URL = '(https:\/\/[^']+)'/)?.[1];
+    expect(supabase).toBeTruthy();
+    expect(viteSupabase).toBe(supabase);
+  });
+
   it("creates a project once and automatically claims and enqueues its build", () => {
     const projects = source("../routers/projects.ts");
 
