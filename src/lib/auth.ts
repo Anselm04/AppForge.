@@ -87,7 +87,10 @@ function jwtUser(accessToken: string): { id: string; email?: string } | null {
     if (!payload) return null;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const decoded = JSON.parse(atob(padded)) as { sub?: string; email?: string };
+    const decoded = JSON.parse(atob(padded)) as {
+      sub?: string;
+      email?: string;
+    };
     if (!decoded.sub) return null;
     return { id: decoded.sub, email: decoded.email };
   } catch {
@@ -127,7 +130,9 @@ async function syncServerSession(accessToken: string): Promise<void> {
     headers,
   });
   if (!res.ok) {
-    throw new Error(`Failed to establish secure browser session (${res.status})`);
+    throw new Error(
+      `Failed to establish secure browser session (${res.status})`,
+    );
   }
 }
 
@@ -305,7 +310,10 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
 
   // Remove credentials from browser history immediately after consuming them.
   const cleanUrl = `${window.location.pathname}${window.location.search
-    .replace(/([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g, "$1")
+    .replace(
+      /([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g,
+      "$1",
+    )
     .replace(/[?&]$/, "")}`;
   window.history.replaceState({}, document.title, cleanUrl || "/login");
   return session;
