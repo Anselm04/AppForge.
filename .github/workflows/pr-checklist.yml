@@ -5,76 +5,65 @@ on:
     branches: [main]
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  # ============================================
-  # PR TEMPLATE CHECK
-  # ============================================
   check-pr-template:
     name: Check PR Template
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check PR description
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const pr = context.payload.pull_request;
             const body = pr.body || '';
-            
             const requiredSections = [
               '## Description',
               '## Type of change',
               '## Testing',
               '## Checklist'
             ];
-            
             const missingSections = requiredSections.filter(section => !body.includes(section));
-            
             if (missingSections.length > 0) {
               console.log('Missing PR template sections:', missingSections);
               core.setFailed('PR description is missing required sections: ' + missingSections.join(', '));
             } else {
-              console.log('✅ All PR template sections present');
+              console.log('All PR template sections present');
             }
 
-  # ============================================
-  # LABEL CHECK
-  # ============================================
   check-labels:
     name: Check PR Labels
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check for required labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const pr = context.payload.pull_request;
             const labels = pr.labels.map(label => label.name);
-            
             const requiredLabels = ['bug', 'enhancement', 'documentation', 'dependencies'];
             const hasRequiredLabel = labels.some(label => requiredLabels.includes(label));
-            
             if (!hasRequiredLabel) {
               console.log('PR is missing a category label. Available labels:', requiredLabels);
-              // Don't fail, just warn
             } else {
-              console.log('✅ PR has appropriate label');
+              console.log('PR has appropriate label');
             }
 
-  # ============================================
-  # FILE CHANGES CHECK
-  # ============================================
   check-changes:
     name: Check File Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Get changed files
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@2d756ea4c53f7f6b397767d8723b3a10a9f35bf2
         id: changed-files
         with:
           files: |
@@ -84,10 +73,9 @@ jobs:
       - name: Warn about .env changes
         if: steps.changed-files.outputs.any_changed == 'true' && contains(steps.changed-files.outputs.all_changed_files, '.env')
         run: |
-          echo "⚠️ WARNING: .env files should not be committed!"
+          echo "WARNING: .env files should not be committed!"
           echo "Please add .env to .gitignore"
 
       - name: Check for lockfile changes
         if: contains(steps.changed-files.outputs.all_changed_files, 'package-lock.json')
-        run: |
-          echo "✅ package-lock.json changes detected"
+        run: echo "package-lock.json changes detected"
