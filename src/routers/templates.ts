@@ -10,7 +10,7 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { getStackScaffold } from "../services/stackScaffolds.js";
 import { templates } from "../data/templates.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
-import { ensureUserCredits } from "../db.js";
+import { ensureUserCredits, getActiveGodCodeEntitlement } from "../db.js";
 
 export const templatesRouter = router({
   list: protectedProcedure.query(() => templates),
@@ -27,7 +27,8 @@ export const templatesRouter = router({
       }
 
       const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      const godCodeEntitlement = await getActiveGodCodeEntitlement(ctx.user.id);
+      const unlimited = godCodeEntitlement.unlimited;
       if (!unlimited && credits.balance < BUILD_CREDIT_COST) {
         throw new TRPCError({
           code: "FORBIDDEN",
