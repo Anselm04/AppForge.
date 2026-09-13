@@ -19,7 +19,10 @@ import {
   updateSeniorDevTask,
   updateSeniorDevTaskStatus,
 } from "../db.js";
-import { SENIOR_DEV_CREDIT_COST, creditsExhaustedBody } from "../lib/credits.js";
+import {
+  SENIOR_DEV_CREDIT_COST,
+  creditsExhaustedBody,
+} from "../lib/credits.js";
 import {
   runSeniorDevAgent,
   resumeAfterApproval,
