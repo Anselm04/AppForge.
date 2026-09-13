@@ -18,7 +18,19 @@ jobs:
   backup-and-verify:
     name: Create and verify recoverable repository snapshot
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      OFFSITE_BACKUP_PASSPHRASE: ${{ secrets.OFFSITE_BACKUP_PASSPHRASE }}
+      OFFSITE_1_ENDPOINT: ${{ secrets.OFFSITE_1_ENDPOINT }}
+      OFFSITE_1_REGION: ${{ secrets.OFFSITE_1_REGION }}
+      OFFSITE_1_BUCKET: ${{ secrets.OFFSITE_1_BUCKET }}
+      OFFSITE_1_ACCESS_KEY_ID: ${{ secrets.OFFSITE_1_ACCESS_KEY_ID }}
+      OFFSITE_1_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_1_SECRET_ACCESS_KEY }}
+      OFFSITE_2_ENDPOINT: ${{ secrets.OFFSITE_2_ENDPOINT }}
+      OFFSITE_2_REGION: ${{ secrets.OFFSITE_2_REGION }}
+      OFFSITE_2_BUCKET: ${{ secrets.OFFSITE_2_BUCKET }}
+      OFFSITE_2_ACCESS_KEY_ID: ${{ secrets.OFFSITE_2_ACCESS_KEY_ID }}
+      OFFSITE_2_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_2_SECRET_ACCESS_KEY }}
     steps:
       - name: Checkout complete repository history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -91,6 +103,155 @@ jobs:
           cd /tmp/appforge-restore-test
           npm ci --ignore-scripts --no-audit --no-fund
           echo "Restored dependency lockfile installs reproducibly with lifecycle scripts disabled."
+
+      - name: Build encrypted off-site recovery package
+        id: offsite-package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p offsite
+          archive="offsite/appforge-recovery-${GITHUB_SHA}.tar.gz"
+          encrypted="${archive}.enc"
+
+          tar -C recovery -czf "$archive" .
+          sha256sum "$archive" > "${archive}.sha256"
+
+          if [ -z "${OFFSITE_BACKUP_PASSPHRASE:-}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::OFFSITE_BACKUP_PASSPHRASE is not configured. GitHub recovery artifact will still be created, but independent encrypted off-site copies are not active yet."
+            exit 0
+          fi
+
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -md sha256 \
+            -pass stdin -in "$archive" -out "$encrypted"
+          sha256sum "$encrypted" > "${encrypted}.sha256"
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" "$encrypted" > "${encrypted}.hmac-sha256"
+          rm -f "$archive"
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "encrypted_file=$encrypted" >> "$GITHUB_OUTPUT"
+
+      - name: Verify encrypted package can be decrypted locally
+        if: steps.offsite-package.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          encrypted="${{ steps.offsite-package.outputs.encrypted_file }}"
+          sha256sum --check "${encrypted}.sha256"
+
+          actual_hmac="$(printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" "$encrypted")"
+          expected_hmac="$(cat "${encrypted}.hmac-sha256")"
+          test "$actual_hmac" = "$expected_hmac"
+
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 \
+            -pass stdin -in "$encrypted" -out /tmp/appforge-offsite-local.tar.gz
+          mkdir -p /tmp/appforge-offsite-local
+          tar -C /tmp/appforge-offsite-local -xzf /tmp/appforge-offsite-local.tar.gz
+          (
+            cd /tmp/appforge-offsite-local
+            sha256sum --check SHA256SUMS
+          )
+          git bundle verify /tmp/appforge-offsite-local/appforge-repository.bundle
+          test "$(cat /tmp/appforge-offsite-local/HEAD.sha)" = "$GITHUB_SHA"
+          echo "Encrypted off-site package decrypts and contains the exact verified recovery SHA."
+
+      - name: Upload and restore-verify off-site target 1
+        if: steps.offsite-package.outputs.configured == 'true' && env.OFFSITE_1_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_1_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_1_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_1_REGION }}
+        run: |
+          set -euo pipefail
+          command -v aws >/dev/null 2>&1 || { echo "AWS CLI is required for configured off-site backups"; exit 1; }
+          test -n "$OFFSITE_1_ENDPOINT"
+          test -n "$OFFSITE_1_REGION"
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+
+          encrypted="${{ steps.offsite-package.outputs.encrypted_file }}"
+          date_path="$(date -u +%Y/%m/%d)"
+          key="appforge/${date_path}/${GITHUB_SHA}/$(basename "$encrypted")"
+          endpoint_args=(--endpoint-url "$OFFSITE_1_ENDPOINT")
+
+          aws "${endpoint_args[@]}" s3 cp "$encrypted" "s3://${OFFSITE_1_BUCKET}/${key}" --no-progress
+          aws "${endpoint_args[@]}" s3 cp "${encrypted}.sha256" "s3://${OFFSITE_1_BUCKET}/${key}.sha256" --no-progress
+          aws "${endpoint_args[@]}" s3 cp "${encrypted}.hmac-sha256" "s3://${OFFSITE_1_BUCKET}/${key}.hmac-sha256" --no-progress
+
+          rm -rf /tmp/offsite-1 && mkdir -p /tmp/offsite-1
+          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}" /tmp/offsite-1/recovery.enc --no-progress
+          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}.sha256" /tmp/offsite-1/recovery.enc.sha256 --no-progress
+          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_1_BUCKET}/${key}.hmac-sha256" /tmp/offsite-1/recovery.enc.hmac-sha256 --no-progress
+
+          expected_sha="$(cut -d' ' -f1 "${encrypted}.sha256")"
+          actual_sha="$(sha256sum /tmp/offsite-1/recovery.enc | cut -d' ' -f1)"
+          test "$actual_sha" = "$expected_sha"
+          actual_hmac="$(printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl dgst -sha256 -hmac "$(cat)" /tmp/offsite-1/recovery.enc)"
+          expected_hmac="$(sed 's#'"$encrypted"'#/tmp/offsite-1/recovery.enc#' "${encrypted}.hmac-sha256")"
+          test "$actual_hmac" = "$expected_hmac"
+
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 \
+            -pass stdin -in /tmp/offsite-1/recovery.enc -out /tmp/offsite-1/recovery.tar.gz
+          mkdir -p /tmp/offsite-1/restored
+          tar -C /tmp/offsite-1/restored -xzf /tmp/offsite-1/recovery.tar.gz
+          test "$(cat /tmp/offsite-1/restored/HEAD.sha)" = "$GITHUB_SHA"
+          git bundle verify /tmp/offsite-1/restored/appforge-repository.bundle
+          echo "Off-site target 1 upload, download, decrypt, and restore verification passed."
+
+      - name: Upload and restore-verify off-site target 2
+        if: steps.offsite-package.outputs.configured == 'true' && env.OFFSITE_2_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_2_REGION }}
+        run: |
+          set -euo pipefail
+          command -v aws >/dev/null 2>&1 || { echo "AWS CLI is required for configured off-site backups"; exit 1; }
+          test -n "$OFFSITE_2_ENDPOINT"
+          test -n "$OFFSITE_2_REGION"
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+
+          encrypted="${{ steps.offsite-package.outputs.encrypted_file }}"
+          date_path="$(date -u +%Y/%m/%d)"
+          key="appforge/${date_path}/${GITHUB_SHA}/$(basename "$encrypted")"
+          endpoint_args=(--endpoint-url "$OFFSITE_2_ENDPOINT")
+
+          aws "${endpoint_args[@]}" s3 cp "$encrypted" "s3://${OFFSITE_2_BUCKET}/${key}" --no-progress
+          aws "${endpoint_args[@]}" s3 cp "${encrypted}.sha256" "s3://${OFFSITE_2_BUCKET}/${key}.sha256" --no-progress
+          aws "${endpoint_args[@]}" s3 cp "${encrypted}.hmac-sha256" "s3://${OFFSITE_2_BUCKET}/${key}.hmac-sha256" --no-progress
+
+          rm -rf /tmp/offsite-2 && mkdir -p /tmp/offsite-2
+          aws "${endpoint_args[@]}" s3 cp "s3://${OFFSITE_2_BUCKET}/${key}" /tmp/offsite-2/recovery.enc --no-progress
+          expected_sha="$(cut -d' ' -f1 "${encrypted}.sha256")"
+          actual_sha="$(sha256sum /tmp/offsite-2/recovery.enc | cut -d' ' -f1)"
+          test "$actual_sha" = "$expected_sha"
+
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 \
+            -pass stdin -in /tmp/offsite-2/recovery.enc -out /tmp/offsite-2/recovery.tar.gz
+          mkdir -p /tmp/offsite-2/restored
+          tar -C /tmp/offsite-2/restored -xzf /tmp/offsite-2/recovery.tar.gz
+          test "$(cat /tmp/offsite-2/restored/HEAD.sha)" = "$GITHUB_SHA"
+          git bundle verify /tmp/offsite-2/restored/appforge-repository.bundle
+          echo "Off-site target 2 upload, download, decrypt, and restore verification passed."
+
+      - name: Report backup redundancy status
+        shell: bash
+        run: |
+          set -euo pipefail
+          configured=0
+          [ -n "${OFFSITE_1_BUCKET:-}" ] && configured=$((configured + 1))
+          [ -n "${OFFSITE_2_BUCKET:-}" ] && configured=$((configured + 1))
+          echo "Configured independent off-site backup targets: $configured"
+          if [ "$configured" -eq 0 ]; then
+            echo "::warning::No independent off-site target is configured yet. Recovery is verified inside GitHub, but provider-wide/account-takeover resilience is incomplete."
+          elif [ "$configured" -eq 1 ]; then
+            echo "One independent encrypted off-site target is active. Add a second provider/offline copy for full 3-2-1-style redundancy."
+          else
+            echo "Two independent encrypted off-site targets are configured in addition to the GitHub recovery artifact."
+          fi
 
       - name: Upload verified recovery snapshot
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
