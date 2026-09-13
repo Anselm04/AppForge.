@@ -81,6 +81,20 @@ function parseSession(raw: string): AppForgeSession | null {
   }
 }
 
+function jwtUser(accessToken: string): { id: string; email?: string } | null {
+  try {
+    const [, payload] = accessToken.split(".");
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const decoded = JSON.parse(atob(padded)) as { sub?: string; email?: string };
+    if (!decoded.sub) return null;
+    return { id: decoded.sub, email: decoded.email };
+  } catch {
+    return null;
+  }
+}
+
 function saveSession(session: AppForgeSession) {
   const raw = JSON.stringify(session);
   writeStorage(SESSION_KEY, raw);
@@ -244,6 +258,47 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
 
   signOut();
   return null;
+}
+
+/**
+ * Complete Supabase's email-confirmation implicit redirect.
+ * Direct /auth/v1/signup confirmations return access/refresh tokens in the URL
+ * fragment. Previously /login ignored them, so a correctly confirmed account
+ * still looked signed out and testers were sent back through login again.
+ */
+export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
+  if (typeof window === "undefined") return null;
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const search = new URLSearchParams(window.location.search);
+  const errorDescription =
+    hash.get("error_description") || search.get("error_description");
+  if (errorDescription) {
+    throw new Error(errorDescription);
+  }
+
+  const accessToken = hash.get("access_token") || search.get("access_token");
+  const refreshToken = hash.get("refresh_token") || search.get("refresh_token");
+  if (!accessToken) return null;
+
+  const user = jwtUser(accessToken);
+  if (!user) throw new Error("Unable to read confirmed Supabase session.");
+
+  const session: AppForgeSession = {
+    accessToken,
+    refreshToken: refreshToken || undefined,
+    user,
+  };
+  sessionGeneration += 1;
+  saveSession(session);
+  await syncServerSession(accessToken);
+
+  // Remove credentials from browser history immediately after consuming them.
+  const cleanUrl = `${window.location.pathname}${window.location.search
+    .replace(/([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g, "$1")
+    .replace(/[?&]$/, "")}`;
+  window.history.replaceState({}, document.title, cleanUrl || "/login");
+  return session;
 }
 
 export async function signUp(email: string, password: string) {
