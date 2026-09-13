@@ -47,7 +47,9 @@ async function dockerAvailable(): Promise<boolean> {
 
 function safeRelativePath(value: string): string | null {
   const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "");
-  const parts = normalized.split("/").filter((part) => part && part !== ".");
+  const parts = normalized
+    .split("/")
+    .filter((part) => part && part !== ".");
   if (parts.length === 0 || parts.some((part) => part === "..")) return null;
   return parts.join("/");
 }
@@ -170,13 +172,7 @@ export async function validateWithDocker(
       ].join(" && ");
 
       const r = await runDocker(
-        [
-          ...mountArgs,
-          "node:22-alpine",
-          "sh",
-          "-c",
-          nodeValidation,
-        ],
+        [...mountArgs, "node:22-alpine", "sh", "-c", nodeValidation],
         240_000,
       );
       if (r.exitCode !== 0) {
