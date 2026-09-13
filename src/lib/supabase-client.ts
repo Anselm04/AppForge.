@@ -35,9 +35,13 @@ function config() {
   return { url, publishableKey };
 }
 
-function authRedirectTo(): string | undefined {
+function authRedirectTo(next = "/"): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return `${window.location.origin}/login`;
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+      ? next
+      : "/";
+  return `${window.location.origin}/login?next=${encodeURIComponent(safeNext)}`;
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -65,8 +69,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const supabaseClient = {
-  signUp(email: string, password: string) {
-    const redirect = authRedirectTo();
+  signUp(email: string, password: string, next = "/") {
+    const redirect = authRedirectTo(next);
     const path = redirect
       ? `/auth/v1/signup?redirect_to=${encodeURIComponent(redirect)}`
       : "/auth/v1/signup";
