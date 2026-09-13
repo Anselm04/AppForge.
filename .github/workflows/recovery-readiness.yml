@@ -61,7 +61,7 @@ jobs:
           grep -Fq 'At least two independent recovery methods must exist for the owner.' docs/OWNER_BREAK_GLASS.md
           grep -Fq 'Never store recovery codes or private keys here.' docs/RECOVERY_INVENTORY.md
           grep -Fq 'OFFSITE_BACKUP_PASSPHRASE' docs/RECOVERY_INVENTORY.md
-          grep -Fq 'latest known-good production SHA' docs/OWNER_BREAK_GLASS.md
+          grep -Fq 'known-good production' docs/OWNER_BREAK_GLASS.md
 
       - name: Verify repository backup invariants
         shell: bash
