@@ -1,30 +1,23 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { AIService } from "../services/ai-service.js";
-import { AppBuilder } from "../services/app-builder.js";
-import { ensureUserCredits, deductCredits } from "../db.js";
-import {
-  AI_GENERATE_CREDIT_COST,
-  creditsExhaustedBody,
-} from "../lib/credits.js";
 import { logger } from "../_core/logger.js";
 
 const router = Router();
 const aiService = new AIService();
-const appBuilder = new AppBuilder();
 
 const extractSchema = z.object({
   prompt: z.string().min(1).max(5000),
 });
 
 const clarifySchema = z.object({
-  requirements: z.array(z.string()).min(1).max(50),
+  requirements: z.array(z.string().min(1).max(1000)).min(1).max(50),
 });
 
 const generateSchema = z.object({
   requirements: z.record(z.string(), z.any()),
   techStack: z.string().max(100).optional(),
-  templateId: z.string().optional(),
+  templateId: z.string().max(100).optional(),
 });
 
 const iterateSchema = z.object({
@@ -45,44 +38,31 @@ const exportSchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/),
 });
 
-async function requireCredits(
-  req: Request,
-  res: Response,
-  cost: number,
-  action: string,
-) {
-  const user = (req as any).user;
-  if (!user) {
+function requireAuthenticatedUser(req: Request, res: Response): boolean {
+  if (!req.user) {
     res.status(401).json({ success: false, error: "Not authenticated" });
-    return null;
+    return false;
   }
-  const credits = await ensureUserCredits(user.id);
-  if (credits.balance < cost) {
-    res.status(402).json({
-      success: false,
-      ...creditsExhaustedBody(credits.balance, cost, action),
-    });
-    return null;
-  }
-  await deductCredits(user.id, cost, undefined, action);
-  return user;
+  return true;
 }
 
 function validateInput(schema: z.ZodSchema, body: any) {
   const result = schema.safeParse(body);
   if (!result.success) {
     return {
-      valid: false,
+      valid: false as const,
       errors: result.error.issues.map((i) => ({
         field: i.path.join("."),
         message: i.message,
       })),
     };
   }
-  return { valid: true, data: result.data };
+  return { valid: true as const, data: result.data };
 }
 
 router.post("/extract", async (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
+
   try {
     const validation = validateInput(extractSchema, req.body);
     if (!validation.valid) {
@@ -96,7 +76,7 @@ router.post("/extract", async (req: Request, res: Response) => {
     const requirements = await aiService.extractRequirements(prompt);
     res.json({ success: true, data: requirements });
   } catch (error) {
-    logger.error({ error }, "ai_extract_requirements_failed");
+    logger.error({ error, userId: req.user?.id }, "ai_extract_requirements_failed");
     res
       .status(500)
       .json({ success: false, error: "Failed to extract requirements" });
@@ -104,6 +84,8 @@ router.post("/extract", async (req: Request, res: Response) => {
 });
 
 router.post("/clarify", async (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
+
   try {
     const validation = validateInput(clarifySchema, req.body);
     if (!validation.valid) {
@@ -118,14 +100,18 @@ router.post("/clarify", async (req: Request, res: Response) => {
       await aiService.generateClarificationQuestions(requirements);
     res.json({ success: true, data: questions });
   } catch (error) {
-    logger.error({ error }, "ai_clarification_questions_failed");
+    logger.error(
+      { error, userId: req.user?.id },
+      "ai_clarification_questions_failed",
+    );
     res
       .status(500)
       .json({ success: false, error: "Failed to generate questions" });
   }
 });
 
-router.post("/generate", async (req: Request, res: Response) => {
+router.post("/generate", (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
   const validation = validateInput(generateSchema, req.body);
   if (!validation.valid) {
     return res.status(400).json({
@@ -145,7 +131,8 @@ router.post("/generate", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/iterate", async (req: Request, res: Response) => {
+router.post("/iterate", (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
   const validation = validateInput(iterateSchema, req.body);
   if (!validation.valid) {
     return res.status(400).json({
@@ -161,45 +148,41 @@ router.post("/iterate", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/deploy/:appId", async (req: Request, res: Response) => {
-  try {
-    const validation = validateInput(deploySchema, req.params);
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid input",
-        details: validation.errors,
-      });
-    }
-    const { appId } = validation.data;
-    const deployUrl = await appBuilder.deploy(appId);
-    res.json({ success: true, data: { deployUrl } });
-  } catch (error) {
-    logger.error({ error }, "ai_deploy_failed");
-    res.status(500).json({ success: false, error: "Failed to deploy app" });
+router.post("/deploy/:appId", (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
+  const validation = validateInput(deploySchema, req.params);
+  if (!validation.valid) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid input",
+      details: validation.errors,
+    });
   }
+  return res.status(410).json({
+    success: false,
+    error:
+      "Legacy /api/ai/deploy is retired. Use the authenticated projects.deploy workflow.",
+  });
 });
 
-router.post("/export/:appId", async (req: Request, res: Response) => {
-  try {
-    const validation = validateInput(exportSchema, {
-      appId: req.params.appId,
-      ...req.body,
+router.post("/export/:appId", (req: Request, res: Response) => {
+  if (!requireAuthenticatedUser(req, res)) return;
+  const validation = validateInput(exportSchema, {
+    appId: req.params.appId,
+    ...req.body,
+  });
+  if (!validation.valid) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid input",
+      details: validation.errors,
     });
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid input",
-        details: validation.errors,
-      });
-    }
-    const { appId, repoName } = validation.data;
-    const repoUrl = await appBuilder.exportToGitHub(appId, repoName);
-    res.json({ success: true, data: { repoUrl } });
-  } catch (error) {
-    logger.error({ error }, "ai_export_failed");
-    res.status(500).json({ success: false, error: "Failed to export app" });
   }
+  return res.status(410).json({
+    success: false,
+    error:
+      "Legacy /api/ai/export is retired. Use the authenticated GitHub project export workflow.",
+  });
 });
 
 export default router;
