@@ -1,0 +1,73 @@
+name: Production Customer Flow Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17,47 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-customer-flow-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Verify live customer entry flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify production health and customer routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://appforge-unfurling-moon-9058.fly.dev"
+
+          curl --fail --silent --show-error --max-time 15 "$URL/api/health/live" >/dev/null
+          curl --fail --silent --show-error --max-time 15 "$URL/api/health/ready" >/dev/null
+
+          check_page() {
+            route="$1"
+            body="$(mktemp)"
+            status=$(curl --silent --show-error --max-time 15 --location --output "$body" --write-out '%{http_code}' "$URL$route")
+            if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+              echo "Customer route $route returned HTTP $status"
+              cat "$body" || true
+              rm -f "$body"
+              exit 1
+            fi
+            if [ ! -s "$body" ]; then
+              echo "Customer route $route returned an empty response"
+              rm -f "$body"
+              exit 1
+            fi
+            if ! grep -q 'id="root"' "$body"; then
+              echo "Customer route $route did not return the AppForge SPA shell"
+              rm -f "$body"
+              exit 1
+            fi
+            rm -f "$body"
+          }
+
+          check_page "/"
+          check_page "/signup"
+          check_page "/signup?next=/pricing"
+          check_page "/login"
+          check_page "/login?next=%2Fpricing"
+          check_page "/pricing"
+          check_page "/redeem"
+
+          assert_status() {
+            expected="$1"
+            endpoint="$2"
+            actual=$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "$URL$endpoint")
+            if [ "$actual" != "$expected" ]; then
+              echo "Expected $endpoint to return HTTP $expected anonymously, got $actual"
+              exit 1
+            fi
+          }
+
+          assert_status 401 "/api/preview-auth/1"
+          assert_status 401 "/api/build/1"
+          echo "Scheduled production customer-flow smoke passed"
