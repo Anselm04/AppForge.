@@ -88,7 +88,7 @@ export async function upsertUserFromAuth(data: {
  */
 export async function applyGodCodeGrant(
   userId: number,
-  grantType: "lifetime" | "limited",
+  grantType: "lifetime" | "timed_unlimited" | "limited",
   credits: number,
 ): Promise<{ credits: number; unlimited: boolean }> {
   await ensureUserCredits(userId);
@@ -96,6 +96,17 @@ export async function applyGodCodeGrant(
   if (!row) return { credits: 0, unlimited: false };
 
   const now = new Date();
+  if (grantType === "timed_unlimited") {
+    await db.insert(schema.creditTransactions).values({
+      userId,
+      amount: 0,
+      type: "god_code_grant",
+      description: "Time-limited unlimited access (owner-issued god code)",
+    });
+    await unpauseCreditExhaustedProjects(userId);
+    return { credits: row.balance, unlimited: true };
+  }
+
   if (grantType === "lifetime") {
     await db
       .update(schema.userCredits)
@@ -132,7 +143,47 @@ export async function applyGodCodeGrant(
     }
   });
   await unpauseCreditExhaustedProjects(userId);
-  return { credits: newBalance, unlimited: !!row.unlimited };
+  return { credits: newBalance, unlimited: false };
+}
+
+export async function getActiveGodCodeEntitlement(userId: number): Promise<{
+  unlimited: boolean;
+  grantType: "lifetime" | "timed_unlimited" | null;
+  expiresAt: Date | null;
+  codeId: number | null;
+}> {
+  const rows = await db.query.godCodes.findMany({
+    where: eq(schema.godCodes.redeemedByUserId, userId),
+    orderBy: desc(schema.godCodes.redeemedAt),
+  });
+  const now = Date.now();
+  for (const code of rows) {
+    if (!code.redeemedAt || !code.isUsed) continue;
+    if (code.grantType === "lifetime") {
+      return {
+        unlimited: true,
+        grantType: "lifetime",
+        expiresAt: null,
+        codeId: code.id,
+      };
+    }
+    if (code.grantType === "timed_unlimited") {
+      const days = Math.max(0, code.trialDays ?? 0);
+      if (days < 1) continue;
+      const expiresAt = new Date(
+        new Date(code.redeemedAt).getTime() + days * 24 * 60 * 60 * 1000,
+      );
+      if (expiresAt.getTime() > now) {
+        return {
+          unlimited: true,
+          grantType: "timed_unlimited",
+          expiresAt,
+          codeId: code.id,
+        };
+      }
+    }
+  }
+  return { unlimited: false, grantType: null, expiresAt: null, codeId: null };
 }
 
 // ── SUBSCRIPTIONS ──
@@ -444,6 +495,7 @@ export async function deductCredits(
     throw new Error("Credit deduction amount must be a positive integer");
   }
   await ensureUserCredits(userId);
+  const godCodeEntitlement = await getActiveGodCodeEntitlement(userId);
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
@@ -456,7 +508,7 @@ export async function deductCredits(
     if (!credits)
       throw new Error(`Insufficient credits: need ${amount}, have 0`);
 
-    if (credits.unlimited || credits.tier === "lifetime") {
+    if (godCodeEntitlement.unlimited) {
       await tx.insert(schema.creditTransactions).values({
         userId,
         amount: 0,

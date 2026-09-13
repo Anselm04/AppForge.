@@ -6,7 +6,7 @@ import * as schema from "../db/schema.js";
 import { getProjectById, createSeniorDevTask, getProjectFiles } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
-import { ensureUserCredits } from "../db.js";
+import { ensureUserCredits, getActiveGodCodeEntitlement } from "../db.js";
 import { runQuickEdit } from "../services/quickEditAgent.js";
 
 export const projectChatRouter = router({
@@ -48,7 +48,10 @@ export const projectChatRouter = router({
       let seniorDevTaskId: number | null = null;
       if (input.triggerSeniorDev) {
         const credits = await ensureUserCredits(ctx.user.id);
-        const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+        const godCodeEntitlement = await getActiveGodCodeEntitlement(
+          ctx.user.id,
+        );
+        const unlimited = godCodeEntitlement.unlimited;
         if (!unlimited && credits.balance < SENIOR_DEV_CREDIT_COST) {
           throw new TRPCError({
             code: "FORBIDDEN",
