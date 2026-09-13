@@ -12,6 +12,7 @@ export function isSuccessfulDeployStatus(status: number): boolean {
 export async function probeDeployUrl(
   url: string,
   timeoutMs = 15_000,
+  requireBody = false,
 ): Promise<HealthCheckResult> {
   const start = Date.now();
   const controller = new AbortController();
@@ -22,11 +23,18 @@ export async function probeDeployUrl(
       signal: controller.signal,
       headers: { "User-Agent": "AppForge-Deploy-Health/1.0" },
     });
+    const successfulStatus = isSuccessfulDeployStatus(res.status);
+    let hasBody = true;
+    if (successfulStatus && requireBody) {
+      const body = await res.text();
+      hasBody = body.trim().length > 0;
+    }
     clearTimeout(timer);
     return {
-      ok: isSuccessfulDeployStatus(res.status),
+      ok: successfulStatus && hasBody,
       statusCode: res.status,
       latencyMs: Date.now() - start,
+      error: successfulStatus && !hasBody ? "Empty response body" : undefined,
     };
   } catch (err) {
     clearTimeout(timer);
@@ -58,14 +66,14 @@ export function detectRequiredEnvVars(files: Record<string, string>): string[] {
   return [...found].sort();
 }
 
-/** Post-deploy smoke test — root must be genuinely reachable; /health is optional. */
+/** Post-deploy smoke test — root must be reachable and render non-empty content; /health is optional. */
 export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
   ok: boolean;
   root: HealthCheckResult;
   health?: HealthCheckResult;
 }> {
   const base = deployUrl.replace(/\/$/, "");
-  const root = await probeDeployUrl(base);
+  const root = await probeDeployUrl(base, 15_000, true);
   if (!root.ok) return { ok: false, root };
 
   const healthProbe = await probeDeployUrl(`${base}/health`, 10_000);
