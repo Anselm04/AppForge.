@@ -3,17 +3,30 @@ import { ENV } from "../_core/env.js";
 
 export const LIVE_APP_ORIGIN = "https://appforge-unfurling-moon-9058.fly.dev";
 
+function normalizeOrigin(value: string): string | null {
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
 function allowedCorsOrigins(): Set<string> {
-  const extras = (
+  const configured = (
     process.env.CORS_ORIGIN ||
     process.env.PUBLIC_APP_URL ||
     process.env.APP_URL ||
     ""
   )
     .split(",")
-    .map((value) => value.trim().replace(/\/$/, ""))
-    .filter(Boolean);
-  const allowed = new Set<string>([LIVE_APP_ORIGIN, ...extras]);
+    .map((value) => normalizeOrigin(value))
+    .filter((value): value is string => Boolean(value));
+
+  const allowed = new Set<string>([LIVE_APP_ORIGIN, ...configured]);
   if (!ENV.isProduction) {
     allowed.add("http://localhost:3000");
     allowed.add("http://localhost:5173");
@@ -24,26 +37,16 @@ function allowedCorsOrigins(): Set<string> {
 }
 
 /**
- * Allow the live Fly origin, configured origins, and requests with no Origin
- * (mobile browsers / in-app webviews). Never error on a missing Origin.
+ * Allow only exact live/configured browser origins. Requests without an Origin
+ * are permitted because CORS is a browser boundary, not an API authentication
+ * mechanism; protected routes still require normal authentication/CSRF checks.
  */
 export const corsOrigin: CorsOptions["origin"] = (origin, callback) => {
   if (!origin) {
     callback(null, true);
     return;
   }
-  const normalized = origin.replace(/\/$/, "");
-  if (allowedCorsOrigins().has(normalized)) {
-    callback(null, origin);
-    return;
-  }
-  try {
-    if (new URL(origin).hostname === "appforge-unfurling-moon-9058.fly.dev") {
-      callback(null, origin);
-      return;
-    }
-  } catch {
-    /* ignore invalid Origin */
-  }
-  callback(null, false);
+
+  const normalized = normalizeOrigin(origin);
+  callback(null, Boolean(normalized && allowedCorsOrigins().has(normalized)));
 };
