@@ -18,6 +18,7 @@ import { publishBuildEvent } from "./build-queue.js";
 import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
+import { deployValidatedProject } from "./productionAutoDeploy.js";
 
 export interface BuildJob {
   projectId: number;
@@ -57,8 +58,16 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
   const timeoutMs = resolveBuildTimeoutMs();
   const timeout =
     timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let pendingDone: unknown = null;
 
   const write = (event: string, data: unknown) => {
+    // The pipeline may finish generation before production deployment is proven.
+    // Hold the terminal done event until Fly is live and smoke-tested so the UI
+    // cannot claim customer success early.
+    if (event === "done") {
+      pendingDone = data;
+      return;
+    }
     void emit(projectId, event, data);
   };
 
@@ -105,12 +114,35 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     const passed = updated?.status === "completed";
 
     if (passed) {
+      let liveUrl: string | undefined;
+      if (process.env.NODE_ENV === "production") {
+        const files =
+          (updated?.generatedFiles as Record<string, string> | null) ?? {};
+        if (Object.keys(files).length === 0) {
+          throw new Error(
+            "Validated build has no generated files available for production deployment",
+          );
+        }
+        const deployed = await deployValidatedProject({
+          projectId,
+          projectName: updated?.title || `appforge-${projectId}`,
+          files,
+        });
+        liveUrl = deployed.liveUrl;
+      }
+
       await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
       await recordBuildOutcome(userId, true, BUILD_CREDIT_COST);
       void syncComplianceToVanta(projectId, {
         techStack,
         exportedAt: new Date().toISOString(),
       });
+
+      const donePayload =
+        pendingDone && typeof pendingDone === "object"
+          ? { ...(pendingDone as Record<string, unknown>), liveUrl }
+          : { projectId, creditsSpent: BUILD_CREDIT_COST, liveUrl };
+      await emit(projectId, "done", donePayload);
     } else {
       // The pipeline intentionally returns for paused, failed, cancelled and
       // recoverable states. Those are not completed paid builds. Refund the
@@ -134,7 +166,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     }
 
     await recordBuildOutcome(userId, false, 0);
-    write("error", {
+    await emit(projectId, "error", {
       error: "build_failed",
       message: "Build failed. Please retry or contact support.",
     });
