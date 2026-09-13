@@ -57,12 +57,21 @@ router.get("/ready", async (_req: Request, res: Response) => {
   }
 });
 
-// Configuration-only readiness for the locked TrillionAi 13-team architecture.
-// This endpoint never returns credentials, tokens, IDs, or URLs; it only reports
-// whether each integration has the minimum expected configuration present.
+// Keep the public readiness endpoint deliberately coarse in production. The
+// old response exposed which security/communications/monitoring integrations
+// were configured, giving unauthenticated callers a useful map of deployment
+// gaps. Detailed integration status belongs behind the authenticated admin UI.
 router.get("/integrations", (_req: Request, res: Response) => {
   const summary = summarizeTeamIntegrations();
   setNoStoreHeaders(res);
+
+  if (process.env.NODE_ENV === "production") {
+    return res.status(summary.productionReady ? 200 : 503).json({
+      status: summary.productionReady ? "configured" : "incomplete",
+      productionReady: summary.productionReady,
+    });
+  }
+
   return res.status(200).json({
     status: summary.productionReady ? "configured" : "incomplete",
     configured: summary.configured,
