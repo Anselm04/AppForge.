@@ -1,0 +1,140 @@
+name: Recovery Readiness Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'docs/DISASTER_RECOVERY.md'
+      - 'docs/OFFSITE_BACKUP.md'
+      - 'docs/OWNER_BREAK_GLASS.md'
+      - 'docs/RECOVERY_INVENTORY.md'
+      - 'scripts/recovery-governance.sh'
+      - 'fly.toml'
+  schedule:
+    - cron: '41 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-readiness
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Verify recovery control plane
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted repository state
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Require recovery control files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            docs/DISASTER_RECOVERY.md
+            docs/OFFSITE_BACKUP.md
+            docs/OWNER_BREAK_GLASS.md
+            docs/RECOVERY_INVENTORY.md
+            scripts/recovery-governance.sh
+            .github/workflows/repository-backup.yml
+            .github/workflows/repository-metadata-backup.yml
+            .github/workflows/security.yml
+            .github/workflows/deploy-production.yml
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "Missing recovery control: $file"; exit 1; }
+          done
+
+      - name: Verify owner recovery invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'No single password, phone, device, provider, GitHub account, or encryption key may be the only recovery path.' docs/OWNER_BREAK_GLASS.md
+          grep -Fq 'At least two independent recovery methods must exist for the owner.' docs/OWNER_BREAK_GLASS.md
+          grep -Fq 'Never store recovery codes or private keys here.' docs/RECOVERY_INVENTORY.md
+          grep -Fq 'OFFSITE_BACKUP_PASSPHRASE' docs/RECOVERY_INVENTORY.md
+          grep -Fq 'latest known-good production SHA' docs/OWNER_BREAK_GLASS.md
+
+      - name: Verify repository backup invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/repository-backup.yml
+          grep -Fq 'permissions:' "$file"
+          grep -Fq 'contents: read' "$file"
+          grep -Fq 'persist-credentials: false' "$file"
+          grep -Fq 'git fsck --full --strict' "$file"
+          grep -Fq 'git bundle create' "$file"
+          grep -Fq 'git bundle verify' "$file"
+          grep -Fq 'sha256sum' "$file"
+          grep -Fq 'hmac' "$file"
+          grep -Fq 'aes-256-cbc' "$file"
+          grep -Fq 'OFFSITE_1_BUCKET' "$file"
+          grep -Fq 'OFFSITE_2_BUCKET' "$file"
+          grep -Fq 'workflow_dispatch:' "$file"
+          grep -Fq 'schedule:' "$file"
+
+      - name: Verify metadata backup is isolated from pull-request execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/repository-metadata-backup.yml
+          grep -Fq 'contents: read' "$file"
+          grep -Fq 'issues: read' "$file"
+          grep -Fq 'pull-requests: read' "$file"
+          if grep -Eq '^[[:space:]]+pull_request:' "$file"; then
+            echo 'Repository metadata backup must not run directly on pull_request events.'
+            exit 1
+          fi
+
+      - name: Verify production remains gated by successful CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/deploy-production.yml
+          grep -Fq 'workflow_run:' "$file"
+          grep -Fq 'workflows: ["CI Pipeline"]' "$file"
+          grep -Fq "github.event.workflow_run.conclusion == 'success'" "$file"
+          grep -Fq 'github.event.workflow_run.head_sha' "$file"
+
+      - name: Verify recovery governance recognizes platinum controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'docs/OWNER_BREAK_GLASS' scripts/recovery-governance.sh
+          grep -Fq 'docs/RECOVERY_INVENTORY' scripts/recovery-governance.sh
+          grep -Fq 'recovery-readiness' scripts/recovery-governance.sh
+
+      - name: Report GitHub main protection state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main")"
+          protected="$(printf '%s' "$response" | jq -r '.protected')"
+          echo "GitHub main protected: $protected"
+          if [ "$protected" != 'true' ]; then
+            echo '::warning::GitHub still reports main as unprotected. Enable the repository ruleset/branch protection to remove this remaining governance gap.'
+          fi
+
+      - name: Platinum recovery readiness summary
+        shell: bash
+        run: |
+          echo 'Owner break-glass protocol present.'
+          echo 'Recovery inventory present.'
+          echo 'Repository and metadata backup controls structurally verified.'
+          echo 'Production deploy remains bound to successful CI and exact SHA.'
+          echo 'Recovery governance remains active.'
