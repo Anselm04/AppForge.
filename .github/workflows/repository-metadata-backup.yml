@@ -1,0 +1,146 @@
+name: Repository Metadata Backup
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: repository-metadata-backup
+  cancel-in-progress: false
+
+jobs:
+  export-metadata:
+    name: Export recoverable GitHub metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OFFSITE_BACKUP_PASSPHRASE: ${{ secrets.OFFSITE_BACKUP_PASSPHRASE }}
+      OFFSITE_1_ENDPOINT: ${{ secrets.OFFSITE_1_ENDPOINT }}
+      OFFSITE_1_REGION: ${{ secrets.OFFSITE_1_REGION }}
+      OFFSITE_1_BUCKET: ${{ secrets.OFFSITE_1_BUCKET }}
+      OFFSITE_1_ACCESS_KEY_ID: ${{ secrets.OFFSITE_1_ACCESS_KEY_ID }}
+      OFFSITE_1_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_1_SECRET_ACCESS_KEY }}
+      OFFSITE_2_ENDPOINT: ${{ secrets.OFFSITE_2_ENDPOINT }}
+      OFFSITE_2_REGION: ${{ secrets.OFFSITE_2_REGION }}
+      OFFSITE_2_BUCKET: ${{ secrets.OFFSITE_2_BUCKET }}
+      OFFSITE_2_ACCESS_KEY_ID: ${{ secrets.OFFSITE_2_ACCESS_KEY_ID }}
+      OFFSITE_2_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_2_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Checkout trusted revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Export repository development metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p metadata
+          repo="$GITHUB_REPOSITORY"
+
+          gh api "/repos/$repo" > metadata/repository.json
+          gh api --paginate "/repos/$repo/pulls?state=all&per_page=100" --slurp > metadata/pulls.json
+          gh api --paginate "/repos/$repo/issues?state=all&per_page=100" --slurp > metadata/issues.json
+          gh api --paginate "/repos/$repo/issues/comments?per_page=100" --slurp > metadata/issue-comments.json
+          gh api --paginate "/repos/$repo/pulls/comments?per_page=100" --slurp > metadata/pull-review-comments.json
+          gh api --paginate "/repos/$repo/releases?per_page=100" --slurp > metadata/releases.json
+          gh api --paginate "/repos/$repo/branches?per_page=100" --slurp > metadata/branches.json
+          gh api --paginate "/repos/$repo/tags?per_page=100" --slurp > metadata/tags.json
+          gh api --paginate "/repos/$repo/actions/workflows?per_page=100" --slurp > metadata/workflows.json
+
+          cat > metadata/METADATA-MANIFEST.txt <<EOF
+          repository=${GITHUB_REPOSITORY}
+          backup_sha=${GITHUB_SHA}
+          workflow_run=${GITHUB_RUN_ID}
+          workflow_attempt=${GITHUB_RUN_ATTEMPT}
+          created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          contents=repository,pulls,issues,issue-comments,pull-review-comments,releases,branches,tags,workflows
+          EOF
+
+          (
+            cd metadata
+            sha256sum *.json METADATA-MANIFEST.txt > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Archive and encrypt metadata
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p metadata-package
+          archive="metadata-package/appforge-metadata-${GITHUB_SHA}.tar.gz"
+          encrypted="${archive}.enc"
+          tar -C metadata -czf "$archive" .
+          sha256sum "$archive" > "${archive}.sha256"
+
+          if [ -z "${OFFSITE_BACKUP_PASSPHRASE:-}" ]; then
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            echo "archive=$archive" >> "$GITHUB_OUTPUT"
+            echo "::warning::Metadata backup is retained in GitHub only until OFFSITE_BACKUP_PASSPHRASE is configured."
+            exit 0
+          fi
+
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -md sha256 \
+            -pass stdin -in "$archive" -out "$encrypted"
+          sha256sum "$encrypted" > "${encrypted}.sha256"
+          openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" "$encrypted" > "${encrypted}.hmac-sha256"
+          echo "encrypted=true" >> "$GITHUB_OUTPUT"
+          echo "encrypted_file=$encrypted" >> "$GITHUB_OUTPUT"
+
+      - name: Upload metadata to off-site target 1
+        if: steps.package.outputs.encrypted == 'true' && env.OFFSITE_1_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_1_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_1_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_1_REGION }}
+        run: |
+          set -euo pipefail
+          test -n "$OFFSITE_1_ENDPOINT"
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+          encrypted="${{ steps.package.outputs.encrypted_file }}"
+          key="appforge-metadata/$(date -u +%Y/%m/%d)/${GITHUB_SHA}/$(basename "$encrypted")"
+          aws --endpoint-url "$OFFSITE_1_ENDPOINT" s3 cp "$encrypted" "s3://${OFFSITE_1_BUCKET}/${key}" --no-progress
+          aws --endpoint-url "$OFFSITE_1_ENDPOINT" s3 cp "${encrypted}.sha256" "s3://${OFFSITE_1_BUCKET}/${key}.sha256" --no-progress
+          aws --endpoint-url "$OFFSITE_1_ENDPOINT" s3 cp "${encrypted}.hmac-sha256" "s3://${OFFSITE_1_BUCKET}/${key}.hmac-sha256" --no-progress
+
+      - name: Upload metadata to off-site target 2
+        if: steps.package.outputs.encrypted == 'true' && env.OFFSITE_2_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_2_REGION }}
+        run: |
+          set -euo pipefail
+          test -n "$OFFSITE_2_ENDPOINT"
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+          encrypted="${{ steps.package.outputs.encrypted_file }}"
+          key="appforge-metadata/$(date -u +%Y/%m/%d)/${GITHUB_SHA}/$(basename "$encrypted")"
+          aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp "$encrypted" "s3://${OFFSITE_2_BUCKET}/${key}" --no-progress
+          aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp "${encrypted}.sha256" "s3://${OFFSITE_2_BUCKET}/${key}.sha256" --no-progress
+          aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp "${encrypted}.hmac-sha256" "s3://${OFFSITE_2_BUCKET}/${key}.hmac-sha256" --no-progress
+
+      - name: Upload GitHub metadata recovery artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: appforge-metadata-${{ github.sha }}
+          path: |
+            metadata/
+            metadata-package/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
