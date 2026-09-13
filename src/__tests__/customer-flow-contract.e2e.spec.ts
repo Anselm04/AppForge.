@@ -34,12 +34,21 @@ describe("critical customer flow contract", () => {
 
   it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {
     const pricing = source("../pages/Pricing.tsx");
+    const subscriptions = source("../routers/subscriptions.ts");
     const admin = source("../routers/admin.ts");
 
     expect(pricing).toContain("trpc.subscriptions.createCheckoutSession.mutate");
     expect(pricing).toContain('navigate("/signup?next=/pricing")');
+    expect(subscriptions).toContain("createCheckoutSession: protectedProcedure");
+    expect(subscriptions).toContain("hasManagedSubscription");
+    expect(subscriptions).toContain(
+      "You already have a Stripe subscription. Use Manage billing",
+    );
     expect(admin).toContain("redeemCode: protectedProcedure");
     expect(admin).toContain("await applyGodCodeGrant(");
+    expect(admin).toContain("found.redeemedAt ||");
+    expect(admin).toContain("eq(schema.godCodes.isUsed, false)");
+    expect(admin).toContain("redeemedByUserId: ctx.user.id");
   });
 
   it("creates a project once and automatically claims and enqueues its build", () => {
