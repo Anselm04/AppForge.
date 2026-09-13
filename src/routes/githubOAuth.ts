@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { upsertGithubConnection } from "../db.js";
 import { logger } from "../_core/logger.js";
 import { verifyGithubOAuthState } from "../lib/githubOAuthState.js";
+import { protectGithubAccessToken } from "../lib/githubTokenCrypto.js";
 
 const router = Router();
 
@@ -102,7 +103,7 @@ router.get("/callback", async (req: Request, res: Response) => {
     await upsertGithubConnection({
       userId,
       githubUsername,
-      accessToken: tokenData.access_token,
+      accessToken: protectGithubAccessToken(tokenData.access_token),
     });
 
     res.redirect(`${base}/dashboard?github=connected`);
