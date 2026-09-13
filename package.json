@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@sentry/node": "^7.100.0",
+    "@sentry/node": "^10.74.0",
     "@sentry/profiling-node": "^7.100.0",
     "@sentry/react": "^7.100.0",
     "@stripe/stripe-js": "^3.0.0",
