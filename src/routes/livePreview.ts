@@ -50,10 +50,20 @@ function mimeFor(filePath: string): string {
   return MIME[extname(filePath).toLowerCase()] || "application/octet-stream";
 }
 
+function safeRelativePath(value: string): string | null {
+  const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts = normalized.split("/").filter((part) => part && part !== ".");
+  if (parts.length === 0 || parts.some((part) => part === "..")) return null;
+  return parts.join("/");
+}
+
 function normalizeFiles(files: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(files)) {
-    out[key.replace(/^\/+/, "")] = value;
+    if (typeof value !== "string") continue;
+    const safePath = safeRelativePath(key);
+    if (!safePath) continue;
+    out[safePath] = value;
   }
   return out;
 }
@@ -157,6 +167,11 @@ async function buildVitePreview(
   projectId: number,
   files: Record<string, string>,
 ): Promise<string | null> {
+  // Vite config and generated dependencies are executable Node code. Never run
+  // customer-generated builds inside the production AppForge server process.
+  // Production previews must use the isolated sandbox/WebContainer path.
+  if (process.env.NODE_ENV === "production") return null;
+
   const hash = filesHash(files);
   const cached = distCache.get(projectId);
   if (cached && cached.hash === hash) {
@@ -182,7 +197,9 @@ async function buildVitePreview(
     await rm(tmpDir, { recursive: true, force: true });
     await mkdir(tmpDir, { recursive: true });
     for (const [path, content] of Object.entries(files)) {
-      const full = join(tmpDir, path);
+      const safePath = safeRelativePath(path);
+      if (!safePath) continue;
+      const full = join(tmpDir, safePath);
       await mkdir(join(full, ".."), { recursive: true });
       await writeFile(full, content, "utf-8");
     }
@@ -191,6 +208,7 @@ async function buildVitePreview(
       "npm",
       [
         "install",
+        "--ignore-scripts",
         "--prefer-offline",
         "--no-audit",
         "--no-fund",
@@ -206,7 +224,7 @@ async function buildVitePreview(
 
     const build = await runCmd(
       "npx",
-      ["vite", "build", "--outDir", "dist"],
+      ["--no-install", "vite", "build", "--outDir", "dist"],
       tmpDir,
       90_000,
     );
@@ -215,7 +233,6 @@ async function buildVitePreview(
       return null;
     }
 
-    // Evict previous cache dir
     if (cached?.dir) {
       await rm(cached.dir.replace(/\/dist$/, ""), {
         recursive: true,
@@ -230,33 +247,20 @@ async function buildVitePreview(
   }
 }
 
-function authorizePreview(req: Request, projectId: number): boolean {
+function hasSignedPreviewAccess(req: Request, projectId: number): boolean {
   const sig = typeof req.query.sig === "string" ? req.query.sig : undefined;
-  if (verifyPreviewSignature(projectId, sig)) return true;
-  if ((req as any).user) return true;
-  if (process.env.NODE_ENV !== "production") return true;
-  if (process.env.PREVIEW_PUBLIC === "true") return true;
-  return false;
+  return verifyPreviewSignature(projectId, sig);
+}
+
+function isPublicPreviewEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.PREVIEW_PUBLIC === "true";
 }
 
 livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
   try {
     const projectId = parseInt(req.params.projectId, 10);
-    if (Number.isNaN(projectId)) {
+    if (Number.isNaN(projectId) || projectId <= 0) {
       res.status(400).json({ error: "Invalid projectId" });
-      return;
-    }
-
-    if (!authorizePreview(req, projectId)) {
-      res
-        .status(401)
-        .type("html")
-        .send(
-          `<!doctype html><html><body style="font-family:system-ui;padding:2rem">
-        <h1>Preview requires a signed link</h1>
-        <p>Use one-click <strong>Live preview</strong> deploy to get a signed URL, or sign in.</p>
-        </body></html>`,
-        );
       return;
     }
 
@@ -266,20 +270,43 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
+    const signedAccess = hasSignedPreviewAccess(req, projectId);
+    const publicAccess = isPublicPreviewEnabled();
+    const userId = req.user?.id;
+    const ownerAccess = Boolean(userId && project.userId === userId);
+
+    if (!signedAccess && !publicAccess && !ownerAccess) {
+      res
+        .status(userId ? 403 : 401)
+        .type("html")
+        .send(
+          `<!doctype html><html><body style="font-family:system-ui;padding:2rem">
+        <h1>Preview access denied</h1>
+        <p>Use the signed Live preview link for this project, or sign in as the project owner.</p>
+        </body></html>`,
+        );
+      return;
+    }
+
     const files = normalizeFiles(
       (project.generatedFiles as Record<string, string> | null) ?? {},
     );
-    const rel = decodeURIComponent((req.path || "/").replace(/^\//, ""));
+    const decodedRel = decodeURIComponent((req.path || "/").replace(/^\//, ""));
+    const rel = decodedRel ? safeRelativePath(decodedRel) : "";
+    if (decodedRel && !rel) {
+      res.status(400).json({ error: "Invalid preview path" });
+      return;
+    }
 
     res.setHeader("X-Robots-Tag", "noindex");
     res.setHeader(
       "Content-Security-Policy",
-      "sandbox allow-scripts allow-forms allow-modals allow-popups allow-same-origin",
+      "sandbox allow-scripts allow-forms allow-modals allow-popups",
     );
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
 
-    // Raw source browser
-    if (rel === "files" || rel.startsWith("src/")) {
+    if (rel === "files" || rel?.startsWith("src/")) {
       if (rel === "files") {
         res
           .type("html")
@@ -292,7 +319,7 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
           );
         return;
       }
-      const srcPath = rel.replace(/^src\//, "");
+      const srcPath = rel!.replace(/^src\//, "");
       const content = files[srcPath];
       if (content === undefined) {
         res.status(404).json({ error: "File not found" });
@@ -303,7 +330,6 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    // Static HTML-only projects (no bundler)
     if (
       files["index.html"] &&
       !files["package.json"] &&
@@ -324,7 +350,6 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    // Bundle Vite/React (and similar) apps
     const distDir = await buildVitePreview(projectId, files);
     if (distDir) {
       const assetPath = !rel || rel === "index.html" ? "index.html" : rel;
@@ -338,7 +363,7 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       }
     }
 
-    if (files["index.html"]) {
+    if (files["index.html"] && !files["package.json"]) {
       res.type("html").send(files["index.html"]);
       return;
     }
