@@ -106,6 +106,8 @@ export async function supabaseAuthMiddleware(
   }
 
   try {
+    // Always validate the bearer token against Supabase Auth before trusting
+    // identity data. Supabase recommends getUser(token) for server-side auth.
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {
       if (isSessionEndpoint(req) && req.method === "POST") {
@@ -122,7 +124,7 @@ export async function supabaseAuthMiddleware(
       (email ? email.split("@")[0] : "user");
     const picture = data.user.user_metadata?.["avatar_url"] ?? null;
 
-    const { upsertUserFromAuth } = await import("../db.js");
+    const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
     const dbUser = await upsertUserFromAuth({
       openId: supabaseUid,
       email,
@@ -137,6 +139,12 @@ export async function supabaseAuthMiddleware(
       }
       return next();
     }
+
+    // Provision the internal AppForge access row as part of authentication,
+    // before the client asks for tierStatus. Previously a brand-new user could
+    // appear to have zero credits until project creation, which incorrectly
+    // surfaced the payment wall even though new users receive free credits.
+    await ensureUserCredits(dbUser.id);
 
     req.user = {
       id: dbUser.id,
