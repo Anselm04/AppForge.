@@ -78,12 +78,11 @@ export function Build() {
 
   useEffect(() => {
     if (!projectId || pid <= 0) return;
-    if (tierStatus === undefined) return;
-    if (!unlimited && creditBalance < BUILD_CREDIT_COST) {
-      setIsPaused(true);
-      return;
-    }
 
+    // Start the authenticated build stream immediately. Access and credit
+    // enforcement belongs to the server. Previously this page waited for the
+    // secondary tierStatus query, so a slow/stale account-status request could
+    // leave a valid project stuck on "Waiting for build events" forever.
     const effectAc = new AbortController();
     let closed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -148,7 +147,6 @@ export function Build() {
           ]);
           if (spent) setCreditsSpent(spent);
 
-          // Never-give-up: soft pause — reconnect so the outer loop continues
           const retryable =
             reason === "retry_after_error" ||
             reason === "still_building" ||
@@ -164,7 +162,6 @@ export function Build() {
             return;
           }
 
-          // credits_exhausted (and unknown pauses): stay on paused UI
           setIsPaused(true);
           return;
         }
@@ -218,8 +215,13 @@ export function Build() {
           return;
         }
         const msg = err instanceof Error ? err.message : "Build stream error";
+        if (/credit/i.test(msg)) {
+          setIsPaused(true);
+          setError(msg);
+          return;
+        }
         if (/not authenticated/i.test(msg)) {
-          setError("Not authenticated");
+          setError("Authentication could not be refreshed. Your build was not discarded; sign in again and reopen this project.");
           return;
         }
         setError(msg);
@@ -233,11 +235,12 @@ export function Build() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       effectAc.abort();
     };
-  }, [projectId, pid, tierStatus, creditBalance, unlimited]);
+  }, [projectId, pid]);
 
   const handleDeploy = async () => {
     if (!projectId) return;
     setDeploying(true);
+    setError(null);
     try {
       const result = await trpc.projects.deploy.mutate({
         id: pid,
@@ -356,7 +359,7 @@ export function Build() {
             ))}
             {logs.length === 0 && !error && (
               <p className="text-slate-500 text-sm">
-                Waiting for build events…
+                Starting authenticated build stream…
               </p>
             )}
           </div>
