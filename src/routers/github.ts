@@ -4,6 +4,7 @@ import { getGithubConnection, getProjectById, getProjectFiles } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
+import { revealGithubAccessToken } from "../lib/githubTokenCrypto.js";
 
 async function fetchRepoFiles(
   token: string,
@@ -85,6 +86,23 @@ async function collectBlobFiles(
   return files;
 }
 
+function githubTokenOrThrow(stored: string | null | undefined): string {
+  if (!stored) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "GitHub not connected",
+    });
+  }
+  try {
+    return revealGithubAccessToken(stored);
+  } catch {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "GitHub connection must be refreshed",
+    });
+  }
+}
+
 export const githubRouter = router({
   connectionStatus: protectedProcedure.query(async ({ ctx }) => {
     const conn = await getGithubConnection(ctx.user.id);
@@ -112,12 +130,7 @@ export const githubRouter = router({
     .input(z.object({ projectId: z.number(), repoName: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const conn = await getGithubConnection(ctx.user.id);
-      if (!conn?.accessToken) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "GitHub not connected",
-        });
-      }
+      const token = githubTokenOrThrow(conn?.accessToken);
       const project = await getProjectById(input.projectId);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.userId !== ctx.user.id)
@@ -131,7 +144,7 @@ export const githubRouter = router({
         });
       }
 
-      const owner = conn.githubUsername;
+      const owner = conn?.githubUsername;
       if (!owner) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -140,7 +153,7 @@ export const githubRouter = router({
       }
 
       const { repoUrl } = await pushFilesToGitHubRepo({
-        token: conn.accessToken,
+        token,
         owner,
         repoName: input.repoName,
         files,
@@ -161,17 +174,8 @@ export const githubRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const conn = await getGithubConnection(ctx.user.id);
-      if (!conn?.accessToken) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "GitHub not connected",
-        });
-      }
-      const files = await fetchRepoFiles(
-        conn.accessToken,
-        input.owner,
-        input.repo,
-      );
+      const token = githubTokenOrThrow(conn?.accessToken);
+      const files = await fetchRepoFiles(token, input.owner, input.repo);
       if (Object.keys(files).length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
