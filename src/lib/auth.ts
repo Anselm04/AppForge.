@@ -272,6 +272,9 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
 
 /**
  * Complete Supabase's email-confirmation implicit redirect.
+ * Direct /auth/v1/signup confirmations return access/refresh tokens in the URL
+ * fragment. Previously /login ignored them, so a correctly confirmed account
+ * still looked signed out and testers were sent back through login again.
  */
 export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   if (typeof window === "undefined") return null;
@@ -280,7 +283,9 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   const search = new URLSearchParams(window.location.search);
   const errorDescription =
     hash.get("error_description") || search.get("error_description");
-  if (errorDescription) throw new Error(errorDescription);
+  if (errorDescription) {
+    throw new Error(errorDescription);
+  }
 
   const accessToken = hash.get("access_token") || search.get("access_token");
   const refreshToken = hash.get("refresh_token") || search.get("refresh_token");
@@ -298,6 +303,7 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   saveSession(session);
   await syncServerSession(accessToken);
 
+  // Remove credentials from browser history immediately after consuming them.
   const cleanUrl = `${window.location.pathname}${window.location.search
     .replace(/([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g, "$1")
     .replace(/[?&]$/, "")}`;
