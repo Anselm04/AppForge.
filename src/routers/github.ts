@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getGithubConnection, getProjectById, getProjectFiles } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
+import { createGithubOAuthState } from "../lib/githubOAuthState.js";
 
 async function fetchRepoFiles(
   token: string,
@@ -96,11 +97,15 @@ export const githubRouter = router({
   connectUrl: protectedProcedure.query(({ ctx }) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
     if (!clientId) return { url: null };
-    const state = Buffer.from(JSON.stringify({ userId: ctx.user.id })).toString(
-      "base64",
-    );
-    const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=repo&state=${state}`;
-    return { url };
+    const state = createGithubOAuthState(ctx.user.id);
+    const params = new URLSearchParams({
+      client_id: clientId,
+      scope: "repo",
+      state,
+    });
+    return {
+      url: `https://github.com/login/oauth/authorize?${params.toString()}`,
+    };
   }),
 
   pushToRepo: protectedProcedure

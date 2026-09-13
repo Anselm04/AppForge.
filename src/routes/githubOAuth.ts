@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { upsertGithubConnection } from "../db.js";
 import { logger } from "../_core/logger.js";
+import { verifyGithubOAuthState } from "../lib/githubOAuthState.js";
 
 const router = Router();
 
@@ -41,18 +42,9 @@ router.get("/callback", async (req: Request, res: Response) => {
     return;
   }
 
-  let userId: number;
-  try {
-    const state = JSON.parse(
-      Buffer.from(stateRaw, "base64").toString("utf8"),
-    ) as {
-      userId?: number;
-    };
-    if (!state.userId || !Number.isFinite(state.userId)) {
-      throw new Error("invalid state userId");
-    }
-    userId = state.userId;
-  } catch {
+  const userId = verifyGithubOAuthState(stateRaw);
+  if (!userId) {
+    logger.warn({}, "github_oauth_invalid_or_expired_state");
     res.redirect(`${base}/dashboard?github=invalid_state`);
     return;
   }
