@@ -329,8 +329,8 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   return session;
 }
 
-export async function signUp(email: string, password: string) {
-  const result = await supabaseClient.signUp(email, password);
+export async function signUp(email: string, password: string, next = "/") {
+  const result = await supabaseClient.signUp(email, password, next);
   if (result.error) throw new Error(result.error.message);
   const session = sessionFromAuth(result);
   if (session) {
