@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const route = readFileSync(
+const createRoute = readFileSync(
+  resolve(process.cwd(), "src/routers/projects.ts"),
+  "utf8",
+);
+const streamRoute = readFileSync(
   resolve(process.cwd(), "src/routes/build.ts"),
   "utf8",
 );
@@ -12,16 +16,25 @@ const worker = readFileSync(
 );
 
 describe("build reservation contract", () => {
-  it("passes the actual charge state from route to worker", () => {
-    expect(route).toContain("const reservationCharged = !unlimited");
-    expect(route).toContain("if (reservationCharged)");
-    expect(route).toContain("reservationCharged,");
+  it("passes the actual charge state from project creation to worker", () => {
+    expect(createRoute).toContain("const reservationCharged = !unlimited");
+    expect(createRoute).toContain("if (reservationCharged)");
+    expect(createRoute).toContain("reservationCharged,");
     expect(worker).toContain("reservationCharged: boolean");
   });
 
   it("keeps unlimited and lifetime builds uncharged", () => {
-    expect(route).toContain('credits.tier === "lifetime"');
-    expect(route).toContain("const reservationCharged = !unlimited");
+    expect(createRoute).toContain('credits.tier === "lifetime"');
+    expect(createRoute).toContain("const reservationCharged = !unlimited");
+  });
+
+  it("keeps the SSE endpoint read-only for normal builds", () => {
+    const ordinaryBuildRoute = streamRoute.split(
+      "/** SSE endpoint for Senior Dev Agent",
+    )[0];
+    expect(ordinaryBuildRoute).not.toContain("claimProjectBuildStart");
+    expect(ordinaryBuildRoute).not.toContain("deductCredits(");
+    expect(ordinaryBuildRoute).not.toContain("enqueueBuild(");
   });
 
   it("treats the upfront reservation as full authorization for pipeline phases", () => {

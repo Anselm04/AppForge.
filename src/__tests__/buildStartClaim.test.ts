@@ -10,7 +10,11 @@ const queue = readFileSync(
   resolve(process.cwd(), "src/services/build-queue.ts"),
   "utf8",
 );
-const route = readFileSync(
+const createRoute = readFileSync(
+  resolve(process.cwd(), "src/routers/projects.ts"),
+  "utf8",
+);
+const streamRoute = readFileSync(
   resolve(process.cwd(), "src/routes/build.ts"),
   "utf8",
 );
@@ -25,27 +29,40 @@ describe("concurrent build start protection", () => {
   });
 
   it("keeps explicitly user-cancelled paused projects non-startable", () => {
-    expect(claim).toContain('ne(schema.projects.pauseReason, "user_cancelled")');
-    expect(claim).toContain('ne(schema.projects.pauseReason, "user-cancelled")');
+    expect(claim).toContain(
+      'ne(schema.projects.pauseReason, "user_cancelled")',
+    );
+    expect(claim).toContain(
+      'ne(schema.projects.pauseReason, "user-cancelled")',
+    );
   });
 
-  it("requires the route to claim before charging or enqueueing", () => {
-    expect(route).toContain('from "../services/build-claim.js"');
-    expect(route).toContain("await claimProjectBuildStart(projectId, user.id)");
+  it("requires project creation to claim before charging or enqueueing", () => {
+    expect(createRoute).toContain('await import("../services/build-claim.js")');
+    expect(createRoute).toContain(
+      "await claimProjectBuildStart(id, ctx.user.id)",
+    );
     expect(
-      route.indexOf("claimProjectBuildStart(projectId, user.id)"),
-    ).toBeLessThan(route.indexOf("await deductCredits(user.id, BUILD_COST"));
-    expect(route).toContain("releaseProjectBuildClaim(");
-    expect(route).toContain("build-start-refund-");
+      createRoute.indexOf("claimProjectBuildStart(id, ctx.user.id)"),
+    ).toBeLessThan(
+      createRoute.indexOf("await deductCredits(\n            ctx.user.id"),
+    );
+    expect(createRoute).toContain("releaseProjectBuildClaim(");
+    expect(createRoute).toContain("projects-create-refund-");
+    expect(createRoute).toContain("await enqueueBuild({");
   });
 
-  it("rejects a stale simultaneous starter instead of replaying old SSE history", () => {
-    expect(route).toContain("if (!claimed)");
-    expect(route).toContain('error: "build_already_started"');
+  it("keeps the normal SSE endpoint from starting or charging builds", () => {
+    const ordinaryBuildRoute = streamRoute.split(
+      "/** SSE endpoint for Senior Dev Agent",
+    )[0];
+    expect(ordinaryBuildRoute).not.toContain("claimProjectBuildStart");
+    expect(ordinaryBuildRoute).not.toContain("deductCredits(");
+    expect(ordinaryBuildRoute).not.toContain("enqueueBuild(");
   });
 
   it("deduplicates every queue backend and refunds a duplicate paid reservation", () => {
-    expect(queue).toContain('jobId: `build-${job.projectId}`');
+    expect(queue).toContain("jobId: `build-${job.projectId}`");
     expect(queue).toContain("NX: true");
     expect(queue).toContain("memoryQueuedProjects.has(job.projectId)");
     expect(queue).toContain("if (!job.reservationCharged) return");

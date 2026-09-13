@@ -136,6 +136,16 @@ async function syncServerSession(accessToken: string): Promise<void> {
   }
 }
 
+async function syncServerSessionBestEffort(accessToken: string): Promise<void> {
+  try {
+    await syncServerSession(accessToken);
+  } catch {
+    // The SPA authenticates protected API calls with the validated Supabase
+    // bearer token. A transient cookie/CSRF sync failure must not turn a valid
+    // Supabase login or refresh into a false "sign-in failed" result.
+  }
+}
+
 async function clearServerSession(accessToken?: string): Promise<void> {
   try {
     const headers = await withCsrfHeaders(
@@ -222,7 +232,7 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       });
       if (!next || generationAtStart !== sessionGeneration) return null;
       saveSession(next);
-      await syncServerSession(next.accessToken);
+      await syncServerSessionBestEffort(next.accessToken);
       return next;
     } catch {
       return null;
@@ -254,7 +264,7 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!accessTokenExpired(session.accessToken)) {
-    void syncServerSession(session.accessToken).catch(() => undefined);
+    void syncServerSessionBestEffort(session.accessToken);
     return session;
   }
 
@@ -306,7 +316,7 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   };
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSession(accessToken);
+  await syncServerSessionBestEffort(accessToken);
 
   // Remove credentials from browser history immediately after consuming them.
   const cleanUrl = `${window.location.pathname}${window.location.search
@@ -326,7 +336,7 @@ export async function signUp(email: string, password: string) {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSession(session.accessToken);
+    await syncServerSessionBestEffort(session.accessToken);
   }
   return result;
 }
@@ -342,6 +352,6 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSession(session.accessToken);
+  await syncServerSessionBestEffort(session.accessToken);
   return session;
 }
