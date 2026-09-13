@@ -51,9 +51,15 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
     res.setHeader("X-Robots-Tag", "noindex");
     res.setHeader(
       "Content-Security-Policy",
-      "sandbox allow-scripts allow-forms allow-modals allow-popups allow-same-origin",
+      // Generated code is untrusted. Do NOT grant allow-same-origin here: doing
+      // so together with allow-scripts would let a generated app run with the
+      // AppForge origin and call authenticated /api routes using the viewer's
+      // cookies. Keeping the sandbox on an opaque origin isolates customer apps
+      // while still allowing scripts/forms/modals/popups inside the preview.
+      "sandbox allow-scripts allow-forms allow-modals allow-popups",
     );
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
 
     const rel = decodeURIComponent((req.path || "/").replace(/^\//, ""));
     if (!rel || rel === "index.html") {
