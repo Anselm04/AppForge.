@@ -220,6 +220,9 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       await syncServerSession(next.accessToken);
       return next;
     } catch {
+      // Do not destroy a browser session because of a transient network or
+      // server-session handoff error. Callers can surface the request failure
+      // and retry without bouncing the user back to the login screen.
       return null;
     } finally {
       if (generationAtStart === sessionGeneration) {
@@ -247,8 +250,16 @@ function accessTokenExpired(token: string, skewMs = 30_000): boolean {
 export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const session = getSession();
   if (!session) return null;
+
+  if (!accessTokenExpired(session.accessToken)) {
+    // Re-establish the HttpOnly server-side session opportunistically. The
+    // bearer token remains the source of truth for API/SSE requests, so a
+    // temporary cookie-sync failure must not log the user out.
+    void syncServerSession(session.accessToken).catch(() => undefined);
+    return session;
+  }
+
   if (!session.refreshToken) return session;
-  if (!accessTokenExpired(session.accessToken)) return session;
 
   const generationAtStart = sessionGeneration;
   const refreshed = await refreshSession();
@@ -256,8 +267,10 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
 
   if (generationAtStart !== sessionGeneration) return getSession();
 
-  signOut();
-  return null;
+  // Keep the local session instead of force-signing-out on an ambiguous
+  // refresh failure. The next authenticated request will either succeed after
+  // recovery or return a real 401 that the UI can report explicitly.
+  return getSession();
 }
 
 /**
