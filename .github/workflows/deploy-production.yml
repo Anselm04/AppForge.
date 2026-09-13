@@ -1,7 +1,9 @@
 name: Deploy Production
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -14,15 +16,29 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
+  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   validate:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     name: Validate release
     environment: production
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+      - name: Verify exact release SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [ "$ACTUAL_SHA" != "$RELEASE_SHA" ]; then
+            echo "Release SHA mismatch: expected $RELEASE_SHA, got $ACTUAL_SHA"
+            exit 1
+          fi
+          echo "Verified release SHA $RELEASE_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -79,6 +95,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+      - name: Verify exact deploy SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [ "$ACTUAL_SHA" != "$RELEASE_SHA" ]; then
+            echo "Deploy SHA mismatch: expected $RELEASE_SHA, got $ACTUAL_SHA"
+            exit 1
+          fi
+          echo "Deploying verified SHA $RELEASE_SHA"
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - name: Require Fly production token
         env:
