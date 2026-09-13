@@ -6,7 +6,7 @@
 // 2. Install dependencies (npm install)
 // 3. Type-check (tsc --noEmit)
 // 4. Run any generated tests (npm test)
-// 5. Start the dev server and hit /health (optional)
+// 5. Start the built web app and verify a real HTTP response
 // 6. Return a pass/fail report with specific errors
 //
 // If validation FAILS, the pipeline will feed the errors back to the LLM
@@ -16,6 +16,7 @@ import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
+import { createServer } from "net";
 import { npmCacheEnv } from "../services/buildCache.js";
 import { validateWithDocker } from "../lib/dockerValidator.js";
 
@@ -72,6 +73,90 @@ function runCommand(
       resolve({ exitCode: code ?? 1, stdout, stderr, timedOut: false });
     });
   });
+}
+
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Unable to allocate validation port"));
+        return;
+      }
+      const port = address.port;
+      server.close((err) => (err ? reject(err) : resolve(port)));
+    });
+  });
+}
+
+async function verifyViteRuntime(cwd: string): Promise<{
+  passed: boolean;
+  error?: string;
+}> {
+  const port = await getFreePort();
+  const child = spawn(
+    "npx",
+    [
+      "vite",
+      "preview",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(port),
+      "--strictPort",
+    ],
+    {
+      cwd,
+      shell: false,
+      env: { ...process.env, NODE_ENV: "production" },
+    },
+  );
+
+  let output = "";
+  child.stdout?.on("data", (d) => (output += d.toString()));
+  child.stderr?.on("data", (d) => (output += d.toString()));
+
+  const url = `http://127.0.0.1:${port}/`;
+  const deadline = Date.now() + 20_000;
+  try {
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) {
+        return {
+          passed: false,
+          error: `Generated app exited before becoming reachable: ${output.slice(-500)}`,
+        };
+      }
+      try {
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(2_000),
+          redirect: "follow",
+        });
+        const body = await res.text();
+        if (res.status >= 200 && res.status < 400 && body.trim().length > 0) {
+          return { passed: true };
+        }
+        if (res.status >= 400) {
+          return {
+            passed: false,
+            error: `Generated app returned HTTP ${res.status} during runtime validation`,
+          };
+        }
+      } catch {
+        // Server may still be starting; retry until the deadline.
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    return {
+      passed: false,
+      error: `Generated app did not become reachable within 20 seconds: ${output.slice(-500)}`,
+    };
+  } finally {
+    if (child.exitCode === null) child.kill("SIGTERM");
+  }
 }
 
 /** Quick pre-flight: does npm respond at all in this environment? */
@@ -413,7 +498,11 @@ export async function validateGeneratedBuild(
       }
     }
 
-    if (files["vite.config.ts"] || files["vite.config.js"] || hasPackageJson) {
+    const shouldRunVite =
+      !!files["vite.config.ts"] ||
+      !!files["vite.config.js"] ||
+      !!files["index.html"];
+    if (shouldRunVite || hasPackageJson) {
       const buildResult = await runCommand(
         "npx",
         ["vite", "build"],
@@ -432,10 +521,24 @@ export async function validateGeneratedBuild(
           warning: "Vite build failed. Likely import errors or missing files.",
         };
       }
+
+      const runtime = await verifyViteRuntime(tmpDir);
+      if (!runtime.passed) {
+        errors.push(runtime.error || "Generated app failed runtime verification");
+        return {
+          passed: false,
+          stage: "runtime",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Generated web app built successfully but did not boot into a reachable working page. Errors will be fed back for automatic repair.",
+        };
+      }
     }
 
     let warning =
-      "LLM-generated code passed basic validation. ALWAYS review manually before production use.";
+      "LLM-generated code passed install, typecheck, tests, build, and runtime boot validation. Review business logic before production use.";
 
     if (options.validateBilling) {
       const { validateBillingScaffold } =
