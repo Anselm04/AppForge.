@@ -76,7 +76,10 @@ router.post("/extract", async (req: Request, res: Response) => {
     const requirements = await aiService.extractRequirements(prompt);
     res.json({ success: true, data: requirements });
   } catch (error) {
-    logger.error({ error, userId: req.user?.id }, "ai_extract_requirements_failed");
+    logger.error(
+      { error, userId: req.user?.id },
+      "ai_extract_requirements_failed",
+    );
     res
       .status(500)
       .json({ success: false, error: "Failed to extract requirements" });
@@ -96,8 +99,7 @@ router.post("/clarify", async (req: Request, res: Response) => {
       });
     }
     const { requirements } = validation.data;
-    const questions =
-      await aiService.generateClarificationQuestions(requirements);
+    const questions = await aiService.generateClarificationQuestions(requirements);
     res.json({ success: true, data: questions });
   } catch (error) {
     logger.error(
