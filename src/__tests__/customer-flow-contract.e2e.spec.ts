@@ -32,6 +32,18 @@ describe("critical customer flow contract", () => {
     );
   });
 
+  it("keeps confirmed users authenticated across refresh/reopen with token refresh", () => {
+    const auth = source("../lib/auth.ts");
+
+    expect(auth).toContain('const SESSION_KEY = "appforge.session"');
+    expect(auth).toContain("refreshToken?: string;");
+    expect(auth).toContain("export async function refreshSession");
+    expect(auth).toContain("await supabaseClient.refreshSession(current.refreshToken!)");
+    expect(auth).toContain("saveSession(next);");
+    expect(auth).toContain("export async function ensureFreshSession");
+    expect(auth).toContain("signOut();");
+  });
+
   it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {
     const pricing = source("../pages/Pricing.tsx");
     const subscriptions = source("../routers/subscriptions.ts");
@@ -49,6 +61,22 @@ describe("critical customer flow contract", () => {
     expect(admin).toContain("found.redeemedAt ||");
     expect(admin).toContain("eq(schema.godCodes.isUsed, false)");
     expect(admin).toContain("redeemedByUserId: ctx.user.id");
+  });
+
+  it("processes each Stripe webhook event at most once", () => {
+    const webhook = source("../webhooks/stripe.ts");
+    const ledger = source("../services/stripeEventLedger.ts");
+
+    expect(webhook).toContain("processStripeEventOnce");
+    expect(ledger).toContain("pg_advisory_xact_lock");
+    expect(ledger).toContain("FROM stripe_webhook_events");
+    expect(ledger).toContain("INSERT INTO stripe_webhook_events");
+    expectInOrder(ledger, [
+      "pg_advisory_xact_lock",
+      "FROM stripe_webhook_events",
+      "await handler();",
+      "INSERT INTO stripe_webhook_events",
+    ]);
   });
 
   it("pins unique production Stripe prices and one production Supabase target", () => {
@@ -107,7 +135,7 @@ describe("critical customer flow contract", () => {
     expect(pipeline).toContain('status: "completed"');
   });
 
-  it("requires a real production URL and post-deploy smoke proof", () => {
+  it("requires root content plus same-origin JS/CSS assets before production success", () => {
     const autoDeploy = source("../services/productionAutoDeploy.ts");
     const health = source("../services/deployHealth.ts");
 
@@ -115,6 +143,8 @@ describe("critical customer flow contract", () => {
     expect(autoDeploy).toContain("liveUrl");
     expect(health).toContain("Empty response body");
     expect(health).toContain("probeDeployUrl(base, 15_000, true)");
+    expect(health).toContain("probeGeneratedProductAssets");
+    expect(health).toContain("assets.some((asset) => !asset.result.ok)");
   });
 
   it("opens only the verified live generated product after terminal success", () => {
