@@ -62,8 +62,66 @@ describe("production deployment health gate", () => {
 
     expect(result.ok).toBe(true);
     expect(result.root.statusCode).toBe(200);
+    expect(result.assets).toEqual([]);
     expect(result.health).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires same-origin JavaScript and CSS referenced by the live app to load", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://generated.example.test") {
+        return new Response(
+          '<html><head><link rel="stylesheet" href="/assets/app.css"></head><body><script type="module" src="/assets/app.js"></script></body></html>',
+          { status: 200 },
+        );
+      }
+      if (
+        url === "https://generated.example.test/assets/app.css" ||
+        url === "https://generated.example.test/assets/app.js"
+      ) {
+        return new Response("asset", { status: 200 });
+      }
+      if (url === "https://generated.example.test/health") {
+        return new Response("not found", { status: 404 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.assets).toHaveLength(2);
+    expect(result.assets.every((asset) => asset.result.ok)).toBe(true);
+  });
+
+  it("rejects a generated product whose referenced JavaScript bundle is missing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://generated.example.test") {
+        return new Response(
+          '<html><body><script type="module" src="/assets/app.js"></script></body></html>',
+          { status: 200 },
+        );
+      }
+      if (url === "https://generated.example.test/assets/app.js") {
+        return new Response("not found", { status: 404 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.root.ok).toBe(true);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0].result.statusCode).toBe(404);
   });
 
   it("fails when an advertised health endpoint is unavailable", async () => {
