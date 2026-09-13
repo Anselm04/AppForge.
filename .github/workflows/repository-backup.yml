@@ -1,0 +1,94 @@
+name: Repository Backup & Restore Drill
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-backup
+  cancel-in-progress: false
+
+jobs:
+  backup-and-verify:
+    name: Create and verify recoverable repository snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout complete repository history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Create recovery bundle and source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovery
+
+          git fsck --full
+          git bundle create recovery/appforge-repository.bundle --all
+          git archive --format=tar.gz --output=recovery/appforge-source-${GITHUB_SHA}.tar.gz HEAD
+
+          git rev-parse HEAD > recovery/HEAD.sha
+          git show -s --format='%H%n%cI%n%s' HEAD > recovery/HEAD.txt
+          git show-ref > recovery/refs.txt
+          git bundle list-heads recovery/appforge-repository.bundle > recovery/bundle-heads.txt
+
+          cat > recovery/RECOVERY-MANIFEST.txt <<EOF
+          repository=${GITHUB_REPOSITORY}
+          backup_sha=${GITHUB_SHA}
+          workflow_run=${GITHUB_RUN_ID}
+          workflow_attempt=${GITHUB_RUN_ATTEMPT}
+          created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
+          (
+            cd recovery
+            sha256sum appforge-repository.bundle appforge-source-${GITHUB_SHA}.tar.gz HEAD.sha HEAD.txt refs.txt bundle-heads.txt RECOVERY-MANIFEST.txt > SHA256SUMS
+          )
+
+      - name: Verify backup integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd recovery
+            sha256sum --check SHA256SUMS
+          )
+          git bundle verify recovery/appforge-repository.bundle
+
+      - name: Rehearse clean restore from bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/appforge-restore-test
+          git clone recovery/appforge-repository.bundle /tmp/appforge-restore-test
+          cd /tmp/appforge-restore-test
+          git fsck --full
+          restored_sha="$(git rev-parse HEAD)"
+          expected_sha="${GITHUB_SHA}"
+          if [ "$restored_sha" != "$expected_sha" ]; then
+            echo "Restore rehearsal SHA mismatch: expected $expected_sha, got $restored_sha"
+            exit 1
+          fi
+          test -s package.json
+          test -s package-lock.json
+          test -d .github/workflows
+          echo "Verified clean restore at exact SHA $restored_sha"
+
+      - name: Upload verified recovery snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: appforge-recovery-${{ github.sha }}
+          path: recovery/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
