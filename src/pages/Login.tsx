@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { signIn } from "../lib/auth.js";
+import { completeAuthRedirect, signIn } from "../lib/auth.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { LogoLockup } from "../components/brand/LogoMark.js";
@@ -36,6 +36,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [completingConfirmation, setCompletingConfirmation] = useState(false);
 
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
@@ -50,10 +51,49 @@ export function Login() {
   });
 
   useEffect(() => {
-    if (me) {
+    let cancelled = false;
+    const completeConfirmation = async () => {
+      if (typeof window === "undefined") return;
+      const hasAuthRedirect =
+        window.location.hash.includes("access_token=") ||
+        window.location.search.includes("access_token=") ||
+        window.location.hash.includes("error_description=") ||
+        window.location.search.includes("error_description=");
+      if (!hasAuthRedirect) return;
+
+      setCompletingConfirmation(true);
+      setError(null);
+      try {
+        const session = await completeAuthRedirect();
+        if (!session || cancelled) return;
+        const meNow = await trpc.auth.me.query();
+        if (cancelled) return;
+        queryClient.setQueryData(["auth", "me"], meNow);
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        if (!cancelled) navigate(next, { replace: true });
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Account confirmation could not be completed.",
+          );
+        }
+      } finally {
+        if (!cancelled) setCompletingConfirmation(false);
+      }
+    };
+    void completeConfirmation();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, next, queryClient]);
+
+  useEffect(() => {
+    if (me && !completingConfirmation) {
       navigate(next, { replace: true });
     }
-  }, [me, next, navigate]);
+  }, [me, completingConfirmation, next, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,6 +134,11 @@ export function Login() {
           <p className="text-forge-text-muted">{t("login.subtitle")}</p>
         </div>
         <GlassCard hover={false} padding="lg">
+          {completingConfirmation && (
+            <p className="text-sm text-forge-cyan mb-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-2">
+              Confirming your account and preparing AppForge access…
+            </p>
+          )}
           {(loginError || error) && (
             <p className="text-sm text-amber-600 dark:text-amber-300 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
               {error ||
@@ -125,8 +170,13 @@ export function Login() {
             <Button
               type="submit"
               className="w-full"
-              loading={pending}
-              disabled={pending || !email.trim() || password.length < 6}
+              loading={pending || completingConfirmation}
+              disabled={
+                pending ||
+                completingConfirmation ||
+                !email.trim() ||
+                password.length < 6
+              }
             >
               {pending ? t("login.pending") : t("login.submit")}
             </Button>
