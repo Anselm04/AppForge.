@@ -12,6 +12,10 @@ on:
         required: true
         default: false
         type: boolean
+      god_code_otp:
+        description: "When use_god_code=true, enter the real six-digit SMS OTP obtained immediately beforehand from the AppForge Redeem flow"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -39,6 +43,8 @@ jobs:
           APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
           APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_CANARY_GOD_CODE: ${{ secrets.APPFORGE_CANARY_GOD_CODE }}
+          APPFORGE_CANARY_GOD_CODE_PHONE: ${{ secrets.APPFORGE_CANARY_GOD_CODE_PHONE }}
+          APPFORGE_CANARY_GOD_CODE_OTP: ${{ inputs.god_code_otp }}
           USE_GOD_CODE: ${{ inputs.use_god_code }}
         shell: bash
         run: |
@@ -47,6 +53,8 @@ jobs:
           test -n "$APPFORGE_CANARY_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
           if [ "$USE_GOD_CODE" = "true" ]; then
             test -n "$APPFORGE_CANARY_GOD_CODE" || { echo "Missing APPFORGE_CANARY_GOD_CODE production secret"; exit 1; }
+            test -n "$APPFORGE_CANARY_GOD_CODE_PHONE" || { echo "Missing APPFORGE_CANARY_GOD_CODE_PHONE production secret"; exit 1; }
+            echo "$APPFORGE_CANARY_GOD_CODE_OTP" | grep -Eq '^[0-9]{6}$' || { echo "A fresh real six-digit Twilio OTP is required for God Code certification"; exit 1; }
           fi
 
       - name: Verify critical live integrations before customer journey
@@ -63,6 +71,8 @@ jobs:
           APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_CANARY_HCAPTCHA_TOKEN: ${{ inputs.hcaptcha_token }}
           APPFORGE_CANARY_GOD_CODE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE || '' }}
+          APPFORGE_CANARY_GOD_CODE_PHONE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE_PHONE || '' }}
+          APPFORGE_CANARY_GOD_CODE_OTP: ${{ inputs.use_god_code && inputs.god_code_otp || '' }}
         run: node scripts/production-customer-canary.mjs
 
       - name: Record certification scope
@@ -75,6 +85,10 @@ jobs:
           requires a real authenticated entitlement, the real project-create mutation, the
           real build queue/agents, real validation, real production deployment, and opens the
           generated product plus its JS/CSS assets.
+
+          When the owner God Code branch is selected, it now requires the real production phone
+          secret plus a fresh real six-digit Twilio SMS OTP. The workflow will not certify that
+          branch using a God Code alone.
 
           Email-confirmation inbox clicking is intentionally NOT claimed by this workflow.
           That step requires a controlled real mailbox/inbox integration callable from CI.
