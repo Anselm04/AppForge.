@@ -101,6 +101,26 @@ Verification target:
 - Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
 - Health/readiness/auth-boundary smoke verification.
 
+## Build queue and customer credit recovery
+
+Must be recoverable:
+- Build reservation state recorded in the credit ledger.
+- Attempt identity (`projectId` + queued `createdAt`) used by build refund idempotency keys.
+- Persisted build events required to replay terminal `done`/`error` state after reconnects or worker restarts.
+- BullMQ/Redis configuration needed for distributed builds, with Redis-list and in-memory degraded-mode behavior documented in source.
+
+Recovery invariants:
+- A failed or incomplete paid build refunds the original reservation with an attempt-specific idempotency key.
+- Duplicate queue admission refunds only the duplicate reservation and must not affect the active build reservation.
+- If a duplicate job reaches a worker while the same project is already active, the worker uses the same duplicate-refund idempotency key as queue admission before returning. This prevents queue/worker races from stranding or double-refunding credits.
+- Terminal build events are persisted before publication so a reconnect can recover the final result even if Redis pub/sub delivery was missed.
+- Retry/recovery must never infer billing from the user's current entitlement; it must use the reservation state of the original attempt.
+
+Verification target:
+- Exercise duplicate admission through BullMQ, Redis-list fallback, and memory fallback and confirm one active build plus exactly-once duplicate refunds.
+- Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
+- Exercise disconnect/reconnect around terminal publication and confirm persisted terminal replay without duplicate execution or charging.
+
 ## Stripe
 
 Must be recoverable:
