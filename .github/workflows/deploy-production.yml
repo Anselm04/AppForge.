@@ -54,6 +54,8 @@ jobs:
       - name: Block vulnerable production dependencies
         run: npm audit --omit=dev --audit-level=moderate
       - run: npm run build
+      - name: Verify production Docker builder matches release
+        run: docker build --target builder --pull --no-cache -t "appforge-release-builder:${RELEASE_SHA}" .
       - name: Require pinned production public configuration
         run: |
           set -euo pipefail
