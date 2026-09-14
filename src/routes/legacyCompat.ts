@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getProjectsByUserId, ensureUserCredits } from "../db.js";
 import { logger } from "../_core/logger.js";
+import { parsePositiveIntParam } from "../lib/httpParams.js";
 
 const appsCompatRouter = Router();
 const billingCompatRouter = Router();
@@ -31,8 +32,8 @@ appsCompatRouter.get("/:id", async (req: Request, res: Response) => {
   if (!user) return;
   try {
     const { getProjectById } = await import("../db.js");
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) {
+    const id = parsePositiveIntParam(req.params.id);
+    if (id === null) {
       res.status(400).json({ error: "Invalid id" });
       return;
     }
