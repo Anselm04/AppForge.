@@ -92,9 +92,13 @@ Must be recoverable:
 - Required secret-name inventory.
 - Deployment/release history sufficient to identify a known-good version.
 - Independent record of a known-good production image/release where feasible.
+- Production `Dockerfile` and build contract used by Fly remote builds.
+- Dependency manifest/lockfile parity required to reproduce the same production builder environment from a trusted SHA.
 
 Verification target:
 - Recreate/redeploy exact trusted SHA.
+- Rebuild the production Docker builder stage from the trusted SHA before deployment and require it to succeed without relying on developer-machine `node_modules` state.
+- Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
 - Health/readiness/auth-boundary smoke verification.
 
 ## Stripe
