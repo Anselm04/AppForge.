@@ -7,12 +7,21 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
+const MAX_INTEGRATION_REQUEST_BYTES = 500_000;
+const MAX_INTEGRATION_RESPONSE_BYTES = 1_000_000;
+
 function value(name: string): string {
   return process.env[name]?.trim() || "";
 }
 
 function requireHttpsInProduction(url: string): URL {
   const parsed = new URL(url);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error("Integration endpoints must use HTTP or HTTPS");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("Integration endpoints may not embed credentials in URLs");
+  }
   if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
     throw new Error("Production integration endpoints must use HTTPS");
   }
@@ -23,17 +32,41 @@ async function requestJson(url: string, options: RequestOptions = {}) {
   const parsed = requireHttpsInProduction(url);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
+  const serializedBody =
+    options.body === undefined ? undefined : JSON.stringify(options.body);
+  if (
+    serializedBody !== undefined &&
+    Buffer.byteLength(serializedBody, "utf8") > MAX_INTEGRATION_REQUEST_BYTES
+  ) {
+    clearTimeout(timeout);
+    throw new Error("Integration request payload is too large");
+  }
 
   try {
     const response = await fetch(parsed, {
       method: options.method ?? "GET",
-      headers: options.headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers: {
+        accept: "application/json, text/plain;q=0.9",
+        ...options.headers,
+      },
+      body: serializedBody,
       signal: controller.signal,
       redirect: "manual",
     });
 
-    const raw = await response.text();
+    const declaredLength = Number(response.headers.get("content-length") || "0");
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > MAX_INTEGRATION_RESPONSE_BYTES
+    ) {
+      throw new Error("Integration response is too large");
+    }
+
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_INTEGRATION_RESPONSE_BYTES) {
+      throw new Error("Integration response is too large");
+    }
+    const raw = new TextDecoder().decode(bytes);
     let data: unknown = null;
     if (raw) {
       try {
