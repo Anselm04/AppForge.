@@ -23,7 +23,10 @@ import {
   SENIOR_DEV_CREDIT_COST,
   creditsExhaustedBody,
 } from "../lib/credits.js";
-import { parsePositiveIntParam } from "../lib/httpParams.js";
+import {
+  parsePositiveIntParam,
+  parsePositiveSafeInteger,
+} from "../lib/httpParams.js";
 import {
   runSeniorDevAgent,
   resumeAfterApproval,
@@ -517,9 +520,9 @@ router.post("/deploy", async (req: Request, res: Response) => {
     return;
   }
 
-  const { projectId } = req.body as { projectId: number };
-  if (!projectId) {
-    res.status(400).json({ error: "projectId required" });
+  const projectId = parsePositiveSafeInteger((req.body as { projectId?: unknown })?.projectId);
+  if (projectId === null) {
+    res.status(400).json({ error: "Valid projectId required" });
     return;
   }
 
