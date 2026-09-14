@@ -155,9 +155,11 @@ describe("critical customer flow contract", () => {
     expectInOrder(worker, [
       "await runAgentPipeline(",
       'const passed = updated?.status === "completed";',
-      "const deployed = await deployValidatedProject({",
+      "const deployed = await deployValidatedProjectWithRetry({",
       'await emit(projectId, "done", donePayload);',
     ]);
+    expect(worker).toContain("const DEPLOY_MAX_ATTEMPTS = 3;");
+    expect(worker).toContain("return await deployValidatedProject(input);");
     expect(worker).toContain('if (event === "done") {');
     expect(worker).toContain("pendingDone = data;");
     expect(worker).toContain('await refundReservation("Failed build")');
