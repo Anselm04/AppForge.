@@ -3,7 +3,7 @@ import { addCredits, db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 
-type LedgerEntry = {
+export type SeniorDevReservationLedgerEntry = {
   id: number;
   amount: number;
 };
@@ -12,7 +12,7 @@ async function getSeniorDevReservationLedger(
   userId: number,
   projectId: number,
   taskId: number,
-): Promise<LedgerEntry[]> {
+): Promise<SeniorDevReservationLedgerEntry[]> {
   const reservationPattern = `Senior Dev Agent reservation senior-dev-${taskId}-%`;
   const ledgerRefundPattern = `senior-dev-ledger-refund-${taskId}-%`;
   const legacyInitialRefundPattern = `senior-dev-refund-senior-dev-${taskId}-%`;
@@ -59,16 +59,14 @@ async function getSeniorDevReservationLedger(
 }
 
 /**
- * Returns the ledger id of the paid Senior Dev reservation that still needs a
- * refund. Charges and refunds are paired chronologically, so completed retries
- * cannot make an older refunded attempt look outstanding again.
+ * Pair reservation charges and refunds in ledger order and return the oldest
+ * charge that still needs refunding. Positive entries without an outstanding
+ * charge are ignored so duplicate/legacy refund rows cannot consume a future
+ * reservation attempt.
  */
-export async function getOutstandingSeniorDevReservationChargeId(
-  userId: number,
-  projectId: number,
-  taskId: number,
-): Promise<number | null> {
-  const entries = await getSeniorDevReservationLedger(userId, projectId, taskId);
+export function findOutstandingSeniorDevReservationChargeId(
+  entries: readonly SeniorDevReservationLedgerEntry[],
+): number | null {
   const outstanding: number[] = [];
 
   for (const entry of entries) {
@@ -82,6 +80,20 @@ export async function getOutstandingSeniorDevReservationChargeId(
   }
 
   return outstanding[0] ?? null;
+}
+
+/**
+ * Returns the ledger id of the paid Senior Dev reservation that still needs a
+ * refund. Charges and refunds are paired chronologically, so completed retries
+ * cannot make an older refunded attempt look outstanding again.
+ */
+export async function getOutstandingSeniorDevReservationChargeId(
+  userId: number,
+  projectId: number,
+  taskId: number,
+): Promise<number | null> {
+  const entries = await getSeniorDevReservationLedger(userId, projectId, taskId);
+  return findOutstandingSeniorDevReservationChargeId(entries);
 }
 
 export async function wasSeniorDevReservationCharged(
