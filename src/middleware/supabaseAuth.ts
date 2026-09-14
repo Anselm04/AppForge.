@@ -131,6 +131,32 @@ export async function supabaseAuthMiddleware(
       return next();
     }
 
+    // AppForge requires a confirmed email before a Supabase identity can become
+    // an authenticated AppForge user. This fails closed even if a Supabase
+    // project is accidentally configured to issue a session before confirmation.
+    const emailConfirmedAt =
+      data.user.email_confirmed_at ?? data.user.confirmed_at ?? null;
+    if (!emailConfirmedAt) {
+      logger.warn(
+        { supabaseUid: data.user.id },
+        "supabase_auth_email_confirmation_required",
+      );
+      res.clearCookie(ACCESS_COOKIE, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
+      if (isSessionEndpoint(req) && req.method === "POST") {
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(403).json({
+          error: "Email confirmation required",
+          code: "EMAIL_CONFIRMATION_REQUIRED",
+        });
+      }
+      return next();
+    }
+
     const supabaseUid = data.user.id;
     const email = (data.user.email ?? "").trim().toLowerCase();
     const name =
