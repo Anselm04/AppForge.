@@ -48,6 +48,14 @@ jobs:
           if [ "$USE_GOD_CODE" = "true" ]; then
             test -n "$APPFORGE_CANARY_GOD_CODE" || { echo "Missing APPFORGE_CANARY_GOD_CODE production secret"; exit 1; }
           fi
+
+      - name: Verify critical live integrations before customer journey
+        env:
+          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+        run: node scripts/production-integration-preflight.mjs
+
       - name: Run the real production customer journey
         env:
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
@@ -63,11 +71,13 @@ jobs:
         run: |
           cat <<'EOF'
           This workflow uses the real production AppForge URL, real Supabase authentication,
-          a real authenticated entitlement, the real project-create mutation, the real build
-          queue/agents, real validation, real production deployment, and opens the generated
-          product plus its JS/CSS assets.
+          verifies the critical Supabase/Stripe/Sprites-Fly runtime integrations first, then
+          requires a real authenticated entitlement, the real project-create mutation, the
+          real build queue/agents, real validation, real production deployment, and opens the
+          generated product plus its JS/CSS assets.
 
           Email-confirmation inbox clicking is intentionally NOT claimed by this workflow.
-          That step requires a controlled real mailbox/inbox integration. Until one is wired,
-          email confirmation remains a separately required real-browser release check.
+          That step requires a controlled real mailbox/inbox integration callable from CI.
+          Until that path is wired, email confirmation remains a separately required real-browser
+          release check rather than being simulated.
           EOF
