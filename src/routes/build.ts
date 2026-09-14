@@ -520,7 +520,9 @@ router.post("/deploy", async (req: Request, res: Response) => {
     return;
   }
 
-  const projectId = parsePositiveSafeInteger((req.body as { projectId?: unknown })?.projectId);
+  const projectId = parsePositiveSafeInteger(
+    (req.body as { projectId?: unknown })?.projectId,
+  );
   if (projectId === null) {
     res.status(400).json({ error: "Valid projectId required" });
     return;
