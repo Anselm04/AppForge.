@@ -1,0 +1,73 @@
+name: Production Full Customer Journey
+
+on:
+  workflow_dispatch:
+    inputs:
+      hcaptcha_token:
+        description: "Fresh real hCaptcha token obtained from the production project-create flow"
+        required: true
+        type: string
+      use_god_code:
+        description: "Redeem APPFORGE_CANARY_GOD_CODE during this real run (code must be unused)"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-full-customer-journey
+  cancel-in-progress: false
+
+jobs:
+  real-production-journey:
+    name: Real signup-to-live-product guardrail
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Require real canary credentials
+        env:
+          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+          APPFORGE_CANARY_GOD_CODE: ${{ secrets.APPFORGE_CANARY_GOD_CODE }}
+          USE_GOD_CODE: ${{ inputs.use_god_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APPFORGE_CANARY_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
+          test -n "$APPFORGE_CANARY_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
+          if [ "$USE_GOD_CODE" = "true" ]; then
+            test -n "$APPFORGE_CANARY_GOD_CODE" || { echo "Missing APPFORGE_CANARY_GOD_CODE production secret"; exit 1; }
+          fi
+      - name: Run the real production customer journey
+        env:
+          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+          APPFORGE_CANARY_HCAPTCHA_TOKEN: ${{ inputs.hcaptcha_token }}
+          APPFORGE_CANARY_GOD_CODE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE || '' }}
+        run: node scripts/production-customer-canary.mjs
+
+      - name: Record certification scope
+        if: always()
+        shell: bash
+        run: |
+          cat <<'EOF'
+          This workflow uses the real production AppForge URL, real Supabase authentication,
+          a real authenticated entitlement, the real project-create mutation, the real build
+          queue/agents, real validation, real production deployment, and opens the generated
+          product plus its JS/CSS assets.
+
+          Email-confirmation inbox clicking is intentionally NOT claimed by this workflow.
+          That step requires a controlled real mailbox/inbox integration. Until one is wired,
+          email confirmation remains a separately required real-browser release check.
+          EOF
