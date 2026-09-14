@@ -13,6 +13,10 @@ import {
 } from "../integrations/runtime.js";
 import { sendProjectToMarketing } from "../services/marketingBridge.js";
 import { logger } from "../_core/logger.js";
+import {
+  assertSafeExternalPayload,
+  ExternalPayloadGuardError,
+} from "../lib/externalPayloadGuard.js";
 
 const automationPayloadSchema = z
   .record(z.unknown())
@@ -25,6 +29,23 @@ const agentContextSchema = z
   .refine((context) => JSON.stringify(context).length <= 50_000, {
     message: "Agent task context is too large",
   });
+
+const supportContextSchema = z
+  .record(z.unknown())
+  .refine((context) => JSON.stringify(context).length <= 25_000, {
+    message: "Support context is too large",
+  });
+
+function guardOutboundPayload(value: unknown, label: string): void {
+  try {
+    assertSafeExternalPayload(value, label);
+  } catch (error) {
+    if (error instanceof ExternalPayloadGuardError) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+    }
+    throw error;
+  }
+}
 
 async function observeEcosystemAction(input: {
   event: string;
@@ -55,11 +76,17 @@ export const ecosystemRouter = router({
   runAutomation: protectedProcedure
     .input(
       z.object({
-        event: z.string().trim().min(1).max(64),
+        event: z
+          .string()
+          .trim()
+          .min(1)
+          .max(64)
+          .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, "Invalid automation event"),
         payload: automationPayloadSchema.default({}),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      guardOutboundPayload(input.payload, "Automation payload");
       try {
         const result = await runMakeWorkflow({
           event: input.event,
@@ -109,6 +136,7 @@ export const ecosystemRouter = router({
         }
       }
 
+      guardOutboundPayload(input.context, "Agent task context");
       try {
         const result = await runSpritesAgentTask({
           task: input.task,
@@ -204,10 +232,11 @@ export const ecosystemRouter = router({
     .input(
       z.object({
         message: z.string().trim().min(1).max(4_000),
-        context: z.record(z.unknown()).optional(),
+        context: supportContextSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      guardOutboundPayload(input.context ?? {}, "Support context");
       try {
         const result = await sendBubblaVSupportMessage({
           message: input.message,
