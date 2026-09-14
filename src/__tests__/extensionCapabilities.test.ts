@@ -5,7 +5,10 @@ import {
   EXTENSION_GENERATE_PROCEDURE,
   attachPrefixForKind,
 } from "../lib/extensionCapabilities.js";
-import { assertExtensionProcedureCoverage } from "../routers/extensionProcedures.js";
+import {
+  assertExtensionProcedureCoverage,
+  parseExtensionPlanJson,
+} from "../routers/extensionProcedures.js";
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 import { PLATFORM_FEATURE_MATRIX } from "../lib/platformComparison.js";
 
@@ -31,5 +34,20 @@ describe("extension capabilities", () => {
     );
     expect(extensionRows).toHaveLength(10);
     expect(extensionRows.every((r) => r.appforge === "studio")).toBe(true);
+  });
+
+  it("accepts structured JSON even when wrapped in model prose", () => {
+    expect(
+      parseExtensionPlanJson('Here is the plan:\n{"framework":"expo","platforms":["ios"]}'),
+    ).toEqual({ framework: "expo", platforms: ["ios"] });
+  });
+
+  it("fails closed when an extension generator returns malformed output", () => {
+    expect(() => parseExtensionPlanJson("not-json")).toThrow(
+      "AI returned an invalid structured extension plan.",
+    );
+    expect(() => parseExtensionPlanJson("   ")).toThrow(
+      "AI returned an empty extension plan.",
+    );
   });
 });
