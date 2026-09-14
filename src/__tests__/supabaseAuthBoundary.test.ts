@@ -18,9 +18,7 @@ describe("Supabase server authentication boundary", () => {
     expect(middleware).toContain("data.user.email_confirmed_at");
     expect(middleware).toContain("data.user.confirmed_at");
     expect(middleware).toContain('code: "EMAIL_CONFIRMATION_REQUIRED"');
-    expect(middleware).toContain(
-      '"supabase_auth_email_confirmation_required"',
-    );
+    expect(middleware).toContain('"supabase_auth_email_confirmation_required"');
   });
 
   it("never accepts access tokens from query parameters", () => {
