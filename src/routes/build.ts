@@ -23,6 +23,7 @@ import {
   SENIOR_DEV_CREDIT_COST,
   creditsExhaustedBody,
 } from "../lib/credits.js";
+import { parsePositiveIntParam } from "../lib/httpParams.js";
 import {
   runSeniorDevAgent,
   resumeAfterApproval,
@@ -42,8 +43,8 @@ const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
 
 /** SSE endpoint that only streams the existing multi-agent pipeline. */
 router.get("/:projectId", async (req: Request, res: Response) => {
-  const projectId = parseInt(req.params.projectId, 10);
-  if (Number.isNaN(projectId)) {
+  const projectId = parsePositiveIntParam(req.params.projectId);
+  if (projectId === null) {
     res.status(400).json({ error: "Invalid projectId" });
     return;
   }
@@ -152,8 +153,8 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 
 /** SSE endpoint for Senior Dev Agent: streams plan + execution + validation */
 router.get("/senior/:taskId", async (req: Request, res: Response) => {
-  const taskId = parseInt(req.params.taskId, 10);
-  if (Number.isNaN(taskId)) {
+  const taskId = parsePositiveIntParam(req.params.taskId);
+  if (taskId === null) {
     res.status(400).json({ error: "Invalid taskId" });
     return;
   }
@@ -374,8 +375,8 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
 
 /** Resume Senior Dev Agent after plan approval. The initial Senior Dev request already reserved the base credits, so resume must never require or deduct a second balance. */
 router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
-  const taskId = parseInt(req.params.taskId, 10);
-  if (Number.isNaN(taskId)) {
+  const taskId = parsePositiveIntParam(req.params.taskId);
+  if (taskId === null) {
     res.status(400).json({ error: "Invalid taskId" });
     return;
   }
