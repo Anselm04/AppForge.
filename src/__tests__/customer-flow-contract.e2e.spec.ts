@@ -76,11 +76,12 @@ describe("critical customer flow contract", () => {
     const checkout = source("../services/stripeCheckout.ts");
     const webhook = source("../webhooks/stripe.ts");
 
+    expect(checkout).toContain("const appUrl = requireAppUrl();");
     expect(checkout).toContain("client_reference_id: String(user.id)");
     expect(checkout).toContain("userId: String(user.id)");
     expect(checkout).toContain("subscription_data:");
     expect(checkout).toContain(
-      'success_url: `${APP_URL}/dashboard?checkout=success`',
+      'success_url: `${appUrl}/dashboard?checkout=success`',
     );
     expect(webhook).toContain("resolveCheckoutUserId(session)");
     expect(webhook).toContain(
