@@ -230,7 +230,9 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const generationAtStart = sessionGeneration;
   refreshInFlight = (async () => {
     try {
-      const result = await supabaseClient.refreshSession(current.refreshToken!);
+      const result = await supabaseClient.refreshSession(
+        current.refreshToken!,
+      );
       if (result.error || generationAtStart !== sessionGeneration) return null;
       const next = sessionFromAuth({
         access_token: result.access_token,
@@ -271,7 +273,10 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!accessTokenExpired(session.accessToken)) {
-    void syncServerSessionBestEffort(session.accessToken, session.refreshToken);
+    void syncServerSessionBestEffort(
+      session.accessToken,
+      session.refreshToken,
+    );
     return session;
   }
 
@@ -308,7 +313,8 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   }
 
   const accessToken = hash.get("access_token") || search.get("access_token");
-  const refreshToken = hash.get("refresh_token") || search.get("refresh_token");
+  const refreshToken =
+    hash.get("refresh_token") || search.get("refresh_token");
   if (!accessToken) return null;
 
   const user = jwtUser(accessToken);
@@ -321,7 +327,10 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   };
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(session.accessToken, session.refreshToken);
+  await syncServerSessionBestEffort(
+    session.accessToken,
+    session.refreshToken,
+  );
 
   const cleanUrl = `${window.location.pathname}${window.location.search
     .replace(
@@ -340,7 +349,10 @@ export async function signUp(email: string, password: string, next = "/") {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSessionBestEffort(session.accessToken, session.refreshToken);
+    await syncServerSessionBestEffort(
+      session.accessToken,
+      session.refreshToken,
+    );
   }
   return result;
 }
@@ -356,6 +368,9 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(session.accessToken, session.refreshToken);
+  await syncServerSessionBestEffort(
+    session.accessToken,
+    session.refreshToken,
+  );
   return session;
 }
