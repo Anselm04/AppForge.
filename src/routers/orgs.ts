@@ -14,6 +14,20 @@ function slugify(name: string): string {
     .slice(0, 48);
 }
 
+const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function normalizeOrganizationSlug(name: string, requested?: string): string {
+  const slug = slugify(requested?.trim() || name);
+  if (slug.length < 2 || !ORGANIZATION_SLUG_PATTERN.test(slug)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Organization name must produce a URL-safe slug with at least two letters or numbers.",
+    });
+  }
+  return slug;
+}
+
 export const orgsRouter = router({
   myOrgs: protectedProcedure.query(async ({ ctx }) => {
     const memberships = await db.query.organizationMembers.findMany({
@@ -29,12 +43,12 @@ export const orgsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(2).max(120),
-        slug: z.string().min(2).max(48).optional(),
+        name: z.string().trim().min(2).max(120),
+        slug: z.string().trim().min(2).max(48).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const slug = input.slug ?? slugify(input.name);
+      const slug = normalizeOrganizationSlug(input.name, input.slug);
       const existing = await db.query.organizations.findFirst({
         where: eq(schema.organizations.slug, slug),
       });
