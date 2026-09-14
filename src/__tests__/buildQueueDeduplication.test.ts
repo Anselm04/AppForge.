@@ -6,6 +6,10 @@ const queue = readFileSync(
   resolve(process.cwd(), "src/services/build-queue.ts"),
   "utf8",
 );
+const worker = readFileSync(
+  resolve(process.cwd(), "src/services/build-worker.ts"),
+  "utf8",
+);
 
 describe("build queue duplicate-start protection", () => {
   it("uses a stable per-project BullMQ job id", () => {
@@ -26,6 +30,14 @@ describe("build queue duplicate-start protection", () => {
   it("refunds a paid reservation when a duplicate enqueue is blocked", () => {
     expect(queue).toContain("if (!job.reservationCharged) return");
     expect(queue).toContain(
+      "build-duplicate-refund-${job.projectId}-${job.createdAt}",
+    );
+  });
+
+  it("uses the same duplicate-refund identity if the duplicate reaches a worker", () => {
+    expect(worker).toContain("if (activeJobs.has(job.projectId))");
+    expect(worker).toContain("await refundActiveDuplicateReservation(job)");
+    expect(worker).toContain(
       "build-duplicate-refund-${job.projectId}-${job.createdAt}",
     );
   });
