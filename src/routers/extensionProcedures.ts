@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure } from "../_core/trpc.js";
 import { invokeLLM } from "../_core/llm.js";
@@ -9,12 +10,36 @@ import {
   type ExtensionCapabilityId,
 } from "../lib/extensionCapabilities.js";
 
-function parseLlmJson(text: string): Record<string, unknown> {
+export function parseExtensionPlanJson(text: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI returned an empty extension plan.",
+    });
+  }
+
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI returned an invalid structured extension plan.",
+    });
+  }
+
   try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: text };
-  } catch {
-    return { raw: text };
+    const parsed = JSON.parse(jsonMatch[0]) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Extension plan must be a JSON object");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof TRPCError) throw error;
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI returned an invalid structured extension plan.",
+      cause: error,
+    });
   }
 }
 
@@ -34,7 +59,7 @@ async function generateExtensionPlan(
     typeof result.choices[0]?.message?.content === "string"
       ? result.choices[0].message.content
       : "";
-  const plan = parseLlmJson(text);
+  const plan = parseExtensionPlanJson(text);
   if (meta.disclaimer) {
     return { ...plan, disclaimer: meta.disclaimer };
   }
@@ -42,7 +67,7 @@ async function generateExtensionPlan(
 }
 
 const briefInput = z.object({
-  brief: z.string().min(5).max(8000),
+  brief: z.string().trim().min(5).max(8000),
 });
 
 function makeGenerate(id: ExtensionCapabilityId) {
