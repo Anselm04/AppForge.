@@ -6,7 +6,10 @@ export type SelfServePlanTier = (typeof SELF_SERVE_PLAN_TIERS)[number];
 export const CREDIT_PACKS = [50, 100, 250] as const;
 export type CreditPack = (typeof CREDIT_PACKS)[number];
 
-const TERMINAL_SUBSCRIPTION_STATUSES = new Set(["canceled", "incomplete_expired"]);
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
+  "canceled",
+  "incomplete_expired",
+]);
 
 function requireAppUrl(): string {
   const value = process.env.PUBLIC_APP_URL?.trim();
@@ -38,7 +41,9 @@ const PLAN_PRICE_IDS: Record<SelfServePlanTier, string> = {
     process.env.STRIPE_PRICE_BUILDER ||
     "",
   studio:
-    process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
+    process.env.STRIPE_STUDIO_PRICE_ID ||
+    process.env.STRIPE_PRICE_STUDIO ||
+    "",
 };
 
 const CREDIT_PRICE_IDS: Record<CreditPack, string> = {
@@ -109,7 +114,9 @@ export async function createPlanCheckout(
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
-    customer_email: sub?.stripeCustomerId ? undefined : (user.email ?? undefined),
+    customer_email: sub?.stripeCustomerId
+      ? undefined
+      : (user.email ?? undefined),
     client_reference_id: String(user.id),
     metadata: {
       userId: String(user.id),
@@ -142,7 +149,9 @@ export async function createCreditCheckout(
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
-    customer_email: sub?.stripeCustomerId ? undefined : (user.email ?? undefined),
+    customer_email: sub?.stripeCustomerId
+      ? undefined
+      : (user.email ?? undefined),
     client_reference_id: String(user.id),
     metadata: {
       userId: String(user.id),
