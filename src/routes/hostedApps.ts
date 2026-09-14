@@ -5,6 +5,7 @@ import {
   HOSTED_MIME,
   materializeHostedHtml,
 } from "../lib/hostedRuntime.js";
+import { parsePositiveIntParam } from "../lib/httpParams.js";
 
 export const hostedAppsRouter = Router();
 
@@ -23,8 +24,8 @@ function normalizeFiles(files: Record<string, string>): Record<string, string> {
 
 hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
   try {
-    const projectId = parseInt(req.params.projectId, 10);
-    if (Number.isNaN(projectId) || projectId <= 0) {
+    const projectId = parsePositiveIntParam(req.params.projectId);
+    if (projectId === null) {
       res.status(400).json({ error: "Invalid projectId" });
       return;
     }
