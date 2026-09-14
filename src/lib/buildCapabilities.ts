@@ -136,7 +136,7 @@ export const BUILD_CAPABILITIES: Record<
       "Unity/Godot-style web game pipelines with scene plans and playable WebGL/canvas preview.",
     icon: "🎮",
     studioPath: "/studio/game",
-    suggestedStack: "phaser-game",
+    suggestedStack: "phaser-html5",
   },
   cad: {
     id: "cad",
@@ -186,7 +186,7 @@ export const BUILD_CAPABILITIES: Record<
       "Expo / Capacitor packaging, store listings, icons, and platform permissions.",
     icon: "📱",
     studioPath: "/studio/mobile",
-    suggestedStack: "expo-mobile",
+    suggestedStack: "react-native-expo",
   },
   voice: {
     id: "voice",
