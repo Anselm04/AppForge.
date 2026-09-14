@@ -8,8 +8,12 @@ import {
 import {
   assertExtensionProcedureCoverage,
   parseExtensionPlanJson,
+  validateExtensionPlan,
 } from "../routers/extensionProcedures.js";
-import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
+import {
+  BUILD_CAPABILITIES,
+  BUILD_CAPABILITY_IDS,
+} from "../lib/buildCapabilities.js";
 import { PLATFORM_FEATURE_MATRIX } from "../lib/platformComparison.js";
 
 describe("extension capabilities", () => {
@@ -18,6 +22,11 @@ describe("extension capabilities", () => {
       expect(BUILD_CAPABILITY_IDS).toContain(id);
     }
     expect(BUILD_CAPABILITY_IDS).toHaveLength(19);
+  });
+
+  it("uses tech stacks supported by the main autonomous pipeline", () => {
+    expect(BUILD_CAPABILITIES.game.suggestedStack).toBe("phaser-html5");
+    expect(BUILD_CAPABILITIES.mobile.suggestedStack).toBe("react-native-expo");
   });
 
   it("wires generate procedures for every extension studio", () => {
@@ -51,5 +60,78 @@ describe("extension capabilities", () => {
     expect(() => parseExtensionPlanJson("   ")).toThrow(
       "AI returned an empty extension plan.",
     );
+  });
+
+  it("rejects incomplete mobile, game, and collaboration plans", () => {
+    expect(() =>
+      validateExtensionPlan("mobile", {
+        framework: "expo",
+        appName: "Example",
+        platforms: ["ios"],
+      }),
+    ).toThrow("AI returned an invalid mobile extension plan.");
+
+    expect(() =>
+      validateExtensionPlan("game", {
+        title: "Example",
+        engine: "phaser",
+      }),
+    ).toThrow("AI returned an invalid game extension plan.");
+
+    expect(() =>
+      validateExtensionPlan("collab", {
+        roomId: "room-1",
+        transport: "websocket",
+      }),
+    ).toThrow("AI returned an invalid collab extension plan.");
+  });
+
+  it("accepts guarded mobile, game, and collaboration plans", () => {
+    expect(
+      validateExtensionPlan("mobile", {
+        framework: "expo",
+        appName: "Example",
+        bundleId: "com.example.app",
+        platforms: ["ios", "android"],
+        storeListing: {
+          title: "Example",
+          subtitle: "Built with AppForge",
+          description: "A production-ready application.",
+          keywords: ["appforge"],
+        },
+        icons: [{ size: 1024, purpose: "app-store" }],
+        permissions: [],
+        buildCommands: ["npx expo export"],
+      }).framework,
+    ).toBe("expo");
+
+    expect(
+      validateExtensionPlan("game", {
+        title: "Example Game",
+        engine: "phaser",
+        genre: "arcade",
+        mechanics: ["movement"],
+        scenes: [{ id: "main", name: "Main", entities: [] }],
+        assets: [],
+        webglPreview: {
+          playerControls: "Arrow keys",
+          winCondition: "Reach the goal",
+        },
+        buildSteps: ["npm run build"],
+      }).engine,
+    ).toBe("phaser");
+
+    expect(
+      validateExtensionPlan("collab", {
+        roomId: "room-1",
+        transport: "websocket",
+        roles: [{ id: "editor", permissions: ["edit"] }],
+        syncedArtifacts: ["project"],
+        presenceEvents: ["join", "leave"],
+        conflictStrategy: "CRDT",
+        cursors: true,
+        versionHistory: true,
+      }).versionHistory,
+    ).toBe(true);
   });
 });
