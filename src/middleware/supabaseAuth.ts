@@ -1,5 +1,5 @@
+import { createClient, type User } from "@supabase/supabase-js";
 import { Request, Response, NextFunction } from "express";
-import { createClient } from "@supabase/supabase-js";
 import { logger } from "../_core/logger.js";
 
 const supabaseUrl =
@@ -126,7 +126,7 @@ function isSessionEndpoint(req: Request): boolean {
   return url.split("?", 1)[0] === SESSION_PATH;
 }
 
-async function verifyAccessToken(token: string) {
+async function verifyAccessToken(token: string): Promise<User | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getUser(token);
   return error || !data.user ? null : data.user;
@@ -135,11 +135,13 @@ async function verifyAccessToken(token: string) {
 async function refreshAccessToken(refreshToken: string): Promise<{
   accessToken: string;
   refreshToken: string;
-  user: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>;
+  user: User;
 } | null> {
   if (!supabase) return null;
 
-  const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+  const { data, error } = await supabase.auth.refreshSession({
+    refresh_token: refreshToken,
+  });
   const session = data.session;
   if (error || !session?.access_token || !session.refresh_token || !data.user) {
     return null;
