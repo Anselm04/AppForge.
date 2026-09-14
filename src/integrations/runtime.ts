@@ -31,7 +31,10 @@ function requireHttpsInProduction(url: string): URL {
 async function requestJson(url: string, options: RequestOptions = {}) {
   const parsed = requireHttpsInProduction(url);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? 15_000,
+  );
   const serializedBody =
     options.body === undefined ? undefined : JSON.stringify(options.body);
   if (
@@ -77,7 +80,9 @@ async function requestJson(url: string, options: RequestOptions = {}) {
     }
 
     if (!response.ok) {
-      const error = new Error(`Integration request failed with HTTP ${response.status}`) as Error & {
+      const error = new Error(
+        `Integration request failed with HTTP ${response.status}`,
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = response.status;
