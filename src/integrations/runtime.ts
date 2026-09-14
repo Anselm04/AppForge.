@@ -16,7 +16,7 @@ function value(name: string): string {
 
 function requireHttpsInProduction(url: string): URL {
   const parsed = new URL(url);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
+  if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("Integration endpoints must use HTTP or HTTPS");
   }
   if (parsed.username || parsed.password) {
