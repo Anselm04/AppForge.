@@ -58,7 +58,12 @@ export async function deployValidatedProjectWithRetry(input: {
     } catch (error) {
       lastError = error;
       logger.warn(
-        { error, projectId: input.projectId, attempt, maxAttempts: DEPLOY_MAX_ATTEMPTS },
+        {
+          error,
+          projectId: input.projectId,
+          attempt,
+          maxAttempts: DEPLOY_MAX_ATTEMPTS,
+        },
         "validated_project_deploy_attempt_failed",
       );
       if (attempt < DEPLOY_MAX_ATTEMPTS) {
@@ -155,7 +160,9 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       throw new Error("Queued build references a project that no longer exists");
     }
     if (project.userId !== userId) {
-      throw new Error("Queued build project ownership does not match the build actor");
+      throw new Error(
+        "Queued build project ownership does not match the build actor",
+      );
     }
     if (!description.trim() || description.length > 20_000) {
       throw new Error("Queued build description is invalid");
@@ -184,9 +191,11 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
 
     const updated = await getProjectById(projectId);
     if (!updated || updated.userId !== userId) {
-      throw new Error("Project disappeared or changed ownership during build execution");
+      throw new Error(
+        "Project disappeared or changed ownership during build execution",
+      );
     }
-    const passed = updated.status === "completed";
+    const passed = updated?.status === "completed";
 
     if (passed) {
       let liveUrl: string | undefined;
