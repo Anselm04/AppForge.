@@ -36,13 +36,61 @@ import { logger } from "../_core/logger.js";
 import {
   claimSeniorDevResume,
   claimSeniorDevStart,
+  failStaleSeniorDevExecution,
   releaseSeniorDevStartClaim,
+  touchSeniorDevExecution,
 } from "../services/senior-dev-claim.js";
-import { refundOutstandingSeniorDevReservation } from "../services/senior-dev-reservation.js";
+import {
+  refundOutstandingSeniorDevReservation,
+  wasSeniorDevReservationCharged,
+} from "../services/senior-dev-reservation.js";
 
 const router = Router();
 
 const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
+const SENIOR_DEV_EXECUTION_HEARTBEAT_MS = 30_000;
+const SENIOR_DEV_STALE_AFTER_MS = 10 * 60 * 1000;
+
+function startSeniorDevExecutionHeartbeat(taskId: number, userId: number) {
+  return setInterval(() => {
+    void touchSeniorDevExecution(taskId, userId).catch((error: unknown) => {
+      logger.error(
+        { taskId, userId, error },
+        "senior_dev_execution_heartbeat_failed",
+      );
+    });
+  }, SENIOR_DEV_EXECUTION_HEARTBEAT_MS);
+}
+
+async function settleOutstandingSeniorDevReservation(
+  userId: number,
+  projectId: number,
+  taskId: number,
+  reason: string,
+): Promise<boolean> {
+  const outstanding = await wasSeniorDevReservationCharged(
+    userId,
+    projectId,
+    taskId,
+  );
+  if (!outstanding) return true;
+
+  try {
+    await refundOutstandingSeniorDevReservation(
+      userId,
+      projectId,
+      taskId,
+      reason,
+    );
+    return true;
+  } catch (error: unknown) {
+    logger.error(
+      { taskId, userId, projectId, error },
+      "senior_dev_reservation_settlement_failed",
+    );
+    return false;
+  }
+}
 
 /** SSE endpoint that only streams the existing multi-agent pipeline. */
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -205,11 +253,54 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   }
 
   if (task.status === "executing") {
+    const recovered = await failStaleSeniorDevExecution(
+      task.id,
+      user.id,
+      new Date(Date.now() - SENIOR_DEV_STALE_AFTER_MS),
+    );
+
+    if (recovered) {
+      const settled = await settleOutstandingSeniorDevReservation(
+        user.id,
+        task.projectId,
+        task.id,
+        `Senior Dev stale execution refund for task ${task.id}`,
+      );
+      res.status(settled ? 409 : 503).json({
+        error: settled
+          ? "senior_dev_stale_execution_recovered"
+          : "senior_dev_refund_pending",
+        message: settled
+          ? "A stale Senior Dev execution was recovered safely. Retry the task."
+          : "The stale execution was stopped, but its credit refund is still pending. Retry after the refund succeeds.",
+        retryable: settled,
+      });
+      return;
+    }
+
     res.status(409).json({
       error: "senior_dev_task_active",
       message: "This Senior Dev task is already executing.",
     });
     return;
+  }
+
+  if (task.status === "failed") {
+    const settled = await settleOutstandingSeniorDevReservation(
+      user.id,
+      task.projectId,
+      task.id,
+      `Senior Dev retry preflight refund for task ${task.id}`,
+    );
+    if (!settled) {
+      res.status(503).json({
+        error: "senior_dev_refund_pending",
+        message:
+          "The previous Senior Dev reservation has not been refunded yet. Retry after the refund succeeds.",
+        retryable: false,
+      });
+      return;
+    }
   }
 
   const credits = await ensureUserCredits(user.id);
@@ -255,6 +346,8 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       return;
     }
   }
+
+  const executionHeartbeat = startSeniorDevExecutionHeartbeat(task.id, user.id);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -370,6 +463,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
     }
     await updateSeniorDevTaskStatus(task.id, "failed");
   } finally {
+    clearInterval(executionHeartbeat);
     clearTimeout(timeout);
     clearInterval(heartbeat);
     if (!res.writableEnded) res.end();
@@ -410,6 +504,8 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     });
     return;
   }
+
+  const executionHeartbeat = startSeniorDevExecutionHeartbeat(task.id, user.id);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -508,6 +604,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
       creditsSpent: 0,
     });
   } finally {
+    clearInterval(executionHeartbeat);
     clearTimeout(timeout);
     clearInterval(heartbeat);
     if (!res.writableEnded) res.end();
