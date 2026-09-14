@@ -51,13 +51,15 @@ describe("Senior Dev execution claims", () => {
     expect(route).toContain('error: "senior_dev_task_active"');
   });
 
-  it("derives both failure refunds from the reservation ledger", () => {
+  it("derives failure and stale-recovery refunds from the reservation ledger", () => {
     expect(route).toContain(
       'from "../services/senior-dev-reservation.js"',
     );
     expect(
       route.match(/await refundOutstandingSeniorDevReservation\(/g),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
+    expect(route).toContain("Senior Dev stale execution refund for task");
+    expect(route).toContain("Senior Dev retry preflight refund for task");
     expect(route).not.toContain("if (!resumeUnlimited)");
     expect(route).not.toContain("senior-dev-resume-refund-${task.id}");
   });
