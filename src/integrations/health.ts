@@ -5,10 +5,7 @@ import {
 } from "./catalog.js";
 
 export type IntegrationConnectionState =
-  | "connected"
-  | "needs_attention"
-  | "not_connected"
-  | "configuration_required";
+  "connected" | "needs_attention" | "not_connected" | "configuration_required";
 
 export type IntegrationHealth = {
   id: string;
@@ -140,11 +137,7 @@ async function verifyRemote(
       const secret = value("STRIPE_SECRET_KEY");
       const webhookSecret = value("STRIPE_WEBHOOK_SECRET");
       if (!secret && !webhookSecret) {
-        return result(
-          definition,
-          "not_connected",
-          "Stripe is not configured",
-        );
+        return result(definition, "not_connected", "Stripe is not configured");
       }
       if (!secret || !webhookSecret) {
         return result(
@@ -206,11 +199,7 @@ async function verifyRemote(
       const sid = value("TWILIO_ACCOUNT_SID");
       const token = value("TWILIO_AUTH_TOKEN");
       if (!sid && !token) {
-        return result(
-          definition,
-          "not_connected",
-          "Twilio is not configured",
-        );
+        return result(definition, "not_connected", "Twilio is not configured");
       }
       if (!sid || !token) {
         return result(
@@ -226,6 +215,50 @@ async function verifyRemote(
         { headers: { Authorization: `Basic ${auth}` } },
       );
       return check.ok ? pass(check.message) : fail(check.message);
+    }
+
+    case "openai-platform": {
+      const apiKey = value("OPENAI_API_KEY");
+      if (!apiKey) {
+        return result(
+          definition,
+          "not_connected",
+          "OPENAI_API_KEY is not configured",
+        );
+      }
+      const check = await probe("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      return check.ok ? pass(check.message) : fail(check.message);
+    }
+
+    case "sentry": {
+      const dsn = value("SENTRY_DSN") || value("VITE_SENTRY_DSN");
+      if (!dsn) {
+        return result(
+          definition,
+          "not_connected",
+          "Sentry DSN is not configured",
+        );
+      }
+      try {
+        const parsed = new URL(dsn);
+        if (
+          process.env.NODE_ENV === "production" &&
+          parsed.protocol !== "https:"
+        ) {
+          return fail("Production Sentry DSN must use HTTPS");
+        }
+      } catch {
+        return fail("Sentry DSN is invalid");
+      }
+      return result(
+        definition,
+        "connected",
+        "Sentry DSN is configured; runtime error delivery is verified by Sentry release/error telemetry",
+        true,
+        false,
+      );
     }
 
     case "datadog": {
@@ -246,28 +279,43 @@ async function verifyRemote(
 
     case "posthog": {
       const host = value("POSTHOG_HOST") || value("VITE_POSTHOG_HOST");
+      const captureKey = value("POSTHOG_KEY") || value("VITE_POSTHOG_KEY");
       const token = value("POSTHOG_PERSONAL_API_KEY");
       const projectId = value("POSTHOG_PROJECT_ID");
-      if (!host && !token && !projectId) {
-        return result(
-          definition,
-          "not_connected",
-          "PostHog verification is not configured",
-        );
+      if (!host && !captureKey && !token && !projectId) {
+        return result(definition, "not_connected", "PostHog is not configured");
       }
-      if (!host || !token || !projectId) {
+      if (!host || !captureKey) {
         return result(
           definition,
           "configuration_required",
-          "PostHog verification requires host, personal API key, and project ID",
+          "PostHog production capture requires host and capture key",
           true,
         );
       }
-      const check = await probe(
-        `${host.replace(/\/$/, "")}/api/projects/${encodeURIComponent(projectId)}/`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      return check.ok ? pass(check.message) : fail(check.message);
+      const check = await probe(`${host.replace(/\/$/, "")}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: captureKey,
+          event: "appforge_integration_healthcheck",
+          properties: {
+            distinct_id: "appforge-production-health",
+            source: "appforge-integration-health",
+          },
+        }),
+      });
+      if (!check.ok) return fail(check.message);
+      if (token && projectId) {
+        const management = await probe(
+          `${host.replace(/\/$/, "")}/api/projects/${encodeURIComponent(projectId)}/`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!management.ok) {
+          return fail(`Capture verified; management API ${management.message}`);
+        }
+      }
+      return pass("Production event capture verified");
     }
 
     case "sprites-fly": {
@@ -283,7 +331,9 @@ async function verifyRemote(
         );
       }
 
-      const flyCheck = await probe(`https://${appName}.fly.dev/api/health/live`);
+      const flyCheck = await probe(
+        `https://${appName}.fly.dev/api/health/live`,
+      );
       if (!flyCheck.ok) {
         return fail(`Fly.io runtime: ${flyCheck.message}`);
       }
@@ -312,43 +362,59 @@ async function verifyRemote(
         headers: { Authorization: `Bearer ${spritesToken}` },
       });
       return spritesCheck.ok
-        ? pass(`Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`)
+        ? pass(
+            `Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`,
+          )
         : fail(
             `Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`,
           );
     }
 
     case "make": {
-      if (!any("MAKE_API_TOKEN", "MAKE_WEBHOOK_URL", "MAKE_HEALTH_URL")) {
-        return result(
-          definition,
-          "not_connected",
-          "Make is not configured",
-        );
-      }
+      const webhookUrl = value("MAKE_WEBHOOK_URL");
       const healthUrl = value("MAKE_HEALTH_URL");
       const token = value("MAKE_API_TOKEN");
-      if (!healthUrl || !token) {
+      if (!webhookUrl && !healthUrl && !token) {
+        return result(definition, "not_connected", "Make is not configured");
+      }
+      if (healthUrl && token) {
+        const check = await probe(healthUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return check.ok ? pass(check.message) : fail(check.message);
+      }
+      if (webhookUrl) {
+        let parsed: URL;
+        try {
+          parsed = new URL(webhookUrl);
+        } catch {
+          return fail("MAKE_WEBHOOK_URL is invalid");
+        }
+        if (
+          process.env.NODE_ENV === "production" &&
+          parsed.protocol !== "https:"
+        ) {
+          return fail("Production Make webhook must use HTTPS");
+        }
         return result(
           definition,
-          "configuration_required",
-          "Make runtime exists, but safe health verification still needs MAKE_HEALTH_URL and MAKE_API_TOKEN",
+          "connected",
+          "Make webhook is configured; active delivery is verified by the production integration preflight",
           true,
+          false,
         );
       }
-      const check = await probe(healthUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return check.ok ? pass(check.message) : fail(check.message);
+      return result(
+        definition,
+        "configuration_required",
+        "Make API verification requires both MAKE_HEALTH_URL and MAKE_API_TOKEN",
+        true,
+      );
     }
 
     case "bubblav": {
       if (!any("BUBBLAV_API_KEY", "BUBBLAV_CHAT_URL", "BUBBLAV_HEALTH_URL")) {
-        return result(
-          definition,
-          "not_connected",
-          "BubblaV is not configured",
-        );
+        return result(definition, "not_connected", "BubblaV is not configured");
       }
       const healthUrl = value("BUBBLAV_HEALTH_URL");
       const apiKey = value("BUBBLAV_API_KEY");
