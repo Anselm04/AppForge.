@@ -27,6 +27,35 @@ const TIER_LIMITS: Record<string, number | null> = {
   lifetime: null,
 };
 
+function requirePublicAppUrl() {
+  const value = process.env.PUBLIC_APP_URL?.trim();
+  if (!value) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "PUBLIC_APP_URL is required for billing portal redirects",
+    });
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "PUBLIC_APP_URL must be a valid absolute URL",
+    });
+  }
+
+  if (url.protocol !== "https:" && process.env.NODE_ENV === "production") {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "PUBLIC_APP_URL must use HTTPS in production",
+    });
+  }
+
+  return url.origin;
+}
+
 async function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
@@ -147,9 +176,7 @@ export const subscriptionsRouter = router({
       });
     }
 
-    const appUrl =
-      process.env.PUBLIC_APP_URL ||
-      "https://appforge-unfurling-moon-9058.fly.dev";
+    const appUrl = requirePublicAppUrl();
 
     try {
       const configuration = await ensureAppForgeBillingPortalConfiguration(
