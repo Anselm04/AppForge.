@@ -6,6 +6,7 @@ import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { getProjectById } from "../db.js";
 import { verifyPreviewSignature } from "../services/deployer.js";
+import { parsePositiveIntParam } from "../lib/httpParams.js";
 
 const livePreviewRouter = Router();
 
@@ -258,8 +259,8 @@ function isPublicPreviewEnabled(): boolean {
 
 livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
   try {
-    const projectId = parseInt(req.params.projectId, 10);
-    if (Number.isNaN(projectId) || projectId <= 0) {
+    const projectId = parsePositiveIntParam(req.params.projectId);
+    if (projectId === null) {
       res.status(400).json({ error: "Invalid projectId" });
       return;
     }
