@@ -38,7 +38,9 @@ describe("extension capabilities", () => {
 
   it("accepts structured JSON even when wrapped in model prose", () => {
     expect(
-      parseExtensionPlanJson('Here is the plan:\n{"framework":"expo","platforms":["ios"]}'),
+      parseExtensionPlanJson(
+        'Here is the plan:\n{"framework":"expo","platforms":["ios"]}',
+      ),
     ).toEqual({ framework: "expo", platforms: ["ios"] });
   });
 
