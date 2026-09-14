@@ -22,8 +22,12 @@ describe("Stripe billing portal UI", () => {
     expect(subscriptions).toContain(
       "PUBLIC_APP_URL is required for billing portal redirects",
     );
-    expect(subscriptions).toContain("PUBLIC_APP_URL must be a valid absolute URL");
-    expect(subscriptions).toContain("PUBLIC_APP_URL must use HTTPS in production");
+    expect(subscriptions).toContain(
+      "PUBLIC_APP_URL must be a valid absolute URL",
+    );
+    expect(subscriptions).toContain(
+      "PUBLIC_APP_URL must use HTTPS in production",
+    );
     expect(subscriptions).not.toContain("appforge-unfurling-moon-9058.fly.dev");
   });
 });
