@@ -78,11 +78,14 @@ Must be recoverable:
 - Storage object inventory and restore procedure.
 - Required Edge Functions/configuration if used.
 - Environment/configuration inventory without secret values.
+- Browser/server session handoff contract, including the `sb-access-token` and `sb-refresh-token` cookie names and refresh-token rotation behavior.
+- Production Authentication Site URL and allowed confirmation redirect destinations for `/login` and `/redeem`, so a restored environment never falls back to localhost.
 
 Verification target:
 - Periodic restore into an isolated recovery environment/project.
 - Authentication and authorization verification.
 - Critical database/RLS checks.
+- Confirm an expired access token can be renewed with a valid refresh token and that the hardened server session cookies are rotated without exposing token values.
 
 ## Fly.io
 
@@ -129,9 +132,13 @@ Must be recoverable:
 - Subscription/entitlement mapping logic.
 - Required webhook secret recovery/rotation procedure.
 - Billing reconciliation procedure.
+- `PUBLIC_APP_URL`, which is the required production origin for Checkout success and cancellation return URLs.
+- The canonical Stripe webhook route `/api/webhooks/stripe`, implemented by `src/webhooks/stripe.ts`; recovery must not reintroduce a parallel legacy webhook handler that writes to a different entitlement store.
 
 Verification target:
 - Controlled test-mode checkout/webhook path.
+- Confirm Checkout success/cancel URLs resolve to the configured production origin.
+- Confirm the canonical webhook updates AppForge's `subscriptions` entitlement record and remains idempotent.
 - No production secrets stored in repository backup.
 
 ## AI providers and automation services
