@@ -57,6 +57,29 @@ This metadata archive improves forensic and operational recovery if the GitHub r
 14. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
 15. Re-enable normal deployment only after the incident is contained and documented.
 
+## Autonomous build recovery
+
+The build worker is part of AppForge's recovery-critical production surface. A queued build must fail closed rather than continue when its ownership, inputs, generated artifacts, or deployment state can no longer be trusted.
+
+- Before an agent pipeline starts, the worker confirms the project still exists and that the queued `userId` still owns it. A mismatch is treated as a failed build, never as permission to continue under the stale queue actor.
+- Queued descriptions must remain non-empty and no larger than 20,000 characters; tech-stack identifiers must remain non-empty and no larger than 120 characters. Invalid queue payloads fail through the normal refund/recovery path.
+- After the agent pipeline returns, the project is fetched again and ownership is revalidated. A project that disappeared or changed owner during execution cannot be deployed.
+- Production builds require non-empty generated files before deployment. The customer-visible terminal `done` event is held until the validated project is actually deployed and its production deployment routine succeeds.
+- A validated production deployment is retried at most three times with bounded exponential backoff. Exhausting those attempts converts the attempt into the normal failed-build recovery path instead of reporting a false success.
+- Build-credit reservations are refunded for incomplete or failed attempts using an attempt-derived idempotency key. Active duplicate jobs that actually charged a duplicate reservation use their own duplicate-refund key. These refund keys are recovery controls and must remain stable enough to prevent double refunds during retries or worker restarts.
+- A resumed or retried build must never infer billing state only from the user's current balance. Recovery follows the reservation state recorded on that queued attempt.
+
+### Operator procedure for failed autonomous builds
+
+1. Identify the project ID, queued attempt timestamp, user ID, failure event, and deployment logs.
+2. Confirm the project still belongs to the queued actor before any manual resume or retry.
+3. Confirm whether the attempt charged a reservation and whether the corresponding idempotent refund ledger entry exists before making any manual credit correction.
+4. If deployment failed, inspect all bounded deployment attempts and the production validation result. Do not manually mark the project complete merely because generation succeeded.
+5. Confirm generated files exist and are the artifacts produced by the same project attempt before redeploying.
+6. Re-run the normal build/deploy path rather than bypassing the terminal `done` gate.
+7. After recovery, confirm project status, credits spent/refunded, build outcome analytics, production health, and the customer-visible build event stream agree.
+8. Escalate repeated deployment failures as a provider/runtime incident rather than increasing retry counts without review.
+
 ## Suspected GitHub or credential compromise
 
 1. Stop production deployments.
