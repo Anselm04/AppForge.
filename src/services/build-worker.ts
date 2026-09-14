@@ -33,11 +33,42 @@ export interface BuildJob {
 }
 
 const activeJobs = new Set<number>();
+const DEPLOY_MAX_ATTEMPTS = 3;
+const DEPLOY_RETRY_BASE_MS = 1_000;
 
 async function emit(projectId: number, event: string, data: unknown) {
   await appendBuildEvent(projectId, event, data);
   publishRuntimeBuildEvent(projectId, event, data);
   await publishBuildEvent(projectId, event, data);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function deployValidatedProjectWithRetry(input: {
+  projectId: number;
+  projectName: string;
+  files: Record<string, string>;
+}) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await deployValidatedProject(input);
+    } catch (error) {
+      lastError = error;
+      logger.warn(
+        { error, projectId: input.projectId, attempt, maxAttempts: DEPLOY_MAX_ATTEMPTS },
+        "validated_project_deploy_attempt_failed",
+      );
+      if (attempt < DEPLOY_MAX_ATTEMPTS) {
+        await sleep(DEPLOY_RETRY_BASE_MS * 2 ** (attempt - 1));
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Validated project deployment failed after retries");
 }
 
 async function refundActiveDuplicateReservation(job: BuildJob): Promise<void> {
@@ -120,7 +151,20 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
 
   try {
     const project = await getProjectById(projectId);
-    if (project?.status === "paused") {
+    if (!project) {
+      throw new Error("Queued build references a project that no longer exists");
+    }
+    if (project.userId !== userId) {
+      throw new Error("Queued build project ownership does not match the build actor");
+    }
+    if (!description.trim() || description.length > 20_000) {
+      throw new Error("Queued build description is invalid");
+    }
+    if (!techStack.trim() || techStack.length > 120) {
+      throw new Error("Queued build tech stack is invalid");
+    }
+
+    if (project.status === "paused") {
       await resumeProject(projectId);
     }
     await updateProjectStatus(projectId, "running");
@@ -139,21 +183,24 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     );
 
     const updated = await getProjectById(projectId);
-    const passed = updated?.status === "completed";
+    if (!updated || updated.userId !== userId) {
+      throw new Error("Project disappeared or changed ownership during build execution");
+    }
+    const passed = updated.status === "completed";
 
     if (passed) {
       let liveUrl: string | undefined;
       if (process.env.NODE_ENV === "production") {
         const files =
-          (updated?.generatedFiles as Record<string, string> | null) ?? {};
+          (updated.generatedFiles as Record<string, string> | null) ?? {};
         if (Object.keys(files).length === 0) {
           throw new Error(
             "Validated build has no generated files available for production deployment",
           );
         }
-        const deployed = await deployValidatedProject({
+        const deployed = await deployValidatedProjectWithRetry({
           projectId,
-          projectName: updated?.title || `appforge-${projectId}`,
+          projectName: updated.title || `appforge-${projectId}`,
           files,
         });
         liveUrl = deployed.liveUrl;
