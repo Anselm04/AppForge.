@@ -40,8 +40,36 @@ async function emit(projectId: number, event: string, data: unknown) {
   await publishBuildEvent(projectId, event, data);
 }
 
+async function refundActiveDuplicateReservation(job: BuildJob): Promise<void> {
+  if (!job.reservationCharged) return;
+
+  const refundKey = `build-duplicate-refund-${job.projectId}-${job.createdAt}`;
+  try {
+    await addCredits(
+      job.userId,
+      BUILD_CREDIT_COST,
+      "build_refund",
+      `Duplicate build reservation refund for project ${job.projectId}`,
+      refundKey,
+    );
+    logger.warn(
+      { projectId: job.projectId, refundKey },
+      "active_duplicate_build_refunded",
+    );
+  } catch (error: unknown) {
+    logger.error(
+      { projectId: job.projectId, refundKey, error },
+      "active_duplicate_build_refund_failed",
+    );
+    throw error;
+  }
+}
+
 export async function runBuildJob(job: BuildJob): Promise<void> {
-  if (activeJobs.has(job.projectId)) return;
+  if (activeJobs.has(job.projectId)) {
+    await refundActiveDuplicateReservation(job);
+    return;
+  }
   activeJobs.add(job.projectId);
 
   const {
