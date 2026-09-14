@@ -42,3 +42,37 @@ describe("build queue duplicate-start protection", () => {
     );
   });
 });
+
+describe("build event reconnect protection", () => {
+  it("persists each worker event before publishing it", () => {
+    const persistIndex = worker.indexOf("await appendBuildEvent(projectId, event, data)");
+    const runtimeIndex = worker.indexOf(
+      "publishRuntimeBuildEvent(projectId, event, data)",
+    );
+    const redisIndex = worker.indexOf(
+      "await publishBuildEvent(projectId, event, data)",
+    );
+
+    expect(persistIndex).toBeGreaterThan(-1);
+    expect(runtimeIndex).toBeGreaterThan(persistIndex);
+    expect(redisIndex).toBeGreaterThan(runtimeIndex);
+  });
+
+  it("subscribes before checking persisted terminal state", () => {
+    const subscribeIndex = queue.indexOf("await sub.subscribe(channel");
+    const catchupIndex = queue.indexOf(
+      "await getLatestTerminalBuildEvent(projectId)",
+    );
+
+    expect(subscribeIndex).toBeGreaterThan(-1);
+    expect(catchupIndex).toBeGreaterThan(subscribeIndex);
+  });
+
+  it("self-closes subscriptions after either live or persisted terminal events", () => {
+    expect(queue).toContain(
+      "if (isTerminalEvent(parsed.event)) void closeSubscription()",
+    );
+    expect(queue).toContain("if (active && terminal)");
+    expect(queue).toContain("await closeSubscription()");
+  });
+});
