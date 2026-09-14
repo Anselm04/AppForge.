@@ -14,6 +14,15 @@ describe("Supabase server authentication boundary", () => {
     expect(middleware).toContain("if (error || !data.user)");
   });
 
+  it("requires confirmed email before establishing an AppForge session", () => {
+    expect(middleware).toContain("data.user.email_confirmed_at");
+    expect(middleware).toContain("data.user.confirmed_at");
+    expect(middleware).toContain('code: "EMAIL_CONFIRMATION_REQUIRED"');
+    expect(middleware).toContain(
+      '"supabase_auth_email_confirmation_required"',
+    );
+  });
+
   it("never accepts access tokens from query parameters", () => {
     expect(middleware).not.toContain("req.query.token");
     expect(middleware).not.toContain("req.query.access_token");
