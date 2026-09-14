@@ -7,6 +7,8 @@ const email = process.env.APPFORGE_CANARY_EMAIL;
 const password = process.env.APPFORGE_CANARY_PASSWORD;
 const hcaptchaToken = process.env.APPFORGE_CANARY_HCAPTCHA_TOKEN;
 const godCode = process.env.APPFORGE_CANARY_GOD_CODE || "";
+const godCodePhone = process.env.APPFORGE_CANARY_GOD_CODE_PHONE || "";
+const godCodeOtp = process.env.APPFORGE_CANARY_GOD_CODE_OTP || "";
 
 function required(name, value) {
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -245,19 +247,28 @@ async function main() {
   const csrf = await getCsrf();
   const trpc = makeTrpc(accessToken, csrf);
 
+  let godCodeOtpVerified = false;
   if (godCode) {
-    console.log("[canary] redeeming real owner God Code");
+    required("APPFORGE_CANARY_GOD_CODE_PHONE", godCodePhone);
+    required("APPFORGE_CANARY_GOD_CODE_OTP", godCodeOtp);
+    if (!/^\d{6}$/.test(godCodeOtp)) {
+      throw new Error("APPFORGE_CANARY_GOD_CODE_OTP must be a real six-digit SMS code");
+    }
+    console.log("[canary] redeeming real owner God Code with Twilio SMS proof");
     const redemption = await trpc.mutation("admin.redeemCode", {
       code: godCode,
+      phone: godCodePhone,
+      otp: godCodeOtp,
     });
     if (!redemption?.success)
       throw new Error(
         `God Code redemption did not succeed: ${JSON.stringify(redemption)}`,
       );
+    godCodeOtpVerified = true;
   }
 
   const tier = await trpc.query("projects.tierStatus");
-  if (!tier?.isPaid && !tier?.unlimited && !godCode) {
+  if (!tier?.isPaid && !tier?.unlimited && !godCodeOtpVerified) {
     throw new Error(
       `Canary account has no paid/unlimited entitlement: ${JSON.stringify(tier)}`,
     );
@@ -321,6 +332,7 @@ async function main() {
         checkedAssets: live.checkedAssets,
         sessionRefreshVerified: true,
         entitlementVerified: true,
+        godCodeOtpVerified,
         automaticBuildStartVerified: true,
         agentBuildCompletionVerified: true,
         productionDeploymentVerified: true,
