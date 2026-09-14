@@ -11,15 +11,26 @@ describe("Supabase server authentication boundary", () => {
   it("validates bearer or cookie tokens with Supabase before trusting identity", () => {
     expect(middleware).toContain("header.match(/^Bearer\\s+(.+)$/i)");
     expect(middleware).toContain("await supabase.auth.getUser(token)");
-    expect(middleware).toContain("if (error || !data.user)");
+    expect(middleware).toContain(
+      "return error || !data.user ? null : data.user;",
+    );
   });
 
   it("requires confirmed email before establishing an AppForge session", () => {
-    expect(middleware).toContain("data.user.email_confirmed_at");
-    expect(middleware).toContain("data.user.confirmed_at");
+    expect(middleware).toContain("authUser.email_confirmed_at");
+    expect(middleware).toContain("authUser.confirmed_at");
     expect(middleware).toContain('code: "EMAIL_CONFIRMATION_REQUIRED"');
     expect(middleware).toContain(
       '"supabase_auth_email_confirmation_required"',
+    );
+  });
+
+  it("refreshes expired access tokens with a server-held refresh token", () => {
+    expect(middleware).toContain('const REFRESH_COOKIE = "sb-refresh-token"');
+    expect(middleware).toContain("await supabase.auth.refreshSession({");
+    expect(middleware).toContain("refresh_token: refreshToken");
+    expect(middleware).toContain(
+      "setSessionCookies(res, refreshed.accessToken, refreshed.refreshToken)",
     );
   });
 
@@ -44,7 +55,7 @@ describe("Supabase server authentication boundary", () => {
   });
 
   it("derives AppForge identity from the verified Supabase user", () => {
-    expect(middleware).toContain("const supabaseUid = data.user.id");
+    expect(middleware).toContain("const supabaseUid = authUser.id");
     expect(middleware).toContain("await upsertUserFromAuth({");
     expect(middleware).toContain("openId: supabaseUid");
     expect(middleware).toContain("req.user = {");
