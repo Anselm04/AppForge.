@@ -55,9 +55,9 @@ describe("Senior Dev execution claims", () => {
     expect(route).toContain(
       'from "../services/senior-dev-reservation.js"',
     );
-    expect(
-      route.match(/await refundOutstandingSeniorDevReservation\(/g),
-    ).toHaveLength(3);
+    expect(route.match(/await refundOutstandingSeniorDevReservation\(/g)).toHaveLength(
+      3,
+    );
     expect(route).toContain("Senior Dev stale execution refund for task");
     expect(route).toContain("Senior Dev retry preflight refund for task");
     expect(route).not.toContain("if (!resumeUnlimited)");
