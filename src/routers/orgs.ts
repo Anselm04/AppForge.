@@ -15,6 +15,8 @@ function slugify(name: string): string {
 }
 
 const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ORGANIZATION_DOMAIN_PATTERN =
+  /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 
 export function normalizeOrganizationSlug(name: string, requested?: string): string {
   const slug = slugify(requested?.trim() || name);
@@ -26,6 +28,17 @@ export function normalizeOrganizationSlug(name: string, requested?: string): str
     });
   }
   return slug;
+}
+
+export function normalizeOrganizationDomain(input: string): string {
+  const domain = input.trim().toLowerCase().replace(/^@/, "").replace(/\.$/, "");
+  if (!ORGANIZATION_DOMAIN_PATTERN.test(domain)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Enter a valid organization domain such as example.com.",
+    });
+  }
+  return domain;
 }
 
 export const orgsRouter = router({
@@ -121,7 +134,7 @@ export const orgsRouter = router({
     .input(
       z.object({
         orgId: z.number().int().positive(),
-        domain: z.string().min(3).max(255),
+        domain: z.string().trim().min(3).max(255),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -134,7 +147,7 @@ export const orgsRouter = router({
       if (!membership || membership.role !== "owner") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const domain = input.domain.toLowerCase().replace(/^@/, "");
+      const domain = normalizeOrganizationDomain(input.domain);
       await db
         .insert(schema.organizationDomains)
         .values({
@@ -154,7 +167,7 @@ export const orgsRouter = router({
     .input(
       z.object({
         orgId: z.number().int().positive(),
-        domain: z.string().min(3).max(255),
+        domain: z.string().trim().min(3).max(255),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -167,7 +180,7 @@ export const orgsRouter = router({
       if (!membership || !["owner", "admin"].includes(membership.role)) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const domain = input.domain.toLowerCase().replace(/^@/, "");
+      const domain = normalizeOrganizationDomain(input.domain);
       const row = await db.query.organizationDomains.findFirst({
         where: and(
           eq(schema.organizationDomains.organizationId, input.orgId),
@@ -182,13 +195,13 @@ export const orgsRouter = router({
       }
 
       const expected = `appforge-verify=${input.orgId}`;
-      let verified = process.env.SSO_AUTO_VERIFY === "true";
+      let verified =
+        process.env.NODE_ENV !== "production" &&
+        process.env.SSO_AUTO_VERIFY === "true";
       if (!verified) {
         try {
           const records = await dns.resolveTxt(domain);
-          verified = records.some((chunks) =>
-            chunks.some((chunk) => chunk.includes(expected)),
-          );
+          verified = records.some((chunks) => chunks.join("").trim() === expected);
         } catch {
           verified = false;
         }
