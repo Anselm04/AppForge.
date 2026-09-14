@@ -26,6 +26,7 @@ describe("AppForge integration registry", () => {
         "make",
         "bubblav",
         "openai-platform",
+        "mcp",
       ]),
     );
   });
@@ -37,5 +38,19 @@ describe("AppForge integration registry", () => {
       expect.arrayContaining(["verify", "otp", "2fa"]),
     );
     expect(twilio?.env).toContain("TWILIO_VERIFY_SERVICE_SID");
+  });
+
+  it("registers MCP interoperability as an internal agent capability", () => {
+    const mcp = getIntegrationDefinition("mcp");
+    expect(mcp).toBeDefined();
+    expect(mcp?.kind).toBe("internal");
+    expect(mcp?.capabilities).toEqual(
+      expect.arrayContaining([
+        "mcp",
+        "agent-tools",
+        "interoperability",
+        "tool-discovery",
+      ]),
+    );
   });
 });
