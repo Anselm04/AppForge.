@@ -53,7 +53,7 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
 
   const save = useMutation({
     mutationFn: (payload: { path: string; content: string }) =>
-      trpc.projects.updateFile.mutate({ id: projectId, ...payload }),
+      trpc.versionedWrites.updateFile.mutate({ projectId, ...payload }),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: ["projects", projectId, "files"],

@@ -23,6 +23,7 @@ import { templateFactoryRouter } from "./templateFactory.js";
 import { deepResearchRouter } from "./deepResearch.js";
 import { collaborationRouter } from "./collaboration.js";
 import { visualEditorRouter } from "./visualEditor.js";
+import { versionedWritesRouter } from "./versionedWrites.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -64,6 +65,7 @@ export const appRouter = router({
   deepResearch: deepResearchRouter,
   collaboration: collaborationRouter,
   visualEditor: visualEditorRouter,
+  versionedWrites: versionedWritesRouter,
 });
 
 export type AppRouter = typeof appRouter;
