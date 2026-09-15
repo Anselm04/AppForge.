@@ -1,6 +1,7 @@
 name: Fly Production Capacity Guard
 
 # Production invariant: AppForge must retain redundant Fly capacity (2 app Machines).
+# This workflow is also the post-deploy self-heal path if Fly leaves one blue/green replacement stopped.
 on:
   workflow_dispatch:
   push:
