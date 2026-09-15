@@ -7,9 +7,9 @@ import {
 
 describe("normalizeCorsOrigin", () => {
   it("accepts HTTPS and strips path/query details", () => {
-    expect(
-      normalizeCorsOrigin("https://example.com/path?q=1", true),
-    ).toBe("https://example.com");
+    expect(normalizeCorsOrigin("https://example.com/path?q=1", true)).toBe(
+      "https://example.com",
+    );
   });
 
   it("rejects HTTP when HTTPS is required", () => {
