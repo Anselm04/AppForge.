@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import { logger } from "../_core/logger.js";
 import { getStartupReadiness } from "../services/startupState.js";
+import { checkSharedRedis } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get("/", async (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     database: "unknown",
+    redis: process.env.NODE_ENV === "production" ? "unknown" : "not-required",
     startup: startup.phase,
     version: process.env.npm_package_version ?? "unknown",
     environment: process.env.NODE_ENV ?? "unknown",
@@ -35,6 +37,12 @@ router.get("/", async (_req: Request, res: Response) => {
     health.status = "degraded";
     health.database = "disconnected";
     logger.error({ error }, "health_database_check_failed");
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    const redisReady = await checkSharedRedis();
+    health.redis = redisReady ? "connected" : "disconnected";
+    if (!redisReady) health.status = "degraded";
   }
 
   const statusCode = health.status === "ok" ? 200 : 503;
@@ -60,13 +68,24 @@ router.get("/ready", async (_req: Request, res: Response) => {
 
   try {
     await db.execute(sql`SELECT 1`);
-    return res.status(200).json({ status: "ok", ready: true });
   } catch (error) {
     logger.error({ error }, "readiness_database_check_failed");
     return res
       .status(503)
       .json({ status: "degraded", ready: false, reason: "database" });
   }
+
+  if (process.env.NODE_ENV === "production") {
+    const redisReady = await checkSharedRedis();
+    if (!redisReady) {
+      logger.error({}, "readiness_redis_check_failed");
+      return res
+        .status(503)
+        .json({ status: "degraded", ready: false, reason: "redis" });
+    }
+  }
+
+  return res.status(200).json({ status: "ok", ready: true });
 });
 
 // Keep the public readiness endpoint deliberately coarse in production. The
