@@ -34,6 +34,14 @@ const SLOW_DOWN_LIMITS: Record<string, SlowDownConfig> = {
   },
 };
 
+/** Use only server-trusted identity state for throttling buckets. */
+export function slowDownIdentity(req: any): string {
+  const userId = req.user?.id;
+  if (userId) return `user:${userId}`;
+
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
 export function createSlowDown(
   config: SlowDownConfig = SLOW_DOWN_LIMITS.gentle,
   useDelay: boolean = true,
@@ -42,17 +50,7 @@ export function createSlowDown(
     windowMs: config.windowMs,
     delayAfter: config.delayAfter,
     maxDelayMs: config.maxDelayMs,
-    keyGenerator: (req: any) => {
-      // Only identities established by trusted middleware may partition a
-      // throttling bucket. Never trust x-user-id or similar caller headers.
-      const userId = req.user?.id;
-      if (userId) return `user:${userId}`;
-
-      const apiKey = req.headers["x-api-key"] as string | undefined;
-      if (apiKey) return `api-key:${apiKey}`;
-
-      return req.ip || req.socket.remoteAddress || "unknown";
-    },
+    keyGenerator: slowDownIdentity,
     delayMs: (delay: number) => {
       if (!useDelay) return 0;
       return Math.min(delay, config.maxDelayMs);
