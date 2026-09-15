@@ -6,10 +6,33 @@
 import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 
+export function shouldPreventCaching(path: string): boolean {
+  return path.startsWith("/api/") || path === "/api" || path.startsWith("/auth/") || path === "/auth";
+}
+
+export function additionalSecurityHeaders() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (shouldPreventCaching(req.path)) {
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+
+    res.setHeader("X-DNS-Prefetch-Control", "off");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+    res.removeHeader("X-Powered-By");
+    res.removeHeader("Server");
+
+    next();
+  };
+}
+
 export function securityHeaders() {
   const isDev = process.env.NODE_ENV === "development";
-
-  return helmet({
+  const helmetMiddleware = helmet({
     contentSecurityPolicy: false, // Configured separately
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: true,
@@ -29,30 +52,21 @@ export function securityHeaders() {
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     xssFilter: true,
   });
-}
+  const extraHeaders = additionalSecurityHeaders();
 
-export function additionalSecurityHeaders() {
+  // Compose both layers into the single middleware mounted by server.ts. This
+  // prevents sensitive API/auth responses from being cached even if an
+  // individual route forgets to set Cache-Control itself.
   return (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) {
-      res.setHeader(
-        "Cache-Control",
-        "no-store, no-cache, must-revalidate, proxy-revalidate",
-      );
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-    }
-
-    res.setHeader("X-DNS-Prefetch-Control", "off");
-    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
-    res.removeHeader("X-Powered-By");
-    res.removeHeader("Server");
-
-    next();
+    helmetMiddleware(req, res, (error?: unknown) => {
+      if (error) return next(error);
+      return extraHeaders(req, res, next);
+    });
   };
 }
 
 export function securityMiddleware() {
-  return [securityHeaders(), additionalSecurityHeaders()];
+  return [securityHeaders()];
 }
 
 export default securityHeaders;
