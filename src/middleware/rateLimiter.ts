@@ -5,7 +5,7 @@
  * - Global rate limiting (all routes)
  * - Auth rate limiting (login, register - stricter)
  * - API rate limiting (app endpoints)
- * - Redis-backed distributed rate limiting (optional)
+ * - Redis-backed distributed rate limiting in production
  */
 
 import rateLimit, {
@@ -13,7 +13,7 @@ import rateLimit, {
   Options as RateLimitOptions,
 } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
-import { createClient } from "redis";
+import { createClient, type RedisClientType } from "redis";
 
 export interface RateLimitConfig {
   windowMs: number;
@@ -46,6 +46,56 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
       "Build rate limit exceeded. Please wait before creating more builds.",
   },
 };
+
+let sharedRedisClient: RedisClientType | null = null;
+let sharedRedisConnectPromise: Promise<void> | null = null;
+
+function getRedisUrl(): string | null {
+  const value = process.env.REDIS_URL?.trim();
+  return value ? value : null;
+}
+
+async function getSharedRedisClient(): Promise<RedisClientType> {
+  const url = getRedisUrl();
+  if (!url) {
+    throw new Error("REDIS_URL is required for distributed rate limiting");
+  }
+
+  if (!sharedRedisClient) {
+    sharedRedisClient = createClient({ url }) as RedisClientType;
+    sharedRedisClient.on("error", (error) => {
+      console.error("Shared rate-limit Redis error", error);
+    });
+  }
+
+  if (!sharedRedisClient.isOpen) {
+    if (!sharedRedisConnectPromise) {
+      sharedRedisConnectPromise = sharedRedisClient
+        .connect()
+        .then(() => undefined)
+        .finally(() => {
+          sharedRedisConnectPromise = null;
+        });
+    }
+    await sharedRedisConnectPromise;
+  }
+
+  return sharedRedisClient;
+}
+
+function createDistributedStore(config: RateLimitConfig): RedisStore {
+  // Each tier needs its own Redis namespace because the windows and maxima differ.
+  // This value is deterministic across Fly Machines, so traffic routed to either
+  // instance consumes the same bucket instead of doubling the effective limit.
+  const prefix = `appforge:rate-limit:${config.windowMs}:${config.max}:`;
+  return new RedisStore({
+    prefix,
+    sendCommand: async (...args: string[]) => {
+      const client = await getSharedRedisClient();
+      return client.sendCommand(args);
+    },
+  });
+}
 
 /**
  * Build a limiter identity exclusively from server-trusted state.
@@ -91,43 +141,51 @@ function createOptions(config: RateLimitConfig): Partial<RateLimitOptions> {
 }
 
 /**
- * Synchronous in-memory limiter for middleware that must be mounted in a
- * deterministic order during Express app construction.
+ * Synchronous middleware constructor used while Express routes are assembled.
+ * In production it still uses the shared Redis store: the store lazily awaits
+ * one shared connection when a request first consumes a rate-limit bucket.
  */
 export function createLocalRateLimiter(
   config: RateLimitConfig = DEFAULT_LIMITS.global,
 ): RateLimitRequestHandler {
-  return rateLimit(createOptions(config) as RateLimitOptions);
+  const options = createOptions(config) as RateLimitOptions;
+  if (process.env.NODE_ENV === "production" && getRedisUrl()) {
+    options.store = createDistributedStore(config);
+  }
+  return rateLimit(options);
 }
 
 /**
- * Create a limiter with optional Redis backing. Callers that need deterministic
- * route ordering should use createLocalRateLimiter, or await this function before
- * mounting any routes that the limiter is expected to protect.
+ * Create a limiter with optional Redis backing. Production callers always get
+ * Redis when REDIS_URL is configured so independently routed requests cannot
+ * obtain a fresh in-memory bucket on the second Fly Machine.
  */
 export async function createRateLimiter(
   config: RateLimitConfig = DEFAULT_LIMITS.global,
   useRedis: boolean = false,
 ): Promise<RateLimitRequestHandler> {
   const options = createOptions(config) as RateLimitOptions;
+  const shouldUseRedis =
+    Boolean(getRedisUrl()) &&
+    (useRedis || process.env.NODE_ENV === "production");
 
-  if (useRedis && process.env.REDIS_URL) {
-    const redisClient = createClient({ url: process.env.REDIS_URL });
-    try {
-      await redisClient.connect();
-      options.store = new RedisStore({
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-    } catch (error) {
-      await redisClient.disconnect().catch(() => undefined);
-      console.warn(
-        "Redis connection failed for rate limiter; using memory store",
-        error,
-      );
-    }
+  if (shouldUseRedis) {
+    await getSharedRedisClient();
+    options.store = createDistributedStore(config);
   }
 
   return rateLimit(options);
+}
+
+/** Production readiness probe for the shared two-Machine coordination store. */
+export async function checkSharedRedis(): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    const client = await getSharedRedisClient();
+    return (await client.ping()) === "PONG";
+  } catch {
+    return false;
+  }
 }
 
 export const rateLimiters = {
