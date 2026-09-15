@@ -188,7 +188,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
-      - name: Reconcile and require two started Fly app machines after deploy
+      - name: Reconcile and require exactly two started Fly app machines after deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
@@ -196,30 +196,41 @@ jobs:
           set -euo pipefail
           APP="appforge-unfurling-moon-9058"
 
-          # A blue/green cutover can briefly leave one replacement Machine stopped
-          # even after both replacements passed deployment health checks. Reconcile
-          # the desired app-process count explicitly, then start any stopped Machine.
+          # Blue/green can briefly expose old stopped Machines alongside the
+          # replacement fleet. First tell Fly the desired app-process count is two.
+          # Only start enough stopped Machines to restore that target; never revive
+          # every historical replacement and accidentally create over-capacity.
           flyctl scale count 2 --process-group app --app "$APP" --yes
 
           for attempt in $(seq 1 12); do
             machines_json="$(flyctl machines list --app "$APP" --json)"
-            mapfile -t recover_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state != "started") | .id')
+            started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+            echo "Started app machines before reconciliation attempt $attempt/12: $started"
+
+            if [ "$started" -eq 2 ]; then
+              flyctl checks list --app "$APP"
+              exit 0
+            fi
+
+            if [ "$started" -gt 2 ]; then
+              echo "Fly reports $started started app Machines after scale count 2; waiting for platform convergence instead of stopping Machines blindly."
+              sleep 5
+              continue
+            fi
+
+            needed=$((2 - started))
+            mapfile -t recover_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "stopped") | .id' | head -n "$needed")
             for id in "${recover_ids[@]}"; do
               echo "Post-deploy recovery start for Fly Machine $id (attempt $attempt/12)"
               flyctl machine start "$id" --app "$APP" || true
             done
 
             sleep 5
-            machines_json="$(flyctl machines list --app "$APP" --json)"
-            started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
-            echo "Started app machines after reconciliation attempt $attempt/12: $started"
-            if [ "$started" -ge 2 ]; then
-              flyctl checks list --app "$APP"
-              exit 0
-            fi
           done
 
-          echo "Production deploy failed redundancy gate after reconciliation: fewer than two app machines are started."
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+          echo "Production deploy failed redundancy gate after reconciliation: expected exactly two started app Machines, found $started."
           printf '%s\n' "$machines_json" | jq '.'
           flyctl checks list --app "$APP" || true
           exit 1
@@ -230,7 +241,7 @@ jobs:
 
           healthy=false
           for i in $(seq 1 30); do
-            if curl --fail --silent --show-error --max-time 10 "$URL/api/health/live" >/dev/null; then
+            if curl --fail --silent --show-error --retry 2 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/live" >/dev/null; then
               healthy=true
               break
             fi
@@ -243,7 +254,7 @@ jobs:
             exit 1
           fi
 
-          curl --fail --silent --show-error --max-time 10 "$URL/api/health/ready" >/dev/null
+          curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/ready" >/dev/null
 
           assert_status() {
             expected="$1"
@@ -301,7 +312,7 @@ jobs:
 
           for route in "${routes[@]}"; do
             body="$(mktemp)"
-            status=$(curl --silent --show-error --max-time 10 --location --output "$body" --write-out '%{http_code}' "$URL$route")
+            status=$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 --location --output "$body" --write-out '%{http_code}' "$URL$route")
             if [ "$status" != "200" ]; then
               echo "Customer-flow route $route returned HTTP $status after deploy"
               cat "$body"
