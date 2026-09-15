@@ -151,6 +151,41 @@ jobs:
           test -d dist/client/assets
           test -n "$(find dist/client/assets -type f -print -quit)"
           echo "Verified server bundle, SPA entrypoint, and static assets."
+      - name: Boot built production server and require liveness
+        shell: bash
+        env:
+          NODE_ENV: production
+          ENFORCE_ENV_VALIDATION: 'false'
+          PORT: '3100'
+          COOKIE_SECRET: 'ci-production-boot-smoke-only'
+        run: |
+          set -euo pipefail
+          LOG=/tmp/appforge-production-boot.log
+          node dist/server.js >"$LOG" 2>&1 &
+          PID=$!
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "Built production server exited before becoming live."
+              cat "$LOG"
+              exit 1
+            fi
+            if curl --fail --silent --show-error --max-time 2 \
+              http://127.0.0.1:3100/api/health/live >/dev/null; then
+              echo "Built production server booted and liveness responded."
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Built production server did not become live within 30 seconds."
+          cat "$LOG"
+          exit 1
       - name: Verify build does not mutate tracked source
         shell: bash
         run: |
