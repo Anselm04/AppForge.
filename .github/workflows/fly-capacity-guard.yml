@@ -51,10 +51,18 @@ jobs:
         run: |
           set -euo pipefail
           APP='appforge-unfurling-moon-9058'
-          # min_machines_running prevents auto-stop but does not create capacity.
-          # Reconcile the actual fleet so production can survive one Machine loss.
           flyctl scale count 2 --process-group app --app "$APP" --yes
           flyctl scale show --app "$APP"
+
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          mapfile -t stopped_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state != "started") | .id')
+          for id in "${stopped_ids[@]}"; do
+            echo "Attempting recovery start for Fly Machine $id"
+            flyctl machine start "$id" --app "$APP" || true
+          done
+
+          # Give Fly enough time to transition from started -> health-checked before enforcing.
+          sleep 25
 
       - name: Require two started healthy machines
         env:
@@ -99,3 +107,10 @@ jobs:
           flyctl scale show --app "$APP" || true
           flyctl machines list --app "$APP" || true
           flyctl checks list --app "$APP" || true
+          echo '--- recent Fly application logs ---'
+          flyctl logs --app "$APP" --no-tail || true
+          echo '--- per-machine status ---'
+          for id in $(flyctl machines list --app "$APP" --json | jq -r '.[].id'); do
+            echo "### Machine $id"
+            flyctl machine status "$id" --app "$APP" || true
+          done
