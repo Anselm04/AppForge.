@@ -121,6 +121,19 @@ Verification target:
 - Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
 - Exercise disconnect/reconnect around terminal publication and confirm persisted terminal replay without duplicate execution or charging.
 
+## Snapshot source-of-truth recovery
+
+Recovery invariant reviewed 15 September 2026:
+- A build snapshot selected as current and the canonical `projects.generatedFiles` copy must be synchronized in the same database transaction.
+- Snapshot activation must reject a snapshot that does not belong to the target project.
+- Successful snapshot activation must invalidate the live-preview cache so preview, rollback, download, and deployment reads converge on the newly active state.
+- A recovery or rollback procedure must use the same snapshot activation function rather than independently changing snapshot flags and project files.
+
+Verification target:
+- Activate a prior snapshot and confirm it becomes the sole current snapshot while `projects.generatedFiles` matches its file set.
+- Confirm a snapshot from another project cannot be activated.
+- Confirm the next preview/read after activation observes the restored snapshot rather than stale cached output.
+
 ## Stripe
 
 Must be recoverable:
