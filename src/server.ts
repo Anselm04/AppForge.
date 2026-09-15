@@ -45,6 +45,11 @@ import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
 import { AppError } from "./utils/errorReporting.js";
 import { validateEnv } from "./utils/env-validator.js";
+import {
+  getStartupReadiness,
+  markStartupDegraded,
+  markStartupReady,
+} from "./services/startupState.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -136,6 +141,26 @@ app.use((req, res, next) => {
 });
 
 app.use(cookieParser(ENV.cookieSecret));
+
+// Keep liveness available while dependencies initialise, but fail closed for
+// every execution/revenue-capable API until schema/environment readiness is
+// established. Stripe will retry 503 webhook responses rather than losing an
+// event during a transient database outage.
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/health") || req.path === "/csrf-token") {
+    return next();
+  }
+  const startup = getStartupReadiness();
+  if (!startup.ready) {
+    res.setHeader("Retry-After", "5");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(503).json({
+      error: "Service temporarily unavailable",
+      type: "STARTUP_NOT_READY",
+    });
+  }
+  return next();
+});
 
 const webhookLimiter = createLocalRateLimiter({
   windowMs: 1 * 60 * 1000,
@@ -321,8 +346,52 @@ app.use(
 
 let server: ReturnType<typeof app.listen> | undefined;
 let shuttingDown = false;
+let startupRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let runtimeServicesStarted = false;
 
-async function start() {
+function startRuntimeServices() {
+  if (runtimeServicesStarted) return;
+  runtimeServicesStarted = true;
+
+  import("./services/build-queue.js")
+    .then(({ startBuildQueueWorker }) => {
+      const stopQueue = startBuildQueueWorker(2000);
+      process.on("SIGTERM", () => stopQueue());
+      process.on("SIGINT", () => stopQueue());
+    })
+    .catch((error) =>
+      logger.error({ error }, "build_queue_worker_start_failed"),
+    );
+  import("./services/vantaSync.js")
+    .then(({ startVantaPoller }) => {
+      const stopVanta = startVantaPoller();
+      process.on("SIGTERM", () => stopVanta());
+      process.on("SIGINT", () => stopVanta());
+    })
+    .catch((error) => logger.error({ error }, "vanta_poller_start_failed"));
+  if (ENV.isProduction && ENV.sentryDsn) {
+    import("./agents/selfHealing.js")
+      .then(({ startSelfHealingWatcher }) => {
+        const stopWatcher = startSelfHealingWatcher(300_000);
+        process.on("SIGTERM", () => stopWatcher());
+        process.on("SIGINT", () => stopWatcher());
+      })
+      .catch((error) =>
+        logger.error({ error }, "self_healing_watcher_start_failed"),
+      );
+  }
+}
+
+function scheduleStartupRetry() {
+  if (shuttingDown || startupRetryTimer) return;
+  startupRetryTimer = setTimeout(() => {
+    startupRetryTimer = undefined;
+    void initialiseRuntime();
+  }, 10_000);
+  startupRetryTimer.unref();
+}
+
+async function initialiseRuntime() {
   const envResult = validateEnv(process.env as any);
   if (envResult.errors.length > 0) {
     logger.error({ errors: envResult.errors }, "environment_validation_failed");
@@ -335,47 +404,39 @@ async function start() {
     ENV.isProduction &&
     !envResult.valid
   ) {
-    throw new Error(
-      "Environment validation failed in production. Set ENFORCE_ENV_VALIDATION=false to override (not recommended).",
-    );
+    markStartupDegraded("environment");
+    logger.error({}, "startup_blocked_by_environment_validation");
+    return;
   }
 
   try {
     await ensureAppSchema();
   } catch (err) {
+    markStartupDegraded("database_schema");
     logger.error({ error: err }, "schema_ensure_failed");
-    if (ENV.isProduction) throw err;
+    if (ENV.isProduction) {
+      scheduleStartupRetry();
+      return;
+    }
   }
 
+  markStartupReady();
+  logger.info({}, "appforge_runtime_ready");
+  startRuntimeServices();
+}
+
+function start() {
+  // Bind the listener before dependency initialization. Liveness therefore
+  // proves that the process and HTTP stack are alive, while /ready remains 503
+  // until environment/schema initialization succeeds. A transient DB outage no
+  // longer causes Fly to treat the whole machine as dead or enter a restart loop.
   server = app.listen(PORT, () => {
     logger.info({ port: PORT }, "appforge_server_started");
-    import("./services/build-queue.js")
-      .then(({ startBuildQueueWorker }) => {
-        const stopQueue = startBuildQueueWorker(2000);
-        process.on("SIGTERM", () => stopQueue());
-        process.on("SIGINT", () => stopQueue());
-      })
-      .catch((error) =>
-        logger.error({ error }, "build_queue_worker_start_failed"),
-      );
-    import("./services/vantaSync.js")
-      .then(({ startVantaPoller }) => {
-        const stopVanta = startVantaPoller();
-        process.on("SIGTERM", () => stopVanta());
-        process.on("SIGINT", () => stopVanta());
-      })
-      .catch((error) => logger.error({ error }, "vanta_poller_start_failed"));
-    if (ENV.isProduction && ENV.sentryDsn) {
-      import("./agents/selfHealing.js")
-        .then(({ startSelfHealingWatcher }) => {
-          const stopWatcher = startSelfHealingWatcher(300_000);
-          process.on("SIGTERM", () => stopWatcher());
-          process.on("SIGINT", () => stopWatcher());
-        })
-        .catch((error) =>
-          logger.error({ error }, "self_healing_watcher_start_failed"),
-        );
-    }
+    void initialiseRuntime().catch((error) => {
+      markStartupDegraded("startup");
+      logger.error({ error }, "runtime_initialization_failed");
+      if (ENV.isProduction) scheduleStartupRetry();
+    });
   });
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
@@ -384,6 +445,7 @@ async function start() {
 function shutdown(signal: string, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
+  if (startupRetryTimer) clearTimeout(startupRetryTimer);
   logger.info({ signal, exitCode }, "shutdown_requested");
 
   const finish = async () => {
@@ -423,7 +485,4 @@ process.on("uncaughtException", (err) => {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
-start().catch((error) => {
-  logger.error({ error }, "server_start_failed");
-  shutdown("startupFailure", 1);
-});
+start();

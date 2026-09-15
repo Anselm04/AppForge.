@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { sql } from "drizzle-orm";
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import { logger } from "../_core/logger.js";
+import { getStartupReadiness } from "../services/startupState.js";
 
 const router = Router();
 
@@ -16,11 +17,13 @@ function setNoStoreHeaders(res: Response) {
 }
 
 router.get("/", async (_req: Request, res: Response) => {
+  const startup = getStartupReadiness();
   const health = {
-    status: "ok",
+    status: startup.ready ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     database: "unknown",
+    startup: startup.phase,
     version: process.env.npm_package_version ?? "unknown",
     environment: process.env.NODE_ENV ?? "unknown",
   };
@@ -46,12 +49,21 @@ router.get("/live", (_req: Request, res: Response) => {
 
 router.get("/ready", async (_req: Request, res: Response) => {
   setNoStoreHeaders(res);
+  const startup = getStartupReadiness();
+  if (!startup.ready) {
+    return res.status(503).json({
+      status: "degraded",
+      ready: false,
+      reason: startup.reason || startup.phase,
+    });
+  }
+
   try {
     await db.execute(sql`SELECT 1`);
-    res.status(200).json({ status: "ok", ready: true });
+    return res.status(200).json({ status: "ok", ready: true });
   } catch (error) {
     logger.error({ error }, "readiness_database_check_failed");
-    res
+    return res
       .status(503)
       .json({ status: "degraded", ready: false, reason: "database" });
   }
