@@ -808,6 +808,24 @@ export async function getProjectFiles(
 
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
   await db.transaction(async (tx) => {
+    const snapshots = await tx
+      .select({
+        id: schema.buildSnapshots.id,
+        files: schema.buildSnapshots.files,
+      })
+      .from(schema.buildSnapshots)
+      .where(
+        and(
+          eq(schema.buildSnapshots.id, id),
+          eq(schema.buildSnapshots.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    const snapshot = snapshots[0];
+    if (!snapshot) {
+      throw new Error("Snapshot not found for project");
+    }
+
     await tx
       .update(schema.buildSnapshots)
       .set({ isCurrent: false })
@@ -816,7 +834,18 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .update(schema.buildSnapshots)
       .set({ isCurrent: true })
       .where(eq(schema.buildSnapshots.id, id));
+    await tx
+      .update(schema.projects)
+      .set({
+        generatedFiles: snapshot.files,
+        status: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, projectId));
   });
+
+  const { invalidatePreviewCache } = await import("./routes/livePreview.js");
+  invalidatePreviewCache(projectId);
 }
 
 export async function getNextVersion(projectId: number): Promise<number> {

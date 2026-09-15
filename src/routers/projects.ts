@@ -568,7 +568,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } =
+      const { getSnapshotById, markSnapshotAsCurrent } =
         await import("../db.js");
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
@@ -582,10 +582,6 @@ export const projectsRouter = router({
         });
       }
       await markSnapshotAsCurrent(input.snapshotId, input.projectId);
-      await updateProjectFiles(
-        input.projectId,
-        snapshot.files as Record<string, string>,
-      );
       return {
         success: true,
         version: snapshot.version,
@@ -640,7 +636,7 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const { getProjectFiles } = await import("../db.js");
+      const { getProjectFiles } = await import(".../db.js");
       const { validateSingleFile } =
         await import("../lib/validateSingleFile.js");
       const files = await getProjectFiles(input.id);
@@ -675,7 +671,7 @@ export const projectsRouter = router({
         revenueGoLiveSteps,
         detectIncomeIntent,
         PLATFORM_INCOME_GAPS,
-      } = await import("../lib/revenueReadiness.js");
+      } = await import("../lib/revenueReadiness.js";
       const { databaseSetupGuide, hasBillingMigration } =
         await import("../services/databaseProvision.js");
       const { normalizeCapabilities } =
