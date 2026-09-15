@@ -146,7 +146,7 @@ jobs:
             echo "FLY_API_TOKEN is not configured; refusing to report a false production deployment."
             exit 1
           fi
-      - name: Require revenue-critical Fly runtime secrets
+      - name: Require revenue-critical and two-machine Fly runtime secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
@@ -156,6 +156,7 @@ jobs:
           SECRET_NAMES="$(printf '%s' "$SECRET_JSON" | jq -r '.[] | (.Name // .name // empty)')"
           required=(
             DATABASE_URL
+            REDIS_URL
             JWT_SECRET
             COOKIE_SECRET
             STRIPE_SECRET_KEY
@@ -171,10 +172,10 @@ jobs:
             fi
           done
           if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, or collect money with the current Fly secret set."
+            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, coordinate two Machines, or collect money with the current Fly secret set."
             exit 1
           fi
-          echo "Revenue-critical Fly runtime secret names are configured."
+          echo "Revenue-critical and shared two-Machine Fly runtime secret names are configured."
       - name: Reconfirm release freshness immediately before deploy
         shell: bash
         run: |
