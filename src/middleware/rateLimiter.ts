@@ -8,7 +8,6 @@
  * - Redis-backed distributed rate limiting (optional)
  */
 
-import { createHash } from "node:crypto";
 import rateLimit, {
   RateLimitRequestHandler,
   Options as RateLimitOptions,
@@ -49,19 +48,17 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 /**
- * Build a non-secret limiter identity. Authenticated users are partitioned by
- * internal user ID; API keys are hashed before they ever become memory/Redis
- * keys so operational inspection cannot reveal bearer credentials.
+ * Build a limiter identity exclusively from server-trusted state.
+ *
+ * This middleware is mounted before authentication for the global protection
+ * layer, so caller-controlled headers such as x-api-key and x-user-id must never
+ * create independent buckets. Otherwise an attacker can rotate arbitrary header
+ * values to evade the limiter. Once trusted auth middleware has populated
+ * req.user, an internal AppForge user ID is safe to use.
  */
 export function rateLimitIdentity(req: any): string {
   const userId = req.user?.id;
   if (userId) return `user:${userId}`;
-
-  const apiKey = req.headers?.["x-api-key"] as string | undefined;
-  if (apiKey) {
-    const digest = createHash("sha256").update(apiKey).digest("hex");
-    return `api-key-sha256:${digest}`;
-  }
 
   return req.ip || req.socket?.remoteAddress || "unknown";
 }
@@ -123,8 +120,6 @@ export async function createRateLimiter(
       });
     } catch (error) {
       await redisClient.disconnect().catch(() => undefined);
-      // Falling back to the process-local store preserves availability, while
-      // callers still retain per-instance abuse protection.
       console.warn(
         "Redis connection failed for rate limiter; using memory store",
         error,
