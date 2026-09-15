@@ -193,15 +193,7 @@ async function createAutonomousFixTask(
     });
     await markSnapshotAsCurrent(newSnapshotId, projectId);
 
-    // 5. Update project status + summary
-    await db
-      .update(schema.projects)
-      .set({
-        status: "completed",
-        generatedFiles: result.files,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.projects.id, projectId));
+    // Snapshot activation already synchronizes canonical project files/status.
 
     logger.info(
       { projectId, taskId, newVersion, summary },
