@@ -15,7 +15,7 @@ This runbook protects AppForge against accidental deletion, destructive changes,
 
 A restored revision is never deployed merely because it exists in backup. The exact restored SHA must pass AppForge's normal CI, security, test, build, release, and production verification gates before it can return to service.
 
-- Operational RTO target: **30–60 minutes** to return a known-good revision to service when GitHub/replacement source control, Fly.io, Supabase, Stripe, DNS, required secrets, and the network are healthy.
+- Operational RTO target: **30–60 minutes** to return a known-good revision to service when GitHub/replacement source control, Fly.io, Supabase/PostgreSQL, shared Redis, Stripe, DNS, required secrets, and the network are healthy.
 - These are targets, not guarantees, because external providers may be unavailable during a major incident.
 
 ## Backup layers
@@ -37,7 +37,7 @@ The source/history bundle contains Git objects, source history, refs, branches, 
 
 The metadata workflow runs only from trusted `main`, schedule, or manual execution and uses read-only GitHub permissions. It exports repository metadata, pull requests, issues, issue comments, pull-review comments, releases, branches, tags, and workflow inventory. The archive is checksummed and can be encrypted and copied to the same independent off-GitHub storage targets.
 
-This metadata archive improves forensic and operational recovery if the GitHub repository/account is lost or damaged, but it is not a byte-for-byte backup of every GitHub account setting. GitHub Actions secrets, account MFA/recovery settings, branch/ruleset configuration that is not exposed to the workflow, external database state, Stripe state, Supabase data, Fly.io secrets/configuration, DNS state, and credentials held by other providers still require their own recovery procedures.
+This metadata archive improves forensic and operational recovery if the GitHub repository/account is lost or damaged, but it is not a byte-for-byte backup of every GitHub account setting. GitHub Actions secrets, account MFA/recovery settings, branch/ruleset configuration that is not exposed to the workflow, external database state, Stripe state, Supabase data, Redis state/configuration, Fly.io secrets/configuration, DNS state, and credentials held by other providers still require their own recovery procedures.
 
 ## Restore procedure
 
@@ -52,31 +52,37 @@ This metadata archive improves forensic and operational recovery if the GitHub r
 9. Restore/reference the newest trusted GitHub metadata archive for PR, issue, release, branch/tag, and workflow history as needed.
 10. Review the restored SHA against the last known successful CI/security/production records.
 11. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
-12. Run the complete CI and security suite.
-13. Deploy only the exact SHA that passes the release gate.
-14. Re-establish Fly production capacity at exactly two started app Machines. Confirm `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, blue/green deployment, and `/api/health/live`; then run the **Fly Production Capacity Guard** so the restored fleet is reconciled without reviving every stopped historical replacement Machine.
-15. Run production liveness/readiness, authentication-boundary, billing-boundary, entry-route, generated-product, and scheduled two-Machine customer-flow verification checks. Treat transient Fly cutover/transport misses as retryable, but keep application-level authorization or customer-route failures red.
-16. Re-enable normal deployment only after the incident is contained, redundant capacity is verified, and the incident is documented.
+12. Restore PostgreSQL/Supabase and shared Redis access. Production must have a valid `REDIS_URL`; do not allow the two-Machine fleet to fall back to separate in-memory queues, build events, or rate-limit buckets.
+13. Run the complete CI and security suite.
+14. Deploy only the exact SHA that passes the release gate.
+15. Re-establish Fly production capacity at exactly two started app Machines. Confirm `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, blue/green deployment, and `/api/health/live`; then run the **Fly Production Capacity Guard** so the restored fleet is reconciled without reviving every stopped historical replacement Machine.
+16. Require `/api/health/ready` to prove both PostgreSQL and shared Redis are available, then run authentication-boundary, billing-boundary, entry-route, generated-product, and scheduled two-Machine customer-flow verification checks. Treat transient Fly cutover/transport misses as retryable, but keep application-level authorization or customer-route failures red.
+17. Verify recurring external side effects remain single-writer/idempotent across the two Machines. In particular, confirm the Vanta heartbeat uses the shared Redis interval-slot claim and is not emitted twice.
+18. Re-enable normal deployment only after the incident is contained, redundant capacity and shared coordination are verified, and the incident is documented.
 
 ## Two-Machine Fly recovery procedure
 
 AppForge production is certified around an exact two-Machine app-process target, not the old single-Machine posture and not an unbounded "start every stopped Machine" repair strategy.
 
 1. Restore the trusted `fly.toml` and confirm blue/green deployment, production auto-stop disabled, auto-start enabled, `min_machines_running = 2`, and the liveness path `/api/health/live`.
-2. Deploy only the exact trusted SHA that has passed current CI and security gates.
-3. Reassert `flyctl scale count 2 --process-group app` through the production deployment workflow or the Fly Production Capacity Guard.
-4. If fewer than two app Machines are started, start only enough stopped app Machines to reach the target of two. Do not blindly restart every stopped Machine left by previous blue/green replacements.
-5. If more than two app Machines are temporarily started after a blue/green cutover, allow Fly to converge after the scale command instead of arbitrarily stopping Machines during an active replacement.
-6. Do not certify recovery until exactly two started app Machines are established and Fly health checks pass.
-7. Run repeated public liveness checks and the Production Customer Flow Smoke. Its transport retries are intentional for redundant-proxy/cutover convergence; a persistent 5xx, bad customer page, or incorrect 4xx security contract remains a real failure.
-8. Run the full authenticated production customer journey when required for release certification, including the real Supabase/Stripe/Sprites-Fly integration preflight.
+2. Restore shared Redis access and confirm `REDIS_URL` is present in the Fly production secret inventory before deploying. Redis is a correctness dependency for distributed queues, build events, hard rate-limit buckets, and recurring single-writer coordination.
+3. Deploy only the exact trusted SHA that has passed current CI and security gates.
+4. Reassert `flyctl scale count 2 --process-group app` through the production deployment workflow or the Fly Production Capacity Guard.
+5. If fewer than two app Machines are started, start only enough stopped app Machines to reach the target of two. Do not blindly restart every stopped Machine left by previous blue/green replacements.
+6. If more than two app Machines are temporarily started after a blue/green cutover, allow Fly to converge after the scale command instead of arbitrarily stopping Machines during an active replacement.
+7. Do not certify recovery until exactly two started app Machines are established and Fly health checks pass.
+8. Require `/api/health/ready` to return 200 so the recovered release proves PostgreSQL and Redis readiness rather than only process liveness.
+9. Run repeated public liveness checks and the Production Customer Flow Smoke. Its transport retries are intentional for redundant-proxy/cutover convergence; a persistent 5xx, bad customer page, or incorrect 4xx security contract remains a real failure.
+10. Confirm recurring production jobs that can create external side effects still use distributed ownership/idempotency. The Vanta compliance heartbeat must retain its Redis `SET NX` single-writer interval claim.
+11. Run the full authenticated production customer journey when required for release certification, including the real Supabase/Stripe/Sprites-Fly integration preflight.
 
-A restore that comes up on one Machine, depends on wake-from-idle, over-starts stale Machines, or turns genuine application failures green is not equivalent to the current production architecture.
+A restore that comes up on one Machine, depends on wake-from-idle, over-starts stale Machines, loses shared Redis, duplicates recurring side effects, or turns genuine application failures green is not equivalent to the current production architecture.
 
 ## Autonomous build recovery
 
 The build worker is part of AppForge's recovery-critical production surface. A queued build must fail closed rather than continue when its ownership, inputs, generated artifacts, or deployment state can no longer be trusted.
 
+- Production build workers must use shared Redis/BullMQ coordination across both Fly Machines; in-memory fallback is not an equivalent production recovery state.
 - Before an agent pipeline starts, the worker confirms the project still exists and that the queued `userId` still owns it. A mismatch is treated as a failed build, never as permission to continue under the stale queue actor.
 - Queued descriptions must remain non-empty and no larger than 20,000 characters; tech-stack identifiers must remain non-empty and no larger than 120 characters. Invalid queue payloads fail through the normal refund/recovery path.
 - After the agent pipeline returns, the project is fetched again and ownership is revalidated. A project that disappeared or changed owner during execution cannot be deployed.
@@ -102,13 +108,13 @@ The build worker is part of AppForge's recovery-critical production surface. A q
 2. Preserve evidence: suspicious SHAs, workflow IDs, timestamps, deployment IDs, logs, affected accounts, and credential names.
 3. Do not assume the current `main` HEAD is trustworthy.
 4. Identify the newest known-good SHA that passed CI, security, build, deploy, and production checks.
-5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, webhook, signing, AI-provider, off-site-backup, and other privileged credentials.
+5. Revoke and rotate potentially exposed GitHub, Fly.io, Supabase, Stripe, database, Redis, webhook, signing, AI-provider, off-site-backup, and other privileged credentials.
 6. Treat every exposed credential as compromised even if it was later removed from Git history.
 7. Restore the repository from a verified independent recovery point if repository integrity is uncertain.
 8. Restore/reference the GitHub metadata archive to reconstruct development history and support incident forensics.
 9. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
 10. Deploy using fresh credentials.
-11. Verify exact two-Machine Fly capacity, live production, and customer/security smoke checks before reopening normal development/deployment.
+11. Verify exact two-Machine Fly capacity, shared Redis readiness, single-writer/idempotent background behavior, live production, and customer/security smoke checks before reopening normal development/deployment.
 
 ## AI-assisted development threat model
 
@@ -153,6 +159,7 @@ Critical recovery-impact areas include:
 - Supabase/database migrations, RLS/policy configuration, and storage configuration
 - authentication/session infrastructure
 - Stripe billing/webhook infrastructure
+- shared Redis, queues, rate limiting, recurring jobs, and background side effects
 - production auto-deploy, deploy-health, and build-worker infrastructure
 - secret handling and environment configuration
 - off-site backup configuration
@@ -172,7 +179,8 @@ The CI Security Gate runs the Recovery Governance check. Because production depl
 Maintain and periodically test independent recovery procedures for:
 
 - GitHub repository, pull requests/issues/releases metadata, and access controls.
-- Supabase database, auth configuration, RLS/policies, and storage.
+- Supabase/PostgreSQL database, auth configuration, RLS/policies, and storage.
+- Shared Redis connectivity/configuration used by both production Machines.
 - Fly.io application configuration, deployment settings, secrets inventory, exact two-Machine capacity target, blue/green strategy, and health checks.
 - Stripe product/price/webhook configuration and authoritative billing data.
 - DNS/domain registrar configuration.
@@ -198,8 +206,10 @@ At least monthly:
 4. Run the standard CI/test/security/build pipeline against the restored tree.
 5. Verify at least one independent off-GitHub source/history copy can be downloaded and decrypted using credentials stored outside GitHub.
 6. Verify a recent GitHub metadata archive is readable and contains the expected repository/PR/issue/release inventories.
-7. Rehearse the Fly recovery contract: exact trusted SHA, `app=2`, exactly two started app Machines, health checks, capacity guard, and resilient customer-flow smoke.
-8. Record whether the target recovery objectives were met.
-9. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
+7. Restore PostgreSQL and shared Redis access; verify production readiness fails closed when either is unavailable.
+8. Rehearse the Fly recovery contract: exact trusted SHA, `app=2`, exactly two started app Machines, health checks, capacity guard, and resilient customer-flow smoke.
+9. Verify one recurring side-effect path (currently Vanta heartbeat) demonstrates distributed single-writer behavior across both Machines.
+10. Record whether the target recovery objectives were met.
+11. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
 
 A backup that cannot be restored is not a backup.
