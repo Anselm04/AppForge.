@@ -95,12 +95,39 @@ Must be recoverable:
 - Production `Dockerfile` and build contract used by Fly remote builds.
 - Dependency manifest/lockfile parity required to reproduce the same production builder environment from a trusted SHA.
 
+Required production secret names include:
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `COOKIE_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `BUILT_IN_FORGE_API_KEY`
+- `OWNER_EMAIL`
+
 Verification target:
 - Recreate/redeploy exact trusted SHA.
 - Rebuild the production Docker builder stage from the trusted SHA before deployment and require it to succeed without relying on developer-machine `node_modules` state.
 - Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
+
+## Shared Redis two-Machine coordination
+
+Recovery invariant reviewed 16 September 2026:
+- `REDIS_URL` is a production correctness dependency for the redundant Fly fleet, not an optional performance setting.
+- BullMQ jobs, Redis queue claims, build event pub/sub, distributed hard rate-limit buckets, and other cross-instance coordination must use shared Redis so a request routed to the second Machine does not receive unrelated local state.
+- Production environment validation fails closed when `REDIS_URL` is missing or malformed.
+- The production deployment workflow refuses a release when the Fly secret-name inventory does not include `REDIS_URL`.
+- `/api/health/ready` verifies the shared Redis connection in production. Liveness remains process-only so a temporary Redis outage does not cause Fly to restart both otherwise healthy HTTP processes, while readiness correctly removes the affected release from service certification.
+- In-memory build queue/rate-limit behavior remains useful for local development and test/degraded-mode coverage, but it is not a certified substitute for shared Redis in two-Machine production.
+
+Verification target:
+- Confirm both started Fly Machines use the same production `REDIS_URL` secret name/configuration.
+- Confirm `/api/health/ready` returns 503 when shared Redis cannot be reached and returns 200 only after Redis and the database are ready.
+- Confirm hard rate limits use Redis-backed buckets in production so alternating requests between Machines cannot double the effective limit.
+- Confirm BullMQ/Redis queue claims prevent duplicate project execution across Machines.
+- During recovery, restore shared Redis access before declaring the redundant fleet production-ready.
 
 ## Production service availability invariant
 
@@ -112,7 +139,7 @@ Recovery invariant reviewed 16 September 2026:
 - The scheduled Fly capacity guard independently reasserts count two, starts only the number of stopped app Machines required to restore the target, waits for convergence rather than stopping Machines blindly when Fly temporarily reports more than two, and then verifies repeated public liveness.
 - The scheduled Production Customer Flow Smoke is two-Machine aware: connection-level and 5xx cutover noise is retried, while customer-route failures and application-level authorization contract failures remain red.
 - Recovery must not depend on an idle or post-deploy Machine wake-up succeeding before health, authentication, or billing traffic can be served.
-- A restored Fly configuration that re-enables production auto-stop, changes the two-Machine target, removes blue/green replacement, removes either capacity-reconciliation control, or removes the two-Machine-aware customer smoke is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
+- A restored Fly configuration that re-enables production auto-stop, changes the two-Machine target, removes blue/green replacement, removes either capacity-reconciliation control, removes shared Redis, or removes the two-Machine-aware customer smoke is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
 
 Verification target:
 - Confirm the deployed Fly service reports exactly two started app Machines after every release and recovery once blue/green convergence is complete.
@@ -161,6 +188,7 @@ Must be recoverable:
 - BullMQ/Redis configuration needed for distributed builds, with Redis-list and in-memory degraded-mode behavior documented in source.
 
 Recovery invariants:
+- Production must use shared Redis; Redis-list and in-memory fallbacks are not certified as a two-Machine production steady state.
 - A failed or incomplete paid build refunds the original reservation with an attempt-specific idempotency key.
 - Duplicate queue admission refunds only the duplicate reservation and must not affect the active build reservation.
 - If a duplicate job reaches a worker while the same project is already active, the worker uses the same duplicate-refund idempotency key as queue admission before returning. This prevents queue/worker races from stranding or double-refunding credits.
@@ -168,7 +196,8 @@ Recovery invariants:
 - Retry/recovery must never infer billing from the user's current entitlement; it must use the reservation state of the original attempt.
 
 Verification target:
-- Exercise duplicate admission through BullMQ, Redis-list fallback, and memory fallback and confirm one active build plus exactly-once duplicate refunds.
+- Exercise duplicate admission through BullMQ, Redis-list fallback, and memory fallback in test/degraded environments and confirm one active build plus exactly-once duplicate refunds.
+- Exercise production BullMQ across multiple workers and confirm one logical project build is not executed twice when requests/workers are distributed across Machines.
 - Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
 - Exercise disconnect/reconnect around terminal publication and confirm persisted terminal replay without duplicate execution or charging.
 
@@ -219,7 +248,7 @@ Must be recoverable or independently accessible:
 
 ## Recovery dependency rule
 
-Any new critical provider, database, deployment target, authentication mechanism, billing dependency, secret-management system, object store, or AI execution environment must be added to this inventory in the same change that makes it production-critical.
+Any new critical provider, database, deployment target, authentication mechanism, billing dependency, secret-management system, object store, shared coordination service, or AI execution environment must be added to this inventory in the same change that makes it production-critical.
 
 If a critical dependency cannot be independently recovered, it must be treated as an unresolved resilience risk.
 
@@ -232,7 +261,8 @@ Confirm:
 - Latest known-good production SHA is recorded.
 - Provider ownership and recovery access still work.
 - Recovery documentation matches current architecture.
-- Exact two-Machine Fly production recovery is still enforced by deployment, capacity guard, and customer smoke workflows.
+- Shared Redis is reachable and required by both production Machines.
+- Exact two-Machine Fly production recovery is still enforced by deployment, capacity guard, readiness, and customer smoke workflows.
 - No discontinued provider remains an undocumented dependency.
 
 This document contains no secret material by design.
