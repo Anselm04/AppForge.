@@ -80,9 +80,9 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
 
   const staticHtmlEligible = Boolean(
     files?.["index.html"] &&
-      !files?.["package.json"] &&
-      !files?.["vite.config.ts"] &&
-      !files?.["vite.config.js"],
+    !files?.["package.json"] &&
+    !files?.["vite.config.ts"] &&
+    !files?.["vite.config.js"],
   );
 
   useEffect(() => {
@@ -136,8 +136,8 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
     mutationFn: async () => {
       if (!selection?.id || !styles)
         throw new Error("Select an editable element");
-      return trpc.projects.visualEdit.mutate({
-        id: projectId,
+      return trpc.visualEditor.edit.mutate({
+        projectId,
         path: "index.html",
         targetId: selection.id,
         text:

@@ -1,8 +1,6 @@
-import {
-  commitProjectFilesSnapshot,
-  getProjectFiles,
-  type getProjectById,
-} from "../db.js";
+import { eq, sql } from "drizzle-orm";
+import { db, getProjectFiles, type getProjectById } from "../db.js";
+import * as schema from "../db/schema.js";
 import { validateSingleFile } from "../lib/validateSingleFile.js";
 
 export type EditableProject = NonNullable<
@@ -16,6 +14,60 @@ function safeProjectPath(path: string): boolean {
     !normalized.startsWith("/") &&
     !normalized.split("/").some((segment) => segment === "..")
   );
+}
+
+async function commitProjectFilesSnapshot(input: {
+  projectId: number;
+  userId: number;
+  label: string;
+  files: Record<string, string>;
+  techStack: string;
+  validationResult?: unknown;
+}) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM ${schema.projects} WHERE id = ${input.projectId} FOR UPDATE`,
+    );
+
+    const versionResult = await tx
+      .select({
+        maxVersion: sql<number>`COALESCE(MAX(${schema.buildSnapshots.version}), 0)::int`,
+      })
+      .from(schema.buildSnapshots)
+      .where(eq(schema.buildSnapshots.projectId, input.projectId));
+    const version = Number(versionResult[0]?.maxVersion ?? 0) + 1;
+
+    await tx
+      .update(schema.buildSnapshots)
+      .set({ isCurrent: false })
+      .where(eq(schema.buildSnapshots.projectId, input.projectId));
+
+    const inserted = await tx
+      .insert(schema.buildSnapshots)
+      .values({
+        projectId: input.projectId,
+        userId: input.userId,
+        version,
+        label: input.label.slice(0, 255),
+        files: input.files,
+        fileCount: Object.keys(input.files).length,
+        techStack: input.techStack,
+        validationResult: input.validationResult ?? null,
+        isCurrent: true,
+      })
+      .returning({ id: schema.buildSnapshots.id });
+
+    await tx
+      .update(schema.projects)
+      .set({
+        generatedFiles: input.files,
+        status: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, input.projectId));
+
+    return { id: inserted[0].id, version };
+  });
 }
 
 export async function commitValidatedProjectFileEdit(input: {

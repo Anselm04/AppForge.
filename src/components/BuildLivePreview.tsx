@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authHeaders } from "../lib/auth.js";
 import { onPreviewUpdate } from "../lib/previewEvents.js";
 import { trpc } from "../utils/trpc.js";
+import { VisualProjectEditor } from "./VisualProjectEditor.js";
 
 type Props = {
   projectId: number;
@@ -17,6 +18,7 @@ export function BuildLivePreview({
 }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [hmrFlash, setHmrFlash] = useState(false);
+  const [designMode, setDesignMode] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: devStatus } = useQuery({
@@ -105,6 +107,15 @@ export function BuildLivePreview({
           )}
         </p>
         <div className="flex gap-2">
+          {!deployUrl && !useDevServer && (
+            <button
+              type="button"
+              onClick={() => setDesignMode((value) => !value)}
+              className="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg"
+            >
+              {designMode ? "Exit design" : "Design"}
+            </button>
+          )}
           {!useDevServer && (
             <button
               type="button"
@@ -124,13 +135,17 @@ export function BuildLivePreview({
           </a>
         </div>
       </div>
-      <iframe
-        key={previewSrc}
-        src={previewSrc}
-        title="App preview"
-        className="flex-1 w-full min-h-[380px] rounded-lg border border-slate-700 bg-white"
-        sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
-      />
+      {designMode && !deployUrl && !useDevServer ? (
+        <VisualProjectEditor projectId={projectId} enabled={enabled} />
+      ) : (
+        <iframe
+          key={previewSrc}
+          src={previewSrc}
+          title="App preview"
+          className="flex-1 w-full min-h-[380px] rounded-lg border border-slate-700 bg-white"
+          sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
+        />
+      )}
     </div>
   );
 }

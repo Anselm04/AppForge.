@@ -22,6 +22,7 @@ import { artifactsRouter } from "./artifacts.js";
 import { templateFactoryRouter } from "./templateFactory.js";
 import { deepResearchRouter } from "./deepResearch.js";
 import { collaborationRouter } from "./collaboration.js";
+import { visualEditorRouter } from "./visualEditor.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -62,6 +63,7 @@ export const appRouter = router({
   templateFactory: templateFactoryRouter,
   deepResearch: deepResearchRouter,
   collaboration: collaborationRouter,
+  visualEditor: visualEditorRouter,
 });
 
 export type AppRouter = typeof appRouter;
