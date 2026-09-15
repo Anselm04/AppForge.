@@ -228,6 +228,12 @@ async function verifyDeployedProduct(liveUrl) {
   return { status: root.status, checkedAssets: assetMatches.length };
 }
 
+function findChangedPaths(beforeFiles, afterFiles) {
+  return [...new Set([...Object.keys(beforeFiles), ...Object.keys(afterFiles)])]
+    .filter((path) => beforeFiles[path] !== afterFiles[path])
+    .sort();
+}
+
 async function main() {
   required("APPFORGE_CANARY_EMAIL", email);
   required("APPFORGE_CANARY_PASSWORD", password);
@@ -319,6 +325,54 @@ async function main() {
   console.log(`[canary] opening real generated product ${done.liveUrl}`);
   const live = await verifyDeployedProduct(done.liveUrl);
 
+  console.log("[canary] capturing generated files before authenticated edit");
+  const beforeFiles = await trpc.query("projects.getFiles", { id: projectId });
+  if (!beforeFiles || Object.keys(beforeFiles).length === 0) {
+    throw new Error("Unable to read generated files before edit");
+  }
+
+  console.log("[canary] applying a real authenticated quick edit");
+  const edit = await trpc.mutation("projectChat.send", {
+    projectId,
+    content:
+      "Change the main visible heading to exactly 'AppForge Production Canary Updated' and add a short visible sentence saying 'Authenticated edit verified'. Keep the app functional and preserve the counter.",
+    triggerSeniorDev: false,
+  });
+  if (!edit?.ok) {
+    throw new Error(`Authenticated edit did not succeed: ${JSON.stringify(edit)}`);
+  }
+
+  const afterFiles = await trpc.query("projects.getFiles", { id: projectId });
+  const changedPaths = findChangedPaths(beforeFiles, afterFiles || {});
+  if (changedPaths.length === 0) {
+    throw new Error("Authenticated edit returned success but persisted no file changes");
+  }
+
+  console.log(
+    `[canary] authenticated edit persisted changes in ${changedPaths.length} file(s); redeploying preview`,
+  );
+  const redeploy = await trpc.mutation("projects.deploy", {
+    id: projectId,
+    destination: "preview",
+  });
+  if (!redeploy?.deployUrl || !/^https:\/\//i.test(redeploy.deployUrl)) {
+    throw new Error(
+      `Authenticated redeploy returned no HTTPS deployUrl: ${JSON.stringify(redeploy)}`,
+    );
+  }
+
+  const redeployedLive = await verifyDeployedProduct(redeploy.deployUrl);
+  const persistedAfterRedeploy = await trpc.query("projects.getFiles", {
+    id: projectId,
+  });
+  for (const path of changedPaths) {
+    if (persistedAfterRedeploy?.[path] !== afterFiles?.[path]) {
+      throw new Error(
+        `Edited file changed or disappeared during redeploy: ${path}`,
+      );
+    }
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -326,16 +380,24 @@ async function main() {
         baseUrl,
         projectId,
         liveUrl: done.liveUrl,
+        redeployUrl: redeploy.deployUrl,
         projectStatus: project.status,
         generatedFileCount: Object.keys(project.generatedFiles).length,
+        changedFileCount: changedPaths.length,
+        changedPaths,
         liveHttpStatus: live.status,
         checkedAssets: live.checkedAssets,
+        redeployHttpStatus: redeployedLive.status,
+        redeployCheckedAssets: redeployedLive.checkedAssets,
         sessionRefreshVerified: true,
         entitlementVerified: true,
         godCodeOtpVerified,
         automaticBuildStartVerified: true,
         agentBuildCompletionVerified: true,
         productionDeploymentVerified: true,
+        authenticatedEditVerified: true,
+        editPersistenceVerified: true,
+        authenticatedRedeployVerified: true,
       },
       null,
       2,
