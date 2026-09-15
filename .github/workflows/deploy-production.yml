@@ -188,6 +188,22 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+      - name: Require two started Fly app machines after deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="appforge-unfurling-moon-9058"
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+          echo "Started app machines after deploy: $started"
+          if [ "$started" -lt 2 ]; then
+            echo "Production deploy failed redundancy gate: fewer than two app machines are started."
+            printf '%s\n' "$machines_json" | jq '.'
+            exit 1
+          fi
+          flyctl checks list --app "$APP"
       - name: Verify production runtime and auth boundaries
         run: |
           set -euo pipefail
@@ -220,9 +236,8 @@ jobs:
             fi
           }
 
-          assert_post_status() {
-            expected="$1"
-            endpoint="$2"
+          assert_post_denied() {
+            endpoint="$1"
             actual=$(curl --silent --show-error --max-time 10 \
               --request POST \
               --header 'Content-Type: application/json' \
@@ -230,25 +245,26 @@ jobs:
               --output /dev/null \
               --write-out '%{http_code}' \
               "$URL$endpoint")
-            if [ "$actual" != "$expected" ]; then
-              echo "Expected POST $endpoint to return HTTP $expected without authentication, got $actual"
+            if [ "$actual" != "401" ] && [ "$actual" != "403" ]; then
+              echo "Expected POST $endpoint to fail closed with HTTP 401 or 403 without authentication/CSRF context, got $actual"
               exit 1
             fi
           }
 
           # Recovery contract: a restored/redeployed release is not healthy until
           # every revenue- or execution-capable REST prefix still fails closed.
-          # These canaries prevent a future route refactor from silently exposing
-          # AI generation, agent execution, builds, checkout, project data, or billing.
+          # GET canaries must remain 401. Anonymous state-changing POSTs may be
+          # rejected earlier by CSRF (403) or by authentication (401); both are
+          # secure fail-closed outcomes and neither may become a successful 2xx.
           assert_status 401 "/api/preview-auth/1"
           assert_status 401 "/api/build/1"
-          assert_post_status 401 "/api/ai/extract"
-          assert_post_status 401 "/api/agents/build"
-          assert_post_status 401 "/api/generate"
-          assert_post_status 401 "/api/checkout/plan"
+          assert_post_denied "/api/ai/extract"
+          assert_post_denied "/api/agents/build"
+          assert_post_denied "/api/generate"
+          assert_post_denied "/api/checkout/plan"
           assert_status 401 "/api/apps"
           assert_status 401 "/api/billing"
-          echo "Production live, readiness, and fail-closed anonymous-access gates passed"
+          echo "Production live, readiness, redundancy, and fail-closed anonymous-access gates passed"
 
       - name: Verify customer flow entry routes after deploy
         run: |
