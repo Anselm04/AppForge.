@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: deploy-production-main
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '22'
@@ -39,6 +39,20 @@ jobs:
             exit 1
           fi
           echo "Verified release SHA $RELEASE_SHA"
+      - name: Refuse stale release SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [ -z "$MAIN_SHA" ]; then
+            echo "Unable to resolve current main SHA; refusing production release."
+            exit 1
+          fi
+          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Release SHA $RELEASE_SHA is stale; current main is $MAIN_SHA. Refusing rollback-by-queue."
+            exit 1
+          fi
+          echo "Release SHA is still current main: $RELEASE_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -109,6 +123,20 @@ jobs:
             exit 1
           fi
           echo "Deploying verified SHA $RELEASE_SHA"
+      - name: Refuse stale deploy SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [ -z "$MAIN_SHA" ]; then
+            echo "Unable to resolve current main SHA; refusing production deployment."
+            exit 1
+          fi
+          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Deploy SHA $RELEASE_SHA is stale; current main is $MAIN_SHA. Refusing rollback-by-queue."
+            exit 1
+          fi
+          echo "Deploy SHA is still current main: $RELEASE_SHA"
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - name: Require Fly production token
         env:
@@ -147,6 +175,15 @@ jobs:
             exit 1
           fi
           echo "Revenue-critical Fly runtime secret names are configured."
+      - name: Reconfirm release freshness immediately before deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Main advanced to $MAIN_SHA after validation; refusing to deploy stale SHA $RELEASE_SHA."
+            exit 1
+          fi
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

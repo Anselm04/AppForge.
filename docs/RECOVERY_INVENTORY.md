@@ -102,6 +102,20 @@ Verification target:
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
 
+## Production deployment freshness invariant
+
+Recovery invariant reviewed 15 September 2026:
+- A queued production deployment must never roll AppForge backward after `main` has advanced to a newer release candidate.
+- Production deployment concurrency cancels an older in-progress deployment when the replacement release is ready to enter the same production deployment group.
+- Both release validation and the Fly deployment job must resolve `refs/heads/main` from the remote repository and require it to equal `RELEASE_SHA`.
+- The release freshness check is repeated immediately before `flyctl deploy` so a SHA that becomes stale after validation cannot be shipped.
+- If the current `main` SHA cannot be resolved, the deployment fails closed rather than guessing that a queued SHA is safe.
+
+Verification target:
+- Queue a newer `main` release while an older deployment exists and confirm the obsolete deployment cannot become the final production release.
+- Confirm a stale `RELEASE_SHA` fails before `flyctl deploy`.
+- Confirm the deployed SHA is the same SHA that passed the current CI release gate and remains the current `main` at deployment time.
+
 ## Production authorization canary
 
 Recovery invariant reviewed 15 September 2026:
