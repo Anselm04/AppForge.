@@ -109,7 +109,7 @@ Recovery invariant reviewed 16 September 2026:
 - `auto_stop_machines` is disabled in production; `auto_start_machines` remains enabled; `min_machines_running` must remain at least two.
 - Production deployment uses blue/green replacement so the previous healthy fleet remains available until replacement Machines pass health checks.
 - Fly can transiently leave one successfully health-checked green replacement in a stopped state immediately after blue/green cutover. The production deployment workflow therefore reasserts `app=2`, starts any non-started app Machine, retries fleet reconciliation, and refuses to certify the release unless two app Machines are actually started.
-- The scheduled Fly capacity guard independently reconciles count two and restarts stopped app Machines, providing a second self-healing control after deployment.
+- The scheduled Fly capacity guard independently reasserts count two, retries starts of any non-started app Machine through a bounded recovery loop, and then verifies repeated public liveness. This provides a second self-healing control after deployment rather than relying on one delayed start attempt.
 - Recovery must not depend on an idle or post-deploy Machine wake-up succeeding before health, authentication, or billing traffic can be served.
 - A restored Fly configuration that re-enables production auto-stop, reduces the minimum below two Machines, removes blue/green replacement, or removes either capacity-reconciliation control is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
 
