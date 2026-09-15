@@ -68,6 +68,16 @@ jobs:
             fi
           }
 
+          # Every customer-private REST surface must fail closed before route
+          # handlers execute. These checks run continuously against production so
+          # a future routing change cannot silently reopen an anonymous boundary.
           assert_status 401 "/api/preview-auth/1"
           assert_status 401 "/api/build/1"
-          echo "Scheduled production customer-flow smoke passed"
+          assert_status 401 "/api/ai"
+          assert_status 401 "/api/agents"
+          assert_status 401 "/api/generate"
+          assert_status 401 "/api/checkout"
+          assert_status 401 "/api/apps"
+          assert_status 401 "/api/billing"
+
+          echo "Scheduled production customer-flow and auth-boundary smoke passed"
