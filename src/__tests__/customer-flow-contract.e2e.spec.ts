@@ -9,10 +9,13 @@ function expectInOrder(text: string, markers: string[]) {
   let previous = -1;
   for (const marker of markers) {
     const index = text.indexOf(marker);
-    expect(index, `Missing customer-flow marker: ${marker}`).toBeGreaterThan(-1);
-    expect(index, `Customer-flow marker out of order: ${marker}`).toBeGreaterThan(
-      previous,
+    expect(index, `Missing customer-flow marker: ${marker}`).toBeGreaterThan(
+      -1,
     );
+    expect(
+      index,
+      `Customer-flow marker out of order: ${marker}`,
+    ).toBeGreaterThan(previous);
     previous = index;
   }
 }
@@ -52,9 +55,13 @@ describe("critical customer flow contract", () => {
     const admin = source("../routers/admin.ts");
     const redeem = source("../pages/Redeem.tsx");
 
-    expect(pricing).toContain("trpc.subscriptions.createCheckoutSession.mutate");
+    expect(pricing).toContain(
+      "trpc.subscriptions.createCheckoutSession.mutate",
+    );
     expect(pricing).toContain('navigate("/signup?next=/pricing")');
-    expect(subscriptions).toContain("createCheckoutSession: protectedProcedure");
+    expect(subscriptions).toContain(
+      "createCheckoutSession: protectedProcedure",
+    );
     expect(subscriptions).toContain("hasManagedSubscription");
     expect(subscriptions).toContain(
       "You already have a Stripe subscription. Use Manage billing",
@@ -81,7 +88,7 @@ describe("critical customer flow contract", () => {
     expect(checkout).toContain("userId: String(user.id)");
     expect(checkout).toContain("subscription_data:");
     expect(checkout).toContain(
-      'success_url: `${appUrl}/dashboard?checkout=success`',
+      "success_url: `${appUrl}/dashboard?checkout=success`",
     );
     expect(webhook).toContain("resolveCheckoutUserId(session)");
     expect(webhook).toContain(
