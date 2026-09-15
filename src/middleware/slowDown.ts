@@ -55,8 +55,9 @@ export function createSlowDown(
       if (!useDelay) return 0;
       return Math.min(delay, config.maxDelayMs);
     },
-    headers: "draft-6",
-    // Never permit a caller-controlled header to disable abuse protection.
+    // express-slow-down v2 removed the legacy `headers` option. Keep this
+    // options object limited to currently supported middleware settings so a
+    // dependency upgrade cannot crash AppForge during module initialization.
     skip: () => process.env.NODE_ENV === "test",
   } as any;
 
