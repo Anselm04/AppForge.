@@ -183,9 +183,34 @@ jobs:
             fi
           }
 
+          assert_post_status() {
+            expected="$1"
+            endpoint="$2"
+            actual=$(curl --silent --show-error --max-time 10 \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --data '{}' \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "$URL$endpoint")
+            if [ "$actual" != "$expected" ]; then
+              echo "Expected POST $endpoint to return HTTP $expected without authentication, got $actual"
+              exit 1
+            fi
+          }
+
+          # Every revenue- or execution-capable REST prefix is probed anonymously.
+          # These canaries prevent a future route refactor from silently exposing
+          # AI generation, agent execution, builds, checkout, project data, or billing.
           assert_status 401 "/api/preview-auth/1"
           assert_status 401 "/api/build/1"
-          echo "Production live, readiness, and anonymous-access smoke gates passed"
+          assert_post_status 401 "/api/ai/extract"
+          assert_post_status 401 "/api/agents/build"
+          assert_post_status 401 "/api/generate"
+          assert_post_status 401 "/api/checkout/plan"
+          assert_status 401 "/api/apps"
+          assert_status 401 "/api/billing"
+          echo "Production live, readiness, and fail-closed anonymous-access gates passed"
 
       - name: Verify customer flow entry routes after deploy
         run: |
