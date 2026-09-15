@@ -3,7 +3,6 @@ import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.js";
 import { createContext } from "./_core/context.js";
-import { stripeWebhookHandler } from "./webhooks/stripe.js";
 import { ENV } from "./_core/env.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -169,10 +168,22 @@ const webhookLimiter = createLocalRateLimiter({
 });
 app.use("/api/webhooks/stripe", webhookLimiter);
 
+// Keep Stripe's full signature verification, idempotency, fulfillment and refund
+// implementation intact, but do not execute that module before the HTTP listener
+// exists. The readiness gate above already fails closed when required production
+// billing configuration is invalid, so a degraded dependency cannot take down
+// process liveness before operators can diagnose it.
 app.post(
   "/api/webhooks/stripe",
   express.raw({ type: "application/json" }),
-  stripeWebhookHandler,
+  async (req, res, next) => {
+    try {
+      const { stripeWebhookHandler } = await import("./webhooks/stripe.js");
+      return await stripeWebhookHandler(req, res);
+    } catch (error) {
+      return next(error);
+    }
+  },
 );
 
 app.use(csrfProtection);
