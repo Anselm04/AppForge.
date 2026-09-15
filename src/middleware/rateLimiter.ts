@@ -8,6 +8,7 @@
  * - Redis-backed distributed rate limiting (optional)
  */
 
+import { createHash } from "node:crypto";
 import rateLimit, {
   RateLimitRequestHandler,
   Options as RateLimitOptions,
@@ -47,6 +48,24 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
   },
 };
 
+/**
+ * Build a non-secret limiter identity. Authenticated users are partitioned by
+ * internal user ID; API keys are hashed before they ever become memory/Redis
+ * keys so operational inspection cannot reveal bearer credentials.
+ */
+export function rateLimitIdentity(req: any): string {
+  const userId = req.user?.id;
+  if (userId) return `user:${userId}`;
+
+  const apiKey = req.headers?.["x-api-key"] as string | undefined;
+  if (apiKey) {
+    const digest = createHash("sha256").update(apiKey).digest("hex");
+    return `api-key-sha256:${digest}`;
+  }
+
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
 function createOptions(config: RateLimitConfig): Partial<RateLimitOptions> {
   return {
     windowMs: config.windowMs,
@@ -56,19 +75,7 @@ function createOptions(config: RateLimitConfig): Partial<RateLimitOptions> {
     legacyHeaders: true,
     skipSuccessfulRequests: config.skipSuccessfulRequests ?? false,
     skipFailedRequests: config.skipFailedRequests ?? false,
-    keyGenerator: (req: any) => {
-      // Only use identities established by trusted server middleware. Never trust
-      // x-user-id or similar client-controlled headers for limiter partitioning.
-      const userId = req.user?.id;
-      if (userId) return `user:${userId}`;
-
-      // API keys are intentionally distinct limiter identities. The downstream
-      // authorization layer remains responsible for validating the key itself.
-      const apiKey = req.headers["x-api-key"] as string | undefined;
-      if (apiKey) return `api-key:${apiKey}`;
-
-      return req.ip || req.socket.remoteAddress || "unknown";
-    },
+    keyGenerator: rateLimitIdentity,
     validate: { xForwardedForHeader: true },
     handler: (_req: any, res: any, _next: any, opts: any) => {
       const retryAfter = Math.ceil(opts.windowMs / 1000);
