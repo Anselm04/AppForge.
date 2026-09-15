@@ -50,6 +50,8 @@ jobs:
             .github/workflows/repository-metadata-backup.yml
             .github/workflows/security.yml
             .github/workflows/deploy-production.yml
+            .github/workflows/fly-capacity-guard.yml
+            .github/workflows/production-customer-flow-smoke.yml
           )
           for file in "${required[@]}"; do
             test -s "$file" || { echo "Missing recovery control: $file"; exit 1; }
@@ -119,6 +121,48 @@ jobs:
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$file"
           grep -Fq 'github.event.workflow_run.head_sha' "$file"
 
+      - name: Verify exact two-machine production recovery contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Configuration is the first source of truth.
+          grep -Eq "^[[:space:]]*strategy[[:space:]]*=[[:space:]]*'bluegreen'" fly.toml
+          grep -Eq "^[[:space:]]*auto_stop_machines[[:space:]]*=[[:space:]]*false" fly.toml
+          grep -Eq "^[[:space:]]*auto_start_machines[[:space:]]*=[[:space:]]*true" fly.toml
+          grep -Eq "^[[:space:]]*min_machines_running[[:space:]]*=[[:space:]]*2" fly.toml
+          grep -Eq "^[[:space:]]*path[[:space:]]*=[[:space:]]*'/api/health/live'" fly.toml
+
+          deploy=.github/workflows/deploy-production.yml
+          guard=.github/workflows/fly-capacity-guard.yml
+          smoke=.github/workflows/production-customer-flow-smoke.yml
+          inventory=docs/RECOVERY_INVENTORY.md
+          runbook=docs/DISASTER_RECOVERY.md
+
+          # Deploy and independent guard must agree on an exact target of two.
+          grep -Fq 'flyctl scale count 2 --process-group app' "$deploy"
+          grep -Fq 'expected exactly two started app Machines' "$deploy"
+          grep -Fq 'flyctl scale count 2 --process-group app' "$guard"
+          grep -Fq 'Exactly two started Fly app Machines established.' "$guard"
+          grep -Fq 'needed=$((2 - started))' "$guard"
+          grep -Fq 'head -n "$needed"' "$guard"
+
+          # Do not regress to the old behavior that revived every stopped historical Machine.
+          if grep -Fq 'starts any non-started app Machine' "$inventory"; then
+            echo 'Recovery inventory still describes the obsolete over-start behavior.'
+            exit 1
+          fi
+
+          # Scheduled external verification must tolerate transport/cutover noise while
+          # preserving application-level 4xx failures as real failures.
+          grep -Fq 'two-Machine routing can produce a brief' "$smoke"
+          grep -Fq 'non-transient HTTP' "$smoke"
+          grep -Fq 'Scheduled two-Machine production customer-flow and auth-boundary smoke passed' "$smoke"
+
+          # Human recovery procedure must explicitly restore and verify redundant capacity.
+          grep -Fq 'exactly two started app Machines' "$runbook"
+          grep -Fq 'Fly Production Capacity Guard' "$runbook"
+
       - name: Verify recovery governance recognizes platinum controls
         shell: bash
         run: |
@@ -153,4 +197,5 @@ jobs:
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
           echo 'Production deploy remains bound to successful CI and exact SHA.'
+          echo 'Exact two-Machine Fly recovery, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
           echo 'Recovery governance remains active.'
