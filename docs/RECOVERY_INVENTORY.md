@@ -102,6 +102,19 @@ Verification target:
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
 
+## Production service availability invariant
+
+Recovery invariant reviewed 15 September 2026:
+- AppForge is a revenue-facing production service and must keep at least one Fly machine continuously running.
+- `auto_stop_machines` is disabled in production; `min_machines_running` remains at least one.
+- Recovery must not depend on an idle or post-deploy machine wake-up succeeding before health, authentication, or billing traffic can be served.
+- A restored Fly configuration that re-enables production auto-stop is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
+
+Verification target:
+- Confirm the deployed Fly service reports at least one running machine after release and after an idle period.
+- Confirm `/api/health/live` remains reachable without requiring an auto-start wake-up.
+- Confirm recovery of `fly.toml` preserves `auto_stop_machines = false` and `min_machines_running = 1` unless a separately reviewed high-availability design replaces this invariant.
+
 ## Production deployment freshness invariant
 
 Recovery invariant reviewed 15 September 2026:

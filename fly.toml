@@ -29,9 +29,9 @@ primary_region = 'lhr'
 [[services]]
   protocol = 'tcp'
   internal_port = 3000
-  # AppForge is a revenue-facing production service. Keep at least one machine
-  # continuously running so health/auth/billing traffic never depends on an
-  # auto-start wake-up succeeding after a deployment or idle period.
+  # Recovery invariant: revenue-facing production keeps one machine running.
+  # Auto-stop must not make health/auth/billing availability depend on a wake-up
+  # after deploy or idle time; see docs/RECOVERY_INVENTORY.md.
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
