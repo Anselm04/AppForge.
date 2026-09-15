@@ -191,6 +191,15 @@ export function validateEnv(
     }
   }
 
+  // AppForge production runs more than one Fly Machine. Redis is therefore a
+  // correctness dependency, not an optional optimisation: BullMQ, queue claims,
+  // build events and distributed request controls must not split into unrelated
+  // per-process state when traffic can land on either Machine.
+  if (isProduction && !config.REDIS_URL) {
+    errors.push(
+      "REDIS_URL is required in production for shared multi-machine coordination",
+    );
+  }
   if (
     config.REDIS_URL &&
     !config.REDIS_URL.startsWith("redis://") &&
@@ -334,12 +343,16 @@ export function getEnvSummary(
     `  Resend Email: ${config.RESEND_API_KEY ? "✅" : "⚠️"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
     `  LLM (Forge): ${config.BUILT_IN_FORGE_API_KEY ? "✅" : "❌ (required for AI builds)"}`,
-    `  Redis: ${config.REDIS_URL ? "✅" : "⚠️"}`,
+    `  Redis: ${config.REDIS_URL ? "✅" : isProductionSummary(config) ? "❌ (required for multi-machine production)" : "⚠️"}`,
     `  Sentry: ${config.SENTRY_DSN ? "✅" : "⚠️"}`,
     `  CORS: ${config.CORS_ORIGIN ? "✅" : "⚠️"}`,
     `  GitHub OAuth: ${config.GITHUB_CLIENT_ID ? "✅" : "⚠️"}`,
     `  Request Timeout: ${config.REQUEST_TIMEOUT_MS ? "✅" : "⚠️ (defaulting to 330s)"}`,
   ].join("\n");
+}
+
+function isProductionSummary(config: Partial<EnvConfig>): boolean {
+  return config.NODE_ENV === "production";
 }
 
 export default { validateEnv, validateEnvOrThrow, getEnvSummary };
