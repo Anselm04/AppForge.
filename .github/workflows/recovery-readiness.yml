@@ -15,6 +15,7 @@ on:
       - 'src/middleware/rateLimiter.ts'
       - 'src/routes/health.ts'
       - 'src/services/build-queue.ts'
+      - 'src/services/vantaSync.ts'
       - 'src/utils/env-validator.ts'
   schedule:
     - cron: '41 13 * * 1'
@@ -59,6 +60,7 @@ jobs:
             src/middleware/rateLimiter.ts
             src/routes/health.ts
             src/services/build-queue.ts
+            src/services/vantaSync.ts
             src/utils/env-validator.ts
           )
           for file in "${required[@]}"; do
@@ -134,7 +136,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Configuration is the first source of truth.
           grep -Eq "^[[:space:]]*strategy[[:space:]]*=[[:space:]]*'bluegreen'" fly.toml
           grep -Eq "^[[:space:]]*auto_stop_machines[[:space:]]*=[[:space:]]*false" fly.toml
           grep -Eq "^[[:space:]]*auto_start_machines[[:space:]]*=[[:space:]]*true" fly.toml
@@ -147,7 +148,6 @@ jobs:
           inventory=docs/RECOVERY_INVENTORY.md
           runbook=docs/DISASTER_RECOVERY.md
 
-          # Deploy and independent guard must agree on an exact target of two.
           grep -Fq 'flyctl scale count 2 --process-group app' "$deploy"
           grep -Fq 'expected exactly two started app Machines' "$deploy"
           grep -Fq 'flyctl scale count 2 --process-group app' "$guard"
@@ -155,28 +155,32 @@ jobs:
           grep -Fq 'needed=$((2 - started))' "$guard"
           grep -Fq 'head -n "$needed"' "$guard"
 
-          # Shared state is now a correctness dependency for the redundant fleet.
+          # Shared state is a correctness dependency for the redundant fleet.
           grep -Fq 'REDIS_URL' "$deploy"
           grep -Fq 'REDIS_URL is required in production for shared multi-machine coordination' src/utils/env-validator.ts
           grep -Fq 'createDistributedStore' src/middleware/rateLimiter.ts
           grep -Fq 'checkSharedRedis' src/routes/health.ts
           grep -Fq 'BullMQ/Redis configuration needed for distributed builds' "$inventory"
 
-          # Do not regress to the old behavior that revived every stopped historical Machine.
+          # Recurring side effects started by both processes must elect one writer.
+          grep -Fq 'claimVantaHeartbeatSlot' src/services/vantaSync.ts
+          grep -Fq 'appforge:vanta:heartbeat:' src/services/vantaSync.ts
+          grep -Fq 'NX: true' src/services/vantaSync.ts
+          grep -Fq 'single-writer' "$inventory"
+
           if grep -Fq 'starts any non-started app Machine' "$inventory"; then
             echo 'Recovery inventory still describes the obsolete over-start behavior.'
             exit 1
           fi
 
-          # Scheduled external verification must tolerate transport/cutover noise while
-          # preserving application-level 4xx failures as real failures.
           grep -Fq 'two-Machine routing can produce a brief' "$smoke"
           grep -Fq 'non-transient HTTP' "$smoke"
           grep -Fq 'Scheduled two-Machine production customer-flow and auth-boundary smoke passed' "$smoke"
 
-          # Human recovery procedure must explicitly restore and verify redundant capacity.
           grep -Fq 'exactly two started app Machines' "$runbook"
           grep -Fq 'Fly Production Capacity Guard' "$runbook"
+          grep -Fq 'shared Redis' "$runbook"
+          grep -Fq 'single-writer' "$runbook"
 
       - name: Verify recovery governance recognizes platinum controls
         shell: bash
@@ -212,5 +216,5 @@ jobs:
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
           echo 'Production deploy remains bound to successful CI and exact SHA.'
-          echo 'Exact two-Machine Fly recovery, shared Redis coordination, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
+          echo 'Exact two-Machine Fly recovery, shared Redis coordination, single-writer background side effects, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
           echo 'Recovery governance remains active.'
