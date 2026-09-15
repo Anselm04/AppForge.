@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { getRateLimitConfig, rateLimitIdentity } from "./rateLimiter";
 
@@ -14,17 +13,14 @@ describe("rateLimitIdentity", () => {
     expect(identity).toBe("user:42");
   });
 
-  it("hashes API keys instead of exposing credentials in limiter storage", () => {
-    const apiKey = "appforge-secret-key";
-    const digest = createHash("sha256").update(apiKey).digest("hex");
+  it("does not let an unverified API key create a fresh limiter bucket", () => {
     const identity = rateLimitIdentity({
-      headers: { "x-api-key": apiKey },
+      headers: { "x-api-key": "attacker-rotated-value" },
       ip: "203.0.113.11",
       socket: {},
     });
 
-    expect(identity).toBe(`api-key-sha256:${digest}`);
-    expect(identity).not.toContain(apiKey);
+    expect(identity).toBe("203.0.113.11");
   });
 
   it("falls back to request IP, socket address, then unknown", () => {
