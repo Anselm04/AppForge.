@@ -54,8 +54,24 @@ This metadata archive improves forensic and operational recovery if the GitHub r
 11. Rotate or recreate infrastructure credentials before deploying if compromise is suspected.
 12. Run the complete CI and security suite.
 13. Deploy only the exact SHA that passes the release gate.
-14. Run production health, authentication-boundary, billing-boundary, entry-route, and generated-product verification checks.
-15. Re-enable normal deployment only after the incident is contained and documented.
+14. Re-establish Fly production capacity at exactly two started app Machines. Confirm `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, blue/green deployment, and `/api/health/live`; then run the **Fly Production Capacity Guard** so the restored fleet is reconciled without reviving every stopped historical replacement Machine.
+15. Run production liveness/readiness, authentication-boundary, billing-boundary, entry-route, generated-product, and scheduled two-Machine customer-flow verification checks. Treat transient Fly cutover/transport misses as retryable, but keep application-level authorization or customer-route failures red.
+16. Re-enable normal deployment only after the incident is contained, redundant capacity is verified, and the incident is documented.
+
+## Two-Machine Fly recovery procedure
+
+AppForge production is certified around an exact two-Machine app-process target, not the old single-Machine posture and not an unbounded "start every stopped Machine" repair strategy.
+
+1. Restore the trusted `fly.toml` and confirm blue/green deployment, production auto-stop disabled, auto-start enabled, `min_machines_running = 2`, and the liveness path `/api/health/live`.
+2. Deploy only the exact trusted SHA that has passed current CI and security gates.
+3. Reassert `flyctl scale count 2 --process-group app` through the production deployment workflow or the Fly Production Capacity Guard.
+4. If fewer than two app Machines are started, start only enough stopped app Machines to reach the target of two. Do not blindly restart every stopped Machine left by previous blue/green replacements.
+5. If more than two app Machines are temporarily started after a blue/green cutover, allow Fly to converge after the scale command instead of arbitrarily stopping Machines during an active replacement.
+6. Do not certify recovery until exactly two started app Machines are established and Fly health checks pass.
+7. Run repeated public liveness checks and the Production Customer Flow Smoke. Its transport retries are intentional for redundant-proxy/cutover convergence; a persistent 5xx, bad customer page, or incorrect 4xx security contract remains a real failure.
+8. Run the full authenticated production customer journey when required for release certification, including the real Supabase/Stripe/Sprites-Fly integration preflight.
+
+A restore that comes up on one Machine, depends on wake-from-idle, over-starts stale Machines, or turns genuine application failures green is not equivalent to the current production architecture.
 
 ## Autonomous build recovery
 
@@ -92,7 +108,7 @@ The build worker is part of AppForge's recovery-critical production surface. A q
 8. Restore/reference the GitHub metadata archive to reconstruct development history and support incident forensics.
 9. Re-run secret scanning, dependency audit, CodeQL, workflow supply-chain verification, tests, typecheck, build, and customer-flow contracts.
 10. Deploy using fresh credentials.
-11. Verify live production before reopening normal development/deployment.
+11. Verify exact two-Machine Fly capacity, live production, and customer/security smoke checks before reopening normal development/deployment.
 
 ## AI-assisted development threat model
 
@@ -157,7 +173,7 @@ Maintain and periodically test independent recovery procedures for:
 
 - GitHub repository, pull requests/issues/releases metadata, and access controls.
 - Supabase database, auth configuration, RLS/policies, and storage.
-- Fly.io application configuration, deployment settings, and secrets inventory.
+- Fly.io application configuration, deployment settings, secrets inventory, exact two-Machine capacity target, blue/green strategy, and health checks.
 - Stripe product/price/webhook configuration and authoritative billing data.
 - DNS/domain registrar configuration.
 - AI-provider credentials and quotas.
@@ -182,7 +198,8 @@ At least monthly:
 4. Run the standard CI/test/security/build pipeline against the restored tree.
 5. Verify at least one independent off-GitHub source/history copy can be downloaded and decrypted using credentials stored outside GitHub.
 6. Verify a recent GitHub metadata archive is readable and contains the expected repository/PR/issue/release inventories.
-7. Record whether the target recovery objectives were met.
-8. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
+7. Rehearse the Fly recovery contract: exact trusted SHA, `app=2`, exactly two started app Machines, health checks, capacity guard, and resilient customer-flow smoke.
+8. Record whether the target recovery objectives were met.
+9. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
 
 A backup that cannot be restored is not a backup.
