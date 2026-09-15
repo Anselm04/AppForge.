@@ -24,30 +24,51 @@ jobs:
           set -euo pipefail
           URL="https://appforge-unfurling-moon-9058.fly.dev"
 
-          curl --fail --silent --show-error --max-time 15 "$URL/api/health/live" >/dev/null
-          curl --fail --silent --show-error --max-time 15 "$URL/api/health/ready" >/dev/null
+          # Fly blue/green replacement and two-Machine routing can produce a brief
+          # connection-level miss while the proxy converges. Retry transport/5xx
+          # failures, but never turn an application-level 4xx into a false green.
+          curl_success() {
+            endpoint="$1"
+            for attempt in $(seq 1 6); do
+              status=$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
+                --output /dev/null --write-out '%{http_code}' "$URL$endpoint" || true)
+              if [ "$status" -ge 200 ] 2>/dev/null && [ "$status" -lt 400 ] 2>/dev/null; then
+                return 0
+              fi
+              echo "Transient check for $endpoint returned ${status:-transport-error} (attempt $attempt/6)"
+              sleep $((attempt * 2))
+            done
+            echo "Production endpoint $endpoint did not become healthy after retries"
+            return 1
+          }
+
+          curl_success "/api/health/live"
+          curl_success "/api/health/ready"
 
           check_page() {
             route="$1"
             body="$(mktemp)"
-            status=$(curl --silent --show-error --max-time 15 --location --output "$body" --write-out '%{http_code}' "$URL$route")
-            if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
-              echo "Customer route $route returned HTTP $status"
-              cat "$body" || true
-              rm -f "$body"
-              exit 1
-            fi
-            if [ ! -s "$body" ]; then
-              echo "Customer route $route returned an empty response"
-              rm -f "$body"
-              exit 1
-            fi
-            if ! grep -q 'id="root"' "$body"; then
-              echo "Customer route $route did not return the AppForge SPA shell"
-              rm -f "$body"
-              exit 1
-            fi
+            for attempt in $(seq 1 6); do
+              status=$(curl --silent --show-error --connect-timeout 5 --max-time 15 --location \
+                --output "$body" --write-out '%{http_code}' "$URL$route" || true)
+              if [ "$status" -ge 200 ] 2>/dev/null && [ "$status" -lt 400 ] 2>/dev/null && [ -s "$body" ] && grep -q 'id="root"' "$body"; then
+                rm -f "$body"
+                return 0
+              fi
+              if [ "$status" -ge 400 ] 2>/dev/null && [ "$status" -lt 500 ] 2>/dev/null; then
+                echo "Customer route $route returned non-transient HTTP $status"
+                cat "$body" || true
+                rm -f "$body"
+                return 1
+              fi
+              echo "Customer route $route not ready (${status:-transport-error}, attempt $attempt/6)"
+              : > "$body"
+              sleep $((attempt * 2))
+            done
+            echo "Customer route $route did not become healthy after retries"
+            cat "$body" || true
             rm -f "$body"
+            return 1
           }
 
           check_page "/"
@@ -61,11 +82,23 @@ jobs:
           assert_status() {
             expected="$1"
             endpoint="$2"
-            actual=$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "$URL$endpoint")
-            if [ "$actual" != "$expected" ]; then
-              echo "Expected $endpoint to return HTTP $expected anonymously, got $actual"
-              exit 1
-            fi
+            for attempt in $(seq 1 4); do
+              actual=$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
+                --output /dev/null --write-out '%{http_code}' "$URL$endpoint" || true)
+              if [ "$actual" = "$expected" ]; then
+                return 0
+              fi
+              # A real application response that differs from the security contract
+              # is not transient and must remain red.
+              if [ "$actual" -ge 400 ] 2>/dev/null && [ "$actual" -lt 500 ] 2>/dev/null; then
+                echo "Expected $endpoint to return HTTP $expected anonymously, got $actual"
+                return 1
+              fi
+              echo "Auth-boundary check for $endpoint returned ${actual:-transport-error} (attempt $attempt/4)"
+              sleep $((attempt * 2))
+            done
+            echo "Expected $endpoint to return HTTP $expected anonymously after retries, got ${actual:-transport-error}"
+            return 1
           }
 
           # Every customer-private REST surface must fail closed before route
@@ -80,4 +113,4 @@ jobs:
           assert_status 401 "/api/apps"
           assert_status 401 "/api/billing"
 
-          echo "Scheduled production customer-flow and auth-boundary smoke passed"
+          echo "Scheduled two-Machine production customer-flow and auth-boundary smoke passed"
