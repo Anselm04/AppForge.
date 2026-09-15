@@ -18,6 +18,9 @@ fi
 
 printf '%s\n' "$changed"
 
+# CI and deployment workflows are recovery-critical controls. In particular,
+# production boot/liveness gates must remain governed so a release cannot bypass
+# executable startup verification after dependency or middleware changes.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
