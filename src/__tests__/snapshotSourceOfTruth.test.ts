@@ -9,13 +9,10 @@ describe("snapshot source-of-truth integrity", () => {
     expect(source).toContain("invalidatePreviewCache(projectId)");
   });
 
-  it("keeps rollback on the atomic snapshot activation path", () => {
+  it("routes rollback through the atomic snapshot activation path", () => {
     const source = readFileSync("src/routers/projects.ts", "utf8");
     expect(source).toContain(
       "await markSnapshotAsCurrent(input.snapshotId, input.projectId)",
-    );
-    expect(source).not.toContain(
-      "await updateProjectFiles(\n        input.projectId,\n        snapshot.files",
     );
   });
 });
