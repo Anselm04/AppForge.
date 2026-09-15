@@ -523,13 +523,11 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { getProjectById, getProjectFiles, updateProjectFiles } =
-        await import("../db.js");
+      const { getProjectById } = await import("../db.js");
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const files = await getProjectFiles(input.projectId);
       const safeName = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
       const legacyPrefix: Record<string, string> = {
         graphics: "public/assets/",
@@ -546,9 +544,17 @@ Coordinates are 0-100 percent for canvas placement. Use reference numerals from 
         ? attachPrefixForKind(input.kind)
         : (legacyPrefix[input.kind] ?? "research/");
       const path = `${prefix}${safeName}`;
-      files[path] = input.content;
-      await updateProjectFiles(input.projectId, files);
-      return { path, ok: true };
+      const { commitValidatedProjectFileEdit } =
+        await import("../services/projectFileEdits.js");
+      return commitValidatedProjectFileEdit({
+        project,
+        userId: ctx.user.id,
+        path,
+        content: input.content,
+        label: `Studio asset: ${input.kind}/${safeName}`,
+        allowCreate: true,
+        skipValidation: true,
+      });
     }),
 });
 

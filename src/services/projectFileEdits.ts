@@ -77,16 +77,20 @@ export async function commitValidatedProjectFileEdit(input: {
   content: string;
   label: string;
   requireValid?: boolean;
+  allowCreate?: boolean;
+  skipValidation?: boolean;
 }) {
   if (!safeProjectPath(input.path)) {
     throw new Error("Invalid project file path");
   }
   const files = await getProjectFiles(input.project.id);
-  if (!(input.path in files)) {
+  if (!(input.path in files) && !input.allowCreate) {
     throw new Error("Project file not found");
   }
 
-  const validation = await validateSingleFile(input.path, input.content, files);
+  const validation = input.skipValidation
+    ? { ok: true, message: "Validation skipped for generated asset" }
+    : await validateSingleFile(input.path, input.content, files);
   if (!validation.ok && input.requireValid) {
     throw new Error(validation.message || "File validation failed");
   }
