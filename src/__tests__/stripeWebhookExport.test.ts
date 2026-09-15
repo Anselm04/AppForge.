@@ -9,11 +9,13 @@ const webhook = readFileSync(
 const server = readFileSync(resolve(process.cwd(), "src/server.ts"), "utf8");
 
 describe("Stripe webhook server export", () => {
-  it("keeps the server import wired to the webhook handler", () => {
+  it("keeps the server wired to the webhook handler without pre-listener execution", () => {
     expect(webhook).toContain(
       "export const stripeWebhookHandler = handleStripeWebhook",
     );
-    expect(server).toContain(
+    expect(server).toContain('await import("./webhooks/stripe.js")');
+    expect(server).toContain("stripeWebhookHandler(req, res)");
+    expect(server).not.toContain(
       'import { stripeWebhookHandler } from "./webhooks/stripe.js"',
     );
   });
