@@ -21,6 +21,7 @@ import { ecosystemRouter } from "./ecosystem.js";
 import { artifactsRouter } from "./artifacts.js";
 import { templateFactoryRouter } from "./templateFactory.js";
 import { deepResearchRouter } from "./deepResearch.js";
+import { collaborationRouter } from "./collaboration.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -60,6 +61,7 @@ export const appRouter = router({
   artifacts: artifactsRouter,
   templateFactory: templateFactoryRouter,
   deepResearch: deepResearchRouter,
+  collaboration: collaborationRouter,
 });
 
 export type AppRouter = typeof appRouter;
