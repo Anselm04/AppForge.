@@ -108,12 +108,15 @@ Recovery invariant reviewed 16 September 2026:
 - AppForge is a revenue-facing production service and must keep at least two Fly app Machines continuously running so one Machine can fail without becoming a total service outage.
 - `auto_stop_machines` is disabled in production; `auto_start_machines` remains enabled; `min_machines_running` must remain at least two.
 - Production deployment uses blue/green replacement so the previous healthy fleet remains available until replacement Machines pass health checks.
+- Fly can transiently leave one successfully health-checked green replacement in a stopped state immediately after blue/green cutover. The production deployment workflow therefore reasserts `app=2`, starts any non-started app Machine, retries fleet reconciliation, and refuses to certify the release unless two app Machines are actually started.
+- The scheduled Fly capacity guard independently reconciles count two and restarts stopped app Machines, providing a second self-healing control after deployment.
 - Recovery must not depend on an idle or post-deploy Machine wake-up succeeding before health, authentication, or billing traffic can be served.
-- A restored Fly configuration that re-enables production auto-stop, reduces the minimum below two Machines, or removes blue/green replacement is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
+- A restored Fly configuration that re-enables production auto-stop, reduces the minimum below two Machines, removes blue/green replacement, or removes either capacity-reconciliation control is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
 
 Verification target:
 - Confirm the deployed Fly service reports at least two started app Machines after every release and recovery.
 - Confirm Fly health checks pass for the replacement fleet before blue/green cutover completes.
+- Confirm the deployment workflow can recover a replacement Machine that transitions to stopped immediately after cutover and still establishes two started app Machines before release certification.
 - Confirm `/api/health/live` remains reachable without requiring an auto-start wake-up.
 - Confirm recovery of `fly.toml` preserves `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, the liveness check, and blue/green deployment.
 - Run the Fly production capacity guard to reconcile accidental capacity drift back to two app Machines and fail closed if two started Machines cannot be established.
