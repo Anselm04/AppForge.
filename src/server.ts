@@ -137,8 +137,6 @@ app.use((req, res, next) => {
 
 app.use(cookieParser(ENV.cookieSecret));
 
-// Rate limiters are created synchronously so registration order is guaranteed.
-// The webhook limiter must be mounted before the webhook route itself.
 const webhookLimiter = createLocalRateLimiter({
   windowMs: 1 * 60 * 1000,
   max: 60,
@@ -186,10 +184,10 @@ app.use("/api/trpc", apiLimiter);
 
 app.use("/api/health", healthRouter);
 
-// Authentication establishes identity. Authorization for private REST routers is
-// enforced separately below so future handlers fail closed by default.
+// One verification pass establishes req.user for the full API tree. Private REST
+// routers then use a fail-closed authorization barrier without calling Supabase a
+// second time for the same request.
 app.use("/api", supabaseAuthMiddleware);
-app.use("/api/trpc", supabaseAuthMiddleware);
 
 app.get("/api/preview-auth/:projectId", async (req, res) => {
   const authorization = req.headers.authorization;
@@ -221,14 +219,13 @@ app.get("/api/preview-auth/:projectId", async (req, res) => {
   return res.status(204).end();
 });
 
-const privateApi = [supabaseAuthMiddleware, requireAuthenticatedUser] as const;
-app.use("/api/ai", ...privateApi, aiRouter);
-app.use("/api/agents", ...privateApi, agentsRouter);
-app.use("/api/build", ...privateApi, buildRouter);
-app.use("/api/generate", ...privateApi, generateRouter);
-app.use("/api/checkout", ...privateApi, checkoutRouter);
-app.use("/api/apps", ...privateApi, appsCompatRouter);
-app.use("/api/billing", ...privateApi, billingCompatRouter);
+app.use("/api/ai", requireAuthenticatedUser, aiRouter);
+app.use("/api/agents", requireAuthenticatedUser, agentsRouter);
+app.use("/api/build", requireAuthenticatedUser, buildRouter);
+app.use("/api/generate", requireAuthenticatedUser, generateRouter);
+app.use("/api/checkout", requireAuthenticatedUser, checkoutRouter);
+app.use("/api/apps", requireAuthenticatedUser, appsCompatRouter);
+app.use("/api/billing", requireAuthenticatedUser, billingCompatRouter);
 app.use("/api/github", githubOAuthRouter);
 app.use("/api/sso", ssoHttpRouter);
 app.use("/live", supabaseAuthMiddleware, livePreviewRouter);
