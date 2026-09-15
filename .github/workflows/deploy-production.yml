@@ -199,7 +199,8 @@ jobs:
             fi
           }
 
-          # Every revenue- or execution-capable REST prefix is probed anonymously.
+          # Recovery contract: a restored/redeployed release is not healthy until
+          # every revenue- or execution-capable REST prefix still fails closed.
           # These canaries prevent a future route refactor from silently exposing
           # AI generation, agent execution, builds, checkout, project data, or billing.
           assert_status 401 "/api/preview-auth/1"

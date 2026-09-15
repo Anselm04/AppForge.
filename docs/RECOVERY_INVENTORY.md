@@ -100,6 +100,20 @@ Verification target:
 - Rebuild the production Docker builder stage from the trusted SHA before deployment and require it to succeed without relying on developer-machine `node_modules` state.
 - Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
 - Health/readiness/auth-boundary smoke verification.
+- After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
+
+## Production authorization canary
+
+Recovery invariant reviewed 15 September 2026:
+- A production release is not considered recovered merely because `/api/health/live` and `/api/health/ready` succeed.
+- Anonymous callers must receive HTTP 401 from preview auth, build streaming, AI generation, agent execution, checkout, project compatibility, and billing compatibility entry points.
+- The production deployment workflow probes these boundaries after every release so a route refactor cannot silently convert a recovered system into an exposed one.
+- If any anonymous authorization canary fails after restore or redeploy, keep the release out of service, identify the routing/authentication regression, fix it in source, rerun CI/security/build, and deploy the corrected SHA. Do not bypass the canary to complete recovery.
+
+Verification target:
+- Confirm `/api/preview-auth/1` and `/api/build/1` reject anonymous requests.
+- Confirm anonymous POST requests to AI extraction, agent build, generation, and checkout entry points are rejected before request validation or execution.
+- Confirm anonymous project/app and billing compatibility reads are rejected.
 
 ## Build queue and customer credit recovery
 
