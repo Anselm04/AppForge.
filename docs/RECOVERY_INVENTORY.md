@@ -104,16 +104,19 @@ Verification target:
 
 ## Production service availability invariant
 
-Recovery invariant reviewed 15 September 2026:
-- AppForge is a revenue-facing production service and must keep at least one Fly machine continuously running.
-- `auto_stop_machines` is disabled in production; `min_machines_running` remains at least one.
-- Recovery must not depend on an idle or post-deploy machine wake-up succeeding before health, authentication, or billing traffic can be served.
-- A restored Fly configuration that re-enables production auto-stop is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
+Recovery invariant reviewed 16 September 2026:
+- AppForge is a revenue-facing production service and must keep at least two Fly app Machines continuously running so one Machine can fail without becoming a total service outage.
+- `auto_stop_machines` is disabled in production; `auto_start_machines` remains enabled; `min_machines_running` must remain at least two.
+- Production deployment uses blue/green replacement so the previous healthy fleet remains available until replacement Machines pass health checks.
+- Recovery must not depend on an idle or post-deploy Machine wake-up succeeding before health, authentication, or billing traffic can be served.
+- A restored Fly configuration that re-enables production auto-stop, reduces the minimum below two Machines, or removes blue/green replacement is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
 
 Verification target:
-- Confirm the deployed Fly service reports at least one running machine after release and after an idle period.
+- Confirm the deployed Fly service reports at least two started app Machines after every release and recovery.
+- Confirm Fly health checks pass for the replacement fleet before blue/green cutover completes.
 - Confirm `/api/health/live` remains reachable without requiring an auto-start wake-up.
-- Confirm recovery of `fly.toml` preserves `auto_stop_machines = false` and `min_machines_running = 1` unless a separately reviewed high-availability design replaces this invariant.
+- Confirm recovery of `fly.toml` preserves `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, the liveness check, and blue/green deployment.
+- Run the Fly production capacity guard to reconcile accidental capacity drift back to two app Machines and fail closed if two started Machines cannot be established.
 
 ## Production deployment freshness invariant
 
@@ -131,16 +134,17 @@ Verification target:
 
 ## Production authorization canary
 
-Recovery invariant reviewed 15 September 2026:
+Recovery invariant reviewed 16 September 2026:
 - A production release is not considered recovered merely because `/api/health/live` and `/api/health/ready` succeed.
-- Anonymous callers must receive HTTP 401 from preview auth, build streaming, AI generation, agent execution, checkout, project compatibility, and billing compatibility entry points.
+- Anonymous GET canaries for protected preview, build, project/app, and billing reads must receive HTTP 401.
+- Anonymous state-changing POST canaries for AI extraction, agent execution, generation, and checkout must fail closed with HTTP 401 or HTTP 403. A 403 is valid when CSRF protection rejects the request before authentication; neither status permits execution or data access.
 - The production deployment workflow probes these boundaries after every release so a route refactor cannot silently convert a recovered system into an exposed one.
-- If any anonymous authorization canary fails after restore or redeploy, keep the release out of service, identify the routing/authentication regression, fix it in source, rerun CI/security/build, and deploy the corrected SHA. Do not bypass the canary to complete recovery.
+- If any anonymous authorization canary returns a successful or otherwise unexpected status after restore or redeploy, keep the release out of service, identify the routing/authentication regression, fix it in source, rerun CI/security/build, and deploy the corrected SHA. Do not bypass the canary to complete recovery.
 
 Verification target:
-- Confirm `/api/preview-auth/1` and `/api/build/1` reject anonymous requests.
-- Confirm anonymous POST requests to AI extraction, agent build, generation, and checkout entry points are rejected before request validation or execution.
-- Confirm anonymous project/app and billing compatibility reads are rejected.
+- Confirm `/api/preview-auth/1` and `/api/build/1` return 401 to anonymous callers.
+- Confirm anonymous POST requests to AI extraction, agent build, generation, and checkout entry points are rejected with 401 or 403 before request execution.
+- Confirm anonymous project/app and billing compatibility reads return 401.
 
 ## Build queue and customer credit recovery
 
