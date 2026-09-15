@@ -45,7 +45,7 @@ jobs:
         run: |
           test -n "$FLY_API_TOKEN" || { echo 'FLY_API_TOKEN is missing'; exit 1; }
 
-      - name: Reconcile production to two app machines
+      - name: Reconcile production to two started app machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
@@ -55,31 +55,28 @@ jobs:
           flyctl scale count 2 --process-group app --app "$APP" --yes
           flyctl scale show --app "$APP"
 
-          machines_json="$(flyctl machines list --app "$APP" --json)"
-          mapfile -t stopped_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state != "started") | .id')
-          for id in "${stopped_ids[@]}"; do
-            echo "Attempting recovery start for Fly Machine $id"
-            flyctl machine start "$id" --app "$APP" || true
+          for attempt in $(seq 1 12); do
+            machines_json="$(flyctl machines list --app "$APP" --json)"
+            mapfile -t recover_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state != "started") | .id')
+            for id in "${recover_ids[@]}"; do
+              echo "Capacity recovery start for Fly Machine $id (attempt $attempt/12)"
+              flyctl machine start "$id" --app "$APP" || true
+            done
+
+            sleep 5
+            machines_json="$(flyctl machines list --app "$APP" --json)"
+            started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+            echo "Started app machines after recovery attempt $attempt/12: $started"
+            if [ "$started" -ge 2 ]; then
+              echo 'Two started Fly app Machines established.'
+              flyctl checks list --app "$APP" || true
+              exit 0
+            fi
           done
 
-          # Give Fly enough time to transition from started -> health-checked before enforcing.
-          sleep 25
-
-      - name: Require two started healthy machines
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP='appforge-unfurling-moon-9058'
-          machines_json="$(flyctl machines list --app "$APP" --json)"
-          started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
-          echo "Started app machines: $started"
-          if [ "$started" -lt 2 ]; then
-            echo 'Production redundancy invariant violated: fewer than two started app machines.'
-            printf '%s\n' "$machines_json" | jq '.'
-            exit 1
-          fi
+          echo 'Production redundancy invariant violated after recovery attempts: fewer than two started app machines.'
+          printf '%s\n' "$machines_json" | jq '.'
+          exit 1
 
       - name: Verify public liveness repeatedly
         shell: bash
