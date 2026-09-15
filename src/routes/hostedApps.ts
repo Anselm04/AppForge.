@@ -1,16 +1,16 @@
 import { Router, Request, Response } from "express";
 import { extname } from "path";
 import { getProjectById } from "../db.js";
-import {
-  HOSTED_MIME,
-  materializeHostedHtml,
-} from "../lib/hostedRuntime.js";
+import { HOSTED_MIME, materializeHostedHtml } from "../lib/hostedRuntime.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
+import { injectVisualPreviewBridge } from "../lib/visualPreviewBridge.js";
 
 export const hostedAppsRouter = Router();
 
 function mimeFor(filePath: string): string {
-  return HOSTED_MIME[extname(filePath).toLowerCase()] || "application/octet-stream";
+  return (
+    HOSTED_MIME[extname(filePath).toLowerCase()] || "application/octet-stream"
+  );
 }
 
 function normalizeFiles(files: Record<string, string>): Record<string, string> {
@@ -32,9 +32,12 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
 
     const project = await getProjectById(projectId);
     if (!project) {
-      res.status(404).type("html").send(
-        `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#020617;color:#e2e8f0"><h1>App not found</h1><p>This generated app is not published yet.</p></body></html>`,
-      );
+      res
+        .status(404)
+        .type("html")
+        .send(
+          `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#020617;color:#e2e8f0"><h1>App not found</h1><p>This generated app is not published yet.</p></body></html>`,
+        );
       return;
     }
 
@@ -42,9 +45,12 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
       (project.generatedFiles as Record<string, string> | null) ?? {},
     );
     if (Object.keys(files).length === 0) {
-      res.status(404).type("html").send(
-        `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#020617;color:#e2e8f0"><h1>Still generating</h1><p>This project has no live files yet. Wait for Generate to finish.</p></body></html>`,
-      );
+      res
+        .status(404)
+        .type("html")
+        .send(
+          `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#020617;color:#e2e8f0"><h1>Still generating</h1><p>This project has no live files yet. Wait for Generate to finish.</p></body></html>`,
+        );
       return;
     }
 
@@ -64,16 +70,25 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
 
     const rel = decodeURIComponent((req.path || "/").replace(/^\//, ""));
     if (!rel || rel === "index.html") {
-      const html =
-        files["_hosted/index.html"] ||
-        materializeHostedHtml({
-          projectId,
-          title: project.title || `App ${projectId}`,
-          description: project.description || "",
-          techStack: project.techStack || "react-node",
-          files,
-        });
-      res.type("html").send(html);
+      const staticHtmlProject =
+        !!files["index.html"] &&
+        !files["package.json"] &&
+        !files["vite.config.ts"] &&
+        !files["vite.config.js"];
+      const visualMode = req.query.appforgeVisual === "1" && staticHtmlProject;
+      const html = staticHtmlProject
+        ? files["index.html"]
+        : files["_hosted/index.html"] ||
+          materializeHostedHtml({
+            projectId,
+            title: project.title || `App ${projectId}`,
+            description: project.description || "",
+            techStack: project.techStack || "react-node",
+            files,
+          });
+      res
+        .type("html")
+        .send(visualMode ? injectVisualPreviewBridge(html) : html);
       return;
     }
 
