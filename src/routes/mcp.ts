@@ -13,13 +13,67 @@ export const MCP_PROTOCOL_VERSION = "2026-07-28";
 const LEGACY_PROTOCOL_VERSION = "2025-11-25";
 const SERVER_INFO = { name: "appforge", version: "1.0.0" } as const;
 
+export const MCP_RESOURCES = [
+  {
+    uri: "appforge://account",
+    name: "AppForge account status",
+    description:
+      "Authenticated tier and credit status for the current AppForge account.",
+    mimeType: "application/json",
+  },
+  {
+    uri: "appforge://projects",
+    name: "AppForge projects",
+    description:
+      "Safe metadata for projects owned by the authenticated AppForge user.",
+    mimeType: "application/json",
+  },
+] as const;
+
+export const MCP_RESOURCE_TEMPLATES = [
+  {
+    uriTemplate: "appforge://projects/{projectId}",
+    name: "AppForge project",
+    description:
+      "Safe metadata for one project owned by the authenticated user.",
+    mimeType: "application/json",
+  },
+  {
+    uriTemplate: "appforge://projects/{projectId}/agent-logs",
+    name: "AppForge project agent logs",
+    description:
+      "Agent progress logs for one project owned by the authenticated user.",
+    mimeType: "application/json",
+  },
+] as const;
+
+export const MCP_PROMPTS = [
+  {
+    name: "review_project_status",
+    title: "Review AppForge project status",
+    description:
+      "Guide an interoperable agent through a safe project status and agent-log review.",
+    arguments: [
+      {
+        name: "projectId",
+        description: "Positive AppForge project ID",
+        required: true,
+      },
+    ],
+  },
+] as const;
+
 export const MCP_TOOLS = [
   {
     name: "list_projects",
     title: "List AppForge projects",
     description:
       "List the authenticated user's AppForge projects without exposing generated source files or secrets.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
   },
   {
     name: "get_project",
@@ -54,14 +108,22 @@ export const MCP_TOOLS = [
     title: "Get AppForge account status",
     description:
       "Read the authenticated user's AppForge tier, credit balance and unlimited-access status.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
   },
   {
     name: "get_deploy_destinations",
     title: "Get AppForge deployment destinations",
     description:
       "List deployment destinations currently supported by AppForge. This tool does not start a deployment.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
   },
 ] as const;
 
@@ -170,7 +232,11 @@ export function validateModernMcpHeaders(
   return null;
 }
 
-async function callTool(userId: number, name: string, args: Record<string, any>) {
+async function callTool(
+  userId: number,
+  name: string,
+  args: Record<string, any>,
+) {
   switch (name) {
     case "list_projects": {
       const projects = await getProjectsByUserId(userId);
@@ -224,13 +290,73 @@ async function callTool(userId: number, name: string, args: Record<string, any>)
     }
 
     case "get_deploy_destinations": {
-      const { listDeployDestinations } = await import("../services/deployer.js");
+      const { listDeployDestinations } =
+        await import("../services/deployer.js");
       return { destinations: listDeployDestinations() };
     }
 
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
+}
+
+async function readResource(userId: number, uri: string) {
+  if (uri === "appforge://account") {
+    const [tier, credits] = await Promise.all([
+      getUserTier(userId),
+      getUserCredits(userId),
+    ]);
+    return {
+      tier,
+      credits: credits?.balance ?? 0,
+      unlimited: !!credits?.unlimited || tier === "lifetime",
+      monthlyAllowance: credits?.monthlyAllowance ?? 0,
+    };
+  }
+  if (uri === "appforge://projects") {
+    const projects = await getProjectsByUserId(userId);
+    const items = projects.map(safeProject);
+    return { items, count: items.length };
+  }
+  const projectMatch = uri.match(/^appforge:\/\/projects\/(\d+)$/);
+  const logsMatch = uri.match(/^appforge:\/\/projects\/(\d+)\/agent-logs$/);
+  const rawId = projectMatch?.[1] ?? logsMatch?.[1];
+  const projectId = rawId ? Number(rawId) : null;
+  if (!projectId || !Number.isSafeInteger(projectId) || projectId <= 0)
+    throw new Error("Resource not found");
+  const project = await getProjectById(projectId);
+  if (!project || project.userId !== userId)
+    throw new Error("Resource not found or access denied");
+  if (logsMatch) {
+    const logs = await getAgentLogsByProject(projectId);
+    return {
+      projectId,
+      logs: logs.map((log: any) => ({
+        id: log.id,
+        agent: log.agent,
+        content: log.content,
+        isComplete: log.isComplete,
+        creditsCharged: log.creditsCharged,
+        createdAt: log.createdAt,
+        updatedAt: log.updatedAt,
+      })),
+    };
+  }
+  return safeProject(project);
+}
+
+export function buildProjectReviewPrompt(projectId: number) {
+  if (!Number.isSafeInteger(projectId) || projectId <= 0)
+    throw new Error("projectId must be a positive integer");
+  return [
+    {
+      role: "user",
+      content: {
+        type: "text",
+        text: `Review AppForge project ${projectId}. Use get_project first, then get_agent_logs. Summarize current status, blockers, recent agent activity, and the safest next action. Do not request or expose secrets, generated source files, credentials, or data from another user's project.`,
+      },
+    },
+  ];
 }
 
 mcpRouter.post("/", async (req, res) => {
@@ -267,8 +393,15 @@ mcpRouter.post("/", async (req, res) => {
             id,
             modernResult(
               {
-                supportedVersions: [MCP_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION],
-                capabilities: { tools: { listChanged: false } },
+                supportedVersions: [
+                  MCP_PROTOCOL_VERSION,
+                  LEGACY_PROTOCOL_VERSION,
+                ],
+                capabilities: {
+                  tools: { listChanged: false },
+                  resources: { subscribe: false, listChanged: false },
+                  prompts: { listChanged: false },
+                },
                 instructions:
                   "Use AppForge tools to inspect only the authenticated user's projects, account state and supported deployment destinations. Write actions are intentionally not exposed in this first hardened MCP surface.",
                 ttlMs: 300000,
@@ -282,13 +415,17 @@ mcpRouter.post("/", async (req, res) => {
       case "initialize": {
         const requested = body.params?.protocolVersion;
         const protocolVersion =
-          requested === LEGACY_PROTOCOL_VERSION
-            ? LEGACY_PROTOCOL_VERSION
+          requested === MCP_PROTOCOL_VERSION
+            ? MCP_PROTOCOL_VERSION
             : LEGACY_PROTOCOL_VERSION;
         return res.json(
           rpcResult(id, {
             protocolVersion,
-            capabilities: { tools: { listChanged: false } },
+            capabilities: {
+              tools: { listChanged: false },
+              resources: { subscribe: false, listChanged: false },
+              prompts: { listChanged: false },
+            },
             serverInfo: SERVER_INFO,
             instructions:
               "Authenticated AppForge project inspection tools. Write actions are not exposed by this endpoint.",
@@ -298,6 +435,88 @@ mcpRouter.post("/", async (req, res) => {
 
       case "notifications/initialized":
         return res.status(202).end();
+
+      case "ping":
+        return res.json(rpcResult(id, modernResult({}, modern)));
+
+      case "resources/list":
+        return res.json(
+          rpcResult(id, modernResult({ resources: MCP_RESOURCES }, modern)),
+        );
+
+      case "resources/templates/list":
+        return res.json(
+          rpcResult(
+            id,
+            modernResult({ resourceTemplates: MCP_RESOURCE_TEMPLATES }, modern),
+          ),
+        );
+
+      case "resources/read": {
+        const uri = body.params?.uri;
+        if (typeof uri !== "string" || uri.length > 512)
+          return res.status(400).json(rpcError(id, -32602, "Invalid params"));
+        try {
+          const data = await readResource(userId, uri);
+          return res.json(
+            rpcResult(
+              id,
+              modernResult(
+                {
+                  contents: [
+                    {
+                      uri,
+                      mimeType: "application/json",
+                      text: JSON.stringify(data),
+                    },
+                  ],
+                },
+                modern,
+              ),
+            ),
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Resource read failed";
+          return res.status(404).json(rpcError(id, -32002, message));
+        }
+      }
+
+      case "prompts/list":
+        return res.json(
+          rpcResult(id, modernResult({ prompts: MCP_PROMPTS }, modern)),
+        );
+
+      case "prompts/get": {
+        if (body.params?.name !== "review_project_status")
+          return res.status(404).json(rpcError(id, -32601, "Prompt not found"));
+        const rawProjectId = body.params?.arguments?.projectId;
+        const projectId =
+          typeof rawProjectId === "number"
+            ? rawProjectId
+            : typeof rawProjectId === "string" && /^\d+$/.test(rawProjectId)
+              ? Number(rawProjectId)
+              : null;
+        if (!projectId || !Number.isSafeInteger(projectId) || projectId <= 0)
+          return res.status(400).json(rpcError(id, -32602, "Invalid params"));
+        const project = await getProjectById(projectId);
+        if (!project || project.userId !== userId)
+          return res
+            .status(404)
+            .json(rpcError(id, -32002, "Project not found"));
+        return res.json(
+          rpcResult(
+            id,
+            modernResult(
+              {
+                description: "Safe AppForge project status review",
+                messages: buildProjectReviewPrompt(projectId),
+              },
+              modern,
+            ),
+          ),
+        );
+      }
 
       case "tools/list":
         return res.json(
@@ -339,7 +558,10 @@ mcpRouter.post("/", async (req, res) => {
         return res.status(404).json(rpcError(id, -32601, "Method not found"));
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "MCP request failed";
-    return res.status(500).json(rpcError(id, -32603, "Internal error", { message }));
+    const message =
+      error instanceof Error ? error.message : "MCP request failed";
+    return res
+      .status(500)
+      .json(rpcError(id, -32603, "Internal error", { message }));
   }
 });
