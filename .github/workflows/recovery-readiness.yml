@@ -12,6 +12,10 @@ on:
       - 'docs/PLATINUM_SECURITY_PROTOCOL.md'
       - 'scripts/recovery-governance.sh'
       - 'fly.toml'
+      - 'src/middleware/rateLimiter.ts'
+      - 'src/routes/health.ts'
+      - 'src/services/build-queue.ts'
+      - 'src/utils/env-validator.ts'
   schedule:
     - cron: '41 13 * * 1'
   workflow_dispatch:
@@ -52,6 +56,10 @@ jobs:
             .github/workflows/deploy-production.yml
             .github/workflows/fly-capacity-guard.yml
             .github/workflows/production-customer-flow-smoke.yml
+            src/middleware/rateLimiter.ts
+            src/routes/health.ts
+            src/services/build-queue.ts
+            src/utils/env-validator.ts
           )
           for file in "${required[@]}"; do
             test -s "$file" || { echo "Missing recovery control: $file"; exit 1; }
@@ -147,6 +155,13 @@ jobs:
           grep -Fq 'needed=$((2 - started))' "$guard"
           grep -Fq 'head -n "$needed"' "$guard"
 
+          # Shared state is now a correctness dependency for the redundant fleet.
+          grep -Fq 'REDIS_URL' "$deploy"
+          grep -Fq 'REDIS_URL is required in production for shared multi-machine coordination' src/utils/env-validator.ts
+          grep -Fq 'createDistributedStore' src/middleware/rateLimiter.ts
+          grep -Fq 'checkSharedRedis' src/routes/health.ts
+          grep -Fq 'BullMQ/Redis configuration needed for distributed builds' "$inventory"
+
           # Do not regress to the old behavior that revived every stopped historical Machine.
           if grep -Fq 'starts any non-started app Machine' "$inventory"; then
             echo 'Recovery inventory still describes the obsolete over-start behavior.'
@@ -197,5 +212,5 @@ jobs:
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
           echo 'Production deploy remains bound to successful CI and exact SHA.'
-          echo 'Exact two-Machine Fly recovery, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
+          echo 'Exact two-Machine Fly recovery, shared Redis coordination, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
           echo 'Recovery governance remains active.'
