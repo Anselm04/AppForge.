@@ -45,36 +45,53 @@ jobs:
         run: |
           test -n "$FLY_API_TOKEN" || { echo 'FLY_API_TOKEN is missing'; exit 1; }
 
-      - name: Reconcile production to two started app machines
+      - name: Reconcile production to exactly two started app machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           APP='appforge-unfurling-moon-9058'
+
+          # Ask Fly to converge the app process group to the desired count first.
+          # This prevents the guard from reviving stale blue/green Machines that
+          # Fly intentionally left stopped after a successful replacement.
           flyctl scale count 2 --process-group app --app "$APP" --yes
           flyctl scale show --app "$APP"
 
           for attempt in $(seq 1 12); do
             machines_json="$(flyctl machines list --app "$APP" --json)"
-            mapfile -t recover_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state != "started") | .id')
+            started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+            echo "Started app machines before recovery attempt $attempt/12: $started"
+
+            if [ "$started" -eq 2 ]; then
+              echo 'Exactly two started Fly app Machines established.'
+              flyctl checks list --app "$APP"
+              exit 0
+            fi
+
+            if [ "$started" -gt 2 ]; then
+              echo "Fly reports $started started app Machines after scale count 2; waiting for platform convergence instead of stopping Machines blindly."
+              sleep 5
+              continue
+            fi
+
+            # Start only as many stopped app Machines as are required to restore
+            # the two-Machine invariant. Never start every stopped historical
+            # blue/green Machine, which could create accidental over-capacity.
+            needed=$((2 - started))
+            mapfile -t recover_ids < <(printf '%s' "$machines_json" | jq -r '.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "stopped") | .id' | head -n "$needed")
             for id in "${recover_ids[@]}"; do
               echo "Capacity recovery start for Fly Machine $id (attempt $attempt/12)"
               flyctl machine start "$id" --app "$APP" || true
             done
 
             sleep 5
-            machines_json="$(flyctl machines list --app "$APP" --json)"
-            started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
-            echo "Started app machines after recovery attempt $attempt/12: $started"
-            if [ "$started" -ge 2 ]; then
-              echo 'Two started Fly app Machines established.'
-              flyctl checks list --app "$APP" || true
-              exit 0
-            fi
           done
 
-          echo 'Production redundancy invariant violated after recovery attempts: fewer than two started app machines.'
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+          echo "Production redundancy invariant violated after recovery attempts: expected exactly two started app Machines, found $started."
           printf '%s\n' "$machines_json" | jq '.'
           exit 1
 
@@ -85,6 +102,9 @@ jobs:
           URL='https://appforge-unfurling-moon-9058.fly.dev/api/health/live'
           for i in 1 2 3 4 5; do
             curl --fail --show-error --silent \
+              --retry 3 \
+              --retry-delay 2 \
+              --retry-all-errors \
               --connect-timeout 5 \
               --max-time 10 \
               --output /dev/null \
