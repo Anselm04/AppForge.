@@ -1,5 +1,6 @@
 name: Fly Production Capacity Guard
 
+# Production invariant: AppForge must retain redundant Fly capacity (2 app Machines).
 on:
   workflow_dispatch:
   push:
