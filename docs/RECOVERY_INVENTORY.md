@@ -129,6 +129,20 @@ Verification target:
 - Confirm BullMQ/Redis queue claims prevent duplicate project execution across Machines.
 - During recovery, restore shared Redis access before declaring the redundant fleet production-ready.
 
+## Single-writer recurring side effects
+
+Recovery invariant reviewed 16 September 2026:
+- Both Fly Machines execute the same server bootstrap. Any recurring job that causes an external side effect must therefore be distributed-safe rather than assuming only one process exists.
+- The Vanta compliance heartbeat uses a Redis `SET NX` interval-slot claim (`appforge:vanta:heartbeat:<slot>`) so exactly one Machine emits heartbeat evidence for a given interval.
+- If shared Redis coordination is unavailable in production, the Vanta heartbeat fails closed and emits no uncoordinated duplicate evidence; it retries on the next scheduled interval.
+- Future cron/poller/background features that can charge money, mutate customer data, deploy code, send messages, create compliance evidence, or trigger autonomous work must use BullMQ, a database/Redis lock, an idempotency ledger, or an equivalent single-writer/deduplication mechanism before they are production-critical.
+
+Verification target:
+- Start both production Machines and confirm only one Vanta heartbeat is accepted per interval slot.
+- Confirm the slot claim is shared through production Redis, not process memory.
+- Confirm loss of Redis does not cause both Machines to emit the same recurring side effect.
+- Treat a new recurring external side effect without distributed ownership/idempotency as a two-Machine production regression.
+
 ## Production service availability invariant
 
 Recovery invariant reviewed 16 September 2026:
@@ -139,7 +153,7 @@ Recovery invariant reviewed 16 September 2026:
 - The scheduled Fly capacity guard independently reasserts count two, starts only the number of stopped app Machines required to restore the target, waits for convergence rather than stopping Machines blindly when Fly temporarily reports more than two, and then verifies repeated public liveness.
 - The scheduled Production Customer Flow Smoke is two-Machine aware: connection-level and 5xx cutover noise is retried, while customer-route failures and application-level authorization contract failures remain red.
 - Recovery must not depend on an idle or post-deploy Machine wake-up succeeding before health, authentication, or billing traffic can be served.
-- A restored Fly configuration that re-enables production auto-stop, changes the two-Machine target, removes blue/green replacement, removes either capacity-reconciliation control, removes shared Redis, or removes the two-Machine-aware customer smoke is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
+- A restored Fly configuration that re-enables production auto-stop, changes the two-Machine target, removes blue/green replacement, removes either capacity-reconciliation control, removes shared Redis, removes recurring single-writer coordination, or removes the two-Machine-aware customer smoke is not equivalent to the certified production availability posture and must be reviewed before customer traffic resumes.
 
 Verification target:
 - Confirm the deployed Fly service reports exactly two started app Machines after every release and recovery once blue/green convergence is complete.
@@ -201,6 +215,24 @@ Verification target:
 - Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
 - Exercise disconnect/reconnect around terminal publication and confirm persisted terminal replay without duplicate execution or charging.
 
+## Stripe
+
+Must be recoverable:
+- Product/price identifiers.
+- Webhook endpoint configuration.
+- Subscription/entitlement mapping logic.
+- Required webhook secret recovery/rotation procedure.
+- Billing reconciliation procedure.
+- Shared PostgreSQL `stripe_webhook_events` replay ledger and advisory-lock behavior.
+
+Recovery invariant:
+- Stripe event processing is multi-Machine safe only when both Machines share the same PostgreSQL database. `processStripeEventOnce` takes a transaction-scoped PostgreSQL advisory lock derived from the Stripe event ID, checks the shared event ledger, runs the handler once, and records the event before releasing the transaction.
+
+Verification target:
+- Deliver the same controlled test-mode webhook concurrently to both Machines and confirm only one handler execution/ledger insertion.
+- Controlled test-mode checkout/webhook path.
+- No production secrets stored in repository backup.
+
 ## Snapshot source-of-truth recovery
 
 Recovery invariant reviewed 15 September 2026:
@@ -213,19 +245,6 @@ Verification target:
 - Activate a prior snapshot and confirm it becomes the sole current snapshot while `projects.generatedFiles` matches its file set.
 - Confirm a snapshot from another project cannot be activated.
 - Confirm the next preview/read after activation observes the restored snapshot rather than stale cached output.
-
-## Stripe
-
-Must be recoverable:
-- Product/price identifiers.
-- Webhook endpoint configuration.
-- Subscription/entitlement mapping logic.
-- Required webhook secret recovery/rotation procedure.
-- Billing reconciliation procedure.
-
-Verification target:
-- Controlled test-mode checkout/webhook path.
-- No production secrets stored in repository backup.
 
 ## AI providers and automation services
 
@@ -248,7 +267,7 @@ Must be recoverable or independently accessible:
 
 ## Recovery dependency rule
 
-Any new critical provider, database, deployment target, authentication mechanism, billing dependency, secret-management system, object store, shared coordination service, or AI execution environment must be added to this inventory in the same change that makes it production-critical.
+Any new critical provider, database, deployment target, authentication mechanism, billing dependency, secret-management system, object store, shared coordination service, recurring side-effect worker, or AI execution environment must be added to this inventory in the same change that makes it production-critical.
 
 If a critical dependency cannot be independently recovered, it must be treated as an unresolved resilience risk.
 
@@ -262,6 +281,7 @@ Confirm:
 - Provider ownership and recovery access still work.
 - Recovery documentation matches current architecture.
 - Shared Redis is reachable and required by both production Machines.
+- Recurring external side effects still have distributed single-writer/idempotency controls.
 - Exact two-Machine Fly production recovery is still enforced by deployment, capacity guard, readiness, and customer smoke workflows.
 - No discontinued provider remains an undocumented dependency.
 
