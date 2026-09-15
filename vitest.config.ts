@@ -20,7 +20,7 @@ export default defineConfig({
         'src/**/*.config.*',
         'src/main.tsx',
       ],
-      threshold: {
+      thresholds: {
         lines: 80,
         functions: 80,
         branches: 80,
