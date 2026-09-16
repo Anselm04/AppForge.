@@ -4,15 +4,21 @@ import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { runSeniorDevAgent } from "./seniorDevAgent.js";
-import type { SeniorDevTask, FileChange } from "./seniorDevAgent.js";
+import type { SeniorDevTask } from "./seniorDevAgent.js";
+import { claimSeniorDevStart } from "../services/senior-dev-claim.js";
+import {
+  claimSelfHealingProject,
+  releaseSelfHealingProject,
+} from "../services/self-healing-lock.js";
+import { deployValidatedProject } from "../services/productionAutoDeploy.js";
 
 // ── Self-Healing Production Monitor ──
-// Watches Sentry for error spikes on deployed projects.
-// Auto-creates Senior Dev "autonomous" fix tasks — no user approval needed.
-// Runs on a 5-minute interval via server.ts bootstrap.
+// Watches Sentry for error spikes on deployed/completed projects.
+// Auto-creates Senior Dev autonomous fix tasks, validates them, redeploys the
+// verified repair, then records a new current snapshot.
 
 const SENTRY_API_BASE = "https://sentry.io/api/0";
-const ERROR_SPIKE_THRESHOLD = 5; // 5+ new errors in lookback period
+const ERROR_SPIKE_THRESHOLD = 5;
 const LOOKBACK_MINUTES = 60;
 
 interface SentryIssue {
@@ -30,18 +36,33 @@ interface WatcherState {
   projectId: number;
   userId: number;
   deploymentUrl?: string;
+  /** Only successfully handled issue ids are acknowledged. */
   lastKnownErrorIds: Set<string>;
   lastCheckAt: Date;
 }
 
 const watchedProjects = new Map<number, WatcherState>();
 
-/** Add a project to the healing watchlist after deployment */
+function sentryApiConfig() {
+  return {
+    token: process.env.SENTRY_API_TOKEN ?? process.env.SENTRY_AUTH_TOKEN ?? "",
+    org: process.env.SENTRY_ORG_SLUG ?? process.env.SENTRY_ORG ?? "",
+    project: process.env.SENTRY_PROJECT_SLUG ?? process.env.SENTRY_PROJECT ?? "",
+  };
+}
+
+/** Add a project to the healing watchlist immediately after deployment. */
 export function watchProject(
   projectId: number,
   userId: number,
   deploymentUrl?: string,
 ) {
+  const existing = watchedProjects.get(projectId);
+  if (existing) {
+    existing.userId = userId;
+    existing.deploymentUrl = deploymentUrl ?? existing.deploymentUrl;
+    return;
+  }
   watchedProjects.set(projectId, {
     projectId,
     userId,
@@ -52,50 +73,78 @@ export function watchProject(
   logger.info({ projectId, deploymentUrl }, "self_healing_watch_start");
 }
 
-/** Remove from watchlist (project deleted or user opted out) */
+/** Remove from watchlist (project deleted or user opted out). */
 export function unwatchProject(projectId: number) {
   watchedProjects.delete(projectId);
 }
 
-/** Fetch recent Sentry issues for a project (by tag or DSN fingerprint) */
-async function fetchSentryIssues(projectId: number): Promise<SentryIssue[]> {
-  const sentryToken = process.env.SENTRY_API_TOKEN ?? "";
-  const orgSlug = process.env.SENTRY_ORG_SLUG ?? "";
-  const projectSlug = process.env.SENTRY_PROJECT_SLUG ?? "";
-
-  if (!sentryToken || !orgSlug || !projectSlug) {
-    // Sentry API not configured — skip
-    return [];
+/**
+ * Rebuild the in-memory watchlist from persisted completed projects.
+ * This makes autonomous recovery survive Fly machine restarts even when no
+ * deployment-time watchProject() call occurred on the current machine.
+ */
+export async function hydrateSelfHealingWatchlist(): Promise<number> {
+  const completed = await db.query.projects.findMany({
+    where: eq(schema.projects.status, "completed"),
+    columns: { id: true, userId: true },
+  });
+  const activeIds = new Set<number>();
+  for (const project of completed) {
+    if (!project.userId) continue;
+    activeIds.add(project.id);
+    watchProject(project.id, project.userId);
   }
 
+  for (const projectId of watchedProjects.keys()) {
+    if (!activeIds.has(projectId)) watchedProjects.delete(projectId);
+  }
+  return watchedProjects.size;
+}
+
+/** Fetch recent Sentry issues for a project tag. */
+async function fetchSentryIssues(projectId: number): Promise<SentryIssue[]> {
+  const { token, org, project } = sentryApiConfig();
+  if (!token || !org || !project) return [];
+
   const since = new Date(Date.now() - LOOKBACK_MINUTES * 60_000).toISOString();
-  const url = `${SENTRY_API_BASE}/projects/${orgSlug}/${projectSlug}/issues/?statsPeriod=1h&query=tags[project_id]:${projectId}`;
+  const url = `${SENTRY_API_BASE}/projects/${org}/${project}/issues/?statsPeriod=1h&query=tags[project_id]:${projectId}`;
 
   try {
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${sentryToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return [];
     const issues = (await res.json()) as SentryIssue[];
-    return issues.filter((i) => new Date(i.lastSeen) >= new Date(since));
+    return issues.filter((issue) => new Date(issue.lastSeen) >= new Date(since));
   } catch (err) {
-    logger.error({ err }, "sentry_fetch_failed");
+    logger.error({ err, projectId }, "sentry_fetch_failed");
     return [];
   }
 }
 
-/** Detect error spike and auto-create fix task */
+export function hasEffectiveFileChange(
+  before: Record<string, string>,
+  after: Record<string, string>,
+): boolean {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of keys) {
+    if (before[key] !== after[key]) return true;
+  }
+  return false;
+}
+
+/** Detect an unhandled spike, claim it globally, and auto-repair it. */
 async function checkProjectForHealing(state: WatcherState) {
   const issues = await fetchSentryIssues(state.projectId);
+  state.lastCheckAt = new Date();
   if (issues.length === 0) return;
 
-  const newIssues = issues.filter((i) => !state.lastKnownErrorIds.has(i.id));
-  const totalNewCount = newIssues.reduce((sum, i) => sum + i.count, 0);
+  const newIssues = issues.filter((issue) => !state.lastKnownErrorIds.has(issue.id));
+  const totalNewCount = newIssues.reduce((sum, issue) => sum + issue.count, 0);
 
-  // Update known set
-  for (const i of issues) state.lastKnownErrorIds.add(i.id);
-  state.lastCheckAt = new Date();
-
+  // Do not acknowledge sub-threshold or failed repairs. Keeping them unhandled
+  // lets a repeated issue accumulate to the threshold and lets failed healing
+  // retry on a later cycle.
   if (totalNewCount < ERROR_SPIKE_THRESHOLD) {
     logger.info(
       { projectId: state.projectId, newErrors: totalNewCount },
@@ -104,47 +153,74 @@ async function checkProjectForHealing(state: WatcherState) {
     return;
   }
 
-  // SPIKE DETECTED — create autonomous fix task
-  logger.warn(
-    {
-      projectId: state.projectId,
-      newIssues: newIssues.length,
-      totalCount: totalNewCount,
-    },
-    "self_healing_spike_detected",
-  );
+  const claim = await claimSelfHealingProject(state.projectId);
+  if (!claim) {
+    logger.info({ projectId: state.projectId }, "self_healing_claim_not_acquired");
+    return;
+  }
 
-  const topIssue = newIssues[0];
-  const request = `URGENT: Fix production error — ${topIssue.title} (${topIssue.count} occurrences). Culprit: ${topIssue.culprit}. See ${topIssue.permalink}`;
+  try {
+    logger.warn(
+      {
+        projectId: state.projectId,
+        newIssues: newIssues.length,
+        totalCount: totalNewCount,
+      },
+      "self_healing_spike_detected",
+    );
 
-  await createAutonomousFixTask(state.projectId, state.userId, request, issues);
+    const topIssue = newIssues[0];
+    const request = `URGENT: Fix production error — ${topIssue.title} (${topIssue.count} occurrences). Culprit: ${topIssue.culprit}. See ${topIssue.permalink}`;
+    const healed = await createAutonomousFixTask(
+      state.projectId,
+      state.userId,
+      request,
+      newIssues,
+    );
+
+    if (healed) {
+      for (const issue of newIssues) state.lastKnownErrorIds.add(issue.id);
+    }
+  } finally {
+    await releaseSelfHealingProject(claim);
+  }
 }
 
-/** Create task, run Senior Dev agent in autonomous mode, save snapshot */
+/** Create task, run Senior Dev agent, deploy the verified repair, save snapshot. */
 async function createAutonomousFixTask(
   projectId: number,
   userId: number,
   request: string,
   sentryIssues: SentryIssue[],
-) {
-  // 1. Get current snapshot
-  const { getCurrentSnapshot } = await import("../db.js");
+): Promise<boolean> {
+  const { getCurrentSnapshot, createSeniorDevTask } = await import("../db.js");
   const currentSnapshot = await getCurrentSnapshot(projectId);
   if (!currentSnapshot) {
     logger.error({ projectId }, "self_healing_no_snapshot");
-    return;
+    return false;
   }
 
-  // 2. Create task record
-  const { createSeniorDevTask } = await import("../db.js");
+  const project = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, projectId),
+    columns: { id: true, name: true, status: true },
+  });
+  if (!project || project.status !== "completed") {
+    logger.info({ projectId }, "self_healing_project_not_completed");
+    return false;
+  }
+
   const taskId = await createSeniorDevTask({
     projectId,
     userId,
     request,
     mode: "autonomous",
   });
+  const claimed = await claimSeniorDevStart(taskId, userId);
+  if (!claimed) {
+    logger.warn({ projectId, taskId }, "self_healing_task_claim_failed");
+    return false;
+  }
 
-  // 3. Run agent autonomously (no approval needed)
   const task: SeniorDevTask = {
     id: taskId,
     projectId,
@@ -152,7 +228,7 @@ async function createAutonomousFixTask(
     request,
     mode: "autonomous",
     plan: null,
-    planApproved: true, // skip approval
+    planApproved: true,
     status: "executing",
     changes: [],
     validationResults: [],
@@ -160,22 +236,42 @@ async function createAutonomousFixTask(
     creditsSpent: 0,
   };
 
-  const files = currentSnapshot.files as Record<string, string>;
+  const baselineFiles = {
+    ...(currentSnapshot.files as Record<string, string>),
+  };
+  const candidateFiles = { ...baselineFiles };
   const techStack = currentSnapshot.techStack ?? "react-node";
 
-  const changes: FileChange[] = [];
-  let summary = "";
-
   try {
-    const result = await runSeniorDevAgent(task, files, techStack, (e) => {
-      logger.info(
-        { projectId, taskId, stage: e.stage, msg: e.message },
-        "self_healing_progress",
-      );
-    });
-    summary = result.summary;
+    const result = await runSeniorDevAgent(
+      task,
+      candidateFiles,
+      techStack,
+      (event) => {
+        logger.info(
+          { projectId, taskId, stage: event.stage, msg: event.message },
+          "self_healing_progress",
+        );
+      },
+    );
 
-    // 4. Save new snapshot as current
+    if (task.status !== "completed") {
+      throw new Error("Autonomous repair did not finish in completed state");
+    }
+    if (!hasEffectiveFileChange(baselineFiles, result.files)) {
+      throw new Error(
+        "Autonomous repair produced no effective file change; keeping Sentry issue retryable",
+      );
+    }
+
+    // Reuse the exact production deployment + live smoke gate used by normal
+    // validated builds. Do not call a database-only repair "healed".
+    const deployment = await deployValidatedProject({
+      projectId,
+      projectName: project.name,
+      files: result.files,
+    });
+
     const { getNextVersion, createBuildSnapshot, markSnapshotAsCurrent } =
       await import("../db.js");
     const newVersion = await getNextVersion(projectId);
@@ -188,12 +284,12 @@ async function createAutonomousFixTask(
       fileCount: Object.keys(result.files).length,
       techStack,
       validationResult: result.validations,
-      auditScores: null, // could run triple audit here too
+      auditScores: null,
       costEstimate: null,
     });
     await markSnapshotAsCurrent(newSnapshotId, projectId);
 
-    // 5. Update project status + summary
+    const summary = `${result.summary}\n\nProduction recovery deployed and live-verified at ${deployment.liveUrl}`;
     await db
       .update(schema.projects)
       .set({
@@ -202,18 +298,41 @@ async function createAutonomousFixTask(
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
+    await db
+      .update(schema.seniorDevTasks)
+      .set({
+        status: "completed",
+        plan: task.plan,
+        planApproved: true,
+        changes: result.changes,
+        validationResult: result.validations,
+        summary,
+        creditsSpent: task.creditsSpent,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.seniorDevTasks.id, taskId));
 
     logger.info(
-      { projectId, taskId, newVersion, summary },
+      { projectId, taskId, newVersion, liveUrl: deployment.liveUrl },
       "self_healing_complete",
     );
+    return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ projectId, taskId, error: msg }, "self_healing_failed");
     await db
       .update(schema.seniorDevTasks)
-      .set({ status: "failed", summary: `Auto-heal failed: ${msg}` })
+      .set({
+        status: "failed",
+        plan: task.plan,
+        changes: task.changes,
+        validationResult: task.validationResults,
+        summary: `Auto-heal failed: ${msg}`,
+        creditsSpent: task.creditsSpent,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.seniorDevTasks.id, taskId));
+    return false;
   }
 }
 
@@ -221,22 +340,38 @@ function topIssueTitle(issues: SentryIssue[]): string {
   return issues[0]?.title?.slice(0, 60) ?? "production error";
 }
 
-/** Main watcher loop — call from server.ts on startup */
+/** One cycle is exported so tests/operations can verify the persisted watch path. */
+export async function runSelfHealingCycle(): Promise<void> {
+  await hydrateSelfHealingWatchlist();
+  for (const state of watchedProjects.values()) {
+    try {
+      await checkProjectForHealing(state);
+    } catch (err) {
+      logger.error(
+        { projectId: state.projectId, err },
+        "self_healing_check_error",
+      );
+    }
+  }
+}
+
+/** Main watcher loop — call from server.ts on startup. */
 export function startSelfHealingWatcher(intervalMs = 300_000) {
-  const sentryToken = process.env.SENTRY_API_TOKEN ?? "";
-  const orgSlug = process.env.SENTRY_ORG_SLUG ?? "";
-  const projectSlug = process.env.SENTRY_PROJECT_SLUG ?? "";
+  const { token, org, project } = sentryApiConfig();
 
   if (!ENV.sentryDsn) {
     logger.info("self_healing_disabled_no_sentry_dsn");
     return () => {};
   }
-
-  if (!sentryToken || !orgSlug || !projectSlug) {
+  if (!token || !org || !project) {
     logger.info(
-      { hasToken: !!sentryToken, hasOrg: !!orgSlug, hasProject: !!projectSlug },
+      { hasToken: !!token, hasOrg: !!org, hasProject: !!project },
       "self_healing_disabled_missing_sentry_api_config",
     );
+    return () => {};
+  }
+  if (!ENV.redisUrl) {
+    logger.error("self_healing_disabled_no_shared_redis");
     return () => {};
   }
 
@@ -245,19 +380,9 @@ export function startSelfHealingWatcher(intervalMs = 300_000) {
     "self_healing_watcher_start",
   );
 
-  const timer = setInterval(async () => {
-    for (const state of watchedProjects.values()) {
-      try {
-        await checkProjectForHealing(state);
-      } catch (err) {
-        logger.error(
-          { projectId: state.projectId, err },
-          "self_healing_check_error",
-        );
-      }
-    }
-  }, intervalMs);
-
+  // Run once at startup so a restart does not create a full interval blind spot.
+  void runSelfHealingCycle();
+  const timer = setInterval(() => void runSelfHealingCycle(), intervalMs);
   return () => clearInterval(timer);
 }
 
