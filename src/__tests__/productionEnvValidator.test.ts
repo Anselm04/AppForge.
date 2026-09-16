@@ -4,10 +4,13 @@ import { validateEnv } from "../utils/env-validator.js";
 const baseProductionEnv = {
   NODE_ENV: "production",
   DATABASE_URL: "postgresql://user:password@localhost:5432/appforge",
+  VITE_SUPABASE_URL: "https://example.supabase.co",
+  VITE_SUPABASE_ANON_KEY: "anon_" + "a".repeat(40),
   JWT_SECRET: "j".repeat(40),
   COOKIE_SECRET: "c".repeat(40),
   OWNER_EMAIL: "owner@example.com",
   BUILT_IN_FORGE_API_KEY: "forge_" + "x".repeat(40),
+  REDIS_URL: "rediss://example.invalid:6379",
   STRIPE_SECRET_KEY: "sk_live_" + "x".repeat(40),
   STRIPE_WEBHOOK_SECRET: "whsec_" + "x".repeat(40),
   STRIPE_STARTER_PRICE_ID: "price_starter",
@@ -40,5 +43,36 @@ describe("production environment validation", () => {
     const result = validateEnv(baseProductionEnv);
     expect(result.errors.join("\n")).not.toContain("PAYMENT_LINK");
     expect(result.warnings.join("\n")).not.toContain("payment links");
+  });
+
+  it("accepts any provider supported by the runtime instead of requiring Forge", () => {
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
+    const result = validateEnv({
+      ...withoutForge,
+      GROQ_API_KEY: "gsk_" + "g".repeat(40),
+    });
+
+    expect(result.errors.join("\n")).not.toContain("BUILT_IN_FORGE_API_KEY");
+    expect(result.errors.join("\n")).not.toContain("No AI provider configured");
+  });
+
+  it("fails production readiness when no supported AI provider exists", () => {
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutProvider } = baseProductionEnv;
+    const result = validateEnv(withoutProvider);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("No AI provider configured");
+  });
+
+  it.each([
+    ["DEEPSEEK_API_KEY", "deepseek-key"],
+    ["GEMINI_API_KEY", "gemini-key"],
+    ["OPENROUTER_API_KEY", "openrouter-key"],
+    ["OPENAI_API_KEY", "openai-key"],
+    ["OPENAI_COMPAT_BASE_URL", "https://llm.example.com"],
+  ] as const)("recognizes %s as an AI provider source", (key, value) => {
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
+    const result = validateEnv({ ...withoutForge, [key]: value });
+    expect(result.errors.join("\n")).not.toContain("No AI provider configured");
   });
 });
