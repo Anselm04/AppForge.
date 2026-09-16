@@ -39,6 +39,26 @@ The metadata workflow runs only from trusted `main`, schedule, or manual executi
 
 This metadata archive improves forensic and operational recovery if the GitHub repository/account is lost or damaged, but it is not a byte-for-byte backup of every GitHub account setting. GitHub Actions secrets, account MFA/recovery settings, branch/ruleset configuration that is not exposed to the workflow, external database state, Stripe state, Supabase data, Redis state/configuration, Fly.io secrets/configuration, DNS state, and credentials held by other providers still require their own recovery procedures.
 
+## Managed Redis production recovery path
+
+AppForge production uses the Fly-managed Upstash Redis database `appforge-production-redis` for shared state required by the two-Machine architecture. The database is provisioned or reconciled by `.github/workflows/provision-fly-redis.yml`, which derives the deployment region from the trusted `fly.toml` `primary_region` and targets the production Fly app `appforge-unfurling-moon-9058`.
+
+- The provisioning workflow is intentionally idempotent: if `appforge-production-redis` already exists, it must reuse that database instead of creating a duplicate paid resource.
+- Initial provisioning uses Fly's default pay-as-you-go Redis plan, with read replicas disabled and ProdPack explicitly disabled. Enabling replicas, ProdPack, or a different pricing tier is a separate capacity/cost decision and must not happen as an incidental recovery side effect.
+- The private Redis URI is a production credential. It must never be committed, printed to workflow logs, copied into `fly.toml`, or recorded in recovery documentation. The workflow masks the URI before staging it as the Fly application secret `REDIS_URL`.
+- `REDIS_URL` is staged first so creating or repairing the secret does not cause an unverified secret-only restart. The next normal production deploy activates the staged secret and must pass the full release and post-deploy gates.
+- Shared Redis is a correctness dependency, not an optional cache, for distributed build/queue coordination, build events, shared hard rate limiting, and recurring single-writer ownership across the two Fly Machines. Do not weaken the production deploy gate to permit a two-Machine release without `REDIS_URL`.
+
+If Redis access is lost or the Fly secret is missing:
+
+1. Run or re-run **Provision Fly Redis** from trusted `main` so it reuses `appforge-production-redis` when present or recreates the managed database only when absent.
+2. Confirm the workflow succeeds and verifies that the secret name `REDIS_URL` appears in Fly secret metadata; never expose or manually paste the secret value into GitHub source or logs.
+3. Run the normal production release from the exact CI-approved `main` SHA. Do not bypass the stale-SHA, secret, security, or recovery-governance gates.
+4. Require deployment to converge to exactly two started `app` Machines.
+5. Require `/api/health/live` and `/api/health/ready` to pass; readiness must prove shared Redis and PostgreSQL are reachable.
+6. Require anonymous authentication/billing/execution boundaries to fail closed and all customer entry/deep-link routes to return valid non-empty responses.
+7. Treat recovery as incomplete until the normal Production Customer Flow Smoke and relevant recovery/backup workflows are green.
+
 ## Restore procedure
 
 1. Obtain the newest trusted source/history recovery archive from an independent copy.
