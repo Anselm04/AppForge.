@@ -41,8 +41,6 @@ jobs:
             exit 1
           fi
 
-          # Resolve the owning organization without guessing. Prefer the app's
-          # organization metadata; only fall back when the token sees exactly one org.
           apps_json="$(flyctl apps list --json)"
           org="$(printf '%s' "$apps_json" | jq -r --arg app "$APP" '
             .[]
@@ -70,19 +68,17 @@ jobs:
 
           if ! printf '%s\n' "$redis_list" | awk '{print $2}' | grep -Fxq "$REDIS_NAME"; then
             echo "Creating managed Upstash Redis for AppForge in $REGION using Fly pay-as-you-go pricing."
-            # No read replicas and no ProdPack/auto-upgrade: keep initial spend bounded.
             flyctl redis create \
               --name "$REDIS_NAME" \
               --org "$org" \
               --region "$REGION" \
-              --plan pay-as-you-go \
+              --plan payg \
               --no-replicas \
               --disable-eviction
           else
             echo "Reusing existing managed Redis database $REDIS_NAME."
           fi
 
-          # Capture status without echoing it because it contains the private URL.
           redis_status="$(flyctl redis status "$REDIS_NAME")"
           redis_url="$(printf '%s\n' "$redis_status" | sed -nE 's/^[[:space:]]*Private URL[[:space:]]*=[[:space:]]*(redis[^[:space:]]+).*$/\1/p' | head -n1)"
 
@@ -100,6 +96,4 @@ jobs:
             exit 1
           fi
 
-          # Validate the Redis endpoint through a one-off Machine context by deploying
-          # normally later; staging prevents an unverified secret-only restart here.
           echo "REDIS_URL is securely staged on $APP. Production deployment may proceed."
