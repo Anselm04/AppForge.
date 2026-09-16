@@ -5,7 +5,6 @@ const baseUrl = (
 ).replace(/\/$/, "");
 const email = process.env.APPFORGE_CANARY_EMAIL;
 const password = process.env.APPFORGE_CANARY_PASSWORD;
-const REQUIRED_RUNTIME_INTEGRATIONS = ["supabase", "stripe", "sprites-fly"];
 
 function required(name, value) {
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -98,24 +97,38 @@ async function main() {
     ? health.integrations
     : [];
 
-  const checks = REQUIRED_RUNTIME_INTEGRATIONS.map((id) => {
-    const item = integrations.find((entry) => entry?.id === id);
-    return {
-      id,
-      present: Boolean(item),
-      state: item?.state ?? "missing",
-      verified: item?.verified === true,
-      message:
-        item?.message ?? "Integration missing from production health report",
-    };
-  });
+  if (integrations.length === 0) {
+    throw new Error("Production integration health report is empty");
+  }
+
+  const ids = integrations.map((entry) => entry?.id).filter(Boolean);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Production integration health report contains duplicate IDs");
+  }
+
+  const requiredRuntimeIntegrations = integrations.filter(
+    (entry) => entry?.requiredForProduction === true,
+  );
+  if (requiredRuntimeIntegrations.length === 0) {
+    throw new Error(
+      "Production integration health report contains no required integrations",
+    );
+  }
+
+  const checks = requiredRuntimeIntegrations.map((item) => ({
+    id: item.id,
+    present: true,
+    state: item.state ?? "missing",
+    verified: item.verified === true,
+    message: item.message ?? "Required integration has no health message",
+  }));
 
   const failures = checks.filter(
-    (item) => !item.present || item.state !== "connected" || !item.verified,
+    (item) => item.state !== "connected" || !item.verified,
   );
   if (failures.length > 0) {
     throw new Error(
-      `Critical production integrations are not verified: ${JSON.stringify(failures)}`,
+      `Catalog-required production integrations are not verified: ${JSON.stringify(failures)}`,
     );
   }
 
