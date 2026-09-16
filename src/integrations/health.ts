@@ -5,7 +5,10 @@ import {
 } from "./catalog.js";
 
 export type IntegrationConnectionState =
-  "connected" | "needs_attention" | "not_connected" | "configuration_required";
+  | "connected"
+  | "needs_attention"
+  | "not_connected"
+  | "configuration_required";
 
 export type IntegrationHealth = {
   id: string;
@@ -550,10 +553,12 @@ export async function summarizeIntegrationHealth() {
   const required = integrations.filter(
     (integration) => integration.requiredForProduction,
   );
+  const requiredVerified = required.filter(
+    (integration) =>
+      integration.state === "connected" && integration.verified === true,
+  );
   return {
-    productionReady: required.every(
-      (integration) => integration.state === "connected",
-    ),
+    productionReady: requiredVerified.length === required.length,
     connected: integrations.filter(
       (integration) => integration.state === "connected",
     ).length,
@@ -561,6 +566,7 @@ export async function summarizeIntegrationHealth() {
     requiredConnected: required.filter(
       (integration) => integration.state === "connected",
     ).length,
+    requiredVerified: requiredVerified.length,
     requiredTotal: required.length,
     integrations,
   };
