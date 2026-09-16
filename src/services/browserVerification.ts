@@ -22,7 +22,10 @@ export function isAllowedBrowserVerificationUrl(value: string): boolean {
       url.username === "" &&
       url.password === "" &&
       url.port === "" &&
-      /^[a-z0-9-]+\.fly\.dev$/i.test(url.hostname)
+      /^af-[a-z0-9-]+\.fly\.dev$/i.test(url.hostname) &&
+      url.pathname === "/" &&
+      url.search === "" &&
+      url.hash === ""
     );
   } catch {
     return false;
@@ -101,7 +104,7 @@ export async function verifyGeneratedAppInBrowser(
       ok: false,
       renderedHtmlLength: 0,
       runtimeErrors: [],
-      error: "Browser verification rejected a non-Fly production URL",
+      error: "Browser verification rejected a non-AppForge Fly production URL",
     };
   }
 
@@ -115,6 +118,9 @@ export async function verifyGeneratedAppInBrowser(
     };
   }
 
+  const target = new URL(deployUrl);
+  const hostResolverRules = `MAP * ~NOTFOUND, EXCLUDE ${target.hostname}`;
+
   return new Promise((resolve) => {
     const child = spawn(
       binary,
@@ -123,6 +129,11 @@ export async function verifyGeneratedAppInBrowser(
         "--disable-gpu",
         "--disable-dev-shm-usage",
         "--no-sandbox",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--no-first-run",
+        `--host-resolver-rules=${hostResolverRules}`,
         "--enable-logging=stderr",
         "--log-level=1",
         "--virtual-time-budget=8000",
