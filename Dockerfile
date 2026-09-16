@@ -35,12 +35,14 @@ RUN npm run build \
   && test -f /app/dist/client/index.html
 
 FROM node:22-alpine AS production
-RUN apk add --no-cache dumb-init curl bash \
+RUN apk add --no-cache dumb-init curl bash chromium \
   && curl -L https://fly.io/install.sh | sh \
   && mv /root/.fly/bin/flyctl /usr/local/bin/flyctl \
-  && flyctl version
+  && flyctl version \
+  && chromium-browser --version
 ENV NODE_ENV=production
 ENV HUSKY=0
+ENV APPFORGE_CHROMIUM_PATH=/usr/bin/chromium-browser
 WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
