@@ -1,4 +1,5 @@
 import { readFileSync } from "fs";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 import {
   analyzeRenderedDom,
@@ -15,9 +16,9 @@ describe("real browser deployment verification", () => {
     expect(isAllowedBrowserVerificationUrl("https://fly.dev.evil.example")).toBe(
       false,
     );
-    expect(isAllowedBrowserVerificationUrl("https://localhost.fly.dev:8443")).toBe(
-      false,
-    );
+    expect(
+      isAllowedBrowserVerificationUrl("https://localhost.fly.dev:8443"),
+    ).toBe(false);
     expect(isAllowedBrowserVerificationUrl("https://127.0.0.1")).toBe(false);
   });
 
@@ -63,7 +64,7 @@ describe("real browser deployment verification", () => {
 
   it("keeps the HTTP smoke gate and then requires the real browser gate before deployment succeeds", () => {
     const source = readFileSync(
-      new URL("../services/productionAutoDeploy.ts", import.meta.url),
+      resolve(process.cwd(), "src/services/productionAutoDeploy.ts"),
       "utf8",
     );
     const httpGate = source.indexOf("runPostDeploySmokeTest(liveUrl)");
@@ -76,10 +77,7 @@ describe("real browser deployment verification", () => {
   });
 
   it("ships Chromium in the AppForge production runtime", () => {
-    const dockerfile = readFileSync(
-      new URL("../../Dockerfile", import.meta.url),
-      "utf8",
-    );
+    const dockerfile = readFileSync(resolve(process.cwd(), "Dockerfile"), "utf8");
     expect(dockerfile).toMatch(/apk add --no-cache[^\n]*chromium/);
     expect(dockerfile).toContain("APPFORGE_CHROMIUM_PATH");
   });
