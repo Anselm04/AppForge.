@@ -1,7 +1,12 @@
 /**
  * Environment Variable Validator
- * Runtime validation for environment variables
+ * Runtime validation for environment variables.
  */
+
+import {
+  hasConfiguredLlmProvider,
+  LLM_PROVIDER_ENV_HINT,
+} from "../lib/llmProviderConfig.js";
 
 export interface EnvConfig {
   NODE_ENV: string;
@@ -30,6 +35,8 @@ export interface EnvConfig {
   JWT_SECRET?: string;
   COOKIE_SECRET?: string;
   CORS_ORIGIN?: string;
+  APP_URL?: string;
+  PUBLIC_APP_URL?: string;
   REQUEST_TIMEOUT_MS?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
@@ -48,8 +55,28 @@ export interface EnvConfig {
   RESEND_API_KEY?: string;
   VERCEL_TOKEN?: string;
   VERCEL_TEAM_ID?: string;
+  NETLIFY_AUTH_TOKEN?: string;
+  FLY_API_TOKEN?: string;
   BUILT_IN_FORGE_API_URL?: string;
   BUILT_IN_FORGE_API_KEY?: string;
+  FORGE_API_KEY?: string;
+  GROQ_API_KEY?: string;
+  DEEPSEEK_API_KEY?: string;
+  GEMINI_API_KEY?: string;
+  GOOGLE_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
+  CEREBRAS_API_KEY?: string;
+  MISTRAL_API_KEY?: string;
+  TOGETHER_API_KEY?: string;
+  FIREWORKS_API_KEY?: string;
+  HF_TOKEN?: string;
+  HUGGINGFACE_API_KEY?: string;
+  OLLAMA_BASE_URL?: string;
+  OLLAMA_API_KEY?: string;
+  OLLAMA_ENABLED?: string;
+  OPENAI_COMPAT_BASE_URL?: string;
+  OPENAI_COMPAT_API_KEY?: string;
+  OPENAI_API_KEY?: string;
 }
 
 export interface ValidationResult {
@@ -66,6 +93,10 @@ const REQUIRED_BILLING_PRICE_KEYS = [
   "STRIPE_CREDITS_100_PRICE_ID",
   "STRIPE_CREDITS_250_PRICE_ID",
 ] as const;
+
+function llmReady(config: Partial<EnvConfig>): boolean {
+  return hasConfiguredLlmProvider(config as Record<string, string | undefined>);
+}
 
 export function validateEnv(
   config: Partial<EnvConfig> = process.env as any,
@@ -192,9 +223,7 @@ export function validateEnv(
   }
 
   // AppForge production runs more than one Fly Machine. Redis is therefore a
-  // correctness dependency, not an optional optimisation: BullMQ, queue claims,
-  // build events and distributed request controls must not split into unrelated
-  // per-process state when traffic can land on either Machine.
+  // correctness dependency, not an optional optimisation.
   if (isProduction && !config.REDIS_URL) {
     errors.push(
       "REDIS_URL is required in production for shared multi-machine coordination",
@@ -249,15 +278,12 @@ export function validateEnv(
     );
   }
 
-  if (!config.BUILT_IN_FORGE_API_KEY) {
+  if (!llmReady(config)) {
+    const message = `No AI provider configured. Set at least one supported provider: ${LLM_PROVIDER_ENV_HINT}.`;
     if (isProduction) {
-      errors.push(
-        "BUILT_IN_FORGE_API_KEY is required for AI build generation. Without it, builds cannot run.",
-      );
+      errors.push(message);
     } else {
-      warnings.push(
-        "BUILT_IN_FORGE_API_KEY not set. AI build pipeline will fail.",
-      );
+      warnings.push(`${message} AI build generation will be unavailable.`);
     }
   }
 
@@ -282,16 +308,16 @@ export function validateEnv(
   if (
     isProduction &&
     !config.VERCEL_TOKEN &&
-    !(config as any).NETLIFY_AUTH_TOKEN &&
-    !(config as any).FLY_API_TOKEN
+    !config.NETLIFY_AUTH_TOKEN &&
+    !config.FLY_API_TOKEN
   ) {
     warnings.push(
       "No deploy provider configured (VERCEL_TOKEN / NETLIFY_AUTH_TOKEN / FLY_API_TOKEN). ZIP + live preview still work.",
     );
   }
-  if (isProduction && !(config as any).APP_URL && !config.CORS_ORIGIN) {
+  if (isProduction && !config.APP_URL && !config.PUBLIC_APP_URL && !config.CORS_ORIGIN) {
     warnings.push(
-      "APP_URL or CORS_ORIGIN recommended for signed live-preview links.",
+      "APP_URL, PUBLIC_APP_URL or CORS_ORIGIN recommended for signed live-preview and redirect links.",
     );
   }
 
@@ -342,7 +368,7 @@ export function getEnvSummary(
     `  Vanta: ${config.VANTA_WORKSPACE_ID && config.VANTA_API_TOKEN ? "✅" : "⚠️"}`,
     `  Resend Email: ${config.RESEND_API_KEY ? "✅" : "⚠️"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
-    `  LLM (Forge): ${config.BUILT_IN_FORGE_API_KEY ? "✅" : "❌ (required for AI builds)"}`,
+    `  LLM Provider: ${llmReady(config) ? "✅" : "❌ (at least one supported provider required)"}`,
     `  Redis: ${config.REDIS_URL ? "✅" : isProductionSummary(config) ? "❌ (required for multi-machine production)" : "⚠️"}`,
     `  Sentry: ${config.SENTRY_DSN ? "✅" : "⚠️"}`,
     `  CORS: ${config.CORS_ORIGIN ? "✅" : "⚠️"}`,
