@@ -139,7 +139,9 @@ async function checkProjectForHealing(state: WatcherState) {
   state.lastCheckAt = new Date();
   if (issues.length === 0) return;
 
-  const newIssues = issues.filter((issue) => !state.lastKnownErrorIds.has(issue.id));
+  const newIssues = issues.filter(
+    (issue) => !state.lastKnownErrorIds.has(issue.id),
+  );
   const totalNewCount = newIssues.reduce((sum, issue) => sum + issue.count, 0);
 
   // Do not acknowledge sub-threshold or failed repairs. Keeping them unhandled
@@ -155,7 +157,10 @@ async function checkProjectForHealing(state: WatcherState) {
 
   const claim = await claimSelfHealingProject(state.projectId);
   if (!claim) {
-    logger.info({ projectId: state.projectId }, "self_healing_claim_not_acquired");
+    logger.info(
+      { projectId: state.projectId },
+      "self_healing_claim_not_acquired",
+    );
     return;
   }
 
