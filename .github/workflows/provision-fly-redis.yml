@@ -66,7 +66,7 @@ jobs:
           echo "Resolved Fly organization and region for AppForge; checking managed Redis."
           redis_list="$(flyctl redis list --org "$org" 2>/dev/null || true)"
 
-          if ! printf '%s\n' "$redis_list" | awk '{print $2}' | grep -Fxq "$REDIS_NAME"; then
+          if ! printf '%s\n' "$redis_list" | grep -Fq "$REDIS_NAME"; then
             echo "Creating managed Upstash Redis for AppForge in $REGION using Fly's default pay-as-you-go plan with ProdPack explicitly disabled."
             flyctl redis create \
               --name "$REDIS_NAME" \
@@ -79,11 +79,15 @@ jobs:
             echo "Reusing existing managed Redis database $REDIS_NAME."
           fi
 
+          # flyctl's human-readable spacing has changed across releases. Extract the
+          # URI itself rather than depending on a fixed label/alignment. Keep the
+          # captured status out of logs because it contains the Redis credential.
           redis_status="$(flyctl redis status "$REDIS_NAME")"
-          redis_url="$(printf '%s\n' "$redis_status" | sed -nE 's/^[[:space:]]*Private URL[[:space:]]*=[[:space:]]*(redis[^[:space:]]+).*$/\1/p' | head -n1)"
+          redis_url="$(printf '%s\n' "$redis_status" | grep -Eo 'rediss?://[^[:space:]]+' | head -n1 || true)"
+          redis_url="${redis_url%$'\r'}"
 
-          if [ -z "$redis_url" ] || [[ "$redis_url" != redis://* ]]; then
-            echo "Managed Redis exists but its private URL could not be parsed safely."
+          if [ -z "$redis_url" ] || [[ ! "$redis_url" =~ ^rediss?:// ]]; then
+            echo "Managed Redis exists but flyctl did not expose a parseable private Redis URI."
             exit 1
           fi
 
