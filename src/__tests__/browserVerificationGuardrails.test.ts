@@ -12,6 +12,9 @@ describe("real browser deployment verification", () => {
     expect(isAllowedBrowserVerificationUrl("https://af-demo-1234.fly.dev")).toBe(
       true,
     );
+    expect(isAllowedBrowserVerificationUrl("https://demo-1234.fly.dev")).toBe(
+      false,
+    );
     expect(isAllowedBrowserVerificationUrl("http://af-demo.fly.dev")).toBe(false);
     expect(isAllowedBrowserVerificationUrl("https://fly.dev.evil.example")).toBe(
       false,
@@ -19,6 +22,9 @@ describe("real browser deployment verification", () => {
     expect(
       isAllowedBrowserVerificationUrl("https://localhost.fly.dev:8443"),
     ).toBe(false);
+    expect(isAllowedBrowserVerificationUrl("https://af-demo.fly.dev/admin")).toBe(
+      false,
+    );
     expect(isAllowedBrowserVerificationUrl("https://127.0.0.1")).toBe(false);
   });
 
@@ -74,6 +80,15 @@ describe("real browser deployment verification", () => {
     expect(httpGate).toBeGreaterThan(-1);
     expect(browserGate).toBeGreaterThan(httpGate);
     expect(successReturn).toBeGreaterThan(browserGate);
+  });
+
+  it("isolates Chromium DNS resolution to the generated Fly host", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/services/browserVerification.ts"),
+      "utf8",
+    );
+    expect(source).toContain("MAP * ~NOTFOUND, EXCLUDE ${target.hostname}");
+    expect(source).toContain("--disable-background-networking");
   });
 
   it("ships Chromium in the AppForge production runtime", () => {
