@@ -1,0 +1,105 @@
+name: Provision Fly Redis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/provision-fly-redis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-fly-redis
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Provision or reuse production Redis and attach REDIS_URL
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="appforge-unfurling-moon-9058"
+          REDIS_NAME="appforge-production-redis"
+          REGION="$(awk -F"'" '/^primary_region[[:space:]]*=/{print $2; exit}' fly.toml)"
+
+          if [ -z "${FLY_API_TOKEN:-}" ]; then
+            echo "FLY_API_TOKEN is missing; refusing Redis provisioning."
+            exit 1
+          fi
+          if [ -z "$REGION" ]; then
+            echo "Unable to determine Fly primary_region from fly.toml."
+            exit 1
+          fi
+
+          # Resolve the owning organization without guessing. Prefer the app's
+          # organization metadata; only fall back when the token sees exactly one org.
+          apps_json="$(flyctl apps list --json)"
+          org="$(printf '%s' "$apps_json" | jq -r --arg app "$APP" '
+            .[]
+            | select((.Name // .name // "") == $app)
+            | (.Organization.Slug // .organization.slug // .Org.Slug // .org.slug // empty)
+          ' | head -n1)"
+
+          if [ -z "$org" ]; then
+            orgs_json="$(flyctl orgs list --json)"
+            org_count="$(printf '%s' "$orgs_json" | jq 'length')"
+            if [ "$org_count" -ne 1 ]; then
+              echo "Unable to resolve AppForge Fly organization safely; token exposes $org_count organizations."
+              exit 1
+            fi
+            org="$(printf '%s' "$orgs_json" | jq -r '.[0].Slug // .[0].slug // empty')"
+          fi
+
+          if [ -z "$org" ]; then
+            echo "Fly organization slug could not be resolved."
+            exit 1
+          fi
+
+          echo "Resolved Fly organization and region for AppForge; checking managed Redis."
+          redis_list="$(flyctl redis list --org "$org" 2>/dev/null || true)"
+
+          if ! printf '%s\n' "$redis_list" | awk '{print $2}' | grep -Fxq "$REDIS_NAME"; then
+            echo "Creating managed Upstash Redis for AppForge in $REGION using Fly pay-as-you-go pricing."
+            # No read replicas and no ProdPack/auto-upgrade: keep initial spend bounded.
+            flyctl redis create \
+              --name "$REDIS_NAME" \
+              --org "$org" \
+              --region "$REGION" \
+              --plan pay-as-you-go \
+              --no-replicas \
+              --disable-eviction
+          else
+            echo "Reusing existing managed Redis database $REDIS_NAME."
+          fi
+
+          # Capture status without echoing it because it contains the private URL.
+          redis_status="$(flyctl redis status "$REDIS_NAME")"
+          redis_url="$(printf '%s\n' "$redis_status" | sed -nE 's/^[[:space:]]*Private URL[[:space:]]*=[[:space:]]*(redis[^[:space:]]+).*$/\1/p' | head -n1)"
+
+          if [ -z "$redis_url" ] || [[ "$redis_url" != redis://* ]]; then
+            echo "Managed Redis exists but its private URL could not be parsed safely."
+            exit 1
+          fi
+
+          echo "::add-mask::$redis_url"
+          flyctl secrets set "REDIS_URL=$redis_url" --app "$APP" --stage
+
+          secret_names="$(flyctl secrets list --app "$APP" --json | jq -r '.[] | (.Name // .name // empty)')"
+          if ! grep -Fxq REDIS_URL <<<"$secret_names"; then
+            echo "REDIS_URL did not appear in Fly secret metadata after staging."
+            exit 1
+          fi
+
+          # Validate the Redis endpoint through a one-off Machine context by deploying
+          # normally later; staging prevents an unverified secret-only restart here.
+          echo "REDIS_URL is securely staged on $APP. Production deployment may proceed."
