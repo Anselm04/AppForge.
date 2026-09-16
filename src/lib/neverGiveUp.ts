@@ -137,6 +137,16 @@ const DOSSIER_INSTRUCTION_PATTERNS = [
   /execute\s+(?:this\s+)?(?:command|code|script)/gi,
 ];
 
+function replaceUnsafeControlCharacters(value: string): string {
+  let cleaned = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    const allowedWhitespace = code === 9 || code === 10 || code === 13;
+    cleaned += allowedWhitespace || (code >= 32 && code !== 127) ? char : " ";
+  }
+  return cleaned;
+}
+
 /**
  * Sandbox/compiler/test output is also untrusted text. Keep the useful failure
  * evidence while preventing it from becoming a second instruction channel into
@@ -146,8 +156,7 @@ export function sanitizeFailureDossierText(
   value: unknown,
   maxLength = 500,
 ): string {
-  let text = String(value ?? "")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+  let text = replaceUnsafeControlCharacters(String(value ?? ""))
     .replace(/```/g, "''' ")
     .replace(/\s+/g, " ")
     .trim();
@@ -172,7 +181,13 @@ function stableFingerprint(parts: string[]): string {
  * cannot get green. This prevents blind repetition of the same architecture.
  */
 export function buildFailureDossier(input: BuildFailureDossierInput): string {
-  const errors = [...new Set((input.errors ?? []).map((e) => sanitizeFailureDossierText(e, 420)).filter(Boolean))].slice(0, 12);
+  const errors = [
+    ...new Set(
+      (input.errors ?? [])
+        .map((e) => sanitizeFailureDossierText(e, 420))
+        .filter(Boolean),
+    ),
+  ].slice(0, 12);
   const tasks = (input.previousTasks ?? [])
     .slice(0, 8)
     .map((task, index) => ({
@@ -185,7 +200,10 @@ export function buildFailureDossier(input: BuildFailureDossierInput): string {
   const provider = sanitizeFailureDossierText(input.provider ?? "unknown", 120);
   const model = sanitizeFailureDossierText(input.model ?? "unknown", 180);
   const taskSignature = stableFingerprint(
-    tasks.map((task) => `${task.module.toLowerCase()}|${task.description.toLowerCase()}`),
+    tasks.map(
+      (task) =>
+        `${task.module.toLowerCase()}|${task.description.toLowerCase()}`,
+    ),
   );
   const failureFingerprint = stableFingerprint([
     stack.toLowerCase(),
