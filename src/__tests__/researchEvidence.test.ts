@@ -24,9 +24,11 @@ describe("self-evolving planner research", () => {
       redesignBrief: "WebSocket reconnect failed behind proxy",
       year: 2026,
     });
-    expect(redesign).toHaveLength(5);
+    expect(redesign).toHaveLength(6);
     expect(redesign[4]).toContain("WebSocket reconnect failed behind proxy");
     expect(redesign[4]).toContain("proven fix");
+    expect(redesign[5]).toContain("alternative architecture");
+    expect(redesign[5]).toContain("WebSocket reconnect failed behind proxy");
   });
 
   it("ranks primary evidence above community content and injects an untrusted-web security boundary", () => {
