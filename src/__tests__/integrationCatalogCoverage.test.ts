@@ -53,4 +53,30 @@ describe("AppForge integration registry", () => {
       ]),
     );
   });
+
+  it("maps deep research to the search providers used by the Planner", () => {
+    const research = getIntegrationDefinition("deep-research");
+    expect(research?.env).toEqual(
+      expect.arrayContaining(["TAVILY_API_KEY", "SERPAPI_API_KEY"]),
+    );
+    expect(research?.env).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("maps Supabase to the runtime-supported URL and publishable-key aliases", () => {
+    const supabase = getIntegrationDefinition("supabase");
+    expect(supabase?.env).toEqual(
+      expect.arrayContaining([
+        "SUPABASE_URL",
+        "VITE_SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "VITE_SUPABASE_ANON_KEY",
+        "VITE_SUPABASE_PUBLISHABLE_KEY",
+      ]),
+    );
+  });
+
+  it("includes Fly deployment credentials in the Sprites/Fly production entry", () => {
+    const fly = getIntegrationDefinition("sprites-fly");
+    expect(fly?.env).toContain("FLY_API_TOKEN");
+  });
 });
