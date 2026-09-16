@@ -24,6 +24,11 @@ const teamIntegrationSource = readFileSync(
 
 const originalEnv = { ...process.env };
 
+function requiredFor(id: string) {
+  return APPFORGE_INTEGRATIONS.find((item) => item.id === id)
+    ?.requiredForProduction;
+}
+
 afterEach(() => {
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnv)) delete process.env[key];
@@ -101,25 +106,10 @@ describe("production plugin and integration contracts", () => {
       ]),
     );
 
-    expect(mapped.get("github")).toBe(
-      APPFORGE_INTEGRATIONS.find((item) => item.id === "github")
-        ?.requiredForProduction,
-    );
-    expect(mapped.get("make")).toBe(
-      APPFORGE_INTEGRATIONS.find((item) => item.id === "make")
-        ?.requiredForProduction,
-    );
-    expect(mapped.get("bubblav")).toBe(
-      APPFORGE_INTEGRATIONS.find((item) => item.id === "bubblav")
-        ?.requiredForProduction,
-    );
-    expect(mapped.get("posthog-eu")).toBe(
-      APPFORGE_INTEGRATIONS.find((item) => item.id === "posthog")
-        ?.requiredForProduction,
-    );
-    expect(mapped.get("datadog-us1")).toBe(
-      APPFORGE_INTEGRATIONS.find((item) => item.id === "datadog")
-        ?.requiredForProduction,
-    );
+    expect(mapped.get("github")).toBe(requiredFor("github"));
+    expect(mapped.get("make")).toBe(requiredFor("make"));
+    expect(mapped.get("bubblav")).toBe(requiredFor("bubblav"));
+    expect(mapped.get("posthog-eu")).toBe(requiredFor("posthog"));
+    expect(mapped.get("datadog-us1")).toBe(requiredFor("datadog"));
   });
 });
