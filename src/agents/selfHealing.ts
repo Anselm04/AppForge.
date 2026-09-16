@@ -202,7 +202,7 @@ async function createAutonomousFixTask(
 
   const project = await db.query.projects.findFirst({
     where: eq(schema.projects.id, projectId),
-    columns: { id: true, name: true, status: true },
+    columns: { id: true, title: true, status: true },
   });
   if (!project || project.status !== "completed") {
     logger.info({ projectId }, "self_healing_project_not_completed");
@@ -268,7 +268,7 @@ async function createAutonomousFixTask(
     // validated builds. Do not call a database-only repair "healed".
     const deployment = await deployValidatedProject({
       projectId,
-      projectName: project.name,
+      projectName: project.title ?? `appforge-${projectId}`,
       files: result.files,
     });
 
