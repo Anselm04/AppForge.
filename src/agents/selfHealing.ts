@@ -47,7 +47,8 @@ function sentryApiConfig() {
   return {
     token: process.env.SENTRY_API_TOKEN ?? process.env.SENTRY_AUTH_TOKEN ?? "",
     org: process.env.SENTRY_ORG_SLUG ?? process.env.SENTRY_ORG ?? "",
-    project: process.env.SENTRY_PROJECT_SLUG ?? process.env.SENTRY_PROJECT ?? "",
+    project:
+      process.env.SENTRY_PROJECT_SLUG ?? process.env.SENTRY_PROJECT ?? "",
   };
 }
 
@@ -115,7 +116,9 @@ async function fetchSentryIssues(projectId: number): Promise<SentryIssue[]> {
     });
     if (!res.ok) return [];
     const issues = (await res.json()) as SentryIssue[];
-    return issues.filter((issue) => new Date(issue.lastSeen) >= new Date(since));
+    return issues.filter(
+      (issue) => new Date(issue.lastSeen) >= new Date(since),
+    );
   } catch (err) {
     logger.error({ err, projectId }, "sentry_fetch_failed");
     return [];
