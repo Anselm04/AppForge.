@@ -1,3 +1,4 @@
+import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
 import { runPostDeploySmokeTest } from "./deployHealth.js";
 
@@ -76,7 +77,17 @@ export async function deployValidatedProject(opts: {
   const smoke = await runPostDeploySmokeTest(liveUrl);
   if (!smoke.ok) {
     throw new Error(
-      `Production deployment failed live verification (HTTP ${smoke.root.statusCode ?? "unreachable"}) at ${liveUrl}`,
+      `Production deployment failed live HTTP verification (HTTP ${smoke.root.statusCode ?? "unreachable"}) at ${liveUrl}`,
+    );
+  }
+
+  const browser = await verifyGeneratedAppInBrowser(liveUrl);
+  if (!browser.ok) {
+    const runtimeDetail = browser.runtimeErrors[0]
+      ? `; ${browser.runtimeErrors[0].slice(0, 240)}`
+      : "";
+    throw new Error(
+      `Production deployment failed real browser verification at ${liveUrl}: ${browser.error ?? "render failed"}${runtimeDetail}`,
     );
   }
 
