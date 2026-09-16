@@ -57,7 +57,7 @@ jobs:
             echo "$APPFORGE_CANARY_GOD_CODE_OTP" | grep -Eq '^[0-9]{6}$' || { echo "A fresh real six-digit Twilio OTP is required for God Code certification"; exit 1; }
           fi
 
-      - name: Verify critical live integrations before customer journey
+      - name: Verify catalog-required live integrations before customer journey
         env:
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
           APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
@@ -81,10 +81,10 @@ jobs:
         run: |
           cat <<'EOF'
           This workflow uses the real production AppForge URL, real Supabase authentication,
-          verifies the critical Supabase/Stripe/Sprites-Fly runtime integrations first, then
-          requires a real authenticated entitlement, the real project-create mutation, the
-          real build queue/agents, real validation, real production deployment, and opens the
-          generated product plus its JS/CSS assets.
+          verifies every live integration currently marked requiredForProduction by AppForge's
+          authenticated integration health registry, then requires a real authenticated entitlement,
+          the real project-create mutation, the real build queue/agents, real validation, real
+          production deployment, and opens the generated product plus its JS/CSS assets.
 
           When the owner God Code branch is selected, it now requires the real production phone
           secret plus a fresh real six-digit Twilio SMS OTP. The workflow will not certify that
