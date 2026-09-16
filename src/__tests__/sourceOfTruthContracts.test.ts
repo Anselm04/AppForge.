@@ -40,7 +40,9 @@ describe("repository source-of-truth boundaries", () => {
     const supabaseReadme = source("supabase/migrations/README.md");
 
     expect(drizzleReadme).toContain("Update `src/db/schema.ts`");
-    expect(supabaseReadme).toContain("not applied by the AppForge Express server");
+    expect(supabaseReadme).toContain(
+      "**not** applied by the AppForge Express server",
+    );
     expect(supabaseReadme).toContain("Production app data uses **Drizzle ORM**");
   });
 
