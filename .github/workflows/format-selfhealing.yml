@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "src/agents/selfHealing.ts"
+      - ".github/workflows/format-selfhealing.yml"
 
 permissions:
   contents: write
