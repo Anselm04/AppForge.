@@ -120,7 +120,10 @@ export function canonicalizeResearchUrl(rawUrl: string): string | null {
 
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) {
-      if (key.toLowerCase().startsWith("utm_") || TRACKING_PARAMS.has(key.toLowerCase())) {
+      if (
+        key.toLowerCase().startsWith("utm_") ||
+        TRACKING_PARAMS.has(key.toLowerCase())
+      ) {
         url.searchParams.delete(key);
       }
     }
@@ -135,9 +138,18 @@ export function containsInstructionLikeResearchText(text: string): boolean {
   return INSTRUCTION_LIKE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+function replaceUnsafeControlCharacters(value: string): string {
+  let cleaned = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    const allowedWhitespace = code === 9 || code === 10 || code === 13;
+    cleaned += allowedWhitespace || (code >= 32 && code !== 127) ? char : " ";
+  }
+  return cleaned;
+}
+
 function sanitizeEvidenceText(text: string, maxLength: number): string {
-  return text
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+  return replaceUnsafeControlCharacters(text)
     .replace(/```/g, "''' ")
     .replace(/\s+/g, " ")
     .trim()
