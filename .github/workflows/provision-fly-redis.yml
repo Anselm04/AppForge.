@@ -67,12 +67,11 @@ jobs:
           redis_list="$(flyctl redis list --org "$org" 2>/dev/null || true)"
 
           if ! printf '%s\n' "$redis_list" | awk '{print $2}' | grep -Fxq "$REDIS_NAME"; then
-            echo "Creating managed Upstash Redis for AppForge in $REGION using Fly pay-as-you-go pricing."
+            echo "Creating managed Upstash Redis for AppForge in $REGION using Fly's default pay-as-you-go plan."
             flyctl redis create \
               --name "$REDIS_NAME" \
               --org "$org" \
               --region "$REGION" \
-              --plan payg \
               --no-replicas \
               --disable-eviction
           else
