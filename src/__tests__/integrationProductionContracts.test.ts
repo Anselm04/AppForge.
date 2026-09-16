@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { getTeamIntegrationStatus } from "../config/teamIntegrations.js";
 import { APPFORGE_INTEGRATIONS } from "../integrations/catalog.js";
 
 const repoRoot = process.cwd();
@@ -16,6 +17,19 @@ const runtime = readFileSync(
   join(repoRoot, "src/integrations/runtime.ts"),
   "utf8",
 );
+const teamIntegrationSource = readFileSync(
+  join(repoRoot, "src/config/teamIntegrations.ts"),
+  "utf8",
+);
+
+const originalEnv = { ...process.env };
+
+afterEach(() => {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in originalEnv)) delete process.env[key];
+  }
+  Object.assign(process.env, originalEnv);
+});
 
 describe("production plugin and integration contracts", () => {
   it("uses the catalog health flag as the production preflight authority", () => {
@@ -70,5 +84,42 @@ describe("production plugin and integration contracts", () => {
     expect(runtime).toContain("export async function sendDatadogLog");
     expect(runtime).toContain("export async function runSpritesAgentTask");
     expect(runtime).toContain("export async function runCodexSecurityReview");
+  });
+
+  it("does not reintroduce stale AI or BubblaV environment assumptions", () => {
+    expect(teamIntegrationSource).not.toContain("ANTHROPIC_API_KEY");
+    expect(teamIntegrationSource).not.toContain("BUBBLAV_WIDGET_ID");
+    expect(teamIntegrationSource).toContain("hasConfiguredLlmProvider");
+    expect(teamIntegrationSource).toContain("BUBBLAV_CHAT_URL");
+  });
+
+  it("uses the canonical catalog for mapped production requirement flags", () => {
+    const mapped = new Map(
+      getTeamIntegrationStatus().map((integration) => [
+        integration.key,
+        integration.requiredForProduction,
+      ]),
+    );
+
+    expect(mapped.get("github")).toBe(
+      APPFORGE_INTEGRATIONS.find((item) => item.id === "github")
+        ?.requiredForProduction,
+    );
+    expect(mapped.get("make")).toBe(
+      APPFORGE_INTEGRATIONS.find((item) => item.id === "make")
+        ?.requiredForProduction,
+    );
+    expect(mapped.get("bubblav")).toBe(
+      APPFORGE_INTEGRATIONS.find((item) => item.id === "bubblav")
+        ?.requiredForProduction,
+    );
+    expect(mapped.get("posthog-eu")).toBe(
+      APPFORGE_INTEGRATIONS.find((item) => item.id === "posthog")
+        ?.requiredForProduction,
+    );
+    expect(mapped.get("datadog-us1")).toBe(
+      APPFORGE_INTEGRATIONS.find((item) => item.id === "datadog")
+        ?.requiredForProduction,
+    );
   });
 });
