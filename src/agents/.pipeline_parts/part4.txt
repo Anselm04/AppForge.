@@ -102,6 +102,14 @@
       validationPassed: true,
       validationStage: validationResult?.stage ?? "unknown",
       validationErrors: [],
+      testGateRequired: validationMode === "full",
+      generatedTestFileCount: Object.keys(generatedFiles).filter(
+        (path) =>
+          path.endsWith(".test.ts") ||
+          path.endsWith(".test.tsx") ||
+          path.endsWith(".spec.ts") ||
+          path.endsWith(".spec.tsx"),
+      ).length,
       manualReviewRequired: false,
       goldenStack: isGoldenStack(techStack),
       liveUrl,
