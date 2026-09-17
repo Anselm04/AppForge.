@@ -666,7 +666,8 @@ export async function runAgentPipeline(
           });
         } else {
           emit("Testing", "skipped", {
-            message: "Golden path: tests deferred until UI is green.",
+            message:
+              "Structural-only stack: automated runtime test execution is not yet available for this stack.",
           });
         }
 
