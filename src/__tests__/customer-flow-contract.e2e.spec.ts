@@ -198,6 +198,28 @@ describe("critical customer flow contract", () => {
     expect(health).toContain("assets.some((asset) => !asset.result.ok)");
   });
 
+  it("certifies real production build-test-deploy semantics", () => {
+    const canary = source("../../scripts/production-customer-canary.mjs");
+
+    expect(canary).toContain("verifyGeneratedTestContract");
+    expect(canary).toContain("Generated production canary has no persisted unit/integration test file");
+    expect(canary).toContain("Generated tests do not exercise or reference the requested counter behavior");
+    expect(canary).toContain("AppForge Production Canary");
+    expect(canary).toContain("Increment Canary Counter");
+    expect(canary).toContain("AppForge Production Canary Updated");
+    expect(canary).toContain("Authenticated edit verified");
+    expect(canary).toContain("generatedTestsVerified: true");
+    expect(canary).toContain("initialCustomerVisibleContentVerified");
+    expect(canary).toContain("editedCustomerVisibleContentVerified");
+    expectInOrder(canary, [
+      "const generatedTests = verifyGeneratedTestContract(project.generatedFiles);",
+      "const live = await verifyDeployedProduct(done.liveUrl",
+      'trpc.mutation("projectChat.send"',
+      'trpc.mutation("projects.deploy"',
+      "const redeployedLive = await verifyDeployedProduct(redeploy.deployUrl",
+    ]);
+  });
+
   it("opens only the verified live generated product after terminal success", () => {
     const buildPage = source("../pages/Build.tsx");
 
