@@ -2,7 +2,10 @@
         Object.assign(generatedFiles, testFiles);
         emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s).` });
       } else {
-        emit("Testing", "skipped", { message: "Golden path: tests deferred until UI is green." });
+        emit("Testing", "skipped", {
+          message:
+            "Structural-only stack: automated runtime test execution is not yet available for this stack.",
+        });
       }
 
       if (creditCheck && !(await creditCheck())) {
