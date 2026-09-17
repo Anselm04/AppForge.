@@ -202,8 +202,12 @@ describe("critical customer flow contract", () => {
     const canary = source("../../scripts/production-customer-canary.mjs");
 
     expect(canary).toContain("verifyGeneratedTestContract");
-    expect(canary).toContain("Generated production canary has no persisted unit/integration test file");
-    expect(canary).toContain("Generated tests do not exercise or reference the requested counter behavior");
+    expect(canary).toContain(
+      "Generated production canary has no persisted unit/integration test file",
+    );
+    expect(canary).toContain(
+      "Generated tests do not exercise or reference the requested counter behavior",
+    );
     expect(canary).toContain("AppForge Production Canary");
     expect(canary).toContain("Increment Canary Counter");
     expect(canary).toContain("AppForge Production Canary Updated");
@@ -212,7 +216,8 @@ describe("critical customer flow contract", () => {
     expect(canary).toContain("initialCustomerVisibleContentVerified");
     expect(canary).toContain("editedCustomerVisibleContentVerified");
     expectInOrder(canary, [
-      "const generatedTests = verifyGeneratedTestContract(project.generatedFiles);",
+      "const generatedTests = verifyGeneratedTestContract(" +
+        "project.generatedFiles);",
       "const live = await verifyDeployedProduct(done.liveUrl",
       'trpc.mutation("projectChat.send"',
       'trpc.mutation("projects.deploy"',
