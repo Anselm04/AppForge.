@@ -263,6 +263,26 @@ describe("critical customer flow contract", () => {
     ]);
   });
 
+  it("includes real Chromium interaction in production certification", () => {
+    const workflow = source(
+      "../../.github/workflows/production-full-customer-journey.yml",
+    );
+    const browserSpec = source("../../scripts/production-canary-browser.spec.mjs");
+
+    expect(workflow).toContain("@playwright/test@1.55.0");
+    expect(workflow).toContain("npx playwright install chromium");
+    expect(workflow).toContain(
+      "npx playwright test scripts/production-canary-browser.spec.mjs --reporter=line",
+    );
+    expect(browserSpec).toContain('name: "Increment Canary Counter"');
+    expect(browserSpec).toContain("await button.click()");
+    expect(browserSpec).toContain(
+      "Counter click did not change rendered page content",
+    );
+    expect(browserSpec).toContain("AppForge Production Canary Updated");
+    expect(browserSpec).toContain("Authenticated edit verified");
+  });
+
   it("opens only the verified live generated product after terminal success", () => {
     const buildPage = source("../pages/Build.tsx");
 
