@@ -67,3 +67,30 @@ test("patent reference numeral check", async () => {
   expect(r.matched).toContain("10");
   expect(r.matched).toContain("20");
 });
+
+
+test("production proof requires generated tests before deploy certification", async () => {
+  const { readFileSync } = await import("node:fs");
+  const pipeline = readFileSync(
+    new URL("../agents/pipeline.generated.ts", import.meta.url),
+    "utf8",
+  );
+  const testingAgent = readFileSync(
+    new URL("../agents/testingAgent.ts", import.meta.url),
+    "utf8",
+  );
+  const canary = readFileSync(
+    new URL("../../scripts/production-customer-canary.mjs", import.meta.url),
+    "utf8",
+  );
+
+  expect(pipeline).toContain('const testsBlocking = validationMode === "full";');
+  expect(pipeline).toContain('testGateRequired: validationMode === "full"');
+  expect(pipeline).toContain("generatedTestFileCount:");
+  expect(testingAgent).toContain('pkg.scripts.test = pkg.scripts.test ?? "vitest run"');
+  expect(testingAgent).toContain('pkg.devDependencies.vitest');
+  expect(testingAgent).toContain('pkg.devDependencies["@testing-library/react"]');
+  expect(canary).toContain("done.validationPassed !== true");
+  expect(canary).toContain("done.testGateRequired !== true");
+  expect(canary).toContain("done.generatedTestFileCount > 0");
+});
