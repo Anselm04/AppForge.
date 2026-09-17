@@ -90,13 +90,17 @@ test("production proof requires generated tests before deploy certification", as
     'pkg.scripts.test = pkg.scripts.test ?? "vitest run"',
   );
   expect(testingAgent).toContain('pkg.devDependencies.vitest');
-  expect(testingAgent).toContain('pkg.devDependencies["@testing-library/react"]');
+  expect(testingAgent).toContain(
+    'pkg.devDependencies["@testing-library/react"]',
+  );
   expect(canary).toContain("done.validationPassed !== true");
   expect(canary).toContain("done.testGateRequired !== true");
   expect(canary).toContain("done.generatedTestFileCount > 0");
 });
 
-test("generated full-validation test harness installs its own dependencies", async () => {
+test(
+  "generated full-validation test harness installs its own dependencies",
+  async () => {
   const { attachGeneratedTests } = await import("../agents/testingAgent.js");
   const files: Record<string, string> = {
     "package.json": JSON.stringify({
@@ -117,5 +121,6 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(pkg.devDependencies.vitest).toBeTruthy();
   expect(pkg.devDependencies.jsdom).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
-  expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
-});
+    expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
+  },
+);
