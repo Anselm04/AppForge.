@@ -25,8 +25,7 @@ const teamIntegrationSource = readFileSync(
 const originalEnv = { ...process.env };
 
 function requiredFor(id: string) {
-  return APPFORGE_INTEGRATIONS.find((item) => item.id === id)
-    ?.requiredForProduction;
+  return APPFORGE_INTEGRATIONS.find((item) => item.id === id)?.requiredForProduction;
 }
 
 afterEach(() => {
