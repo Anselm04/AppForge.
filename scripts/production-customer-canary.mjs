@@ -306,6 +306,17 @@ async function main() {
   );
   const done = await openBuildStream(projectId, accessToken);
 
+  if (done.validationPassed !== true) {
+    throw new Error(
+      `Production canary reached done without a passing generated-app validation gate: ${JSON.stringify(done)}`,
+    );
+  }
+  if (done.testGateRequired !== true || !(done.generatedTestFileCount > 0)) {
+    throw new Error(
+      `Production canary did not prove a blocking generated test gate: ${JSON.stringify(done)}`,
+    );
+  }
+
   console.log("[canary] verifying persisted project completion");
   const project = await trpc.query("projects.get", { id: projectId });
   if (project?.status !== "completed") {
@@ -394,6 +405,9 @@ async function main() {
         godCodeOtpVerified,
         automaticBuildStartVerified: true,
         agentBuildCompletionVerified: true,
+        generatedValidationVerified: true,
+        blockingGeneratedTestsVerified: true,
+        generatedTestFileCount: done.generatedTestFileCount,
         productionDeploymentVerified: true,
         authenticatedEditVerified: true,
         editPersistenceVerified: true,
