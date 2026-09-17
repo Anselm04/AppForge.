@@ -1,0 +1,37 @@
+name: Format Integration Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/format-integration-contract.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prettier --write src/__tests__/integrationProductionContracts.test.ts
+      - name: Commit formatted file if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/__tests__/integrationProductionContracts.test.ts; then
+            echo "No formatter changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/__tests__/integrationProductionContracts.test.ts
+          git commit -m "style: apply repo-pinned Prettier to integration contracts"
+          git push origin HEAD:main
