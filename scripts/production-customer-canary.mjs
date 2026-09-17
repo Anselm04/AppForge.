@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { createTRPCUntypedClient, httpLink } from "@trpc/client";
 
 const baseUrl = (
@@ -436,41 +437,42 @@ async function main() {
     }
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        baseUrl,
-        projectId,
-        liveUrl: done.liveUrl,
-        redeployUrl: redeploy.deployUrl,
-        projectStatus: project.status,
-        generatedFileCount: Object.keys(project.generatedFiles).length,
-        generatedTestCount: generatedTests.testPaths.length,
-        generatedTestPaths: generatedTests.testPaths,
-        generatedTestsVerified: true,
-        changedFileCount: changedPaths.length,
-        changedPaths,
-        liveHttpStatus: live.status,
-        checkedAssets: live.checkedAssets,
-        initialCustomerVisibleContentVerified: live.verifiedTexts,
-        redeployHttpStatus: redeployedLive.status,
-        redeployCheckedAssets: redeployedLive.checkedAssets,
-        editedCustomerVisibleContentVerified: redeployedLive.verifiedTexts,
-        sessionRefreshVerified: true,
-        entitlementVerified: true,
-        godCodeOtpVerified,
-        automaticBuildStartVerified: true,
-        agentBuildCompletionVerified: true,
-        productionDeploymentVerified: true,
-        authenticatedEditVerified: true,
-        editPersistenceVerified: true,
-        authenticatedRedeployVerified: true,
-      },
-      null,
-      2,
-    ),
+  const certification = {
+    ok: true,
+    baseUrl,
+    projectId,
+    liveUrl: done.liveUrl,
+    redeployUrl: redeploy.deployUrl,
+    projectStatus: project.status,
+    generatedFileCount: Object.keys(project.generatedFiles).length,
+    generatedTestCount: generatedTests.testPaths.length,
+    generatedTestPaths: generatedTests.testPaths,
+    generatedTestsVerified: true,
+    changedFileCount: changedPaths.length,
+    changedPaths,
+    liveHttpStatus: live.status,
+    checkedAssets: live.checkedAssets,
+    initialCustomerVisibleContentVerified: live.verifiedTexts,
+    redeployHttpStatus: redeployedLive.status,
+    redeployCheckedAssets: redeployedLive.checkedAssets,
+    editedCustomerVisibleContentVerified: redeployedLive.verifiedTexts,
+    sessionRefreshVerified: true,
+    entitlementVerified: true,
+    godCodeOtpVerified,
+    automaticBuildStartVerified: true,
+    agentBuildCompletionVerified: true,
+    productionDeploymentVerified: true,
+    authenticatedEditVerified: true,
+    editPersistenceVerified: true,
+    authenticatedRedeployVerified: true,
+  };
+
+  writeFileSync(
+    ".appforge-production-canary-result.json",
+    JSON.stringify(certification, null, 2),
+    "utf8",
   );
+  console.log(JSON.stringify(certification, null, 2));
 }
 
 main().catch((error) => {
