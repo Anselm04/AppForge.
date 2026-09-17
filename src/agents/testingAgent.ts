@@ -64,6 +64,32 @@ export default defineConfig({
 });
 `;
 
+function ensureGeneratedTestDependencies(
+  generatedFiles: Record<string, string>,
+): void {
+  const raw = generatedFiles["package.json"];
+  if (!raw) return;
+
+  try {
+    const pkg = JSON.parse(raw) as {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    pkg.scripts = pkg.scripts ?? {};
+    pkg.devDependencies = pkg.devDependencies ?? {};
+    pkg.scripts.test = pkg.scripts.test ?? "vitest run";
+    pkg.devDependencies.vitest = pkg.devDependencies.vitest ?? "^3.2.7";
+    pkg.devDependencies.jsdom = pkg.devDependencies.jsdom ?? "^24.0.0";
+    pkg.devDependencies["@testing-library/react"] =
+      pkg.devDependencies["@testing-library/react"] ?? "^14.2.0";
+    pkg.devDependencies["@testing-library/jest-dom"] =
+      pkg.devDependencies["@testing-library/jest-dom"] ?? "^6.4.0";
+    generatedFiles["package.json"] = JSON.stringify(pkg, null, 2);
+  } catch {
+    // The build validator will fail invalid package.json explicitly.
+  }
+}
+
 const VITEST_SETUP = `// filename: src/__tests__/setup.ts
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
@@ -112,6 +138,7 @@ export async function attachGeneratedTests(
   ) {
     testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
   }
+  ensureGeneratedTestDependencies(generatedFiles);
   return testFiles;
 }
 
