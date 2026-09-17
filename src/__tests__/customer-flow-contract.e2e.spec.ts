@@ -203,6 +203,25 @@ describe("critical customer flow contract", () => {
     ]);
   });
 
+  it("fails full-validation builds that contain no executable generated tests", () => {
+    const validator = source("../agents/buildValidator.ts");
+
+    expect(validator).toContain("const generatedTestFiles = Object.keys(files)");
+    expect(validator).toContain(
+      "Full-validation build generated no executable unit/integration tests.",
+    );
+    expect(validator).toContain('stage: "tests"');
+    expect(validator).toContain(
+      "A production-capable full-validation build must include executable tests before deployment.",
+    );
+    expectInOrder(validator, [
+      "const generatedTestFiles = Object.keys(files)",
+      "if (options.testsBlocking && generatedTestFiles.length === 0)",
+      '["vitest", "run"]',
+      '["vite", "build"]',
+    ]);
+  });
+
   it("requires root content plus same-origin JS/CSS assets before production success", () => {
     const autoDeploy = source("../services/productionAutoDeploy.ts");
     const health = source("../services/deployHealth.ts");
