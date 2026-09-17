@@ -4,7 +4,7 @@
     validationResult = null;
     lastAuditResult = null;
     let fixAttempt = 0;
-    const testsBlocking = validationMode === "full" && !isGoldenStack(techStack);
+    const testsBlocking = validationMode === "full";
 
     do {
       if (fixAttempt > 0) {
@@ -164,5 +164,8 @@
         }
       } catch { /* non-fatal */ }
 
-      if (!isGoldenStack(techStack)) {
-        emit("Testing", "start", { message: "Generating unit tests before validation…" });
+      if (validationMode === "full") {
+        emit("Testing", "start", {
+          message:
+            "Generating blocking unit tests before validation and deployment…",
+        });
