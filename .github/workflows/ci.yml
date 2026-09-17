@@ -169,6 +169,7 @@ jobs:
           }
           trap cleanup EXIT
 
+          LIVE=0
           for attempt in $(seq 1 30); do
             if ! kill -0 "$PID" 2>/dev/null; then
               echo "Built production server exited before becoming live."
@@ -177,15 +178,21 @@ jobs:
             fi
             if curl --fail --silent --show-error --max-time 2 \
               http://127.0.0.1:3100/api/health/live >/dev/null; then
-              echo "Built production server booted and liveness responded."
-              exit 0
+              LIVE=1
+              break
             fi
             sleep 1
           done
 
-          echo "Built production server did not become live within 30 seconds."
-          cat "$LOG"
-          exit 1
+          if [ "$LIVE" -ne 1 ]; then
+            echo "Built production server did not become live within 30 seconds."
+            cat "$LOG"
+            exit 1
+          fi
+
+          cleanup
+          trap - EXIT
+          echo "Built production server booted and liveness responded."
       - name: Verify build does not mutate tracked source
         shell: bash
         run: |
