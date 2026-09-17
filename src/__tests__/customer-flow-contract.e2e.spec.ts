@@ -184,6 +184,25 @@ describe("critical customer flow contract", () => {
     ]);
   });
 
+  it("makes generated tests blocking for every full-validation build", () => {
+    const pipeline = source("../agents/pipeline.generated.ts");
+
+    expect(pipeline).toContain('const testsBlocking = validationMode === "full";');
+    expect(pipeline).toContain('if (validationMode === "full") {');
+    expect(pipeline).toContain(
+      "Generating blocking unit tests before validation and deployment…",
+    );
+    expect(pipeline).not.toContain(
+      "Golden path: tests deferred until UI is green.",
+    );
+    expectInOrder(pipeline, [
+      "attachGeneratedTests(",
+      "validateGeneratedBuild(",
+      "testsBlocking,",
+      'await updateProjectStatus(projectId, "completed");',
+    ]);
+  });
+
   it("requires root content plus same-origin JS/CSS assets before production success", () => {
     const autoDeploy = source("../services/productionAutoDeploy.ts");
     const health = source("../services/deployHealth.ts");
