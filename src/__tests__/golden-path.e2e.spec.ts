@@ -96,7 +96,6 @@ test("production proof requires generated tests before deploy certification", as
   expect(canary).toContain("done.generatedTestFileCount > 0");
 });
 
-
 test("generated full-validation test harness installs its own dependencies", async () => {
   const { attachGeneratedTests } = await import("../agents/testingAgent.js");
   const files: Record<string, string> = {
