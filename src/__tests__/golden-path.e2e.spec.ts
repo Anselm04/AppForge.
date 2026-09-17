@@ -70,18 +70,9 @@ test("patent reference numeral check", async () => {
 
 test("production proof requires generated tests before deploy certification", async () => {
   const { readFileSync } = await import("node:fs");
-  const pipeline = readFileSync(
-    new URL("../agents/pipeline.generated.ts", import.meta.url),
-    "utf8",
-  );
-  const testingAgent = readFileSync(
-    new URL("../agents/testingAgent.ts", import.meta.url),
-    "utf8",
-  );
-  const canary = readFileSync(
-    new URL("../../scripts/production-customer-canary.mjs", import.meta.url),
-    "utf8",
-  );
+  const pipeline = readFileSync("src/agents/pipeline.generated.ts", "utf8");
+  const testingAgent = readFileSync("src/agents/testingAgent.ts", "utf8");
+  const canary = readFileSync("scripts/production-customer-canary.mjs", "utf8");
 
   expect(pipeline).toContain(
     'const testsBlocking = validationMode === "full";',
