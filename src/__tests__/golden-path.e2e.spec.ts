@@ -83,13 +83,15 @@ test("production proof requires generated tests before deploy certification", as
     "utf8",
   );
 
-  expect(pipeline).toContain('const testsBlocking = validationMode === "full";');
+  expect(pipeline).toContain(
+    'const testsBlocking = validationMode === "full";',
+  );
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
   expect(testingAgent).toContain(
     'pkg.scripts.test = pkg.scripts.test ?? "vitest run"',
   );
-  expect(testingAgent).toContain('pkg.devDependencies.vitest');
+  expect(testingAgent).toContain("pkg.devDependencies.vitest");
   expect(testingAgent).toContain(
     'pkg.devDependencies["@testing-library/react"]',
   );
@@ -98,29 +100,26 @@ test("production proof requires generated tests before deploy certification", as
   expect(canary).toContain("done.generatedTestFileCount > 0");
 });
 
-test(
-  "generated full-validation test harness installs its own dependencies",
-  async () => {
-    const { attachGeneratedTests } = await import("../agents/testingAgent.js");
-    const files: Record<string, string> = {
-      "package.json": JSON.stringify({
-        name: "generated-canary",
-        scripts: { build: "vite build" },
-        dependencies: {},
-        devDependencies: {},
-      }),
-      "index.html": "<div id=\"root\"></div>",
-    };
+test("generated full-validation test harness installs its own dependencies", async () => {
+  const { attachGeneratedTests } = await import("../agents/testingAgent.js");
+  const files: Record<string, string> = {
+    "package.json": JSON.stringify({
+      name: "generated-canary",
+      scripts: { build: "vite build" },
+      dependencies: {},
+      devDependencies: {},
+    }),
+    "index.html": '<div id="root"></div>',
+  };
 
-    const tests = await attachGeneratedTests(files, "react-node");
-    const pkg = JSON.parse(files["package.json"]);
+  const tests = await attachGeneratedTests(files, "react-node");
+  const pkg = JSON.parse(files["package.json"]);
 
-    expect(tests["vitest.config.ts"]).toBeTruthy();
-    expect(tests["src/__tests__/setup.ts"]).toBeTruthy();
-    expect(pkg.scripts.test).toBe("vitest run");
-    expect(pkg.devDependencies.vitest).toBeTruthy();
-    expect(pkg.devDependencies.jsdom).toBeTruthy();
-    expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
-    expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
-  },
-);
+  expect(tests["vitest.config.ts"]).toBeTruthy();
+  expect(tests["src/__tests__/setup.ts"]).toBeTruthy();
+  expect(pkg.scripts.test).toBe("vitest run");
+  expect(pkg.devDependencies.vitest).toBeTruthy();
+  expect(pkg.devDependencies.jsdom).toBeTruthy();
+  expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
+  expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
+});
