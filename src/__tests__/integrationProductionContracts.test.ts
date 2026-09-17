@@ -25,7 +25,8 @@ const teamIntegrationSource = readFileSync(
 const originalEnv = { ...process.env };
 
 function requiredFor(id: string) {
-  return APPFORGE_INTEGRATIONS.find((item) => item.id === id)?.requiredForProduction;
+  return APPFORGE_INTEGRATIONS.find((item) => item.id === id)
+    ?.requiredForProduction;
 }
 
 afterEach(() => {
@@ -39,9 +40,7 @@ describe("production plugin and integration contracts", () => {
   it("uses the catalog health flag as the production preflight authority", () => {
     expect(preflight).toContain("entry?.requiredForProduction === true");
     expect(preflight).not.toContain("REQUIRED_RUNTIME_INTEGRATIONS");
-    expect(preflight).toContain(
-      'item.state !== "connected" || !item.verified',
-    );
+    expect(preflight).toContain('item.state !== "connected" || !item.verified');
   });
 
   it("keeps the expected production-critical integration set explicit in the catalog", () => {
@@ -74,8 +73,12 @@ describe("production plugin and integration contracts", () => {
   });
 
   it("keeps runtime network boundaries fail-closed", () => {
-    expect(runtime).toContain("Production integration endpoints must use HTTPS");
-    expect(runtime).toContain("Integration endpoints may not embed credentials");
+    expect(runtime).toContain(
+      "Production integration endpoints must use HTTPS",
+    );
+    expect(runtime).toContain(
+      "Integration endpoints may not embed credentials",
+    );
     expect(runtime).toContain('redirect: "manual"');
     expect(runtime).toContain("MAX_INTEGRATION_REQUEST_BYTES");
     expect(runtime).toContain("MAX_INTEGRATION_RESPONSE_BYTES");
@@ -83,7 +86,9 @@ describe("production plugin and integration contracts", () => {
 
   it("keeps real runtime implementations for the requested plugin stack", () => {
     expect(runtime).toContain("export async function runMakeWorkflow");
-    expect(runtime).toContain("export async function sendBubblaVSupportMessage");
+    expect(runtime).toContain(
+      "export async function sendBubblaVSupportMessage",
+    );
     expect(runtime).toContain("export async function capturePostHogEvent");
     expect(runtime).toContain("export async function sendDatadogLog");
     expect(runtime).toContain("export async function runSpritesAgentTask");
