@@ -653,7 +653,8 @@ export async function runAgentPipeline(
 
         if (validationMode === "full") {
           emit("Testing", "start", {
-            message: "Generating blocking unit tests before validation and deployment…",
+            message:
+              "Generating blocking unit tests before validation and deployment…",
           });
           const testFiles = await attachGeneratedTests(
             generatedFiles,
