@@ -197,3 +197,134 @@ export async function validateWithDocker(
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+
+function runFlyctl(
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn("flyctl", args, {
+      cwd,
+      shell: false,
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const finish = (exitCode: number) => {
+      if (settled) return;
+      settled = true;
+      resolve({ exitCode, stdout, stderr });
+    };
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      stderr += "\n[TIMEOUT]";
+      finish(1);
+    }, timeoutMs);
+    child.stdout?.on("data", (d) => (stdout += d.toString()));
+    child.stderr?.on("data", (d) => (stderr += d.toString()));
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      finish(code ?? 1);
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      stderr += err.message;
+      finish(1);
+    });
+  });
+}
+
+async function flyRemoteBuildAvailable(): Promise<boolean> {
+  if (process.env.FLY_REMOTE_VALIDATION === "false") return false;
+  if (!process.env.FLY_API_TOKEN) return false;
+  const r = await runFlyctl(["version"], process.cwd(), 10_000);
+  return r.exitCode === 0;
+}
+
+/**
+ * Production fallback when a Docker daemon is intentionally unavailable.
+ * Fly's remote builder receives the generated source and executes install,
+ * typecheck, blocking tests and production build inside a separate BuildKit
+ * environment. --build-only guarantees this validation never deploys.
+ */
+export async function validateWithFlyRemoteBuild(
+  files: Record<string, string>,
+  techStack: string,
+): Promise<DockerValidationResult | null> {
+  if (!(await flyRemoteBuildAvailable())) return null;
+  if (!files["package.json"] && !files["src/package.json"]) return null;
+
+  const start = Date.now();
+  const tmpDir = join(tmpdir(), `appforge-fly-remote-${Date.now()}`);
+  const errors: string[] = [];
+  const app =
+    process.env.APPFORGE_SANDBOX_FLY_APP ??
+    process.env.FLY_APP_NAME ??
+    "appforge-unfurling-moon-9058";
+
+  try {
+    await mkdir(tmpDir, { recursive: true });
+    for (const [path, content] of Object.entries(files)) {
+      if (typeof content !== "string") continue;
+      const safePath = safeRelativePath(path);
+      if (!safePath) continue;
+      const full = join(tmpDir, safePath);
+      await mkdir(join(full, ".."), { recursive: true });
+      await writeFile(full, content, "utf-8");
+    }
+
+    const workdir = files["package.json"] ? "/app" : "/app/src";
+    const dockerfile = `FROM node:22-alpine
+WORKDIR /app
+COPY . .
+WORKDIR ${workdir}
+RUN npm install --ignore-scripts --no-audit --no-fund --loglevel=error \\
+ && if [ -f tsconfig.json ]; then npx --no-install tsc --noEmit; fi \\
+ && if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then npm test -- --run; fi \\
+ && if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts.build?0:1)"; then npm run build; fi
+CMD ["node", "-e", "process.exit(0)"]
+`;
+    await writeFile(
+      join(tmpDir, "Dockerfile.appforge-validation"),
+      dockerfile,
+      "utf-8",
+    );
+
+    const r = await runFlyctl(
+      [
+        "deploy",
+        ".",
+        "--remote-only",
+        "--build-only",
+        "--app",
+        app,
+        "--dockerfile",
+        "Dockerfile.appforge-validation",
+      ],
+      tmpDir,
+      300_000,
+    );
+
+    if (r.exitCode !== 0) {
+      errors.push((r.stderr || r.stdout).slice(-2000));
+      return {
+        passed: false,
+        stage: "fly_remote_node",
+        errors,
+        durationMs: Date.now() - start,
+      };
+    }
+
+    return {
+      passed: true,
+      stage: "fly_remote_node",
+      errors: [],
+      durationMs: Date.now() - start,
+    };
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
