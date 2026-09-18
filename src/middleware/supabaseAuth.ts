@@ -128,8 +128,13 @@ function isSessionEndpoint(req: Request): boolean {
 
 async function verifyAccessToken(token: string): Promise<User | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.auth.getUser(token);
-  return error || !data.user ? null : data.user;
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    return error || !data.user ? null : data.user;
+  } catch (error) {
+    logger.warn({ error }, "supabase_auth_access_verification_failed");
+    return null;
+  }
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<{
