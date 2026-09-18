@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { completeAuthRedirect, signIn } from "../lib/auth.js";
+import { completeAuthRedirect, requestPasswordReset, signIn } from "../lib/auth.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { LogoLockup } from "../components/brand/LogoMark.js";
@@ -36,6 +36,8 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotPending, setForgotPending] = useState(false);
   const [completingConfirmation, setCompletingConfirmation] = useState(false);
 
   const { data: me } = useQuery({
@@ -64,13 +66,18 @@ export function Login() {
       setCompletingConfirmation(true);
       setError(null);
       try {
-        const session = await completeAuthRedirect();
-        if (!session || cancelled) return;
+        const result = await completeAuthRedirect();
+        if (!result || cancelled) return;
         const meNow = await trpc.auth.me.query();
         if (cancelled) return;
         queryClient.setQueryData(["auth", "me"], meNow);
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
-        if (!cancelled) navigate(next, { replace: true });
+        if (cancelled) return;
+        if (result.type === "recovery") {
+          navigate("/set-password", { replace: true });
+          return;
+        }
+        navigate(next, { replace: true });
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -109,6 +116,27 @@ export function Login() {
       setError(err instanceof Error ? err.message : t("login.failed"));
     } finally {
       setPending(false);
+    }
+  };
+
+  const handleForgot = async () => {
+    setError(null);
+    setForgotSent(false);
+    const addr = email.trim();
+    if (!addr.includes("@")) {
+      setError("Enter your email above first.");
+      return;
+    }
+    setForgotPending(true);
+    try {
+      await requestPasswordReset(addr);
+      setForgotSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not send reset email.",
+      );
+    } finally {
+      setForgotPending(false);
     }
   };
 
@@ -167,7 +195,22 @@ export function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <Button
+            {forgotSent ? (
+            <p className="text-sm text-emerald-400">
+              Check your email for a reset link. After you open it, you will set a
+              new password here.
+            </p>
+          ) : (
+            <button
+              type="button"
+              className="text-left text-sm text-violet-300 underline disabled:opacity-50"
+              onClick={() => void handleForgot()}
+              disabled={forgotPending || pending}
+            >
+              {forgotPending ? "Sending reset…" : "Forgot password?"}
+            </button>
+          )}
+          <Button
               type="submit"
               className="w-full"
               loading={pending || completingConfirmation}
