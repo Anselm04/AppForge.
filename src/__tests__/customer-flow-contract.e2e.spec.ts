@@ -25,7 +25,8 @@ describe("critical customer flow contract", () => {
     const auth = source("../lib/auth.ts");
     const signup = source("../pages/Signup.tsx");
 
-    expect(auth).toContain('const SESSION_KEY = "appforge.session"');
+    expect(auth).toContain('const USER_KEY = "appforge.user"');
+    expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).toContain("export async function completeAuthRedirect");
     expect(auth).toContain("saveSession(session);");
     expect(auth).toContain("export function loginPathWithReturn");
@@ -38,15 +39,13 @@ describe("critical customer flow contract", () => {
   it("keeps confirmed users authenticated across refresh/reopen with token refresh", () => {
     const auth = source("../lib/auth.ts");
 
-    expect(auth).toContain('const SESSION_KEY = "appforge.session"');
-    expect(auth).toContain("refreshToken?: string;");
+    expect(auth).toContain('const USER_KEY = "appforge.user"');
+    expect(auth).not.toContain('refreshToken?: string;');
     expect(auth).toContain("export async function refreshSession");
-    expect(auth).toContain(
-      "await supabaseClient.refreshSession(current.refreshToken!)",
-    );
-    expect(auth).toContain("saveSession(next);");
+    expect(auth).toContain("Refresh tokens live only in the server-managed HttpOnly cookie");
     expect(auth).toContain("export async function ensureFreshSession");
-    expect(auth).toContain("signOut();");
+    expect(auth).toContain("cachedSession = { user: session.user };");
+    expect(auth).not.toContain("localStorage?.setItem(SESSION_KEY");
   });
 
   it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {
