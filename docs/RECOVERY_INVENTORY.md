@@ -165,6 +165,20 @@ Verification target:
 - Run the Fly Production Capacity Guard to reconcile accidental capacity drift back to exactly two app Machines and fail closed if that steady state cannot be established.
 - Run the Production Customer Flow Smoke and confirm transport retries do not mask persistent 5xx, customer-route failures, or incorrect authorization responses.
 
+## Production CI boot-liveness invariant
+
+Recovery invariant reviewed 18 September 2026:
+- A trusted AppForge SHA is not release-ready merely because client/server bundles were created; the built production server must actually boot and answer `/api/health/live` before the CI release gate can pass.
+- The CI liveness probe starts the compiled `dist/server.js` with production settings, waits for the health endpoint, and then performs deterministic process cleanup before reporting success.
+- Process cleanup must not overwrite a verified liveness success with a shell/trap exit-code artifact. Conversely, cleanup hardening must never convert a failed or unreachable server into a passing build.
+- Any change to the production CI boot probe is recovery-impacting because restore/redeploy procedures depend on the same executable startup evidence before a SHA is treated as known-good.
+
+Verification target:
+- Build the production client/server artifacts from a clean dependency install.
+- Start `dist/server.js` and require HTTP success from `/api/health/live`.
+- Confirm the server process is terminated after the probe without changing the successful job exit status.
+- Confirm an early server exit or a liveness timeout still fails the Production Build job and therefore fails the CI Release Gate.
+
 ## Production deployment freshness invariant
 
 Recovery invariant reviewed 15 September 2026:

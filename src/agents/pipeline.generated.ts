@@ -462,8 +462,7 @@ export async function runAgentPipeline(
       validationResult = null;
       lastAuditResult = null;
       let fixAttempt = 0;
-      const testsBlocking =
-        validationMode === "full" && !isGoldenStack(techStack);
+      const testsBlocking = validationMode === "full";
 
       do {
         if (fixAttempt > 0) {
@@ -652,9 +651,10 @@ export async function runAgentPipeline(
           /* non-fatal */
         }
 
-        if (!isGoldenStack(techStack)) {
+        if (validationMode === "full") {
           emit("Testing", "start", {
-            message: "Generating unit tests before validation…",
+            message:
+              "Generating blocking unit tests before validation and deployment…",
           });
           const testFiles = await attachGeneratedTests(
             generatedFiles,
@@ -662,7 +662,7 @@ export async function runAgentPipeline(
           );
           Object.assign(generatedFiles, testFiles);
           emit("Testing", "complete", {
-            message: `Prepared ${Object.keys(testFiles).length} test file(s).`,
+            message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.`,
           });
         } else {
           emit("Testing", "skipped", {
@@ -1049,6 +1049,14 @@ export async function runAgentPipeline(
       validationPassed: true,
       validationStage: validationResult?.stage ?? "unknown",
       validationErrors: [],
+      testGateRequired: validationMode === "full",
+      generatedTestFileCount: Object.keys(generatedFiles).filter(
+        (path) =>
+          path.endsWith(".test.ts") ||
+          path.endsWith(".test.tsx") ||
+          path.endsWith(".spec.ts") ||
+          path.endsWith(".spec.tsx"),
+      ).length,
       manualReviewRequired: false,
       goldenStack: isGoldenStack(techStack),
       liveUrl,

@@ -287,6 +287,10 @@ function findChangedPaths(beforeFiles, afterFiles) {
     .sort();
 }
 
+/**
+ * Exercise the real production customer path and fail closed unless generated-app
+ * validation, blocking tests, deployment, persistence, and authenticated editing succeed.
+ */
 async function main() {
   required("APPFORGE_CANARY_EMAIL", email);
   required("APPFORGE_CANARY_PASSWORD", password);
@@ -358,6 +362,17 @@ async function main() {
     `[canary] waiting for real agents/build/deployment on project ${projectId}`,
   );
   const done = await openBuildStream(projectId, accessToken);
+
+  if (done.validationPassed !== true) {
+    throw new Error(
+      `Production canary reached done without a passing generated-app validation gate: ${JSON.stringify(done)}`,
+    );
+  }
+  if (done.testGateRequired !== true || !(done.generatedTestFileCount > 0)) {
+    throw new Error(
+      `Production canary did not prove a blocking generated test gate: ${JSON.stringify(done)}`,
+    );
+  }
 
   console.log("[canary] verifying persisted project completion");
   const project = await trpc.query("projects.get", { id: projectId });
@@ -461,6 +476,9 @@ async function main() {
     godCodeOtpVerified,
     automaticBuildStartVerified: true,
     agentBuildCompletionVerified: true,
+    generatedValidationVerified: true,
+    blockingGeneratedTestsVerified: true,
+    generatedTestFileCount: done.generatedTestFileCount,
     productionDeploymentVerified: true,
     authenticatedEditVerified: true,
     editPersistenceVerified: true,

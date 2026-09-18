@@ -1,6 +1,6 @@
         const testFiles = await attachGeneratedTests(generatedFiles, techStack);
         Object.assign(generatedFiles, testFiles);
-        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s).` });
+        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.` });
       } else {
         emit("Testing", "skipped", {
           message:

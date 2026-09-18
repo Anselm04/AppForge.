@@ -64,6 +64,52 @@ export default defineConfig({
 });
 `;
 
+/**
+ * Ensure generated full-validation projects can load and run AppForge's Vitest harness
+ * after a clean install, without depending on undeclared Vite tooling.
+ */
+function ensureGeneratedTestDependencies(
+  generatedFiles: Record<string, string>,
+): void {
+  const raw = generatedFiles["package.json"];
+  if (!raw) return;
+
+  try {
+    const pkg = JSON.parse(raw) as {
+      scripts?: unknown;
+      devDependencies?: unknown;
+    };
+    const scripts =
+      typeof pkg.scripts === "object" &&
+      pkg.scripts !== null &&
+      !Array.isArray(pkg.scripts)
+        ? (pkg.scripts as Record<string, string>)
+        : {};
+    const devDependencies =
+      typeof pkg.devDependencies === "object" &&
+      pkg.devDependencies !== null &&
+      !Array.isArray(pkg.devDependencies)
+        ? (pkg.devDependencies as Record<string, string>)
+        : {};
+
+    pkg.scripts = scripts;
+    pkg.devDependencies = devDependencies;
+    scripts.test = scripts.test ?? "vitest run";
+    devDependencies.vite = devDependencies.vite ?? "^5.4.21";
+    devDependencies["@vitejs/plugin-react"] =
+      devDependencies["@vitejs/plugin-react"] ?? "^4.2.1";
+    devDependencies.vitest = devDependencies.vitest ?? "^3.2.7";
+    devDependencies.jsdom = devDependencies.jsdom ?? "^24.0.0";
+    devDependencies["@testing-library/react"] =
+      devDependencies["@testing-library/react"] ?? "^14.2.0";
+    devDependencies["@testing-library/jest-dom"] =
+      devDependencies["@testing-library/jest-dom"] ?? "^6.4.0";
+    generatedFiles["package.json"] = JSON.stringify(pkg, null, 2);
+  } catch {
+    // The build validator will fail invalid package.json explicitly.
+  }
+}
+
 const VITEST_SETUP = `// filename: src/__tests__/setup.ts
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
@@ -112,6 +158,7 @@ export async function attachGeneratedTests(
   ) {
     testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
   }
+  ensureGeneratedTestDependencies(generatedFiles);
   return testFiles;
 }
 

@@ -67,3 +67,52 @@ test("patent reference numeral check", async () => {
   expect(r.matched).toContain("10");
   expect(r.matched).toContain("20");
 });
+
+test("production proof requires generated tests before deploy certification", async () => {
+  const { readFileSync } = await import("node:fs");
+  const pipeline = readFileSync("src/agents/pipeline.generated.ts", "utf8");
+  const testingAgent = readFileSync("src/agents/testingAgent.ts", "utf8");
+  const canary = readFileSync("scripts/production-customer-canary.mjs", "utf8");
+
+  expect(pipeline).toContain(
+    'const testsBlocking = validationMode === "full";',
+  );
+  expect(pipeline).toContain('testGateRequired: validationMode === "full"');
+  expect(pipeline).toContain("generatedTestFileCount:");
+  expect(testingAgent).toContain(
+    'scripts.test = scripts.test ?? "vitest run"',
+  );
+  expect(testingAgent).toContain("devDependencies.vitest");
+  expect(testingAgent).toContain(
+    'devDependencies["@testing-library/react"]',
+  );
+  expect(canary).toContain("done.validationPassed !== true");
+  expect(canary).toContain("done.testGateRequired !== true");
+  expect(canary).toContain("done.generatedTestFileCount > 0");
+});
+
+test("generated full-validation test harness installs its own dependencies", async () => {
+  const { attachGeneratedTests } = await import("../agents/testingAgent.js");
+  const files: Record<string, string> = {
+    "package.json": JSON.stringify({
+      name: "generated-canary",
+      scripts: [],
+      dependencies: {},
+      devDependencies: [],
+    }),
+    "index.html": '<div id="root"></div>',
+  };
+
+  const tests = await attachGeneratedTests(files, "react-node");
+  const pkg = JSON.parse(files["package.json"]);
+
+  expect(tests["vitest.config.ts"]).toBeTruthy();
+  expect(tests["src/__tests__/setup.ts"]).toBeTruthy();
+  expect(pkg.scripts.test).toBe("vitest run");
+  expect(pkg.devDependencies.vite).toBe("^5.4.21");
+  expect(pkg.devDependencies["@vitejs/plugin-react"]).toBe("^4.2.1");
+  expect(pkg.devDependencies.vitest).toBeTruthy();
+  expect(pkg.devDependencies.jsdom).toBeTruthy();
+  expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
+  expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
+});
