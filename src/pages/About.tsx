@@ -9,7 +9,7 @@ export function About() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8">
           <div className="flex items-center gap-3 mb-6">
             <img
-              src="/appforge-logo.png"
+              src="/appforge-logo.svg"
               alt=""
               className="h-12 w-12 rounded-xl"
             />

@@ -28,6 +28,7 @@ import { ArchitectureStudio } from "./pages/ArchitectureStudio.js";
 import { ExtensionStudio } from "./pages/ExtensionStudio.js";
 import { PluginWorkspace } from "./pages/PluginWorkspace.js";
 import { Login } from "./pages/Login.js";
+import { SetPassword } from "./pages/SetPassword.js";
 import { Signup } from "./pages/Signup.js";
 import { OrgSettings } from "./pages/OrgSettings.js";
 import { SsoCallback } from "./pages/SsoCallback.js";
@@ -45,6 +46,7 @@ function AppShell() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/set-password" element={<SetPassword />} />
           <Route path="/auth/sso/callback" element={<SsoCallback />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/settings/org" element={<OrgSettings />} />

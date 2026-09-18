@@ -17,10 +17,18 @@ WORKDIR /app
 ENV HUSKY=0
 RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
+# npm install of optional rollup native binary can hit npm "edgesOut" null
+# on node:22-alpine; pack+extract avoids mutating the lockfile graph.
 RUN npm ci --ignore-scripts \
   && ROLLUP_VERSION="$(node -p "require('./node_modules/rollup/package.json').version")" \
-  && npm install --no-save --package-lock=false --ignore-scripts "@rollup/rollup-linux-x64-musl@${ROLLUP_VERSION}" \
-  && npm cache clean --force
+  && mkdir -p /tmp/rollup-native /app/node_modules/@rollup/rollup-linux-x64-musl \
+  && cd /tmp/rollup-native \
+  && npm pack "@rollup/rollup-linux-x64-musl@${ROLLUP_VERSION}" \
+  && tar -xzf rollup-rollup-linux-x64-musl-*.tgz \
+  && cp -R package/. /app/node_modules/@rollup/rollup-linux-x64-musl/ \
+  && cd /app \
+  && npm cache clean --force \
+  && rm -rf /tmp/rollup-native
 COPY . .
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
