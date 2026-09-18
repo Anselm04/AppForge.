@@ -149,14 +149,14 @@ test(
     const { readFileSync } = await import("node:fs");
     const deployer = readFileSync("src/services/deployer.ts", "utf8");
     const production = readFileSync(
-    "src/services/productionAutoDeploy.ts",
-    "utf8",
+      "src/services/productionAutoDeploy.ts",
+      "utf8",
     );
 
     expect(deployer).toContain('"deploy", "--remote-only"');
     expect(production).toContain("npm test; fi");
     expect(production).toContain(
-    'prepared["Dockerfile"] = productionDockerfile',
+      'prepared["Dockerfile"] = productionDockerfile',
     );
     expect(production).toContain("runPostDeploySmokeTest(liveUrl)");
     expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
