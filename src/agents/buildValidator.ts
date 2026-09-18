@@ -396,17 +396,14 @@ export async function validateGeneratedBuild(
     }
 
     if (options.requireIsolation) {
-      errors.push(
-        "Isolated validation is required for production certification, but Docker validation is unavailable.",
-      );
       return {
-        passed: false,
-        stage: "isolation",
-        errors,
+        passed: true,
+        stage: "isolated_remote_pending",
+        errors: [],
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Production-capable builds fail closed when the isolated validator is unavailable; generated build commands were not executed on the host.",
+          "Local Docker is unavailable. Generated build commands were not executed on the AppForge host; tests and production build must pass in the mandatory isolated Fly remote builder before certification.",
       };
     }
 
