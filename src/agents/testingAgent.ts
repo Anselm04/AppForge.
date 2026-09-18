@@ -250,23 +250,25 @@ export async function attachGeneratedTests(
     testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
   }
 
-  const requirements = deriveProductRequirements(requirementSource);
-  testFiles[".appforge/requirements.json"] = JSON.stringify(
-    {
-      version: 1,
-      generatedAt: new Date().toISOString(),
+  if (requirementSource.trim()) {
+    const requirements = deriveProductRequirements(requirementSource);
+    testFiles[".appforge/requirements.json"] = JSON.stringify(
+      {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        requirements,
+      },
+      null,
+      2,
+    );
+    const behavioralTest = await generateRequirementBehaviorTest(
       requirements,
-    },
-    null,
-    2,
-  );
-  const behavioralTest = await generateRequirementBehaviorTest(
-    requirements,
-    generatedFiles,
-    techStack,
-  );
-  if (behavioralTest) {
-    testFiles["src/__tests__/requirements.behavior.test.tsx"] = behavioralTest;
+      generatedFiles,
+      techStack,
+    );
+    if (behavioralTest) {
+      testFiles["src/__tests__/requirements.behavior.test.tsx"] = behavioralTest;
+    }
   }
 
   ensureGeneratedTestDependencies(generatedFiles);
