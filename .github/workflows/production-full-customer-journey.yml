@@ -29,7 +29,7 @@ jobs:
     name: Real signup-to-live-product guardrail
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -74,6 +74,17 @@ jobs:
           APPFORGE_CANARY_GOD_CODE_PHONE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE_PHONE || '' }}
           APPFORGE_CANARY_GOD_CODE_OTP: ${{ inputs.use_god_code && inputs.god_code_otp || '' }}
         run: node scripts/production-customer-canary.mjs
+
+      - name: Install browser verifier
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+
+      - name: Install Chromium for production certification
+        run: npx playwright install chromium
+
+      - name: Prove generated app behavior in a real browser
+        env:
+          APPFORGE_CANARY_RESULT_PATH: .appforge-production-canary-result.json
+        run: npx playwright test scripts/production-canary-browser.spec.mjs --reporter=line
 
       - name: Record certification scope
         if: always()

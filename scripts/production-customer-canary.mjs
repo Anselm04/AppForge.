@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { createTRPCUntypedClient, httpLink } from "@trpc/client";
 
 const baseUrl = (
@@ -186,7 +187,10 @@ async function openBuildStream(projectId, accessToken) {
   throw new Error("Timed out waiting for real production build completion");
 }
 
-async function verifyDeployedProduct(liveUrl) {
+async function verifyDeployedProduct(
+  liveUrl,
+  { requiredTexts = [] } = {},
+) {
   const root = await fetchWithTimeout(liveUrl, { redirect: "follow" }, 30_000);
   if (root.status < 200 || root.status >= 400) {
     throw new Error(
@@ -212,6 +216,7 @@ async function verifyDeployedProduct(liveUrl) {
     );
   }
 
+  let searchableContent = html;
   for (const asset of assetMatches) {
     const assetUrl = new URL(asset, url).toString();
     const res = await fetchWithTimeout(
@@ -223,9 +228,57 @@ async function verifyDeployedProduct(liveUrl) {
       throw new Error(
         `Generated product asset failed: HTTP ${res.status} ${assetUrl}`,
       );
+    searchableContent += "\n" + (await res.text());
   }
 
-  return { status: root.status, checkedAssets: assetMatches.length };
+  const missingTexts = requiredTexts.filter(
+    (text) => !searchableContent.includes(text),
+  );
+  if (missingTexts.length > 0) {
+    throw new Error(
+      `Generated product is reachable but the deployed artifact is missing required customer-visible content: ${missingTexts.join(", ")}`,
+    );
+  }
+
+  return {
+    status: root.status,
+    checkedAssets: assetMatches.length,
+    verifiedTexts: requiredTexts,
+  };
+}
+
+function verifyGeneratedTestContract(files) {
+  const testPaths = Object.keys(files).filter((path) =>
+    /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(path),
+  );
+  if (testPaths.length === 0) {
+    throw new Error(
+      "Generated production canary has no persisted unit/integration test file",
+    );
+  }
+
+  const hasVitestConfig =
+    Boolean(files["vitest.config.ts"]) ||
+    Boolean(files["vitest.config.js"]) ||
+    Boolean(files["vitest.config.mts"]) ||
+    Boolean(files["vitest.config.mjs"]);
+  if (!hasVitestConfig) {
+    throw new Error(
+      "Generated production canary has tests but no Vitest configuration, so test execution cannot be certified",
+    );
+  }
+
+  const combinedTests = testPaths.map((path) => files[path]).join("\n");
+  if (
+    !combinedTests.includes("Increment Canary Counter") &&
+    !/counter/i.test(combinedTests)
+  ) {
+    throw new Error(
+      "Generated tests do not exercise or reference the requested counter behavior",
+    );
+  }
+
+  return { testPaths, hasVitestConfig };
 }
 
 function findChangedPaths(beforeFiles, afterFiles) {
@@ -291,7 +344,7 @@ async function main() {
   const created = await trpc.mutation("projects.create", {
     title: `Production Canary ${stamp}`,
     description:
-      "Create a small production-ready responsive web app with a landing page, one interactive counter button, clear heading text, and no external API dependencies. This is a real AppForge production canary build.",
+      "Create a small production-ready responsive React web app with the exact visible heading 'AppForge Production Canary', one interactive counter button labelled exactly 'Increment Canary Counter', a visible numeric count that increments when the button is used, and no external API dependencies. Include at least one real Vitest test that verifies the counter starts at zero and increments after clicking the button. This is a real AppForge production build-test-deploy canary.",
     techStack: "react-node",
     hcaptchaToken,
     locale: "en",
@@ -337,8 +390,13 @@ async function main() {
     );
   }
 
+  console.log("[canary] certifying persisted generated test contract");
+  const generatedTests = verifyGeneratedTestContract(project.generatedFiles);
+
   console.log(`[canary] opening real generated product ${done.liveUrl}`);
-  const live = await verifyDeployedProduct(done.liveUrl);
+  const live = await verifyDeployedProduct(done.liveUrl, {
+    requiredTexts: ["AppForge Production Canary", "Increment Canary Counter"],
+  });
 
   console.log("[canary] capturing generated files before authenticated edit");
   const beforeFiles = await trpc.query("projects.getFiles", { id: projectId });
@@ -376,7 +434,13 @@ async function main() {
     );
   }
 
-  const redeployedLive = await verifyDeployedProduct(redeploy.deployUrl);
+  const redeployedLive = await verifyDeployedProduct(redeploy.deployUrl, {
+    requiredTexts: [
+      "AppForge Production Canary Updated",
+      "Authenticated edit verified",
+      "Increment Canary Counter",
+    ],
+  });
   const persistedAfterRedeploy = await trpc.query("projects.getFiles", {
     id: projectId,
   });
@@ -388,39 +452,45 @@ async function main() {
     }
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        baseUrl,
-        projectId,
-        liveUrl: done.liveUrl,
-        redeployUrl: redeploy.deployUrl,
-        projectStatus: project.status,
-        generatedFileCount: Object.keys(project.generatedFiles).length,
-        changedFileCount: changedPaths.length,
-        changedPaths,
-        liveHttpStatus: live.status,
-        checkedAssets: live.checkedAssets,
-        redeployHttpStatus: redeployedLive.status,
-        redeployCheckedAssets: redeployedLive.checkedAssets,
-        sessionRefreshVerified: true,
-        entitlementVerified: true,
-        godCodeOtpVerified,
-        automaticBuildStartVerified: true,
-        agentBuildCompletionVerified: true,
-        generatedValidationVerified: true,
-        blockingGeneratedTestsVerified: true,
-        generatedTestFileCount: done.generatedTestFileCount,
-        productionDeploymentVerified: true,
-        authenticatedEditVerified: true,
-        editPersistenceVerified: true,
-        authenticatedRedeployVerified: true,
-      },
-      null,
-      2,
-    ),
+  const certification = {
+    ok: true,
+    baseUrl,
+    projectId,
+    liveUrl: done.liveUrl,
+    redeployUrl: redeploy.deployUrl,
+    projectStatus: project.status,
+    generatedFileCount: Object.keys(project.generatedFiles).length,
+    generatedTestCount: generatedTests.testPaths.length,
+    generatedTestPaths: generatedTests.testPaths,
+    generatedTestsVerified: true,
+    changedFileCount: changedPaths.length,
+    changedPaths,
+    liveHttpStatus: live.status,
+    checkedAssets: live.checkedAssets,
+    initialCustomerVisibleContentVerified: live.verifiedTexts,
+    redeployHttpStatus: redeployedLive.status,
+    redeployCheckedAssets: redeployedLive.checkedAssets,
+    editedCustomerVisibleContentVerified: redeployedLive.verifiedTexts,
+    sessionRefreshVerified: true,
+    entitlementVerified: true,
+    godCodeOtpVerified,
+    automaticBuildStartVerified: true,
+    agentBuildCompletionVerified: true,
+    generatedValidationVerified: true,
+    blockingGeneratedTestsVerified: true,
+    generatedTestFileCount: done.generatedTestFileCount,
+    productionDeploymentVerified: true,
+    authenticatedEditVerified: true,
+    editPersistenceVerified: true,
+    authenticatedRedeployVerified: true,
+  };
+
+  writeFileSync(
+    ".appforge-production-canary-result.json",
+    JSON.stringify(certification, null, 2),
+    "utf8",
   );
+  console.log(JSON.stringify(certification, null, 2));
 }
 
 main().catch((error) => {

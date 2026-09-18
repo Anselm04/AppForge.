@@ -165,4 +165,7 @@
       } catch { /* non-fatal */ }
 
       if (validationMode === "full") {
-        emit("Testing", "start", { message: "Generating blocking tests before validation…" });
+        emit("Testing", "start", {
+          message:
+            "Generating blocking unit tests before validation and deployment…",
+        });

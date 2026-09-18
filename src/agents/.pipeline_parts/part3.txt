@@ -2,7 +2,10 @@
         Object.assign(generatedFiles, testFiles);
         emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.` });
       } else {
-        emit("Testing", "skipped", { message: "Structural-only stack: generated runtime tests are not available in this validator." });
+        emit("Testing", "skipped", {
+          message:
+            "Structural-only stack: automated runtime test execution is not yet available for this stack.",
+        });
       }
 
       if (creditCheck && !(await creditCheck())) {

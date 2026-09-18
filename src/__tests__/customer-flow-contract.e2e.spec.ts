@@ -184,6 +184,44 @@ describe("critical customer flow contract", () => {
     ]);
   });
 
+  it("makes generated tests blocking for every full-validation build", () => {
+    const pipeline = source("../agents/pipeline.generated.ts");
+
+    expect(pipeline).toContain('const testsBlocking = validationMode === "full";');
+    expect(pipeline).toContain('if (validationMode === "full") {');
+    expect(pipeline).toContain(
+      "Generating blocking unit tests before validation and deployment…",
+    );
+    expect(pipeline).not.toContain(
+      "Golden path: tests deferred until UI is green.",
+    );
+    expectInOrder(pipeline, [
+      "attachGeneratedTests(",
+      "validateGeneratedBuild(",
+      "testsBlocking,",
+      'await updateProjectStatus(projectId, "completed");',
+    ]);
+  });
+
+  it("fails full-validation builds that contain no executable generated tests", () => {
+    const validator = source("../agents/buildValidator.ts");
+
+    expect(validator).toContain("const generatedTestFiles = Object.keys(files)");
+    expect(validator).toContain(
+      "Full-validation build generated no executable unit/integration tests.",
+    );
+    expect(validator).toContain('stage: "tests"');
+    expect(validator).toContain(
+      "A production-capable full-validation build must include executable tests before deployment.",
+    );
+    expectInOrder(validator, [
+      "const generatedTestFiles = Object.keys(files)",
+      "if (options.testsBlocking && generatedTestFiles.length === 0)",
+      '["vitest", "run"]',
+      '["vite", "build"]',
+    ]);
+  });
+
   it("requires root content plus same-origin JS/CSS assets before production success", () => {
     const autoDeploy = source("../services/productionAutoDeploy.ts");
     const health = source("../services/deployHealth.ts");
@@ -196,6 +234,53 @@ describe("critical customer flow contract", () => {
     expect(health).toContain("probeDeployUrl(base, 15_000, true)");
     expect(health).toContain("probeGeneratedProductAssets");
     expect(health).toContain("assets.some((asset) => !asset.result.ok)");
+  });
+
+  it("certifies real production build-test-deploy semantics", () => {
+    const canary = source("../../scripts/production-customer-canary.mjs");
+
+    expect(canary).toContain("verifyGeneratedTestContract");
+    expect(canary).toContain(
+      "Generated production canary has no persisted unit/integration test file",
+    );
+    expect(canary).toContain(
+      "Generated tests do not exercise or reference the requested counter behavior",
+    );
+    expect(canary).toContain("AppForge Production Canary");
+    expect(canary).toContain("Increment Canary Counter");
+    expect(canary).toContain("AppForge Production Canary Updated");
+    expect(canary).toContain("Authenticated edit verified");
+    expect(canary).toContain("generatedTestsVerified: true");
+    expect(canary).toContain("initialCustomerVisibleContentVerified");
+    expect(canary).toContain("editedCustomerVisibleContentVerified");
+    expectInOrder(canary, [
+      "const generatedTests = verifyGeneratedTestContract(" +
+        "project.generatedFiles);",
+      "const live = await verifyDeployedProduct(done.liveUrl",
+      'trpc.mutation("projectChat.send"',
+      'trpc.mutation("projects.deploy"',
+      "const redeployedLive = await verifyDeployedProduct(redeploy.deployUrl",
+    ]);
+  });
+
+  it("includes real Chromium interaction in production certification", () => {
+    const workflow = source(
+      "../../.github/workflows/production-full-customer-journey.yml",
+    );
+    const browserSpec = source("../../scripts/production-canary-browser.spec.mjs");
+
+    expect(workflow).toContain("@playwright/test@1.55.0");
+    expect(workflow).toContain("npx playwright install chromium");
+    expect(workflow).toContain(
+      "npx playwright test scripts/production-canary-browser.spec.mjs --reporter=line",
+    );
+    expect(browserSpec).toContain('name: "Increment Canary Counter"');
+    expect(browserSpec).toContain("await button.click()");
+    expect(browserSpec).toContain(
+      "Counter click did not change rendered page content",
+    );
+    expect(browserSpec).toContain("AppForge Production Canary Updated");
+    expect(browserSpec).toContain("Authenticated edit verified");
   });
 
   it("opens only the verified live generated product after terminal success", () => {

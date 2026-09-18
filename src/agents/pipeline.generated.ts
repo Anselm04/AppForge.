@@ -653,7 +653,7 @@ export async function runAgentPipeline(
 
         if (validationMode === "full") {
           emit("Testing", "start", {
-            message: "Generating blocking tests before validation…",
+            message: "Generating blocking unit tests before validation and deployment…",
           });
           const testFiles = await attachGeneratedTests(
             generatedFiles,
@@ -665,7 +665,8 @@ export async function runAgentPipeline(
           });
         } else {
           emit("Testing", "skipped", {
-            message: "Structural-only stack: generated runtime tests are not available in this validator.",
+            message:
+              "Structural-only stack: automated runtime test execution is not yet available for this stack.",
           });
         }
 
