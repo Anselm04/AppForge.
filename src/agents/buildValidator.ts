@@ -18,7 +18,7 @@ import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { createServer } from "net";
 import { npmCacheEnv } from "../services/buildCache.js";
-import { validateWithDocker } from "../lib/dockerValidator.js";
+import { validateWithDocker, validateWithFlyRemoteBuild } from "../lib/dockerValidator.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -31,6 +31,10 @@ export interface ValidationResult {
 
 export type ValidateOptions = {
   testsBlocking?: boolean;
+  /** Require generated behavioral tests to be traceable to explicit requirement IDs. */
+  requireRequirementBehaviorTests?: boolean;
+  /** Require validation to run in an isolated Docker/Fly remote build environment. */
+  requireIsolation?: boolean;
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
 };
@@ -160,6 +164,48 @@ async function verifyViteRuntime(cwd: string): Promise<{
 }
 
 /** Quick pre-flight: does npm respond at all in this environment? */
+function verifyRequirementBehaviorContract(
+  files: Record<string, string>,
+): string[] {
+  const errors: string[] = [];
+  const manifestRaw = files[".appforge/requirements.json"];
+  if (!manifestRaw) {
+    return ["Missing .appforge/requirements.json requirement traceability manifest"];
+  }
+
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(manifestRaw) as {
+      requirements?: Array<{ id?: unknown; text?: unknown }>;
+    };
+    ids = (parsed.requirements ?? [])
+      .map((item) => (typeof item.id === "string" ? item.id : ""))
+      .filter(Boolean);
+    if (ids.length === 0) {
+      errors.push("Requirement traceability manifest contains no requirement IDs");
+    }
+  } catch {
+    errors.push("Requirement traceability manifest is invalid JSON");
+    return errors;
+  }
+
+  const behaviorPaths = Object.keys(files).filter((path) =>
+    /requirements\.behavior\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i.test(path),
+  );
+  if (behaviorPaths.length === 0) {
+    errors.push("Missing requirement-linked behavioral test suite");
+    return errors;
+  }
+
+  const combined = behaviorPaths.map((path) => files[path] ?? "").join("\n");
+  for (const id of ids) {
+    if (!combined.includes(id)) {
+      errors.push(`Behavioral tests do not reference requirement ${id}`);
+    }
+  }
+  return errors;
+}
+
 async function npmAvailable(): Promise<boolean> {
   try {
     const r = await runCommand("npm", ["--version"], process.cwd(), 10_000);
@@ -323,6 +369,20 @@ export async function validateGeneratedBuild(
       }
     }
 
+    if (options.requireRequirementBehaviorTests) {
+      const requirementErrors = verifyRequirementBehaviorContract(files);
+      if (requirementErrors.length > 0) {
+        return {
+          passed: false,
+          stage: "requirements",
+          errors: requirementErrors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Requirement-linked behavioral proof is incomplete.",
+        };
+      }
+    }
+
     const dockerResult = await validateWithDocker(files, techStack);
     if (dockerResult && !dockerResult.skipped) {
       if (!dockerResult.passed) {
@@ -342,6 +402,41 @@ export async function validateGeneratedBuild(
         durationMs: dockerResult.durationMs,
         fileCount: Object.keys(files).length,
         warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
+    }
+
+    const flyRemoteResult = await validateWithFlyRemoteBuild(files, techStack);
+    if (flyRemoteResult && !flyRemoteResult.skipped) {
+      if (!flyRemoteResult.passed) {
+        return {
+          passed: false,
+          stage: flyRemoteResult.stage,
+          errors: flyRemoteResult.errors,
+          durationMs: flyRemoteResult.durationMs,
+          fileCount: Object.keys(files).length,
+          warning: "Fly remote isolated validation failed.",
+        };
+      }
+      return {
+        passed: true,
+        stage: flyRemoteResult.stage,
+        errors: [],
+        durationMs: flyRemoteResult.durationMs,
+        fileCount: Object.keys(files).length,
+        warning: `Fly remote isolated build passed (${flyRemoteResult.stage}).`,
+      };
+    }
+
+    if (options.requireIsolation) {
+      return {
+        passed: false,
+        stage: "isolation",
+        errors: [
+          "No isolated build provider is available. Docker daemon and Fly remote builder are both unavailable.",
+        ],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning: "Full production validation fails closed without an isolated build.",
       };
     }
 
