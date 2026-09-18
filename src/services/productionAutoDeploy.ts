@@ -8,7 +8,8 @@ function productionDockerfile(files: Record<string, string>): string {
     const pkg = JSON.parse(files["package.json"] || "{}") as {
       scripts?: Record<string, string>;
     };
-    hasStart = typeof pkg.scripts?.start === "string" && pkg.scripts.start.length > 0;
+    hasStart =
+      typeof pkg.scripts?.start === "string" && pkg.scripts.start.length > 0;
   } catch {
     hasStart = false;
   }
