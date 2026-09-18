@@ -1,424 +1,467 @@
 # AppForge
 
-> **From an idea to a working, tested and deployable digital product — through one AI-powered product-building platform.**
+> **Describe a digital product. AppForge plans it, builds it, validates it, deploys it, verifies the result, and keeps improving it.**
 
-AppForge is the AI product builder from **TrillionAi Tech**. A user describes what they want to create in normal language and AppForge coordinates specialized AI agents, development infrastructure, validation, deployment services and business integrations to turn that request into a usable digital product.
+AppForge is the autonomous AI product-building platform being developed by **TrillionAi Tech**. Its purpose is to turn a plain-language product idea into a real, testable, deployable software product through one coordinated system of specialist AI agents, build infrastructure, validation, deployment, security, billing, observability, and operational tooling.
 
-AppForge is designed for people who want to create software without manually assembling a development team or mastering every framework, cloud service and deployment tool themselves. It supports professional developers as well by automating planning, scaffolding, implementation, testing, review, deployment and iterative improvement.
+AppForge is not intended to be a prompt-to-code demo. The engineering target is a **production-grade product factory** that can create, test, repair, deploy, verify, and iteratively improve software while preserving source code, project history, customer entitlements, operational evidence, and deployment state.
 
----
+The long-term objective is simple:
 
-## What AppForge does
-
-A customer can use AppForge to:
-
-1. Create an account and securely sign in.
-2. Describe an app, website, game, AI agent, automation, API, extension, bot, desktop product or mobile product in plain language.
-3. Choose a technology stack or let AppForge guide the product configuration.
-4. Select capabilities such as authentication, databases, subscriptions, payments, analytics, AI, administration and integrations.
-5. Have AppForge's AI development agents create an architecture and implementation plan.
-6. Generate the application's source code and supporting project files.
-7. Run automated validation, tests, security checks and repair cycles appropriate to the selected stack.
-8. Watch the build progress rather than waiting behind a silent generation screen.
-9. Preview and inspect the generated product.
-10. Ask the Senior Dev Agent to improve, repair or extend the product.
-11. Export the source code or push it to GitHub.
-12. Deploy through supported hosting targets.
-13. Test the deployed result as an actual user would.
-14. Continue iterating until the product meets the required outcome.
-
-The intended experience is **idea → plan → build → validate → deploy → test → improve**, from one AppForge workspace.
+> **Idea → plan → build → test → repair → deploy → verify → improve → operate.**
 
 ---
 
-## Complete customer journey
+## Production-readiness mission
 
-### 1. Account and workspace
+AppForge is being hardened toward **100% production readiness**, meaning success is not defined by whether AI produced files or whether a build command happened to exit successfully.
 
-Users create an AppForge account through Supabase Auth. AppForge maintains the authenticated application session and connects that identity to the user's projects, access entitlement, credits, subscription and build history.
+A production-ready AppForge journey must prove, end to end, that:
 
-The user's dashboard provides a central place to return to projects, monitor builds, view access/usage, improve existing products and launch new work.
+1. authentication and account flows work;
+2. customer entitlements, subscriptions, credits, and approved access work;
+3. a user can create a real project from a plain-language request;
+4. the agent pipeline plans and generates the project;
+5. generated source files are persisted correctly;
+6. the appropriate validation mode runs for the selected stack;
+7. full-validation projects execute a **blocking generated-test gate**;
+8. failed validation blocks production certification;
+9. production builds can boot and answer health checks;
+10. deployment produces a reachable product;
+11. required customer-visible behaviour exists in the deployed artifact;
+12. authenticated edits persist and can be redeployed;
+13. CI, security, preview, and release gates fail closed when evidence is missing;
+14. recovery, rollback, monitoring, and operational diagnostics are available;
+15. no production secret is exposed to generated projects, browsers, logs, or repositories.
 
-### 2. Describe the product
-
-The customer explains what they want in normal language. The request can include the purpose, users, features, design requirements, business model, integrations and target platforms.
-
-AppForge turns that product description into structured work for its development pipeline rather than requiring the customer to write a technical specification first.
-
-### 3. Configure capabilities
-
-AppForge supports a broad product catalogue including:
-
-- web applications and websites;
-- SaaS products;
-- e-commerce and subscription products;
-- APIs and backend services;
-- AI tools and AI agents;
-- automation products;
-- dashboards and analytics applications;
-- browser extensions;
-- bots and integrations;
-- desktop applications;
-- mobile applications;
-- web and game-oriented projects;
-- data-driven applications.
-
-Products can include capabilities such as authentication, databases, payments, subscriptions, administration, analytics, AI generation, external APIs and deployment infrastructure.
-
-### 4. AI planning
-
-The Planner Agent analyses the request and creates an implementation architecture. It identifies the major modules, responsibilities and development tasks required to produce the product.
-
-### 5. AI implementation
-
-Coder agents generate the source files required by the plan. AppForge combines generated implementation with stack-specific scaffolding and supporting project files so the result is a structured software project rather than a single code response.
-
-### 6. Automated validation and repair
-
-AppForge validates generated output with the deepest checks available for the target stack. For supported Node/Vite-style projects this can include dependency installation, TypeScript compilation, automated tests and production builds.
-
-Validation failures are fed back into repair cycles so AppForge can correct problems before presenting the build as complete. Specialized stacks can use structural validation and their appropriate external/native toolchains.
-
-### 7. Review and quality agents
-
-The pipeline includes automated review and testing responsibilities covering generated code quality, functionality, security concerns, accessibility, performance and implementation consistency.
-
-The purpose is not simply to generate code quickly; it is to progressively move generated output toward software that can actually be used and tested.
-
-### 8. Build history and snapshots
-
-Projects retain generated files and build state so users can return to previous work, inspect results and continue improving a product instead of starting from scratch every time.
-
-### 9. Senior Dev Agent
-
-The Senior Dev Agent works on an existing AppForge project. A user can explain what should change, what failed during testing or what new feature is required.
-
-It can analyse the existing generated project, plan the change, modify the relevant files, validate the result and continue the product's development cycle.
-
-### 10. Deployment and export
-
-AppForge provides deployment/export paths including:
-
-- live/hosted previews;
-- downloadable project archives;
-- GitHub repository export;
-- Vercel;
-- Netlify;
-- Fly.io;
-- GitHub Pages;
-- additional deployment integrations as the platform expands.
-
-Generated products retain their own environment and service requirements. AppForge guides or automates the deployment workflow without exposing AppForge's own production secrets to generated applications.
-
-### 11. Real product testing
-
-Deployment is not the end of the workflow. The generated product is intended to be opened and used like a real customer product. Users and authorized testers can check whether the requested features, flows and business behaviour actually work.
-
-Feedback can then be returned to AppForge for another improvement cycle.
+A green build alone is not enough. AppForge is being engineered to require **evidence of working customer behaviour** before a release or generated product is treated as successfully certified.
 
 ---
 
-## AI development system
+## What AppForge is designed to build
 
-AppForge coordinates specialized AI responsibilities rather than relying on one undifferentiated generation request.
+AppForge is intended to support multiple product families rather than one fixed website template.
 
-The platform's development system includes responsibilities for:
+### Web and SaaS
 
-| Capability | Role inside AppForge |
-| --- | --- |
-| Planning | Convert a product idea into architecture and development tasks |
-| Coding | Generate and modify application source files |
-| Validation | Compile, test and build generated projects where the stack permits |
-| Auto-repair | Feed failures back into corrective generation cycles |
-| Review | Inspect implementation quality and identify problems |
-| Testing | Create and execute appropriate automated tests |
-| Security | Detect common unsafe patterns and protect the AppForge platform |
-| Accessibility | Check relevant UI/accessibility concerns |
-| Performance | Identify avoidable performance problems |
-| Senior development | Improve, repair and extend existing generated projects |
-| Deployment | Package and deliver successful builds to configured destinations |
-| Monitoring | Surface production and build failures instead of hiding them |
+- React/Vite applications
+- Next.js and Astro-oriented projects
+- dashboards and admin portals
+- subscription SaaS products
+- e-commerce and business applications
+- APIs and backend services
+- data-driven products
+- browser extensions and web tooling
 
-The system is designed to become increasingly autonomous while keeping important customer actions, credentials, billing and deployment permissions under controlled authorization.
+### Mobile and cross-platform
 
----
+- Flutter-oriented projects
+- React Native / Expo projects
+- hybrid Capacitor/Ionic-style applications
 
-## Supported technology families
-
-AppForge is designed to build across multiple product families rather than being limited to one website template.
-
-### Web
-
-React, Vue, Svelte, Next.js, Angular, Remix, Astro, vanilla web applications and combinations with Node, Python, Django and Supabase-backed services.
-
-### Mobile
-
-React Native/Expo, Flutter-oriented projects, Firebase-backed mobile products and hybrid Capacitor/Ionic applications.
+Native mobile release still requires the relevant Apple/Google SDKs, signing, store credentials, and platform verification. Structural generation is not treated as equivalent to a verified native-store build.
 
 ### Desktop
 
-Electron and Tauri-oriented desktop products.
+- Electron-oriented products
+- Tauri-oriented products
 
-### Games and interactive products
+### Games and interactive software
 
-Phaser, Three.js, Babylon.js and export/scaffolding paths for additional game-oriented technologies such as Unity and Godot web targets.
+- Phaser
+- Three.js
+- Babylon.js
+- game-oriented scaffolding and export paths for additional engines/toolchains
 
-### AI and agents
+### AI, agents, bots, and automation
 
-AI tools, OpenAI-compatible applications, Python and Node AI agents, LangChain-oriented tools, CrewAI-style agents and multi-agent products.
+- AI applications
+- autonomous and semi-autonomous agents
+- multi-agent products
+- workflow automation
+- API integrations
+- browser automation
+- Discord, Telegram, Slack, and specialist bot-oriented products
 
-### Automation, bots and specialist products
-
-Browser automation, web scraping, data visualization, API services, serverless products, browser extensions, VS Code extensions, Discord bots, Telegram bots and Slack-oriented products.
-
-Validation and deployment methods are adapted to the target technology rather than pretending every stack has the same runtime requirements.
+Different stacks require different validation and deployment evidence. AppForge must report those differences honestly rather than pretending every technology can be certified by the same checks.
 
 ---
 
-## Authentication and identity
+## Customer journey
 
-AppForge uses **Supabase Auth** as a core identity service.
+A customer should be able to:
 
-The production authentication system is designed to provide:
+1. create an account and sign in securely;
+2. describe the product they want in normal language;
+3. choose or accept a recommended technology stack;
+4. select capabilities such as authentication, database, billing, AI, analytics, administration, and integrations;
+5. let AppForge convert the request into architecture and development tasks;
+6. generate the required source files and project structure;
+7. run automated tests, compilation, security checks, build validation, and repair cycles;
+8. watch build progress through the application rather than waiting behind a silent generation screen;
+9. inspect the generated files and preview the product;
+10. deploy through an approved deployment target;
+11. open and verify the deployed result;
+12. apply authenticated edits through the Senior Dev workflow;
+13. revalidate and redeploy the changed project;
+14. export or push source code to GitHub;
+15. return later and continue improving the same project.
 
-- account creation;
+The desired experience is one continuous product-development lifecycle instead of a collection of disconnected AI prompts.
+
+---
+
+## Multi-agent development system
+
+AppForge coordinates specialist responsibilities instead of relying on one undifferentiated generation request.
+
+| Responsibility | Role |
+| --- | --- |
+| Planning | Convert customer intent into architecture and executable development tasks |
+| Coding | Generate and modify project source files |
+| Testing | Generate tests appropriate to the project and stack |
+| Validation | Install, compile, type-check, test, and build where the stack permits |
+| Auto-repair | Feed concrete failures back into controlled corrective cycles |
+| Review | Inspect implementation quality and integration consistency |
+| Security | Detect unsafe patterns and enforce platform boundaries |
+| Accessibility | Identify relevant accessibility issues |
+| Performance | Detect avoidable performance problems |
+| Senior development | Improve and repair existing generated projects |
+| Deployment | Deliver validated projects to configured destinations |
+| Production verification | Prove the deployed result is actually reachable and behaves as required |
+| Monitoring | Surface operational failures with actionable evidence |
+
+The design goal is increasing autonomy without surrendering control of credentials, billing, privileged administration, production releases, or destructive actions.
+
+---
+
+## Generated-app validation
+
+AppForge uses stack-aware validation rather than one universal success check.
+
+For supported full-validation projects, the intended invariant is:
+
+> **generate → attach tests → install declared dependencies → run blocking tests → compile/build → deploy → verify live behaviour**
+
+Full-validation builds must not be certified when their generated tests cannot load, cannot run, or fail.
+
+The generated Vitest harness explicitly declares its required test tooling, including Vite, the React Vite plugin, Vitest, jsdom, and Testing Library dependencies. Generated manifests are normalized before those dependencies are written so malformed dependency containers cannot silently omit required packages.
+
+Structural-only stacks must be reported as structural validation. They must not be presented as though native/runtime verification occurred when the required external toolchain was unavailable.
+
+---
+
+## Production certification
+
+AppForge's production proof path is designed to fail closed.
+
+A production canary verifies evidence such as:
+
+- authenticated access;
+- valid customer entitlement;
+- real project creation;
+- automatic build start;
+- agent completion;
+- generated files persisted to the project;
+- validation passed;
+- blocking generated tests were required where applicable;
+- generated test files exist;
+- the deployed product responds successfully;
+- required customer-visible content exists in the deployed artifact;
+- an authenticated edit changes the generated project;
+- the edited files remain persisted;
+- redeployment succeeds;
+- the edited customer-visible result is present after redeployment.
+
+Production CI also verifies that the compiled AppForge server can boot and answer its liveness endpoint before that SHA is considered release-ready.
+
+---
+
+## Senior Dev workflow
+
+The Senior Dev workflow exists to continue development of an already-created project.
+
+A user can request a repair, feature, design change, or improvement. AppForge should analyse the existing project and make a targeted change instead of unnecessarily regenerating the entire product.
+
+The expected cycle is:
+
+> **inspect existing project → plan change → modify relevant files → validate → test → persist → redeploy when requested**
+
+---
+
+## Authentication, authorization, and identity
+
+AppForge uses **Supabase Auth** as a core identity provider.
+
+The production identity boundary includes:
+
+- sign-up and sign-in;
 - email/password authentication;
-- confirmation and recovery flows;
-- secure authenticated server requests;
 - session refresh and persistence;
+- account recovery;
 - logout/revocation;
-- protected project access;
-- protected build/deployment actions;
-- owner/admin authorization;
-- linkage between the authenticated identity and AppForge's application records.
+- authenticated API requests;
+- project ownership enforcement;
+- protected build and deployment actions;
+- protected administrator operations;
+- linkage between authenticated users and AppForge project/billing records.
 
-A logged-in identity is consistently recognized across the dashboard, project creation, build pipeline, billing and administration surfaces.
+Authentication is not considered complete unless the same identity is recognized consistently across customer UI, APIs, project operations, billing, and administrative controls.
 
 ---
 
-## Subscriptions, credits and access
+## Billing, credits, and controlled access
 
-AppForge supports commercial access through Stripe-based subscriptions and credit infrastructure while also providing controlled owner-issued access for testing, partnerships, promotions and internal operations.
+AppForge supports Stripe-backed commercial access together with owner-authorized access mechanisms.
 
-The access system supports the business model through:
+The platform is designed to support:
 
-- free/trial usage where configured;
-- paid subscription tiers;
+- subscription tiers;
 - build credits;
 - one-time credit purchases;
 - Stripe Checkout;
 - Stripe Customer Portal;
 - verified Stripe webhooks;
-- unlimited/lifetime access;
+- approved unlimited/lifetime access;
+- time-limited tester or partner access;
 - owner-issued access codes;
-- time-limited tester or promotional access;
-- custom access expiry;
-- entitlement visibility from the administrator dashboard.
+- entitlement visibility in administration tooling.
 
-Entitlement is enforced consistently throughout AppForge so an authorized tester or lifetime user is not incorrectly redirected to payment during an approved build.
-
----
-
-## God Codes and controlled access
-
-The AppForge owner/admin can create secure access codes for approved users.
-
-God Codes can be used for:
-
-- lifetime unlimited access;
-- monthly access;
-- multi-month access;
-- custom-duration access;
-- tester access;
-- promotional/partner access;
-- controlled credit grants.
-
-Codes are intended to be one-time redeemable, auditable and linked to the resulting entitlement. Expiry and revocation are handled without weakening normal customer billing or administrator security.
-
-This gives TrillionAi Tech a practical way to onboard beta testers, reviewers, partners and selected customers without forcing those users through normal subscription payment.
+Entitlement checks must be enforced consistently so valid customers and approved testers are neither blocked incorrectly nor allowed to bypass required access controls.
 
 ---
 
 ## Administrator command centre
 
-The private AppForge administrator dashboard is the operational control centre for the platform.
+The private administrator surface is intended to provide operational visibility and controlled actions for:
 
-It provides or is designed to provide unified visibility and control over:
-
-- registered users;
-- user access status;
-- subscriptions and tiers;
+- users;
+- subscriptions;
+- entitlements;
 - credit balances and grants;
-- God Code creation and redemption;
-- lifetime and time-limited access;
-- tester accounts;
+- approved access codes;
 - projects;
-- active and completed builds;
-- failed/paused builds;
+- builds;
 - agent activity;
-- deployment status;
-- platform usage;
-- revenue/business analytics;
-- moderation and security signals;
-- production health;
-- critical integration status.
+- deployments;
+- failed or paused work;
+- revenue and product analytics;
+- security/moderation signals;
+- platform health;
+- critical integration health.
 
-Administrative actions remain protected and are never exposed as ordinary customer functionality.
-
----
-
-## Production data and Supabase
-
-Supabase is a production-critical part of the AppForge platform. It provides authentication and connected production data infrastructure used to support real users and real application activity.
-
-Normal AppForge usage generates meaningful platform activity through account authentication, projects, builds, agent operations, entitlement changes and other product workflows.
-
-The objective is genuine customer usage — not artificial keep-alive traffic.
+Administrative functionality must remain separate from normal customer permissions.
 
 ---
 
-## Integrations and platform services
+## Core production services
 
-AppForge is being designed as an extensible product-building platform rather than a closed generator.
-
-Its broader integration architecture includes roles for services such as:
-
-- **Supabase** — authentication, PostgreSQL/data services and scalable backend infrastructure;
-- **Stripe** — subscriptions, checkout, credit purchases and billing lifecycle;
-- **GitHub** — source repositories, export, version control and development workflows;
-- **Fly.io / isolated execution infrastructure** — production hosting and safe execution environments where configured;
-- **Vercel** — supported generated-product deployment and frontend deployment workflows;
-- **Netlify** — supported generated-product deployment;
-- **Make** — external workflow and application automation;
-- **BubblaV AI Chatbot** — customer support, onboarding, FAQs and escalation;
-- **Datadog** — production telemetry, diagnostics and operational monitoring;
-- **PostHog** — product analytics, funnels, feature usage and customer behaviour;
-- additional AI, automation, deployment, observability and business integrations as AppForge expands.
-
-Integrations are activated only when their credentials and production configuration are present.
-
----
-
-## Production architecture
-
-| Layer | Technology / responsibility |
+| Layer | Current architecture / responsibility |
 | --- | --- |
 | Customer UI | React 18, Vite, Tailwind CSS, TanStack Query, React Router |
 | API | Express 4, tRPC v11, Zod |
 | Authentication | Supabase Auth |
-| Application database | PostgreSQL + Drizzle ORM |
+| Data | PostgreSQL + Drizzle ORM |
 | Billing | Stripe |
 | AI generation | OpenAI-compatible model infrastructure |
-| Agent pipeline | Planner, coding, validation, review, testing and improvement responsibilities |
+| Agent pipeline | Planner, coding, testing, validation, review, repair, and improvement responsibilities |
 | Build transport | Server-Sent Events with scalable fan-out support |
-| Validation | Sandboxed compile/test/build and stack-specific checks |
+| Validation | Stack-aware compile/test/build and structural validation |
 | Source control | GitHub integration |
-| Deployment | Preview, ZIP, Vercel, Netlify, Fly.io, GitHub paths |
-| Analytics | PostHog-compatible product analytics architecture |
-| Observability | Health probes, structured logging, Sentry/Datadog-compatible monitoring |
-| Automation | Make and additional workflow integrations |
+| Deployment | Preview/export paths plus Vercel, Netlify, Fly.io, GitHub-oriented deployment paths |
+| Analytics | PostHog-compatible product analytics |
+| Observability | Health checks, structured diagnostics, Sentry/Datadog-compatible monitoring |
+| Automation | Make-compatible workflow integration |
 | Support | BubblaV/customer-support integration architecture |
 | CI/CD | GitHub Actions |
 
-The full AppForge application requires its API, build pipeline and streaming runtime. Static frontend deployment alone is not the complete AppForge production service.
+The complete AppForge production service requires its API, build pipeline, persistence, streaming runtime, authentication, and deployment infrastructure. A static frontend alone is not AppForge.
 
 ---
 
-## Security and platform isolation
+## Security invariants
 
-AppForge is designed around several non-negotiable security rules:
+The following rules are non-negotiable:
 
 - production secrets remain server-side;
-- Supabase service-role credentials are never shipped to the browser;
+- Supabase service-role credentials are never exposed to the browser;
 - Stripe secret keys and webhook secrets remain protected;
-- deployment tokens remain protected;
-- LLM provider credentials remain protected;
-- protected operations require authenticated authorization;
-- admin operations require administrator authorization;
-- users can access only projects they are authorized to access;
-- generated applications do not automatically inherit AppForge's own secrets;
-- access codes are scoped and auditable;
-- security and moderation failures are surfaced through operational monitoring.
+- deployment credentials remain protected;
+- model-provider credentials remain protected;
+- privileged operations require authorization;
+- users may access only projects they are authorized to access;
+- generated products do not inherit AppForge production secrets;
+- access codes and administrative grants are auditable;
+- failed security checks block the relevant release path;
+- generated or third-party content is never automatically trusted as executable instruction.
 
 ---
 
-## Reliability and production monitoring
+## Reliability, recovery, and observability
 
-AppForge is intended to operate as a real production service rather than a demonstration generator.
+AppForge is intended to be operated as a real production system.
 
-Production monitoring covers the critical path including:
+Production reliability work covers:
 
-- website/application availability;
-- authentication;
-- database/Supabase connectivity;
-- project creation;
-- build pipeline failures;
-- AI/provider failures;
-- build validation;
-- deployment failures;
+- application availability;
+- production server boot/liveness;
+- Supabase/database connectivity;
+- authentication flows;
 - billing/webhook health;
-- critical third-party integrations;
-- CI/CD and release health.
+- project creation;
+- agent and model failures;
+- generated-app validation;
+- deployment failures;
+- customer-flow verification;
+- security scanning;
+- CI/release health;
+- capacity and infrastructure drift;
+- recovery evidence and known-good SHAs.
 
-Failures should be traceable to a concrete component so they can be corrected rather than silently presented to customers as an unexplained failed generation.
+Recovery documentation and production proof are treated as part of the product, not an afterthought.
 
 ---
 
-## AppForge quality standard
+## External review and AI tooling policy
 
-The platform's quality target is not "AI produced some files." A successful AppForge product journey means:
+AppForge may use external tools such as CodeRabbit to provide **independent review signals**.
 
-**Account works → access works → prompt is understood → project is created → agents execute → generated source is retained → applicable validation passes → deployment/export succeeds → the result can be used and tested → feedback can be applied.**
+For this repository, external AI review should be treated as **advisory evidence**, not authority to rewrite architecture blindly.
 
-Different target technologies require different levels of automated validation. Native/mobile/game products may require their relevant SDKs, stores or engine toolchains before final release. AppForge should clearly report those requirements instead of pretending a structural check is equivalent to native runtime verification.
+The working rule is:
 
-AI generation can make mistakes. AppForge's role is to reduce those mistakes through planning, validation, testing, repair, review and iteration, while giving the user a path to correct remaining issues.
+> **Review broadly. Verify findings against the complete repository. Make minimal fixes. Preserve current production behaviour. Re-run CI and production proof.**
+
+A pull-request review covers the pull-request diff and whatever repository context the reviewer loads. It is not automatically equivalent to a full repository audit.
+
+Any repository-wide audit must inspect the complete codebase, configuration, workflows, tests, security boundaries, deployment paths, generated code, database/auth/billing behaviour, recovery documentation, and production customer journey.
+
+---
+
+## Definition of 100% production ready
+
+For AppForge, **100% production ready** means there are no known unresolved release-blocking defects in the customer-critical path and that the current production candidate has objective evidence for:
+
+- authentication and authorization;
+- billing and entitlements;
+- project creation;
+- autonomous agent execution;
+- generated source persistence;
+- blocking validation/tests for supported full-validation stacks;
+- secure build execution;
+- deployment;
+- live product verification;
+- authenticated edits and redeployment;
+- security scanning;
+- secrets handling;
+- CI/release gates;
+- production health checks;
+- observability;
+- disaster recovery;
+- data integrity;
+- integration failure handling;
+- documented rollback/recovery behaviour.
+
+It does **not** mean every possible future feature has been built. It means the functionality AppForge currently claims as production functionality is verified, secure, observable, recoverable, and safe to operate for real customers.
+
+---
+
+## CI and release discipline
+
+A change should not be merged simply because GitHub says the branch is technically mergeable.
+
+Release decisions must consider the relevant evidence, including:
+
+- lint;
+- TypeScript checks;
+- automated tests;
+- generated-app validation contracts;
+- production build;
+- production server liveness;
+- security scanning;
+- deployment preview;
+- customer-flow contracts;
+- production canary where required;
+- branch/review requirements.
+
+Merge conflicts must be reconciled deliberately so newer production hardening is not silently discarded.
 
 ---
 
 ## Developer setup
 
-Prerequisites include Node.js 20+, npm, PostgreSQL/Supabase configuration and an OpenAI-compatible model credential for AI builds. Billing and deployment integrations require their corresponding production credentials.
+### Requirements
+
+- **Node.js 22 or newer**
+- npm 10.x
+- PostgreSQL/Supabase configuration
+- an OpenAI-compatible model credential for AI build functionality
+- the appropriate credentials for any billing/deployment integrations being exercised
+
+### Install
 
 ```bash
-git clone https://github.com/Anselm04/AppForge.git
-cd AppForge
+git clone https://github.com/Anselm04/AppForge..git
+cd AppForge.
 npm install
 cp .env.example .env
+```
 
+Validate environment and build:
+
+```bash
 npm run validate-env -- --strict
+npm run typecheck
+npm run test
 npm run build
 npm start
 ```
 
-Quality checks:
+Primary quality commands:
 
 ```bash
 npm run lint
 npm run typecheck
 npm run test
+npm run test:e2e
 npm run build
 ```
 
-Production secrets must never be committed to the repository or README.
+Production secrets must never be committed to the repository, documentation, generated applications, or test fixtures.
 
 ---
 
-## The AppForge vision
+## Current engineering priority
 
-AppForge is being built as the core AI product-building engine for **TrillionAi Tech**.
+The immediate priority is not adding random features. It is to complete and verify the customer-critical production path, close remaining reliability/security gaps, and make AppForge safe for real users.
 
-Its purpose is to make creating a serious digital product dramatically more accessible: a person should be able to bring an idea, explain what the product must do, and have AppForge coordinate the technical work required to turn that idea into something they can actually deploy, use, test and improve.
+Work should therefore prioritize, in order:
 
-For professional users and businesses, AppForge becomes an AI development workforce and orchestration layer: planning work, generating code, validating changes, maintaining project history, integrating services and accelerating repeated product development.
+1. release-blocking correctness and security;
+2. authentication, billing, entitlements, and data integrity;
+3. generated build → test → deploy → verify reliability;
+4. production CI and recovery proof;
+5. autonomous agent correctness and generated-product quality;
+6. live customer-flow verification;
+7. observability and operational recovery;
+8. integrations and enterprise controls;
+9. visual editing, collaboration, mobile/game depth, and ecosystem expansion.
 
-For TrillionAi Tech, AppForge provides the foundation for building and operating future products at scale while maintaining centralized administration, access management, billing, analytics, observability and deployment capability.
+This ordering exists to prevent feature expansion from hiding unresolved production risk.
 
-### Target experience
+---
 
-> **Describe what you want. AppForge plans it, builds it, validates it, deploys it and helps you keep improving it.**
+## AppForge vision
 
-That is the product AppForge is being engineered to become.
+AppForge is intended to become the core autonomous product-building engine for **TrillionAi Tech**: a system capable of coordinating the technical work required to turn an idea into a serious digital product and continue operating and improving that product after launch.
+
+For customers, the goal is to remove unnecessary technical barriers without hiding the truth about validation, deployment, or platform-specific requirements.
+
+For developers and businesses, AppForge is intended to become an AI development workforce and orchestration layer that can repeatedly plan, build, test, repair, deploy, verify, and maintain software with strong operational controls.
+
+For TrillionAi Tech, AppForge is the foundation for building and operating future products at scale with centralized administration, billing, security, analytics, observability, integrations, and recovery.
+
+> **The standard is not “AI generated code.” The standard is “the product actually works.”**
 
 ---
 
