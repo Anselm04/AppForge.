@@ -11,7 +11,8 @@ const client = readFileSync(
 describe("logout session revocation", () => {
   it("clears local state and revokes only the current Supabase session", () => {
     expect(auth).toContain("const session = getSession()");
-    expect(auth).toContain("removeStorage(SESSION_KEY)");
+    expect(auth).toContain("clearStoredUser()");
+    expect(auth).toContain("void clearServerSession(session?.accessToken)");
     expect(auth).toContain("supabaseClient.signOut(session.accessToken)");
     expect(client).toContain(
       'request<Record<string, never>>("/auth/v1/logout?scope=local"',
@@ -22,25 +23,26 @@ describe("logout session revocation", () => {
     );
   });
 
-  it("prevents an in-flight refresh from restoring a logged-out session", () => {
-    expect(auth).toContain("let sessionGeneration = 0");
-    expect(auth).toContain("const generationAtStart = sessionGeneration");
-    expect(auth).toContain("generationAtStart !== sessionGeneration");
-    expect(auth).toContain("sessionGeneration += 1");
+  it("keeps refresh credentials out of browser-managed session storage", () => {
+    expect(auth).toContain('const USER_KEY = "appforge.user"');
+    expect(auth).toContain("Refresh tokens live only in the server-managed HttpOnly cookie");
+    expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
+    expect(auth).not.toContain("refreshToken?: string;");
   });
 
-  it("does not reuse an expired access token after refresh fails", () => {
+  it("drops an expired access token and falls back to the HttpOnly cookie session", () => {
     const ensureStart = auth.indexOf(
       "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
     );
     const signUpStart = auth.indexOf("export async function signUp", ensureStart);
     const ensureSource = auth.slice(ensureStart, signUpStart);
 
-    expect(ensureSource).toContain("const refreshed = await refreshSession()");
-    expect(ensureSource).toContain("if (refreshed) return refreshed");
-    expect(ensureSource).toContain("signOut()");
-    expect(ensureSource).toContain("return null");
-    expect(ensureSource).not.toContain("return refreshed || getSession()");
+    expect(ensureSource).toContain(
+      "if (!session.accessToken || accessTokenExpired(session.accessToken))",
+    );
+    expect(ensureSource).toContain("cachedSession = { user: session.user }");
+    expect(ensureSource).toContain("return cachedSession");
+    expect(ensureSource).not.toContain("return session.accessToken");
   });
 
   it("does not expose raw Supabase 5xx responses to the UI", () => {
