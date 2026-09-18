@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <!-- Subtle gold + silver PCB/circuit etch language (TrillionAI brand family) -->
+  <defs>
+    <linearGradient id="g" x1="20" y1="20" x2="200" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e8d5a3"/><stop offset=".5" stop-color="#c4a35a"/><stop offset="1" stop-color="#8a6a2e"/>
+    </linearGradient>
+    <linearGradient id="s" x1="40" y1="10" x2="220" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fafc"/><stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 48h52M76 48v64M76 112h40" stroke="url(#g)" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
+  <path d="M40 160h36M76 160v40M76 200h48" stroke="url(#g)" stroke-width="1.2" stroke-linecap="round" opacity=".4"/>
+  <path d="M140 36h48M188 36v52M188 88h28" stroke="url(#s)" stroke-width="1.3" stroke-linecap="round" opacity=".5"/>
+  <path d="M132 140l36 28M168 168h40M208 168v36" stroke="url(#s)" stroke-width="1.2" stroke-linecap="round" opacity=".45"/>
+  <path d="M48 88h28M28 120h20M200 120v28" stroke="url(#g)" stroke-width="1" stroke-linecap="round" opacity=".35"/>
+  <circle cx="76" cy="48" r="2.2" fill="#c4a35a" opacity=".7"/>
+  <circle cx="116" cy="112" r="2" fill="#c4a35a" opacity=".65"/>
+  <circle cx="76" cy="160" r="1.8" fill="#c4a35a" opacity=".55"/>
+  <circle cx="188" cy="36" r="2" fill="#e2e8f0" opacity=".7"/>
+  <circle cx="188" cy="88" r="1.7" fill="#94a3b8" opacity=".65"/>
+  <circle cx="168" cy="168" r="1.8" fill="#e2e8f0" opacity=".6"/>
+  <circle cx="208" cy="204" r="1.5" fill="#94a3b8" opacity=".5"/>
+</svg>
