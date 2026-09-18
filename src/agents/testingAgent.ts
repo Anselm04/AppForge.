@@ -8,10 +8,42 @@
 import { Agent, AgentContext, AgentResult } from "./types";
 import { invokeLLM } from "../_core/llm.js";
 
+export type RequirementContractItem = {
+  id: string;
+  text: string;
+};
+
+export function deriveRequirementContract(
+  requirementText: string,
+): RequirementContractItem[] {
+  const normalized = String(requirementText || "")
+    .replace(/\r/g, "")
+    .trim();
+  if (!normalized) return [];
+
+  const candidates = normalized
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((part) => part.replace(/^[-*•\d.)\s]+/, "").trim())
+    .filter((part) => part.length >= 8);
+
+  const unique: string[] = [];
+  for (const candidate of candidates) {
+    if (!unique.includes(candidate)) unique.push(candidate);
+    if (unique.length >= 8) break;
+  }
+
+  const items = unique.length > 0 ? unique : [normalized.slice(0, 1200)];
+  return items.map((text, index) => ({
+    id: `REQ-${String(index + 1).padStart(3, "0")}`,
+    text: text.slice(0, 1200),
+  }));
+}
+
 export async function generateTestsForModule(
   moduleName: string,
   fileContent: string,
   techStack: string,
+  requirementContract: RequirementContractItem[] = [],
 ): Promise<{ testFile: string; filename: string } | null> {
   // Skip non-code files
   if (!fileContent.includes("export") && !fileContent.includes("function")) {
@@ -32,11 +64,14 @@ Mock external dependencies (DB, API calls, fetch) with vi.fn().
 Output ONLY the test file content, starting with // filename: <path>.test.ts or <path>.test.tsx.
 If the file is a React component, use @testing-library/react (render, screen, fireEvent).
 If the file is a tRPC router, test with mocked context.
-If the file is a utility, test pure functions directly.`,
+If the file is a utility, test pure functions directly.
+When project requirements are provided, connect assertions to those requirements and include a comment exactly like:
+// appforge-requirement: REQ-001
+for every requirement this test genuinely verifies. Do not add a requirement marker unless the test contains an assertion for that behavior.`,
       },
       {
         role: "user",
-        content: `Module: ${moduleName}\nTech stack: ${techStack}\n\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
+        content: `Module: ${moduleName}\nTech stack: ${techStack}\n\nProject requirements:\n${requirementContract.length > 0 ? requirementContract.map((item) => `${item.id}: ${item.text}`).join("\n") : "(none provided)"}\n\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
       },
     ],
   });
@@ -51,6 +86,65 @@ If the file is a utility, test pure functions directly.`,
     : `src/__tests__/${moduleName.toLowerCase().replace(/\s+/g, "-")}.test.ts`;
 
   return { testFile: content, filename };
+}
+
+async function generateRequirementBehaviorTest(
+  generatedFiles: Record<string, string>,
+  techStack: string,
+  requirementContract: RequirementContractItem[],
+): Promise<string | null> {
+  if (requirementContract.length === 0) return null;
+
+  const sourceBundle = Object.entries(generatedFiles)
+    .filter(([path, content]) => {
+      if (typeof content !== "string") return false;
+      if (/\.(test|spec)\.[jt]sx?$/i.test(path)) return false;
+      if (/\.(md|json|lock|css)$/i.test(path)) return false;
+      return /\.(tsx?|jsx?)$/i.test(path);
+    })
+    .sort(([a], [b]) => {
+      const score = (path: string) =>
+        /(?:^|\/)(?:App|page|index|main)\.(tsx?|jsx?)$/i.test(path) ? 0 : 1;
+      return score(a) - score(b);
+    })
+    .slice(0, 8)
+    .map(([path, content]) => `// FILE: ${path}\n${content.slice(0, 1800)}`)
+    .join("\n\n");
+
+  if (!sourceBundle.trim()) return null;
+
+  const result = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are AppForge's requirement-verification test agent.
+Write ONE executable Vitest + Testing Library behavioral test file that verifies the supplied customer requirements against the generated application code.
+
+Rules:
+- Use only APIs and dependencies already available in a normal AppForge Vitest harness.
+- Test observable behavior, not source-code strings.
+- Every requirement must have at least one meaningful assertion.
+- Immediately before the assertions that verify a requirement, include an exact traceability comment:
+  // appforge-requirement: REQ-001
+- Cover every supplied requirement ID. If a requirement cannot be tested from the supplied code, make the test fail clearly rather than pretending it passed.
+- Output only the test file body, starting with:
+  // filename: src/__tests__/requirements.behavior.test.tsx`,
+      },
+      {
+        role: "user",
+        content: `Tech stack: ${techStack}
+
+Requirements:
+${requirementContract.map((item) => `${item.id}: ${item.text}`).join("\n")}
+
+Generated application code:
+${sourceBundle}`,
+      },
+    ],
+  });
+
+  const content = result.choices[0]?.message?.content;
+  return typeof content === "string" && content.trim() ? content : null;
 }
 
 const VITEST_CONFIG = `// filename: vitest.config.ts
@@ -125,8 +219,17 @@ global.fetch = vi.fn();
 export async function attachGeneratedTests(
   generatedFiles: Record<string, string>,
   techStack: string,
+  requirementText = "",
 ): Promise<Record<string, string>> {
   const testFiles: Record<string, string> = {};
+  const requirementContract = deriveRequirementContract(requirementText);
+  if (requirementContract.length > 0) {
+    generatedFiles[".appforge/requirements.json"] = JSON.stringify(
+      { version: 1, requirements: requirementContract },
+      null,
+      2,
+    );
+  }
   for (const [filename, content] of Object.entries(generatedFiles)) {
     if (
       filename.endsWith(".test.ts") ||
@@ -144,11 +247,23 @@ export async function attachGeneratedTests(
       moduleName,
       content,
       techStack,
+      requirementContract,
     );
     if (testResult) {
       testFiles[testResult.filename] = testResult.testFile;
     }
   }
+  if (requirementContract.length > 0) {
+    const behaviorTest = await generateRequirementBehaviorTest(
+      generatedFiles,
+      techStack,
+      requirementContract,
+    );
+    if (behaviorTest) {
+      testFiles["src/__tests__/requirements.behavior.test.tsx"] = behaviorTest;
+    }
+  }
+
   if (!generatedFiles["vitest.config.ts"] && !testFiles["vitest.config.ts"]) {
     testFiles["vitest.config.ts"] = VITEST_CONFIG;
   }
