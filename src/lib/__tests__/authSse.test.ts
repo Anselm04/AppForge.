@@ -6,7 +6,6 @@ import {
   loginPathWithReturn,
 } from "../auth.js";
 import { parseSseFrame, readSseBody } from "../authedSse.js";
-import { supabaseClient } from "../supabase-client.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
@@ -37,43 +36,33 @@ describe("generate auth helpers", () => {
     vi.restoreAllMocks();
   });
 
-  it("exposes JWT only through Authorization headers", () => {
+  it("does not restore authentication tokens from browser storage", () => {
     window.localStorage.setItem(
       "appforge.session",
       JSON.stringify({
         accessToken: "jwt-token",
+        refreshToken: "refresh-token",
         user: { id: "u1", email: "owner@example.com" },
       }),
     );
-    expect(getAccessToken()).toBe("jwt-token");
-    expect(authHeaders()).toEqual({ Authorization: "Bearer jwt-token" });
+    expect(getAccessToken()).toBeNull();
+    expect(authHeaders()).toEqual({});
   });
 
   it("sends unsigned users to /login with next preserved (not signup)", () => {
     expect(loginPathWithReturn("/")).toBe("/login?next=%2F");
   });
 
-  it("clears an expired session when refresh fails", async () => {
-    const expiredToken = "e30.eyJleHAiOjF9.sig";
+  it("restores only a non-secret user marker for cookie-authenticated requests", async () => {
     window.localStorage.setItem(
-      "appforge.session",
-      JSON.stringify({
-        accessToken: expiredToken,
-        refreshToken: "refresh-token",
-        user: { id: "u1" },
-      }),
+      "appforge.user",
+      JSON.stringify({ id: "u1", email: "owner@example.com" }),
     );
-    vi.spyOn(supabaseClient, "refreshSession").mockRejectedValue(
-      new Error("refresh failed"),
-    );
-    const signOutSpy = vi
-      .spyOn(supabaseClient, "signOut")
-      .mockResolvedValue({});
 
-    await expect(ensureFreshSession()).resolves.toBeNull();
+    const session = await ensureFreshSession();
+    expect(session?.user.id).toBe("u1");
     expect(getAccessToken()).toBeNull();
     expect(window.localStorage.getItem("appforge.session")).toBeNull();
-    expect(signOutSpy).toHaveBeenCalledWith(expiredToken);
   });
 
   it("parses SSE agent frames used by generate", () => {

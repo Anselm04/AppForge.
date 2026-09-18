@@ -7,6 +7,7 @@ import {
   initiateSupabaseSso,
 } from "../services/supabaseSso.js";
 import { logger } from "../_core/logger.js";
+import { setSessionCookies } from "../middleware/supabaseAuth.js";
 
 export const ssoHttpRouter = Router();
 
@@ -164,7 +165,8 @@ ssoHttpRouter.get("/session", (req: Request, res: Response) => {
     if (!session.accessToken || !session.user?.id) {
       throw new Error("Invalid SSO session");
     }
-    res.status(200).json(session);
+    setSessionCookies(res, session.accessToken, session.refreshToken);
+    res.status(200).json({ user: session.user });
   } catch (err) {
     logger.warn({ error: err }, "sso_session_handoff_invalid");
     res.status(401).json({ error: "SSO session unavailable" });

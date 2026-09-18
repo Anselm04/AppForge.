@@ -114,7 +114,9 @@ describe("Home first paint", () => {
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
-    expect(a?.accessToken).toBe("dummy-token");
+    expect(a).toBeNull();
+    expect(getAccessToken()).toBeNull();
+    expect(authHeaders()).toEqual({});
     renderHome();
     expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
     expect(screen.getAllByText("AppForge").length).toBeGreaterThan(0);
@@ -144,17 +146,15 @@ describe("Home first paint", () => {
     expect(screen.getAllByText("AppForge").length).toBeGreaterThan(0);
   });
 
-  it("getSnapshot is stable for a valid session and auth stays header-only", () => {
-    const session = {
-      accessToken: "tok",
-      user: { id: "u1", email: "a@b.c" },
-    };
-    installStorage(
-      memoryStorage({ "appforge.session": JSON.stringify(session) }),
-    );
+  it("getSnapshot is stable for a cookie-backed user marker without exposing tokens", () => {
+    const user = { id: "u1", email: "a@b.c" };
+    installStorage(memoryStorage({ "appforge.user": JSON.stringify(user) }));
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
-    expect(authHeaders()).toEqual({ Authorization: "Bearer tok" });
+    expect(a?.user).toEqual(user);
+    expect(a?.accessToken).toBeUndefined();
+    expect(getAccessToken()).toBeNull();
+    expect(authHeaders()).toEqual({});
   });
 });

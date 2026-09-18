@@ -2,16 +2,14 @@ import { useSyncExternalStore } from "react";
 import { supabaseClient } from "./supabase-client";
 import { withCsrfHeaders } from "./csrf";
 
-const SESSION_KEY = "appforge.session";
+const USER_KEY = "appforge.user";
 const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
-  accessToken: string;
-  refreshToken?: string;
+  accessToken?: string;
   user: { id: string; email?: string };
 }
 
-let cachedRaw: string | null | undefined;
 let cachedSession: AppForgeSession | null = null;
 let refreshInFlight: Promise<AppForgeSession | null> | null = null;
 let sessionGeneration = 0;
@@ -27,57 +25,30 @@ function subscribeSession(listener: () => void) {
   };
 }
 
-function readStorage(key: string): string | null {
+function readStoredUser(): { id: string; email?: string } | null {
   try {
-    const storage =
-      typeof globalThis !== "undefined" ? globalThis.localStorage : undefined;
-    if (!storage) return null;
-    return storage.getItem(key);
+    const raw = globalThis.localStorage?.getItem(USER_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw) as { id?: string; email?: string };
+    return typeof user.id === "string" ? { id: user.id, email: user.email } : null;
   } catch {
     return null;
   }
 }
 
-function writeStorage(key: string, value: string) {
+function storeUser(user: { id: string; email?: string }) {
   try {
-    const storage =
-      typeof globalThis !== "undefined" ? globalThis.localStorage : undefined;
-    if (!storage) return;
-    storage.setItem(key, value);
+    globalThis.localStorage?.setItem(USER_KEY, JSON.stringify(user));
   } catch {
-    // quota/private mode: keep the in-memory session below
+    // In-memory auth remains valid when storage is unavailable.
   }
 }
 
-function removeStorage(key: string) {
+function clearStoredUser() {
   try {
-    const storage =
-      typeof globalThis !== "undefined" ? globalThis.localStorage : undefined;
-    if (!storage) return;
-    storage.removeItem(key);
+    globalThis.localStorage?.removeItem(USER_KEY);
   } catch {
     // ignore blocked storage
-  }
-}
-
-function parseSession(raw: string): AppForgeSession | null {
-  try {
-    const parsed = JSON.parse(raw) as AppForgeSession;
-    if (!parsed || typeof parsed !== "object") return null;
-    if (
-      typeof parsed.accessToken !== "string" ||
-      parsed.accessToken.length === 0
-    )
-      return null;
-    if (
-      !parsed.user ||
-      typeof parsed.user !== "object" ||
-      typeof parsed.user.id !== "string"
-    )
-      return null;
-    return parsed;
-  } catch {
-    return null;
   }
 }
 
@@ -99,11 +70,18 @@ function jwtUser(accessToken: string): { id: string; email?: string } | null {
 }
 
 function saveSession(session: AppForgeSession) {
-  const raw = JSON.stringify(session);
-  writeStorage(SESSION_KEY, raw);
-  cachedRaw = raw;
   cachedSession = session;
+  storeUser(session.user);
   emitSessionChange();
+}
+
+export function rememberAuthenticatedUser(user: {
+  id: string;
+  email?: string;
+}): AppForgeSession {
+  const session = { user };
+  saveSession(session);
+  return session;
 }
 
 function sessionFromAuth(result: {
@@ -114,15 +92,18 @@ function sessionFromAuth(result: {
   if (!result.access_token || !result.user?.id) return null;
   return {
     accessToken: result.access_token,
-    refreshToken: result.refresh_token,
     user: result.user,
   };
 }
 
-async function syncServerSession(accessToken: string): Promise<void> {
+async function syncServerSession(
+  accessToken: string,
+  refreshToken?: string,
+): Promise<void> {
   const headers = await withCsrfHeaders({
     Authorization: `Bearer ${accessToken}`,
     Accept: "application/json",
+    ...(refreshToken ? { "x-supabase-refresh-token": refreshToken } : {}),
   });
   const res = await fetch("/api/auth/session", {
     method: "POST",
@@ -136,9 +117,12 @@ async function syncServerSession(accessToken: string): Promise<void> {
   }
 }
 
-async function syncServerSessionBestEffort(accessToken: string): Promise<void> {
+async function syncServerSessionBestEffort(
+  accessToken: string,
+  refreshToken?: string,
+): Promise<void> {
   try {
-    await syncServerSession(accessToken);
+    await syncServerSession(accessToken, refreshToken);
   } catch {
     // The SPA authenticates protected API calls with the validated Supabase
     // bearer token. A transient cookie/CSRF sync failure must not turn a valid
@@ -162,21 +146,11 @@ async function clearServerSession(accessToken?: string): Promise<void> {
 }
 
 export function getSession(): AppForgeSession | null {
-  const raw = readStorage(SESSION_KEY);
-  if (!raw) {
-    return cachedSession;
-  }
-  if (raw === cachedRaw) return cachedSession;
-  const parsed = parseSession(raw);
-  if (!parsed) {
-    removeStorage(SESSION_KEY);
-    cachedRaw = null;
-    cachedSession = null;
-    return null;
-  }
-  cachedRaw = raw;
-  cachedSession = parsed;
-  return parsed;
+  if (cachedSession) return cachedSession;
+  const user = readStoredUser();
+  if (!user) return null;
+  cachedSession = { user };
+  return cachedSession;
 }
 
 export function getAccessToken(): string | null {
@@ -204,9 +178,8 @@ export function useSession(): AppForgeSession | null {
 export function signOut() {
   const session = getSession();
   sessionGeneration += 1;
-  removeStorage(SESSION_KEY);
-  cachedRaw = null;
   cachedSession = null;
+  clearStoredUser();
   refreshInFlight = null;
   emitSessionChange();
 
@@ -218,31 +191,14 @@ export function signOut() {
 
 export async function refreshSession(): Promise<AppForgeSession | null> {
   const current = getSession();
-  if (!current?.refreshToken) return null;
-  if (refreshInFlight) return refreshInFlight;
-  const generationAtStart = sessionGeneration;
-  refreshInFlight = (async () => {
-    try {
-      const result = await supabaseClient.refreshSession(current.refreshToken!);
-      if (result.error || generationAtStart !== sessionGeneration) return null;
-      const next = sessionFromAuth({
-        access_token: result.access_token,
-        refresh_token: result.refresh_token || current.refreshToken,
-        user: result.user || current.user,
-      });
-      if (!next || generationAtStart !== sessionGeneration) return null;
-      saveSession(next);
-      await syncServerSessionBestEffort(next.accessToken);
-      return next;
-    } catch {
-      return null;
-    } finally {
-      if (generationAtStart === sessionGeneration) {
-        refreshInFlight = null;
-      }
-    }
-  })();
-  return refreshInFlight;
+  if (!current) return null;
+
+  // Refresh tokens live only in the server-managed HttpOnly cookie. Clearing the
+  // stale in-memory access token forces the next same-origin request to use the
+  // cookie path, where the server can refresh and rotate the session securely.
+  cachedSession = { user: current.user };
+  emitSessionChange();
+  return cachedSession;
 }
 
 function accessTokenExpired(token: string, skewMs = 30_000): boolean {
@@ -263,26 +219,13 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const session = getSession();
   if (!session) return null;
 
-  if (!accessTokenExpired(session.accessToken)) {
-    void syncServerSessionBestEffort(session.accessToken);
-    return session;
+  if (!session.accessToken || accessTokenExpired(session.accessToken)) {
+    cachedSession = { user: session.user };
+    emitSessionChange();
+    return cachedSession;
   }
 
-  if (!session.refreshToken) {
-    signOut();
-    return null;
-  }
-
-  const generationAtStart = sessionGeneration;
-  const refreshed = await refreshSession();
-  if (refreshed) return refreshed;
-
-  if (generationAtStart !== sessionGeneration) return getSession();
-
-  // An expired access token is never usable. If it cannot be refreshed, clear
-  // it rather than repeatedly sending a known-expired credential to API/SSE.
-  signOut();
-  return null;
+  return session;
 }
 
 /**
@@ -302,30 +245,37 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
     throw new Error(errorDescription);
   }
 
-  const accessToken = hash.get("access_token") || search.get("access_token");
-  const refreshToken = hash.get("refresh_token") || search.get("refresh_token");
+  const accessToken = hash.get("access_token");
+  const refreshToken = hash.get("refresh_token");
   if (!accessToken) return null;
+
+  for (const key of [
+    "access_token",
+    "refresh_token",
+    "token_type",
+    "expires_in",
+    "expires_at",
+    "type",
+  ]) {
+    search.delete(key);
+  }
+  const cleanQuery = search.toString();
+  const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`;
+  window.history.replaceState({}, document.title, cleanUrl || "/login");
 
   const user = jwtUser(accessToken);
   if (!user) throw new Error("Unable to read confirmed Supabase session.");
 
   const session: AppForgeSession = {
     accessToken,
-    refreshToken: refreshToken || undefined,
     user,
   };
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(accessToken);
-
-  // Remove credentials from browser history immediately after consuming them.
-  const cleanUrl = `${window.location.pathname}${window.location.search
-    .replace(
-      /([?&])(access_token|refresh_token|token_type|expires_in|expires_at|type)=[^&]*/g,
-      "$1",
-    )
-    .replace(/[?&]$/, "")}`;
-  window.history.replaceState({}, document.title, cleanUrl || "/login");
+  await syncServerSessionBestEffort(
+    accessToken,
+    refreshToken || undefined,
+  );
   return session;
 }
 
@@ -336,7 +286,10 @@ export async function signUp(email: string, password: string, next = "/") {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSessionBestEffort(session.accessToken);
+    await syncServerSessionBestEffort(
+      session.accessToken!,
+      result.refresh_token,
+    );
   }
   return result;
 }
@@ -352,6 +305,9 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(session.accessToken);
+  await syncServerSessionBestEffort(
+    session.accessToken!,
+    result.refresh_token,
+  );
   return session;
 }
