@@ -82,7 +82,10 @@ function runCommand(
 function safeGeneratedPath(root: string, filePath: string): string | null {
   const normalizedRoot = resolve(root);
   const full = resolve(normalizedRoot, filePath);
-  if (full !== normalizedRoot && !full.startsWith(`${normalizedRoot}${sep}`)) {
+  if (
+    full !== normalizedRoot &&
+    !full.startsWith(`${normalizedRoot}${sep}`)
+  ) {
     return null;
   }
   return full;
