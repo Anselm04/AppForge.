@@ -82,10 +82,7 @@ function runCommand(
 function safeGeneratedPath(root: string, filePath: string): string | null {
   const normalizedRoot = resolve(root);
   const full = resolve(normalizedRoot, filePath);
-  if (
-    full !== normalizedRoot &&
-    !full.startsWith(`${normalizedRoot}${sep}`)
-  ) {
+  if (full !== normalizedRoot && !full.startsWith(`${normalizedRoot}${sep}`)) {
     return null;
   }
   return full;
@@ -206,7 +203,8 @@ export async function validateGeneratedBuild(
           errors,
           durationMs: Date.now() - start,
           fileCount: Object.keys(files).length,
-          warning: "Generated file paths must remain inside the isolated build workspace.",
+          warning:
+            "Generated file paths must remain inside the isolated build workspace.",
         };
       }
       await mkdir(join(fullPath, ".."), { recursive: true });
