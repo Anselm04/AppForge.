@@ -64,6 +64,10 @@ export default defineConfig({
 });
 `;
 
+/**
+ * Ensure generated full-validation projects can load and run AppForge's Vitest harness
+ * after a clean install, without depending on undeclared Vite tooling.
+ */
 function ensureGeneratedTestDependencies(
   generatedFiles: Record<string, string>,
 ): void {
@@ -78,6 +82,9 @@ function ensureGeneratedTestDependencies(
     pkg.scripts = pkg.scripts ?? {};
     pkg.devDependencies = pkg.devDependencies ?? {};
     pkg.scripts.test = pkg.scripts.test ?? "vitest run";
+    pkg.devDependencies.vite = pkg.devDependencies.vite ?? "^5.4.21";
+    pkg.devDependencies["@vitejs/plugin-react"] =
+      pkg.devDependencies["@vitejs/plugin-react"] ?? "^4.2.1";
     pkg.devDependencies.vitest = pkg.devDependencies.vitest ?? "^3.2.7";
     pkg.devDependencies.jsdom = pkg.devDependencies.jsdom ?? "^24.0.0";
     pkg.devDependencies["@testing-library/react"] =
