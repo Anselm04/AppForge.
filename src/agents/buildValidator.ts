@@ -13,7 +13,7 @@
 // for an automatic retry (see pipeline.ts "Validator" phase).
 
 import { mkdir, writeFile, rm } from "fs/promises";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { createServer } from "net";
@@ -77,6 +77,15 @@ function runCommand(
       resolve({ exitCode: code ?? 1, stdout, stderr, timedOut: false });
     });
   });
+}
+
+function safeGeneratedPath(root: string, filePath: string): string | null {
+  const normalizedRoot = resolve(root);
+  const full = resolve(normalizedRoot, filePath);
+  if (full !== normalizedRoot && !full.startsWith(`${normalizedRoot}${sep}`)) {
+    return null;
+  }
+  return full;
 }
 
 async function getFreePort(): Promise<number> {
@@ -185,7 +194,18 @@ export async function validateGeneratedBuild(
   try {
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
-      const fullPath = join(tmpDir, filePath);
+      const fullPath = safeGeneratedPath(tmpDir, filePath);
+      if (!fullPath) {
+        errors.push(`Unsafe generated file path rejected: ${filePath}`);
+        return {
+          passed: false,
+          stage: "structure",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Generated file paths must remain inside the isolated build workspace.",
+        };
+      }
       await mkdir(join(fullPath, ".."), { recursive: true });
       await writeFile(fullPath, content, "utf-8");
     }
