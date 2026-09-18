@@ -76,21 +76,34 @@ function ensureGeneratedTestDependencies(
 
   try {
     const pkg = JSON.parse(raw) as {
-      scripts?: Record<string, string>;
-      devDependencies?: Record<string, string>;
+      scripts?: unknown;
+      devDependencies?: unknown;
     };
-    pkg.scripts = pkg.scripts ?? {};
-    pkg.devDependencies = pkg.devDependencies ?? {};
-    pkg.scripts.test = pkg.scripts.test ?? "vitest run";
-    pkg.devDependencies.vite = pkg.devDependencies.vite ?? "^5.4.21";
-    pkg.devDependencies["@vitejs/plugin-react"] =
-      pkg.devDependencies["@vitejs/plugin-react"] ?? "^4.2.1";
-    pkg.devDependencies.vitest = pkg.devDependencies.vitest ?? "^3.2.7";
-    pkg.devDependencies.jsdom = pkg.devDependencies.jsdom ?? "^24.0.0";
-    pkg.devDependencies["@testing-library/react"] =
-      pkg.devDependencies["@testing-library/react"] ?? "^14.2.0";
-    pkg.devDependencies["@testing-library/jest-dom"] =
-      pkg.devDependencies["@testing-library/jest-dom"] ?? "^6.4.0";
+    const scripts =
+      typeof pkg.scripts === "object" &&
+      pkg.scripts !== null &&
+      !Array.isArray(pkg.scripts)
+        ? (pkg.scripts as Record<string, string>)
+        : {};
+    const devDependencies =
+      typeof pkg.devDependencies === "object" &&
+      pkg.devDependencies !== null &&
+      !Array.isArray(pkg.devDependencies)
+        ? (pkg.devDependencies as Record<string, string>)
+        : {};
+
+    pkg.scripts = scripts;
+    pkg.devDependencies = devDependencies;
+    scripts.test = scripts.test ?? "vitest run";
+    devDependencies.vite = devDependencies.vite ?? "^5.4.21";
+    devDependencies["@vitejs/plugin-react"] =
+      devDependencies["@vitejs/plugin-react"] ?? "^4.2.1";
+    devDependencies.vitest = devDependencies.vitest ?? "^3.2.7";
+    devDependencies.jsdom = devDependencies.jsdom ?? "^24.0.0";
+    devDependencies["@testing-library/react"] =
+      devDependencies["@testing-library/react"] ?? "^14.2.0";
+    devDependencies["@testing-library/jest-dom"] =
+      devDependencies["@testing-library/jest-dom"] ?? "^6.4.0";
     generatedFiles["package.json"] = JSON.stringify(pkg, null, 2);
   } catch {
     // The build validator will fail invalid package.json explicitly.
