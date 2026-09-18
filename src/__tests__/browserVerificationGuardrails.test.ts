@@ -12,12 +12,12 @@ describe("real browser deployment verification", () => {
     expect(
       isAllowedBrowserVerificationUrl("https://af-demo-1234.fly.dev"),
     ).toBe(true);
-    expect(isAllowedBrowserVerificationUrl("https://demo-1234.vercel.app")).toBe(
-      true,
-    );
-    expect(isAllowedBrowserVerificationUrl("https://demo-1234.netlify.app")).toBe(
-      true,
-    );
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo-1234.vercel.app"),
+    ).toBe(true);
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo-1234.netlify.app"),
+    ).toBe(true);
     expect(isAllowedBrowserVerificationUrl("https://demo-1234.fly.dev")).toBe(
       false,
     );
@@ -101,8 +101,12 @@ describe("real browser deployment verification", () => {
       resolve(process.cwd(), "src/routers/projects.ts"),
       "utf8",
     );
-    const httpGate = source.indexOf("Production deployment failed live verification");
-    const browserGate = source.indexOf("verifyGeneratedAppInBrowser(result.url)");
+    const httpGate = source.indexOf(
+      "Production deployment failed live verification",
+    );
+    const browserGate = source.indexOf(
+      "verifyGeneratedAppInBrowser(result.url)",
+    );
     const browserFailure = source.indexOf(
       "Production deployment failed browser verification",
     );
