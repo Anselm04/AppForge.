@@ -80,6 +80,7 @@ test("production proof requires generated tests before deploy certification", as
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
   expect(pipeline).toContain("requirementTraceRequired: testsBlocking");
+  expect(pipeline).toContain("requireIsolation: testsBlocking");
   expect(pipeline).toContain("deployValidatedProject");
   expect(pipeline).toContain("isolatedProductionBuildVerified");
   expect(pipeline).toContain("liveDeploymentVerified");
@@ -151,6 +152,8 @@ test("production certification uses isolated Fly remote build plus live browser 
   );
 
   expect(deployer).toContain('"deploy", "--remote-only"');
+  expect(production).toContain("npm test; fi");
+  expect(production).toContain("prepared[\"Dockerfile\"] = productionDockerfile");
   expect(production).toContain("runPostDeploySmokeTest(liveUrl)");
   expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
   expect(production).toContain(
@@ -176,4 +179,39 @@ test("requirement trace gate fails before build when evidence is missing", async
   expect(result.passed).toBe(false);
   expect(result.stage).toBe("requirements");
   expect(result.errors.join(" ")).toContain("Requirement trace gate failed");
+});
+
+
+test("certification Dockerfile cannot be bypassed by generated Dockerfile", async () => {
+  const { prepareProductionFiles } =
+    await import("../services/productionAutoDeploy.js");
+  const prepared = prepareProductionFiles({
+    "package.json": JSON.stringify({
+      scripts: {
+        test: "vitest run",
+        build: "vite build",
+      },
+    }),
+    Dockerfile: "FROM scratch\n",
+  });
+
+  expect(prepared.Dockerfile).not.toBe("FROM scratch\n");
+  expect(prepared.Dockerfile).toContain("then npm test; fi");
+  expect(prepared.Dockerfile).toContain("RUN npm run build");
+});
+
+test("generated validation rejects paths that escape the workspace", async () => {
+  const { validateGeneratedBuild } =
+    await import("../agents/buildValidator.js");
+  const result = await validateGeneratedBuild(
+    {
+      "../escape.ts": "export const escaped = true;",
+      "package.json": JSON.stringify({ name: "unsafe-path" }),
+    },
+    "react-node",
+  );
+
+  expect(result.passed).toBe(false);
+  expect(result.stage).toBe("structure");
+  expect(result.errors.join(" ")).toContain("Unsafe generated file path rejected");
 });
