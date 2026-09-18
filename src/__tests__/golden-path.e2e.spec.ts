@@ -79,6 +79,12 @@ test("production proof requires generated tests before deploy certification", as
   );
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
+  expect(pipeline).toContain("requirementTraceRequired: testsBlocking");
+  expect(pipeline).toContain("deployValidatedProject");
+  expect(pipeline).toContain("isolatedProductionBuildVerified");
+  expect(pipeline).toContain("liveDeploymentVerified");
+  expect(testingAgent).toContain("APPFORGE_REQUIREMENT:REQ-001");
+  expect(testingAgent).toContain("_appforge/requirements.json");
   expect(testingAgent).toContain(
     'scripts.test = scripts.test ?? "vitest run"',
   );
@@ -115,4 +121,38 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(pkg.devDependencies.jsdom).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
+});
+
+
+test("requirement manifest links customer intent to behavioral test", async () => {
+  const { createRequirementManifest } =
+    await import("../agents/testingAgent.js");
+  const manifest = JSON.parse(
+    createRequirementManifest(
+      "Show a counter that increments when the customer clicks the button.",
+    ),
+  );
+
+  expect(manifest.source).toBe("customer_description");
+  expect(manifest.requirements).toEqual([
+    expect.objectContaining({
+      id: "REQ-001",
+      text: expect.stringContaining("counter"),
+      behavioralTest: "src/__tests__/requirements.behavior.test.tsx",
+    }),
+  ]);
+});
+
+test("production certification uses isolated Fly remote build plus live browser verification", async () => {
+  const { readFileSync } = await import("node:fs");
+  const deployer = readFileSync("src/services/deployer.ts", "utf8");
+  const production = readFileSync(
+    "src/services/productionAutoDeploy.ts",
+    "utf8",
+  );
+
+  expect(deployer).toContain('"deploy", "--remote-only"');
+  expect(production).toContain("runPostDeploySmokeTest(liveUrl)");
+  expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
+  expect(production).toContain("Production deployment failed real browser verification");
 });
