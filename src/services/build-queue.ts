@@ -137,6 +137,18 @@ export function startBuildQueueWorker(intervalMs = 2000): () => void {
 }
 
 export async function enqueueBuild(job: BuildJob): Promise<void> {
+  if (!job.buildCapabilities?.length && job.description?.trim()) {
+    const { resolveHomeBuildCapabilities } = await import(
+      "../lib/resolveHomeBuildCapabilities.js"
+    );
+    job = {
+      ...job,
+      buildCapabilities: resolveHomeBuildCapabilities(
+        job.description,
+        job.buildCapabilities,
+      ),
+    };
+  }
   if (!bullQueue) await initBullMQ();
 
   if (bullQueue) {

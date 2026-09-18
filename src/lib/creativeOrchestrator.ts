@@ -95,7 +95,7 @@ export function planCreativeBuild(brief: string): CreativePlan {
     }
   }
 
-  // Always consider web_search as supporting research when brief is non-trivial
+  // Always consider web_search as supporting research when the brief is non-trivial
   if (brief.trim().length > 40) {
     scored.set("web_search", (scored.get("web_search") ?? 0) + 0.5);
   }
@@ -136,7 +136,7 @@ export function planCreativeBuild(brief: string): CreativePlan {
       (id) =>
         `Optionally use ${BUILD_CAPABILITIES[id].label} (${BUILD_CAPABILITIES[id].studioPath})`,
     ),
-    "Enable matching capabilities on Home when starting a build",
+    "Capabilities are selected automatically from the brief during build",
     "Attach studio outputs to the project before deploy",
   ];
 
@@ -154,4 +154,15 @@ export function listCreativeStudios(): BuildCapabilityMeta[] {
   return BUILD_CAPABILITY_IDS.filter((id) => id !== "web_search").map(
     (id) => BUILD_CAPABILITIES[id],
   );
+}
+
+/** Infer capability IDs from a free-text brief for server-side defaults (no Home picker). */
+export function inferCapabilitiesFromBrief(brief: string): BuildCapabilityId[] {
+  const plan = planCreativeBuild(brief);
+  const ids = uniqueIds([plan.primary, ...plan.supporting]);
+  // Prefer research when the brief is non-trivial even if keywords were weak.
+  if (brief.trim().length > 40 && !ids.includes("web_search")) {
+    ids.push("web_search");
+  }
+  return ids.slice(0, 10);
 }

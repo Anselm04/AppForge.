@@ -4,6 +4,16 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Materialize gold A+anvil PNGs from ASCII base64 sidecars when binaries are absent.
+for (const name of ["appforge-logo.png", "favicon.png"]) {
+  const png = join(root, "public", name);
+  const b64 = join(root, "public", `${name}.b64`);
+  if (!existsSync(png) && existsSync(b64)) {
+    writeFileSync(png, Buffer.from(readFileSync(b64, "utf8"), "base64"));
+    console.log(`assemble-pipeline: materialized public/${name}`);
+  }
+}
 const partsDir = join(root, "src/agents/.pipeline_parts");
 const out = join(root, "src/agents/pipeline.generated.ts");
 

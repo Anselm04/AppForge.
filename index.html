@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,7 +14,7 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/appforge-logo.png" />
-    <meta name="theme-color" content="#07080b" />
+    <meta name="theme-color" content="#f7f4ee" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/appforge-logo.png" />
     <title>AppForge</title>
@@ -28,9 +28,9 @@
       (function () {
         try {
           var t = localStorage.getItem("appforge-theme");
-          document.documentElement.classList.toggle("dark", t !== "light");
+          document.documentElement.classList.toggle("dark", t === "dark");
         } catch (e) {
-          document.documentElement.classList.add("dark");
+          /* cream/light default — match trillionaitech.com light brand */
         }
       })();
     </script>

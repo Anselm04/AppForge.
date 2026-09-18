@@ -159,11 +159,11 @@ export function TopNav() {
     onLogout: () => { closeMenu(); logout.mutate(); },
   };
   return (
-    <nav className="bg-forge-bg/90 backdrop-blur-xl border-b border-forge-border sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 py-2 md:py-2.5 flex items-center justify-between gap-3">
+    <nav className="bg-forge-bg/85 backdrop-blur-[18px] border-b border-forge-border sticky top-0 z-50 shadow-[0_1px_0_rgba(148,163,184,0.18)]">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 min-h-[72px]">
         <button type="button" onClick={() => { closeMenu(); navigate("/"); }} className="flex items-center gap-3 shrink-0 group">
-          <img src="/appforge-logo.png" alt="" width={72} height={72} className="h-14 w-14 md:h-16 md:w-16 object-contain forge-logo-glow" />
-          <span className="font-display text-2xl md:text-[1.7rem] font-medium tracking-wide text-[color:var(--forge-heading)] group-hover:text-[#c4a35a]">AppForge</span>
+          <img src="/appforge-logo.png" alt="" width={40} height={40} className="h-9 w-9 md:h-10 md:w-10 object-contain forge-logo-glow rounded-xl" />
+          <span className="font-display text-lg md:text-xl font-semibold tracking-tight text-forge-text-primary group-hover:text-[#c4a35a]">AppForge</span>
         </button>
         {!compact && (<div className="flex items-center gap-3 flex-wrap justify-end"><NavChrome stacked={false} {...chrome} /></div>)}
         {compact && (
@@ -178,7 +178,7 @@ export function TopNav() {
           <div id="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label={t("nav.menu")} className="fixed inset-y-0 end-0 z-[70] w-[min(20rem,86vw)] bg-forge-bg border-s border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-forge-border shrink-0">
               <span className="flex items-center gap-2 font-display text-lg font-medium text-[color:var(--forge-heading)]">
-                <img src="/appforge-logo.png" alt="" width={40} height={40} className="h-10 w-10 object-contain forge-logo-glow" />
+                <img src="/appforge-logo.png" alt="" width={36} height={36} className="h-9 w-9 object-contain forge-logo-glow rounded-xl" />
                 AppForge
               </span>
               <button ref={closeBtnRef} type="button" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[color:var(--forge-heading)] hover:bg-[rgba(196,163,90,0.08)]" aria-label={t("nav.closeMenu")} onClick={closeMenu}>

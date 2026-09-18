@@ -5,6 +5,8 @@
     "closeMenu": "Fechar menu",
     "dark": "Escuro",
     "light": "Claro",
+    "night": "Noite",
+    "day": "Dia",
     "login": "Entrar",
     "signUp": "Cadastrar",
     "logout": "Sair",
