@@ -659,6 +659,7 @@ export async function runAgentPipeline(
           const testFiles = await attachGeneratedTests(
             generatedFiles,
             techStack,
+            description,
           );
           Object.assign(generatedFiles, testFiles);
           emit("Testing", "complete", {
@@ -689,6 +690,7 @@ export async function runAgentPipeline(
           techStack,
           {
             testsBlocking,
+            requirementTraceRequired: testsBlocking,
             validateBilling: mergeBilling,
           },
         );
@@ -989,7 +991,7 @@ export async function runAgentPipeline(
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
     const { materializeHostedHtml, publicAppUrl } =
       await import("../lib/hostedRuntime.js");
-    const liveUrl = publicAppUrl(projectId);
+    const hostedPreviewUrl = publicAppUrl(projectId);
     generatedFiles["_hosted/index.html"] = materializeHostedHtml({
       projectId,
       title: appTitle,
@@ -998,6 +1000,40 @@ export async function runAgentPipeline(
       files: generatedFiles,
     });
     await updateProjectFiles(projectId, generatedFiles);
+
+    let liveUrl = hostedPreviewUrl;
+    let productionCertified = false;
+    let isolatedProductionBuildVerified = false;
+    let liveDeploymentVerified = false;
+
+    if (validationMode === "full") {
+      emit("System", "info", {
+        message:
+          "Creating isolated Fly production build, then verifying the deployed product over HTTP and in a real browser…",
+      });
+      const { deployValidatedProject } = await import(
+        "../services/productionAutoDeploy.js"
+      );
+      const production = await deployValidatedProject({
+        projectId,
+        projectName: appTitle,
+        files: generatedFiles,
+      });
+      liveUrl = production.liveUrl;
+      productionCertified = true;
+      isolatedProductionBuildVerified = true;
+      liveDeploymentVerified = true;
+      emit("System", "info", {
+        message:
+          "Isolated production build and live deployment verification passed.",
+        liveUrl,
+      });
+    } else {
+      emit("System", "info", {
+        message:
+          "Structural-only stack completed as an artifact, but is not production-certified until isolated build and live runtime verification are available for this stack.",
+      });
+    }
 
     const { logger } = await import("../_core/logger.js");
     const {
@@ -1059,6 +1095,9 @@ export async function runAgentPipeline(
       ).length,
       manualReviewRequired: false,
       goldenStack: isGoldenStack(techStack),
+      productionCertified,
+      isolatedProductionBuildVerified,
+      liveDeploymentVerified,
       liveUrl,
       outerAttempt,
     });
