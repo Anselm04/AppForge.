@@ -1,4 +1,8 @@
-        const testFiles = await attachGeneratedTests(generatedFiles, techStack);
+        const testFiles = await attachGeneratedTests(
+          generatedFiles,
+          techStack,
+          description,
+        );
         Object.assign(generatedFiles, testFiles);
         emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.` });
       } else {
@@ -16,7 +20,9 @@
 
       emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
       validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
-        testsBlocking, validateBilling: mergeBilling,
+        testsBlocking,
+        requirementTraceRequired: testsBlocking,
+        validateBilling: mergeBilling,
       });
 
       const { runTripleAudit } = await import("./tripleAudit.js");
