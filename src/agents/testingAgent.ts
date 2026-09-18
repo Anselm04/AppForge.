@@ -12,6 +12,7 @@ export async function generateTestsForModule(
   moduleName: string,
   fileContent: string,
   techStack: string,
+  requirementBrief = "",
 ): Promise<{ testFile: string; filename: string } | null> {
   // Skip non-code files
   if (!fileContent.includes("export") && !fileContent.includes("function")) {
@@ -32,11 +33,12 @@ Mock external dependencies (DB, API calls, fetch) with vi.fn().
 Output ONLY the test file content, starting with // filename: <path>.test.ts or <path>.test.tsx.
 If the file is a React component, use @testing-library/react (render, screen, fireEvent).
 If the file is a tRPC router, test with mocked context.
-If the file is a utility, test pure functions directly.`,
+If the file is a utility, test pure functions directly.
+When CUSTOMER REQUIREMENTS are supplied, prefer assertions that prove the module contributes to those observable requirements rather than merely mirroring implementation details.`,
       },
       {
         role: "user",
-        content: `Module: ${moduleName}\nTech stack: ${techStack}\n\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
+        content: `Module: ${moduleName}\nTech stack: ${techStack}\n${requirementBrief ? `\nCUSTOMER REQUIREMENTS:\n${requirementBrief.slice(0, 4000)}\n` : ""}\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
       },
     ],
   });
@@ -51,6 +53,96 @@ If the file is a utility, test pure functions directly.`,
     : `src/__tests__/${moduleName.toLowerCase().replace(/\s+/g, "-")}.test.ts`;
 
   return { testFile: content, filename };
+}
+
+const REQUIREMENT_TEST_PATH = "src/__tests__/requirements.behavior.test.tsx";
+const REQUIREMENT_MARKER = "APPFORGE_REQUIREMENT:REQ-001";
+
+function cleanGeneratedTest(content: string): string {
+  return content
+    .replace(/^\`\`\`(?:tsx?|jsx?)?\s*/i, "")
+    .replace(/\s*\`\`\`\s*$/i, "")
+    .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
+    .trim();
+}
+
+export function createRequirementManifest(requirementBrief: string): string {
+  return JSON.stringify(
+    {
+      schemaVersion: 1,
+      source: "customer_description",
+      requirements: [
+        {
+          id: "REQ-001",
+          text: requirementBrief.trim(),
+          behavioralTest: REQUIREMENT_TEST_PATH,
+        },
+      ],
+    },
+    null,
+    2,
+  );
+}
+
+async function generateRequirementBehaviorTest(
+  generatedFiles: Record<string, string>,
+  techStack: string,
+  requirementBrief: string,
+): Promise<string | null> {
+  const requirement = requirementBrief.trim();
+  if (!requirement) return null;
+
+  const sourceContext = Object.entries(generatedFiles)
+    .filter(
+      ([path, content]) =>
+        /\.(?:tsx?|jsx?)$/i.test(path) &&
+        !/\.(?:test|spec)\.(?:tsx?|jsx?)$/i.test(path) &&
+        typeof content === "string",
+    )
+    .sort(([a], [b]) => {
+      const score = (path: string) =>
+        /(?:^|\/)(?:App|main|index|page)\.(?:tsx?|jsx?)$/i.test(path) ? 0 : 1;
+      return score(a) - score(b);
+    })
+    .slice(0, 8)
+    .map(([path, content]) => `// SOURCE: ${path}\n${content.slice(0, 2400)}`)
+    .join("\n\n")
+    .slice(0, 14000);
+
+  if (!sourceContext) return null;
+
+  const result = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are AppForge's requirement-verification Testing Agent.
+Write ONE executable Vitest + Testing Library behavioral test file that proves the generated product satisfies the customer's requested observable behavior.
+Use the supplied real source files. Import the actual component/module under test; do not invent APIs, selectors, exports, or filenames.
+Prefer user-visible assertions: render the UI, interact with controls, and verify the requested visible/state behavior.
+The test must fail when the requested behavior is missing or broken.
+Do not test implementation details merely to make the test pass.
+Mock only unavoidable external services.
+Output ONLY the test file content. Do not use markdown fences.`,
+      },
+      {
+        role: "user",
+        content: `REQUIREMENT ID: REQ-001
+CUSTOMER REQUIREMENT:
+${requirement.slice(0, 6000)}
+
+TECH STACK: ${techStack}
+
+GENERATED SOURCE:
+${sourceContext}`,
+      },
+    ],
+  });
+
+  const content = result.choices[0]?.message?.content;
+  if (!content || typeof content !== "string") return null;
+  const cleaned = cleanGeneratedTest(content);
+  if (!cleaned) return null;
+  return `// ${REQUIREMENT_MARKER}\n${cleaned}\n`;
 }
 
 const VITEST_CONFIG = `// filename: vitest.config.ts
@@ -125,6 +217,7 @@ global.fetch = vi.fn();
 export async function attachGeneratedTests(
   generatedFiles: Record<string, string>,
   techStack: string,
+  requirementBrief = "",
 ): Promise<Record<string, string>> {
   const testFiles: Record<string, string> = {};
   for (const [filename, content] of Object.entries(generatedFiles)) {
@@ -144,11 +237,25 @@ export async function attachGeneratedTests(
       moduleName,
       content,
       techStack,
+      requirementBrief,
     );
     if (testResult) {
       testFiles[testResult.filename] = testResult.testFile;
     }
   }
+  if (requirementBrief.trim()) {
+    generatedFiles["_appforge/requirements.json"] =
+      createRequirementManifest(requirementBrief);
+    const requirementTest = await generateRequirementBehaviorTest(
+      generatedFiles,
+      techStack,
+      requirementBrief,
+    );
+    if (requirementTest) {
+      testFiles[REQUIREMENT_TEST_PATH] = requirementTest;
+    }
+  }
+
   if (!generatedFiles["vitest.config.ts"] && !testFiles["vitest.config.ts"]) {
     testFiles["vitest.config.ts"] = VITEST_CONFIG;
   }
