@@ -691,6 +691,7 @@ export async function runAgentPipeline(
           {
             testsBlocking,
             requirementTraceRequired: testsBlocking,
+            requireIsolation: testsBlocking,
             validateBilling: mergeBilling,
           },
         );
