@@ -79,9 +79,17 @@ test("production proof requires generated tests before deploy certification", as
   );
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
+  expect(pipeline).toContain("description,");
+  expect(pipeline).toContain("requireRequirementBehaviorTests: true");
+  expect(pipeline).toContain("requireIsolation: true");
   expect(testingAgent).toContain(
     'scripts.test = scripts.test ?? "vitest run"',
   );
+  expect(testingAgent).toContain('testFiles[".appforge/requirements.json"]');
+  expect(testingAgent).toContain(
+    'testFiles["src/__tests__/requirements.behavior.test.tsx"]',
+  );
+  expect(testingAgent).toContain("Every requirement ID MUST appear literally");
   expect(testingAgent).toContain("devDependencies.vitest");
   expect(testingAgent).toContain(
     'devDependencies["@testing-library/react"]',
@@ -115,4 +123,18 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(pkg.devDependencies.jsdom).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
+});
+
+test("full validation has a real isolated remote-build fallback", async () => {
+  const { readFileSync } = await import("node:fs");
+  const validator = readFileSync("src/agents/buildValidator.ts", "utf8");
+  const sandbox = readFileSync("src/lib/dockerValidator.ts", "utf8");
+
+  expect(validator).toContain("validateWithDocker");
+  expect(validator).toContain("validateWithFlyRemoteBuild");
+  expect(validator).toContain("No isolated build provider is available");
+  expect(sandbox).toContain('"--remote-only"');
+  expect(sandbox).toContain('"--build-only"');
+  expect(sandbox).toContain("npm test -- --run");
+  expect(sandbox).toContain("npm run build");
 });
