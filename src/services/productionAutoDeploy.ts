@@ -24,7 +24,7 @@ function productionDockerfile(files: Record<string, string>): string {
       ? 'CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "3000", "--strictPort"]'
       : 'CMD ["npm", "run", "start"]';
 
-  return `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\n${command}\n`;
+  return `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN if node -e \"const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)\"; then npm test; fi\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\n${command}\n`;
 }
 
 export function prepareProductionFiles(
