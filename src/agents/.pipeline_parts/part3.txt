@@ -22,6 +22,7 @@
       validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
         testsBlocking,
         requirementTraceRequired: testsBlocking,
+        requireIsolation: testsBlocking,
         validateBilling: mergeBilling,
       });
 
