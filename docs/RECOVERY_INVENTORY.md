@@ -300,3 +300,19 @@ Confirm:
 - No discontinued provider remains an undocumented dependency.
 
 This document contains no secret material by design.
+
+## Real-product certification invariant
+
+Recovery invariant reviewed 18 September 2026:
+- A generated product is not production-certified unless four capabilities succeed together: capable generation, requirement-linked behavioral tests, isolated production validation, and live deployment verification.
+- Full-validation builds persist a requirement contract derived from the customer build description and require executable behavioral tests to carry traceability markers for every persisted requirement ID.
+- Production certification must fail closed when an approved isolated validation runtime is unavailable; host-process fallback is not equivalent isolation.
+- User-triggered production deployments require both HTTP smoke verification and a headless-browser render/runtime verification on trusted Fly, Vercel, or Netlify deployment hosts before success is returned.
+- Recovery or rollback must preserve these gates. Restoring code while disabling requirement traceability, isolated validation, or live browser verification is not equivalent to the certified production posture.
+
+Verification target:
+- Confirm a full-validation build with no persisted requirement contract fails before certification.
+- Confirm a requirement ID missing from executable generated tests fails the requirement gate.
+- Confirm a full-validation build fails with an isolation error when no approved isolated validator is available.
+- Confirm production deployment rejects an unreachable app, an empty/unrendered app, and a deployed app with fatal JavaScript runtime errors.
+- Confirm a valid trusted deployment passes HTTP smoke and browser verification before the deploy mutation reports success.
