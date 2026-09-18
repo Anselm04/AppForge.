@@ -212,6 +212,52 @@ export async function validateGeneratedBuild(
       );
     }
 
+    if (options.requirementTraceRequired) {
+      const requirementPath = "src/__tests__/requirements.behavior.test.tsx";
+      const requirementTest = files[requirementPath];
+      const requirementManifest = files["_appforge/requirements.json"];
+      if (
+        !requirementTest ||
+        !requirementTest.includes("APPFORGE_REQUIREMENT:REQ-001") ||
+        !requirementManifest
+      ) {
+        errors.push(
+          "Requirement trace gate failed: missing REQ-001 manifest or executable behavioral test.",
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Production-capable builds must prove the customer requirement with a persisted behavioral test before deployment.",
+        };
+      }
+      try {
+        const parsed = JSON.parse(requirementManifest) as {
+          requirements?: Array<{ id?: string; behavioralTest?: string }>;
+        };
+        const req = parsed.requirements?.find((item) => item.id === "REQ-001");
+        if (req?.behavioralTest !== requirementPath) {
+          throw new Error("REQ-001 does not point to the behavioral test");
+        }
+      } catch {
+        errors.push(
+          "Requirement trace gate failed: invalid _appforge/requirements.json.",
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Requirement evidence must be valid and link REQ-001 to its executable behavioral test.",
+        };
+      }
+    }
+
     const isPython =
       !!files["requirements.txt"] ||
       !!files["pyproject.toml"] ||
@@ -477,52 +523,6 @@ export async function validateGeneratedBuild(
         file,
       ),
     );
-    if (options.requirementTraceRequired) {
-      const requirementPath = "src/__tests__/requirements.behavior.test.tsx";
-      const requirementTest = files[requirementPath];
-      const requirementManifest = files["_appforge/requirements.json"];
-      if (
-        !requirementTest ||
-        !requirementTest.includes("APPFORGE_REQUIREMENT:REQ-001") ||
-        !requirementManifest
-      ) {
-        errors.push(
-          "Requirement trace gate failed: missing REQ-001 manifest or executable behavioral test.",
-        );
-        return {
-          passed: false,
-          stage: "requirements",
-          errors,
-          durationMs: Date.now() - start,
-          fileCount: Object.keys(files).length,
-          warning:
-            "Production-capable builds must prove the customer requirement with a persisted behavioral test before deployment.",
-        };
-      }
-      try {
-        const parsed = JSON.parse(requirementManifest) as {
-          requirements?: Array<{ id?: string; behavioralTest?: string }>;
-        };
-        const req = parsed.requirements?.find((item) => item.id === "REQ-001");
-        if (req?.behavioralTest !== requirementPath) {
-          throw new Error("REQ-001 does not point to the behavioral test");
-        }
-      } catch {
-        errors.push(
-          "Requirement trace gate failed: invalid _appforge/requirements.json.",
-        );
-        return {
-          passed: false,
-          stage: "requirements",
-          errors,
-          durationMs: Date.now() - start,
-          fileCount: Object.keys(files).length,
-          warning:
-            "Requirement evidence must be valid and link REQ-001 to its executable behavioral test.",
-        };
-      }
-    }
-
     if (options.testsBlocking && generatedTestFiles.length === 0) {
       errors.push(
         "Full-validation build generated no executable unit/integration tests.",
