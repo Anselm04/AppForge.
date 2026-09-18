@@ -14,7 +14,8 @@ describe("Supabase login resilience", () => {
     expect(authSource).toContain(
       "await syncServerSessionBestEffort(",
     );
-    expect(authSource).toContain('session.refreshToken');
+    expect(authSource).toContain('result.refresh_token');
+    expect(authSource).not.toContain('session.refreshToken');
     expect(authSource).toContain('"x-supabase-refresh-token"');
   });
 });
