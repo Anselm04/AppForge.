@@ -31,6 +31,8 @@ export interface ValidationResult {
 
 export type ValidateOptions = {
   testsBlocking?: boolean;
+  requirementsBlocking?: boolean;
+  requireIsolation?: boolean;
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
 };
@@ -73,6 +75,41 @@ function runCommand(
       resolve({ exitCode: code ?? 1, stdout, stderr, timedOut: false });
     });
   });
+}
+
+function readRequirementIds(files: Record<string, string>): string[] {
+  const raw = files[".appforge/requirements.json"];
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as {
+      requirements?: Array<{ id?: unknown }>;
+    };
+    return (parsed.requirements ?? [])
+      .map((item) => String(item?.id ?? "").trim())
+      .filter((id) => /^REQ-\d{3}$/i.test(id));
+  } catch {
+    return [];
+  }
+}
+
+function generatedTestPaths(files: Record<string, string>): string[] {
+  return Object.keys(files).filter((file) =>
+    /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(
+      file,
+    ),
+  );
+}
+
+function validateRequirementTraceability(
+  files: Record<string, string>,
+  requirementIds: string[],
+): string[] {
+  if (requirementIds.length === 0) return [];
+  const tests = generatedTestPaths(files);
+  const combined = tests.map((path) => files[path] ?? "").join("\n");
+  return requirementIds.filter(
+    (id) => !combined.includes(`appforge-requirement: ${id}`),
+  );
 }
 
 async function getFreePort(): Promise<number> {
@@ -323,6 +360,59 @@ export async function validateGeneratedBuild(
       }
     }
 
+    const generatedTests = generatedTestPaths(files);
+    if (options.testsBlocking && generatedTests.length === 0) {
+      errors.push(
+        "Full-validation build generated no executable unit/integration tests.",
+      );
+      return {
+        passed: false,
+        stage: "tests",
+        errors,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "A production-capable full-validation build must include executable tests before deployment.",
+      };
+    }
+
+    if (options.requirementsBlocking) {
+      const requirementIds = readRequirementIds(files);
+      if (requirementIds.length === 0) {
+        errors.push(
+          "Full-validation build has no persisted requirement contract.",
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Production certification requires a persisted requirement contract linked to behavioral tests.",
+        };
+      }
+
+      const missingRequirementIds = validateRequirementTraceability(
+        files,
+        requirementIds,
+      );
+      if (missingRequirementIds.length > 0) {
+        errors.push(
+          `Behavioral tests are not linked to requirements: ${missingRequirementIds.join(", ")}`,
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Every persisted customer requirement must be traceable to an executable behavioral test.",
+        };
+      }
+    }
+
     const dockerResult = await validateWithDocker(files, techStack);
     if (dockerResult && !dockerResult.skipped) {
       if (!dockerResult.passed) {
@@ -342,6 +432,21 @@ export async function validateGeneratedBuild(
         durationMs: dockerResult.durationMs,
         fileCount: Object.keys(files).length,
         warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
+    }
+
+    if (options.requireIsolation) {
+      errors.push(
+        "No isolated build runtime is available; host fallback is forbidden for production certification.",
+      );
+      return {
+        passed: false,
+        stage: "isolation",
+        errors,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Configure Docker validation or an approved isolated execution runtime before certifying this product.",
       };
     }
 
@@ -470,28 +575,8 @@ export async function validateGeneratedBuild(
       }
     }
 
-    const generatedTestFiles = Object.keys(files).filter((file) =>
-      /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(
-        file,
-      ),
-    );
-    if (options.testsBlocking && generatedTestFiles.length === 0) {
-      errors.push(
-        "Full-validation build generated no executable unit/integration tests.",
-      );
-      return {
-        passed: false,
-        stage: "tests",
-        errors,
-        durationMs: Date.now() - start,
-        fileCount: Object.keys(files).length,
-        warning:
-          "A production-capable full-validation build must include executable tests before deployment.",
-      };
-    }
-
     if (
-      generatedTestFiles.length > 0 ||
+      generatedTests.length > 0 ||
       files["src/__tests__/setup.ts"] ||
       files["vitest.config.ts"] ||
       files["vitest.config.js"] ||
