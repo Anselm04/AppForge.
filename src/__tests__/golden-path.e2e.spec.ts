@@ -153,7 +153,9 @@ test("production certification uses isolated Fly remote build plus live browser 
 
   expect(deployer).toContain('"deploy", "--remote-only"');
   expect(production).toContain("npm test; fi");
-  expect(production).toContain("prepared[\"Dockerfile\"] = productionDockerfile");
+  expect(production).toContain(
+    'prepared["Dockerfile"] = productionDockerfile',
+  );
   expect(production).toContain("runPostDeploySmokeTest(liveUrl)");
   expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
   expect(production).toContain(
@@ -180,7 +182,6 @@ test("requirement trace gate fails before build when evidence is missing", async
   expect(result.stage).toBe("requirements");
   expect(result.errors.join(" ")).toContain("Requirement trace gate failed");
 });
-
 
 test("certification Dockerfile cannot be bypassed by generated Dockerfile", async () => {
   const { prepareProductionFiles } =
@@ -213,5 +214,7 @@ test("generated validation rejects paths that escape the workspace", async () =>
 
   expect(result.passed).toBe(false);
   expect(result.stage).toBe("structure");
-  expect(result.errors.join(" ")).toContain("Unsafe generated file path rejected");
+  expect(result.errors.join(" ")).toContain(
+    "Unsafe generated file path rejected",
+  );
 });
