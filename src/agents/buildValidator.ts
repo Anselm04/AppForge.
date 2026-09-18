@@ -19,6 +19,10 @@ import { spawn } from "child_process";
 import { createServer } from "net";
 import { npmCacheEnv } from "../services/buildCache.js";
 import { validateWithDocker } from "../lib/dockerValidator.js";
+import {
+  isolatedBuildConfigured,
+  validateWithIsolatedBuildRunner,
+} from "../services/isolatedBuildRunner.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -34,6 +38,46 @@ export type ValidateOptions = {
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
 };
+
+type RequirementManifest = {
+  version: number;
+  requirements: Array<{ id: string; text: string }>;
+};
+
+function validateRequirementTestCoverage(
+  files: Record<string, string>,
+  testFiles: string[],
+): string[] {
+  const raw = files["appforge.requirements.json"];
+  if (!raw) return ["Missing appforge.requirements.json acceptance contract."];
+
+  let manifest: RequirementManifest;
+  try {
+    manifest = JSON.parse(raw) as RequirementManifest;
+  } catch {
+    return ["appforge.requirements.json is not valid JSON."];
+  }
+  if (
+    manifest.version !== 1 ||
+    !Array.isArray(manifest.requirements) ||
+    manifest.requirements.length === 0
+  ) {
+    return ["Requirement acceptance contract is empty or unsupported."];
+  }
+
+  const testSource = testFiles.map((path) => files[path] ?? "").join("\n");
+  return manifest.requirements
+    .filter(
+      (requirement) =>
+        !/^REQ-\d{3}$/.test(requirement.id) ||
+        !requirement.text?.trim() ||
+        !testSource.includes(`// requirement: ${requirement.id}`),
+    )
+    .map(
+      (requirement) =>
+        `Requirement ${requirement.id || "unknown"} has no linked executable behavioral test.`,
+    );
+}
 
 function runCommand(
   cmd: string,
@@ -323,6 +367,61 @@ export async function validateGeneratedBuild(
       }
     }
 
+    const generatedTestFiles = Object.keys(files).filter((file) =>
+      /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(
+        file,
+      ),
+    );
+    if (options.testsBlocking && generatedTestFiles.length === 0) {
+      errors.push(
+        "Full-validation build generated no executable unit/integration tests.",
+      );
+      return {
+        passed: false,
+        stage: "tests",
+        errors,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "A production-capable full-validation build must include executable tests before deployment.",
+      };
+    }
+
+    if (options.testsBlocking) {
+      const requirementCoverageErrors = validateRequirementTestCoverage(
+        files,
+        generatedTestFiles,
+      );
+      if (requirementCoverageErrors.length > 0) {
+        return {
+          passed: false,
+          stage: "requirements",
+          errors: requirementCoverageErrors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Every product requirement must be linked to an executable behavioral test before deployment.",
+        };
+      }
+    }
+
+    const remoteIsolatedResult = await validateWithIsolatedBuildRunner(
+      files,
+      techStack,
+    );
+    if (remoteIsolatedResult) {
+      return {
+        passed: remoteIsolatedResult.passed,
+        stage: remoteIsolatedResult.stage,
+        errors: remoteIsolatedResult.errors,
+        durationMs: remoteIsolatedResult.durationMs,
+        fileCount: Object.keys(files).length,
+        warning: remoteIsolatedResult.passed
+          ? `Isolated production validation passed (${remoteIsolatedResult.isolationId}).`
+          : "Isolated production validation failed.",
+      };
+    }
+
     const dockerResult = await validateWithDocker(files, techStack);
     if (dockerResult && !dockerResult.skipped) {
       if (!dockerResult.passed) {
@@ -342,6 +441,20 @@ export async function validateGeneratedBuild(
         durationMs: dockerResult.durationMs,
         fileCount: Object.keys(files).length,
         warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
+    }
+
+    if (process.env.NODE_ENV === "production" || isolatedBuildConfigured()) {
+      return {
+        passed: false,
+        stage: "isolation",
+        errors: [
+          "No isolated build runner was available. Production validation may not execute generated code on the AppForge host.",
+        ],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Configure the Sprites build bridge or a functioning Docker isolation runtime.",
       };
     }
 
@@ -468,26 +581,6 @@ export async function validateGeneratedBuild(
             "TypeScript compilation failed. Errors will be fed back to LLM for auto-fix.",
         };
       }
-    }
-
-    const generatedTestFiles = Object.keys(files).filter((file) =>
-      /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(
-        file,
-      ),
-    );
-    if (options.testsBlocking && generatedTestFiles.length === 0) {
-      errors.push(
-        "Full-validation build generated no executable unit/integration tests.",
-      );
-      return {
-        passed: false,
-        stage: "tests",
-        errors,
-        durationMs: Date.now() - start,
-        fileCount: Object.keys(files).length,
-        warning:
-          "A production-capable full-validation build must include executable tests before deployment.",
-      };
     }
 
     if (

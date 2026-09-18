@@ -659,6 +659,7 @@ export async function runAgentPipeline(
           const testFiles = await attachGeneratedTests(
             generatedFiles,
             techStack,
+            [description, ...tasks.map((task) => task.description)],
           );
           Object.assign(generatedFiles, testFiles);
           emit("Testing", "complete", {
@@ -984,7 +985,6 @@ export async function runAgentPipeline(
     }
     if (isGoldenStack(techStack) || techStack.includes("react")) {
       generatedFiles = stripComplianceFromGolden(generatedFiles);
-      generatedFiles = capGoldenFiles(generatedFiles, 12);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
     const { materializeHostedHtml, publicAppUrl } =

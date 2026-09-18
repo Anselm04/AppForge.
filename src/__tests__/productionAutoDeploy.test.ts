@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  generatedArtifactSha256,
   prepareProductionFiles,
   requireVerifiedLiveUrl,
 } from "../services/productionAutoDeploy.js";
 
 describe("production auto deploy packaging", () => {
+  it("embeds an immutable artifact identity for post-deploy verification", () => {
+    const source = {
+      "package.json": JSON.stringify({ scripts: { build: "vite build" } }),
+      "index.html": "<main>real product</main>",
+    };
+    const files = prepareProductionFiles(source);
+    expect(JSON.parse(files["public/.well-known/appforge-build.json"])).toEqual(
+      { artifactSha256: generatedArtifactSha256(source) },
+    );
+    expect(generatedArtifactSha256(files)).toBe(
+      generatedArtifactSha256(source),
+    );
+  });
   it("uses vite preview when a validated Vite app has no start script", () => {
     const files = prepareProductionFiles({
       "package.json": JSON.stringify({

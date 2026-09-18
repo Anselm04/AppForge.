@@ -12,6 +12,7 @@ export async function generateTestsForModule(
   moduleName: string,
   fileContent: string,
   techStack: string,
+  requirements: RequirementContract[] = [],
 ): Promise<{ testFile: string; filename: string } | null> {
   // Skip non-code files
   if (!fileContent.includes("export") && !fileContent.includes("function")) {
@@ -32,11 +33,16 @@ Mock external dependencies (DB, API calls, fetch) with vi.fn().
 Output ONLY the test file content, starting with // filename: <path>.test.ts or <path>.test.tsx.
 If the file is a React component, use @testing-library/react (render, screen, fireEvent).
 If the file is a tRPC router, test with mocked context.
-If the file is a utility, test pure functions directly.`,
+If the file is a utility, test pure functions directly.
+The product requirements below are the acceptance contract. Cover every requirement
+that this module implements through observable behavior, not source-text assertions.
+For each requirement actually covered, add a separate comment exactly in the form:
+// requirement: REQ-001
+Never add a requirement marker unless an assertion proves that behavior.`,
       },
       {
         role: "user",
-        content: `Module: ${moduleName}\nTech stack: ${techStack}\n\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
+        content: `Module: ${moduleName}\nTech stack: ${techStack}\nRequirements:\n${requirements.map((requirement) => `${requirement.id}: ${requirement.text}`).join("\n")}\n\nSource code:\n${fileContent.slice(0, 3000)}\n\n${fileContent.length > 3000 ? "...(truncated for context)" : ""}`,
       },
     ],
   });
@@ -51,6 +57,19 @@ If the file is a utility, test pure functions directly.`,
     : `src/__tests__/${moduleName.toLowerCase().replace(/\s+/g, "-")}.test.ts`;
 
   return { testFile: content, filename };
+}
+
+export type RequirementContract = { id: string; text: string };
+
+export function createRequirementContract(
+  requirements: string[],
+): RequirementContract[] {
+  return [...new Set(requirements.map((value) => value.trim()).filter(Boolean))]
+    .slice(0, 20)
+    .map((text, index) => ({
+      id: `REQ-${String(index + 1).padStart(3, "0")}`,
+      text: text.slice(0, 1_000),
+    }));
 }
 
 const VITEST_CONFIG = `// filename: vitest.config.ts
@@ -125,8 +144,10 @@ global.fetch = vi.fn();
 export async function attachGeneratedTests(
   generatedFiles: Record<string, string>,
   techStack: string,
+  requirements: string[] = [],
 ): Promise<Record<string, string>> {
   const testFiles: Record<string, string> = {};
+  const requirementContract = createRequirementContract(requirements);
   for (const [filename, content] of Object.entries(generatedFiles)) {
     if (
       filename.endsWith(".test.ts") ||
@@ -144,6 +165,7 @@ export async function attachGeneratedTests(
       moduleName,
       content,
       techStack,
+      requirementContract,
     );
     if (testResult) {
       testFiles[testResult.filename] = testResult.testFile;
@@ -159,6 +181,13 @@ export async function attachGeneratedTests(
     testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
   }
   ensureGeneratedTestDependencies(generatedFiles);
+  if (requirementContract.length > 0) {
+    testFiles["appforge.requirements.json"] = JSON.stringify(
+      { version: 1, requirements: requirementContract },
+      null,
+      2,
+    );
+  }
   return testFiles;
 }
 
