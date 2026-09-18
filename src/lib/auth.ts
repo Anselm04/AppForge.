@@ -119,10 +119,14 @@ function sessionFromAuth(result: {
   };
 }
 
-async function syncServerSession(accessToken: string): Promise<void> {
+async function syncServerSession(
+  accessToken: string,
+  refreshToken?: string,
+): Promise<void> {
   const headers = await withCsrfHeaders({
     Authorization: `Bearer ${accessToken}`,
     Accept: "application/json",
+    ...(refreshToken ? { "x-supabase-refresh-token": refreshToken } : {}),
   });
   const res = await fetch("/api/auth/session", {
     method: "POST",
@@ -136,9 +140,12 @@ async function syncServerSession(accessToken: string): Promise<void> {
   }
 }
 
-async function syncServerSessionBestEffort(accessToken: string): Promise<void> {
+async function syncServerSessionBestEffort(
+  accessToken: string,
+  refreshToken?: string,
+): Promise<void> {
   try {
-    await syncServerSession(accessToken);
+    await syncServerSession(accessToken, refreshToken);
   } catch {
     // The SPA authenticates protected API calls with the validated Supabase
     // bearer token. A transient cookie/CSRF sync failure must not turn a valid
@@ -232,7 +239,7 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       });
       if (!next || generationAtStart !== sessionGeneration) return null;
       saveSession(next);
-      await syncServerSessionBestEffort(next.accessToken);
+      await syncServerSessionBestEffort(next.accessToken, next.refreshToken);
       return next;
     } catch {
       return null;
@@ -264,7 +271,10 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!accessTokenExpired(session.accessToken)) {
-    void syncServerSessionBestEffort(session.accessToken);
+    void syncServerSessionBestEffort(
+      session.accessToken,
+      session.refreshToken,
+    );
     return session;
   }
 
@@ -316,7 +326,10 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   };
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(accessToken);
+  await syncServerSessionBestEffort(
+    session.accessToken,
+    session.refreshToken,
+  );
 
   // Remove credentials from browser history immediately after consuming them.
   const cleanUrl = `${window.location.pathname}${window.location.search
@@ -336,7 +349,10 @@ export async function signUp(email: string, password: string, next = "/") {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSessionBestEffort(session.accessToken);
+    await syncServerSessionBestEffort(
+      session.accessToken,
+      session.refreshToken,
+    );
   }
   return result;
 }
@@ -352,6 +368,9 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(session.accessToken);
+  await syncServerSessionBestEffort(
+      session.accessToken,
+      session.refreshToken,
+    );
   return session;
 }
