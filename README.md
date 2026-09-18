@@ -61,6 +61,17 @@ AppForge is intended to support multiple product families rather than one fixed 
 
 Native mobile release still requires the relevant Apple/Google SDKs, signing, store credentials, and platform verification. Structural generation is not treated as equivalent to a verified native-store build.
 
+### Production certification chain
+
+For a supported production web build, completion is fail-closed across four linked gates:
+
+1. **Capable generation** — the agent pipeline creates a complete runnable project from the plan rather than a placeholder response.
+2. **Requirement-linked behavioral tests** — AppForge persists numbered acceptance requirements and refuses full validation unless executable tests are linked to every requirement and pass.
+3. **Isolated production build** — generated code is installed, tested, built and booted in a disposable Sprites or Docker environment without AppForge host credentials. Production never falls back to executing generated code directly on the AppForge host.
+4. **Live deployment verification** — Fly must serve the exact SHA-256-identified artifact that passed validation. AppForge then checks the root response, referenced assets and a real Chromium-rendered page before emitting the final completion event.
+
+Passing repository tests alone is not a production deployment certificate. Live certification requires configured Sprites/Fly credentials and successful evidence from the actual remote build and deployment.
+
 ### Desktop
 
 - Electron-oriented products

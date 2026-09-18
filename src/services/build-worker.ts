@@ -157,7 +157,9 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
   try {
     const project = await getProjectById(projectId);
     if (!project) {
-      throw new Error("Queued build references a project that no longer exists");
+      throw new Error(
+        "Queued build references a project that no longer exists",
+      );
     }
     if (project.userId !== userId) {
       throw new Error(
@@ -199,6 +201,14 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
 
     if (passed) {
       let liveUrl: string | undefined;
+      let productionCertification:
+        | {
+            artifactSha256: string;
+            httpVerified: true;
+            assetsVerified: number;
+            browserVerified: true;
+          }
+        | undefined;
       if (process.env.NODE_ENV === "production") {
         const files =
           (updated.generatedFiles as Record<string, string> | null) ?? {};
@@ -213,6 +223,12 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
           files,
         });
         liveUrl = deployed.liveUrl;
+        productionCertification = {
+          artifactSha256: deployed.artifactSha256,
+          httpVerified: deployed.httpVerified,
+          assetsVerified: deployed.assetsVerified,
+          browserVerified: deployed.browserVerified,
+        };
       }
 
       await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
@@ -224,8 +240,17 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
 
       const donePayload =
         pendingDone && typeof pendingDone === "object"
-          ? { ...(pendingDone as Record<string, unknown>), liveUrl }
-          : { projectId, creditsSpent: BUILD_CREDIT_COST, liveUrl };
+          ? {
+              ...(pendingDone as Record<string, unknown>),
+              liveUrl,
+              productionCertification,
+            }
+          : {
+              projectId,
+              creditsSpent: BUILD_CREDIT_COST,
+              liveUrl,
+              productionCertification,
+            };
       await emit(projectId, "done", donePayload);
     } else {
       // The pipeline intentionally returns for paused, failed, cancelled and

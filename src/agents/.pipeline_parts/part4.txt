@@ -49,7 +49,6 @@
     }
     if (isGoldenStack(techStack) || techStack.includes("react")) {
       generatedFiles = stripComplianceFromGolden(generatedFiles);
-      generatedFiles = capGoldenFiles(generatedFiles, 12);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
     const { materializeHostedHtml, publicAppUrl } = await import(

@@ -1,6 +1,28 @@
+import { createHash } from "node:crypto";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
-import { runPostDeploySmokeTest } from "./deployHealth.js";
+import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
+
+export type ProductionCertification = {
+  liveUrl: string;
+  artifactSha256: string;
+  httpVerified: true;
+  assetsVerified: number;
+  browserVerified: true;
+};
+
+export function generatedArtifactSha256(files: Record<string, string>): string {
+  const canonical = Object.keys(files)
+    .filter(
+      (path) =>
+        path !== "Dockerfile" &&
+        path !== "public/.well-known/appforge-build.json",
+    )
+    .sort()
+    .map((path) => `${path}\0${files[path]}\0`)
+    .join("");
+  return createHash("sha256").update(canonical).digest("hex");
+}
 
 function productionDockerfile(files: Record<string, string>): string {
   let hasStart = false;
@@ -8,7 +30,8 @@ function productionDockerfile(files: Record<string, string>): string {
     const pkg = JSON.parse(files["package.json"] || "{}") as {
       scripts?: Record<string, string>;
     };
-    hasStart = typeof pkg.scripts?.start === "string" && pkg.scripts.start.length > 0;
+    hasStart =
+      typeof pkg.scripts?.start === "string" && pkg.scripts.start.length > 0;
   } catch {
     hasStart = false;
   }
@@ -31,6 +54,10 @@ export function prepareProductionFiles(
   files: Record<string, string>,
 ): Record<string, string> {
   const prepared = { ...files };
+  const artifactSha256 = generatedArtifactSha256(files);
+  prepared["public/.well-known/appforge-build.json"] = JSON.stringify({
+    artifactSha256,
+  });
   if (!prepared["Dockerfile"]) {
     prepared["Dockerfile"] = productionDockerfile(prepared);
   }
@@ -54,7 +81,7 @@ export async function deployValidatedProject(opts: {
   projectId: number;
   projectName: string;
   files: Record<string, string>;
-}): Promise<{ liveUrl: string }> {
+}): Promise<ProductionCertification> {
   if (!process.env.FLY_API_TOKEN) {
     throw new Error(
       "Validated build cannot complete production flow because FLY_API_TOKEN is not configured",
@@ -62,6 +89,7 @@ export async function deployValidatedProject(opts: {
   }
 
   const files = prepareProductionFiles(opts.files);
+  const artifactSha256 = generatedArtifactSha256(opts.files);
   const deployed = await deployProject({
     destination: "fly",
     projectName: opts.projectName,
@@ -74,6 +102,24 @@ export async function deployValidatedProject(opts: {
   }
 
   const liveUrl = requireVerifiedLiveUrl(deployed.url);
+  const identity = await probeDeployUrl(
+    new URL("/.well-known/appforge-build.json", liveUrl).toString(),
+    15_000,
+    true,
+  );
+  let deployedIdentity: { artifactSha256?: string } = {};
+  try {
+    deployedIdentity = JSON.parse(identity.body || "{}") as {
+      artifactSha256?: string;
+    };
+  } catch {
+    // handled by the exact identity check below
+  }
+  if (!identity.ok || deployedIdentity.artifactSha256 !== artifactSha256) {
+    throw new Error(
+      `Production deployment artifact identity verification failed at ${liveUrl}`,
+    );
+  }
   const smoke = await runPostDeploySmokeTest(liveUrl);
   if (!smoke.ok) {
     throw new Error(
@@ -91,5 +137,11 @@ export async function deployValidatedProject(opts: {
     );
   }
 
-  return { liveUrl };
+  return {
+    liveUrl,
+    artifactSha256,
+    httpVerified: true,
+    assetsVerified: smoke.assets.length,
+    browserVerified: true,
+  };
 }

@@ -260,6 +260,31 @@ Verification target:
 - Confirm a snapshot from another project cannot be activated.
 - Confirm the next preview/read after activation observes the restored snapshot rather than stale cached output.
 
+## Generated-product certification recovery
+
+Recovery invariant reviewed 18 September 2026:
+
+- A production build is not recoverable or releasable unless its numbered requirement contract and linked executable behavioral tests are retained with the generated source.
+- Generated code must be installed, tested, built, and booted only in a disposable Sprites or Docker environment. Recovery must never replace an unavailable isolation provider by executing customer-generated code on an AppForge production host.
+- The Sprites bridge configuration consists of `SPRITES_BUILD_URL` (or the compatible `SPRITES_EXEC_URL`) and `SPRITES_API_TOKEN`. Provider ownership, endpoint recovery, credential rotation, and a controlled proof run must remain independently available to the owner.
+- An isolated success response is valid only when it includes an isolation ID and explicit passing evidence for install, tests, build, and runtime. Missing or partial evidence fails closed.
+- Fly deployment certification requires the live site to serve the SHA-256 identity of the exact validated generated artifact before root, asset, and real-browser checks run.
+- The terminal customer `done` event must remain withheld until the remote deployment returns matching artifact identity plus successful HTTP, asset, and Chromium evidence.
+
+Verification target:
+
+- Restore or rotate the Sprites bridge credentials and run a controlled generated product through install, behavioral tests, build, and runtime boot in a disposable environment.
+- Disable both Sprites and Docker isolation and confirm production generation fails at the isolation gate without starting generated code on the AppForge host.
+- Tamper with or remove the deployed `/.well-known/appforge-build.json` identity and confirm production certification fails.
+- Restore the exact validated artifact, verify the identity matches, then confirm root, same-origin assets, and the rendered browser page pass before a terminal success event is emitted.
+
+Must be recoverable:
+
+- Sprites bridge account ownership, endpoint configuration, and token rotation.
+- Fly account ownership and deployment token rotation.
+- Generated requirement manifest, executable tests, source snapshot, and artifact SHA-256 certification evidence.
+- A Docker isolation runtime as an independently controlled alternative where the production architecture provides it.
+
 ## AI providers and automation services
 
 Must be recoverable:

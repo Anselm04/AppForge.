@@ -76,9 +76,13 @@ describe("real browser deployment verification", () => {
       "utf8",
     );
     const httpGate = source.indexOf("runPostDeploySmokeTest(liveUrl)");
+    const identityGate = source.indexOf(
+      "artifact identity verification failed",
+    );
     const browserGate = source.indexOf("verifyGeneratedAppInBrowser(liveUrl)");
-    const successReturn = source.indexOf("return { liveUrl }");
+    const successReturn = source.lastIndexOf("browserVerified: true");
 
+    expect(identityGate).toBeGreaterThan(-1);
     expect(httpGate).toBeGreaterThan(-1);
     expect(browserGate).toBeGreaterThan(httpGate);
     expect(successReturn).toBeGreaterThan(browserGate);
