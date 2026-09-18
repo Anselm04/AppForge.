@@ -109,6 +109,8 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(tests["vitest.config.ts"]).toBeTruthy();
   expect(tests["src/__tests__/setup.ts"]).toBeTruthy();
   expect(pkg.scripts.test).toBe("vitest run");
+  expect(pkg.devDependencies.vite).toBe("^5.4.21");
+  expect(pkg.devDependencies["@vitejs/plugin-react"]).toBe("^4.2.1");
   expect(pkg.devDependencies.vitest).toBeTruthy();
   expect(pkg.devDependencies.jsdom).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
