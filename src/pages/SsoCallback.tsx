@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { rememberAuthenticatedUser } from "../lib/auth.js";
 
 function safeNext(value: string | null): string {
   if (value && value.startsWith("/") && !value.startsWith("//")) return value;
   return "/dashboard";
 }
 
-/** Client handoff after server SSO code exchange — persists Supabase session locally. */
+/** Client handoff after server SSO code exchange — keeps tokens in HttpOnly cookies. */
 export function SsoCallback() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -29,22 +30,13 @@ export function SsoCallback() {
         }
 
         const session = (await response.json()) as {
-          accessToken?: string;
-          refreshToken?: string;
           user?: { id: string; email?: string };
         };
-        if (!session.accessToken || !session.user?.id) {
+        if (!session.user?.id) {
           throw new Error("Invalid SSO session payload");
         }
 
-        localStorage.setItem(
-          "appforge.session",
-          JSON.stringify({
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            user: session.user,
-          }),
-        );
+        rememberAuthenticatedUser(session.user);
         void queryClient.invalidateQueries({ queryKey: ["auth"] });
         if (!cancelled) navigate(next, { replace: true });
       } catch {
