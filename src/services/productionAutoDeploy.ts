@@ -31,9 +31,9 @@ export function prepareProductionFiles(
   files: Record<string, string>,
 ): Record<string, string> {
   const prepared = { ...files };
-  if (!prepared["Dockerfile"]) {
-    prepared["Dockerfile"] = productionDockerfile(prepared);
-  }
+  // Production certification owns the build recipe so generated/customer
+  // Dockerfiles cannot bypass the mandatory isolated test + build gates.
+  prepared["Dockerfile"] = productionDockerfile(prepared);
   return prepared;
 }
 
