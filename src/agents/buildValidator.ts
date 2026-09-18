@@ -33,6 +33,8 @@ export type ValidateOptions = {
   testsBlocking?: boolean;
   /** Fail closed unless the customer requirement has a persisted behavioral test trace. */
   requirementTraceRequired?: boolean;
+  /** Fail closed instead of executing generated build commands on the host. */
+  requireIsolation?: boolean;
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
 };
@@ -390,6 +392,21 @@ export async function validateGeneratedBuild(
         durationMs: dockerResult.durationMs,
         fileCount: Object.keys(files).length,
         warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
+    }
+
+    if (options.requireIsolation) {
+      errors.push(
+        "Isolated validation is required for production certification, but Docker validation is unavailable.",
+      );
+      return {
+        passed: false,
+        stage: "isolation",
+        errors,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Production-capable builds fail closed when the isolated validator is unavailable; generated build commands were not executed on the host.",
       };
     }
 
