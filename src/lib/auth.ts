@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { supabaseClient } from "./supabase-client";
 import { withCsrfHeaders } from "./csrf";
 
+const USER_KEY = "appforge.user";
 const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
@@ -24,6 +25,33 @@ function subscribeSession(listener: () => void) {
   };
 }
 
+function readStoredUser(): { id: string; email?: string } | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(USER_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw) as { id?: string; email?: string };
+    return typeof user.id === "string" ? { id: user.id, email: user.email } : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeUser(user: { id: string; email?: string }) {
+  try {
+    globalThis.localStorage?.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // In-memory auth remains valid when storage is unavailable.
+  }
+}
+
+function clearStoredUser() {
+  try {
+    globalThis.localStorage?.removeItem(USER_KEY);
+  } catch {
+    // ignore blocked storage
+  }
+}
+
 function jwtUser(accessToken: string): { id: string; email?: string } | null {
   try {
     const [, payload] = accessToken.split(".");
@@ -43,7 +71,17 @@ function jwtUser(accessToken: string): { id: string; email?: string } | null {
 
 function saveSession(session: AppForgeSession) {
   cachedSession = session;
+  storeUser(session.user);
   emitSessionChange();
+}
+
+export function rememberAuthenticatedUser(user: {
+  id: string;
+  email?: string;
+}): AppForgeSession {
+  const session = { user };
+  saveSession(session);
+  return session;
 }
 
 function sessionFromAuth(result: {
@@ -108,6 +146,10 @@ async function clearServerSession(accessToken?: string): Promise<void> {
 }
 
 export function getSession(): AppForgeSession | null {
+  if (cachedSession) return cachedSession;
+  const user = readStoredUser();
+  if (!user) return null;
+  cachedSession = { user };
   return cachedSession;
 }
 
@@ -137,6 +179,7 @@ export function signOut() {
   const session = getSession();
   sessionGeneration += 1;
   cachedSession = null;
+  clearStoredUser();
   refreshInFlight = null;
   emitSessionChange();
 
