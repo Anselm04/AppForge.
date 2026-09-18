@@ -96,9 +96,9 @@ test("generated full-validation test harness installs its own dependencies", asy
   const files: Record<string, string> = {
     "package.json": JSON.stringify({
       name: "generated-canary",
-      scripts: { build: "vite build" },
+      scripts: [],
       dependencies: {},
-      devDependencies: {},
+      devDependencies: [],
     }),
     "index.html": '<div id="root"></div>',
   };
