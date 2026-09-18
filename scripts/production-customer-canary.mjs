@@ -374,6 +374,16 @@ async function main() {
     );
   }
 
+  if (
+    done.productionCertified !== true ||
+    done.isolatedProductionBuildVerified !== true ||
+    done.liveDeploymentVerified !== true
+  ) {
+    throw new Error(
+      `Production canary did not prove isolated production build + live verification: ${JSON.stringify(done)}`,
+    );
+  }
+
   console.log("[canary] verifying persisted project completion");
   const project = await trpc.query("projects.get", { id: projectId });
   if (project?.status !== "completed") {
@@ -479,6 +489,10 @@ async function main() {
     generatedValidationVerified: true,
     blockingGeneratedTestsVerified: true,
     generatedTestFileCount: done.generatedTestFileCount,
+    requirementLinkedTestsVerified: true,
+    isolatedProductionBuildVerified: done.isolatedProductionBuildVerified === true,
+    liveDeploymentVerified: done.liveDeploymentVerified === true,
+    productionCertified: done.productionCertified === true,
     productionDeploymentVerified: true,
     authenticatedEditVerified: true,
     editPersistenceVerified: true,

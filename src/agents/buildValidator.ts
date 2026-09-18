@@ -13,7 +13,7 @@
 // for an automatic retry (see pipeline.ts "Validator" phase).
 
 import { mkdir, writeFile, rm } from "fs/promises";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { createServer } from "net";
@@ -31,6 +31,10 @@ export interface ValidationResult {
 
 export type ValidateOptions = {
   testsBlocking?: boolean;
+  /** Fail closed unless the customer requirement has a persisted behavioral test trace. */
+  requirementTraceRequired?: boolean;
+  /** Fail closed instead of executing generated build commands on the host. */
+  requireIsolation?: boolean;
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
 };
@@ -73,6 +77,15 @@ function runCommand(
       resolve({ exitCode: code ?? 1, stdout, stderr, timedOut: false });
     });
   });
+}
+
+function safeGeneratedPath(root: string, filePath: string): string | null {
+  const normalizedRoot = resolve(root);
+  const full = resolve(normalizedRoot, filePath);
+  if (full !== normalizedRoot && !full.startsWith(`${normalizedRoot}${sep}`)) {
+    return null;
+  }
+  return full;
 }
 
 async function getFreePort(): Promise<number> {
@@ -181,7 +194,19 @@ export async function validateGeneratedBuild(
   try {
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
-      const fullPath = join(tmpDir, filePath);
+      const fullPath = safeGeneratedPath(tmpDir, filePath);
+      if (!fullPath) {
+        errors.push(`Unsafe generated file path rejected: ${filePath}`);
+        return {
+          passed: false,
+          stage: "structure",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Generated file paths must remain inside the isolated build workspace.",
+        };
+      }
       await mkdir(join(fullPath, ".."), { recursive: true });
       await writeFile(fullPath, content, "utf-8");
     }
@@ -208,6 +233,52 @@ export async function validateGeneratedBuild(
           2,
         ),
       );
+    }
+
+    if (options.requirementTraceRequired) {
+      const requirementPath = "src/__tests__/requirements.behavior.test.tsx";
+      const requirementTest = files[requirementPath];
+      const requirementManifest = files["_appforge/requirements.json"];
+      if (
+        !requirementTest ||
+        !requirementTest.includes("APPFORGE_REQUIREMENT:REQ-001") ||
+        !requirementManifest
+      ) {
+        errors.push(
+          "Requirement trace gate failed: missing REQ-001 manifest or executable behavioral test.",
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Production-capable builds must prove the customer requirement with a persisted behavioral test before deployment.",
+        };
+      }
+      try {
+        const parsed = JSON.parse(requirementManifest) as {
+          requirements?: Array<{ id?: string; behavioralTest?: string }>;
+        };
+        const req = parsed.requirements?.find((item) => item.id === "REQ-001");
+        if (req?.behavioralTest !== requirementPath) {
+          throw new Error("REQ-001 does not point to the behavioral test");
+        }
+      } catch {
+        errors.push(
+          "Requirement trace gate failed: invalid _appforge/requirements.json.",
+        );
+        return {
+          passed: false,
+          stage: "requirements",
+          errors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Requirement evidence must be valid and link REQ-001 to its executable behavioral test.",
+        };
+      }
     }
 
     const isPython =
@@ -342,6 +413,18 @@ export async function validateGeneratedBuild(
         durationMs: dockerResult.durationMs,
         fileCount: Object.keys(files).length,
         warning: `Docker sandbox passed (${dockerResult.stage}).`,
+      };
+    }
+
+    if (options.requireIsolation) {
+      return {
+        passed: true,
+        stage: "isolated_remote_pending",
+        errors: [],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Local Docker is unavailable. Generated build commands were not executed on the AppForge host; tests and production build must pass in the mandatory isolated Fly remote builder before certification.",
       };
     }
 

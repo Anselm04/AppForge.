@@ -112,6 +112,29 @@ Verification target:
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
 
+## Generated-product four-pillar certification
+
+Recovery invariant reviewed 18 September 2026:
+- A generated product is production-certified only when capable generation, requirement-linked behavioral tests, an isolated production build, and live deployment verification complete as one fail-closed path.
+- Full-validation builds persist the customer requirement in `_appforge/requirements.json` and link `REQ-001` to `src/__tests__/requirements.behavior.test.tsx`; recovery must preserve both files with the generated source.
+- Production certification must not execute generated build/test commands directly on the AppForge host when isolation is required. Local Docker may provide the isolated validator; when it is unavailable, execution is deferred to the mandatory Fly remote builder.
+- The AppForge certification Dockerfile is authoritative for the production proof path. It installs dependencies with lifecycle scripts disabled, executes the generated test suite when present, and then runs the production build. A generated/customer Dockerfile cannot replace this certification recipe.
+- Fly deployment uses a remote-only builder, and certification remains false until the deployed HTTPS product passes both the live HTTP smoke test and real Chromium runtime verification.
+- Structural-only stacks may remain recoverable as generated artifacts, but recovery must not relabel them as production-certified without equivalent isolated build and live-runtime proof.
+- Generated file paths must remain contained inside the validation workspace; path traversal outside that workspace is a certification failure.
+
+Required non-secret configuration names:
+- `FLY_API_TOKEN`
+
+Verification target:
+- Restore a trusted generated project together with its requirement manifest and linked behavioral test.
+- Confirm missing or disconnected requirement evidence fails the validation gate before production certification.
+- Confirm the generated tests execute successfully inside the isolated Fly remote build before `npm run build`.
+- Confirm a supplied project Dockerfile cannot bypass AppForge's certification Dockerfile.
+- Confirm an unsafe generated path such as `../escape.ts` is rejected before any generated command executes.
+- Confirm the returned production URL is HTTPS, responds successfully to the live smoke test, renders in headless Chromium, and reports no uncaught runtime failure.
+- Treat any restore that can only produce an AppForge-hosted preview, without isolated remote build and live verification evidence, as not production-certified.
+
 ## Shared Redis two-Machine coordination
 
 Recovery invariant reviewed 16 September 2026:
