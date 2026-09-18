@@ -80,7 +80,7 @@ test("production proof requires generated tests before deploy certification", as
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
   expect(testingAgent).toContain(
-    'pkg.scripts.test = pkg.scripts.test ?? "vitest run"',
+    'scripts.test = scripts.test ?? "vitest run"',
   );
   expect(testingAgent).toContain("pkg.devDependencies.vitest");
   expect(testingAgent).toContain(
