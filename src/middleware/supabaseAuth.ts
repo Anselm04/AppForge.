@@ -99,7 +99,7 @@ function authCookieOptions() {
   };
 }
 
-function setSessionCookies(
+export function setSessionCookies(
   res: Response,
   accessToken: string,
   refreshToken?: string,
