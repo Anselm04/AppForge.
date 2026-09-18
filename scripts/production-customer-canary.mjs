@@ -234,6 +234,10 @@ function findChangedPaths(beforeFiles, afterFiles) {
     .sort();
 }
 
+/**
+ * Exercise the real production customer path and fail closed unless generated-app
+ * validation, blocking tests, deployment, persistence, and authenticated editing succeed.
+ */
 async function main() {
   required("APPFORGE_CANARY_EMAIL", email);
   required("APPFORGE_CANARY_PASSWORD", password);
