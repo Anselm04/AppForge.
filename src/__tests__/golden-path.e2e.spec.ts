@@ -123,7 +123,6 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
 });
 
-
 test("requirement manifest links customer intent to behavioral test", async () => {
   const { createRequirementManifest } =
     await import("../agents/testingAgent.js");
@@ -154,9 +153,10 @@ test("production certification uses isolated Fly remote build plus live browser 
   expect(deployer).toContain('"deploy", "--remote-only"');
   expect(production).toContain("runPostDeploySmokeTest(liveUrl)");
   expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
-  expect(production).toContain("Production deployment failed real browser verification");
+  expect(production).toContain(
+    "Production deployment failed real browser verification",
+  );
 });
-
 
 test("requirement trace gate fails before build when evidence is missing", async () => {
   const { validateGeneratedBuild } =
