@@ -5,6 +5,8 @@
     "closeMenu": "Menü schließen",
     "dark": "Dunkel",
     "light": "Hell",
+    "night": "Nacht",
+    "day": "Tag",
     "login": "Anmelden",
     "signUp": "Registrieren",
     "logout": "Abmelden",
