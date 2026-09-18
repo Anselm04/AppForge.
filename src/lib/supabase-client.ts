@@ -39,8 +39,8 @@ function authRedirectTo(next = "/"): string | undefined {
   if (typeof window === "undefined") return undefined;
   const safeNext =
     next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
-      ? next
-      : "/";
+    ? next
+    : "/";
   return `${window.location.origin}/login?next=${encodeURIComponent(safeNext)}`;
 }
 
@@ -60,7 +60,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       throw new Error("Authentication service is temporarily unavailable.");
     }
     throw new Error(
-      body?.message ||
+      body?.msg ||
+        body?.message ||
         body?.error_description ||
         `Authentication request failed: ${response.status}`,
     );
@@ -95,6 +96,23 @@ export const supabaseClient = {
     return request<Record<string, never>>("/auth/v1/logout?scope=local", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  },
+  recoverPassword(email: string, redirectTo?: string) {
+    const redirect = redirectTo || authRedirectTo("/");
+    const path = redirect
+      ? `/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`
+      : "/auth/v1/recover";
+    return request<Record<string, never>>(path, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  updatePassword(accessToken: string, password: string) {
+    return request<AuthResponse>("/auth/v1/user", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ password }),
     });
   },
 };
