@@ -77,8 +77,8 @@ function deriveProductRequirements(source: string): ProductRequirement[] {
 
 function stripGeneratedTestEnvelope(content: string): string {
   return content
-    .replace(/^\`\`\`[a-zA-Z0-9_-]*\s*/i, "")
-    .replace(/\s*\`\`\`\s*$/i, "")
+    .replace(/^```[a-zA-Z0-9_-]*\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
     .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
     .trim();
 }
