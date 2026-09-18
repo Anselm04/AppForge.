@@ -118,7 +118,8 @@ test("generated full-validation test harness installs its own dependencies", asy
 });
 
 test("real-product certification links requirements and requires isolation", async () => {
-  const { deriveRequirementContract } = await import("../agents/testingAgent.js");
+  const { deriveRequirementContract } =
+    await import("../agents/testingAgent.js");
   const requirements = deriveRequirementContract(
     "Show a dashboard. Users can add an item. The total updates after adding it.",
   );
@@ -139,6 +140,10 @@ test("real-product certification links requirements and requires isolation", asy
   expect(pipeline).toContain("requireIsolation: testsBlocking");
   expect(testingAgent).toContain("requirements.behavior.test.tsx");
   expect(testingAgent).toContain("appforge-requirement: REQ-001");
-  expect(validator).toContain("Full-validation build has no persisted requirement contract.");
-  expect(validator).toContain("host fallback is forbidden for production certification");
+  expect(validator).toContain(
+    "Full-validation build has no persisted requirement contract.",
+  );
+  expect(validator).toContain(
+    "host fallback is forbidden for production certification",
+  );
 });
