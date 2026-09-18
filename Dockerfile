@@ -30,6 +30,12 @@ RUN npm ci --ignore-scripts \
   && npm cache clean --force \
   && rm -rf /tmp/rollup-native
 COPY . .
+# Materialize binary brand PNGs from ASCII base64 sidecars (git-friendly via MCP).
+RUN if [ -f public/appforge-logo.png.b64 ]; then base64 -d public/appforge-logo.png.b64 > public/appforge-logo.png; fi \
+  && if [ -f public/favicon.png.b64 ]; then base64 -d public/favicon.png.b64 > public/favicon.png; fi \
+  && test -f public/appforge-logo.png \
+  && test -f public/favicon.png \
+  && rm -f public/*.b64
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
