@@ -22,7 +22,9 @@ export function isAllowedBrowserVerificationUrl(value: string): boolean {
       url.username === "" &&
       url.password === "" &&
       url.port === "" &&
-      /^af-[a-z0-9-]+\.fly\.dev$/i.test(url.hostname) &&
+      (/^af-[a-z0-9-]+\.fly\.dev$/i.test(url.hostname) ||
+        /^[a-z0-9-]+\.vercel\.app$/i.test(url.hostname) ||
+        /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)) &&
       url.pathname === "/" &&
       url.search === "" &&
       url.hash === ""
@@ -104,7 +106,7 @@ export async function verifyGeneratedAppInBrowser(
       ok: false,
       renderedHtmlLength: 0,
       runtimeErrors: [],
-      error: "Browser verification rejected a non-AppForge Fly production URL",
+      error: "Browser verification rejected an untrusted production deployment URL",
     };
   }
 

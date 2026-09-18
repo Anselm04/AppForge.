@@ -8,9 +8,15 @@ import {
 } from "../services/browserVerification";
 
 describe("real browser deployment verification", () => {
-  it("only permits AppForge-owned Fly production targets", () => {
+  it("only permits trusted production deployment targets", () => {
     expect(
       isAllowedBrowserVerificationUrl("https://af-demo-1234.fly.dev"),
+    ).toBe(true);
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo-1234.vercel.app"),
+    ).toBe(true);
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo-1234.netlify.app"),
     ).toBe(true);
     expect(isAllowedBrowserVerificationUrl("https://demo-1234.fly.dev")).toBe(
       false,
@@ -20,6 +26,12 @@ describe("real browser deployment verification", () => {
     );
     expect(
       isAllowedBrowserVerificationUrl("https://fly.dev.evil.example"),
+    ).toBe(false);
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo.vercel.app.evil.example"),
+    ).toBe(false);
+    expect(
+      isAllowedBrowserVerificationUrl("https://demo.netlify.app.evil.example"),
     ).toBe(false);
     expect(
       isAllowedBrowserVerificationUrl("https://localhost.fly.dev:8443"),
@@ -82,6 +94,26 @@ describe("real browser deployment verification", () => {
     expect(httpGate).toBeGreaterThan(-1);
     expect(browserGate).toBeGreaterThan(httpGate);
     expect(successReturn).toBeGreaterThan(browserGate);
+  });
+
+  it("requires browser verification after HTTP smoke for user-triggered production deploys", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/routers/projects.ts"),
+      "utf8",
+    );
+    const httpGate = source.indexOf(
+      "Production deployment failed live verification",
+    );
+    const browserGate = source.indexOf(
+      "verifyGeneratedAppInBrowser(result.url)",
+    );
+    const browserFailure = source.indexOf(
+      "Production deployment failed browser verification",
+    );
+
+    expect(httpGate).toBeGreaterThan(-1);
+    expect(browserGate).toBeGreaterThan(httpGate);
+    expect(browserFailure).toBeGreaterThan(browserGate);
   });
 
   it("isolates Chromium DNS resolution to the generated Fly host", () => {

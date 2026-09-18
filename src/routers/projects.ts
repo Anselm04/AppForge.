@@ -386,6 +386,21 @@ export const projectsRouter = router({
           );
         }
 
+        const browserVerification =
+          productionDestination && result.url
+            ? await (
+                await import("../services/browserVerification.js")
+              ).verifyGeneratedAppInBrowser(result.url)
+            : null;
+        if (
+          productionDestination &&
+          (!browserVerification || !browserVerification.ok)
+        ) {
+          throw new Error(
+            `Production deployment failed browser verification at ${result.url ?? "unknown URL"}: ${browserVerification?.error ?? "verification unavailable"}`,
+          );
+        }
+
         const billingSmoke =
           result.url && readiness.stripeDetected
             ? await runBillingRouteSmokeTest(result.url)
@@ -438,6 +453,7 @@ export const projectsRouter = router({
           note: result.note,
           deployGuide,
           smokeTest: smoke,
+          browserVerification,
           billingSmokeTest: billingSmoke,
           databaseSetup: dbGuide,
           options: listDeployDestinations(),

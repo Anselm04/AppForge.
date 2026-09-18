@@ -116,3 +116,34 @@ test("generated full-validation test harness installs its own dependencies", asy
   expect(pkg.devDependencies["@testing-library/react"]).toBeTruthy();
   expect(pkg.devDependencies["@testing-library/jest-dom"]).toBeTruthy();
 });
+
+test("real-product certification links requirements and requires isolation", async () => {
+  const { deriveRequirementContract } =
+    await import("../agents/testingAgent.js");
+  const requirements = deriveRequirementContract(
+    "Show a dashboard. Users can add an item. The total updates after adding it.",
+  );
+  expect(requirements.map((item) => item.id)).toEqual([
+    "REQ-001",
+    "REQ-002",
+    "REQ-003",
+  ]);
+
+  const { readFileSync } = await import("node:fs");
+  const pipeline = readFileSync("src/agents/pipeline.generated.ts", "utf8");
+  const validator = readFileSync("src/agents/buildValidator.ts", "utf8");
+  const testingAgent = readFileSync("src/agents/testingAgent.ts", "utf8");
+
+  expect(pipeline).toContain("attachGeneratedTests(");
+  expect(pipeline).toContain("description,");
+  expect(pipeline).toContain("requirementsBlocking: testsBlocking");
+  expect(pipeline).toContain("requireIsolation: testsBlocking");
+  expect(testingAgent).toContain("requirements.behavior.test.tsx");
+  expect(testingAgent).toContain("appforge-requirement: REQ-001");
+  expect(validator).toContain(
+    "Full-validation build has no persisted requirement contract.",
+  );
+  expect(validator).toContain(
+    "host fallback is forbidden for production certification",
+  );
+});
