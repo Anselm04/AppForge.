@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { supabaseClient } from "./supabase-client";
+import { supabaseClient } from "./supabase-client.js";
 import { withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
@@ -234,7 +234,12 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
  * fragment. Previously /login ignored them, so a correctly confirmed account
  * still looked signed out and testers were sent back through login again.
  */
-export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
+export type AuthRedirectResult = {
+  session: AppForgeSession;
+  type: string | null;
+};
+
+export async function completeAuthRedirect(): Promise<AuthRedirectResult | null> {
   if (typeof window === "undefined") return null;
 
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -247,6 +252,7 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
 
   const accessToken = hash.get("access_token");
   const refreshToken = hash.get("refresh_token");
+  const type = hash.get("type") || search.get("type");
   if (!accessToken) return null;
 
   for (const key of [
@@ -276,7 +282,23 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
     accessToken,
     refreshToken || undefined,
   );
-  return session;
+  return { session, type };
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+  const session = getSession();
+  if (!session?.accessToken) {
+    throw new Error("Sign in again before setting a new password.");
+  }
+  await supabaseClient.updatePassword(session.accessToken, newPassword);
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const redirect =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/login`
+      : undefined;
+  await supabaseClient.recoverPassword(email, redirect);
 }
 
 export async function signUp(email: string, password: string, next = "/") {
