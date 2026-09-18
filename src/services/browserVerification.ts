@@ -22,11 +22,9 @@ export function isAllowedBrowserVerificationUrl(value: string): boolean {
       url.username === "" &&
       url.password === "" &&
       url.port === "" &&
-      (
-        /^af-[a-z0-9-]+\.fly\.dev$/i.test(url.hostname) ||
+      (/^af-[a-z0-9-]+\.fly\.dev$/i.test(url.hostname) ||
         /^[a-z0-9-]+\.vercel\.app$/i.test(url.hostname) ||
-        /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)
-      ) &&
+        /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)) &&
       url.pathname === "/" &&
       url.search === "" &&
       url.hash === ""
