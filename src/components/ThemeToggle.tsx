@@ -8,17 +8,20 @@ export function ThemeToggle({ className, stacked = false }: Props) {
   const { t } = useLocale();
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
+  // Prefer nav.night/day; fall back to English so missing keys never render raw.
+  const nightLabel = (() => { const v = t("nav.night"); return v === "nav.night" ? "Night" : v; })();
+  const dayLabel = (() => { const v = t("nav.day"); return v === "nav.day" ? "Day" : v; })();
   return (
-    <div className={cn(stacked ? "w-full" : "shrink-0", className)} role="group" aria-label={isDark ? t("nav.night") : t("nav.day")}>
+    <div className={cn(stacked ? "w-full" : "shrink-0", className)} role="group" aria-label={isDark ? nightLabel : dayLabel}>
       {stacked && (
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--forge-heading)]">{isDark ? t("nav.night") : t("nav.day")}</p>
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--forge-heading)]">{isDark ? nightLabel : dayLabel}</p>
       )}
       <div className={stacked ? "grid grid-cols-2 gap-1 p-1 bg-forge-surface border border-forge-border" : "inline-flex items-center gap-0.5 p-0.5 bg-forge-surface border border-forge-border"}>
         <button type="button" aria-pressed={isDark} onClick={() => setTheme("dark")} className={stacked ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}` : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`}>
-          <MoonIcon />{t("nav.night")}
+          <MoonIcon />{nightLabel}
         </button>
         <button type="button" aria-pressed={!isDark} onClick={() => setTheme("light")} className={stacked ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}` : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`}>
-          <SunIcon />{t("nav.day")}
+          <SunIcon />{dayLabel}
         </button>
       </div>
     </div>
