@@ -53,6 +53,96 @@ If the file is a utility, test pure functions directly.`,
   return { testFile: content, filename };
 }
 
+type ProductRequirement = { id: string; text: string };
+
+function deriveProductRequirements(source: string): ProductRequirement[] {
+  const normalized = source
+    .replace(/\r/g, "\n")
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((item) => item.replace(/^[-*\d.)\s]+/, "").trim())
+    .filter((item) => item.length >= 12)
+    .slice(0, 12);
+
+  const unique = [...new Set(normalized)];
+  const texts =
+    unique.length > 0
+      ? unique
+      : ["The generated product must implement the requested customer behavior."];
+
+  return texts.map((text, index) => ({
+    id: `REQ-${String(index + 1).padStart(3, "0")}`,
+    text,
+  }));
+}
+
+function stripGeneratedTestEnvelope(content: string): string {
+  return content
+    .replace(/^\`\`\`[a-zA-Z0-9_-]*\s*/i, "")
+    .replace(/\s*\`\`\`\s*$/i, "")
+    .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
+    .trim();
+}
+
+async function generateRequirementBehaviorTest(
+  requirements: ProductRequirement[],
+  generatedFiles: Record<string, string>,
+  techStack: string,
+): Promise<string | null> {
+  const sourceContext = Object.entries(generatedFiles)
+    .filter(
+      ([path]) =>
+        !path.endsWith(".test.ts") &&
+        !path.endsWith(".test.tsx") &&
+        !path.endsWith(".spec.ts") &&
+        !path.endsWith(".spec.tsx") &&
+        !path.endsWith(".json") &&
+        !path.endsWith(".md"),
+    )
+    .slice(0, 12)
+    .map(([path, content]) => `\n--- ${path} ---\n${content.slice(0, 1800)}`)
+    .join("\n");
+
+  const requirementList = requirements
+    .map((requirement) => `${requirement.id}: ${requirement.text}`)
+    .join("\n");
+
+  const result = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are AppForge's behavioral verification agent.
+Write ONE executable Vitest behavioral test file for the generated product.
+The suite must validate customer-observable behavior derived from the supplied requirements, not merely assert that files or strings exist.
+Every requirement ID MUST appear literally in the test file next to the behavior that proves it.
+Use the generated product's public components/functions/routes where possible.
+For React UI, use @testing-library/react and interact through the rendered UI.
+Mock only external network/payment/database boundaries; do not mock the product behavior being verified.
+Do not use tautological assertions such as expect(true).toBe(true).
+Output only TypeScript/TSX test source. Start with // filename: src/__tests__/requirements.behavior.test.tsx.`,
+      },
+      {
+        role: "user",
+        content: `Tech stack: ${techStack}
+
+Requirements:
+${requirementList}
+
+Generated source excerpts:
+${sourceContext}`,
+      },
+    ],
+  });
+
+  const content = result.choices[0]?.message?.content;
+  if (!content || typeof content !== "string") return null;
+  const cleaned = stripGeneratedTestEnvelope(content);
+  if (!cleaned) return null;
+  if (requirements.some((requirement) => !cleaned.includes(requirement.id))) {
+    return null;
+  }
+  return cleaned;
+}
+
 const VITEST_CONFIG = `// filename: vitest.config.ts
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
@@ -125,6 +215,7 @@ global.fetch = vi.fn();
 export async function attachGeneratedTests(
   generatedFiles: Record<string, string>,
   techStack: string,
+  requirementSource = "",
 ): Promise<Record<string, string>> {
   const testFiles: Record<string, string> = {};
   for (const [filename, content] of Object.entries(generatedFiles)) {
@@ -158,6 +249,26 @@ export async function attachGeneratedTests(
   ) {
     testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
   }
+
+  const requirements = deriveProductRequirements(requirementSource);
+  testFiles[".appforge/requirements.json"] = JSON.stringify(
+    {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      requirements,
+    },
+    null,
+    2,
+  );
+  const behavioralTest = await generateRequirementBehaviorTest(
+    requirements,
+    generatedFiles,
+    techStack,
+  );
+  if (behavioralTest) {
+    testFiles["src/__tests__/requirements.behavior.test.tsx"] = behavioralTest;
+  }
+
   ensureGeneratedTestDependencies(generatedFiles);
   return testFiles;
 }
