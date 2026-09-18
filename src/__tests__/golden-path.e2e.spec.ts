@@ -156,3 +156,24 @@ test("production certification uses isolated Fly remote build plus live browser 
   expect(production).toContain("verifyGeneratedAppInBrowser(liveUrl)");
   expect(production).toContain("Production deployment failed real browser verification");
 });
+
+
+test("requirement trace gate fails before build when evidence is missing", async () => {
+  const { validateGeneratedBuild } =
+    await import("../agents/buildValidator.js");
+
+  const result = await validateGeneratedBuild(
+    {
+      "package.json": JSON.stringify({
+        name: "missing-requirement-evidence",
+        scripts: { build: "vite build" },
+      }),
+    },
+    "react-node",
+    { requirementTraceRequired: true },
+  );
+
+  expect(result.passed).toBe(false);
+  expect(result.stage).toBe("requirements");
+  expect(result.errors.join(" ")).toContain("Requirement trace gate failed");
+});
