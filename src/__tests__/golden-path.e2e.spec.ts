@@ -82,9 +82,9 @@ test("production proof requires generated tests before deploy certification", as
   expect(testingAgent).toContain(
     'scripts.test = scripts.test ?? "vitest run"',
   );
-  expect(testingAgent).toContain("pkg.devDependencies.vitest");
+  expect(testingAgent).toContain("devDependencies.vitest");
   expect(testingAgent).toContain(
-    'pkg.devDependencies["@testing-library/react"]',
+    'devDependencies["@testing-library/react"]',
   );
   expect(canary).toContain("done.validationPassed !== true");
   expect(canary).toContain("done.testGateRequired !== true");
