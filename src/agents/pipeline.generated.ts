@@ -659,6 +659,7 @@ export async function runAgentPipeline(
           const testFiles = await attachGeneratedTests(
             generatedFiles,
             techStack,
+            description,
           );
           Object.assign(generatedFiles, testFiles);
           emit("Testing", "complete", {
@@ -689,6 +690,8 @@ export async function runAgentPipeline(
           techStack,
           {
             testsBlocking,
+            requirementsBlocking: testsBlocking,
+            requireIsolation: testsBlocking,
             validateBilling: mergeBilling,
           },
         );
