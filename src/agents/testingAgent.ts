@@ -60,8 +60,8 @@ const REQUIREMENT_MARKER = "APPFORGE_REQUIREMENT:REQ-001";
 
 function cleanGeneratedTest(content: string): string {
   return content
-    .replace(/^\`\`\`(?:tsx?|jsx?)?\s*/i, "")
-    .replace(/\s*\`\`\`\s*$/i, "")
+    .replace(/^```(?:tsx?|jsx?)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
     .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
     .trim();
 }
