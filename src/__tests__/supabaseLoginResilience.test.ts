@@ -18,4 +18,11 @@ describe("Supabase login resilience", () => {
     expect(authSource).not.toContain('session.refreshToken');
     expect(authSource).toContain('"x-supabase-refresh-token"');
   });
+
+  it("persists accessToken in sessionStorage so iOS navigations keep Authorization", () => {
+    expect(authSource).toContain('const ACCESS_TOKEN_KEY = "appforge.accessToken"');
+    expect(authSource).toContain("sessionStorage?.setItem(ACCESS_TOKEN_KEY");
+    expect(authSource).toContain("readStoredAccessToken");
+    expect(authSource).toContain("clearStoredAccessToken");
+  });
 });
