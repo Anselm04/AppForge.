@@ -55,7 +55,7 @@ export function csrfTokenHandler(_req: Request, res: Response): void {
     signed: true,
     httpOnly: true,
     secure: isProd,
-    sameSite: "strict",
+    sameSite: "lax",
     path: "/",
   });
   res.setHeader("Cache-Control", "no-store");
