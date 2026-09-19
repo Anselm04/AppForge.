@@ -91,10 +91,12 @@ function refreshTokenMaxAgeMs(): number {
 }
 
 function authCookieOptions() {
+  // SameSite=Lax: same-site top-level navigations + XHR on mobile Chrome/Safari.
+  // Strict was observed not to stick reliably for Anselm's iPhone (CriOS) after login.
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
+    sameSite: "lax" as const,
     path: "/",
   };
 }
@@ -104,16 +106,29 @@ export function setSessionCookies(
   accessToken: string,
   refreshToken?: string,
 ) {
+  const opts = authCookieOptions();
+  const accessMaxAge = accessTokenMaxAgeMs(accessToken);
   res.cookie(ACCESS_COOKIE, accessToken, {
-    ...authCookieOptions(),
-    maxAge: accessTokenMaxAgeMs(accessToken),
+    ...opts,
+    maxAge: accessMaxAge,
   });
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE, refreshToken, {
-      ...authCookieOptions(),
+      ...opts,
       maxAge: refreshTokenMaxAgeMs(),
     });
   }
+  logger.info(
+    {
+      accessCookie: ACCESS_COOKIE,
+      hasRefresh: Boolean(refreshToken),
+      sameSite: opts.sameSite,
+      secure: opts.secure,
+      path: opts.path,
+      accessMaxAgeMs: accessMaxAge,
+    },
+    "supabase_auth_session_cookies_set",
+  );
 }
 
 function clearSessionCookies(res: Response) {
