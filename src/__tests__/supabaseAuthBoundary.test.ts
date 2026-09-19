@@ -45,11 +45,12 @@ describe("Supabase server authentication boundary", () => {
 
   it("uses hardened server session cookies", () => {
     expect(middleware).toContain("httpOnly: true");
-    expect(middleware).toContain('sameSite: "strict"');
+    expect(middleware).toContain('sameSite: "lax"');
     expect(middleware).toContain(
       'secure: process.env.NODE_ENV === "production"',
     );
     expect(middleware).toContain('res.setHeader("Cache-Control", "no-store")');
+    expect(middleware).toContain("supabase_auth_session_cookies_set");
   });
 
   it("derives AppForge identity from the verified Supabase user", () => {
