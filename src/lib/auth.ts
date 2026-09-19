@@ -79,9 +79,21 @@ export function rememberAuthenticatedUser(user: {
   id: string;
   email?: string;
 }): AppForgeSession {
-  const session = { user };
+  // Preserve in-memory bearer from signIn until HttpOnly cookies hydrate.
+  // Wiping it here caused Generate to /login when cookie sync lagged or failed.
+  const existingToken = getSession()?.accessToken;
+  const session: AppForgeSession = existingToken
+    ? { accessToken: existingToken, user }
+    : { user };
   saveSession(session);
   return session;
+}
+
+/** Drop optimistic local user marker without clearing HttpOnly cookies. */
+export function clearClientUserMarker() {
+  cachedSession = null;
+  clearStoredUser();
+  emitSessionChange();
 }
 
 function sessionFromAuth(result: {
@@ -126,7 +138,7 @@ async function syncServerSessionBestEffort(
   } catch {
     // The SPA authenticates protected API calls with the validated Supabase
     // bearer token. A transient cookie/CSRF sync failure must not turn a valid
-    // Supabase login or refresh into a false "sign-in failed" result.
+    // Supabase login or refresh into a false sign-in failed result.
   }
 }
 
@@ -189,16 +201,81 @@ export function signOut() {
   }
 }
 
+/**
+ * Re-establish SPA session from cookies and/or the in-memory bearer from signIn.
+ * NEVER strip the bearer before the probe. v320 stripped it, then /api/auth/me
+ * ran cookie-only, got 401 when cookies had not landed, and bounced Generate to /login.
+ */
 export async function refreshSession(): Promise<AppForgeSession | null> {
-  const current = getSession();
-  if (!current) return null;
+  if (refreshInFlight) return refreshInFlight;
+  const generationAtStart = sessionGeneration;
 
-  // Refresh tokens live only in the server-managed HttpOnly cookie. Clearing the
-  // stale in-memory access token forces the next same-origin request to use the
-  // cookie path, where the server can refresh and rotate the session securely.
-  cachedSession = { user: current.user };
-  emitSessionChange();
-  return cachedSession;
+  refreshInFlight = (async () => {
+    try {
+      const current = getSession();
+      const bearer =
+        typeof current?.accessToken === "string" && current.accessToken.length > 0
+          ? current.accessToken
+          : null;
+
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (bearer) headers.Authorization = `Bearer ${bearer}`;
+
+      const res = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers,
+      });
+
+      if (generationAtStart !== sessionGeneration) return getSession();
+
+      if (!res.ok) {
+        // Keep a still-usable in-memory bearer across transient probe failures.
+        // Only clear when the server rejects auth AND we have no bearer to fall back on,
+        // or when the bearer we sent was itself rejected (true logout / revoked).
+        if (res.status === 401 || res.status === 403) {
+          if (bearer) {
+            // Bearer was sent and rejected — session is dead.
+            cachedSession = null;
+            clearStoredUser();
+            emitSessionChange();
+            return null;
+          }
+          cachedSession = null;
+          clearStoredUser();
+          emitSessionChange();
+        }
+        // Network/5xx: keep whatever session we had (including bearer).
+        return bearer && current ? current : getSession();
+      }
+
+      const body = (await res.json()) as {
+        id?: number | string;
+        email?: string;
+        name?: string;
+        supabaseUid?: string;
+      };
+      const uid =
+        (typeof body.supabaseUid === "string" && body.supabaseUid.length > 0
+          ? body.supabaseUid
+          : null) ||
+        (body.id != null ? String(body.id) : "");
+      if (!uid) return bearer && current ? current : null;
+
+      // rememberAuthenticatedUser preserves bearer from getSession().
+      return rememberAuthenticatedUser({
+        id: uid,
+        email: typeof body.email === "string" ? body.email : undefined,
+      });
+    } catch {
+      return getSession();
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
 }
 
 function accessTokenExpired(token: string, skewMs = 30_000): boolean {
@@ -217,15 +294,20 @@ function accessTokenExpired(token: string, skewMs = 30_000): boolean {
 
 export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   const session = getSession();
-  if (!session) return null;
 
-  if (!session.accessToken || accessTokenExpired(session.accessToken)) {
-    cachedSession = { user: session.user };
-    emitSessionChange();
-    return cachedSession;
+  // Fresh bearer from signIn wins — never strip it for a cookie probe.
+  if (session?.accessToken && !accessTokenExpired(session.accessToken)) {
+    return session;
   }
 
-  return session;
+  // No fresh bearer (reload / expired JWT): hydrate via cookies and/or probe.
+  // refreshSession keeps any remaining bearer until the server rejects it.
+  const hydrated = await refreshSession();
+  if (hydrated) return hydrated;
+
+  // Do not resurrect a localStorage-only marker after refresh proved auth dead.
+  // That made Home call projects.create, get UNAUTHORIZED, then bounce to /login.
+  return null;
 }
 
 /**
@@ -305,9 +387,15 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(
-    session.accessToken!,
-    result.refresh_token,
-  );
+  // Prefer cookies AND bearer. Retry cookie sync once; never drop the bearer
+  // if sync fails — Generate must still authenticate via Authorization.
+  try {
+    await syncServerSession(session.accessToken!, result.refresh_token);
+  } catch {
+    await syncServerSessionBestEffort(
+      session.accessToken!,
+      result.refresh_token,
+    );
+  }
   return session;
 }
