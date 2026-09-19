@@ -91,8 +91,6 @@ function refreshTokenMaxAgeMs(): number {
 }
 
 function authCookieOptions() {
-  // SameSite=Lax: same-site top-level navigations + XHR on mobile Chrome/Safari.
-  // Strict was observed not to stick reliably for Anselm's iPhone (CriOS) after login.
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -138,7 +136,6 @@ function clearSessionCookies(res: Response) {
 
 function isSessionEndpoint(req: Request): boolean {
   const raw = (req.originalUrl || req.url || "").split("?", 1)[0];
-  // Mounted at /api so req.path/url may be /auth/session while originalUrl is /api/auth/session.
   return (
     raw === SESSION_PATH ||
     raw === "/auth/session" ||
@@ -277,7 +274,8 @@ export async function supabaseAuthMiddleware(
       (email ? email.split("@")[0] : "user");
     const picture = authUser.user_metadata?.["avatar_url"] ?? null;
 
-    const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
+    const { ensureUserCredits } = await import("../db.js");
+    const { upsertUserFromAuth } = await import("../db/upsertUserFromAuth.js");
     const dbUser = await upsertUserFromAuth({
       openId: supabaseUid,
       email,
@@ -293,10 +291,6 @@ export async function supabaseAuthMiddleware(
       return next();
     }
 
-    // Provision the internal AppForge access row as part of authentication,
-    // before the client asks for tierStatus. Previously a brand-new user could
-    // appear to have zero credits until project creation, which incorrectly
-    // surfaced the payment wall even though new users receive free credits.
     await ensureUserCredits(dbUser.id);
 
     req.user = {
@@ -309,7 +303,6 @@ export async function supabaseAuthMiddleware(
     if (isSessionEndpoint(req) && req.method === "POST") {
       setSessionCookies(res, token, refreshToken);
       res.setHeader("Cache-Control", "no-store");
-      // 200 (not 204): clients and Fly access logs treat success uniformly.
       return res.status(200).json({
         ok: true,
         userId: dbUser.id,
@@ -319,8 +312,6 @@ export async function supabaseAuthMiddleware(
   } catch (err) {
     logger.error({ error: err }, "supabase_auth_verification_failed");
     if (isSessionEndpoint(req) && req.method === "POST") {
-      // Do NOT mask DB/upsert failures as 401 — that looked like "login cookie
-      // sync failing" on iPhone while Supabase JWT verification had succeeded.
       res.setHeader("Cache-Control", "no-store");
       return res.status(500).json({
         error: "Unable to establish session",
