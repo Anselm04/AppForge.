@@ -69,13 +69,10 @@ export async function consumeAuthedSse(
 ): Promise<void> {
   await ensureFreshSession();
 
-  const open = async (retried: boolean): Promise<Response> => {
-    const token = getAccessToken();
-    if (!token) {
-      const err = new Error("Not authenticated");
-      (err as Error & { status?: number }).status = 401;
-      throw err;
-    }
+  const open = async (attempt: number): Promise<Response> => {
+    // Prefer bearer when present; otherwise rely on HttpOnly session cookies.
+    // Requiring an in-memory JWT broke Generate→Build after the cookie auth model:
+    // page loads / ensureFreshSession cleared the bearer and SSE threw 401 → login loop.
     const headers = new Headers();
     applyAuthHeaders(headers);
     const res = await fetch(path, {
@@ -85,14 +82,20 @@ export async function consumeAuthedSse(
       signal,
       cache: "no-store",
     });
-    if (res.status === 401 && !retried) {
+    if (res.status === 401 && attempt < 2) {
       const refreshed = await refreshSession();
-      if (refreshed) return open(true);
+      if (refreshed) return open(attempt + 1);
+    }
+    // Race: create just claimed the build but status briefly still pending.
+    if (res.status === 202 && attempt < 8) {
+      await new Promise((r) => setTimeout(r, 500 + attempt * 200));
+      if (signal?.aborted) return res;
+      return open(attempt + 1);
     }
     return res;
   };
 
-  const res = await open(false);
+  const res = await open(0);
   if (signal?.aborted) return;
   if (res.status === 401) {
     const err = new Error("Not authenticated");
