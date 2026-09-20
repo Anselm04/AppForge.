@@ -21,6 +21,32 @@ function expectInOrder(text: string, markers: string[]) {
 }
 
 describe("critical customer flow contract", () => {
+  it("locks the tester-ready shell and owner entitlement contract", () => {
+    const home = source("../pages/Home.tsx");
+    const nav = source("../components/TopNav.tsx");
+    const projects = source("../routers/projects.ts");
+
+    // Customer landing page stays prompt-only. Stack/capability choices remain
+    // internal to AppForge and must never be re-exposed by a branding change.
+    expect(home).not.toContain("<select");
+    expect(home).not.toContain("<CapabilityPicker");
+    expect(home).not.toContain("BuildPurposeStatement");
+    expect(home).toContain("INTERNAL_DEFAULT_STACK");
+    expect(home).toContain("Owner account · Unlimited lifetime access");
+
+    // Mobile tester controls are release-critical.
+    expect(nav).toContain("<LanguageSwitcher");
+    expect(nav).toContain("<ThemeToggle");
+    expect(nav).toContain('go("/admin")');
+    expect(nav).toContain('data-testid="mobile-nav-controls"');
+    expect(nav).toContain("h-[100dvh]");
+
+    // Owner/lifetime access overrides customer subscription limits.
+    expect(projects).toContain('const tier = unlimited ? "lifetime" : subscriptionTier;');
+    expect(projects).toContain("const isPaid = unlimited || subscriptionPaid;");
+    expect(projects).toContain("reservationCharged = !unlimited");
+  });
+
   it("preserves signup destination through confirmation and login", () => {
     const auth = source("../lib/auth.ts");
     const signup = source("../pages/Signup.tsx");
