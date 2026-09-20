@@ -25,6 +25,51 @@ import {
 } from "../lib/revenueReadiness.js";
 import { trpc } from "../utils/trpc.js";
 
+const TECH_STACKS = [
+  "react-node",
+  "react-python",
+  "vue-node",
+  "svelte-node",
+  "next-node",
+  "angular-node",
+  "vanilla-node",
+  "react-django",
+  "react-supabase",
+  "remix-node",
+  "astro-node",
+  "phaser-html5",
+  "three-js-3d",
+  "babylon-js-3d",
+  "unity-webgl",
+  "godot-html5",
+  "react-native-game",
+  "flutter-game",
+  "ai-agent-python",
+  "ai-agent-node",
+  "openai-tool",
+  "langchain-tool",
+  "crewai-agent",
+  "autogen-agent",
+  "electron-react",
+  "tauri-rust",
+  "react-native-expo",
+  "flutter-firebase",
+  "capacitor-ionic",
+  "chrome-extension",
+  "vscode-extension",
+  "discord-bot",
+  "telegram-bot",
+  "slack-bot",
+  "browser-automation",
+  "web-scraper",
+  "data-visualization",
+  "api-service",
+  "serverless-aws",
+  "serverless-vercel",
+] as const;
+
+const INTERNAL_DEFAULT_STACK: (typeof TECH_STACKS)[number] = PRODUCTION_READY_STACK;
+
 export function Home() {
   const [description, setDescription] = useState(() => readPromptDraft());
   const [isBuilding, setIsBuilding] = useState(false);
@@ -64,7 +109,7 @@ export function Home() {
       trpc.projects.create.mutate({
         title: description.slice(0, 60) || "Untitled App",
         description,
-        techStack: PRODUCTION_READY_STACK,
+        techStack: INTERNAL_DEFAULT_STACK,
         hcaptchaToken: hcaptchaToken ?? undefined,
         locale,
         buildCapabilities:
