@@ -88,8 +88,11 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
     queryFn: () => trpc.projects.tierStatus.query(),
   });
   const creditBalance = tierStatus?.credits ?? 0;
+  const unlimited = tierStatus?.unlimited ?? false;
   const outOfCredits =
-    tierStatus !== undefined && creditBalance < SENIOR_DEV_CREDIT_COST;
+    tierStatus !== undefined &&
+    !unlimited &&
+    creditBalance < SENIOR_DEV_CREDIT_COST;
 
   const handleStart = async () => {
     if (!request.trim() || outOfCredits) return;
@@ -139,7 +142,9 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
           ? "Paused — out of credits"
           : isLoading && stage === "planning"
             ? "Analysing..."
-            : `Start (${SENIOR_DEV_CREDIT_COST} credits)`}
+            : unlimited
+              ? "Start (Owner — unlimited)"
+              : `Start (${SENIOR_DEV_CREDIT_COST} credits)`}
       </button>
 
       {(outOfCredits || (error && /credit/i.test(error))) && (
