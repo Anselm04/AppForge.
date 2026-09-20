@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabaseClient } from "./supabase-client";
-import { withCsrfHeaders } from "./csrf";
+import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
 const listeners = new Set<() => void>();
@@ -30,7 +30,9 @@ function readStoredUser(): { id: string; email?: string } | null {
     const raw = globalThis.localStorage?.getItem(USER_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw) as { id?: string; email?: string };
-    return typeof user.id === "string" ? { id: user.id, email: user.email } : null;
+    return typeof user.id === "string"
+      ? { id: user.id, email: user.email }
+      : null;
   } catch {
     return null;
   }
@@ -100,16 +102,28 @@ async function syncServerSession(
   accessToken: string,
   refreshToken?: string,
 ): Promise<void> {
-  const headers = await withCsrfHeaders({
-    Authorization: `Bearer ${accessToken}`,
-    Accept: "application/json",
-    ...(refreshToken ? { "x-supabase-refresh-token": refreshToken } : {}),
-  });
-  const res = await fetch("/api/auth/session", {
-    method: "POST",
-    credentials: "same-origin",
-    headers,
-  });
+  const post = async (): Promise<Response> => {
+    const headers = await withCsrfHeaders({
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      ...(refreshToken ? { "x-supabase-refresh-token": refreshToken } : {}),
+    });
+    return fetch("/api/auth/session", {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+    });
+  };
+
+  let res = await post();
+  // A stale/rotated CSRF token yields 403 EBADCSRFTOKEN. Refetch the token once
+  // and retry so a transient CSRF mismatch cannot silently prevent the secure
+  // HttpOnly session cookie from being established (which later 401s the build
+  // request and bounced users back to login).
+  if (res.status === 403) {
+    clearCsrfToken();
+    res = await post();
+  }
   if (!res.ok) {
     throw new Error(
       `Failed to establish secure browser session (${res.status})`,
@@ -272,10 +286,7 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   };
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(
-    accessToken,
-    refreshToken || undefined,
-  );
+  await syncServerSessionBestEffort(accessToken, refreshToken || undefined);
   return session;
 }
 
@@ -305,9 +316,6 @@ export async function signIn(
   }
   sessionGeneration += 1;
   saveSession(session);
-  await syncServerSessionBestEffort(
-    session.accessToken!,
-    result.refresh_token,
-  );
+  await syncServerSessionBestEffort(session.accessToken!, result.refresh_token);
   return session;
 }

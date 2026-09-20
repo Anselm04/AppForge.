@@ -189,11 +189,21 @@ export function validateEnv(
     );
   }
 
-  if (isProduction && !config.STRIPE_SECRET_KEY) {
-    errors.push("STRIPE_SECRET_KEY is required in production");
+  // Billing is OPTIONAL for the core product. The platform must boot and allow
+  // sign-up, login, building and deploying even when Stripe is not configured.
+  // If the operator HAS enabled billing (STRIPE_SECRET_KEY present), then the
+  // rest of the billing configuration must be complete — a half-configured
+  // payment system is dangerous, so those stay hard errors.
+  const billingEnabled = Boolean(config.STRIPE_SECRET_KEY);
+  if (isProduction && !billingEnabled) {
+    warnings.push(
+      "STRIPE_SECRET_KEY not set. Billing/credits are disabled; core sign-up, login, build and deploy still work.",
+    );
   }
-  if (isProduction && !config.STRIPE_WEBHOOK_SECRET) {
-    errors.push("STRIPE_WEBHOOK_SECRET is required in production");
+  if (billingEnabled && !config.STRIPE_WEBHOOK_SECRET) {
+    errors.push(
+      "STRIPE_WEBHOOK_SECRET is required when Stripe billing is enabled (STRIPE_SECRET_KEY is set)",
+    );
   }
   if (config.STRIPE_SECRET_KEY && !config.STRIPE_SECRET_KEY.startsWith("sk_")) {
     errors.push("Invalid STRIPE_SECRET_KEY format. Should start with sk_");
@@ -215,18 +225,22 @@ export function validateEnv(
   );
   if (missingBillingPriceIds.length > 0) {
     const message = `Missing Stripe billing price IDs: ${missingBillingPriceIds.join(", ")}`;
-    if (isProduction) {
+    // Only a hard error when billing is actually enabled. Without a Stripe
+    // secret key the catalog is irrelevant and must not block startup.
+    if (billingEnabled) {
       errors.push(message);
-    } else if (config.STRIPE_SECRET_KEY) {
-      warnings.push(message);
+    } else if (isProduction) {
+      warnings.push(`${message} (billing disabled — informational only).`);
     }
   }
 
-  // AppForge production runs more than one Fly Machine. Redis is therefore a
-  // correctness dependency, not an optional optimisation.
+  // AppForge scales horizontally with Redis, but a single-machine production
+  // deployment is a valid, supported configuration. Missing Redis therefore
+  // degrades gracefully to in-memory coordination instead of blocking startup
+  // (which previously made sign-up/login/build impossible on first deploy).
   if (isProduction && !config.REDIS_URL) {
-    errors.push(
-      "REDIS_URL is required in production for shared multi-machine coordination",
+    warnings.push(
+      "REDIS_URL not set. Running in single-machine mode (in-memory rate limiting and build events). Set REDIS_URL for multi-machine/horizontal scaling.",
     );
   }
   if (
@@ -315,7 +329,12 @@ export function validateEnv(
       "No deploy provider configured (VERCEL_TOKEN / NETLIFY_AUTH_TOKEN / FLY_API_TOKEN). ZIP + live preview still work.",
     );
   }
-  if (isProduction && !config.APP_URL && !config.PUBLIC_APP_URL && !config.CORS_ORIGIN) {
+  if (
+    isProduction &&
+    !config.APP_URL &&
+    !config.PUBLIC_APP_URL &&
+    !config.CORS_ORIGIN
+  ) {
     warnings.push(
       "APP_URL, PUBLIC_APP_URL or CORS_ORIGIN recommended for signed live-preview and redirect links.",
     );
@@ -347,10 +366,10 @@ export function getEnvSummary(
   );
   const authReady = Boolean(
     (config.VITE_SUPABASE_URL || config.SUPABASE_URL) &&
-      (config.SUPABASE_SERVICE_ROLE_KEY ||
-        config.VITE_SUPABASE_PUBLISHABLE_KEY ||
-        config.VITE_SUPABASE_ANON_KEY ||
-        config.SUPABASE_ANON_KEY),
+    (config.SUPABASE_SERVICE_ROLE_KEY ||
+      config.VITE_SUPABASE_PUBLISHABLE_KEY ||
+      config.VITE_SUPABASE_ANON_KEY ||
+      config.SUPABASE_ANON_KEY),
   );
 
   return [

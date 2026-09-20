@@ -39,6 +39,33 @@ describe("production environment validation", () => {
     expect(result.errors.join("\n")).toContain("STRIPE_CREDITS_250_PRICE_ID");
   });
 
+  it("boots for core sign-up/login/build without Stripe or Redis configured", () => {
+    const {
+      REDIS_URL: _redis,
+      STRIPE_SECRET_KEY: _sk,
+      STRIPE_WEBHOOK_SECRET: _whsec,
+      STRIPE_STARTER_PRICE_ID: _p1,
+      STRIPE_BUILDER_PRICE_ID: _p2,
+      STRIPE_STUDIO_PRICE_ID: _p3,
+      STRIPE_CREDITS_50_PRICE_ID: _p4,
+      STRIPE_CREDITS_100_PRICE_ID: _p5,
+      STRIPE_CREDITS_250_PRICE_ID: _p6,
+      ...coreOnly
+    } = baseProductionEnv;
+    const result = validateEnv(coreOnly);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("requires the Stripe webhook secret only when billing is enabled", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      STRIPE_WEBHOOK_SECRET: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("STRIPE_WEBHOOK_SECRET");
+  });
+
   it("does not require obsolete Stripe payment links", () => {
     const result = validateEnv(baseProductionEnv);
     expect(result.errors.join("\n")).not.toContain("PAYMENT_LINK");
@@ -46,7 +73,8 @@ describe("production environment validation", () => {
   });
 
   it("accepts any provider supported by the runtime instead of requiring Forge", () => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } =
+      baseProductionEnv;
     const result = validateEnv({
       ...withoutForge,
       GROQ_API_KEY: "gsk_" + "g".repeat(40),
@@ -57,7 +85,8 @@ describe("production environment validation", () => {
   });
 
   it("fails production readiness when no supported AI provider exists", () => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutProvider } = baseProductionEnv;
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutProvider } =
+      baseProductionEnv;
     const result = validateEnv(withoutProvider);
 
     expect(result.valid).toBe(false);
@@ -71,7 +100,8 @@ describe("production environment validation", () => {
     ["OPENAI_API_KEY", "openai-key"],
     ["OPENAI_COMPAT_BASE_URL", "https://llm.example.com"],
   ] as const)("recognizes %s as an AI provider source", (key, value) => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } =
+      baseProductionEnv;
     const result = validateEnv({ ...withoutForge, [key]: value });
     expect(result.errors.join("\n")).not.toContain("No AI provider configured");
   });
