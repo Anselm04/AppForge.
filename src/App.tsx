@@ -32,6 +32,9 @@ import { Signup } from "./pages/Signup.js";
 import { OrgSettings } from "./pages/OrgSettings.js";
 import { SsoCallback } from "./pages/SsoCallback.js";
 import { Redeem } from "./pages/Redeem.js";
+import { Account } from "./pages/Account.js";
+import { ForgotPassword } from "./pages/ForgotPassword.js";
+import { PasswordReset } from "./pages/PasswordReset.js";
 
 function AppShell() {
   const { locale, dir } = useLocale();
@@ -49,6 +52,9 @@ function AppShell() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/settings/org" element={<OrgSettings />} />
           <Route path="/redeem" element={<Redeem />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/password-reset" element={<PasswordReset />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/tools" element={<PluginWorkspace />} />
           <Route path="/build/:projectId" element={<Build />} />
