@@ -42,7 +42,9 @@ describe("critical customer flow contract", () => {
     expect(nav).toContain("h-[100dvh]");
 
     // Owner/lifetime access overrides customer subscription limits.
-    expect(projects).toContain('const tier = unlimited ? "lifetime" : subscriptionTier;');
+    expect(projects).toContain(
+      'const tier = unlimited ? "lifetime" : subscriptionTier;',
+    );
     expect(projects).toContain("const isPaid = unlimited || subscriptionPaid;");
     expect(projects).toContain("reservationCharged = !unlimited");
   });
@@ -57,7 +59,9 @@ describe("critical customer flow contract", () => {
     expect(app).toContain('path="/forgot-password"');
     expect(app).toContain('path="/password-reset"');
     expect(supabase).toContain("requestPasswordReset(email: string)");
-    expect(supabase).toContain("updatePassword(accessToken: string, password: string)");
+    expect(supabase).toContain(
+      "updatePassword(accessToken: string, password: string)",
+    );
   });
 
   it("preserves signup destination through confirmation and login", () => {
