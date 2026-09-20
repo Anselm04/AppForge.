@@ -5,7 +5,11 @@ import {
   getAccessToken,
   loginPathWithReturn,
 } from "../auth.js";
-import { parseSseFrame, readSseBody } from "../authedSse.js";
+import {
+  consumeAuthedSse,
+  parseSseFrame,
+  readSseBody,
+} from "../authedSse.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
@@ -63,6 +67,42 @@ describe("generate auth helpers", () => {
     expect(session?.user.id).toBe("u1");
     expect(getAccessToken()).toBeNull();
     expect(window.localStorage.getItem("appforge.session")).toBeNull();
+  });
+
+  it("allows cookie-authenticated SSE when no browser bearer token is available", async () => {
+    window.localStorage.setItem(
+      "appforge.user",
+      JSON.stringify({ id: "u1", email: "owner@example.com" }),
+    );
+
+    const encoder = new TextEncoder();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode('event: done\ndata: {"ok":true}\n\n'),
+            );
+            controller.close();
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        },
+      ),
+    );
+
+    const events: Array<{ event: string; data: string }> = [];
+    await consumeAuthedSse("/api/build/123", (event, data) => {
+      events.push({ event, data });
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options?.credentials).toBe("same-origin");
+    expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+    expect(events).toEqual([{ event: "done", data: '{"ok":true}' }]);
   });
 
   it("parses SSE agent frames used by generate", () => {
