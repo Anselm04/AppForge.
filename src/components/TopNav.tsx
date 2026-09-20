@@ -363,7 +363,7 @@ export function TopNav() {
             role="dialog"
             aria-modal="true"
             aria-label={t("nav.menu")}
-            className="fixed inset-y-0 end-0 z-[70] w-[min(20rem,86vw)] bg-forge-bg border-s border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden"
+            className="fixed top-0 right-0 bottom-0 z-[70] h-[100dvh] w-[min(20rem,86vw)] bg-forge-bg border-l border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-forge-border shrink-0">
               <span className="flex items-center gap-2 font-display text-lg font-medium text-[color:var(--forge-heading)]">
@@ -386,7 +386,7 @@ export function TopNav() {
                 <CloseIcon />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-2 bg-forge-bg" data-testid="mobile-nav-controls">
               <NavChrome stacked {...chrome} />
             </div>
           </div>
