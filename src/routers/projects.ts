@@ -167,10 +167,14 @@ export const projectsRouter = router({
         });
       }
 
-      // Backend tier enforcement
+      // Backend tier/credit enforcement. The configured owner is provisioned
+      // as unlimited by ensureUserCredits, so maker testing is never blocked
+      // by customer billing limits.
+      const credits = await ensureUserCredits(ctx.user.id);
+      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
       const tier = await getUserTier(ctx.user.id);
       const limit = getTierBuildLimit(tier);
-      if (limit !== null) {
+      if (!unlimited && limit !== null) {
         const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
         if (buildsThisMonth >= limit) {
           throw new TRPCError({
@@ -180,8 +184,6 @@ export const projectsRouter = router({
         }
       }
 
-      const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
       if (!unlimited && credits.balance < BUILD_CREDIT_COST) {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -269,17 +271,20 @@ export const projectsRouter = router({
     const tier = await getUserTier(ctx.user.id);
     const isPaid = await isUserPro(ctx.user.id);
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
-    const { getUserCredits } = await import("../db.js");
-    const credits = await getUserCredits(ctx.user.id);
+    const credits = await ensureUserCredits(ctx.user.id);
+    const unlimited = !!credits.unlimited || credits.tier === "lifetime";
     const limit = getTierBuildLimit(tier);
     return {
       tier,
       isPaid,
       buildsThisMonth,
-      limit,
-      remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
-      credits: credits?.balance ?? 0,
-      unlimited: !!credits?.unlimited || tier === "lifetime",
+      limit: unlimited ? null : limit,
+      remaining:
+        unlimited || limit === null
+          ? null
+          : Math.max(0, limit - buildsThisMonth),
+      credits: credits.balance,
+      unlimited,
     };
   }),
 
@@ -497,7 +502,12 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
 
       const seniorCredits = await ensureUserCredits(ctx.user.id);
-      if (seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
+      const seniorUnlimited =
+        !!seniorCredits.unlimited || seniorCredits.tier === "lifetime";
+      if (
+        !seniorUnlimited &&
+        seniorCredits.balance < SENIOR_DEV_CREDIT_COST
+      ) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: `credits_exhausted: Out of credits (${seniorCredits.balance}/${SENIOR_DEV_CREDIT_COST}). Subscribe or buy extra credits to use the Senior Dev Agent.`,
