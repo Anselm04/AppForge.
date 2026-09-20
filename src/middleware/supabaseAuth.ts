@@ -94,7 +94,7 @@ function authCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
+    sameSite: "lax" as const,
     path: "/",
   };
 }
@@ -104,16 +104,29 @@ export function setSessionCookies(
   accessToken: string,
   refreshToken?: string,
 ) {
+  const opts = authCookieOptions();
+  const accessMaxAge = accessTokenMaxAgeMs(accessToken);
   res.cookie(ACCESS_COOKIE, accessToken, {
-    ...authCookieOptions(),
-    maxAge: accessTokenMaxAgeMs(accessToken),
+    ...opts,
+    maxAge: accessMaxAge,
   });
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE, refreshToken, {
-      ...authCookieOptions(),
+      ...opts,
       maxAge: refreshTokenMaxAgeMs(),
     });
   }
+  logger.info(
+    {
+      accessCookie: ACCESS_COOKIE,
+      hasRefresh: Boolean(refreshToken),
+      sameSite: opts.sameSite,
+      secure: opts.secure,
+      path: opts.path,
+      accessMaxAgeMs: accessMaxAge,
+    },
+    "supabase_auth_session_cookies_set",
+  );
 }
 
 function clearSessionCookies(res: Response) {
@@ -122,8 +135,12 @@ function clearSessionCookies(res: Response) {
 }
 
 function isSessionEndpoint(req: Request): boolean {
-  const url = req.originalUrl || req.url || "";
-  return url.split("?", 1)[0] === SESSION_PATH;
+  const raw = (req.originalUrl || req.url || "").split("?", 1)[0];
+  return (
+    raw === SESSION_PATH ||
+    raw === "/auth/session" ||
+    raw.endsWith("/auth/session")
+  );
 }
 
 async function verifyAccessToken(token: string): Promise<User | null> {
@@ -213,8 +230,19 @@ export async function supabaseAuthMiddleware(
 
   if (!token || !authUser) {
     if (isSessionEndpoint(req) && req.method === "POST") {
+      logger.warn(
+        {
+          hasAccessToken: Boolean(token),
+          hasRefreshToken: Boolean(refreshToken),
+          hasAuthHeader: Boolean(req.headers.authorization),
+        },
+        "supabase_auth_session_rejected",
+      );
       res.setHeader("Cache-Control", "no-store");
-      return res.status(401).json({ error: "Not authenticated" });
+      return res.status(401).json({
+        error: "Not authenticated",
+        code: "AUTH_REQUIRED",
+      });
     }
     return next();
   }
@@ -246,7 +274,8 @@ export async function supabaseAuthMiddleware(
       (email ? email.split("@")[0] : "user");
     const picture = authUser.user_metadata?.["avatar_url"] ?? null;
 
-    const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
+    const { ensureUserCredits } = await import("../db.js");
+    const { upsertUserFromAuth } = await import("../db/upsertUserFromAuth.js");
     const dbUser = await upsertUserFromAuth({
       openId: supabaseUid,
       email,
@@ -262,10 +291,6 @@ export async function supabaseAuthMiddleware(
       return next();
     }
 
-    // Provision the internal AppForge access row as part of authentication,
-    // before the client asks for tierStatus. Previously a brand-new user could
-    // appear to have zero credits until project creation, which incorrectly
-    // surfaced the payment wall even though new users receive free credits.
     await ensureUserCredits(dbUser.id);
 
     req.user = {
@@ -278,12 +303,20 @@ export async function supabaseAuthMiddleware(
     if (isSessionEndpoint(req) && req.method === "POST") {
       setSessionCookies(res, token, refreshToken);
       res.setHeader("Cache-Control", "no-store");
-      return res.status(204).end();
+      return res.status(200).json({
+        ok: true,
+        userId: dbUser.id,
+        supabaseUid,
+      });
     }
   } catch (err) {
     logger.error({ error: err }, "supabase_auth_verification_failed");
     if (isSessionEndpoint(req) && req.method === "POST") {
-      return res.status(401).json({ error: "Not authenticated" });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(500).json({
+        error: "Unable to establish session",
+        code: "SESSION_UPSERT_FAILED",
+      });
     }
   }
 
