@@ -5,11 +5,7 @@ import {
   getAccessToken,
   loginPathWithReturn,
 } from "../auth.js";
-import {
-  consumeAuthedSse,
-  parseSseFrame,
-  readSseBody,
-} from "../authedSse.js";
+import { consumeAuthedSse, parseSseFrame, readSseBody } from "../authedSse.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
