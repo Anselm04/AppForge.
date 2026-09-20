@@ -3,6 +3,7 @@ import postgres from "postgres";
 import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { isOwnerEmail } from "./lib/owner.js";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -362,18 +363,49 @@ export async function getUserCredits(userId: number) {
 }
 
 export async function ensureUserCredits(userId: number) {
+  const user = await getUserById(userId);
+  const owner = isOwnerEmail(user?.email);
+
   const existing = await getUserCredits(userId);
-  if (existing) return existing;
+  if (existing) {
+    if (owner && !existing.unlimited) {
+      const [updated] = await db
+        .update(schema.userCredits)
+        .set({ unlimited: true, updatedAt: new Date() })
+        .where(eq(schema.userCredits.id, existing.id))
+        .returning();
+      return updated ?? { ...existing, unlimited: true };
+    }
+    return existing;
+  }
 
   // Concurrent first requests must not race into duplicate rows/credits.
+  // The configured AppForge owner is provisioned as unlimited automatically;
+  // customer credit balances and billing rules remain unchanged.
   await db
     .insert(schema.userCredits)
-    .values({ userId, balance: 20, tier: "free", monthlyAllowance: 3 })
+    .values({
+      userId,
+      balance: 20,
+      tier: "free",
+      monthlyAllowance: 3,
+      unlimited: owner,
+    })
     .onConflictDoNothing({ target: schema.userCredits.userId });
 
   const created = await getUserCredits(userId);
   if (!created)
     throw new Error(`Failed to initialize credits for user ${userId}`);
+
+  if (owner && !created.unlimited) {
+    const [updated] = await db
+      .update(schema.userCredits)
+      .set({ unlimited: true, updatedAt: new Date() })
+      .where(eq(schema.userCredits.id, created.id))
+      .returning();
+    return updated ?? { ...created, unlimited: true };
+  }
+
   return created;
 }
 
