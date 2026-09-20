@@ -291,6 +291,33 @@ Must be recoverable:
 - Generated requirement manifest, executable tests, source snapshot, and artifact SHA-256 certification evidence.
 - A Docker isolation runtime as an independently controlled alternative where the production architecture provides it.
 
+
+## Browser authentication continuity recovery
+
+Recovery invariant reviewed 20 September 2026:
+
+- Supabase refresh credentials remain server-managed in Secure/HttpOnly cookies and must never be copied back into localStorage.
+- The current browser-tab/session bearer token may be mirrored in sessionStorage so a normal page reload does not erase the credential required by `auth.me`, protected API calls, and server-side owner recognition.
+- The durable localStorage record contains only the non-secret user identity used for UI continuity. It must not be treated as proof of authentication or owner status.
+- Owner/Admin authorization remains server-derived through `auth.me.isOwner` and `ownerOnlyProcedure`; a client-stored email or user record must never grant owner access.
+- When a bearer token is expired or rejected, AppForge removes the sessionStorage bearer and falls back to the server HttpOnly session/refresh-cookie path. Sign-out clears both the user continuity record and the browser-session bearer.
+
+Verification target:
+
+- Sign in as a confirmed user, reload the same browser tab, and confirm protected `auth.me` remains authenticated.
+- Sign in as the canonical owner, reload the page, and confirm the server again reports `isOwner: true` and the Admin navigation remains visible.
+- Close the browser session and confirm no refresh token exists in Web Storage.
+- Expire/reject the bearer and confirm AppForge removes the stale sessionStorage token and uses the secure server cookie refresh path rather than trusting the local user record.
+- Confirm a non-owner cannot obtain Admin access by editing localStorage or sessionStorage.
+
+Must be recoverable:
+
+- Supabase project ownership and public client configuration.
+- Server-side access/refresh cookie behavior and rotation.
+- The browser-session access-token continuity contract.
+- Canonical owner authorization logic and owner-only server procedures.
+
+
 ## AI providers and automation services
 
 Must be recoverable:
