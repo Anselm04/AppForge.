@@ -25,7 +25,7 @@ export function LogoMark({
   const s = SIZE_MAP[size];
   return (
     <img
-      src="/branding/logo-mark.svg"
+      src="/branding/logo-mark.png"
       alt=""
       width={s.px}
       height={s.px}
