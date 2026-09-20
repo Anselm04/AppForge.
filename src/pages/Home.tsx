@@ -213,7 +213,7 @@ export function Home() {
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-12">
           <img
-            src="/appforge-logo.png"
+            src="/branding/logo-mark.svg"
             alt="AppForge"
             width={192}
             height={192}
