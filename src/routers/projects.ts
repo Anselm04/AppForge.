@@ -268,17 +268,21 @@ export const projectsRouter = router({
     }),
 
   tierStatus: protectedProcedure.query(async ({ ctx }) => {
-    const tier = await getUserTier(ctx.user.id);
-    const isPaid = await isUserPro(ctx.user.id);
+    const subscriptionTier = await getUserTier(ctx.user.id);
+    const subscriptionPaid = await isUserPro(ctx.user.id);
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
     const credits = await ensureUserCredits(ctx.user.id);
     const unlimited = !!credits.unlimited || credits.tier === "lifetime";
-    const limit = getTierBuildLimit(tier);
+    // Lifetime/owner entitlement is authoritative over the Stripe tier. This
+    // prevents the owner from being presented as "free" or sent to checkout.
+    const tier = unlimited ? "lifetime" : subscriptionTier;
+    const isPaid = unlimited || subscriptionPaid;
+    const limit = unlimited ? null : getTierBuildLimit(subscriptionTier);
     return {
       tier,
       isPaid,
       buildsThisMonth,
-      limit: unlimited ? null : limit,
+      limit,
       remaining:
         unlimited || limit === null
           ? null
