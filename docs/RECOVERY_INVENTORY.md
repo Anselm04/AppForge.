@@ -112,6 +112,11 @@ Verification target:
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
 
+Recovery review 20 September 2026:
+- The Alpine production builder still performs a clean `npm ci --ignore-scripts` from the committed lockfile.
+- The Rollup musl native package is now fetched with `npm pack` and extracted directly into `node_modules` instead of running a second `npm install` that can fail inside npm Arborist after the clean install.
+- Recovery verification must continue to rebuild the Docker builder stage from scratch; the direct package extraction is part of that reproducible build contract and must not rely on a developer-machine cache or pre-existing `node_modules`.
+
 ## Shared Redis two-Machine coordination
 
 Recovery invariant reviewed 16 September 2026:
