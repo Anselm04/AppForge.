@@ -166,6 +166,13 @@ function NavChrome({
           </button>
           <button
             type="button"
+            onClick={() => go("/redeem")}
+            className={item}
+          >
+            Redeem code
+          </button>
+          <button
+            type="button"
             onClick={() => go("/templates")}
             className={item}
           >
