@@ -19,7 +19,10 @@ RUN apk add --no-cache python3 make g++ linux-headers
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts \
   && ROLLUP_VERSION="$(node -p "require('./node_modules/rollup/package.json').version")" \
-  && npm install --no-save --package-lock=false --ignore-scripts "@rollup/rollup-linux-x64-musl@${ROLLUP_VERSION}" \
+  && ROLLUP_TGZ="$(npm pack --silent "@rollup/rollup-linux-x64-musl@${ROLLUP_VERSION}")" \
+  && mkdir -p node_modules/@rollup/rollup-linux-x64-musl \
+  && tar -xzf "$ROLLUP_TGZ" -C node_modules/@rollup/rollup-linux-x64-musl --strip-components=1 \
+  && rm -f "$ROLLUP_TGZ" \
   && npm cache clean --force
 COPY . .
 ARG VITE_SUPABASE_URL
