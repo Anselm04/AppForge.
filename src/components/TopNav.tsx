@@ -164,6 +164,9 @@ function NavChrome({
           >
             {t("nav.dashboard")}
           </button>
+          <button type="button" onClick={() => go("/account")} className={item}>
+            Account
+          </button>
           <button
             type="button"
             onClick={() => go("/templates")}
