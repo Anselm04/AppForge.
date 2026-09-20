@@ -321,7 +321,7 @@ export function TopNav() {
           className="flex items-center gap-3 shrink-0 group"
         >
           <img
-            src="/branding/logo-mark.svg"
+            src="/branding/appforge-logo.png"
             alt=""
             width={72}
             height={72}
@@ -368,7 +368,7 @@ export function TopNav() {
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-forge-border shrink-0">
               <span className="flex items-center gap-2 font-display text-lg font-medium text-[color:var(--forge-heading)]">
                 <img
-                  src="/branding/logo-mark.svg"
+                  src="/branding/appforge-logo.png"
                   alt=""
                   width={40}
                   height={40}
