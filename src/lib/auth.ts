@@ -3,6 +3,7 @@ import { supabaseClient } from "./supabase-client";
 import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
+const ACCESS_TOKEN_KEY = "appforge.access-token";
 const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
@@ -54,6 +55,35 @@ function clearStoredUser() {
   }
 }
 
+function readStoredAccessToken(): string | undefined {
+  try {
+    const token = globalThis.sessionStorage?.getItem(ACCESS_TOKEN_KEY);
+    return token && token.length > 0 ? token : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storeAccessToken(accessToken?: string) {
+  try {
+    if (accessToken) {
+      globalThis.sessionStorage?.setItem(ACCESS_TOKEN_KEY, accessToken);
+    } else {
+      globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
+    }
+  } catch {
+    // In-memory auth remains valid when storage is unavailable.
+  }
+}
+
+function clearStoredAccessToken() {
+  try {
+    globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
+  } catch {
+    // ignore blocked storage
+  }
+}
+
 function jwtUser(accessToken: string): { id: string; email?: string } | null {
   try {
     const [, payload] = accessToken.split(".");
@@ -74,6 +104,7 @@ function jwtUser(accessToken: string): { id: string; email?: string } | null {
 function saveSession(session: AppForgeSession) {
   cachedSession = session;
   storeUser(session.user);
+  storeAccessToken(session.accessToken);
   emitSessionChange();
 }
 
@@ -163,7 +194,8 @@ export function getSession(): AppForgeSession | null {
   if (cachedSession) return cachedSession;
   const user = readStoredUser();
   if (!user) return null;
-  cachedSession = { user };
+  const accessToken = readStoredAccessToken();
+  cachedSession = accessToken ? { user, accessToken } : { user };
   return cachedSession;
 }
 
@@ -194,6 +226,7 @@ export function signOut() {
   sessionGeneration += 1;
   cachedSession = null;
   clearStoredUser();
+  clearStoredAccessToken();
   refreshInFlight = null;
   emitSessionChange();
 
@@ -207,9 +240,11 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const current = getSession();
   if (!current) return null;
 
-  // Refresh tokens live only in the server-managed HttpOnly cookie. Clearing the
-  // stale in-memory access token forces the next same-origin request to use the
-  // cookie path, where the server can refresh and rotate the session securely.
+  // Refresh tokens live only in the server-managed HttpOnly cookie. Remove a
+  // rejected/expired bearer token from browser session storage and let the next
+  // same-origin request authenticate through the secure cookie path, where the
+  // server can refresh and rotate the session.
+  clearStoredAccessToken();
   cachedSession = { user: current.user };
   emitSessionChange();
   return cachedSession;
@@ -234,6 +269,7 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!session.accessToken || accessTokenExpired(session.accessToken)) {
+    clearStoredAccessToken();
     cachedSession = { user: session.user };
     emitSessionChange();
     return cachedSession;
