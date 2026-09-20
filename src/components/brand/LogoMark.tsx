@@ -25,7 +25,7 @@ export function LogoMark({
   const s = SIZE_MAP[size];
   return (
     <img
-      src="/branding/appforge-logo.png"
+      src="/branding/logo-mark.svg"
       alt=""
       width={s.px}
       height={s.px}
