@@ -97,4 +97,24 @@ export const supabaseClient = {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
   },
+  requestPasswordReset(email: string) {
+    const redirect =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/password-reset`
+        : undefined;
+    const path = redirect
+      ? `/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`
+      : "/auth/v1/recover";
+    return request<Record<string, unknown>>(path, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  updatePassword(accessToken: string, password: string) {
+    return request<AuthResponse>("/auth/v1/user", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ password }),
+    });
+  },
 };
