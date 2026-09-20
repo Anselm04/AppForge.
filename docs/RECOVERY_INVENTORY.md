@@ -114,6 +114,10 @@ Verification target:
 - Confirm at least one supported LLM provider secret name is present before reopening generation. The built-in Forge credential is optional when another supported provider is configured.
 - Confirm the Alpine builder can reproduce the release from the committed lockfile, including the Rollup musl package bootstrap without relying on a developer-machine cache.
 
+### Alpine builder recovery note — 20 September 2026
+
+The production Docker builder now bootstraps the Rollup musl native package with `npm pack` plus direct archive extraction after the clean locked `npm ci`. This avoids the npm Arborist second-install failure seen in release validation while preserving a reproducible clean build. Recovery drills must continue to rebuild the builder stage from a trusted SHA and must not depend on cached developer `node_modules`.
+
 ## Shared Redis two-Machine coordination
 
 Recovery invariant reviewed 16 September 2026:
