@@ -70,12 +70,10 @@ export async function consumeAuthedSse(
   await ensureFreshSession();
 
   const open = async (retried: boolean): Promise<Response> => {
-    const token = getAccessToken();
-    if (!token) {
-      const err = new Error("Not authenticated");
-      (err as Error & { status?: number }).status = 401;
-      throw err;
-    }
+    // Do not require a browser-readable bearer token here. AppForge keeps the
+    // refresh token in an HttpOnly cookie, and the server auth middleware can
+    // refresh an expired/missing access token from that cookie. Requiring a
+    // bearer token before fetch prevented exactly that secure refresh path.
     const headers = new Headers();
     applyAuthHeaders(headers);
     const res = await fetch(path, {
@@ -86,8 +84,8 @@ export async function consumeAuthedSse(
       cache: "no-store",
     });
     if (res.status === 401 && !retried) {
-      const refreshed = await refreshSession();
-      if (refreshed) return open(true);
+      const session = await refreshSession();
+      if (session) return open(true);
     }
     return res;
   };
