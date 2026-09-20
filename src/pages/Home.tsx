@@ -209,20 +209,29 @@ export function Home() {
     !description.trim() || createProjectMutation.isPending || overLimit;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="max-w-6xl mx-auto px-4 py-20">
-        <div className="text-center mb-12">
+    <div className="min-h-screen bg-forge-bg bg-forge-mesh">
+      <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
+        <div className="text-center mb-14" data-testid="home-hero">
           <img
             src="/branding/logo-mark.svg"
             alt="AppForge"
-            width={192}
-            height={192}
-            className="mx-auto mb-6 h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 lg:h-48 lg:w-48 rounded-2xl object-contain"
+            width={520}
+            height={520}
+            className="mx-auto mb-6 h-64 w-64 sm:h-80 sm:w-80 md:h-96 md:w-96 lg:h-[28rem] lg:w-[28rem] object-contain drop-shadow-[0_24px_60px_rgba(184,134,11,0.28)]"
+            data-testid="home-hero-logo"
           />
-          <h1 className="text-5xl font-bold text-slate-900 dark:text-white mb-4">
+          <div className="flex justify-center mb-6">
+            <span className="forge-badge" data-testid="hero-brand-badge">
+              <span className="dot" /> A TrillionAI Tech Product
+            </span>
+          </div>
+          <h1
+            className="forge-metal-wordmark font-display text-7xl sm:text-8xl md:text-9xl lg:text-[10rem] font-bold tracking-[0.01em] leading-[0.95] mb-5"
+            data-testid="home-hero-title"
+          >
             AppForge
           </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
+          <p className="text-lg sm:text-xl text-forge-text-muted max-w-2xl mx-auto">
             {t("home.tagline")}
           </p>
         </div>
@@ -272,10 +281,13 @@ export function Home() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 max-w-2xl mx-auto">
+        <div
+          className="bg-forge-surface border border-forge-border rounded-[var(--forge-radius)] shadow-[var(--forge-shadow-soft)] p-6 sm:p-8 max-w-2xl mx-auto forge-noise"
+          data-testid="hero-prompt-card"
+        >
           <form onSubmit={handleStartBuild} className="space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
+              <label className="block text-sm font-semibold text-forge-text-primary mb-3">
                 {t("home.promptLabel")}
               </label>
               <textarea
@@ -285,7 +297,8 @@ export function Home() {
                 }
                 maxLength={PROMPT_MAX_CHARS}
                 placeholder={t("home.promptPlaceholder")}
-                className="w-full h-32 px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 resize-none"
+                data-testid="hero-app-idea-textarea"
+                className="w-full h-32 px-4 py-3 bg-forge-bg border border-forge-border rounded-2xl text-forge-text-primary placeholder:text-forge-text-muted focus:outline-none focus:ring-2 focus:ring-[color:var(--forge-focus)] resize-none transition-[box-shadow,border-color]"
               />
               <p
                 className={`text-xs mt-2 ${overLimit ? "text-amber-700 dark:text-amber-300 font-semibold" : "text-slate-500 dark:text-slate-400"}`}
@@ -300,7 +313,7 @@ export function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
+              <label className="block text-sm font-semibold text-forge-text-primary mb-3">
                 {t("home.techStack")}
               </label>
               <select
@@ -308,7 +321,8 @@ export function Home() {
                 onChange={(e) => {
                   if (isTechStack(e.target.value)) setTechStack(e.target.value);
                 }}
-                className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
+                data-testid="hero-tech-stack-select"
+                className="w-full px-4 py-3 bg-forge-bg border border-forge-border rounded-2xl text-forge-text-primary focus:outline-none focus:ring-2 focus:ring-[color:var(--forge-focus)] transition-[box-shadow,border-color]"
               >
                 <optgroup label={t("home.groupWeb")}>
                   <option value="react-node">
@@ -462,7 +476,8 @@ export function Home() {
             <button
               type="submit"
               disabled={generateDisabled}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+              data-testid="home-generate-button"
+              className="w-full forge-gold-btn font-bold py-3.5 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {outOfCredits
                 ? t("home.pausedCta")
@@ -520,12 +535,14 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 text-center">
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">
+    <div className="bg-forge-surface border border-forge-border rounded-[var(--forge-radius)] shadow-[var(--forge-shadow-soft)] p-6 text-center transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[var(--forge-shadow)]">
+      <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-forge-bg border border-forge-border flex items-center justify-center text-3xl">
+        {icon}
+      </div>
+      <h3 className="font-semibold text-lg text-forge-text-primary mb-2">
         {title}
       </h3>
-      <p className="text-slate-600 dark:text-slate-400">{description}</p>
+      <p className="text-forge-text-muted">{description}</p>
     </div>
   );
 }

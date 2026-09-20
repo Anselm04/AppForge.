@@ -12,17 +12,16 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-forge-gradient text-white hover:opacity-90",
-  secondary:
-    "bg-forge-surface border border-forge-border text-forge-text-primary hover:border-forge-cyan/40",
+  primary: "forge-gold-btn font-semibold",
+  secondary: "forge-ghost-btn",
   ghost:
-    "bg-transparent text-forge-text-muted hover:text-forge-text-primary hover:bg-white/[0.04]",
+    "bg-transparent rounded-full text-forge-text-muted hover:text-forge-text-primary hover:bg-[color:var(--forge-surface-hover)]",
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "h-8 px-3 text-xs",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
+  sm: "h-9 px-4 text-xs",
+  md: "h-11 px-5 text-sm",
+  lg: "h-12 px-7 text-base",
 };
 
 export function Button({
@@ -37,7 +36,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors duration-forge disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-[box-shadow,filter,transform,border-color] duration-forge disabled:opacity-50 disabled:cursor-not-allowed",
         VARIANTS[variant],
         SIZES[size],
         className,

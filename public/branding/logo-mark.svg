@@ -1,70 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="AppForge anvil logo">
   <defs>
-    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e2e8f0"/>
-      <stop offset="30%" stop-color="#94a3b8"/>
-      <stop offset="70%" stop-color="#64748b"/>
-      <stop offset="100%" stop-color="#475569"/>
+    <linearGradient id="steel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6f8fa"/>
+      <stop offset="18%" stop-color="#d3dae0"/>
+      <stop offset="46%" stop-color="#9aa4ad"/>
+      <stop offset="70%" stop-color="#69737c"/>
+      <stop offset="100%" stop-color="#3a424a"/>
     </linearGradient>
-
-    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4aa3ff"/>
-      <stop offset="50%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#1d4ed8"/>
+    <linearGradient id="steelTop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#cfd7dd"/>
+      <stop offset="100%" stop-color="#8b959e"/>
     </linearGradient>
-
-    <linearGradient id="cyanGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#00e5ff"/>
-      <stop offset="100%" stop-color="#06b6d4"/>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f7e7b6"/>
+      <stop offset="32%" stop-color="#d8b45e"/>
+      <stop offset="64%" stop-color="#b8860b"/>
+      <stop offset="100%" stop-color="#7d5f1b"/>
     </linearGradient>
-
-    <filter id="logoGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.3"/>
+    <linearGradient id="goldEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff2c8"/>
+      <stop offset="100%" stop-color="#c6a24c"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000" flood-opacity="0.28"/>
     </filter>
   </defs>
 
-  <!-- Background (transparent for versatility) -->
-  <!-- Three interlocking hexagonal nodes forming a triangle = multi-agent collaboration -->
-
-  <!-- Outer ring (subtle) -->
-  <circle cx="100" cy="100" r="90" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.3"/>
-
-  <!-- Connection lines forming the triangle -->
-  <g filter="url(#shadow)" stroke-width="3" stroke-linecap="round" opacity="0.85">
-    <line x1="100" y1="55" x2="65" y2="115" stroke="url(#blueGrad)"/>
-    <line x1="100" y1="55" x2="135" y2="115" stroke="url(#cyanGrad)"/>
-    <line x1="65" y1="115" x2="135" y2="115" stroke="url(#metalGrad)"/>
+  <!-- Gold "A" frame: two angled legs rising to an apex; the anvil is the crossbar -->
+  <g filter="url(#soft)">
+    <path d="M100 20 L134 92 L118 92 L100 52 L82 92 L66 92 Z" fill="url(#gold)"/>
+    <path d="M62 150 L84 100 L100 100 L74 158 Z" fill="url(#gold)"/>
+    <path d="M138 150 L116 100 L100 100 L126 158 Z" fill="url(#gold)"/>
+    <!-- apex highlight -->
+    <path d="M100 20 L108 37 L92 37 Z" fill="url(#goldEdge)" opacity="0.9"/>
   </g>
 
-  <!-- Three agent nodes -->
-  <g filter="url(#logoGlow)">
-    <!-- Top node - Planner (Blue) -->
-    <circle cx="100" cy="55" r="22" fill="#0f172a" stroke="url(#blueGrad)" stroke-width="3"/>
-    <circle cx="100" cy="55" r="12" fill="url(#blueGrad)" opacity="0.9"/>
-    <circle cx="100" cy="55" r="5" fill="#ffffff" opacity="0.6"/>
-
-    <!-- Bottom-left node - Coder (Cyan) -->
-    <circle cx="65" cy="115" r="22" fill="#0f172a" stroke="url(#cyanGrad)" stroke-width="3"/>
-    <circle cx="65" cy="115" r="12" fill="url(#cyanGrad)" opacity="0.9"/>
-    <circle cx="65" cy="115" r="5" fill="#ffffff" opacity="0.6"/>
-
-    <!-- Bottom-right node - Reviewer (Silver) -->
-    <circle cx="135" cy="115" r="22" fill="#0f172a" stroke="url(#metalGrad)" stroke-width="3"/>
-    <circle cx="135" cy="115" r="12" fill="url(#metalGrad)" opacity="0.9"/>
-    <circle cx="135" cy="115" r="5" fill="#ffffff" opacity="0.6"/>
+  <!-- Realistic steel anvil (acts as the A crossbar) -->
+  <g filter="url(#soft)">
+    <!-- Horn (left taper) -->
+    <path d="M58 100 C40 100 26 106 20 112 C30 112 40 113 58 116 Z" fill="url(#steel)"/>
+    <!-- Top face / working surface + heel -->
+    <path d="M56 98 L150 98 L150 108 L150 116 L138 116 L138 110 L56 110 Z" fill="url(#steel)"/>
+    <rect x="56" y="97" width="94" height="6" rx="2" fill="url(#steelTop)"/>
+    <!-- Gold trim line along the working edge -->
+    <rect x="56" y="96" width="94" height="2.4" rx="1.2" fill="url(#goldEdge)" opacity="0.85"/>
+    <!-- Waist / pedestal (concave) -->
+    <path d="M78 116 L122 116 C118 128 116 132 112 140 L88 140 C84 132 82 128 78 116 Z" fill="url(#steel)"/>
+    <!-- Base with feet -->
+    <path d="M62 140 L138 140 L146 158 L138 162 L124 154 L76 154 L62 162 L54 158 Z" fill="url(#steel)"/>
+    <!-- Body sheen -->
+    <path d="M60 100 L120 100 L118 108 L60 108 Z" fill="#ffffff" opacity="0.28"/>
   </g>
-
-  <!-- Orbital arcs showing continuous flow -->
-  <path d="M100,30 A70,70 0 0,1 160,100" fill="none" stroke="#4aa3ff" stroke-width="1" opacity="0.4" stroke-dasharray="4 6"/>
-  <path d="M160,100 A70,70 0 0,1 100,170" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.4" stroke-dasharray="4 6"/>
-  <path d="M100,170 A70,70 0 0,1 40,100" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.4" stroke-dasharray="4 6"/>
 </svg>

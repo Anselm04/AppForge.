@@ -24,7 +24,16 @@
   --forge-blue: #c4a35a;
   --forge-blue-rgb: 196 163 90;
   --forge-gradient: linear-gradient(135deg, #8d6e32 0%, #c4a35a 48%, #e8d5a3 100%);
-  --forge-radius: 2px;
+  --forge-gold-gradient: linear-gradient(135deg, #f3e3b0 0%, #c6a24c 30%, #b8860b 62%, #8a6a1f 100%);
+  --forge-silver-1: #eef1f4;
+  --forge-silver-2: #9aa4ad;
+  --forge-silver-3: #5b6670;
+  --forge-live: #38c172;
+  --forge-focus: rgba(198, 162, 76, 0.45);
+  --forge-shadow: 0 18px 50px rgba(17, 18, 20, 0.10);
+  --forge-shadow-soft: 0 10px 30px rgba(17, 18, 20, 0.08);
+  --forge-radius: 14px;
+  --forge-radius-pill: 9999px;
   --forge-transition: 200ms cubic-bezier(0.22, 1, 0.36, 1);
   --forge-mesh-a: rgba(196, 163, 90, 0.14);
   --forge-mesh-b: rgba(110, 201, 208, 0.06);
@@ -55,7 +64,142 @@
   --forge-blue: #c4a35a;
   --forge-blue-rgb: 196 163 90;
   --forge-gradient: linear-gradient(135deg, #8d6e32 0%, #c4a35a 45%, #e8d5a3 100%);
+  --forge-gold-gradient: linear-gradient(135deg, #f3e3b0 0%, #c6a24c 30%, #b8860b 62%, #8a6a1f 100%);
+  --forge-silver-1: #d7dde3;
+  --forge-silver-2: #9aa4ad;
+  --forge-silver-3: #5b6670;
+  --forge-live: #38c172;
+  --forge-focus: rgba(232, 213, 163, 0.5);
+  --forge-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --forge-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
   --forge-mesh-a: rgba(196, 163, 90, 0.16);
   --forge-mesh-b: rgba(110, 201, 208, 0.08);
   color-scheme: dark;
+}
+
+@layer base {
+  body {
+    background-color: var(--forge-bg);
+    color: var(--forge-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer components {
+  /* Polished chrome wordmark with gold-lit top edge (hero use only) */
+  .forge-metal-wordmark {
+    color: var(--forge-heading);
+    background-image:
+      linear-gradient(180deg, rgba(198, 162, 76, 0.95) 0%, rgba(198, 162, 76, 0) 22%),
+      linear-gradient(180deg, #6b7480 0%, #aab3bb 20%, #4a525b 50%, #8b949c 66%, #2f363e 100%);
+    background-size: 100% 100%, 100% 240%;
+    background-position: center, center;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.10), 0 10px 30px rgba(17, 18, 20, 0.18);
+    filter: drop-shadow(0 8px 16px rgba(17, 18, 20, 0.14));
+  }
+  .dark .forge-metal-wordmark {
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Gold text for small luxury accents (headings/labels, not body) */
+  .forge-gold-text {
+    background-image: var(--forge-gold-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .forge-wordmark-subtitle {
+    font-family: var(--font-sans);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(var(--forge-text-rgb) / 0.7);
+  }
+
+  /* Primary gold pill button */
+  .forge-gold-btn {
+    background-image: var(--forge-gold-gradient);
+    color: #1a1305;
+    border-radius: var(--forge-radius-pill);
+    box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
+    transition: box-shadow 200ms ease, filter 200ms ease, transform 120ms ease;
+  }
+  .forge-gold-btn:hover {
+    filter: brightness(1.03);
+    box-shadow: 0 18px 40px rgba(184, 134, 11, 0.3);
+  }
+  .forge-gold-btn:active {
+    transform: scale(0.985);
+  }
+  .forge-gold-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--forge-focus), 0 14px 30px rgba(184, 134, 11, 0.22);
+  }
+
+  /* Secondary ivory pill button */
+  .forge-ghost-btn {
+    background-color: var(--forge-surface);
+    color: var(--forge-text);
+    border: 1px solid var(--forge-border);
+    border-radius: var(--forge-radius-pill);
+    box-shadow: var(--forge-shadow-soft);
+    transition: box-shadow 200ms ease, border-color 200ms ease, transform 120ms ease;
+  }
+  .forge-ghost-btn:hover {
+    border-color: rgba(198, 162, 76, 0.5);
+    box-shadow: var(--forge-shadow);
+  }
+
+  /* Brand status pill (green dot + gold label) */
+  .forge-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--forge-radius-pill);
+    padding: 0.35rem 0.9rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: rgba(var(--forge-surface-rgb) / 0.8);
+    border: 1px solid rgba(198, 162, 76, 0.35);
+    color: var(--forge-gold-deep);
+    backdrop-filter: blur(6px);
+  }
+  .dark .forge-badge {
+    color: var(--forge-gold-bright);
+  }
+  .forge-badge .dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background: var(--forge-live);
+    box-shadow: 0 0 0 3px rgba(56, 193, 114, 0.16);
+  }
+
+  /* Dark logo tile with gold monogram */
+  .forge-logo-tile {
+    background: #111214;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(17, 18, 20, 0.18);
+  }
+
+  /* Subtle noise overlay for large panels / hero */
+  .forge-noise {
+    position: relative;
+  }
+  .forge-noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.5;
+    background-image: var(--forge-mesh, none);
+  }
 }
