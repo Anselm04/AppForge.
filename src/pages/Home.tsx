@@ -214,12 +214,14 @@ export function Home() {
         {tierStatus && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-8 max-w-2xl mx-auto text-center">
             <p className="text-slate-700 dark:text-slate-300 font-semibold">
-              {tierStatus.tier === "free"
-                ? t("home.planFree", {
-                    remaining: tierStatus.remaining ?? 0,
-                    credits: tierStatus.credits ?? 0,
-                  })
-                : tierStatus.tier === "starter"
+              {tierStatus.unlimited
+                ? "Owner account · Unlimited lifetime access"
+                : tierStatus.tier === "free"
+                  ? t("home.planFree", {
+                      remaining: tierStatus.remaining ?? 0,
+                      credits: tierStatus.credits ?? 0,
+                    })
+                  : tierStatus.tier === "starter"
                   ? t("home.planStarter", {
                       remaining: tierStatus.remaining ?? 0,
                       credits: tierStatus.credits ?? 0,
@@ -235,7 +237,7 @@ export function Home() {
                         })
                       : t("home.planEnterprise")}
             </p>
-            {tierStatus.tier === "free" && (
+            {!tierStatus.unlimited && tierStatus.tier === "free" && (
               <a
                 href="/pricing"
                 className="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block"
