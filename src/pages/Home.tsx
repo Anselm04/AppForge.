@@ -68,7 +68,8 @@ const TECH_STACKS = [
   "serverless-vercel",
 ] as const;
 
-const INTERNAL_DEFAULT_STACK: (typeof TECH_STACKS)[number] = PRODUCTION_READY_STACK;
+const INTERNAL_DEFAULT_STACK: (typeof TECH_STACKS)[number] =
+  PRODUCTION_READY_STACK;
 
 export function Home() {
   const [description, setDescription] = useState(() => readPromptDraft());

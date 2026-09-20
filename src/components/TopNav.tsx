@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { ensureFreshSession, getSession, signOut } from "../lib/auth.js";
 import { useLayoutMode, type LayoutMode } from "../lib/layout.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
+import { ThemeToggle } from "./ThemeToggle.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
 function MenuIcon() {
@@ -58,7 +59,6 @@ function LayoutSwitcher({
       : value === "phone"
         ? t("nav.layoutPhone")
         : t("nav.layoutDesktop");
-
   return (
     <div
       className={stacked ? "w-full" : "shrink-0"}
@@ -66,15 +66,15 @@ function LayoutSwitcher({
       aria-label={t("nav.layout")}
     >
       {stacked && (
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#6ec9d0]">
           {t("nav.layout")}
         </p>
       )}
       <div
         className={
           stacked
-            ? "grid grid-cols-3 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
-            : "inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800"
+            ? "grid grid-cols-3 gap-1 p-1 bg-forge-surface border border-forge-border"
+            : "inline-flex items-center gap-0.5 p-0.5 bg-forge-surface border border-forge-border"
         }
       >
         {LAYOUT_OPTIONS.map((value) => {
@@ -87,16 +87,8 @@ function LayoutSwitcher({
               onClick={() => setMode(value)}
               className={
                 stacked
-                  ? `min-h-[44px] px-2 rounded-md text-sm font-semibold ${
-                      selected
-                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                    }`
-                  : `min-h-[32px] px-2 rounded-md text-xs font-semibold whitespace-nowrap ${
-                      selected
-                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                    }`
+                  ? `min-h-[44px] px-2 text-sm font-medium ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`
+                  : `min-h-[32px] px-2 text-xs font-medium whitespace-nowrap ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`
               }
             >
               {labelFor(value)}
@@ -110,8 +102,6 @@ function LayoutSwitcher({
 
 type NavChromeProps = {
   stacked: boolean;
-  isDark: boolean;
-  toggleDark: () => void;
   isLoggedIn: boolean;
   isOwner: boolean;
   isPaid: boolean;
@@ -126,8 +116,6 @@ type NavChromeProps = {
 
 function NavChrome({
   stacked,
-  isDark,
-  toggleDark,
   isLoggedIn,
   isOwner,
   isPaid,
@@ -140,33 +128,24 @@ function NavChrome({
   onLogout,
 }: NavChromeProps) {
   const item = stacked
-    ? "w-full min-h-[44px] px-3 py-2 rounded-lg text-start text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
-  const darkBtn = stacked
-    ? "w-full min-h-[44px] px-3 py-2 rounded-lg text-start hover:bg-slate-100 dark:hover:bg-slate-800"
-    : "p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg";
+    ? "w-full min-h-[44px] px-3 py-2 text-start text-forge-text-primary hover:bg-[rgba(196,163,90,0.08)] hover:text-[color:var(--forge-heading)]"
+    : "text-forge-text-muted hover:text-[color:var(--forge-heading)] text-sm uppercase tracking-[0.08em]";
   const adminBtn = stacked
-    ? "w-full min-h-[44px] bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"
-    : "bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold";
+    ? "w-full min-h-[44px] bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-semibold"
+    : "bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-sm font-semibold";
   const primaryBtn = stacked
-    ? "w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold"
-    : "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold";
-
+    ? "w-full min-h-[44px] forge-btn-gold px-4 py-2"
+    : "forge-btn-gold px-4 py-2 text-xs";
   return (
     <>
       <LanguageSwitcher variant={stacked ? "panel" : "dropdown"} />
-
       <LayoutSwitcher
         stacked={stacked}
         mode={layoutMode}
         setMode={setLayoutMode}
         t={t}
       />
-
-      <button type="button" onClick={toggleDark} className={darkBtn}>
-        {isDark ? t("nav.light") : t("nav.dark")}
-      </button>
-
+      <ThemeToggle stacked={stacked} />
       {isLoggedIn ? (
         <>
           {isOwner && (
@@ -178,7 +157,6 @@ function NavChrome({
               {t("nav.admin")}
             </button>
           )}
-
           <button
             type="button"
             onClick={() => go("/dashboard")}
@@ -186,11 +164,6 @@ function NavChrome({
           >
             {t("nav.dashboard")}
           </button>
-
-          <button type="button" onClick={() => go("/redeem")} className={item}>
-            Redeem code
-          </button>
-
           <button
             type="button"
             onClick={() => go("/templates")}
@@ -198,15 +171,15 @@ function NavChrome({
           >
             Templates
           </button>
-
+          <button type="button" onClick={() => go("/tools")} className={item}>
+            Tools
+          </button>
           <button type="button" onClick={() => go("/editor")} className={item}>
             {t("nav.editor")}
           </button>
-
           <button type="button" onClick={() => go("/studio")} className={item}>
             Studio
           </button>
-
           {!isPaid && !isTrialing && (
             <button
               type="button"
@@ -216,19 +189,16 @@ function NavChrome({
               {t("nav.upgrade")}
             </button>
           )}
-
           {isTrialing && (
-            <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 px-3 py-1 rounded-full font-semibold self-start">
+            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-[color:var(--forge-heading)] border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold self-start">
               {t("nav.trial", { tier })}
             </span>
           )}
-
           {isPaid && !isTrialing && (
-            <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-300 px-3 py-1 rounded-full font-semibold capitalize self-start">
+            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-[color:var(--forge-heading)] border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold capitalize self-start">
               {tier}
             </span>
           )}
-
           <button type="button" onClick={onLogout} className={item}>
             {t("nav.logout")}
           </button>
@@ -255,11 +225,9 @@ export function TopNav() {
   const navigate = useNavigate();
   const { t } = useLocale();
   const { mode: layoutMode, setMode: setLayoutMode, compact } = useLayoutMode();
-  const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
-
   const queryClient = useQueryClient();
   const refreshAttempted = useRef(false);
   const { data: user, isSuccess: meReady } = useQuery({
@@ -267,13 +235,11 @@ export function TopNav() {
     queryFn: () => trpc.auth.me.query(),
     staleTime: 0,
   });
-
   const { data: subStatus } = useQuery({
     queryKey: ["subscriptions", "status"],
     queryFn: () => trpc.subscriptions.status.query(),
     enabled: !!user,
   });
-
   const logout = useMutation({
     mutationFn: async () => {
       signOut();
@@ -283,19 +249,9 @@ export function TopNav() {
       navigate("/");
     },
   });
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDark]);
-
   useEffect(() => {
     if (!compact) setMenuOpen(false);
   }, [compact]);
-
   useEffect(() => {
     if (!meReady || user) return;
     if (!getSession()) return;
@@ -308,14 +264,11 @@ export function TopNav() {
       if (next) {
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
       }
-      // Keep local JWT so Generate can still send it. Do not signOut here —
-      // that looped signed-in users back to login and hid owner Admin.
     })();
     return () => {
       cancelled = true;
     };
   }, [meReady, user, queryClient]);
-
   useEffect(() => {
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -331,24 +284,17 @@ export function TopNav() {
       hamburgerRef.current?.focus();
     };
   }, [menuOpen]);
-
   const isPaid = subStatus?.isPaid ?? false;
   const tier = subStatus?.tier ?? "free";
   const isTrialing = subStatus?.isTrialing ?? false;
-  // Logged-in chrome follows a live JWT or auth.me. Admin is owner-only from
-  // the server (auth.me.isOwner) — never inferred from client email.
   const isLoggedIn = !!user || !!getSession();
   const isOwner = !!user && !!user.isOwner;
-
   const closeMenu = () => setMenuOpen(false);
   const go = (path: string) => {
     closeMenu();
     navigate(path);
   };
-
   const chrome = {
-    isDark,
-    toggleDark: () => setIsDark((value) => !value),
     isLoggedIn,
     isOwner,
     isPaid,
@@ -363,39 +309,38 @@ export function TopNav() {
       logout.mutate();
     },
   };
-
   return (
-    <nav className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between gap-3">
+    <nav className="bg-forge-bg/90 border-b border-forge-border sticky top-0 z-50">
+      <div className="max-w-6xl mx-auto px-4 py-2 md:py-2.5 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => {
             closeMenu();
             navigate("/");
           }}
-          className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700 shrink-0"
+          className="flex items-center gap-3 shrink-0 group"
         >
           <img
             src="/branding/logo-mark.png"
             alt=""
-            width={40}
-            height={40}
-            className="h-8 w-8 md:h-10 md:w-10 rounded-lg object-contain"
+            width={72}
+            height={72}
+            className="h-14 w-14 md:h-16 md:w-16 object-contain forge-logo-glow"
           />
-          AppForge
+          <span className="font-display text-2xl md:text-[1.7rem] font-medium tracking-wide text-[color:var(--forge-heading)] group-hover:text-[#c4a35a]">
+            AppForge
+          </span>
         </button>
-
         {!compact && (
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <NavChrome stacked={false} {...chrome} />
           </div>
         )}
-
         {compact && (
           <button
             ref={hamburgerRef}
             type="button"
-            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] border border-forge-border text-[color:var(--forge-heading)] hover:bg-[rgba(196,163,90,0.08)]"
             aria-label={t("nav.menu")}
             aria-expanded={menuOpen}
             aria-controls="mobile-nav-drawer"
@@ -405,12 +350,11 @@ export function TopNav() {
           </button>
         )}
       </div>
-
       {compact && menuOpen && (
         <div>
           <button
             type="button"
-            className="fixed inset-0 z-[60] bg-black/40"
+            className="fixed inset-0 z-[60] bg-black/60"
             aria-label={t("nav.closeMenu")}
             onClick={closeMenu}
           />
@@ -419,23 +363,23 @@ export function TopNav() {
             role="dialog"
             aria-modal="true"
             aria-label={t("nav.menu")}
-            className="fixed inset-y-0 end-0 z-[70] w-[min(20rem,86vw)] bg-white dark:bg-slate-900 shadow-xl flex flex-col overflow-hidden"
+            className="fixed inset-y-0 end-0 z-[70] w-[min(20rem,86vw)] bg-forge-bg border-s border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden"
           >
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
-              <span className="flex items-center gap-2 text-lg font-bold text-blue-600">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-forge-border shrink-0">
+              <span className="flex items-center gap-2 font-display text-lg font-medium text-[color:var(--forge-heading)]">
                 <img
                   src="/branding/logo-mark.png"
                   alt=""
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 rounded-lg object-contain"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-contain forge-logo-glow"
                 />
                 AppForge
               </span>
               <button
                 ref={closeBtnRef}
                 type="button"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[color:var(--forge-heading)] hover:bg-[rgba(196,163,90,0.08)]"
                 aria-label={t("nav.closeMenu")}
                 onClick={closeMenu}
               >
