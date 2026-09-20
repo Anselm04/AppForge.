@@ -1,112 +1,133 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 390" role="img" aria-label="AppForge metallic anvil A logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AppForge metallic anvil A logo">
   <defs>
-    <linearGradient id="goldOuter" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff1c1"/>
-      <stop offset=".18" stop-color="#d8b263"/>
-      <stop offset=".48" stop-color="#9a7130"/>
-      <stop offset=".72" stop-color="#e2c27a"/>
-      <stop offset="1" stop-color="#7b5722"/>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff8dc"/>
+      <stop offset=".14" stop-color="#f2d48d"/>
+      <stop offset=".34" stop-color="#b7842f"/>
+      <stop offset=".52" stop-color="#7b531d"/>
+      <stop offset=".70" stop-color="#d9b867"/>
+      <stop offset=".86" stop-color="#fff0bd"/>
+      <stop offset="1" stop-color="#8a5f20"/>
     </linearGradient>
-    <linearGradient id="goldEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff6d9"/>
-      <stop offset=".36" stop-color="#c69a47"/>
-      <stop offset=".72" stop-color="#8b6225"/>
-      <stop offset="1" stop-color="#e0bd6c"/>
+    <linearGradient id="goldBright" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff9df"/>
+      <stop offset=".22" stop-color="#e6c36f"/>
+      <stop offset=".55" stop-color="#a87524"/>
+      <stop offset=".78" stop-color="#f0d28b"/>
+      <stop offset="1" stop-color="#6f4a17"/>
     </linearGradient>
-    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fafafa"/>
-      <stop offset=".16" stop-color="#cfd0cd"/>
-      <stop offset=".36" stop-color="#7d7e7a"/>
-      <stop offset=".52" stop-color="#e8e8e5"/>
-      <stop offset=".69" stop-color="#7b7a76"/>
-      <stop offset="1" stop-color="#363633"/>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".13" stop-color="#d9dde0"/>
+      <stop offset=".30" stop-color="#8f969c"/>
+      <stop offset=".48" stop-color="#f4f5f5"/>
+      <stop offset=".66" stop-color="#777f86"/>
+      <stop offset=".82" stop-color="#d9dcde"/>
+      <stop offset="1" stop-color="#555c62"/>
     </linearGradient>
-    <linearGradient id="steelDark" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#444441"/>
-      <stop offset=".28" stop-color="#d5d5d1"/>
-      <stop offset=".52" stop-color="#747571"/>
-      <stop offset=".76" stop-color="#efefec"/>
-      <stop offset="1" stop-color="#343431"/>
+    <linearGradient id="steelFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".18" stop-color="#cfd4d8"/>
+      <stop offset=".38" stop-color="#7b8389"/>
+      <stop offset=".55" stop-color="#eef0f1"/>
+      <stop offset=".72" stop-color="#6c747a"/>
+      <stop offset="1" stop-color="#31373c"/>
     </linearGradient>
-    <linearGradient id="innerWarm" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e7c37a"/>
-      <stop offset=".5" stop-color="#9a6e2b"/>
-      <stop offset="1" stop-color="#f0d18c"/>
+    <linearGradient id="steelEdge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#262b2f"/>
+      <stop offset=".12" stop-color="#aeb5ba"/>
+      <stop offset=".35" stop-color="#f8f9f9"/>
+      <stop offset=".53" stop-color="#747b80"/>
+      <stop offset=".75" stop-color="#e8ebed"/>
+      <stop offset="1" stop-color="#373d42"/>
     </linearGradient>
-    <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%">
-      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#5d4a2b" flood-opacity=".28"/>
-      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity=".34"/>
+    <linearGradient id="darkMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#666d72"/>
+      <stop offset=".5" stop-color="#282e33"/>
+      <stop offset="1" stop-color="#111518"/>
+    </linearGradient>
+    <radialGradient id="shine" cx=".28" cy=".18" r=".7">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset=".30" stop-color="#ffffff" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#3d2c14" flood-opacity=".34"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity=".38"/>
     </filter>
-    <filter id="anvilShadow" x="-25%" y="-25%" width="150%" height="160%">
-      <feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#000" flood-opacity=".36"/>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000000" flood-opacity=".32"/>
     </filter>
   </defs>
 
   <g filter="url(#shadow)">
-    <!-- outer gold A -->
-    <path d="M180 25 L335 350 L281 350 L238 258 L122 258 L79 350 L25 350 Z"
-          fill="url(#goldOuter)" stroke="#7c5928" stroke-width="3"/>
-    <!-- recessed silver A face -->
-    <path d="M180 53 L304 326 L280 326 L229 219 L131 219 L80 326 L56 326 Z"
-          fill="url(#steel)" stroke="#b89a61" stroke-width="4"/>
-    <!-- dark channel -->
-    <path d="M180 79 L272 292 L249 292 L213 207 L147 207 L111 292 L88 292 Z"
-          fill="#575752" opacity=".68"/>
-    <!-- inner gold A -->
-    <path d="M180 96 L252 286 L229 286 L203 214 L157 214 L131 286 L108 286 Z"
-          fill="url(#innerWarm)" stroke="#59411e" stroke-width="2.5"/>
-    <!-- inner black/silver aperture -->
-    <path d="M180 120 L223 244 L202 244 L180 180 L158 244 L137 244 Z"
-          fill="#343432" stroke="#d3d1c8" stroke-width="2"/>
+    <!-- broad sculpted A frame -->
+    <path d="M256 34 L436 438 L361 438 L316 329 L196 329 L151 438 L76 438 Z"
+          fill="url(#gold)" stroke="#5d431d" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M256 64 L401 413 L363 413 L308 289 L204 289 L149 413 L111 413 Z"
+          fill="url(#silver)" stroke="#c5a05a" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M256 91 L369 390 L343 390 L294 270 L218 270 L169 390 L143 390 Z"
+          fill="url(#darkMetal)" opacity=".80"/>
+    <path d="M256 111 L346 377 L319 377 L282 267 L230 267 L193 377 L166 377 Z"
+          fill="url(#goldBright)" stroke="#4d3617" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M256 143 L320 348 L296 348 L256 226 L216 348 L192 348 Z"
+          fill="#151a1d" stroke="#d6d8d9" stroke-width="3" stroke-linejoin="round"/>
+
+    <!-- bevel lines on the A -->
+    <path d="M256 68 L391 404" fill="none" stroke="#ffffff" stroke-width="5" opacity=".35"/>
+    <path d="M120 404 L250 74" fill="none" stroke="#fff8dd" stroke-width="4" opacity=".34"/>
+
+    <!-- anvil horn/crossbar -->
+    <g filter="url(#soft)">
+      <path d="M42 245 C78 229 123 221 175 223 L202 223 L202 269 L165 269 C112 268 72 261 42 250 Z"
+            fill="url(#steelEdge)" stroke="#2b3136" stroke-width="4"/>
+      <path d="M164 221 H458 L445 266 H164 Z"
+            fill="url(#steelEdge)" stroke="#2b3136" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M176 220 H447" stroke="#fffef7" stroke-width="5" opacity=".82"/>
+      <path d="M184 226 H438" stroke="#d5b76e" stroke-width="3" opacity=".78"/>
+
+      <!-- anvil body -->
+      <path d="M174 265 H376
+               C369 294 350 320 326 339
+               L313 374
+               H199
+               L186 339
+               C162 320 143 294 136 265 Z"
+            fill="url(#steelFace)" stroke="#2a3035" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M191 279 C206 310 214 327 213 347 H299 C298 327 306 310 321 279"
+            fill="none" stroke="#636b71" stroke-width="7" opacity=".72"/>
+      <path d="M205 285 C223 301 236 308 256 308 C276 308 289 301 307 285"
+            fill="none" stroke="#ffffff" stroke-width="4" opacity=".42"/>
+
+      <!-- foot -->
+      <path d="M190 369 H322 L348 404 L323 427 H189 L164 404 Z"
+            fill="url(#steelEdge)" stroke="#2a3035" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M190 369 H322" stroke="#ffffff" stroke-width="4" opacity=".65"/>
+    </g>
+
+    <!-- central gold inset A, visually sitting inside the anvil -->
+    <path d="M256 161 L307 302 H283 L256 226 L229 302 H205 Z"
+          fill="url(#goldBright)" stroke="#684817" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M256 180 L292 287 H281 L256 215 L231 287 H220 Z"
+          fill="#f2d892" opacity=".33"/>
   </g>
 
-  <!-- circuit detailing -->
-  <g fill="none" stroke="#d7b462" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" opacity=".96">
-    <path d="M119 127 L105 149 L105 183 L88 200"/>
-    <path d="M131 145 L120 160 L120 192 L103 209"/>
-    <path d="M145 165 L136 178 L136 205"/>
-    <path d="M241 127 L255 149 L255 183 L272 200"/>
-    <path d="M229 145 L240 160 L240 192 L257 209"/>
-    <path d="M215 165 L224 178 L224 205"/>
+  <!-- engraved circuit details -->
+  <g fill="none" stroke="#d8b96b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".88">
+    <path d="M177 126 L157 150 L157 177 L137 198"/>
+    <path d="M193 151 L176 168 L176 197"/>
+    <path d="M335 126 L355 150 L355 177 L375 198"/>
+    <path d="M319 151 L336 168 L336 197"/>
   </g>
-  <g fill="#e6c576" stroke="#5f4722" stroke-width="1">
-    <circle cx="105" cy="149" r="3.2"/><circle cx="88" cy="200" r="3.2"/>
-    <circle cx="120" cy="160" r="3.2"/><circle cx="103" cy="209" r="3.2"/>
-    <circle cx="136" cy="178" r="3.2"/>
-    <circle cx="255" cy="149" r="3.2"/><circle cx="272" cy="200" r="3.2"/>
-    <circle cx="240" cy="160" r="3.2"/><circle cx="257" cy="209" r="3.2"/>
-    <circle cx="224" cy="178" r="3.2"/>
+  <g fill="#f2d28a" stroke="#6d4d1c" stroke-width="1.5">
+    <circle cx="157" cy="150" r="4"/><circle cx="137" cy="198" r="4"/>
+    <circle cx="176" cy="168" r="4"/>
+    <circle cx="355" cy="150" r="4"/><circle cx="375" cy="198" r="4"/>
+    <circle cx="336" cy="168" r="4"/>
   </g>
 
-  <!-- anvil crossbar -->
-  <g filter="url(#anvilShadow)">
-    <!-- horn -->
-    <path d="M25 207 C52 196 84 193 117 194 L117 224 C82 225 49 222 25 212 Z"
-          fill="url(#steelDark)" stroke="#343431" stroke-width="2.5"/>
-    <!-- working face -->
-    <path d="M102 191 L326 191 L326 213 L102 213 Z"
-          fill="url(#steelDark)" stroke="#343431" stroke-width="2.5"/>
-    <path d="M105 191 L322 191 L318 196 L108 196 Z" fill="#f5f3ea" opacity=".72"/>
-    <path d="M109 188 L324 188" stroke="url(#goldEdge)" stroke-width="4"/>
-
-    <!-- anvil body -->
-    <path d="M115 214 L267 214
-             C263 233 252 249 235 261
-             L226 284
-             L134 284
-             L125 261
-             C108 249 97 233 93 214 Z"
-          fill="url(#steel)" stroke="#343431" stroke-width="3"/>
-    <!-- waist shadow -->
-    <path d="M126 225 C141 245 145 255 144 267 L216 267 C215 255 219 245 234 225"
-          fill="none" stroke="#5f605d" stroke-width="5" opacity=".65"/>
-    <!-- base -->
-    <path d="M119 278 L241 278 L257 304 L240 315 L217 299 L143 299 L120 315 L103 304 Z"
-          fill="url(#steelDark)" stroke="#343431" stroke-width="3"/>
-    <path d="M120 278 L240 278" stroke="#f1f0e9" stroke-width="3" opacity=".7"/>
-  </g>
-
-  <!-- fine metallic highlights -->
-  <path d="M181 57 L293 315" stroke="#fff" stroke-width="2" opacity=".28"/>
-  <path d="M67 319 L174 59" stroke="#fff" stroke-width="1.5" opacity=".28"/>
+  <!-- controlled chrome highlights -->
+  <path d="M165 235 H430" stroke="#ffffff" stroke-width="3" opacity=".60"/>
+  <path d="M207 387 H312" stroke="#ffffff" stroke-width="2" opacity=".46"/>
+  <ellipse cx="205" cy="122" rx="115" ry="86" fill="url(#shine)" opacity=".23"/>
 </svg>
