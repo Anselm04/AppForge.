@@ -83,9 +83,11 @@ describe("critical customer flow contract", () => {
     const auth = source("../lib/auth.ts");
 
     expect(auth).toContain('const USER_KEY = "appforge.user"');
-    expect(auth).not.toContain('refreshToken?: string;');
+    expect(auth).not.toContain("refreshToken?: string;");
     expect(auth).toContain("export async function refreshSession");
-    expect(auth).toContain("Refresh tokens live only in the server-managed HttpOnly cookie");
+    expect(auth).toContain(
+      "Refresh tokens live only in the server-managed HttpOnly cookie",
+    );
     expect(auth).toContain("export async function ensureFreshSession");
     expect(auth).toContain("cachedSession = { user: session.user };");
     expect(auth).not.toContain("localStorage?.setItem(SESSION_KEY");
@@ -229,7 +231,9 @@ describe("critical customer flow contract", () => {
   it("makes generated tests blocking for every full-validation build", () => {
     const pipeline = source("../agents/pipeline.generated.ts");
 
-    expect(pipeline).toContain('const testsBlocking = validationMode === "full";');
+    expect(pipeline).toContain(
+      'const testsBlocking = validationMode === "full";',
+    );
     expect(pipeline).toContain('if (validationMode === "full") {');
     expect(pipeline).toContain(
       "Generating blocking unit tests before validation and deployment…",
@@ -248,7 +252,9 @@ describe("critical customer flow contract", () => {
   it("fails full-validation builds that contain no executable generated tests", () => {
     const validator = source("../agents/buildValidator.ts");
 
-    expect(validator).toContain("const generatedTestFiles = Object.keys(files)");
+    expect(validator).toContain(
+      "const generatedTestFiles = Object.keys(files)",
+    );
     expect(validator).toContain(
       "Full-validation build generated no executable unit/integration tests.",
     );
@@ -309,7 +315,9 @@ describe("critical customer flow contract", () => {
     const workflow = source(
       "../../.github/workflows/production-full-customer-journey.yml",
     );
-    const browserSpec = source("../../scripts/production-canary-browser.spec.mjs");
+    const browserSpec = source(
+      "../../scripts/production-canary-browser.spec.mjs",
+    );
 
     expect(workflow).toContain("@playwright/test@1.55.0");
     expect(workflow).toContain("npx playwright install chromium");
