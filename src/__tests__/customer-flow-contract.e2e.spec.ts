@@ -47,6 +47,19 @@ describe("critical customer flow contract", () => {
     expect(projects).toContain("reservationCharged = !unlimited");
   });
 
+  it("keeps account password recovery controls wired", () => {
+    const login = source("../pages/Login.tsx");
+    const app = source("../App.tsx");
+    const supabase = source("../lib/supabase-client.ts");
+
+    expect(login).toContain('to="/forgot-password"');
+    expect(app).toContain('path="/account"');
+    expect(app).toContain('path="/forgot-password"');
+    expect(app).toContain('path="/password-reset"');
+    expect(supabase).toContain("requestPasswordReset(email: string)");
+    expect(supabase).toContain("updatePassword(accessToken: string, password: string)");
+  });
+
   it("preserves signup destination through confirmation and login", () => {
     const auth = source("../lib/auth.ts");
     const signup = source("../pages/Signup.tsx");
