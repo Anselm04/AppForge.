@@ -161,7 +161,6 @@ jobs:
             COOKIE_SECRET
             STRIPE_SECRET_KEY
             STRIPE_WEBHOOK_SECRET
-            BUILT_IN_FORGE_API_KEY
             OWNER_EMAIL
           )
           missing=0
@@ -171,11 +170,41 @@ jobs:
               missing=1
             fi
           done
+
+          llm_provider_candidates=(
+            GROQ_API_KEY
+            DEEPSEEK_API_KEY
+            GEMINI_API_KEY
+            GOOGLE_API_KEY
+            OPENROUTER_API_KEY
+            CEREBRAS_API_KEY
+            MISTRAL_API_KEY
+            TOGETHER_API_KEY
+            FIREWORKS_API_KEY
+            HF_TOKEN
+            HUGGINGFACE_API_KEY
+            OPENAI_COMPAT_API_KEY
+            BUILT_IN_FORGE_API_KEY
+            FORGE_API_KEY
+            OPENAI_API_KEY
+          )
+          llm_configured=0
+          for name in "${llm_provider_candidates[@]}"; do
+            if grep -Fxq "$name" <<<"$SECRET_NAMES"; then
+              llm_configured=1
+              break
+            fi
+          done
+          if [ "$llm_configured" -ne 1 ]; then
+            echo "Production deploy blocked because no supported LLM provider secret is configured on Fly."
+            missing=1
+          fi
+
           if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, coordinate two Machines, or collect money with the current Fly secret set."
+            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, coordinate two Machines, generate with an LLM, or collect money with the current Fly secret set."
             exit 1
           fi
-          echo "Revenue-critical and shared two-Machine Fly runtime secret names are configured."
+          echo "Revenue-critical, LLM-provider, and shared two-Machine Fly runtime secret requirements are satisfied."
       - name: Reconfirm release freshness immediately before deploy
         shell: bash
         run: |

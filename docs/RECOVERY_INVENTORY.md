@@ -102,8 +102,8 @@ Required production secret names include:
 - `COOKIE_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
-- `BUILT_IN_FORGE_API_KEY`
 - `OWNER_EMAIL`
+- At least one supported LLM-provider credential used by the runtime router, such as `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `BUILT_IN_FORGE_API_KEY`, `FORGE_API_KEY`, or `OPENAI_API_KEY`.
 
 Verification target:
 - Recreate/redeploy exact trusted SHA.
@@ -111,6 +111,8 @@ Verification target:
 - Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
 - Health/readiness/auth-boundary smoke verification.
 - After a restore or redeploy, verify every private REST surface still fails closed to anonymous callers before reopening customer traffic.
+- Confirm at least one supported LLM provider secret name is present before reopening generation. The built-in Forge credential is optional when another supported provider is configured.
+- Confirm the Alpine builder can reproduce the release from the committed lockfile, including the Rollup musl package bootstrap without relying on a developer-machine cache.
 
 ## Shared Redis two-Machine coordination
 
