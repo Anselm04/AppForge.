@@ -17,6 +17,7 @@ export const LOCALES = [
   { code: "ca", nativeName: "Català", dir: "ltr" },
   { code: "ceb", nativeName: "Cebuano", dir: "ltr" },
   { code: "zh", nativeName: "中文", dir: "ltr" },
+  { code: "es", nativeName: "Español", dir: "ltr" },
   { code: "co", nativeName: "Corsu", dir: "ltr" },
   { code: "hr", nativeName: "Hrvatski", dir: "ltr" },
   { code: "cs", nativeName: "Čeština", dir: "ltr" },
