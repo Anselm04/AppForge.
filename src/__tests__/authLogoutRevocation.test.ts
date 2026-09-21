@@ -25,7 +25,7 @@ describe("logout session revocation", () => {
 
   it("keeps refresh credentials out of browser-managed session storage", () => {
     expect(auth).toContain('const USER_KEY = "appforge.user"');
-    expect(auth).toContain("Refresh tokens live only in the server-managed HttpOnly cookie");
+    expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
     expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).not.toContain("refreshToken?: string;");
   });
@@ -34,14 +34,16 @@ describe("logout session revocation", () => {
     const ensureStart = auth.indexOf(
       "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
     );
-    const signUpStart = auth.indexOf("export async function signUp", ensureStart);
+    const signUpStart = auth.indexOf(
+      "export async function signUp",
+      ensureStart,
+    );
     const ensureSource = auth.slice(ensureStart, signUpStart);
 
     expect(ensureSource).toContain(
       "if (!session.accessToken || accessTokenExpired(session.accessToken))",
     );
-    expect(ensureSource).toContain("cachedSession = { user: session.user }");
-    expect(ensureSource).toContain("return cachedSession");
+    expect(ensureSource).toContain("return refreshSession()");
     expect(ensureSource).not.toContain("return session.accessToken");
   });
 

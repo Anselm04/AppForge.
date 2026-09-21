@@ -233,3 +233,10 @@ At least monthly:
 11. Correct any recovery step that depends on undocumented knowledge or unavailable credentials.
 
 A backup that cannot be restored is not a backup.
+
+
+### Browser authentication/session recovery
+
+AppForge treats the browser's `appforge.user` value only as a non-secret user marker, never as proof of an authenticated session. When a browser access token is missing or expired, the client must prove the server-managed HttpOnly cookie session through `POST /api/auth/session` before continuing as signed in. The server may refresh and rotate the Supabase session from its HttpOnly refresh cookie. If that proof fails, the client clears the stale local user marker and fails closed rather than allowing protected build, admin, billing, or deployment actions to proceed under a false signed-in state.
+
+During recovery or incident handling, do not restore or manufacture browser user markers as a substitute for a valid server session. Verify that the secure cookie session can be refreshed through the normal authentication path; otherwise require a fresh login. This keeps browser reopen/refresh recovery aligned with the production authentication boundary and prevents stale local state from masking an expired or revoked server session.

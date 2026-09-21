@@ -4,8 +4,10 @@ import {
   ensureFreshSession,
   getAccessToken,
   loginPathWithReturn,
+  signOut,
 } from "../auth.js";
 import { consumeAuthedSse, parseSseFrame, readSseBody } from "../authedSse.js";
+import { clearCsrfToken } from "../csrf.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const store = { ...initial };
@@ -26,7 +28,13 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
 describe("generate auth helpers", () => {
   beforeEach(() => {
+    signOut();
+    clearCsrfToken();
     Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: memoryStorage(),
+    });
+    Object.defineProperty(window, "sessionStorage", {
       configurable: true,
       value: memoryStorage(),
     });
@@ -53,16 +61,54 @@ describe("generate auth helpers", () => {
     expect(loginPathWithReturn("/")).toBe("/login?next=%2F");
   });
 
-  it("restores only a non-secret user marker for cookie-authenticated requests", async () => {
+  it("restores only a non-secret user marker after the server proves the cookie session", async () => {
     window.localStorage.setItem(
       "appforge.user",
       JSON.stringify({ id: "u1", email: "owner@example.com" }),
     );
 
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
     const session = await ensureFreshSession();
     expect(session?.user.id).toBe("u1");
     expect(getAccessToken()).toBeNull();
     expect(window.localStorage.getItem("appforge.session")).toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
+    ).toBe(true);
+  });
+
+  it("clears a stale user marker when the server cannot prove the cookie session", async () => {
+    window.localStorage.setItem(
+      "appforge.user",
+      JSON.stringify({ id: "u1", email: "owner@example.com" }),
+    );
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+    const session = await ensureFreshSession();
+    expect(session).toBeNull();
+    expect(window.localStorage.getItem("appforge.user")).toBeNull();
   });
 
   it("allows cookie-authenticated SSE when no browser bearer token is available", async () => {
@@ -72,30 +118,42 @@ describe("generate auth helpers", () => {
     );
 
     const encoder = new TextEncoder();
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(
-              encoder.encode('event: done\ndata: {"ok":true}\n\n'),
-            );
-            controller.close();
-          },
-        }),
-        {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
           status: 200,
-          headers: { "Content-Type": "text/event-stream" },
-        },
-      ),
-    );
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode('event: done\ndata: {"ok":true}\n\n'),
+              );
+              controller.close();
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          },
+        ),
+      );
 
     const events: Array<{ event: string; data: string }> = [];
     await consumeAuthedSse("/api/build/123", (event, data) => {
       events.push({ event, data });
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, options] = fetchMock.mock.calls[0];
+    const sseCall = fetchMock.mock.calls.find(
+      ([url]) => String(url) === "/api/build/123",
+    );
+    expect(sseCall).toBeTruthy();
+    const [, options] = sseCall!;
     expect(options?.credentials).toBe("same-origin");
     expect(new Headers(options?.headers).has("Authorization")).toBe(false);
     expect(events).toEqual([{ event: "done", data: '{"ok":true}' }]);
@@ -125,8 +183,6 @@ describe("generate auth helpers", () => {
       events.push({ event, data });
     });
 
-    expect(events).toEqual([
-      { event: "agent", data: '{"type":"start"}' },
-    ]);
+    expect(events).toEqual([{ event: "agent", data: '{"type":"start"}' }]);
   });
 });
