@@ -363,7 +363,7 @@ jobs:
         run: npm install --no-save --package-lock=false @playwright/test@1.63.0
 
       - name: Install Chromium for live shell verification
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Verify production customer shell interactions in Chromium
         env:
