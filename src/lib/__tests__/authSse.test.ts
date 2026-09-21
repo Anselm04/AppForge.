@@ -61,9 +61,7 @@ describe("generate auth helpers", () => {
     expect(loginPathWithReturn("/")).toBe("/login?next=%2F");
   });
 
-  it(
-    "restores only a non-secret user marker after the server proves the cookie session",
-    async () => {
+  it("restores only a non-secret user marker after the server proves the cookie session", async () => {
       window.localStorage.setItem(
         "appforge.user",
         JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -84,14 +82,13 @@ describe("generate auth helpers", () => {
       expect(getAccessToken()).toBeNull();
       expect(window.localStorage.getItem("appforge.session")).toBeNull();
       expect(
-        fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
+        fetchMock.mock.calls.some(
+          ([url]) => String(url) === "/api/auth/session",
+        ),
       ).toBe(true);
-    },
-  );
+  });
 
-  it(
-    "clears a stale user marker when the server cannot prove the cookie session",
-    async () => {
+  it("clears a stale user marker when the server cannot prove the cookie session", async () => {
       window.localStorage.setItem(
         "appforge.user",
         JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -114,12 +111,9 @@ describe("generate auth helpers", () => {
       const session = await ensureFreshSession();
       expect(session).toBeNull();
       expect(window.localStorage.getItem("appforge.user")).toBeNull();
-    },
-  );
+  });
 
-  it(
-    "allows cookie-authenticated SSE when no browser bearer token is available",
-    async () => {
+  it("allows cookie-authenticated SSE when no browser bearer token is available", async () => {
       window.localStorage.setItem(
         "appforge.user",
         JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -165,8 +159,7 @@ describe("generate auth helpers", () => {
       expect(options?.credentials).toBe("same-origin");
       expect(new Headers(options?.headers).has("Authorization")).toBe(false);
       expect(events).toEqual([{ event: "done", data: '{"ok":true}' }]);
-    },
-  );
+  });
 
   it("parses SSE agent frames used by generate", () => {
     const parsed = parseSseFrame(
