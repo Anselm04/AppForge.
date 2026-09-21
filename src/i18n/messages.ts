@@ -18,8 +18,12 @@ type DeepString<T> = {
 export type Messages = DeepString<typeof enJson>;
 export const en: Messages = enJson;
 
-/** Non-en catalogs may lag en.json; cast so typecheck is not blocked on partial locales. */
-export const messages: Record<LocaleCode, Messages> = {
+/**
+ * Eleven locales currently have complete, reviewed catalogs.
+ * The wider language menu is intentionally allowed to fall back to English
+ * until a reviewed catalog exists rather than shipping fabricated translations.
+ */
+export const messages: Partial<Record<LocaleCode, Messages>> = {
   en,
   mi: mi as Messages,
   zh: zh as Messages,
