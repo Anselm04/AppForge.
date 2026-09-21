@@ -360,7 +360,7 @@ jobs:
           echo "Customer-flow entry and deep-link routes are live after deploy"
 
       - name: Install browser verifier for live shell
-        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
 
       - name: Install Chromium for live shell verification
         run: npx playwright install chromium
