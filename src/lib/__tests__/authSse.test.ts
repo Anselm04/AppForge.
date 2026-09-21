@@ -68,27 +68,27 @@ describe("generate auth helpers", () => {
   it(
     "restores only a non-secret user marker after the server proves the cookie session",
     async () => {
-    window.localStorage.setItem(
-      "appforge.user",
-      JSON.stringify({ id: "u1", email: "owner@example.com" }),
-    );
+      window.localStorage.setItem(
+        "appforge.user",
+        JSON.stringify({ id: "u1", email: "owner@example.com" }),
+      );
 
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    const session = await ensureFreshSession();
-    expect(session?.user.id).toBe("u1");
-    expect(getAccessToken()).toBeNull();
-    expect(window.localStorage.getItem("appforge.session")).toBeNull();
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
+      const session = await ensureFreshSession();
+      expect(session?.user.id).toBe("u1");
+      expect(getAccessToken()).toBeNull();
+      expect(window.localStorage.getItem("appforge.session")).toBeNull();
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
       ).toBe(true);
     },
   );
@@ -96,27 +96,27 @@ describe("generate auth helpers", () => {
   it(
     "clears a stale user marker when the server cannot prove the cookie session",
     async () => {
-    window.localStorage.setItem(
-      "appforge.user",
-      JSON.stringify({ id: "u1", email: "owner@example.com" }),
-    );
-
-    vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: "Not authenticated" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }),
+      window.localStorage.setItem(
+        "appforge.user",
+        JSON.stringify({ id: "u1", email: "owner@example.com" }),
       );
 
-    const session = await ensureFreshSession();
-    expect(session).toBeNull();
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: "Not authenticated" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+
+      const session = await ensureFreshSession();
+      expect(session).toBeNull();
       expect(window.localStorage.getItem("appforge.user")).toBeNull();
     },
   );
@@ -124,50 +124,50 @@ describe("generate auth helpers", () => {
   it(
     "allows cookie-authenticated SSE when no browser bearer token is available",
     async () => {
-    window.localStorage.setItem(
-      "appforge.user",
-      JSON.stringify({ id: "u1", email: "owner@example.com" }),
-    );
-
-    const encoder = new TextEncoder();
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(
-        new Response(
-          new ReadableStream<Uint8Array>({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: done\ndata: {"ok":true}\n\n'),
-              );
-              controller.close();
-            },
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "text/event-stream" },
-          },
-        ),
+      window.localStorage.setItem(
+        "appforge.user",
+        JSON.stringify({ id: "u1", email: "owner@example.com" }),
       );
 
-    const events: Array<{ event: string; data: string }> = [];
-    await consumeAuthedSse("/api/build/123", (event, data) => {
-      events.push({ event, data });
-    });
+      const encoder = new TextEncoder();
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ csrfToken: "csrf-test" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+        .mockResolvedValueOnce(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode('event: done\ndata: {"ok":true}\n\n'),
+                );
+                controller.close();
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "text/event-stream" },
+            },
+          ),
+        );
 
-    const sseCall = fetchMock.mock.calls.find(
-      ([url]) => String(url) === "/api/build/123",
-    );
-    expect(sseCall).toBeTruthy();
-    const [, options] = sseCall!;
-    expect(options?.credentials).toBe("same-origin");
-    expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+      const events: Array<{ event: string; data: string }> = [];
+      await consumeAuthedSse("/api/build/123", (event, data) => {
+        events.push({ event, data });
+      });
+
+      const sseCall = fetchMock.mock.calls.find(
+        ([url]) => String(url) === "/api/build/123",
+      );
+      expect(sseCall).toBeTruthy();
+      const [, options] = sseCall!;
+      expect(options?.credentials).toBe("same-origin");
+      expect(new Headers(options?.headers).has("Authorization")).toBe(false);
       expect(events).toEqual([{ event: "done", data: '{"ok":true}' }]);
     },
   );
