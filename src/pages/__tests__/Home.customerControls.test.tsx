@@ -102,7 +102,10 @@ describe("tester-facing customer shell interactions", () => {
 
     expect(document.documentElement.lang).toBe("fr");
     expect(document.documentElement.dir).toBe("ltr");
-    expect(window.localStorage.getItem("appforge.locale")).toBe("fr");
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      "appforge.locale",
+      "fr",
+    );
     expect(
       within(controls).getByRole("button", { name: /langue/i }),
     ).toBeVisible();
