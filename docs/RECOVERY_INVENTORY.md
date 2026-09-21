@@ -372,3 +372,7 @@ Verification target:
 - Require the Chromium customer-shell step to pass against the public Fly production URL.
 - Treat missing prompt interaction, broken compact navigation, fewer than 100 language choices, failed French locale application, or non-functional theme toggles as a production regression requiring correction before the release is considered customer-ready.
 
+### Browser verifier bootstrap recovery note — 21 September 2026
+
+The live Chromium verifier installs its pinned Playwright runtime into an isolated runner-temporary prefix rather than performing a second install into AppForge's application dependency tree. This avoids the npm Arborist `edgesOut` failure observed after the production deployment while preserving the mandatory browser certification. Recovery validation must keep the verifier isolated from application `node_modules` and must fail the release if the temporary Playwright install, Chromium dependency install, or customer-shell script fails.
+
