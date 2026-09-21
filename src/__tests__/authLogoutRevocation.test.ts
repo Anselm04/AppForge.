@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const auth = readFileSync(resolve(process.cwd(), "src/lib/auth.ts"), "utf8");
+const auth = readFileSync(
+  resolve(process.cwd(), "src/lib/auth.ts"),
+  "utf8",
+);
 const client = readFileSync(
   resolve(process.cwd(), "src/lib/supabase-client.ts"),
   "utf8",
@@ -30,19 +33,22 @@ describe("logout session revocation", () => {
     expect(auth).not.toContain("refreshToken?: string;");
   });
 
-  it("drops an expired access token and falls back to the HttpOnly cookie session", () => {
-    const ensureStart = auth.indexOf(
-      "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
-    );
-    const signUpStart = auth.indexOf("export async function signUp", ensureStart);
-    const ensureSource = auth.slice(ensureStart, signUpStart);
+  it(
+    "drops an expired access token and falls back to the HttpOnly cookie session",
+    () => {
+      const ensureStart = auth.indexOf(
+        "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
+      );
+      const signUpStart = auth.indexOf("export async function signUp", ensureStart);
+      const ensureSource = auth.slice(ensureStart, signUpStart);
 
-    expect(ensureSource).toContain(
-      "if (!session.accessToken || accessTokenExpired(session.accessToken))",
-    );
-    expect(ensureSource).toContain("return refreshSession()");
-    expect(ensureSource).not.toContain("return session.accessToken");
-  });
+      expect(ensureSource).toContain(
+        "if (!session.accessToken || accessTokenExpired(session.accessToken))",
+      );
+      expect(ensureSource).toContain("return refreshSession()");
+      expect(ensureSource).not.toContain("return session.accessToken");
+    },
+  );
 
   it("does not expose raw Supabase 5xx responses to the UI", () => {
     expect(client).toContain("if (response.status >= 500)");
