@@ -236,18 +236,56 @@ export function signOut() {
   }
 }
 
+async function refreshServerCookieSession(): Promise<boolean> {
+  const post = async (): Promise<Response> => {
+    const headers = await withCsrfHeaders({ Accept: "application/json" });
+    return fetch("/api/auth/session", {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+    });
+  };
+
+  let response = await post();
+  if (response.status === 403) {
+    clearCsrfToken();
+    response = await post();
+  }
+  return response.ok;
+}
+
 export async function refreshSession(): Promise<AppForgeSession | null> {
+  if (refreshInFlight) return refreshInFlight;
+
   const current = getSession();
   if (!current) return null;
+  const generation = sessionGeneration;
 
-  // Refresh tokens live only in the server-managed HttpOnly cookie. Remove a
-  // rejected/expired bearer token from browser session storage and let the next
-  // same-origin request authenticate through the secure cookie path, where the
-  // server can refresh and rotate the session.
-  clearStoredAccessToken();
-  cachedSession = { user: current.user };
-  emitSessionChange();
-  return cachedSession;
+  refreshInFlight = (async () => {
+    // Refresh tokens are intentionally HttpOnly. Prove that the server can
+    // authenticate (and rotate) the cookie session before treating a browser
+    // user marker as signed in. A stale local marker must never count as a
+    // successful refresh.
+    clearStoredAccessToken();
+    const refreshed = await refreshServerCookieSession().catch(() => false);
+
+    if (generation !== sessionGeneration) return null;
+    if (!refreshed) {
+      cachedSession = null;
+      clearStoredUser();
+      clearStoredAccessToken();
+      emitSessionChange();
+      return null;
+    }
+
+    cachedSession = { user: current.user };
+    emitSessionChange();
+    return cachedSession;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
 }
 
 function accessTokenExpired(token: string, skewMs = 30_000): boolean {
@@ -269,10 +307,7 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   if (!session) return null;
 
   if (!session.accessToken || accessTokenExpired(session.accessToken)) {
-    clearStoredAccessToken();
-    cachedSession = { user: session.user };
-    emitSessionChange();
-    return cachedSession;
+    return refreshSession();
   }
 
   return session;
