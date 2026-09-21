@@ -12,8 +12,6 @@ describe("Build authentication continuity", () => {
     expect(buildSource).toContain("authReconnectAttempts");
     expect(buildSource).toContain("retryDelay");
     expect(buildSource).toContain("setError(null)");
-    expect(buildSource).not.toContain(
-      "sign in again and reopen this project",
-    );
+    expect(buildSource).not.toContain("sign in again and reopen this project");
   });
 });
