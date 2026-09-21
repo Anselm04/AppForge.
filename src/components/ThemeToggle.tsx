@@ -9,16 +9,16 @@ export function ThemeToggle({ className, stacked = false }: Props) {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
   return (
-    <div className={cn(stacked ? "w-full" : "shrink-0", className)} role="group" aria-label={isDark ? t("nav.night") : t("nav.day")}>
+    <div className={cn(stacked ? "w-full" : "shrink-0", className)} role="group" aria-label={isDark ? t("nav.dark") : t("nav.light")}>
       {stacked && (
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--forge-heading)]">{isDark ? t("nav.night") : t("nav.day")}</p>
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--forge-heading)]">{isDark ? t("nav.dark") : t("nav.light")}</p>
       )}
       <div className={stacked ? "grid grid-cols-2 gap-1 p-1 bg-forge-surface border border-forge-border" : "inline-flex items-center gap-0.5 p-0.5 bg-forge-surface border border-forge-border"}>
         <button type="button" aria-pressed={isDark} onClick={() => setTheme("dark")} className={stacked ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}` : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`}>
-          <MoonIcon />{t("nav.night")}
+          <MoonIcon />{t("nav.dark")}
         </button>
         <button type="button" aria-pressed={!isDark} onClick={() => setTheme("light")} className={stacked ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}` : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`}>
-          <SunIcon />{t("nav.day")}
+          <SunIcon />{t("nav.light")}
         </button>
       </div>
     </div>
