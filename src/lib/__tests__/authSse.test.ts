@@ -198,8 +198,6 @@ describe("generate auth helpers", () => {
       events.push({ event, data });
     });
 
-    expect(events).toEqual([
-      { event: "agent", data: '{"type":"start"}' },
-    ]);
+    expect(events).toEqual([{ event: "agent", data: '{"type":"start"}' }]);
   });
 });
