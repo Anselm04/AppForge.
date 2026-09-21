@@ -6,11 +6,7 @@ import {
   loginPathWithReturn,
   signOut,
 } from "../auth.js";
-import {
-  consumeAuthedSse,
-  parseSseFrame,
-  readSseBody,
-} from "../authedSse.js";
+import { consumeAuthedSse, parseSseFrame, readSseBody } from "../authedSse.js";
 import { clearCsrfToken } from "../csrf.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -88,9 +84,7 @@ describe("generate auth helpers", () => {
       expect(getAccessToken()).toBeNull();
       expect(window.localStorage.getItem("appforge.session")).toBeNull();
       expect(
-        fetchMock.mock.calls.some(
-          ([url]) => String(url) === "/api/auth/session",
-        ),
+        fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
       ).toBe(true);
     },
   );
