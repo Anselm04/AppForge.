@@ -88,9 +88,7 @@ describe("generate auth helpers", () => {
       expect(getAccessToken()).toBeNull();
       expect(window.localStorage.getItem("appforge.session")).toBeNull();
       expect(
-        fetchMock.mock.calls.some(
-          ([url]) => String(url) === "/api/auth/session",
-        ),
+        fetchMock.mock.calls.some(([url]) => String(url) === "/api/auth/session"),
       ).toBe(true);
     },
   );
