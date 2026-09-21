@@ -32,6 +32,17 @@ describe("Supabase server authentication boundary", () => {
     );
   });
 
+  it("coalesces concurrent refresh-token rotation and preserves cookies on transient refresh failure", () => {
+    expect(middleware).toContain("refreshAccessTokenSingleFlight");
+    expect(middleware).toContain("refreshFlights");
+    expect(middleware).toContain("recentRefreshes");
+    expect(middleware).toContain("REFRESH_GRACE_MS");
+    expect(middleware).toContain('createHash("sha256")');
+    expect(middleware).toContain(
+      "A transient Supabase/network failure must never destroy a still-valid",
+    );
+  });
+
   it("never accepts access tokens from query parameters", () => {
     expect(middleware).not.toContain("req.query.token");
     expect(middleware).not.toContain("req.query.access_token");

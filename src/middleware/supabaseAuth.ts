@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createClient, type User } from "@supabase/supabase-js";
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../_core/logger.js";
@@ -14,6 +15,23 @@ const ACCESS_COOKIE = "sb-access-token";
 const REFRESH_COOKIE = "sb-refresh-token";
 const REFRESH_HEADER = "x-supabase-refresh-token";
 const SESSION_PATH = "/api/auth/session";
+const REFRESH_GRACE_MS = 15_000;
+
+type RefreshedSession = {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+};
+
+const refreshFlights = new Map<string, Promise<RefreshedSession | null>>();
+const recentRefreshes = new Map<
+  string,
+  { result: RefreshedSession; expiresAt: number }
+>();
+
+function refreshTokenKey(refreshToken: string): string {
+  return createHash("sha256").update(refreshToken).digest("hex");
+}
 
 let supabase: ReturnType<typeof createClient> | null = null;
 if (supabaseUrl && supabaseKey) {
@@ -137,11 +155,9 @@ async function verifyAccessToken(token: string): Promise<User | null> {
   }
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-} | null> {
+async function refreshAccessToken(
+  refreshToken: string,
+): Promise<RefreshedSession | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase.auth.refreshSession({
@@ -157,6 +173,36 @@ async function refreshAccessToken(refreshToken: string): Promise<{
     refreshToken: session.refresh_token,
     user: data.user,
   };
+}
+
+async function refreshAccessTokenSingleFlight(
+  refreshToken: string,
+): Promise<RefreshedSession | null> {
+  const key = refreshTokenKey(refreshToken);
+  const now = Date.now();
+  const recent = recentRefreshes.get(key);
+  if (recent && recent.expiresAt > now) return recent.result;
+  if (recent) recentRefreshes.delete(key);
+
+  const existing = refreshFlights.get(key);
+  if (existing) return existing;
+
+  const flight = refreshAccessToken(refreshToken)
+    .then((result) => {
+      if (result) {
+        recentRefreshes.set(key, {
+          result,
+          expiresAt: Date.now() + REFRESH_GRACE_MS,
+        });
+      }
+      return result;
+    })
+    .finally(() => {
+      refreshFlights.delete(key);
+    });
+
+  refreshFlights.set(key, flight);
+  return flight;
 }
 
 export async function supabaseAuthMiddleware(
@@ -195,19 +241,19 @@ export async function supabaseAuthMiddleware(
 
   if (!authUser && refreshToken) {
     try {
-      const refreshed = await refreshAccessToken(refreshToken);
+      const refreshed = await refreshAccessTokenSingleFlight(refreshToken);
       if (refreshed) {
         token = refreshed.accessToken;
         refreshToken = refreshed.refreshToken;
         authUser = refreshed.user;
         setSessionCookies(res, refreshed.accessToken, refreshed.refreshToken);
         res.setHeader("x-appforge-session-refreshed", "1");
-      } else {
-        clearSessionCookies(res);
       }
     } catch (err) {
+      // A transient Supabase/network failure must never destroy a still-valid
+      // refresh cookie. Leave it intact so the next request can heal the
+      // session automatically instead of forcing the customer to sign in.
       logger.warn({ error: err }, "supabase_auth_refresh_failed");
-      clearSessionCookies(res);
     }
   }
 

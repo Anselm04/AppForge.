@@ -97,6 +97,7 @@ export function Build() {
     let closed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let streamAc: AbortController | null = null;
+    let authReconnectAttempts = 0;
 
     const connect = () => {
       if (closed || effectAc.signal.aborted) return;
@@ -108,6 +109,8 @@ export function Build() {
 
       const handleEvent = (event: string, raw: string) => {
         if (closed) return;
+        authReconnectAttempts = 0;
+        setError(null);
         if (event === "agent") {
           const data = JSON.parse(raw) as BuildLog;
           setLogs((prev) => [...prev, data]);
@@ -239,9 +242,19 @@ export function Build() {
           return;
         }
         if (/not authenticated/i.test(msg)) {
-          setError(
-            "Authentication could not be refreshed. Your build was not discarded; sign in again and reopen this project.",
+          // Normal access-token expiry is recoverable. The server owns the
+          // HttpOnly refresh token and rotates it; keep reconnecting to the same
+          // background build instead of telling the customer to sign in again.
+          authReconnectAttempts += 1;
+          setError(null);
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          const retryDelay = Math.min(
+            15_000,
+            1_000 * 2 ** Math.min(authReconnectAttempts - 1, 4),
           );
+          reconnectTimer = setTimeout(() => {
+            if (!closed && !effectAc.signal.aborted) connect();
+          }, retryDelay);
           return;
         }
         setError(msg);
