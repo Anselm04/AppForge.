@@ -358,3 +358,17 @@ Confirm:
 - No discontinued provider remains an undocumented dependency.
 
 This document contains no secret material by design.
+
+## Live customer-shell browser recovery invariant
+
+Recovery invariant reviewed 21 September 2026:
+- A release is not fully certified by HTTP route availability alone; the deployed customer shell must remain interactable in a real mobile Chromium session.
+- The post-deploy gate must prove the landing prompt accepts text and enables Generate, the compact navigation opens, the language menu exposes more than 100 choices, selecting French changes the live document locale and translated controls, and both dark/light theme controls toggle successfully.
+- This browser check runs only after the exact release SHA has deployed, two-Machine reconciliation has passed, live/readiness checks are green, private API boundaries fail closed, and customer entry routes return non-empty HTTP 200 responses.
+- A browser-shell failure blocks release certification even when health endpoints remain green, because a reachable service with broken primary controls is not equivalent to a recoverable customer-ready release.
+
+Verification target:
+- Run the production deployment workflow for the exact trusted SHA.
+- Require the Chromium customer-shell step to pass against the public Fly production URL.
+- Treat missing prompt interaction, broken compact navigation, fewer than 100 language choices, failed French locale application, or non-functional theme toggles as a production regression requiring correction before the release is considered customer-ready.
+
