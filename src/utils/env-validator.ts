@@ -234,13 +234,13 @@ export function validateEnv(
     }
   }
 
-  // AppForge scales horizontally with Redis, but a single-machine production
-  // deployment is a valid, supported configuration. Missing Redis therefore
-  // degrades gracefully to in-memory coordination instead of blocking startup
-  // (which previously made sign-up/login/build impossible on first deploy).
+  // Production runs a redundant two-Machine Fly fleet. Redis is therefore a
+  // correctness dependency for shared rate limiting, build coordination, and
+  // event delivery across processes; falling back to process memory would split
+  // state between Machines and can produce inconsistent customer behavior.
   if (isProduction && !config.REDIS_URL) {
-    warnings.push(
-      "REDIS_URL not set. Running in single-machine mode (in-memory rate limiting and build events). Set REDIS_URL for multi-machine/horizontal scaling.",
+    errors.push(
+      "REDIS_URL is required in production for shared multi-machine coordination",
     );
   }
   if (
