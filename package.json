@@ -15,7 +15,7 @@
     "test": "node scripts/assemble-pipeline.mjs && vitest",
     "test:e2e": "node scripts/assemble-pipeline.mjs && vitest run src/__tests__/golden-path.e2e.spec.ts src/__tests__/customer-flow-contract.e2e.spec.ts",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint src --ext .ts,.tsx && prettier --write src/__tests__/authLogoutRevocation.test.ts src/lib/__tests__/authSse.test.ts && git diff -- src/__tests__/authLogoutRevocation.test.ts src/lib/__tests__/authSse.test.ts && exit 1",
+    "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "node scripts/assemble-pipeline.mjs && tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "validate-env": "tsx scripts/validate-env.ts",
