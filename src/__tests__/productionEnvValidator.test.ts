@@ -39,9 +39,8 @@ describe("production environment validation", () => {
     expect(result.errors.join("\n")).toContain("STRIPE_CREDITS_250_PRICE_ID");
   });
 
-  it("boots for core sign-up/login/build without Stripe or Redis configured", () => {
+  it("boots for core sign-up/login/build without Stripe when Redis is configured", () => {
     const {
-      REDIS_URL: _redis,
       STRIPE_SECRET_KEY: _sk,
       STRIPE_WEBHOOK_SECRET: _whsec,
       STRIPE_STARTER_PRICE_ID: _p1,
@@ -55,6 +54,16 @@ describe("production environment validation", () => {
     const result = validateEnv(coreOnly);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it("fails production validation without shared Redis", () => {
+    const { REDIS_URL: _redis, ...withoutRedis } = baseProductionEnv;
+    const result = validateEnv(withoutRedis);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "REDIS_URL is required in production for shared multi-machine coordination",
+    );
   });
 
   it("requires the Stripe webhook secret only when billing is enabled", () => {
