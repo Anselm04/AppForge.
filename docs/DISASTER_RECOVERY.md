@@ -49,6 +49,8 @@ AppForge production uses the Fly-managed Upstash Redis database `appforge-produc
 - `REDIS_URL` is staged first so creating or repairing the secret does not cause an unverified secret-only restart. The next normal production deploy activates the staged secret and must pass the full release and post-deploy gates.
 - Shared Redis is a correctness dependency, not an optional cache, for distributed build/queue coordination, build events, shared hard rate limiting, and recurring single-writer ownership across the two Fly Machines. Do not weaken the production deploy gate to permit a two-Machine release without `REDIS_URL`.
 
+The production environment validator must fail closed when `REDIS_URL` is absent; single-machine in-memory fallback is not an accepted production recovery state.
+
 If Redis access is lost or the Fly secret is missing:
 
 1. Run or re-run **Provision Fly Redis** from trusted `main` so it reuses `appforge-production-redis` when present or recreates the managed database only when absent.
