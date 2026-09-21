@@ -15,6 +15,7 @@ const ACCESS_COOKIE = "sb-access-token";
 const REFRESH_COOKIE = "sb-refresh-token";
 const REFRESH_HEADER = "x-supabase-refresh-token";
 const SESSION_PATH = "/api/auth/session";
+const PASSWORD_PATH = "/api/auth/password";
 const REFRESH_GRACE_MS = 15_000;
 
 type RefreshedSession = {
@@ -142,6 +143,65 @@ function clearSessionCookies(res: Response) {
 function isSessionEndpoint(req: Request): boolean {
   const url = req.originalUrl || req.url || "";
   return url.split("?", 1)[0] === SESSION_PATH;
+}
+
+function isPasswordEndpoint(req: Request): boolean {
+  const url = req.originalUrl || req.url || "";
+  return url.split("?", 1)[0] === PASSWORD_PATH;
+}
+
+async function updatePasswordForVerifiedSession(
+  req: Request,
+  res: Response,
+  accessToken: string,
+) {
+  const password =
+    typeof req.body?.password === "string" ? req.body.password : "";
+  if (password.length < 8 || password.length > 128) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(400).json({
+      error: "Password must be between 8 and 128 characters.",
+    });
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    res.setHeader("Cache-Control", "no-store");
+    if (response.ok) return res.status(204).end();
+
+    logger.warn(
+      { status: response.status, userId: req.user?.id ?? null },
+      "supabase_password_update_rejected",
+    );
+    if (response.status === 401 || response.status === 403) {
+      return res.status(401).json({
+        error: "Your secure session has expired. Sign in again.",
+      });
+    }
+    if (response.status === 429) {
+      return res.status(429).json({
+        error: "Too many password changes. Try again later.",
+      });
+    }
+    return res.status(502).json({
+      error: "Unable to change password right now.",
+    });
+  } catch (error) {
+    logger.warn({ error }, "supabase_password_update_failed");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(502).json({
+      error: "Unable to change password right now.",
+    });
+  }
 }
 
 async function verifyAccessToken(token: string): Promise<User | null> {
@@ -320,6 +380,10 @@ export async function supabaseAuthMiddleware(
       name: dbUser.name ?? name,
       supabaseUid,
     };
+
+    if (isPasswordEndpoint(req) && req.method === "PUT") {
+      return updatePasswordForVerifiedSession(req, res, token);
+    }
 
     if (isSessionEndpoint(req) && req.method === "POST") {
       setSessionCookies(res, token, refreshToken);
