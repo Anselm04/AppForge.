@@ -358,3 +358,14 @@ jobs:
           done
 
           echo "Customer-flow entry and deep-link routes are live after deploy"
+
+      - name: Install browser verifier for live shell
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+
+      - name: Install Chromium for live shell verification
+        run: npx playwright install chromium
+
+      - name: Verify production customer shell interactions in Chromium
+        env:
+          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+        run: npx playwright test scripts/production-shell-browser.spec.mjs --reporter=line
