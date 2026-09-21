@@ -108,10 +108,10 @@ describe("tester-facing customer shell interactions", () => {
     ).toBeVisible();
 
     expect(
-      within(controls).getByRole("button", { name: /nuit|night/i }),
+      within(controls).getByRole("button", { name: /sombre|dark/i }),
     ).toBeVisible();
     expect(
-      within(controls).getByRole("button", { name: /jour|day/i }),
+      within(controls).getByRole("button", { name: /clair|light/i }),
     ).toBeVisible();
   });
 });
