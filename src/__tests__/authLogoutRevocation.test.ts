@@ -36,10 +36,7 @@ describe("logout session revocation", () => {
       const ensureStart = auth.indexOf(
         "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
       );
-      const signUpStart = auth.indexOf(
-        "export async function signUp",
-        ensureStart,
-      );
+      const signUpStart = auth.indexOf("export async function signUp", ensureStart);
       const ensureSource = auth.slice(ensureStart, signUpStart);
 
       expect(ensureSource).toContain(
