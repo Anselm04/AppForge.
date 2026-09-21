@@ -86,7 +86,7 @@ export const LOCALES = [
   { code: "sk", nativeName: "Slovenčina", dir: "ltr" },
   { code: "sl", nativeName: "Slovenščina", dir: "ltr" },
   { code: "so", nativeName: "Soomaali", dir: "ltr" },
-  { code: "es", nativeName: "Español", dir: "ltr" },
+  { code: "ckb", nativeName: "کوردیی ناوەندی", dir: "rtl" },
   { code: "su", nativeName: "Basa Sunda", dir: "ltr" },
   { code: "sw", nativeName: "Kiswahili", dir: "ltr" },
   { code: "sv", nativeName: "Svenska", dir: "ltr" },
@@ -127,7 +127,7 @@ export const LOCALES = [
   { code: "sa", nativeName: "संस्कृतम्", dir: "ltr" },
   { code: "nso", nativeName: "Sepedi", dir: "ltr" },
   { code: "ti", nativeName: "ትግርኛ", dir: "ltr" },
-  { code: "ts", nativeName: "itsonga", dir: "ltr" },
+  { code: "ts", nativeName: "Ritsonga", dir: "ltr" },
   { code: "ak", nativeName: "Twi", dir: "ltr" },
   { code: "ba", nativeName: "Башҡортса", dir: "ltr" },
 ] as const;
@@ -148,7 +148,9 @@ export function getLocaleMeta(code: LocaleCode) {
 }
 
 /** Map navigator.language (e.g. en-NZ, zh-CN, pt-BR) onto a supported locale. */
-export function matchNavigatorLanguage(language: string | undefined | null): LocaleCode {
+export function matchNavigatorLanguage(
+  language: string | undefined | null,
+): LocaleCode {
   if (!language) return DEFAULT_LOCALE;
   const lower = language.toLowerCase().replace(/_/g, "-");
   const exact = LOCALES.find((l) => l.code === lower);
