@@ -30,7 +30,9 @@ describe("logout session revocation", () => {
     expect(auth).not.toContain("refreshToken?: string;");
   });
 
-  it("drops an expired access token and falls back to the HttpOnly cookie session", () => {
+  it(
+    "drops an expired access token and falls back to the HttpOnly cookie session",
+    () => {
       const ensureStart = auth.indexOf(
         "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
       );
@@ -45,7 +47,8 @@ describe("logout session revocation", () => {
       );
       expect(ensureSource).toContain("return refreshSession()");
       expect(ensureSource).not.toContain("return session.accessToken");
-  });
+    },
+  );
 
   it("does not expose raw Supabase 5xx responses to the UI", () => {
     expect(client).toContain("if (response.status >= 500)");
