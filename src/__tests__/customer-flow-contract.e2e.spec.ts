@@ -85,9 +85,7 @@ describe("critical customer flow contract", () => {
     expect(auth).toContain('const USER_KEY = "appforge.user"');
     expect(auth).not.toContain("refreshToken?: string;");
     expect(auth).toContain("export async function refreshSession");
-    expect(auth).toContain(
-      "Refresh tokens are intentionally HttpOnly.",
-    );
+    expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
     expect(auth).toContain(
       "const refreshed = await refreshServerCookieSession()",
     );
