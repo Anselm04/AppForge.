@@ -1,15 +1,30 @@
 export type ProductType =
   | "website"
-  | "saas"
-  | "app"
+  | "saas_application"
+  | "mobile_app"
+  | "desktop_app"
   | "game"
-  | "agent"
-  | "tool"
+  | "ai_agent"
+  | "developer_tool"
   | "api"
-  | "ecommerce"
-  | "extension"
-  | "automation"
-  | "data";
+  | "ecommerce_product"
+  | "browser_extension"
+  | "automation_tool"
+  | "data_product";
+
+export type SecondaryCapability =
+  | "authentication"
+  | "database"
+  | "billing"
+  | "ai"
+  | "analytics"
+  | "administration"
+  | "teams"
+  | "notifications"
+  | "search"
+  | "file_uploads"
+  | "external_integrations"
+  | "deployment";
 
 export type ProductFamily =
   | "frontend"
@@ -32,6 +47,22 @@ export type ProductRequirement = {
   priority: "must" | "should" | "could";
 };
 
+export type ProductIntentAlternative = {
+  productType: ProductType;
+  confidence: number;
+};
+
+export type PromptIntent = {
+  originalPrompt: string;
+  primaryProductType: ProductType | null;
+  secondaryCapabilities: SecondaryCapability[];
+  confidence: number;
+  alternatives: ProductIntentAlternative[];
+  ambiguous: boolean;
+  clarificationQuestions: string[];
+  canonicalInterpretation: string;
+};
+
 export type ProductContract = {
   version: 1;
   originalPrompt: string;
@@ -43,77 +74,553 @@ export type ProductContract = {
   requirements: ProductRequirement[];
 };
 
-const TYPE_RULES: Array<{ type: ProductType; pattern: RegExp }> = [
-  { type: "ecommerce", pattern: /\b(e[- ]?commerce|shop|store|cart|checkout|products?)\b/i },
-  { type: "game", pattern: /\b(game|arcade|pac[- ]?man|maze|snake|pong|platformer|level|playable)\b/i },
-  { type: "agent", pattern: /\b(ai agent|assistant|copilot|autonomous|agentic|llm|chatbot|chat bot)\b/i },
-  { type: "extension", pattern: /\b(browser extension|chrome extension|firefox extension|vscode extension)\b/i },
-  { type: "automation", pattern: /\b(automation|workflow|zap|bot|scraper|scheduled job)\b/i },
-  { type: "api", pattern: /\b(api|backend service|microservice|webhook|rest service|graphql)\b/i },
-  { type: "data", pattern: /\b(analytics|dashboard|reporting|data visualization|metrics|charts?)\b/i },
-  { type: "saas", pattern: /\b(saas|subscription|team workspace|admin portal|multi[- ]tenant)\b/i },
-  { type: "app", pattern: /\b(app|mobile|ios|android|desktop|application)\b/i },
-  { type: "website", pattern: /\b(website|landing page|marketing site|portfolio|blog)\b/i },
+type IntentSignal = {
+  pattern: RegExp;
+  weight: number;
+};
+
+type ProductIntentDefinition = {
+  type: ProductType;
+  label: string;
+  signals: IntentSignal[];
+};
+
+const PRODUCT_INTENTS: ProductIntentDefinition[] = [
+  {
+    type: "website",
+    label: "Website",
+    signals: [
+      {
+        pattern: /\b(marketing|business|company|personal)\s+(website|site)\b/i,
+        weight: 9,
+      },
+      {
+        pattern:
+          /\b(website|landing page|marketing site|portfolio site|blog site|homepage)\b/i,
+        weight: 8,
+      },
+      { pattern: /\b(static site|web page|brochure site)\b/i, weight: 6 },
+    ],
+  },
+  {
+    type: "saas_application",
+    label: "SaaS application",
+    signals: [
+      { pattern: /\bsaas\b|software as a service/i, weight: 10 },
+      {
+        pattern:
+          /\b(multi[- ]tenant|tenant workspace|team workspace|subscription software)\b/i,
+        weight: 8,
+      },
+      { pattern: /\bweb app(?:lication)?\b/i, weight: 5 },
+    ],
+  },
+  {
+    type: "mobile_app",
+    label: "Mobile app",
+    signals: [
+      {
+        pattern: /\b(mobile app|ios app|android app|iphone app|ipad app)\b/i,
+        weight: 10,
+      },
+      { pattern: /\b(react native|expo|flutter)\b/i, weight: 8 },
+      { pattern: /\b(app store|google play|play store)\b/i, weight: 6 },
+    ],
+  },
+  {
+    type: "desktop_app",
+    label: "Desktop app",
+    signals: [
+      {
+        pattern:
+          /\b(desktop app|desktop application|windows app|mac app|macos app|linux app)\b/i,
+        weight: 10,
+      },
+      { pattern: /\b(electron|tauri)\b/i, weight: 8 },
+    ],
+  },
+  {
+    type: "game",
+    label: "Game",
+    signals: [
+      {
+        pattern:
+          /\b(video game|mobile game|browser game|web game|multiplayer game|single player game)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(game|arcade|platformer|rpg|shooter|puzzle game|racing game|strategy game)\b/i,
+        weight: 8,
+      },
+      { pattern: /\b(phaser|unity|godot|unreal)\b/i, weight: 7 },
+    ],
+  },
+  {
+    type: "ai_agent",
+    label: "AI agent",
+    signals: [
+      {
+        pattern:
+          /\b(ai agent|autonomous agent|agentic system|multi[- ]agent|copilot)\b/i,
+        weight: 10,
+      },
+      {
+        pattern: /\b(ai assistant|llm assistant|chatbot|chat bot)\b/i,
+        weight: 8,
+      },
+      {
+        pattern: /\b(tool[- ]using agent|model routing|agent orchestration)\b/i,
+        weight: 7,
+      },
+    ],
+  },
+  {
+    type: "developer_tool",
+    label: "Developer tool",
+    signals: [
+      {
+        pattern:
+          /\b(developer tool|dev tool|developer platform|developer utility)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(cli|command line tool|sdk|code generator|compiler plugin|linter|formatter)\b/i,
+        weight: 8,
+      },
+      {
+        pattern: /\b(vscode extension|visual studio code extension)\b/i,
+        weight: 7,
+      },
+    ],
+  },
+  {
+    type: "api",
+    label: "API",
+    signals: [
+      {
+        pattern:
+          /\b(rest api|graphql api|public api|private api|backend api|api service)\b/i,
+        weight: 10,
+      },
+      {
+        pattern: /\b(api|microservice|backend service|webhook service)\b/i,
+        weight: 7,
+      },
+      { pattern: /\b(rest endpoints?|graphql schema|openapi)\b/i, weight: 6 },
+    ],
+  },
+  {
+    type: "ecommerce_product",
+    label: "E-commerce product",
+    signals: [
+      {
+        pattern:
+          /\b(e[- ]?commerce|online store|online shop|storefront|shopping site)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(cart|checkout|product catalog|inventory store|marketplace)\b/i,
+        weight: 7,
+      },
+      { pattern: /\b(shopify alternative|sell products online)\b/i, weight: 7 },
+    ],
+  },
+  {
+    type: "browser_extension",
+    label: "Browser extension",
+    signals: [
+      {
+        pattern:
+          /\b(browser extension|chrome extension|firefox extension|edge extension|safari extension)\b/i,
+        weight: 10,
+      },
+      {
+        pattern: /\b(content script|browser action|manifest v3|mv3)\b/i,
+        weight: 8,
+      },
+    ],
+  },
+  {
+    type: "automation_tool",
+    label: "Automation tool",
+    signals: [
+      {
+        pattern:
+          /\b(automation tool|workflow automation|business automation|process automation)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(automate|scheduled workflow|scheduled job|cron workflow|browser automation)\b/i,
+        weight: 7,
+      },
+      { pattern: /\b(zapier|make\.com|n8n)\b/i, weight: 6 },
+    ],
+  },
+  {
+    type: "data_product",
+    label: "Data product",
+    signals: [
+      {
+        pattern:
+          /\b(data product|analytics product|business intelligence|bi product|data platform)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(data dashboard|analytics dashboard|reporting dashboard|data visualization)\b/i,
+        weight: 8,
+      },
+      {
+        pattern: /\b(kpi dashboard|metrics platform|reporting tool)\b/i,
+        weight: 7,
+      },
+    ],
+  },
 ];
 
-function has(text: string, pattern: RegExp): boolean {
-  return pattern.test(text);
+const PRODUCT_LABELS: Record<ProductType, string> = Object.fromEntries(
+  PRODUCT_INTENTS.map((definition) => [definition.type, definition.label]),
+) as Record<ProductType, string>;
+
+const CAPABILITY_SIGNALS: Array<{
+  capability: SecondaryCapability;
+  patterns: RegExp[];
+}> = [
+  {
+    capability: "authentication",
+    patterns: [
+      /\b(auth|authentication|login|log in|sign in|sign up|signup|password|oauth|sso)\b/i,
+    ],
+  },
+  {
+    capability: "database",
+    patterns: [
+      /\b(database|postgres|postgresql|mysql|sqlite|mongodb|supabase|persist|persistence|store data)\b/i,
+    ],
+  },
+  {
+    capability: "billing",
+    patterns: [
+      /\b(billing|subscription|subscriptions|payment|payments|checkout|stripe|paid plan|pricing|monetiz(?:e|ed|ation)|revenue)\b/i,
+    ],
+  },
+  {
+    capability: "ai",
+    patterns: [
+      /\b(ai|artificial intelligence|llm|model|chatbot|agent|copilot|openai|anthropic|gemini)\b/i,
+    ],
+  },
+  {
+    capability: "analytics",
+    patterns: [
+      /\b(analytics|metrics|kpi|reporting|reports|tracking|telemetry|dashboard)\b/i,
+    ],
+  },
+  {
+    capability: "administration",
+    patterns: [
+      /\b(admin|administrator|administration|back office|control panel|moderation console)\b/i,
+    ],
+  },
+  {
+    capability: "teams",
+    patterns: [
+      /\b(team|teams|organization|organisation|workspace|members|collaboration|multi[- ]tenant)\b/i,
+    ],
+  },
+  {
+    capability: "notifications",
+    patterns: [
+      /\b(notification|notifications|email alert|push notification|sms alert|reminder)\b/i,
+    ],
+  },
+  {
+    capability: "search",
+    patterns: [
+      /\b(search|full[- ]text search|semantic search|filter and search|find records)\b/i,
+    ],
+  },
+  {
+    capability: "file_uploads",
+    patterns: [
+      /\b(file upload|file uploads|upload files|document upload|image upload|media upload|attachments?)\b/i,
+    ],
+  },
+  {
+    capability: "external_integrations",
+    patterns: [
+      /\b(integrat(?:e|es|ion|ions)|webhook|stripe|github|slack|twilio|google|shopify|salesforce|xero|api client)\b/i,
+    ],
+  },
+  {
+    capability: "deployment",
+    patterns: [
+      /\b(deploy|deployment|hosting|hosted|production|vercel|fly\.io|netlify|aws|cloudflare)\b/i,
+    ],
+  },
+];
+
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function scoreProductTypes(
+  prompt: string,
+): Array<{ type: ProductType; score: number }> {
+  return PRODUCT_INTENTS.map(({ type, signals }) => ({
+    type,
+    score: signals.reduce(
+      (total, signal) =>
+        total + (signal.pattern.test(prompt) ? signal.weight : 0),
+      0,
+    ),
+  })).sort((a, b) => b.score - a.score || a.type.localeCompare(b.type));
+}
+
+export function detectSecondaryCapabilities(
+  prompt: string,
+): SecondaryCapability[] {
+  return CAPABILITY_SIGNALS.filter(({ patterns }) =>
+    patterns.some((pattern) => pattern.test(prompt)),
+  ).map(({ capability }) => capability);
+}
+
+function buildClarificationQuestions(
+  primary: ProductType | null,
+  secondary: ProductType | null,
+  noEvidence: boolean,
+): string[] {
+  if (noEvidence || !primary) {
+    return [
+      "What kind of product should AppForge build: a website, SaaS application, mobile app, desktop app, game, AI agent, developer tool, API, e-commerce product, browser extension, automation tool, or data product?",
+    ];
+  }
+  if (secondary) {
+    return [
+      `Should this primarily be a ${PRODUCT_LABELS[primary]} or a ${PRODUCT_LABELS[secondary]}?`,
+    ];
+  }
+  return [
+    `Please confirm that the primary product is a ${PRODUCT_LABELS[primary]}.`,
+  ];
+}
+
+export function classifyProductIntent(prompt: string): PromptIntent {
+  const originalPrompt = prompt;
+  const normalized = prompt.trim();
+  const ranked = scoreProductTypes(normalized);
+  const top = ranked[0];
+  const second = ranked[1];
+  const noEvidence = !top || top.score === 0;
+  const gap = (top?.score ?? 0) - (second?.score ?? 0);
+  const weakEvidence = (top?.score ?? 0) < 6;
+  const closeCompetition = (second?.score ?? 0) >= 6 && gap <= 2;
+  const ambiguous = noEvidence || weakEvidence || closeCompetition;
+  const primaryProductType = noEvidence ? null : top.type;
+  const baseConfidence = noEvidence
+    ? 0.15
+    : 0.52 +
+      Math.min(0.28, top.score * 0.02) +
+      Math.min(0.18, Math.max(0, gap) * 0.025);
+  const confidence = Number(clamp(baseConfidence, 0.05, 0.99).toFixed(2));
+  const secondaryCapabilities = detectSecondaryCapabilities(normalized);
+  const alternatives = ranked
+    .filter((entry) => entry.score > 0 && entry.type !== primaryProductType)
+    .slice(0, 3)
+    .map((entry) => ({
+      productType: entry.type,
+      confidence: Number(
+        clamp(
+          confidence * (entry.score / Math.max(top?.score ?? 1, 1)),
+          0.05,
+          0.95,
+        ).toFixed(2),
+      ),
+    }));
+  const clarificationQuestions = ambiguous
+    ? buildClarificationQuestions(
+        primaryProductType,
+        closeCompetition ? (second?.type ?? null) : null,
+        noEvidence,
+      )
+    : [];
+  const primaryLabel = primaryProductType
+    ? PRODUCT_LABELS[primaryProductType]
+    : "unresolved";
+  const capabilityText =
+    secondaryCapabilities.length > 0
+      ? secondaryCapabilities.join(", ")
+      : "none explicitly requested";
+  const canonicalInterpretation =
+    `Primary product type: ${primaryLabel}. Secondary capabilities: ${capabilityText}. ` +
+    `Intent confidence: ${confidence.toFixed(2)}. ` +
+    (ambiguous
+      ? `Clarification required before build: ${clarificationQuestions.join(" ")}`
+      : "This interpretation is canonical for downstream agents; do not independently change the primary product type or requested capabilities.");
+
+  return {
+    originalPrompt,
+    primaryProductType,
+    secondaryCapabilities,
+    confidence,
+    alternatives,
+    ambiguous,
+    clarificationQuestions,
+    canonicalInterpretation,
+  };
 }
 
 export function classifyProductType(prompt: string): ProductType {
-  const text = prompt.trim();
-  return TYPE_RULES.find(({ pattern }) => pattern.test(text))?.type ?? "app";
+  const intent = classifyProductIntent(prompt);
+  if (!intent.primaryProductType || intent.ambiguous) {
+    throw new Error(
+      `Ambiguous product intent: ${intent.clarificationQuestions[0] ?? "clarification required"}`,
+    );
+  }
+  return intent.primaryProductType;
 }
 
-export function inferProductFamilies(prompt: string, productType = classifyProductType(prompt)): ProductFamily[] {
-  const text = prompt.toLowerCase();
-  const families = new Set<ProductFamily>(["frontend", "deployment"]);
+export function inferProductFamilies(
+  prompt: string,
+  productType = classifyProductType(prompt),
+): ProductFamily[] {
+  const capabilities = detectSecondaryCapabilities(prompt);
+  const families = new Set<ProductFamily>(["deployment"]);
 
-  if (["api", "saas", "ecommerce", "agent", "automation", "data"].includes(productType)) families.add("backend");
-  if (/\b(database|persist|save|users?|accounts?|orders?|tasks?|data)\b/.test(text)) families.add("database");
-  if (productType === "agent" || /\b(ai|llm|model|assistant|chatbot)\b/.test(text)) families.add("ai");
-  if (productType === "game" || /\b(interactive|canvas|animation|real[- ]?time)\b/.test(text)) families.add("interactive");
-  if (productType === "app" && /\b(mobile|ios|android|expo|flutter)\b/.test(text)) families.add("mobile");
-  if (/\b(desktop|electron|tauri)\b/.test(text)) families.add("desktop");
-  if (/\b(login|sign[ -]?up|auth|account|role|permission|team)\b/.test(text)) families.add("auth");
-  if (/\b(subscription|billing|checkout|payment|monetiz|paid|pricing|shop|store)\b/.test(text)) families.add("billing");
-  if (/\b(analytics|tracking|metrics|reports?)\b/.test(text)) families.add("analytics");
-  if (/\b(integrat|stripe|github|slack|twilio|supabase|google)\b/.test(text)) families.add("integrations");
+  if (
+    [
+      "website",
+      "saas_application",
+      "mobile_app",
+      "desktop_app",
+      "game",
+      "ecommerce_product",
+      "browser_extension",
+      "data_product",
+    ].includes(productType)
+  ) {
+    families.add("frontend");
+  }
+  if (
+    [
+      "saas_application",
+      "ai_agent",
+      "api",
+      "ecommerce_product",
+      "automation_tool",
+      "data_product",
+    ].includes(productType)
+  ) {
+    families.add("backend");
+  }
+  if (productType === "mobile_app") families.add("mobile");
+  if (productType === "desktop_app") families.add("desktop");
+  if (productType === "game") families.add("interactive");
+  if (productType === "ai_agent" || capabilities.includes("ai"))
+    families.add("ai");
+  if (capabilities.includes("database")) families.add("database");
+  if (capabilities.includes("billing")) families.add("billing");
+  if (capabilities.includes("authentication")) families.add("auth");
+  if (capabilities.includes("analytics")) families.add("analytics");
+  if (capabilities.includes("external_integrations"))
+    families.add("integrations");
 
   return [...families];
 }
 
-export function selectProductStack(prompt: string, productType = classifyProductType(prompt)): string {
+export function selectProductStack(
+  prompt: string,
+  productType = classifyProductType(prompt),
+): string {
   const text = prompt.toLowerCase();
-  if (productType === "game") return /\b(3d|three\.js|threejs|webgl)\b/.test(text) ? "three-js-3d" : "phaser-html5";
-  if (productType === "agent" || productType === "automation") return "ai-agent-node";
+  if (productType === "game")
+    return /\b(3d|three\.js|threejs|webgl)\b/.test(text)
+      ? "three-js-3d"
+      : "phaser-html5";
+  if (productType === "ai_agent" || productType === "automation_tool")
+    return "ai-agent-node";
   if (productType === "api") return "api-service";
-  if (productType === "extension") return "chrome-extension";
-  if (productType === "app" && /\b(mobile|ios|android|expo)\b/.test(text)) return "react-native-expo";
-  if (productType === "data") return "data-visualization";
+  if (productType === "browser_extension") return "chrome-extension";
+  if (productType === "mobile_app")
+    return /\bflutter\b/.test(text) ? "flutter-firebase" : "react-native-expo";
+  if (productType === "desktop_app")
+    return /\btauri\b/.test(text) ? "tauri-rust" : "electron-react";
+  if (productType === "data_product") return "data-visualization";
   if (productType === "website") return "react-node";
   return "react-node";
 }
 
+export function renderCanonicalPromptContext(
+  originalPrompt: string,
+  intent: PromptIntent,
+): string {
+  return [
+    originalPrompt,
+    "",
+    "[APPFORGE CANONICAL PROMPT INTERPRETATION — DO NOT REINTERPRET]",
+    intent.canonicalInterpretation,
+    `Primary product type id: ${intent.primaryProductType ?? "unresolved"}`,
+    `Secondary capability ids: ${intent.secondaryCapabilities.join(", ") || "none"}`,
+    "[END APPFORGE CANONICAL PROMPT INTERPRETATION]",
+  ].join("\n");
+}
+
 export function buildProductContract(prompt: string): ProductContract {
-  const originalPrompt = prompt.trim();
-  const productType = classifyProductType(originalPrompt);
-  const monetizationRequested = /\b(monetiz|subscription|billing|checkout|payment|paid|pricing|sell|revenue)\b/i.test(originalPrompt);
+  const intent = classifyProductIntent(prompt);
+  if (!intent.primaryProductType || intent.ambiguous) {
+    throw new Error(
+      `Ambiguous product intent: ${intent.clarificationQuestions[0] ?? "clarification required"}`,
+    );
+  }
+  const productType = intent.primaryProductType;
+  const monetizationRequested =
+    intent.secondaryCapabilities.includes("billing");
   const requirements: ProductRequirement[] = [
-    { id: "REQ-001", text: "The primary product workflow described by the user is implemented and usable.", category: "workflow", priority: "must" },
-    { id: "REQ-002", text: "The product provides clear success, loading, and error states.", category: "quality", priority: "must" },
-    { id: "REQ-003", text: "The generated product does not expose secrets or unsafe privileged operations.", category: "security", priority: "must" },
-    { id: "REQ-004", text: monetizationRequested ? "The requested monetization workflow is implemented with entitlement boundaries." : "The product reports monetization as not requested rather than inventing payment functionality.", category: "monetization", priority: monetizationRequested ? "must" : "should" },
-    { id: "REQ-005", text: "The selected runtime can build, start, and be verified before completion is reported.", category: "operations", priority: "must" },
+    {
+      id: "REQ-001",
+      text: "The primary product workflow described by the user is implemented and usable.",
+      category: "workflow",
+      priority: "must",
+    },
+    {
+      id: "REQ-002",
+      text: "The product provides clear success, loading, and error states.",
+      category: "quality",
+      priority: "must",
+    },
+    {
+      id: "REQ-003",
+      text: "The generated product does not expose secrets or unsafe privileged operations.",
+      category: "security",
+      priority: "must",
+    },
+    {
+      id: "REQ-004",
+      text: monetizationRequested
+        ? "The requested monetization workflow is implemented with entitlement boundaries."
+        : "The product reports monetization as not requested rather than inventing payment functionality.",
+      category: "monetization",
+      priority: monetizationRequested ? "must" : "should",
+    },
+    {
+      id: "REQ-005",
+      text: "The selected runtime can build, start, and be verified before completion is reported.",
+      category: "operations",
+      priority: "must",
+    },
   ];
 
   return {
     version: 1,
-    originalPrompt,
+    originalPrompt: prompt,
     productType,
-    productFamilies: inferProductFamilies(originalPrompt, productType),
-    techStack: selectProductStack(originalPrompt, productType),
-    researchRequired: originalPrompt.length > 80 || productType !== "website",
+    productFamilies: inferProductFamilies(prompt, productType),
+    techStack: selectProductStack(prompt, productType),
+    researchRequired: prompt.trim().length > 80 || productType !== "website",
     monetizationRequested,
     requirements,
   };

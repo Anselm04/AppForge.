@@ -20,6 +20,10 @@ import {
   BUILD_CAPABILITY_IDS,
   type BuildCapabilityId,
 } from "../lib/buildCapabilities.js";
+import {
+  buildProductContract,
+  classifyProductIntent,
+} from "../lib/productContract.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -81,25 +85,27 @@ const techStackEnum = z.enum([
 ]);
 
 // ── Input sanitization helpers ──
-function sanitizeString(input: string): string {
-  return input.trim().replace(/[<>]/g, "").slice(0, PROMPT_MAX_CHARS);
+function sanitizeTitle(input: string): string {
+  return input.trim().replace(/[<>]/g, "").slice(0, 255);
 }
 
 const projectCreateSchema = z.object({
   description: z
     .string()
-    .min(10, "Description must be at least 10 characters")
     .max(
       PROMPT_MAX_CHARS,
       `Description must be at most ${PROMPT_MAX_CHARS} characters`,
     )
-    .transform(sanitizeString),
+    .refine(
+      (value) => value.trim().length >= 10,
+      "Description must be at least 10 characters",
+    ),
   techStack: techStackEnum.default("react-node"),
   title: z
     .string()
     .min(1, "Title is required")
     .max(255, "Title must be at most 255 characters")
-    .transform(sanitizeString),
+    .transform(sanitizeTitle),
   hcaptchaToken: z.string().optional(),
   locale: z.string().max(10).optional(),
   buildCapabilities: z
@@ -144,6 +150,17 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
+      const promptIntent = classifyProductIntent(input.description);
+      if (promptIntent.ambiguous || !promptIntent.primaryProductType) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            promptIntent.clarificationQuestions[0] ??
+            "Please clarify what kind of product you want AppForge to build.",
+        });
+      }
+      const productContract = buildProductContract(input.description);
+
       const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
       const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
       if (!captchaOk) {
@@ -245,6 +262,7 @@ export const projectsRouter = router({
           techStack: input.techStack,
           locale: input.locale || "en",
           buildCapabilities: input.buildCapabilities ?? [],
+          promptIntent,
           createdAt,
           reservationCharged,
         });
@@ -264,7 +282,17 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
 
-      return { id, status: "running" as const };
+      return {
+        id,
+        status: "running" as const,
+        promptIntent: {
+          primaryProductType: promptIntent.primaryProductType,
+          secondaryCapabilities: promptIntent.secondaryCapabilities,
+          confidence: promptIntent.confidence,
+          canonicalInterpretation: promptIntent.canonicalInterpretation,
+        },
+        productType: productContract.productType,
+      };
     }),
 
   tierStatus: protectedProcedure.query(async ({ ctx }) => {
@@ -508,10 +536,7 @@ export const projectsRouter = router({
       const seniorCredits = await ensureUserCredits(ctx.user.id);
       const seniorUnlimited =
         !!seniorCredits.unlimited || seniorCredits.tier === "lifetime";
-      if (
-        !seniorUnlimited &&
-        seniorCredits.balance < SENIOR_DEV_CREDIT_COST
-      ) {
+      if (!seniorUnlimited && seniorCredits.balance < SENIOR_DEV_CREDIT_COST) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: `credits_exhausted: Out of credits (${seniorCredits.balance}/${SENIOR_DEV_CREDIT_COST}). Subscribe or buy extra credits to use the Senior Dev Agent.`,

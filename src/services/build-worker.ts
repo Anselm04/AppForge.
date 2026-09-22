@@ -19,6 +19,11 @@ import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { deployValidatedProject } from "./productionAutoDeploy.js";
+import {
+  classifyProductIntent,
+  renderCanonicalPromptContext,
+  type PromptIntent,
+} from "../lib/productContract.js";
 
 export interface BuildJob {
   projectId: number;
@@ -27,6 +32,7 @@ export interface BuildJob {
   techStack: string;
   locale?: string;
   buildCapabilities?: string[];
+  promptIntent?: PromptIntent;
   createdAt: string;
   /** True only when this queued attempt actually deducted the build reservation. */
   reservationCharged: boolean;
@@ -115,6 +121,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     techStack,
     locale,
     buildCapabilities,
+    promptIntent,
     createdAt,
     reservationCharged,
   } = job;
@@ -178,9 +185,25 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     }
     await updateProjectStatus(projectId, "running");
 
+    const resolvedPromptIntent =
+      promptIntent ?? classifyProductIntent(description);
+    if (
+      resolvedPromptIntent.ambiguous ||
+      !resolvedPromptIntent.primaryProductType
+    ) {
+      throw new Error(
+        resolvedPromptIntent.clarificationQuestions[0] ??
+          "Queued build prompt is ambiguous",
+      );
+    }
+    const canonicalAgentPrompt = renderCanonicalPromptContext(
+      description,
+      resolvedPromptIntent,
+    );
+
     await runAgentPipeline(
       projectId,
-      description,
+      canonicalAgentPrompt,
       techStack,
       write,
       controller.signal,
