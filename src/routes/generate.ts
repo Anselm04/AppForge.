@@ -92,13 +92,17 @@ generateRouter.post("/", async (req: Request, res: Response) => {
     const unlimited = owner || !!credits.unlimited || credits.tier === "lifetime";
     const reservationCharged = !unlimited;
     const createdAt = new Date().toISOString();
+    // The persisted project keeps the user's original prompt. The queued prompt
+    // also carries the canonical contract so Research, Planner, and Coder use the
+    // same product interpretation instead of independently guessing intent.
+    const buildDescription = `${description}\n\n[APPFORGE PRODUCT CONTRACT]\n${JSON.stringify(contract)}`;
     let charged = false;
     try {
       if (reservationCharged) {
         await deductCredits(user.id, BUILD_CREDIT_COST, id, "Build reservation");
         charged = true;
       }
-      await enqueueBuild({ projectId: id, userId: user.id, description, techStack, locale, buildCapabilities, createdAt, reservationCharged });
+      await enqueueBuild({ projectId: id, userId: user.id, description: buildDescription, techStack, locale, buildCapabilities, createdAt, reservationCharged });
     } catch (err: unknown) {
       if (charged) {
         try { await addCredits(user.id, BUILD_CREDIT_COST, "build_refund", `Build start refund for project ${id}`, `generate-build-refund-${id}-${createdAt}`); }
@@ -108,16 +112,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       throw err;
     }
 
-    res.json({
-      id,
-      status: "running",
-      techStack,
-      requestType: contract.productType,
-      productFamilies: contract.productFamilies,
-      researchRequired: contract.researchRequired,
-      monetizationRequested: contract.monetizationRequested,
-      requirementCount: contract.requirements.length,
-    });
+    res.json({ id, status: "running", techStack, requestType: contract.productType, productFamilies: contract.productFamilies, researchRequired: contract.researchRequired, monetizationRequested: contract.monetizationRequested, requirementCount: contract.requirements.length });
   } catch (err: unknown) {
     logger.error({ error: err }, "generate_failed");
     res.status(500).json({ error: "generate_failed", message: "Unable to create or start the project. Please try again." });
