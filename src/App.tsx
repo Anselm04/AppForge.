@@ -46,6 +46,7 @@ function AppShell() {
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/app/new" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/sso/callback" element={<SsoCallback />} />
