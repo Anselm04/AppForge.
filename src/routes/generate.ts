@@ -13,6 +13,7 @@ import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
+import { buildProductContract } from "../lib/productContract.js";
 import { logger } from "../_core/logger.js";
 import { claimProjectBuildStart, releaseProjectBuildClaim } from "../services/build-claim.js";
 import { enqueueBuild } from "../services/build-queue.js";
@@ -21,18 +22,14 @@ export const generateRouter = Router();
 
 const bodySchema = z.object({
   description: z.string().min(1).max(PROMPT_MAX_CHARS),
-  techStack: z.string().min(1).max(80).default("react-node"),
+  techStack: z.string().min(1).max(80).optional(),
   title: z.string().min(1).max(255).optional(),
   locale: z.string().max(10).optional(),
   buildCapabilities: z.array(z.string()).max(10).optional(),
   hcaptchaToken: z.string().optional(),
 });
 
-function isGamePrompt(description: string): boolean {
-  return /\b(game|arcade|pac[- ]?man|maze|snake|pong|platformer|ghost|multiple levels?)\b/i.test(description);
-}
-
-/** Create a project and immediately enqueue its real agentic build. */
+/** Create a project from the canonical product contract and enqueue its build. */
 generateRouter.post("/", async (req: Request, res: Response) => {
   try {
     const user = req.user;
@@ -48,15 +45,19 @@ generateRouter.post("/", async (req: Request, res: Response) => {
     }
 
     const description = parsed.data.description.trim();
-    const gamePrompt = isGamePrompt(description);
-    // Games need a browser-oriented runtime. Keeping this decision at admission
-    // prevents a game request from silently entering a generic SaaS scaffold.
-    const techStack = gamePrompt ? "phaser-html5" : parsed.data.techStack || "react-node";
+    const contract = buildProductContract(description);
+    const requestedStack = parsed.data.techStack?.trim();
+    const techStack = requestedStack && requestedStack !== "auto" && requestedStack !== "default"
+      ? requestedStack
+      : contract.techStack;
     const title = (parsed.data.title || description).trim().slice(0, 60);
     const locale = parsed.data.locale || "en";
-    const buildCapabilities = (parsed.data.buildCapabilities ?? []).filter(
-      (id) => (BUILD_CAPABILITY_IDS as readonly string[]).includes(id),
-    );
+    const inferredCapabilities = contract.productFamilies
+      .filter((family) => (BUILD_CAPABILITY_IDS as readonly string[]).includes(family));
+    const buildCapabilities = [...new Set([
+      ...(parsed.data.buildCapabilities ?? []),
+      ...inferredCapabilities,
+    ])].filter((id) => (BUILD_CAPABILITY_IDS as readonly string[]).includes(id));
     const owner = isOwnerEmail(user.email);
 
     if (!owner) {
@@ -106,7 +107,17 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       await releaseProjectBuildClaim(id, user.id, "pending", null);
       throw err;
     }
-    res.json({ id, status: "running", techStack, requestType: gamePrompt ? "game" : "application" });
+
+    res.json({
+      id,
+      status: "running",
+      techStack,
+      requestType: contract.productType,
+      productFamilies: contract.productFamilies,
+      researchRequired: contract.researchRequired,
+      monetizationRequested: contract.monetizationRequested,
+      requirementCount: contract.requirements.length,
+    });
   } catch (err: unknown) {
     logger.error({ error: err }, "generate_failed");
     res.status(500).json({ error: "generate_failed", message: "Unable to create or start the project. Please try again." });
