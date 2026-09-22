@@ -112,7 +112,10 @@ function authCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
+    // Lax permits the normal same-site SPA navigation/auth flow on Safari and
+    // iPhone Chromium while retaining CSRF protection through the synchronizer
+    // token middleware for unsafe requests.
+    sameSite: "lax" as const,
     path: "/",
   };
 }
@@ -250,9 +253,7 @@ export async function supabaseAuthMiddleware(
         res.setHeader("x-appforge-session-refreshed", "1");
       }
     } catch (err) {
-      // A transient Supabase/network failure must never destroy a still-valid
-      // refresh cookie. Leave it intact so the next request can heal the
-      // session automatically instead of forcing the customer to sign in.
+      // Preserve a still-valid refresh cookie across transient Supabase failures.
       logger.warn({ error: err }, "supabase_auth_refresh_failed");
     }
   }
@@ -260,7 +261,7 @@ export async function supabaseAuthMiddleware(
   if (!token || !authUser) {
     if (isSessionEndpoint(req) && req.method === "POST") {
       res.setHeader("Cache-Control", "no-store");
-      return res.status(401).json({ error: "Not authenticated" });
+      return res.status(401).json({ error: "Not authenticated", code: "AUTH_REQUIRED" });
     }
     return next();
   }
@@ -301,17 +302,17 @@ export async function supabaseAuthMiddleware(
     });
 
     if (!dbUser?.id) {
-      logger.error({}, "supabase_auth_user_upsert_missing");
+      logger.error({ supabaseUid, email }, "supabase_auth_user_upsert_missing");
       if (isSessionEndpoint(req) && req.method === "POST") {
-        return res.status(500).json({ error: "Unable to establish session" });
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(500).json({
+          error: "Unable to establish session",
+          code: "SESSION_UPSERT_FAILED",
+        });
       }
       return next();
     }
 
-    // Provision the internal AppForge access row as part of authentication,
-    // before the client asks for tierStatus. Previously a brand-new user could
-    // appear to have zero credits until project creation, which incorrectly
-    // surfaced the payment wall even though new users receive free credits.
     await ensureUserCredits(dbUser.id);
 
     req.user = {
@@ -327,9 +328,19 @@ export async function supabaseAuthMiddleware(
       return res.status(204).end();
     }
   } catch (err) {
-    logger.error({ error: err }, "supabase_auth_verification_failed");
+    // Authentication succeeded; a database/upsert failure is a server failure,
+    // not an authentication failure. Returning 401 here caused valid users to
+    // enter a login loop and hid the actual production fault.
+    logger.error(
+      { error: err, supabaseUid: authUser.id },
+      "supabase_auth_session_persistence_failed",
+    );
     if (isSessionEndpoint(req) && req.method === "POST") {
-      return res.status(401).json({ error: "Not authenticated" });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(500).json({
+        error: "Unable to establish session",
+        code: "SESSION_UPSERT_FAILED",
+      });
     }
   }
 
