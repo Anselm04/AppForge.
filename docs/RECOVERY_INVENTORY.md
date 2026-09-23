@@ -222,6 +222,8 @@ Must be recoverable:
 - BullMQ/Redis configuration needed for distributed builds, with Redis-list and in-memory degraded-mode behavior documented in source.
 
 Recovery invariants:
+- Every queued build carries a typed, runtime-validated canonical product contract alongside the original prompt; Redis, BullMQ, in-memory fallback, resumed execution, repair cycles, and deployment retries must preserve that exact contract rather than reconstructing it from free text.
+- Queue deserialization fails closed when the contract is missing or invalid, and worker admission rejects any job whose original prompt or selected stack disagrees with the persisted project contract before project state is mutated.
 - Production must use shared Redis; Redis-list and in-memory fallbacks are not certified as a two-Machine production steady state.
 - A failed or incomplete paid build refunds the original reservation with an attempt-specific idempotency key.
 - Duplicate queue admission refunds only the duplicate reservation and must not affect the active build reservation.
