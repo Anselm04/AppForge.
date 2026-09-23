@@ -46,10 +46,8 @@ function viteReactShell(title = "AppForge App"): ScaffoldFiles {
 import react from "@vitejs/plugin-react";
 export default defineConfig({ plugins: [react()] });
 `,
-    "index.html":
-      `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`,
-    "src/main.tsx":
-      `import React from "react";
+    "index.html": `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`,
+    "src/main.tsx": `import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 const root = document.getElementById("root");
@@ -74,9 +72,9 @@ function staticShell(title = "AppForge Site"): ScaffoldFiles {
       },
       devDependencies: { serve: "^14.2.4" },
     }),
-    "index.html":
-      `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><main id="app"></main><script type="module" src="/assets/main.js"></script></body></html>`,
-    "assets/main.js": 'document.querySelector("#app").textContent = "AppForge static site";\n',
+    "index.html": `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><main id="app"></main><script type="module" src="/assets/main.js"></script></body></html>`,
+    "assets/main.js":
+      'document.querySelector("#app").textContent = "AppForge static site";\n',
     "assets/styles.css": "",
     ".gitignore": "node_modules\ndist\n",
   };
@@ -168,9 +166,18 @@ function threeShell(title = "AppForge 3D"): ScaffoldFiles {
       private: true,
       version: "0.1.0",
       type: "module",
-      scripts: { dev: "vite", build: "vite build", preview: "vite preview", typecheck: "tsc --noEmit" },
+      scripts: {
+        dev: "vite",
+        build: "vite build",
+        preview: "vite preview",
+        typecheck: "tsc --noEmit",
+      },
       dependencies: { three: "^0.169.0" },
-      devDependencies: { typescript: "^5.3.3", vite: "^5.1.0", "@types/three": "^0.169.0" },
+      devDependencies: {
+        typescript: "^5.3.3",
+        vite: "^5.1.0",
+        "@types/three": "^0.169.0",
+      },
     }),
     "tsconfig.json": json({
       compilerOptions: {
@@ -183,7 +190,8 @@ function threeShell(title = "AppForge 3D"): ScaffoldFiles {
       },
       include: ["src"],
     }),
-    "index.html": '<!doctype html><html><body><canvas id="app"></canvas><script type="module" src="/src/main.ts"></script></body></html>',
+    "index.html":
+      '<!doctype html><html><body><canvas id="app"></canvas><script type="module" src="/src/main.ts"></script></body></html>',
     "src/main.ts": `import * as THREE from "three";
 const canvas = document.querySelector<HTMLCanvasElement>("#app");
 if (!canvas) throw new Error("Missing canvas");
@@ -264,7 +272,9 @@ function reactNativeShell(): ScaffoldFiles {
       },
       devDependencies: { typescript: "^5.6.0" },
     }),
-    "app.json": json({ expo: { name: "AppForge Mobile", slug: "appforge-mobile" } }),
+    "app.json": json({
+      expo: { name: "AppForge Mobile", slug: "appforge-mobile" },
+    }),
     "App.tsx":
       'import { SafeAreaView, Text } from "react-native";\nexport default function App(){return <SafeAreaView><Text>AppForge Mobile</Text></SafeAreaView>}\n',
     ".env.example": "",
@@ -307,7 +317,12 @@ function electronShell(): ScaffoldFiles {
     "electron/main.ts":
       'import { app, BrowserWindow } from "electron";\napp.whenReady().then(()=>{const win=new BrowserWindow({width:1200,height:800});void win.loadFile("dist/index.html");});\n',
     "electron/tsconfig.json": json({
-      compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "../dist-electron" },
+      compilerOptions: {
+        target: "ES2022",
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        outDir: "../dist-electron",
+      },
       include: ["main.ts"],
     }),
   };
@@ -345,7 +360,8 @@ function extensionShell(): ScaffoldFiles {
       background: { service_worker: "dist/background.js", type: "module" },
       permissions: ["storage"],
     }),
-    "src/background.ts": 'chrome.runtime.onInstalled.addListener(()=>console.info("installed"));\n',
+    "src/background.ts":
+      'chrome.runtime.onInstalled.addListener(()=>console.info("installed"));\n',
     ".env.example": "",
   };
 }
@@ -368,7 +384,9 @@ export function getStackScaffold(techStack: string): ScaffoldFiles {
     case "node-service":
     case "ai-agent-node":
     case "browser-automation":
-      return nodeServiceShell(adapter.id === "api-service" ? "src/server.ts" : "src/index.ts");
+      return nodeServiceShell(
+        adapter.id === "api-service" ? "src/server.ts" : "src/index.ts",
+      );
     case "python-service":
     case "ai-agent-python":
       return pythonServiceShell();
@@ -383,7 +401,9 @@ export function getStackScaffold(techStack: string): ScaffoldFiles {
     case "chrome-extension":
       return extensionShell();
     default:
-      throw new Error(`No scaffold implementation for stack adapter ${adapter.id}`);
+      throw new Error(
+        `No scaffold implementation for stack adapter ${adapter.id}`,
+      );
   }
 }
 
