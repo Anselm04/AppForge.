@@ -123,7 +123,12 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
   const controller = new AbortController();
   const timeoutMs = resolveBuildTimeoutMs();
   const timeout =
-    timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    timeoutMs > 0
+      ? setTimeout(
+          () => controller.abort(new Error("build_timeout")),
+          timeoutMs,
+        )
+      : null;
   let pendingDone: unknown = null;
 
   const write = (event: string, data: unknown) => {
