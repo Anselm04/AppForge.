@@ -364,6 +364,13 @@ export const projectsRouter = router({
 
       const { deployProject, zipFiles, listDeployDestinations } =
         await import("../services/deployer.js");
+      const { validateProductContract } =
+        await import("../lib/productContract.js");
+      const { getStackAdapter } = await import("../lib/stackAdapters.js");
+      const productContract = validateProductContract(project.productContract);
+      const stackAdapter = getStackAdapter(
+        productContract.selectedTechnologyStack,
+      );
 
       if (input.destination === "zip") {
         const { base64, filename } = await zipFiles(
@@ -378,6 +385,22 @@ export const projectsRouter = router({
         };
       }
 
+      const productionDestination =
+        input.destination === "vercel" ||
+        input.destination === "netlify" ||
+        input.destination === "fly" ||
+        input.destination === "github-pages";
+      if (
+        stackAdapter.generationMode === "structural" &&
+        productionDestination
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            `This project uses structural-only stack ${stackAdapter.id}. Export or preview the source until its native runtime is verified.`,
+        });
+      }
+
       const origin =
         process.env.CORS_ORIGIN ||
         process.env.APP_URL ||
@@ -390,6 +413,7 @@ export const projectsRouter = router({
           files,
           projectId: input.id,
           previewBaseUrl: origin.replace(/\/$/, ""),
+          techStack: stackAdapter.id,
         });
 
         if (input.destination === "preview" && result.url) {
