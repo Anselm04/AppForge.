@@ -7,6 +7,10 @@
 
 import { Agent, AgentContext, AgentResult } from "./types";
 import { invokeLLM } from "../_core/llm.js";
+import {
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 export async function generateTestsForModule(
   moduleName: string,
@@ -145,9 +149,15 @@ export async function attachGeneratedTests(
   generatedFiles: Record<string, string>,
   techStack: string,
   requirements: string[] = [],
+  productContract?: ProductContract,
 ): Promise<Record<string, string>> {
   const testFiles: Record<string, string> = {};
-  const requirementContract = createRequirementContract(requirements);
+  const validatedContract = productContract
+    ? validateProductContract(productContract)
+    : null;
+  const requirementContract = validatedContract
+    ? validatedContract.functionalRequirements.map(({ id, text }) => ({ id, text }))
+    : createRequirementContract(requirements);
   for (const [filename, content] of Object.entries(generatedFiles)) {
     if (
       filename.endsWith(".test.ts") ||
