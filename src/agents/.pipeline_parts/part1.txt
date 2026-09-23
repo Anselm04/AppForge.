@@ -236,6 +236,66 @@
       .where(eq(schema.projects.id, projectId));
     await markAgentLogComplete(plannerLogId);
 
+    const coordinationRow = await db.query.projects.findFirst({
+      where: eq(schema.projects.id, projectId),
+      columns: { researchRecord: true, agentCoordination: true },
+    });
+    coordinationContext = createAgentCoordinationContext({
+      productContract,
+      productPlan,
+      researchRecord: coordinationRow?.researchRecord ?? null,
+    });
+
+    const freshCoordination = createAgentCoordinationRecord({
+      projectId,
+      context: coordinationContext,
+    });
+    const existingCoordination = agentCoordinationRecordSchema.safeParse(
+      coordinationRow?.agentCoordination,
+    );
+    if (
+      existingCoordination.success &&
+      existingCoordination.data.productType === productContract.productType &&
+      existingCoordination.data.selectedTechnologyStack ===
+        productContract.selectedTechnologyStack &&
+      existingCoordination.data.planTitle === productPlan.title &&
+      Object.keys(existingCoordination.data.taskStates).every((taskId) =>
+        productPlan.tasks.some((task) => task.id === taskId),
+      )
+    ) {
+      coordinationRecord = existingCoordination.data;
+    } else {
+      coordinationRecord = freshCoordination;
+      if (existingCoordination.success) {
+        coordinationRecord = agentCoordinationRecordSchema.parse({
+          ...coordinationRecord,
+          events: existingCoordination.data.events,
+        });
+      }
+    }
+
+    completedTaskIds = new Set(
+      Object.values(coordinationRecord.taskStates)
+        .filter((taskState) => taskState.status === "completed")
+        .map((taskState) => taskState.taskId),
+    );
+    coordinationRecord = unlockReadyTasks(coordinationRecord);
+    await recordCoordinationEvent({
+      agent: "Planner",
+      type: "handoff",
+      detail:
+        "Validated plan, canonical requirements, research decisions, file ownership, and dependency graph handed to downstream agents.",
+      provider: provider.id,
+      model: plannerModel || provider.defaultModel,
+    });
+    emit("System", "coordination_ready", {
+      taskCount: productPlan.tasks.length,
+      completedTaskIds: [...completedTaskIds],
+      requirementIds: coordinationContext.requirementIds,
+      researchDecisionIds: productPlan.researchDecisionIds,
+      fileOwners: coordinationRecord.fileOwners,
+    });
+
     emit("Planner", "complete", {
       message: "Validated architecture and implementation plan complete.",
       taskCount: productPlan.tasks.length,
