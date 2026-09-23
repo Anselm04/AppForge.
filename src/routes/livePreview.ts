@@ -7,6 +7,8 @@ import { spawn } from "child_process";
 import { getProjectById } from "../db.js";
 import { verifyPreviewSignature } from "../services/deployer.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
+import { validateProductContract } from "../lib/productContract.js";
 
 const livePreviewRouter = Router();
 
@@ -92,6 +94,7 @@ function listingPage(
   projectId: number,
   title: string,
   files: Record<string, string>,
+  statusMessage = "Source listing (bundled preview unavailable for this stack).",
 ): string {
   const items = Object.keys(files)
     .sort()
@@ -113,7 +116,7 @@ function listingPage(
 </head>
 <body>
   <h1>${escapeHtml(title)}</h1>
-  <p>Source listing (bundled preview unavailable for this stack).</p>
+  <p>${escapeHtml(statusMessage)}</p>
   <ul>${items || "<li>No files yet.</li>"}</ul>
 </body>
 </html>`;
@@ -292,6 +295,12 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
     const files = normalizeFiles(
       (project.generatedFiles as Record<string, string> | null) ?? {},
     );
+    const contract = project.productContract
+      ? validateProductContract(project.productContract)
+      : null;
+    const stackAdapter = contract
+      ? getStackAdapter(contract.selectedTechnologyStack)
+      : null;
     const decodedRel = decodeURIComponent((req.path || "/").replace(/^\//, ""));
     const rel = decodedRel ? safeRelativePath(decodedRel) : "";
     if (decodedRel && !rel) {
@@ -306,6 +315,24 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
     );
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Referrer-Policy", "no-referrer");
+
+    if (
+      stackAdapter?.generationMode === "structural" &&
+      (!rel || rel === "index.html")
+    ) {
+      res
+        .status(200)
+        .type("html")
+        .send(
+          listingPage(
+            projectId,
+            project.title || `Project ${projectId}`,
+            files,
+            `Structural output for ${stackAdapter.label}. Native ${stackAdapter.runtime} verification is required before this can be shown as a runnable or deployed product.`,
+          ),
+        );
+      return;
+    }
 
     if (rel === "files" || rel?.startsWith("src/")) {
       if (rel === "files") {
@@ -351,7 +378,10 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    const distDir = await buildVitePreview(projectId, files);
+    const distDir =
+      !stackAdapter || stackAdapter.previewMode === "vite"
+        ? await buildVitePreview(projectId, files)
+        : null;
     if (distDir) {
       const assetPath = !rel || rel === "index.html" ? "index.html" : rel;
       try {
