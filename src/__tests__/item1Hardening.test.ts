@@ -43,7 +43,8 @@ describe("Item 1 hardening suite", () => {
       "src/main.tsx": "main",
       "index.html": "html",
     };
-    for (let i = 0; i < 20; i++) files[`src/extra${i}.tsx`] = "x".repeat(10 + i);
+    for (let i = 0; i < 20; i++)
+      files[`src/extra${i}.tsx`] = "x".repeat(10 + i);
     const capped = capGoldenFiles(files, 12);
     expect(Object.keys(capped).length).toBeLessThanOrEqual(12);
     expect(capped["src/App.tsx"]).toBeTruthy();
