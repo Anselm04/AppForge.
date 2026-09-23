@@ -39,7 +39,7 @@ describe("Supabase server authentication boundary", () => {
     expect(middleware).toContain("REFRESH_GRACE_MS");
     expect(middleware).toContain('createHash("sha256")');
     expect(middleware).toContain(
-      "A transient Supabase/network failure must never destroy a still-valid",
+      "Preserve a still-valid refresh cookie across transient Supabase failures.",
     );
   });
 
@@ -56,7 +56,7 @@ describe("Supabase server authentication boundary", () => {
 
   it("uses hardened server session cookies", () => {
     expect(middleware).toContain("httpOnly: true");
-    expect(middleware).toContain('sameSite: "strict"');
+    expect(middleware).toContain('sameSite: "lax"');
     expect(middleware).toContain(
       'secure: process.env.NODE_ENV === "production"',
     );
