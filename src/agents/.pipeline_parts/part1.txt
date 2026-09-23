@@ -67,6 +67,7 @@
     let activeRecipe = classifyRecipe(description);
     let tasks: PlanTask[] = [];
     let redesignBrief = "";
+    let coordinationContextText = "";
 
     // Outer never-give-up: re-plan → code → validate → escalate provider until real quality pass
     outerLoop: while (!signal?.aborted) {
@@ -249,7 +250,7 @@
       productPlan,
       researchRecord: coordinationRow?.researchRecord ?? null,
     });
-    const coordinationContextText = JSON.stringify(
+    coordinationContextText = JSON.stringify(
       {
         plan: productPlan,
         requirements: productContract.functionalRequirements,
