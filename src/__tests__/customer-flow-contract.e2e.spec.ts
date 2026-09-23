@@ -194,7 +194,7 @@ describe("critical customer flow contract", () => {
       "const id = await createProject({",
       "const claimed = await claimProjectBuildStart(id, ctx.user.id);",
       "await enqueueBuild({",
-      'return { id, status: "running" as const };',
+      'status: "running" as const,',
     ]);
     expect(projects).toContain("Build start refund for project ${id}");
     expect(projects).toContain(
