@@ -23,6 +23,10 @@ import {
   isolatedBuildConfigured,
   validateWithIsolatedBuildRunner,
 } from "../services/isolatedBuildRunner.js";
+import {
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -37,6 +41,7 @@ export type ValidateOptions = {
   testsBlocking?: boolean;
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
+  productContract?: ProductContract;
 };
 
 type RequirementManifest = {
@@ -221,6 +226,9 @@ export async function validateGeneratedBuild(
   const tmpDir = join(tmpdir(), `appforge-build-${Date.now()}`);
   const start = Date.now();
   const errors: string[] = [];
+  if (options.productContract) {
+    validateProductContract(options.productContract);
+  }
 
   try {
     await mkdir(tmpDir, { recursive: true });
