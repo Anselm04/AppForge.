@@ -80,6 +80,18 @@ import {
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
+import {
+  agentCoordinationRecordSchema,
+  appendCoordinationEvent,
+  assertTaskOutputOwnership,
+  createAgentCoordinationContext,
+  createAgentCoordinationRecord,
+  unlockReadyTasks,
+  updateTaskCoordinationState,
+  validateTaskHandoff,
+  type AgentCoordinationContext,
+  type AgentCoordinationRecord,
+} from "../lib/agentCoordination.js";
 
 const SUPPORTED_TECH_STACKS = [
   "react-node","react-python","vue-node","svelte-node","next-node","angular-node",
@@ -202,7 +214,13 @@ export async function runAgentPipeline(
 
   const projectRow = await db.query.projects.findFirst({
     where: eq(schema.projects.id, projectId),
-    columns: { buildCapabilities: true, productContract: true },
+    columns: {
+      buildCapabilities: true,
+      productContract: true,
+      researchRecord: true,
+      productPlan: true,
+      agentCoordination: true,
+    },
   });
   const productContract = validateProductContract(
     options?.productContract ?? projectRow?.productContract,
@@ -210,3 +228,26 @@ export async function runAgentPipeline(
   const contractContext = renderProductContractForAgents(productContract);
   const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
   const activeCapabilities = capabilities.length > 0 ? capabilities : storedCaps;
+
+  let coordinationContext: AgentCoordinationContext | null = null;
+  let coordinationRecord: AgentCoordinationRecord | null = null;
+  let completedTaskIds = new Set<string>();
+
+  const persistCoordination = async () => {
+    if (!coordinationRecord) return;
+    await db
+      .update(schema.projects)
+      .set({
+        agentCoordination: coordinationRecord,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, projectId));
+  };
+
+  const recordCoordinationEvent = async (
+    event: Omit<Parameters<typeof appendCoordinationEvent>[1], "at">,
+  ) => {
+    if (!coordinationRecord) return;
+    coordinationRecord = appendCoordinationEvent(coordinationRecord, event);
+    await persistCoordination();
+  };
