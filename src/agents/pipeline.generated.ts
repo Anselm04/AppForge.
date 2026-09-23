@@ -65,6 +65,7 @@ import {
   capGoldenFiles,
 } from "../lib/goldenLimits.js";
 import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
@@ -80,6 +81,13 @@ import {
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
+import {
+  coderTaskInstruction,
+  ensureCodeGenerationSupportFiles,
+  validateCoderOwnedArtifact,
+  validateCoderTaskOutput,
+  validateGeneratedCodeArtifact,
+} from "../lib/codeGeneration.js";
 import {
   agentCoordinationRecordSchema,
   appendCoordinationEvent,
@@ -418,6 +426,8 @@ export async function runAgentPipeline(
         return;
       }
 
+      const selectedStackAdapter = getStackAdapter(techStack);
+
       emit("Planner", "start", {
         message:
           outerAttempt > 1
@@ -439,6 +449,12 @@ export async function runAgentPipeline(
         "The product contract is authoritative. Research is evidence and implementation guidance only.",
         plannerJsonSchemaInstruction(),
         "Required design coverage: product workflows, personas, user roles, frontend modules, backend modules, database modules, AI modules where applicable, integration modules, authentication, authorization, billing, deployment, operations, recovery, monetization, implementation order, dependencies, acceptance criteria, requirement-to-task mapping, task-to-file mapping, task-to-agent mapping, and task-to-validation mapping.",
+        "The task-to-file plan MUST explicitly assign every runtime entrypoint, every required environment example/config file, and README.md to a task so the Coder generates them rather than relying on a scaffold.",
+        "Required runtime entrypoints: " +
+          selectedStackAdapter.entrypoints.join(", "),
+        "Required environment/config files: " +
+          (selectedStackAdapter.environmentFiles.join(", ") || "none"),
+        "Required documentation file: README.md",
         "Do not output a generic plan for a complex product. Do not use Core App or Core UI as a fallback.",
         "Selected stack: " + techStack,
         designHints,
@@ -868,9 +884,16 @@ export async function runAgentPipeline(
                 status: coordinationStatusSummary(coordinationRecord),
               });
 
+              const codeGenerationContract = coderTaskInstruction({
+                contract: productContract,
+                plan: coordinationContext.productPlan,
+                task,
+                researchDecisions: coordinationContext.researchDecisions,
+              });
               const coderInput =
                 `SPECIALIST_AGENT: ${task.agent}\n` +
                 `TASK_CONTEXT:\n${taskContext}\n\n` +
+                `CODE_GENERATION_REQUIREMENTS:\n${codeGenerationContract}\n\n` +
                 "Return only files owned by this task. Do not change scope, requirements, ownership, or dependencies.";
               const coderLogId = await appendAgentLog({
                 projectId,
@@ -917,6 +940,11 @@ export async function runAgentPipeline(
                   );
                 }
 
+                validateCoderTaskOutput({
+                  files: parsedFiles,
+                  task,
+                  contract: productContract,
+                });
                 assertTaskOutputOwnership({
                   task,
                   files: parsedFiles,
@@ -1029,8 +1057,25 @@ export async function runAgentPipeline(
             }
           }
 
+          const coderOwnedProblems = validateCoderOwnedArtifact({
+            files: generatedFiles,
+            contract: productContract,
+          });
+          if (coderOwnedProblems.length > 0) {
+            throw new Error(
+              "Coder artifact incomplete before scaffold merge: " +
+                coderOwnedProblems.join("; "),
+            );
+          }
+
+          generatedFiles = ensureCodeGenerationSupportFiles({
+            files: generatedFiles,
+            contract: productContract,
+            plan: coordinationContext.productPlan,
+          });
+
           emit("Coder", "complete", {
-            message: `Generated ${Object.keys(generatedFiles).length} files with coordinated task ownership.`,
+            message: `Generated ${Object.keys(generatedFiles).length} files with coordinated task ownership and requirement-linked implementation evidence.`,
             status: coordinationRecord
               ? coordinationStatusSummary(coordinationRecord)
               : undefined,
@@ -1074,9 +1119,39 @@ export async function runAgentPipeline(
               message: "Merged Stripe billing scaffold.",
             });
           }
-        } catch {
-          /* non-fatal */
+        } catch (reliabilityError) {
+          const message =
+            reliabilityError instanceof Error
+              ? reliabilityError.message
+              : "Unknown reliability hardening error";
+          throw new Error("Generated code reliability pass failed: " + message);
         }
+
+        generatedFiles = ensureCodeGenerationSupportFiles({
+          files: generatedFiles,
+          contract: productContract,
+          plan: coordinationContext!.productPlan,
+        });
+        const codeGenerationProblems = validateGeneratedCodeArtifact({
+          files: generatedFiles,
+          contract: productContract,
+          plan: coordinationContext!.productPlan,
+        });
+        if (codeGenerationProblems.length > 0) {
+          throw new Error(
+            "Generated code artifact failed Code Generation gate: " +
+              codeGenerationProblems.join("; "),
+          );
+        }
+        await updateProjectFiles(projectId, { ...generatedFiles });
+        await recordCoordinationEvent({
+          agent: "Coder",
+          type: "complete",
+          detail:
+            "Code Generation gate passed: complete files, stack/runtime shape, documentation, environment examples, and requirement-linked evidence are present.",
+          provider: provider.id,
+          model: coderModel || provider.defaultModel,
+        });
 
         if (validationMode === "full") {
           emit("Testing", "start", {
@@ -1483,8 +1558,22 @@ export async function runAgentPipeline(
     }
 
     generatedFiles["REVIEW.md"] = reviewOutput;
-    generatedFiles["README.md"] =
-      `# ${appTitle}\n\nGenerated by AppForge.\n\n**Stack:** ${techStack}\n\n**Validation:** ${validationResult?.passed ? "Passed" : "FAILED"}\n\n\`\`\`bash\nnpm install && npm run dev\n\`\`\`\n`;
+    const existingReadme = generatedFiles["README.md"]?.trim() ?? "";
+    const validationSummary = [
+      "",
+      "## AppForge validation",
+      "",
+      `- Stack: ${techStack}`,
+      `- Validation: ${validationResult?.passed ? "Passed" : "FAILED"}`,
+      `- Validation stage: ${validationResult?.stage ?? "unknown"}`,
+      "",
+    ].join("\n");
+    generatedFiles["README.md"] = existingReadme
+      ? existingReadme +
+        (existingReadme.includes("## AppForge validation")
+          ? ""
+          : validationSummary)
+      : `# ${appTitle}\n${validationSummary}`;
 
     if (
       validationResult?.passed &&
