@@ -244,16 +244,6 @@ export function validateCoderOwnedArtifact(input: {
   const adapter = getStackAdapter(input.contract.selectedTechnologyStack);
   const problems: string[] = [];
 
-  for (const task of input.plan.tasks) {
-    for (const plannedFile of task.files) {
-      if (!input.files[plannedFile]?.trim()) {
-        problems.push(
-          `planned generated file disappeared before validation: ${plannedFile}`,
-        );
-      }
-    }
-  }
-
   for (const entrypoint of adapter.entrypoints) {
     if (!input.files[entrypoint]?.trim()) {
       problems.push(`Coder omitted runtime entrypoint ${entrypoint}`);
@@ -381,6 +371,16 @@ export function validateGeneratedCodeArtifact(input: {
 }): string[] {
   const problems: string[] = [];
   const adapter = getStackAdapter(input.contract.selectedTechnologyStack);
+
+  for (const task of input.plan.tasks) {
+    for (const plannedFile of task.files) {
+      if (!input.files[plannedFile]?.trim()) {
+        problems.push(
+          `planned generated file disappeared before validation: ${plannedFile}`,
+        );
+      }
+    }
+  }
 
   for (const entrypoint of adapter.entrypoints) {
     if (!input.files[entrypoint]?.trim()) {
