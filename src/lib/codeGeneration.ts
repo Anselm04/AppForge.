@@ -237,6 +237,40 @@ export function validateCoderTaskOutput(input: {
   }
 }
 
+export function validateCoderOwnedArtifact(input: {
+  files: Record<string, string>;
+  contract: ProductContract;
+}): string[] {
+  const adapter = getStackAdapter(input.contract.selectedTechnologyStack);
+  const problems: string[] = [];
+
+  for (const entrypoint of adapter.entrypoints) {
+    if (!input.files[entrypoint]?.trim()) {
+      problems.push(`Coder omitted runtime entrypoint ${entrypoint}`);
+    }
+  }
+
+  for (const envFile of adapter.environmentFiles) {
+    if (envFile.endsWith(".json")) continue;
+    if (!input.files[envFile]?.trim()) {
+      problems.push(`Coder omitted environment example ${envFile}`);
+    }
+  }
+
+  if (!input.files["README.md"]?.trim()) {
+    problems.push("Coder omitted README.md documentation");
+  }
+
+  problems.push(
+    ...wrongStackProblems(
+      input.files,
+      input.contract.selectedTechnologyStack,
+    ),
+  );
+
+  return [...new Set(problems)];
+}
+
 export function buildImplementationEvidence(input: {
   contract: ProductContract;
   plan: ProductPlan;
