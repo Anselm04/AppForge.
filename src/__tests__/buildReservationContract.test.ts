@@ -14,13 +14,17 @@ const worker = readFileSync(
   resolve(process.cwd(), "src/services/build-worker.ts"),
   "utf8",
 );
+const buildJob = readFileSync(
+  resolve(process.cwd(), "src/lib/buildJob.ts"),
+  "utf8",
+);
 
 describe("build reservation contract", () => {
   it("passes the actual charge state from project creation to worker", () => {
     expect(createRoute).toContain("const reservationCharged = !unlimited");
     expect(createRoute).toContain("if (reservationCharged)");
     expect(createRoute).toContain("reservationCharged,");
-    expect(worker).toContain("reservationCharged: boolean");
+    expect(buildJob).toContain("reservationCharged: z.boolean()");
   });
 
   it("keeps unlimited and lifetime builds uncharged", () => {
