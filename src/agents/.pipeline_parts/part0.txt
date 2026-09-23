@@ -69,6 +69,11 @@ import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq } from "drizzle-orm";
+import {
+  renderProductContractForAgents,
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 const SUPPORTED_TECH_STACKS = [
   "react-node","react-python","vue-node","svelte-node","next-node","angular-node",
@@ -150,6 +155,7 @@ export interface PlanTask { id: string; module: string; description: string; }
 export interface PipelineOptions {
   locale?: string;
   buildCapabilities?: BuildCapabilityId[];
+  productContract?: ProductContract;
 }
 
 /** Pure helper — continue outer loop when validation/quality failed and retries remain. */
@@ -190,7 +196,11 @@ export async function runAgentPipeline(
 
   const projectRow = await db.query.projects.findFirst({
     where: eq(schema.projects.id, projectId),
-    columns: { buildCapabilities: true },
+    columns: { buildCapabilities: true, productContract: true },
   });
+  const productContract = validateProductContract(
+    options?.productContract ?? projectRow?.productContract,
+  );
+  const contractContext = renderProductContractForAgents(productContract);
   const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
   const activeCapabilities = capabilities.length > 0 ? capabilities : storedCaps;
