@@ -21,7 +21,9 @@ import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { deployValidatedProject } from "./productionAutoDeploy.js";
 import {
   classifyProductIntent,
-  renderCanonicalPromptContext,
+  renderProductContractForAgents,
+  validateProductContract,
+  type ProductContract,
   type PromptIntent,
 } from "../lib/productContract.js";
 
@@ -33,6 +35,7 @@ export interface BuildJob {
   locale?: string;
   buildCapabilities?: string[];
   promptIntent?: PromptIntent;
+  productContract: ProductContract;
   createdAt: string;
   /** True only when this queued attempt actually deducted the build reservation. */
   reservationCharged: boolean;
@@ -56,6 +59,7 @@ export async function deployValidatedProjectWithRetry(input: {
   projectId: number;
   projectName: string;
   files: Record<string, string>;
+  productContract: ProductContract;
 }) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
@@ -122,6 +126,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
     locale,
     buildCapabilities,
     promptIntent,
+    productContract,
     createdAt,
     reservationCharged,
   } = job;
@@ -196,10 +201,30 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
           "Queued build prompt is ambiguous",
       );
     }
-    const canonicalAgentPrompt = renderCanonicalPromptContext(
+    const queuedContract = validateProductContract(productContract);
+    const persistedContract = validateProductContract(project.productContract);
+
+    if (queuedContract.originalPrompt !== description) {
+      throw new Error("Queued product contract original prompt mismatch");
+    }
+    if (persistedContract.originalPrompt !== description) {
+      throw new Error("Persisted product contract original prompt mismatch");
+    }
+    if (queuedContract.selectedTechnologyStack !== techStack) {
+      throw new Error("Queued product contract selected stack mismatch");
+    }
+    if (persistedContract.selectedTechnologyStack !== techStack) {
+      throw new Error("Persisted product contract selected stack mismatch");
+    }
+    if (JSON.stringify(queuedContract) !== JSON.stringify(persistedContract)) {
+      throw new Error("Queued product contract disagrees with persisted project contract");
+    }
+
+    const canonicalAgentPrompt = [
       description,
-      resolvedPromptIntent,
-    );
+      "",
+      renderProductContractForAgents(queuedContract),
+    ].join("\n");
 
     await runAgentPipeline(
       projectId,
@@ -211,6 +236,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       {
         locale,
         buildCapabilities: buildCapabilities as BuildCapabilityId[] | undefined,
+        productContract: queuedContract,
       },
     );
 
@@ -244,6 +270,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
           projectId,
           projectName: updated.title || `appforge-${projectId}`,
           files,
+          productContract: queuedContract,
         });
         liveUrl = deployed.liveUrl;
         productionCertification = {
@@ -258,6 +285,7 @@ export async function runBuildJob(job: BuildJob): Promise<void> {
       await recordBuildOutcome(userId, true, BUILD_CREDIT_COST);
       void syncComplianceToVanta(projectId, {
         techStack,
+        productContract: queuedContract,
         exportedAt: new Date().toISOString(),
       });
 
