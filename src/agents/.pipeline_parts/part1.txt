@@ -245,6 +245,15 @@
       productPlan,
       researchRecord: coordinationRow?.researchRecord ?? null,
     });
+    const coordinationContextText = JSON.stringify(
+      {
+        plan: productPlan,
+        requirements: productContract.functionalRequirements,
+        researchDecisions: coordinationContext.researchDecisions,
+      },
+      null,
+      2,
+    );
 
     const freshCoordination = createAgentCoordinationRecord({
       projectId,
