@@ -11,7 +11,7 @@ export const productPlanTaskSchema = z.object({
   sequence: z.number().int().positive(),
   dependencies: z.array(nonEmptyString),
   acceptanceCriteria: z.array(nonEmptyString).min(1),
-  requirementIds: z.array(z.string().regex(/^REQ-\\d{3}$/)).min(1),
+  requirementIds: z.array(z.string().regex(/^REQ-\d{3}$/)).min(1),
   files: z.array(nonEmptyString).min(1),
   agent: z.enum([
     "frontend",
@@ -98,6 +98,56 @@ export function validateProductPlan(
   }
   if (plan.selectedTechnologyStack !== contract.selectedTechnologyStack) {
     throw new Error("Planner stack does not match canonical product contract");
+  }
+
+
+  if (
+    contract.productFamilies.includes("frontend") &&
+    plan.architecture.frontendModules.length === 0
+  ) {
+    throw new Error("Planner must include frontend modules for this product");
+  }
+  if (
+    contract.productFamilies.includes("backend") &&
+    plan.architecture.backendModules.length === 0
+  ) {
+    throw new Error("Planner must include backend modules for this product");
+  }
+  if (
+    contract.productFamilies.includes("database") &&
+    plan.architecture.databaseModules.length === 0
+  ) {
+    throw new Error("Planner must include database modules for this product");
+  }
+  if (
+    contract.productFamilies.includes("ai") &&
+    plan.architecture.aiModules.length === 0
+  ) {
+    throw new Error("Planner must include AI modules for this product");
+  }
+  if (
+    contract.productFamilies.includes("integrations") &&
+    plan.architecture.integrationModules.length === 0
+  ) {
+    throw new Error("Planner must include integration modules for this product");
+  }
+
+  if (
+    plan.implementationSequence.length !== plan.tasks.length ||
+    plan.implementationSequence.some(
+      (taskId, index) => taskId !== [...plan.tasks].sort((a, b) => a.sequence - b.sequence)[index]?.id,
+    )
+  ) {
+    throw new Error(
+      "Planner implementation sequence must include every task in sequence order",
+    );
+  }
+
+  if (
+    plan.tasks.length > 1 &&
+    !plan.tasks.some((task) => task.dependencies.length > 0)
+  ) {
+    throw new Error("Planner must define dependencies between multi-task work");
   }
 
   const ids = plan.tasks.map((task) => task.id);
