@@ -238,7 +238,11 @@
 
     const coordinationRow = await db.query.projects.findFirst({
       where: eq(schema.projects.id, projectId),
-      columns: { researchRecord: true, agentCoordination: true },
+      columns: {
+        researchRecord: true,
+        agentCoordination: true,
+        generatedFiles: true,
+      },
     });
     coordinationContext = createAgentCoordinationContext({
       productContract,
@@ -273,6 +277,8 @@
       )
     ) {
       coordinationRecord = existingCoordination.data;
+      resumedGeneratedFiles =
+        (coordinationRow?.generatedFiles as Record<string, string> | null) ?? {};
     } else {
       coordinationRecord = freshCoordination;
       if (existingCoordination.success) {
