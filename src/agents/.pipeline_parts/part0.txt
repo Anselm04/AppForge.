@@ -65,6 +65,7 @@ import {
   capGoldenFiles,
 } from "../lib/goldenLimits.js";
 import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
