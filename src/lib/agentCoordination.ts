@@ -305,3 +305,96 @@ export function unlockReadyTasks(
     updatedAt: new Date().toISOString(),
   });
 }
+
+
+export function buildAgentTaskContext(input: {
+  context: AgentCoordinationContext;
+  task: ProductPlanTask;
+}): string {
+  const requirementSet = new Set(input.task.requirementIds);
+  const requirements = input.context.productContract.functionalRequirements.filter(
+    (requirement) => requirementSet.has(requirement.id),
+  );
+  const decisionSet = new Set(input.context.productPlan.researchDecisionIds);
+  const researchDecisions = input.context.researchDecisions.filter((decision) =>
+    decisionSet.has(decision.id),
+  );
+
+  return JSON.stringify(
+    {
+      productContract: input.context.productContract,
+      productPlan: {
+        title: input.context.productPlan.title,
+        overview: input.context.productPlan.overview,
+        architecture: input.context.productPlan.architecture,
+        implementationSequence:
+          input.context.productPlan.implementationSequence,
+      },
+      task: input.task,
+      requirements,
+      researchDecisions,
+      coordinationRules: {
+        scopeImmutable: true,
+        ownedFilesOnly: true,
+        dependenciesMustBeComplete: true,
+        requirementsMayNotBeDropped: true,
+        researchCannotChangePermissions: true,
+      },
+    },
+    null,
+    2,
+  );
+}
+
+export function reconcileCoordinationResume(input: {
+  record: AgentCoordinationRecord;
+  generatedFiles: Record<string, string>;
+}): AgentCoordinationRecord {
+  let record = input.record;
+
+  for (const [taskId, state] of Object.entries(record.taskStates)) {
+    if (state.status !== "completed") continue;
+
+    const missing = state.outputFiles.filter(
+      (file) => !(file in input.generatedFiles),
+    );
+    if (state.outputFiles.length === 0 || missing.length > 0) {
+      record = updateTaskCoordinationState(record, taskId, {
+        status: state.dependencies.length > 0 ? "blocked" : "pending",
+        lastError:
+          state.outputFiles.length === 0
+            ? "Completed task had no persisted output files during resume"
+            : `Resume detected missing output files: ${missing.join(", ")}`,
+        outputFiles: [],
+      });
+    }
+  }
+
+  return unlockReadyTasks(record);
+}
+
+export function coordinationStatusSummary(
+  record: AgentCoordinationRecord,
+): {
+  pending: number;
+  blocked: number;
+  running: number;
+  retrying: number;
+  paused: number;
+  failed: number;
+  completed: number;
+} {
+  const summary = {
+    pending: 0,
+    blocked: 0,
+    running: 0,
+    retrying: 0,
+    paused: 0,
+    failed: 0,
+    completed: 0,
+  };
+  for (const state of Object.values(record.taskStates)) {
+    summary[state.status] += 1;
+  }
+  return summary;
+}
