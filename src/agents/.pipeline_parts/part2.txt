@@ -73,9 +73,30 @@
               .trimStart();
           }
         }
+        await db
+          .update(schema.agentLogs)
+          .set({
+            content:
+              `# Surgical fix ${fixAttempt}\n\n# INPUT\n${fixPrompt}\n\n# OUTPUT\n${fixContent}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.agentLogs.id, coderLogId));
         await markAgentLogComplete(coderLogId);
+        await updateProjectFiles(projectId, { ...generatedFiles });
+        resumedGeneratedFiles = { ...generatedFiles };
+        await recordCoordinationEvent({
+          agent: "Coder",
+          type: "decision",
+          detail:
+            `Surgical repair attempt ${fixAttempt} persisted ${Object.keys(patches).length} parsed patch file(s) without changing the canonical product scope.`,
+          provider: provider.id,
+          model: coderModel || provider.defaultModel,
+        });
         emit("Coder", "complete", {
           message: `Surgical fix applied (${Object.keys(patches).length} file(s)).`,
+          coordinationStatus: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
         });
       } else {
         generatedFiles = { ...resumedGeneratedFiles };
