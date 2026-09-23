@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS "projects" (
   "product_contract" JSONB,
   "research_record" JSONB,
   "product_plan" JSONB,
+  "agent_coordination" JSONB,
   "created_at" TIMESTAMP DEFAULT NOW(),
   "updated_at" TIMESTAMP DEFAULT NOW()
 );
@@ -321,6 +322,7 @@ ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_capabilities" JSONB DEFAU
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "product_contract" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "research_record" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "product_plan" JSONB;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "agent_coordination" JSONB;
 
 CREATE TABLE IF NOT EXISTS "organizations" (
   "id" SERIAL PRIMARY KEY,
