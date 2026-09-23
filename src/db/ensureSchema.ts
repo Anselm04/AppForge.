@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS "projects" (
   "generated_files" JSONB,
   "credits_spent" INTEGER DEFAULT 0,
   "credits_reserved" INTEGER DEFAULT 0,
+  "product_contract" JSONB,
   "created_at" TIMESTAMP DEFAULT NOW(),
   "updated_at" TIMESTAMP DEFAULT NOW()
 );
@@ -315,6 +316,7 @@ CREATE TABLE IF NOT EXISTS "user_build_stats" (
 
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "locale" VARCHAR(10) DEFAULT 'en';
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_capabilities" JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "product_contract" JSONB;
 
 CREATE TABLE IF NOT EXISTS "organizations" (
   "id" SERIAL PRIMARY KEY,
