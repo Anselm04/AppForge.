@@ -2,7 +2,14 @@ import { createClient, type RedisClientType } from "redis";
 import type { Queue, Worker } from "bullmq";
 import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
-import { runBuildJob, type BuildJob } from "./build-worker.js";
+import { runBuildJob } from "./build-worker.js";
+import {
+  cloneBuildJob,
+  deserializeBuildJob,
+  serializeBuildJob,
+  validateBuildJob,
+  type BuildJob,
+} from "../lib/buildJob.js";
 import { addCredits } from "../db.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { getLatestTerminalBuildEvent } from "./build-event-store.js";
@@ -61,7 +68,7 @@ async function initBullMQ(): Promise<boolean> {
     bullWorker = new Worker(
       BULL_QUEUE_NAME,
       async (job) => {
-        await runBuildJob(job.data as BuildJob);
+        await runBuildJob(validateBuildJob(job.data));
       },
       { connection, concurrency: 2 },
     );
@@ -110,7 +117,7 @@ async function processRedisQueue(): Promise<void> {
   if (!raw) return;
   let job: BuildJob | null = null;
   try {
-    job = JSON.parse(raw) as BuildJob;
+    job = deserializeBuildJob(raw);
     await runBuildJob(job);
   } catch (err) {
     logger.error({ err }, "redis_queue_job_failed");
@@ -136,7 +143,8 @@ export function startBuildQueueWorker(intervalMs = 2000): () => void {
   };
 }
 
-export async function enqueueBuild(job: BuildJob): Promise<void> {
+export async function enqueueBuild(input: BuildJob): Promise<void> {
+  const job = cloneBuildJob(validateBuildJob(input));
   if (!bullQueue) await initBullMQ();
 
   if (bullQueue) {
@@ -183,7 +191,7 @@ export async function enqueueBuild(job: BuildJob): Promise<void> {
         return;
       }
       try {
-        await redis.lPush(QUEUE_KEY, JSON.stringify(job));
+        await redis.lPush(QUEUE_KEY, serializeBuildJob(job));
       } catch (err) {
         await redis.del(queueClaimKey(job.projectId));
         throw err;
@@ -207,7 +215,7 @@ export async function enqueueBuild(job: BuildJob): Promise<void> {
     return;
   }
   memoryQueuedProjects.add(job.projectId);
-  memoryQueue.push(job);
+  memoryQueue.push(cloneBuildJob(job));
   logger.warn(
     { projectId: job.projectId },
     "build_enqueued_memory_degraded_mode",
