@@ -13,6 +13,7 @@ import {
 import { relations } from "drizzle-orm";
 import type { ProductContract } from "../lib/productContract.js";
 import type { ResearchRecord } from "../lib/researchRecord.js";
+import type { ProductPlan } from "../lib/productPlan.js";
 
 // ── USERS ──
 export const users = pgTable("users", {
@@ -119,6 +120,7 @@ export const projects = pgTable(
       .default([]),
     productContract: jsonb("product_contract").$type<ProductContract>(),
     researchRecord: jsonb("research_record").$type<ResearchRecord>(),
+    productPlan: jsonb("product_plan").$type<ProductPlan>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
