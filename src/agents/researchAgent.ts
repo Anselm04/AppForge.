@@ -7,6 +7,10 @@ import {
   buildCuttingEdgeResearchQueries,
   verifyResearchEvidence,
 } from "../lib/researchEvidence.js";
+import {
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 export type ResearchBrief = {
   query: string;
@@ -34,13 +38,32 @@ export async function runResearchAgent(
   description: string,
   techStack: string,
   emit: (type: string, payload: unknown) => void,
-  options?: { focus?: ResearchFocus; signal?: AbortSignal; redesignBrief?: string },
+  options?: {
+    focus?: ResearchFocus;
+    signal?: AbortSignal;
+    redesignBrief?: string;
+    productContract?: ProductContract;
+  },
 ): Promise<string> {
   const focus = options?.focus ?? "general";
   const signal = options?.signal;
+  const contract = options?.productContract
+    ? validateProductContract(options.productContract)
+    : null;
+  const canonicalDescription = contract?.originalPrompt ?? description;
   const year = new Date().getUTCFullYear();
-  const queries = buildCuttingEdgeResearchQueries({ description, techStack, redesignBrief: options?.redesignBrief, year });
-  const specialized = focusQuery(focus, description, techStack, year);
+  const queries = buildCuttingEdgeResearchQueries({
+    description: canonicalDescription,
+    techStack,
+    redesignBrief: options?.redesignBrief,
+    year,
+  });
+  if (contract) {
+    for (const requirement of contract.researchRequirements) {
+      if (!queries.includes(requirement)) queries.push(requirement);
+    }
+  }
+  const specialized = focusQuery(focus, canonicalDescription, techStack, year);
   if (specialized) queries.push(specialized);
 
   emit("start", {
