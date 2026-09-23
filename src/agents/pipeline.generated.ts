@@ -80,6 +80,21 @@ import {
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
+import {
+  agentCoordinationRecordSchema,
+  appendCoordinationEvent,
+  assertTaskOutputOwnership,
+  buildAgentTaskContext,
+  coordinationStatusSummary,
+  createAgentCoordinationContext,
+  createAgentCoordinationRecord,
+  reconcileCoordinationResume,
+  unlockReadyTasks,
+  updateTaskCoordinationState,
+  validateTaskHandoff,
+  type AgentCoordinationContext,
+  type AgentCoordinationRecord,
+} from "../lib/agentCoordination.js";
 
 const SUPPORTED_TECH_STACKS = [
   "react-node","react-python","vue-node","svelte-node","next-node","angular-node",
@@ -202,7 +217,13 @@ export async function runAgentPipeline(
 
   const projectRow = await db.query.projects.findFirst({
     where: eq(schema.projects.id, projectId),
-    columns: { buildCapabilities: true, productContract: true },
+    columns: {
+      buildCapabilities: true,
+      productContract: true,
+      researchRecord: true,
+      productPlan: true,
+      agentCoordination: true,
+    },
   });
   const productContract = validateProductContract(
     options?.productContract ?? projectRow?.productContract,
@@ -210,6 +231,30 @@ export async function runAgentPipeline(
   const contractContext = renderProductContractForAgents(productContract);
   const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
   const activeCapabilities = capabilities.length > 0 ? capabilities : storedCaps;
+
+  let coordinationContext: AgentCoordinationContext | null = null;
+  let coordinationRecord: AgentCoordinationRecord | null = null;
+  let completedTaskIds = new Set<string>();
+  let resumedGeneratedFiles: Record<string, string> = {};
+
+  const persistCoordination = async () => {
+    if (!coordinationRecord) return;
+    await db
+      .update(schema.projects)
+      .set({
+        agentCoordination: coordinationRecord,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, projectId));
+  };
+
+  const recordCoordinationEvent = async (
+    event: Omit<Parameters<typeof appendCoordinationEvent>[1], "at">,
+  ) => {
+    if (!coordinationRecord) return;
+    coordinationRecord = appendCoordinationEvent(coordinationRecord, event);
+    await persistCoordination();
+  };
   const incomeIntent = detectIncomeIntent(description);
   const mergeBilling = activeCapabilities.includes("fintech") || incomeIntent;
 
@@ -279,6 +324,7 @@ export async function runAgentPipeline(
     let activeRecipe = classifyRecipe(description);
     let tasks: PlanTask[] = [];
     let redesignBrief = "";
+    let coordinationContextText = "";
 
     // Outer never-give-up: re-plan → code → validate → escalate provider until real quality pass
     outerLoop: while (!signal?.aborted) {
@@ -448,6 +494,94 @@ export async function runAgentPipeline(
       .where(eq(schema.projects.id, projectId));
     await markAgentLogComplete(plannerLogId);
 
+    const coordinationRow = await db.query.projects.findFirst({
+      where: eq(schema.projects.id, projectId),
+      columns: {
+        researchRecord: true,
+        agentCoordination: true,
+        generatedFiles: true,
+      },
+    });
+    coordinationContext = createAgentCoordinationContext({
+      productContract,
+      productPlan,
+      researchRecord: coordinationRow?.researchRecord ?? null,
+    });
+    coordinationContextText = JSON.stringify(
+      {
+        plan: productPlan,
+        requirements: productContract.functionalRequirements,
+        researchDecisions: coordinationContext.researchDecisions,
+      },
+      null,
+      2,
+    );
+
+    const freshCoordination = createAgentCoordinationRecord({
+      projectId,
+      context: coordinationContext,
+    });
+    const existingCoordination = agentCoordinationRecordSchema.safeParse(
+      coordinationRow?.agentCoordination,
+    );
+    if (
+      existingCoordination.success &&
+      existingCoordination.data.productType === productContract.productType &&
+      existingCoordination.data.selectedTechnologyStack ===
+        productContract.selectedTechnologyStack &&
+      existingCoordination.data.planTitle === productPlan.title &&
+      Object.keys(existingCoordination.data.taskStates).every((taskId) =>
+        productPlan.tasks.some((task) => task.id === taskId),
+      )
+    ) {
+      resumedGeneratedFiles =
+        (coordinationRow?.generatedFiles as Record<string, string> | null) ?? {};
+      coordinationRecord = reconcileCoordinationResume({
+        record: existingCoordination.data,
+        generatedFiles: resumedGeneratedFiles,
+      });
+      await recordCoordinationEvent({
+        agent: "System",
+        type: "resume",
+        detail:
+          "Resumed persisted coordination state after reconciling completed task outputs against current generated files.",
+        provider: provider.id,
+        model: plannerModel || provider.defaultModel,
+      });
+    } else {
+      coordinationRecord = freshCoordination;
+      if (existingCoordination.success) {
+        coordinationRecord = agentCoordinationRecordSchema.parse({
+          ...coordinationRecord,
+          events: existingCoordination.data.events,
+        });
+      }
+    }
+
+    completedTaskIds = new Set(
+      Object.values(coordinationRecord.taskStates)
+        .filter((taskState) => taskState.status === "completed")
+        .map((taskState) => taskState.taskId),
+    );
+    coordinationRecord = unlockReadyTasks(coordinationRecord);
+    await persistCoordination();
+    await recordCoordinationEvent({
+      agent: "Planner",
+      type: "handoff",
+      detail:
+        "Validated plan, canonical requirements, research decisions, file ownership, and dependency graph handed to downstream agents.",
+      provider: provider.id,
+      model: plannerModel || provider.defaultModel,
+    });
+    emit("System", "coordination_ready", {
+      taskCount: productPlan.tasks.length,
+      completedTaskIds: [...completedTaskIds],
+      requirementIds: coordinationContext.requirementIds,
+      researchDecisionIds: productPlan.researchDecisionIds,
+      fileOwners: coordinationRecord.fileOwners,
+      status: coordinationStatusSummary(coordinationRecord),
+    });
+
     emit("Planner", "complete", {
       message: "Validated architecture and implementation plan complete.",
       taskCount: productPlan.tasks.length,
@@ -517,7 +651,7 @@ export async function runAgentPipeline(
           [
             {
               role: "system",
-              content: `You are the Coder agent performing a SURGICAL FIX.\nOutput only corrected files with // filename: path markers.\nDo not regenerate the whole app.\n${goldenCoderRules(techStack)}\n${localeHint}\n${contractContext}`,
+              content: `You are the Coder agent performing a SURGICAL FIX.\nOutput only corrected files with // filename: path markers.\nDo not regenerate the whole app.\nPreserve the validated product plan, requirement mappings, file ownership, and research decisions.\n${goldenCoderRules(techStack)}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
             },
             { role: "user", content: fixPrompt },
           ],
@@ -548,69 +682,291 @@ export async function runAgentPipeline(
               .trimStart();
           }
         }
+        await db
+          .update(schema.agentLogs)
+          .set({
+            content:
+              `# Surgical fix ${fixAttempt}\n\n# INPUT\n${fixPrompt}\n\n# OUTPUT\n${fixContent}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.agentLogs.id, coderLogId));
         await markAgentLogComplete(coderLogId);
+        await updateProjectFiles(projectId, { ...generatedFiles });
+        resumedGeneratedFiles = { ...generatedFiles };
+        await recordCoordinationEvent({
+          agent: "Coder",
+          type: "decision",
+          detail:
+            `Surgical repair attempt ${fixAttempt} persisted ${Object.keys(patches).length} parsed patch file(s) without changing the canonical product scope.`,
+          provider: provider.id,
+          model: coderModel || provider.defaultModel,
+        });
         emit("Coder", "complete", {
           message: `Surgical fix applied (${Object.keys(patches).length} file(s)).`,
+          coordinationStatus: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
         });
       } else {
-        generatedFiles = {};
+        generatedFiles = { ...resumedGeneratedFiles };
 
-        for (const task of tasks) {
-          if (signal?.aborted) break;
-          emit("Coder", "task_start", { module: task.module, description: task.description });
-          const coderLogId = await appendAgentLog({
-            projectId, agent: "Coder", content: `# ${task.module}\n`, isComplete: false,
+        for (const task of [...tasks].sort((a, b) => a.sequence - b.sequence)) {
+          if (signal?.aborted) {
+            if (coordinationRecord?.taskStates[task.id]) {
+              coordinationRecord = updateTaskCoordinationState(
+                coordinationRecord,
+                task.id,
+                {
+                  status: "paused",
+                  lastError: "Agent execution interrupted by abort/timeout signal",
+                },
+              );
+              await recordCoordinationEvent({
+                agent: task.agent,
+                type: "pause",
+                taskId: task.id,
+                detail:
+                  "Task paused after abort/timeout signal; persisted coordination state can resume this task.",
+              });
+            }
+            break;
+          }
+          if (!coordinationContext || !coordinationRecord) {
+            throw new Error("Agent coordination context was not initialized");
+          }
+
+          const existingTaskState = coordinationRecord.taskStates[task.id];
+          if (existingTaskState?.status === "completed") {
+            emit("Coder", "task_resume_skip", {
+              module: task.module,
+              taskId: task.id,
+              ownerAgent: task.agent,
+              message: "Skipping already completed task with persisted output.",
+            });
+            continue;
+          }
+
+          validateTaskHandoff({
+            context: coordinationContext,
+            record: coordinationRecord,
+            task,
+            completedTaskIds,
           });
 
-          let fileContent = "";
-          await streamLLM(
-            [
-              {
-                role: "system",
-                content: `You are the Coder agent. Output files as // filename: path then full code.\nBuild a REAL high-quality working product with interactive UI — NEVER stubs, TODOs, or coming-soon placeholders.\n${goldenCoderRules(techStack)}\nPrefer compiling UI first.\n${recipeCoderHint(productContract.originalPrompt)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}`,
-              },
-              {
-                role: "user",
-                content: `App: ${appTitle}\nModule: ${task.module}\nTask: ${task.description}\nStack: ${techStack}\n${contractContext}`,
-              },
-            ],
-            (chunk) => {
-              fileContent += chunk;
-              emit("Coder", "chunk", { module: task.module, text: chunk });
-            },
-            {
-              signal,
-              modelRole: "coder",
-              modelOverride: coderModel,
-              startProviderIndex: providerIndex,
-              preferredProviderId: provider.id,
-            },
-          );
+          const taskContext = buildAgentTaskContext({
+            context: coordinationContext,
+            task,
+          });
+          let taskSucceeded = false;
+          let taskLastError = "";
 
-          const parsedFiles = parseGeneratedFiles(fileContent);
-          if (Object.keys(parsedFiles).length > 0) {
-            Object.assign(generatedFiles, parsedFiles);
-            for (const filename of Object.keys(parsedFiles)) {
-              emit("Coder", "task_complete", { module: task.module, filename });
+          for (let taskAttempt = 1; taskAttempt <= 3; taskAttempt++) {
+            const attemptProviderIndex =
+              (providerIndex + taskAttempt - 1) % providers.length;
+            const attemptProvider =
+              providerAt(attemptProviderIndex) ?? provider;
+            const previousAttempts =
+              coordinationRecord.taskStates[task.id]?.attempts ?? 0;
+
+            coordinationRecord = updateTaskCoordinationState(
+              coordinationRecord,
+              task.id,
+              {
+                status: taskAttempt === 1 ? "running" : "retrying",
+                attempts: previousAttempts + 1,
+                lastError: taskLastError || null,
+              },
+            );
+            await recordCoordinationEvent({
+              agent: task.agent,
+              type: taskAttempt === 1 ? "start" : "retry",
+              taskId: task.id,
+              provider: attemptProvider.id,
+              model: coderModel || attemptProvider.defaultModel,
+              detail:
+                taskAttempt === 1
+                  ? "Starting owned task with canonical contract, validated plan, requirement manifest, and research decisions."
+                  : "Retrying malformed or invalid task output with identical canonical context on provider fallback.",
+            });
+            emit("Coder", "coordination_status", {
+              taskId: task.id,
+              module: task.module,
+              ownerAgent: task.agent,
+              attempt: taskAttempt,
+              provider: attemptProvider.id,
+              status: coordinationStatusSummary(coordinationRecord),
+            });
+
+            const coderInput =
+              `SPECIALIST_AGENT: ${task.agent}\n` +
+              `TASK_CONTEXT:\n${taskContext}\n\n` +
+              "Return only files owned by this task. Do not change scope, requirements, ownership, or dependencies.";
+            const coderLogId = await appendAgentLog({
+              projectId,
+              agent: `Coder:${task.agent}`,
+              content: `# INPUT\n${coderInput}\n\n# OUTPUT\n`,
+              isComplete: false,
+            });
+
+            let fileContent = "";
+            try {
+              await streamLLM(
+                [
+                  {
+                    role: "system",
+                    content: `You are the ${task.agent} specialist operating inside AppForge's coordinated Coder stage. Output files as // filename: path then full code.\nBuild real implementations only; never stubs, TODOs, empty handlers, fake success, or unrelated features.\nYou may only write files assigned to this task.\n${goldenCoderRules(techStack)}\n${recipeCoderHint(productContract.originalPrompt)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
+                  },
+                  {
+                    role: "user",
+                    content: coderInput,
+                  },
+                ],
+                (chunk) => {
+                  fileContent += chunk;
+                  emit("Coder", "chunk", {
+                    taskId: task.id,
+                    module: task.module,
+                    ownerAgent: task.agent,
+                    text: chunk,
+                  });
+                },
+                {
+                  signal,
+                  modelRole: "coder",
+                  modelOverride: coderModel,
+                  startProviderIndex: attemptProviderIndex,
+                  preferredProviderId: attemptProvider.id,
+                },
+              );
+
+              const parsedFiles = parseGeneratedFiles(fileContent);
+              if (Object.keys(parsedFiles).length === 0) {
+                throw new Error(
+                  `Task ${task.id} returned malformed output with no parseable files`,
+                );
+              }
+
+              assertTaskOutputOwnership({
+                task,
+                files: parsedFiles,
+                record: coordinationRecord,
+              });
+
+              Object.assign(generatedFiles, parsedFiles);
+              const outputFiles = Object.keys(parsedFiles);
+              coordinationRecord = updateTaskCoordinationState(
+                coordinationRecord,
+                task.id,
+                {
+                  status: "completed",
+                  lastError: null,
+                  outputFiles,
+                },
+              );
+              completedTaskIds.add(task.id);
+              coordinationRecord = unlockReadyTasks(coordinationRecord);
+
+              await db
+                .update(schema.agentLogs)
+                .set({
+                  content:
+                    `# INPUT\n${coderInput}\n\n# OUTPUT\n${fileContent}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.agentLogs.id, coderLogId));
+              await markAgentLogComplete(coderLogId);
+              await recordCoordinationEvent({
+                agent: task.agent,
+                type: "output",
+                taskId: task.id,
+                provider: attemptProvider.id,
+                model: coderModel || attemptProvider.defaultModel,
+                detail:
+                  `Task completed with owned files: ${outputFiles.join(", ")}`,
+              });
+              await recordCoordinationEvent({
+                agent: task.agent,
+                type: "handoff",
+                taskId: task.id,
+                detail:
+                  "Validated task output handed to dependent tasks; ownership and requirement mappings preserved.",
+              });
+
+              for (const filename of outputFiles) {
+                emit("Coder", "task_complete", {
+                  taskId: task.id,
+                  module: task.module,
+                  ownerAgent: task.agent,
+                  filename,
+                });
+              }
+              emit("Coder", "coordination_status", {
+                taskId: task.id,
+                ownerAgent: task.agent,
+                status: coordinationStatusSummary(coordinationRecord),
+              });
+              await updateProjectFiles(projectId, { ...generatedFiles });
+              write("files_partial", {
+                fileCount: Object.keys(generatedFiles).length,
+                taskId: task.id,
+                ownerAgent: task.agent,
+              });
+              taskSucceeded = true;
+              break;
+            } catch (taskError) {
+              taskLastError =
+                taskError instanceof Error
+                  ? taskError.message
+                  : "Unknown task coordination error";
+              coordinationRecord = updateTaskCoordinationState(
+                coordinationRecord,
+                task.id,
+                {
+                  status: taskAttempt < 3 ? "retrying" : "failed",
+                  lastError: taskLastError,
+                },
+              );
+              await db
+                .update(schema.agentLogs)
+                .set({
+                  content:
+                    `# INPUT\n${coderInput}\n\n# OUTPUT\n${fileContent}\n\n# FAILURE\n${taskLastError}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(schema.agentLogs.id, coderLogId));
+              await markAgentLogComplete(coderLogId);
+              await recordCoordinationEvent({
+                agent: task.agent,
+                type: taskAttempt < 3 ? "retry" : "failure",
+                taskId: task.id,
+                provider: attemptProvider.id,
+                model: coderModel || attemptProvider.defaultModel,
+                detail: taskLastError,
+              });
+              emit("Coder", "coordination_status", {
+                taskId: task.id,
+                ownerAgent: task.agent,
+                attempt: taskAttempt,
+                error: taskLastError,
+                status: coordinationStatusSummary(coordinationRecord),
+              });
+              if (signal?.aborted) break;
             }
-          } else {
-            const filenameMatch = fileContent.match(/\/\/\s*filename:\s*(.+)/);
-            const filename = filenameMatch
-              ? filenameMatch[1].trim()
-              : `src/${task.module.toLowerCase().replace(/\s+/g, "-")}.tsx`;
-            generatedFiles[filename] = fileContent
-              .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
-              .trimStart();
-            emit("Coder", "task_complete", { module: task.module, filename });
           }
-          await markAgentLogComplete(coderLogId);
-          if (Object.keys(generatedFiles).length > 0) {
-            await updateProjectFiles(projectId, { ...generatedFiles });
-            write("files_partial", { fileCount: Object.keys(generatedFiles).length });
+
+          if (!taskSucceeded) {
+            throw new Error(
+              `Task ${task.id} failed coordinated execution after retries: ${taskLastError}`,
+            );
           }
         }
 
-        emit("Coder", "complete", { message: `Generated ${Object.keys(generatedFiles).length} files.` });
+        emit("Coder", "complete", {
+          message: `Generated ${Object.keys(generatedFiles).length} files with coordinated task ownership.`,
+          status: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
+        });
       }
 
       try {
@@ -649,9 +1005,32 @@ export async function runAgentPipeline(
           techStack,
           productContract.functionalRequirements.map((requirement) => requirement.text),
           productContract,
+          coordinationContextText,
         );
         Object.assign(generatedFiles, testFiles);
-        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.` });
+        const testingLogId = await appendAgentLog({
+          projectId,
+          agent: "Testing",
+          content:
+            "# INPUT\n" +
+            coordinationContextText +
+            "\n\n# OUTPUT\nGenerated test files:\n" +
+            Object.keys(testFiles).join("\n"),
+          isComplete: true,
+        });
+        void testingLogId;
+        await recordCoordinationEvent({
+          agent: "Testing",
+          type: "output",
+          detail:
+            `Generated ${Object.keys(testFiles).length} requirement-linked test file(s) from the coordinated plan context.`,
+        });
+        emit("Testing", "complete", {
+          message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.`,
+          status: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
+        });
       } else {
         emit("Testing", "skipped", {
           message:
@@ -670,6 +1049,8 @@ export async function runAgentPipeline(
         testsBlocking,
         validateBilling: mergeBilling,
         productContract,
+        productPlan: coordinationContext?.productPlan,
+        researchDecisions: coordinationContext?.researchDecisions,
       });
 
       const { runTripleAudit } = await import("./tripleAudit.js");
@@ -719,6 +1100,22 @@ export async function runAgentPipeline(
         }
       }
 
+      await appendAgentLog({
+        projectId,
+        agent: "Validator",
+        content:
+          "# INPUT\n" +
+          coordinationContextText +
+          "\n\n# OUTPUT\n" +
+          JSON.stringify(validationResult, null, 2),
+        isComplete: true,
+      });
+      await recordCoordinationEvent({
+        agent: "Validator",
+        type: validationResult.passed ? "complete" : "failure",
+        detail:
+          `Validation stage ${validationResult.stage}: ${validationResult.passed ? "passed" : validationResult.errors.slice(0, 3).join("; ")}`,
+      });
       emit("Validator", "complete", {
         passed: validationResult.passed,
         stage: validationResult.stage,
@@ -757,6 +1154,16 @@ export async function runAgentPipeline(
         previousTasks: tasks,
         provider: provider.id,
         model: coderModel || provider.defaultModel,
+      });
+      resumedGeneratedFiles = { ...generatedFiles };
+      await updateProjectFiles(projectId, resumedGeneratedFiles);
+      await recordCoordinationEvent({
+        agent: "Planner",
+        type: "decision",
+        detail:
+          "Repair burst exhausted; preserving current files and coordination evidence before contract-aware redesign.",
+        provider: provider.id,
+        model: plannerModel || provider.defaultModel,
       });
       emit("Planner", "redesign_required", {
         message: "Repair burst exhausted. Returning failure evidence to design for a materially different plan.",
@@ -818,6 +1225,8 @@ export async function runAgentPipeline(
         testsBlocking: false,
         validateBilling: false,
         productContract,
+        productPlan: coordinationContext?.productPlan,
+        researchDecisions: coordinationContext?.researchDecisions,
       });
       emit("Validator", "complete", {
         passed: validationResult.passed,
@@ -880,24 +1289,63 @@ export async function runAgentPipeline(
         emit("Reviewer", "skipped", { message: "Golden path: reviewer skipped after green validation." });
       } else {
         emit("Reviewer", "start", { message: "Reviewing generated code…" });
-        const reviewerLogId = await appendAgentLog({ projectId, agent: "Reviewer", content: "", isComplete: false });
+        const reviewerInput =
+          "App: " +
+          appTitle +
+          "\nStack: " +
+          techStack +
+          "\n\nCOORDINATION_CONTEXT:\n" +
+          coordinationContextText;
+        const reviewerLogId = await appendAgentLog({
+          projectId,
+          agent: "Reviewer",
+          content: "# INPUT\n" + reviewerInput + "\n\n# OUTPUT\n",
+          isComplete: false,
+        });
         const filesSummary = Object.keys(generatedFiles).map((n) => `- ${n}`).join("\n");
         await streamLLM(
           [
             {
               role: "system",
-              content: "Reviewer agent. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.",
+              content:
+                "Reviewer agent. Review against the canonical product contract, validated plan, requirement mappings, research decisions, and validation evidence. Do not change scope or permissions. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.\n" +
+                contractContext +
+                "\nCOORDINATION_CONTEXT:\n" +
+                coordinationContextText,
             },
             {
               role: "user",
-              content: `App: ${appTitle}\nFiles:\n${filesSummary}\nStack: ${techStack}\nValidation: PASSED`,
+              content:
+                reviewerInput +
+                `\nFiles:\n${filesSummary}\nValidation: PASSED`,
             },
           ],
           (chunk) => { reviewOutput += chunk; emit("Reviewer", "chunk", { text: chunk }); },
           signal, "reviewer",
         );
+        await db
+          .update(schema.agentLogs)
+          .set({
+            content:
+              "# INPUT\n" +
+              reviewerInput +
+              "\n\n# OUTPUT\n" +
+              reviewOutput,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.agentLogs.id, reviewerLogId));
         await markAgentLogComplete(reviewerLogId);
-        emit("Reviewer", "complete", { message: "Code review complete." });
+        await recordCoordinationEvent({
+          agent: "Reviewer",
+          type: "decision",
+          detail: "Reviewer completed against canonical coordination context.",
+        });
+        emit("Reviewer", "complete", {
+          message: "Code review complete.",
+          status: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
+        });
       }
     } else {
       reviewOutput = `# Build review skipped\n\nValidation failed after ${maxFixRetries} attempts.\n\n## Errors\n${(validationResult.errors ?? []).map((e) => `- ${e}`).join("\n")}`;
@@ -980,8 +1428,49 @@ export async function runAgentPipeline(
     });
   } catch (err: unknown) {
     if (isAbortError(err, signal)) {
-      await updateProjectStatus(projectId, "failed", "Build cancelled by user.");
-      write("error", { message: "Build cancelled." });
+      const timeoutAbort =
+        signal?.reason instanceof Error &&
+        signal.reason.message === "build_timeout";
+      if (coordinationRecord) {
+        for (const [taskId, state] of Object.entries(
+          coordinationRecord.taskStates,
+        )) {
+          if (state.status === "running" || state.status === "retrying") {
+            coordinationRecord = updateTaskCoordinationState(
+              coordinationRecord,
+              taskId,
+              {
+                status: "paused",
+                lastError: timeoutAbort
+                  ? "Build timeout interrupted agent execution"
+                  : "Build cancellation interrupted agent execution",
+              },
+            );
+          }
+        }
+        await recordCoordinationEvent({
+          agent: "System",
+          type: "pause",
+          detail: timeoutAbort
+            ? "Build timed out. Coordination state was persisted for safe resume."
+            : "Build was cancelled. Coordination state was persisted.",
+        });
+      }
+      if (timeoutAbort) {
+        await updateProjectStatus(projectId, "paused", "agent_timeout");
+        write("pause", {
+          reason: "agent_timeout",
+          message:
+            "Agent execution timed out. Progress and coordination state were preserved for resume.",
+        });
+      } else {
+        await updateProjectStatus(
+          projectId,
+          "failed",
+          "Build cancelled by user.",
+        );
+        write("error", { message: "Build cancelled." });
+      }
       return;
     }
     if (isMissingLlmKeysError(err)) {
@@ -993,8 +1482,18 @@ export async function runAgentPipeline(
     const message = err instanceof Error ? err.message : "Unknown error";
     // LLM / transient: keep non-failed so reconnect continues never-give-up
     if (isNeverGiveUpEnabled() && !signal?.aborted) {
+      await recordCoordinationEvent({
+        agent: "System",
+        type: "failure",
+        detail:
+          "Recoverable provider/agent failure preserved for resume: " +
+          message.slice(0, 500),
+      });
       emit("System", "info", {
         message: `Error — switching provider / retrying on reconnect: ${message.slice(0, 240)}. Still building — iterating until it works.`,
+        coordinationStatus: coordinationRecord
+          ? coordinationStatusSummary(coordinationRecord)
+          : undefined,
       });
       await updateProjectStatus(projectId, "paused", "retry_after_error");
       write("pause", {
