@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
 import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
+import {
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 export type ProductionCertification = {
   liveUrl: string;
@@ -81,7 +85,15 @@ export async function deployValidatedProject(opts: {
   projectId: number;
   projectName: string;
   files: Record<string, string>;
+  productContract: ProductContract;
 }): Promise<ProductionCertification> {
+  const contract = validateProductContract(opts.productContract);
+  if (
+    contract.deploymentRequirements.length === 0 ||
+    contract.runtimeRequirements.length === 0
+  ) {
+    throw new Error("Canonical product contract is missing deployment/runtime requirements");
+  }
   if (!process.env.FLY_API_TOKEN) {
     throw new Error(
       "Validated build cannot complete production flow because FLY_API_TOKEN is not configured",
