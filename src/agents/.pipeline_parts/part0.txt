@@ -83,6 +83,7 @@ import {
 import {
   coderTaskInstruction,
   ensureCodeGenerationSupportFiles,
+  validateCoderOwnedArtifact,
   validateCoderTaskOutput,
   validateGeneratedCodeArtifact,
 } from "../lib/codeGeneration.js";
