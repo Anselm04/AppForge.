@@ -94,12 +94,15 @@ export function validateProductPlan(
   const plan = productPlanSchema.parse(input);
 
   if (plan.productType !== contract.productType) {
-    throw new Error("Planner product type does not match canonical product contract");
+    throw new Error(
+      "Planner product type does not match canonical product contract",
+    );
   }
   if (plan.selectedTechnologyStack !== contract.selectedTechnologyStack) {
-    throw new Error("Planner stack does not match canonical product contract");
+    throw new Error(
+      "Planner stack does not match canonical product contract",
+    );
   }
-
 
   if (
     contract.productFamilies.includes("frontend") &&
@@ -135,7 +138,9 @@ export function validateProductPlan(
   if (
     plan.implementationSequence.length !== plan.tasks.length ||
     plan.implementationSequence.some(
-      (taskId, index) => taskId !== [...plan.tasks].sort((a, b) => a.sequence - b.sequence)[index]?.id,
+      (taskId, index) =>
+        taskId !==
+        [...plan.tasks].sort((a, b) => a.sequence - b.sequence)[index]?.id,
     )
   ) {
     throw new Error(
@@ -207,7 +212,9 @@ export function validateProductPlan(
       throw new Error("Planner task " + task.id + " has no task-to-file mapping");
     }
     if (!mappedAgent) {
-      throw new Error("Planner task " + task.id + " has no task-to-agent mapping");
+      throw new Error(
+        "Planner task " + task.id + " has no task-to-agent mapping",
+      );
     }
     if (!mappedValidation || mappedValidation.length === 0) {
       throw new Error(
@@ -264,5 +271,5 @@ export function plannerJsonSchemaInstruction(): string {
     "Every must-have requirement ID must map to at least one task.",
     "Every task must have acceptance criteria, files, owner agent, validations, dependencies, and requirement IDs.",
     "For complex products, use specific modules; never use generic Core App/Core UI fallbacks.",
-  ].join("\\n");
+  ].join("\n");
 }
