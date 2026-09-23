@@ -1,5 +1,11 @@
 import { logger } from "../_core/logger.js";
 
+export type WebSearchProviderAttempt = {
+  provider: "tavily" | "serpapi" | "duckduckgo";
+  ok: boolean;
+  detail: string;
+};
+
 export type WebSearchResult = {
   title: string;
   url: string;
@@ -12,6 +18,7 @@ export type WebSearchResponse = {
   results: WebSearchResult[];
   answer?: string;
   searchedAt: string;
+  providerAttempts?: WebSearchProviderAttempt[];
 };
 
 async function searchTavily(
@@ -166,15 +173,63 @@ export async function searchWeb(
   const tavilyKey = process.env.TAVILY_API_KEY ?? "";
   const serpKey = process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY ?? "";
 
+  const providerAttempts: WebSearchProviderAttempt[] = [];
+
   if (tavilyKey) {
     const r = await searchTavily(query, maxResults, tavilyKey, signal);
-    if (r && r.results.length > 0) return r;
+    if (r && r.results.length > 0) {
+      r.providerAttempts = [
+        ...providerAttempts,
+        { provider: "tavily", ok: true, detail: `${r.results.length} result(s)` },
+      ];
+      return r;
+    }
+    providerAttempts.push({
+      provider: "tavily",
+      ok: false,
+      detail: r ? "no_results" : "provider_failed_or_unavailable",
+    });
+  } else {
+    providerAttempts.push({
+      provider: "tavily",
+      ok: false,
+      detail: "not_configured",
+    });
   }
+
   if (serpKey) {
     const r = await searchSerpApi(query, maxResults, serpKey, signal);
-    if (r && r.results.length > 0) return r;
+    if (r && r.results.length > 0) {
+      r.providerAttempts = [
+        ...providerAttempts,
+        { provider: "serpapi", ok: true, detail: `${r.results.length} result(s)` },
+      ];
+      return r;
+    }
+    providerAttempts.push({
+      provider: "serpapi",
+      ok: false,
+      detail: r ? "no_results" : "provider_failed_or_unavailable",
+    });
+  } else {
+    providerAttempts.push({
+      provider: "serpapi",
+      ok: false,
+      detail: "not_configured",
+    });
   }
-  return searchDuckDuckGo(query, maxResults, signal);
+
+  const duck = await searchDuckDuckGo(query, maxResults, signal);
+  duck.providerAttempts = [
+    ...providerAttempts,
+    {
+      provider: "duckduckgo",
+      ok: duck.results.length > 0,
+      detail:
+        duck.results.length > 0 ? `${duck.results.length} result(s)` : "no_results",
+    },
+  ];
+  return duck;
 }
 
 export function formatSearchForPrompt(response: WebSearchResponse): string {
