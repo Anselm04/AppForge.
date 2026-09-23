@@ -23,6 +23,7 @@ import {
 import {
   buildProductContract,
   classifyProductIntent,
+  withSelectedTechnologyStack,
 } from "../lib/productContract.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
@@ -159,7 +160,10 @@ export const projectsRouter = router({
             "Please clarify what kind of product you want AppForge to build.",
         });
       }
-      const productContract = buildProductContract(input.description);
+      const productContract = withSelectedTechnologyStack(
+        buildProductContract(input.description),
+        input.techStack,
+      );
 
       const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
       const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
@@ -216,6 +220,7 @@ export const projectsRouter = router({
         status: "pending",
         locale: input.locale,
         buildCapabilities: input.buildCapabilities ?? [],
+        productContract,
       });
 
       if (input.locale) {
@@ -263,6 +268,7 @@ export const projectsRouter = router({
           locale: input.locale || "en",
           buildCapabilities: input.buildCapabilities ?? [],
           promptIntent,
+          productContract,
           createdAt,
           reservationCharged,
         });
