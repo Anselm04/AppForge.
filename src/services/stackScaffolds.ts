@@ -233,7 +233,7 @@ function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
 const app = express();
 app.get("/health", (_req,res) => res.json({ ok: true }));
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log(`listening on ${port}`));
+app.listen(port, () => console.log("listening on " + port));
 `,
     ".env.example": "PORT=3000\n",
   };
