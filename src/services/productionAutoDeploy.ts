@@ -6,6 +6,7 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 
 export type ProductionCertification = {
   liveUrl: string;
@@ -88,6 +89,12 @@ export async function deployValidatedProject(opts: {
   productContract: ProductContract;
 }): Promise<ProductionCertification> {
   const contract = validateProductContract(opts.productContract);
+  const stackAdapter = getStackAdapter(contract.selectedTechnologyStack);
+  if (stackAdapter.generationMode === "structural") {
+    throw new Error(
+      `Structural-only stack ${stackAdapter.id} cannot be production-certified until its native runtime is verified`,
+    );
+  }
   if (
     contract.deploymentRequirements.length === 0 ||
     contract.runtimeRequirements.length === 0
