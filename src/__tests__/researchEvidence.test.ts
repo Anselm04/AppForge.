@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildContractResearchQueries,
   buildCuttingEdgeResearchQueries,
+  deriveResearchDecisions,
   verifyResearchEvidence,
 } from "../lib/researchEvidence.js";
+import { buildProductContract } from "../lib/productContract.js";
 import type { WebSearchResponse } from "../services/webSearch.js";
 
 describe("self-evolving planner research", () => {
@@ -68,6 +71,115 @@ describe("self-evolving planner research", () => {
     expect(forumPos).toBeGreaterThan(-1);
     expect(reactPos).toBeLessThan(forumPos);
     expect(verified.highConfidenceCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("builds contract-specific research lanes for integrations, deployment, monetization, security, versions, repositories, and licensing", () => {
+    const contract = buildProductContract(
+      "Build a paid SaaS application with Stripe billing, Slack integration, login, database storage, and production deployment",
+    );
+    const queries = buildContractResearchQueries({ contract, year: 2026 });
+    const joined = queries.join("\n").toLowerCase();
+
+    expect(joined).toContain("official documentation latest stable version");
+    expect(joined).toContain("github production implementation example");
+    expect(joined).toContain("licensing");
+    expect(joined).toContain("security advisories");
+    expect(joined).toContain("platform limitations");
+    expect(joined).toContain("stripe official api documentation");
+    expect(joined).toContain("slack official api documentation");
+    expect(joined).toContain("official monetization billing");
+    expect(joined).toContain("owasp official security");
+  });
+
+  it("removes unsafe and credential-bearing sources while preserving rejected-source evidence", () => {
+    const responses: WebSearchResponse[] = [
+      {
+        query: "security docs",
+        searchedAt: "2026-09-23T00:00:00.000Z",
+        results: [
+          {
+            title: "Unsafe credential example",
+            url: "https://example.com/secrets",
+            snippet: "API_KEY=live-example-secret-value",
+            source: "tavily",
+          },
+          {
+            title: "Credential URL",
+            url: "https://user:password@example.com/private",
+            snippet: "private content",
+            source: "tavily",
+          },
+          {
+            title: "OWASP guidance",
+            url: "https://owasp.org/www-project-top-ten/",
+            snippet: "Current application security guidance.",
+            source: "tavily",
+          },
+        ],
+      },
+    ];
+
+    const verified = verifyResearchEvidence(responses);
+    expect(verified.sourceCount).toBe(1);
+    expect(verified.rejectedSourceCount).toBe(2);
+    expect(
+      verified.rejectedSources.some(
+        (source) => source.reason === "credential_bearing_content",
+      ),
+    ).toBe(true);
+    expect(
+      verified.rejectedSources.some(
+        (source) => source.reason === "unsafe_or_invalid_url",
+      ),
+    ).toBe(true);
+  });
+
+  it("records version conflicts and derives planner implementation decisions from evidence", () => {
+    const contract = buildProductContract(
+      "Build a SaaS application with login, Stripe billing, and production deployment",
+    );
+    const responses: WebSearchResponse[] = [
+      {
+        query: "react current version",
+        searchedAt: "2026-09-23T00:00:00.000Z",
+        results: [
+          {
+            title: "React production guide version 18.3",
+            url: "https://react.dev/reference/react",
+            snippet: "Production React architecture for version 18.3.",
+            source: "tavily",
+          },
+          {
+            title: "React production guide version 19.1",
+            url: "https://github.com/facebook/react",
+            snippet: "Production React architecture for version 19.1.",
+            source: "serpapi",
+          },
+        ],
+      },
+    ];
+    const verified = verifyResearchEvidence(responses);
+    const decisions = deriveResearchDecisions(contract, verified);
+
+    expect(verified.conflicts.length).toBeGreaterThanOrEqual(1);
+    expect(decisions.some((decision) => decision.category === "framework")).toBe(
+      true,
+    );
+    expect(decisions.some((decision) => decision.category === "security")).toBe(
+      true,
+    );
+    expect(
+      decisions.some((decision) => decision.category === "deployment"),
+    ).toBe(true);
+    expect(
+      decisions.some((decision) => decision.category === "monetization"),
+    ).toBe(true);
+    expect(
+      decisions.every((decision) =>
+        decision.decision.includes("canonical stack") ||
+        decision.rationale.length > 0,
+      ),
+    ).toBe(true);
   });
 
   it("deduplicates repeated URLs across independent query lanes", () => {
