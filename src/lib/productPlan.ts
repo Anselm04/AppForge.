@@ -53,10 +53,19 @@ export const productPlanSchema = z.object({
   }),
   implementationSequence: z.array(nonEmptyString).min(1),
   tasks: z.array(productPlanTaskSchema).min(1),
-  requirementToTasks: z.record(z.string(), z.array(nonEmptyString).min(1)),
-  taskToFiles: z.record(z.string(), z.array(nonEmptyString).min(1)),
+  requirementToTasks: z.record(
+    z.string(),
+    z.array(nonEmptyString).min(1),
+  ),
+  taskToFiles: z.record(
+    z.string(),
+    z.array(nonEmptyString).min(1),
+  ),
   taskToAgent: z.record(z.string(), nonEmptyString),
-  taskToValidation: z.record(z.string(), z.array(nonEmptyString).min(1)),
+  taskToValidation: z.record(
+    z.string(),
+    z.array(nonEmptyString).min(1),
+  ),
   researchDecisionIds: z.array(nonEmptyString),
 });
 
@@ -83,7 +92,9 @@ function isComplexContract(contract: ProductContract): boolean {
 
 export function parsePlannerJson(text: string): unknown {
   const candidate = text.trim();
-  if (!candidate) throw new Error("Planner returned an empty response");
+  if (!candidate) {
+    throw new Error("Planner returned an empty response");
+  }
   return JSON.parse(candidate);
 }
 
@@ -98,6 +109,7 @@ export function validateProductPlan(
       "Planner product type does not match canonical product contract",
     );
   }
+
   if (plan.selectedTechnologyStack !== contract.selectedTechnologyStack) {
     throw new Error(
       "Planner stack does not match canonical product contract",
@@ -108,39 +120,53 @@ export function validateProductPlan(
     contract.productFamilies.includes("frontend") &&
     plan.architecture.frontendModules.length === 0
   ) {
-    throw new Error("Planner must include frontend modules for this product");
+    throw new Error(
+      "Planner must include frontend modules for this product",
+    );
   }
+
   if (
     contract.productFamilies.includes("backend") &&
     plan.architecture.backendModules.length === 0
   ) {
-    throw new Error("Planner must include backend modules for this product");
+    throw new Error(
+      "Planner must include backend modules for this product",
+    );
   }
+
   if (
     contract.productFamilies.includes("database") &&
     plan.architecture.databaseModules.length === 0
   ) {
-    throw new Error("Planner must include database modules for this product");
+    throw new Error(
+      "Planner must include database modules for this product",
+    );
   }
+
   if (
     contract.productFamilies.includes("ai") &&
     plan.architecture.aiModules.length === 0
   ) {
     throw new Error("Planner must include AI modules for this product");
   }
+
   if (
     contract.productFamilies.includes("integrations") &&
     plan.architecture.integrationModules.length === 0
   ) {
-    throw new Error("Planner must include integration modules for this product");
+    throw new Error(
+      "Planner must include integration modules for this product",
+    );
   }
+
+  const orderedTaskIds = [...plan.tasks]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((task) => task.id);
 
   if (
     plan.implementationSequence.length !== plan.tasks.length ||
     plan.implementationSequence.some(
-      (taskId, index) =>
-        taskId !==
-        [...plan.tasks].sort((a, b) => a.sequence - b.sequence)[index]?.id,
+      (taskId, index) => taskId !== orderedTaskIds[index],
     )
   ) {
     throw new Error(
@@ -152,7 +178,9 @@ export function validateProductPlan(
     plan.tasks.length > 1 &&
     !plan.tasks.some((task) => task.dependencies.length > 0)
   ) {
-    throw new Error("Planner must define dependencies between multi-task work");
+    throw new Error(
+      "Planner must define dependencies between multi-task work",
+    );
   }
 
   const ids = plan.tasks.map((task) => task.id);
@@ -161,15 +189,22 @@ export function validateProductPlan(
   }
 
   const taskIds = new Set(ids);
+
   for (const task of plan.tasks) {
     for (const dependency of task.dependencies) {
       if (!taskIds.has(dependency)) {
         throw new Error(
-          "Planner task " + task.id + " depends on unknown task " + dependency,
+          "Planner task " +
+            task.id +
+            " depends on unknown task " +
+            dependency,
         );
       }
+
       if (dependency === task.id) {
-        throw new Error("Planner task " + task.id + " cannot depend on itself");
+        throw new Error(
+          "Planner task " + task.id + " cannot depend on itself",
+        );
       }
     }
   }
@@ -180,20 +215,29 @@ export function validateProductPlan(
 
   for (const requirementId of requiredIds) {
     const mapped = plan.requirementToTasks[requirementId] ?? [];
+
     if (mapped.length === 0) {
-      throw new Error("Planner dropped must-have requirement " + requirementId);
+      throw new Error(
+        "Planner dropped must-have requirement " + requirementId,
+      );
     }
+
     for (const taskId of mapped) {
       if (!taskIds.has(taskId)) {
         throw new Error(
-          "Requirement " + requirementId + " maps to unknown task " + taskId,
+          "Requirement " +
+            requirementId +
+            " maps to unknown task " +
+            taskId,
         );
       }
     }
+
     if (
       !plan.tasks.some(
         (task) =>
-          mapped.includes(task.id) && task.requirementIds.includes(requirementId),
+          mapped.includes(task.id) &&
+          task.requirementIds.includes(requirementId),
       )
     ) {
       throw new Error(
@@ -208,30 +252,47 @@ export function validateProductPlan(
     const mappedFiles = plan.taskToFiles[task.id];
     const mappedAgent = plan.taskToAgent[task.id];
     const mappedValidation = plan.taskToValidation[task.id];
+
     if (!mappedFiles || mappedFiles.length === 0) {
-      throw new Error("Planner task " + task.id + " has no task-to-file mapping");
+      throw new Error(
+        "Planner task " + task.id + " has no task-to-file mapping",
+      );
     }
+
     if (!mappedAgent) {
       throw new Error(
         "Planner task " + task.id + " has no task-to-agent mapping",
       );
     }
+
     if (!mappedValidation || mappedValidation.length === 0) {
       throw new Error(
-        "Planner task " + task.id + " has no task-to-validation mapping",
+        "Planner task " +
+          task.id +
+          " has no task-to-validation mapping",
       );
     }
+
     if (JSON.stringify(mappedFiles) !== JSON.stringify(task.files)) {
       throw new Error(
-        "Planner task " + task.id + " file mapping disagrees with task files",
+        "Planner task " +
+          task.id +
+          " file mapping disagrees with task files",
       );
     }
+
     if (mappedAgent !== task.agent) {
       throw new Error(
-        "Planner task " + task.id + " agent mapping disagrees with task agent",
+        "Planner task " +
+          task.id +
+          " agent mapping disagrees with task agent",
       );
     }
-    if (JSON.stringify(mappedValidation) !== JSON.stringify(task.validations)) {
+
+    if (
+      JSON.stringify(mappedValidation) !==
+      JSON.stringify(task.validations)
+    ) {
       throw new Error(
         "Planner task " +
           task.id +
