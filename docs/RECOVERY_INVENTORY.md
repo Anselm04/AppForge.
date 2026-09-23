@@ -270,6 +270,12 @@ Verification target:
 
 ## Generated-product certification recovery
 
+Recovery invariant reviewed 23 September 2026:
+- Technology-stack selection is governed by explicit stack adapters. Unknown explicit stacks must fail instead of being silently converted to React.
+- Structural-only adapters (mobile native, desktop native, browser extensions, and Python-native outputs where configured structural-only) must never be promoted to production-certified deployment until their native runtime/toolchain has been verified.
+- Production certification must read the canonical product contract's selected stack and enforce the adapter's runtime/deployment status before deployment.
+- Recovery of generated-product certification must preserve the adapter registry and stack-specific build/runtime metadata so a restored AppForge instance cannot misclassify structural output as a live deployable product.
+
 Recovery invariant reviewed 18 September 2026:
 
 - A production build is not recoverable or releasable unless its numbered requirement contract and linked executable behavioral tests are retained with the generated source.
