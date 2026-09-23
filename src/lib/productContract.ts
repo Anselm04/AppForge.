@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type ProductType =
   | "website"
   | "saas_application"
@@ -63,16 +65,44 @@ export type PromptIntent = {
   canonicalInterpretation: string;
 };
 
-export type ProductContract = {
-  version: 1;
-  originalPrompt: string;
-  productType: ProductType;
-  productFamilies: ProductFamily[];
-  techStack: string;
-  researchRequired: boolean;
-  monetizationRequested: boolean;
-  requirements: ProductRequirement[];
-};
+export const productContractSchema = z.object({
+  version: z.literal(2),
+  originalPrompt: z.string().min(1),
+  productType: z.enum([
+    "website","saas_application","mobile_app","desktop_app","game","ai_agent",
+    "developer_tool","api","ecommerce_product","browser_extension","automation_tool","data_product",
+  ]),
+  productFamilies: z.array(z.enum([
+    "frontend","backend","database","ai","interactive","mobile","desktop",
+    "billing","auth","analytics","integrations","deployment",
+  ])).min(1),
+  targetUsers: z.array(z.string().min(1)).min(1),
+  userRoles: z.array(z.string().min(1)).min(1),
+  coreWorkflows: z.array(z.string().min(1)).min(1),
+  functionalRequirements: z.array(z.object({
+    id: z.string().regex(/^REQ-\\d{3}$/),
+    text: z.string().min(1),
+    category: z.enum(["workflow","quality","security","monetization","operations"]),
+    priority: z.enum(["must","should","could"]),
+  })).min(1),
+  nonFunctionalRequirements: z.array(z.string().min(1)).min(1),
+  dataModels: z.array(z.string().min(1)),
+  integrations: z.array(z.string().min(1)),
+  securityRequirements: z.array(z.string().min(1)).min(1),
+  deploymentRequirements: z.array(z.string().min(1)).min(1),
+  monetizationRequirements: z.array(z.string().min(1)),
+  selectedTechnologyStack: z.string().min(1),
+  researchRequirements: z.array(z.string().min(1)),
+  runtimeRequirements: z.array(z.string().min(1)).min(1),
+  secondaryCapabilities: z.array(z.enum([
+    "authentication","database","billing","ai","analytics","administration",
+    "teams","notifications","search","file_uploads","external_integrations","deployment",
+  ])),
+  intentConfidence: z.number().min(0).max(1),
+  canonicalInterpretation: z.string().min(1),
+});
+
+export type ProductContract = z.infer<typeof productContractSchema>;
 
 type IntentSignal = {
   pattern: RegExp;
@@ -569,59 +599,138 @@ export function renderCanonicalPromptContext(
   ].join("\n");
 }
 
+
+function defaultTargetUsers(type: ProductType): string[] {
+  const map: Record<ProductType, string[]> = {
+    website: ["Public visitors", "Content owner"],
+    saas_application: ["End users", "Organization administrators"],
+    mobile_app: ["Mobile users", "Application administrators"],
+    desktop_app: ["Desktop users", "Application administrators"],
+    game: ["Players", "Game administrators"],
+    ai_agent: ["Agent users", "Agent administrators"],
+    developer_tool: ["Software developers", "Tool maintainers"],
+    api: ["API consumers", "API administrators"],
+    ecommerce_product: ["Shoppers", "Store administrators"],
+    browser_extension: ["Browser users", "Extension administrators"],
+    automation_tool: ["Automation operators", "Workspace administrators"],
+    data_product: ["Data consumers", "Data administrators"],
+  };
+  return map[type];
+}
+
+function defaultRoles(type: ProductType, capabilities: SecondaryCapability[]): string[] {
+  const roles = new Set<string>(["user"]);
+  if (capabilities.includes("administration") || type !== "website") roles.add("admin");
+  if (capabilities.includes("teams")) roles.add("team_member");
+  if (type === "ecommerce_product") roles.add("customer");
+  if (type === "api") roles.add("api_client");
+  return [...roles];
+}
+
+function coreWorkflows(type: ProductType, capabilities: SecondaryCapability[]): string[] {
+  const workflows = ["Complete the primary " + PRODUCT_LABELS[type] + " workflow described in the original prompt"];
+  if (capabilities.includes("authentication")) workflows.push("Create account, authenticate, refresh session, and sign out");
+  if (capabilities.includes("billing")) workflows.push("Select an offer, pay server-side, receive entitlement, and manage billing state");
+  if (capabilities.includes("file_uploads")) workflows.push("Upload, validate, persist, retrieve, and delete permitted files");
+  if (capabilities.includes("search")) workflows.push("Search domain data and display empty/error/result states");
+  if (capabilities.includes("external_integrations")) workflows.push("Configure and execute requested external integrations with observable failure handling");
+  return workflows;
+}
+
+function dataModelsFor(type: ProductType, capabilities: SecondaryCapability[]): string[] {
+  const models = new Set<string>();
+  if (capabilities.includes("authentication")) models.add("User");
+  if (capabilities.includes("teams")) { models.add("Organization"); models.add("Membership"); }
+  if (capabilities.includes("billing")) { models.add("Subscription"); models.add("Entitlement"); models.add("BillingEvent"); }
+  if (capabilities.includes("file_uploads")) models.add("FileAsset");
+  if (type === "ecommerce_product") { models.add("Product"); models.add("Cart"); models.add("Order"); }
+  if (type === "data_product") models.add("Dataset");
+  if (type === "ai_agent") { models.add("AgentRun"); models.add("AgentAuditEvent"); }
+  return [...models];
+}
+
+function detectIntegrationNames(prompt: string): string[] {
+  const candidates = ["Stripe","GitHub","Slack","Twilio","Google","Shopify","Salesforce","Xero","Supabase","OpenAI","Anthropic","Gemini"];
+  return candidates.filter((name) => new RegExp("\\b" + name + "\\b", "i").test(prompt));
+}
+
+export function validateProductContract(input: unknown): ProductContract {
+  return productContractSchema.parse(input);
+}
+
+export function withSelectedTechnologyStack(contract: ProductContract, selectedTechnologyStack: string): ProductContract {
+  return validateProductContract({ ...contract, selectedTechnologyStack });
+}
+
+export function renderProductContractForAgents(contract: ProductContract): string {
+  const validated = validateProductContract(contract);
+  return [
+    "[APPFORGE CANONICAL PRODUCT CONTRACT — AUTHORITATIVE]",
+    JSON.stringify(validated, null, 2),
+    "[END APPFORGE CANONICAL PRODUCT CONTRACT]",
+    "All stages must consume this contract as the single product specification. Do not independently reinterpret the original prompt or silently drop requirements.",
+  ].join("\n");
+}
+
 export function buildProductContract(prompt: string): ProductContract {
   const intent = classifyProductIntent(prompt);
   if (!intent.primaryProductType || intent.ambiguous) {
-    throw new Error(
-      `Ambiguous product intent: ${intent.clarificationQuestions[0] ?? "clarification required"}`,
-    );
+    throw new Error("Ambiguous product intent: " + (intent.clarificationQuestions[0] ?? "clarification required"));
   }
   const productType = intent.primaryProductType;
-  const monetizationRequested =
-    intent.secondaryCapabilities.includes("billing");
-  const requirements: ProductRequirement[] = [
-    {
-      id: "REQ-001",
-      text: "The primary product workflow described by the user is implemented and usable.",
-      category: "workflow",
-      priority: "must",
-    },
-    {
-      id: "REQ-002",
-      text: "The product provides clear success, loading, and error states.",
-      category: "quality",
-      priority: "must",
-    },
-    {
-      id: "REQ-003",
-      text: "The generated product does not expose secrets or unsafe privileged operations.",
-      category: "security",
-      priority: "must",
-    },
-    {
-      id: "REQ-004",
-      text: monetizationRequested
-        ? "The requested monetization workflow is implemented with entitlement boundaries."
-        : "The product reports monetization as not requested rather than inventing payment functionality.",
-      category: "monetization",
-      priority: monetizationRequested ? "must" : "should",
-    },
-    {
-      id: "REQ-005",
-      text: "The selected runtime can build, start, and be verified before completion is reported.",
-      category: "operations",
-      priority: "must",
-    },
-  ];
-
-  return {
-    version: 1,
+  const capabilities = intent.secondaryCapabilities;
+  const selectedTechnologyStack = selectProductStack(prompt, productType);
+  const monetized = capabilities.includes("billing");
+  return validateProductContract({
+    version: 2,
     originalPrompt: prompt,
     productType,
     productFamilies: inferProductFamilies(prompt, productType),
-    techStack: selectProductStack(prompt, productType),
-    researchRequired: prompt.trim().length > 80 || productType !== "website",
-    monetizationRequested,
-    requirements,
-  };
+    targetUsers: defaultTargetUsers(productType),
+    userRoles: defaultRoles(productType, capabilities),
+    coreWorkflows: coreWorkflows(productType, capabilities),
+    functionalRequirements: [
+      { id: "REQ-001", text: "Implement the complete primary workflow in the original prompt.", category: "workflow", priority: "must" },
+      { id: "REQ-002", text: "Provide functional loading, empty, success, and error states.", category: "quality", priority: "must" },
+      { id: "REQ-003", text: "Enforce security boundaries and keep credentials server-side.", category: "security", priority: "must" },
+      { id: "REQ-004", text: monetized ? "Implement requested monetization with server-authoritative entitlements." : "Do not invent monetization when it was not requested.", category: "monetization", priority: monetized ? "must" : "should" },
+      { id: "REQ-005", text: "Build, start, health-check, and verify the selected runtime before completion.", category: "operations", priority: "must" },
+    ],
+    nonFunctionalRequirements: [
+      "Production-safe error handling and observability",
+      "Responsive, accessible user experience where a UI exists",
+      "Deterministic build and startup commands",
+      "No placeholder-only implementation may be treated as complete",
+    ],
+    dataModels: dataModelsFor(productType, capabilities),
+    integrations: detectIntegrationNames(prompt),
+    securityRequirements: [
+      "No secrets in browser bundles, generated artifacts, or logs",
+      "Authorization is enforced server-side for privileged actions",
+      "Validate untrusted input at trust boundaries",
+      "Generated product data is isolated from AppForge production data",
+    ],
+    deploymentRequirements: [
+      "Deploy using a runtime compatible with " + selectedTechnologyStack,
+      "Require environment configuration before production activation",
+      "Require health verification and artifact identity before production certification",
+    ],
+    monetizationRequirements: monetized
+      ? ["Billing state is server-authoritative","Webhook events are signature-validated and idempotent","Paid functionality is protected by entitlements"]
+      : [],
+    selectedTechnologyStack,
+    researchRequirements: [
+      "Verify current official documentation and supported versions for " + selectedTechnologyStack,
+      "Verify current deployment constraints for " + PRODUCT_LABELS[productType],
+    ],
+    runtimeRequirements: [
+      "Use the " + selectedTechnologyStack + " runtime and its native entrypoint",
+      "Expose a health-verifiable startup path",
+      "Use environment variables for external services and secrets",
+      "Fail closed when required runtime configuration is missing",
+    ],
+    secondaryCapabilities: capabilities,
+    intentConfidence: intent.confidence,
+    canonicalInterpretation: intent.canonicalInterpretation,
+  });
 }
