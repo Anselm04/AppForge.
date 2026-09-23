@@ -12,6 +12,10 @@ import {
   billingWebhookHandlers,
   requireProComponent,
 } from "../lib/billingScaffoldTemplates.js";
+import {
+  validateProductContract,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 type Files = Record<string, string>;
 
@@ -204,7 +208,14 @@ export function mergeBillingScaffold(
   files: Files,
   techStack: string,
   fintechSchemaJson?: string,
+  productContract?: ProductContract,
 ): Files {
+  if (productContract) {
+    const contract = validateProductContract(productContract);
+    if (contract.monetizationRequirements.length === 0) {
+      throw new Error("Billing requested without monetization requirements in canonical product contract");
+    }
+  }
   const billing = billingScaffoldFiles(techStack);
   const merged = { ...billing, ...files };
 
