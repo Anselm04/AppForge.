@@ -4,6 +4,7 @@ import { dirname, resolve, sep } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
 import JSZip from "jszip";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 
 interface VercelDeployResponse {
   id: string;
@@ -403,8 +404,30 @@ export async function deployProject(opts: {
   files: Record<string, string>;
   projectId?: number;
   previewBaseUrl?: string;
+  techStack?: string;
 }): Promise<{ url: string; destination: DeployDestination; note?: string }> {
-  const { destination, projectName, files, projectId, previewBaseUrl } = opts;
+  const { destination, projectName, files, projectId, previewBaseUrl, techStack } = opts;
+  if (techStack) {
+    const adapter = getStackAdapter(techStack);
+    const productionDestination =
+      destination === "vercel" ||
+      destination === "netlify" ||
+      destination === "fly" ||
+      destination === "github-pages";
+    if (adapter.generationMode === "structural" && productionDestination) {
+      throw new Error(
+        `Structural-only stack ${adapter.id} cannot be deployed to ${destination} before native runtime verification`,
+      );
+    }
+    if (
+      productionDestination &&
+      !adapter.deploymentTargets.includes(destination)
+    ) {
+      throw new Error(
+        `Stack ${adapter.id} does not support deployment destination ${destination}`,
+      );
+    }
+  }
   switch (destination) {
     case "vercel":
       return { url: await deployToVercel(projectName, files), destination };
