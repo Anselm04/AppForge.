@@ -22,7 +22,9 @@ describe("Item 1 hardening suite", () => {
     expect(preferReactNodeStack("")).toBe("react-node");
     expect(preferReactNodeStack("auto")).toBe("react-node");
     expect(preferReactNodeStack("next-node")).toBe("next-node");
-    expect(preferReactNodeStack("unknown-foo")).toBe("react-node");
+    expect(() => preferReactNodeStack("unknown-foo")).toThrow(
+      /Unsupported technology stack/,
+    );
   });
 
   it("stripComplianceFromGolden removes compliance paths", () => {
