@@ -175,11 +175,6 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
       throw new Error("Queued build tech stack is invalid");
     }
 
-    if (project.status === "paused") {
-      await resumeProject(projectId);
-    }
-    await updateProjectStatus(projectId, "running");
-
     const resolvedPromptIntent =
       promptIntent ?? classifyProductIntent(description);
     if (
@@ -209,6 +204,11 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
     if (JSON.stringify(queuedContract) !== JSON.stringify(persistedContract)) {
       throw new Error("Queued product contract disagrees with persisted project contract");
     }
+
+    if (project.status === "paused") {
+      await resumeProject(projectId);
+    }
+    await updateProjectStatus(projectId, "running");
 
     const canonicalAgentPrompt = [
       description,
