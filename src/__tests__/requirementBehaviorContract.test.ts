@@ -17,16 +17,14 @@ describe("requirement-linked behavioral test contract", () => {
     ]);
   });
 
-  it("passes the product description and planned behaviors into test generation", () => {
+  it("passes canonical product requirements into test generation", () => {
     const pipeline = readFileSync(
       resolve(process.cwd(), "src/agents/.pipeline_parts/part3.txt"),
       "utf8",
     );
-    expect(pipeline).toContain(
-      "attachGeneratedTests(generatedFiles, techStack, [",
-    );
-    expect(pipeline).toContain("description,");
-    expect(pipeline).toContain("...tasks.map((task) => task.description)");
+    expect(pipeline).toContain("attachGeneratedTests(");
+    expect(pipeline).toContain("productContract.functionalRequirements.map");
+    expect(pipeline).toContain("productContract,");
   });
 
   it("fails full validation when requirement markers are absent", () => {
