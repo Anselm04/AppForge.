@@ -232,6 +232,7 @@ export async function runAgentPipeline(
   let coordinationContext: AgentCoordinationContext | null = null;
   let coordinationRecord: AgentCoordinationRecord | null = null;
   let completedTaskIds = new Set<string>();
+  let resumedGeneratedFiles: Record<string, string> = {};
 
   const persistCoordination = async () => {
     if (!coordinationRecord) return;
