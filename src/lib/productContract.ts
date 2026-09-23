@@ -80,7 +80,7 @@ export const productContractSchema = z.object({
   userRoles: z.array(z.string().min(1)).min(1),
   coreWorkflows: z.array(z.string().min(1)).min(1),
   functionalRequirements: z.array(z.object({
-    id: z.string().regex(/^REQ-\\d{3}$/),
+    id: z.string().regex(/^REQ-\d{3}$/),
     text: z.string().min(1),
     category: z.enum(["workflow","quality","security","monetization","operations"]),
     priority: z.enum(["must","should","could"]),
