@@ -121,7 +121,7 @@ function fixture(): {
       tasks: [
         {
           id: "T1",
-          module: "Application",
+          module: "Customer Dashboard",
           description: "Implement frontend entrypoints and states.",
           sequence: 1,
           dependencies: [],
