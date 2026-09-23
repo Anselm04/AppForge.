@@ -99,6 +99,8 @@
         return;
       }
 
+    const selectedStackAdapter = getStackAdapter(techStack);
+
     emit("Planner", "start", {
       message:
         outerAttempt > 1
@@ -120,6 +122,10 @@
       "The product contract is authoritative. Research is evidence and implementation guidance only.",
       plannerJsonSchemaInstruction(),
       "Required design coverage: product workflows, personas, user roles, frontend modules, backend modules, database modules, AI modules where applicable, integration modules, authentication, authorization, billing, deployment, operations, recovery, monetization, implementation order, dependencies, acceptance criteria, requirement-to-task mapping, task-to-file mapping, task-to-agent mapping, and task-to-validation mapping.",
+      "The task-to-file plan MUST explicitly assign every runtime entrypoint, every required environment example/config file, and README.md to a task so the Coder generates them rather than relying on a scaffold.",
+      "Required runtime entrypoints: " + selectedStackAdapter.entrypoints.join(", "),
+      "Required environment/config files: " + (selectedStackAdapter.environmentFiles.join(", ") || "none"),
+      "Required documentation file: README.md",
       "Do not output a generic plan for a complex product. Do not use Core App or Core UI as a fallback.",
       "Selected stack: " + techStack,
       designHints,
