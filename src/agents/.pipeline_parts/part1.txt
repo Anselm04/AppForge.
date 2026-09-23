@@ -276,9 +276,20 @@
         productPlan.tasks.some((task) => task.id === taskId),
       )
     ) {
-      coordinationRecord = existingCoordination.data;
       resumedGeneratedFiles =
         (coordinationRow?.generatedFiles as Record<string, string> | null) ?? {};
+      coordinationRecord = reconcileCoordinationResume({
+        record: existingCoordination.data,
+        generatedFiles: resumedGeneratedFiles,
+      });
+      await recordCoordinationEvent({
+        agent: "System",
+        type: "resume",
+        detail:
+          "Resumed persisted coordination state after reconciling completed task outputs against current generated files.",
+        provider: provider.id,
+        model: plannerModel || provider.defaultModel,
+      });
     } else {
       coordinationRecord = freshCoordination;
       if (existingCoordination.success) {
@@ -295,6 +306,7 @@
         .map((taskState) => taskState.taskId),
     );
     coordinationRecord = unlockReadyTasks(coordinationRecord);
+    await persistCoordination();
     await recordCoordinationEvent({
       agent: "Planner",
       type: "handoff",
@@ -309,6 +321,7 @@
       requirementIds: coordinationContext.requirementIds,
       researchDecisionIds: productPlan.researchDecisionIds,
       fileOwners: coordinationRecord.fileOwners,
+      status: coordinationStatusSummary(coordinationRecord),
     });
 
     emit("Planner", "complete", {
