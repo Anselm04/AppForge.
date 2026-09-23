@@ -71,6 +71,9 @@ const TRACKING_PARAMS = new Set([
   "ref_src",
 ]);
 
+const CREDENTIAL_BEARING_PATTERN =
+  /(?:api[_ -]?key|password|secret|credential|access[_ -]?token)\s*[:=]\s*[^\s]{4,}/i;
+
 const INSTRUCTION_LIKE_PATTERNS = [
   /ignore\s+(?:all\s+|any\s+|the\s+)?previous\s+instructions?/i,
   /(?:reveal|print|return|show)\s+(?:the\s+)?(?:system|developer)\s+prompt/i,
@@ -456,6 +459,18 @@ export function verifyResearchEvidence(
         continue;
       }
       if (byUrl.has(key)) continue;
+      if (
+        CREDENTIAL_BEARING_PATTERN.test(
+          `${result.title}\n${result.snippet}\n${result.url}`,
+        )
+      ) {
+        rejectedSourceCount++;
+        rejectedSources.push({
+          url: key,
+          reason: "credential_bearing_content",
+        });
+        continue;
+      }
       byUrl.set(key, {
         ...result,
         url: key,
