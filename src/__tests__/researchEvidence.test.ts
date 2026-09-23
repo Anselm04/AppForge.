@@ -162,9 +162,9 @@ describe("self-evolving planner research", () => {
     const decisions = deriveResearchDecisions(contract, verified);
 
     expect(verified.conflicts.length).toBeGreaterThanOrEqual(1);
-    expect(decisions.some((decision) => decision.category === "framework")).toBe(
-      true,
-    );
+    expect(
+      decisions.some((decision) => decision.category === "framework"),
+    ).toBe(true);
     expect(decisions.some((decision) => decision.category === "security")).toBe(
       true,
     );
@@ -175,9 +175,10 @@ describe("self-evolving planner research", () => {
       decisions.some((decision) => decision.category === "monetization"),
     ).toBe(true);
     expect(
-      decisions.every((decision) =>
-        decision.decision.includes("canonical stack") ||
-        decision.rationale.length > 0,
+      decisions.every(
+        (decision) =>
+          decision.decision.includes("canonical stack") ||
+          decision.rationale.length > 0,
       ),
     ).toBe(true);
   });
