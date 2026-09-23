@@ -5,7 +5,10 @@ import {
   classifyProductType,
   detectSecondaryCapabilities,
   renderCanonicalPromptContext,
+  renderProductContractForAgents,
   selectProductStack,
+  validateProductContract,
+  withSelectedTechnologyStack,
   type ProductType,
 } from "../productContract.js";
 
@@ -139,11 +142,48 @@ describe("prompt understanding", () => {
     expect(contract.productType).toBe("ai_agent");
     expect(contract.productFamilies).toContain("ai");
     expect(contract.productFamilies).toContain("billing");
-    expect(contract.monetizationRequested).toBe(true);
+    expect(contract.monetizationRequirements.length).toBeGreaterThan(0);
     expect(
-      contract.requirements.every((requirement) =>
+      contract.functionalRequirements.every((requirement) =>
         /^REQ-\d{3}$/.test(requirement.id),
       ),
     ).toBe(true);
+    expect(contract.targetUsers.length).toBeGreaterThan(0);
+    expect(contract.userRoles.length).toBeGreaterThan(0);
+    expect(contract.coreWorkflows.length).toBeGreaterThan(0);
+    expect(contract.nonFunctionalRequirements.length).toBeGreaterThan(0);
+    expect(contract.securityRequirements.length).toBeGreaterThan(0);
+    expect(contract.deploymentRequirements.length).toBeGreaterThan(0);
+    expect(contract.researchRequirements.length).toBeGreaterThan(0);
+    expect(contract.runtimeRequirements.length).toBeGreaterThan(0);
+    expect(validateProductContract(contract)).toEqual(contract);
+  });
+
+  it("rejects incomplete contracts at runtime", () => {
+    expect(() =>
+      validateProductContract({
+        version: 2,
+        originalPrompt: "Build a website",
+        productType: "website",
+      }),
+    ).toThrow();
+  });
+
+  it("preserves an explicit selected stack inside the same contract", () => {
+    const base = buildProductContract("Build a website for my studio");
+    const updated = withSelectedTechnologyStack(base, "next-node");
+    expect(updated.originalPrompt).toBe(base.originalPrompt);
+    expect(updated.productType).toBe(base.productType);
+    expect(updated.selectedTechnologyStack).toBe("next-node");
+  });
+
+  it("renders one authoritative contract for downstream stages", () => {
+    const contract = buildProductContract(
+      "Build an AI agent with login, database storage, Slack integration, and deployment",
+    );
+    const rendered = renderProductContractForAgents(contract);
+    expect(rendered).toContain("AUTHORITATIVE");
+    expect(rendered).toContain(contract.originalPrompt);
+    expect(rendered).toContain('"productType": "ai_agent"');
   });
 });
