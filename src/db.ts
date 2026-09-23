@@ -4,6 +4,12 @@ import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { isOwnerEmail } from "./lib/owner.js";
+import {
+  buildProductContract,
+  validateProductContract,
+  withSelectedTechnologyStack,
+  type ProductContract,
+} from "./lib/productContract.js";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -229,7 +235,29 @@ export async function createProject(data: {
   status: string;
   locale?: string;
   buildCapabilities?: string[];
+  productContract?: ProductContract;
 }) {
+  let productContract = data.productContract;
+  if (!productContract) {
+    try {
+      productContract = withSelectedTechnologyStack(
+        buildProductContract(data.description),
+        data.techStack,
+      );
+    } catch {
+      productContract = undefined;
+    }
+  }
+  if (productContract) {
+    productContract = validateProductContract(productContract);
+    if (productContract.originalPrompt !== data.description) {
+      throw new Error("Product contract original prompt does not match project description");
+    }
+    if (productContract.selectedTechnologyStack !== data.techStack) {
+      throw new Error("Product contract selected stack does not match project tech stack");
+    }
+  }
+
   const result = await db
     .insert(schema.projects)
     .values({
@@ -240,6 +268,7 @@ export async function createProject(data: {
       status: data.status,
       locale: data.locale,
       buildCapabilities: data.buildCapabilities ?? [],
+      productContract,
     })
     .returning({ id: schema.projects.id });
   return result[0].id;
