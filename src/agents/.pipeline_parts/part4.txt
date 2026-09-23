@@ -16,24 +16,63 @@
         emit("Reviewer", "skipped", { message: "Golden path: reviewer skipped after green validation." });
       } else {
         emit("Reviewer", "start", { message: "Reviewing generated code…" });
-        const reviewerLogId = await appendAgentLog({ projectId, agent: "Reviewer", content: "", isComplete: false });
+        const reviewerInput =
+          "App: " +
+          appTitle +
+          "\nStack: " +
+          techStack +
+          "\n\nCOORDINATION_CONTEXT:\n" +
+          coordinationContextText;
+        const reviewerLogId = await appendAgentLog({
+          projectId,
+          agent: "Reviewer",
+          content: "# INPUT\n" + reviewerInput + "\n\n# OUTPUT\n",
+          isComplete: false,
+        });
         const filesSummary = Object.keys(generatedFiles).map((n) => `- ${n}`).join("\n");
         await streamLLM(
           [
             {
               role: "system",
-              content: "Reviewer agent. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.",
+              content:
+                "Reviewer agent. Review against the canonical product contract, validated plan, requirement mappings, research decisions, and validation evidence. Do not change scope or permissions. Markdown report: ## Summary, ## Validation Status, ## Issues Found, ## Recommendations.\n" +
+                contractContext +
+                "\nCOORDINATION_CONTEXT:\n" +
+                coordinationContextText,
             },
             {
               role: "user",
-              content: `App: ${appTitle}\nFiles:\n${filesSummary}\nStack: ${techStack}\nValidation: PASSED`,
+              content:
+                reviewerInput +
+                `\nFiles:\n${filesSummary}\nValidation: PASSED`,
             },
           ],
           (chunk) => { reviewOutput += chunk; emit("Reviewer", "chunk", { text: chunk }); },
           signal, "reviewer",
         );
+        await db
+          .update(schema.agentLogs)
+          .set({
+            content:
+              "# INPUT\n" +
+              reviewerInput +
+              "\n\n# OUTPUT\n" +
+              reviewOutput,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.agentLogs.id, reviewerLogId));
         await markAgentLogComplete(reviewerLogId);
-        emit("Reviewer", "complete", { message: "Code review complete." });
+        await recordCoordinationEvent({
+          agent: "Reviewer",
+          type: "decision",
+          detail: "Reviewer completed against canonical coordination context.",
+        });
+        emit("Reviewer", "complete", {
+          message: "Code review complete.",
+          status: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
+        });
       }
     } else {
       reviewOutput = `# Build review skipped\n\nValidation failed after ${maxFixRetries} attempts.\n\n## Errors\n${(validationResult.errors ?? []).map((e) => `- ${e}`).join("\n")}`;
@@ -116,8 +155,49 @@
     });
   } catch (err: unknown) {
     if (isAbortError(err, signal)) {
-      await updateProjectStatus(projectId, "failed", "Build cancelled by user.");
-      write("error", { message: "Build cancelled." });
+      const timeoutAbort =
+        signal?.reason instanceof Error &&
+        signal.reason.message === "build_timeout";
+      if (coordinationRecord) {
+        for (const [taskId, state] of Object.entries(
+          coordinationRecord.taskStates,
+        )) {
+          if (state.status === "running" || state.status === "retrying") {
+            coordinationRecord = updateTaskCoordinationState(
+              coordinationRecord,
+              taskId,
+              {
+                status: "paused",
+                lastError: timeoutAbort
+                  ? "Build timeout interrupted agent execution"
+                  : "Build cancellation interrupted agent execution",
+              },
+            );
+          }
+        }
+        await recordCoordinationEvent({
+          agent: "System",
+          type: "pause",
+          detail: timeoutAbort
+            ? "Build timed out. Coordination state was persisted for safe resume."
+            : "Build was cancelled. Coordination state was persisted.",
+        });
+      }
+      if (timeoutAbort) {
+        await updateProjectStatus(projectId, "paused", "agent_timeout");
+        write("pause", {
+          reason: "agent_timeout",
+          message:
+            "Agent execution timed out. Progress and coordination state were preserved for resume.",
+        });
+      } else {
+        await updateProjectStatus(
+          projectId,
+          "failed",
+          "Build cancelled by user.",
+        );
+        write("error", { message: "Build cancelled." });
+      }
       return;
     }
     if (isMissingLlmKeysError(err)) {
@@ -129,8 +209,18 @@
     const message = err instanceof Error ? err.message : "Unknown error";
     // LLM / transient: keep non-failed so reconnect continues never-give-up
     if (isNeverGiveUpEnabled() && !signal?.aborted) {
+      await recordCoordinationEvent({
+        agent: "System",
+        type: "failure",
+        detail:
+          "Recoverable provider/agent failure preserved for resume: " +
+          message.slice(0, 500),
+      });
       emit("System", "info", {
         message: `Error — switching provider / retrying on reconnect: ${message.slice(0, 240)}. Still building — iterating until it works.`,
+        coordinationStatus: coordinationRecord
+          ? coordinationStatusSummary(coordinationRecord)
+          : undefined,
       });
       await updateProjectStatus(projectId, "paused", "retry_after_error");
       write("pause", {
