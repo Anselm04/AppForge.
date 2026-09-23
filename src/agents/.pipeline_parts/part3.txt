@@ -3,9 +3,32 @@
           techStack,
           productContract.functionalRequirements.map((requirement) => requirement.text),
           productContract,
+          coordinationContextText,
         );
         Object.assign(generatedFiles, testFiles);
-        emit("Testing", "complete", { message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.` });
+        const testingLogId = await appendAgentLog({
+          projectId,
+          agent: "Testing",
+          content:
+            "# INPUT\n" +
+            coordinationContextText +
+            "\n\n# OUTPUT\nGenerated test files:\n" +
+            Object.keys(testFiles).join("\n"),
+          isComplete: true,
+        });
+        void testingLogId;
+        await recordCoordinationEvent({
+          agent: "Testing",
+          type: "output",
+          detail:
+            `Generated ${Object.keys(testFiles).length} requirement-linked test file(s) from the coordinated plan context.`,
+        });
+        emit("Testing", "complete", {
+          message: `Prepared ${Object.keys(testFiles).length} test file(s) for the blocking validation gate.`,
+          status: coordinationRecord
+            ? coordinationStatusSummary(coordinationRecord)
+            : undefined,
+        });
       } else {
         emit("Testing", "skipped", {
           message:
@@ -24,6 +47,8 @@
         testsBlocking,
         validateBilling: mergeBilling,
         productContract,
+        productPlan: coordinationContext?.productPlan,
+        researchDecisions: coordinationContext?.researchDecisions,
       });
 
       const { runTripleAudit } = await import("./tripleAudit.js");
@@ -73,6 +98,22 @@
         }
       }
 
+      await appendAgentLog({
+        projectId,
+        agent: "Validator",
+        content:
+          "# INPUT\n" +
+          coordinationContextText +
+          "\n\n# OUTPUT\n" +
+          JSON.stringify(validationResult, null, 2),
+        isComplete: true,
+      });
+      await recordCoordinationEvent({
+        agent: "Validator",
+        type: validationResult.passed ? "complete" : "failure",
+        detail:
+          `Validation stage ${validationResult.stage}: ${validationResult.passed ? "passed" : validationResult.errors.slice(0, 3).join("; ")}`,
+      });
       emit("Validator", "complete", {
         passed: validationResult.passed,
         stage: validationResult.stage,
