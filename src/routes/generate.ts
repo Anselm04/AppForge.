@@ -16,6 +16,7 @@ import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 import {
   buildProductContract,
   classifyProductIntent,
+  withSelectedTechnologyStack,
 } from "../lib/productContract.js";
 import { logger } from "../_core/logger.js";
 import {
@@ -70,14 +71,15 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       });
       return;
     }
-    const contract = buildProductContract(description);
+    const baseContract = buildProductContract(description);
     const requestedStack = parsed.data.techStack?.trim();
     const techStack =
       requestedStack &&
       requestedStack !== "auto" &&
       requestedStack !== "default"
         ? requestedStack
-        : contract.techStack;
+        : baseContract.selectedTechnologyStack;
+    const contract = withSelectedTechnologyStack(baseContract, techStack);
     const title = (parsed.data.title || description).trim().slice(0, 60);
     const locale = parsed.data.locale || "en";
     const inferredCapabilities = contract.productFamilies.filter((family) =>
@@ -144,6 +146,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       status: "pending",
       locale,
       buildCapabilities,
+      productContract: contract,
     });
     if (!(await claimProjectBuildStart(id, user.id)))
       throw new Error(`Unable to claim newly created project ${id} for build`);
@@ -172,6 +175,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
         locale,
         buildCapabilities,
         promptIntent,
+        productContract: contract,
         createdAt,
         reservationCharged,
       });
@@ -202,9 +206,9 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       techStack,
       requestType: contract.productType,
       productFamilies: contract.productFamilies,
-      researchRequired: contract.researchRequired,
-      monetizationRequested: contract.monetizationRequested,
-      requirementCount: contract.requirements.length,
+      researchRequired: contract.researchRequirements.length > 0,
+      monetizationRequested: contract.monetizationRequirements.length > 0,
+      requirementCount: contract.functionalRequirements.length,
       intentConfidence: promptIntent.confidence,
       secondaryCapabilities: promptIntent.secondaryCapabilities,
     });
