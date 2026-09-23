@@ -1,4 +1,5 @@
 import { getValidationMode, type ValidationMode } from "./validationMode.js";
+import { getStackAdapter } from "./stackAdapters.js";
 
 export type StackTier = "full" | "scaffold" | "experimental";
 
@@ -9,62 +10,42 @@ export type StackMeta = {
   validationMode: ValidationMode;
   dockerCapable: boolean;
   description: string;
-};
-
-const TIER_MAP: Record<string, StackTier> = {
-  "react-node": "full",
-  "next-node": "full",
-  "vue-node": "full",
-  "svelte-node": "full",
-  "react-supabase": "full",
-  "remix-node": "full",
-  "astro-node": "full",
-  "serverless-vercel": "full",
-  "react-python": "scaffold",
-  "react-django": "scaffold",
-  "ai-agent-python": "scaffold",
-  "ai-agent-node": "scaffold",
-  "langchain-tool": "scaffold",
-  "crewai-agent": "scaffold",
-  "autogen-agent": "scaffold",
-  "flutter-firebase": "scaffold",
-  "flutter-game": "scaffold",
-  "react-native-expo": "scaffold",
-  "electron-react": "scaffold",
-  "api-service": "scaffold",
-  "phaser-html5": "scaffold",
-  "three-js-3d": "scaffold",
-  "babylon-js-3d": "scaffold",
-  "unity-webgl": "experimental",
-  "godot-html5": "experimental",
-  "tauri-rust": "experimental",
-  "chrome-extension": "experimental",
-  "vscode-extension": "experimental",
-  "serverless-aws": "experimental",
+  generationMode: "runnable" | "structural";
+  previewMode: string;
+  runtime: string;
+  buildCommand: string | null;
+  startCommand: string | null;
+  outputDirectory: string | null;
+  artifactKind: string;
+  deploymentTargets: string[];
 };
 
 export function getStackMeta(stackId: string): StackMeta {
-  const tier = TIER_MAP[stackId] ?? "scaffold";
-  const validationMode = getValidationMode(stackId);
+  const adapter = getStackAdapter(stackId);
+  const validationMode = getValidationMode(adapter.id);
+  const tier: StackTier =
+    adapter.generationMode === "runnable" ? "full" : "scaffold";
   const dockerCapable =
-    stackId.includes("python") ||
-    stackId.includes("flutter") ||
-    stackId.includes("langchain") ||
-    stackId.includes("crewai") ||
-    stackId.includes("autogen");
+    adapter.runtime === "node" || adapter.runtime === "python";
 
   return {
-    id: stackId,
-    label: stackId.replace(/-/g, " "),
+    id: adapter.id,
+    label: adapter.label,
     tier,
     validationMode,
     dockerCapable,
+    generationMode: adapter.generationMode,
+    previewMode: adapter.previewMode,
+    runtime: adapter.runtime,
+    buildCommand: adapter.buildCommand,
+    startCommand: adapter.startCommand,
+    outputDirectory: adapter.outputDirectory,
+    artifactKind: adapter.artifactKind,
+    deploymentTargets: adapter.deploymentTargets,
     description:
-      tier === "full"
-        ? "Full sandbox: npm install, typecheck, tests, and production build."
-        : tier === "scaffold"
-          ? "Scaffold + syntax checks. Run full toolchain locally before production."
-          : "Experimental scaffold. Structure and docs only — not production-validated.",
+      adapter.generationMode === "runnable"
+        ? "Runnable stack adapter with stack-specific build, preview, runtime, deployment, and artifact metadata."
+        : "Structural-only stack adapter. AppForge may generate the project structure, but it must not be represented as fully deployed or production-certified until its native toolchain is verified.",
   };
 }
 
@@ -78,7 +59,7 @@ export function tierBadgeClass(tier: StackTier): string {
 
 export function tierLabel(tier: StackTier): string {
   if (tier === "full") return "Full validation";
-  if (tier === "scaffold") return "Scaffold only";
+  if (tier === "scaffold") return "Structural only";
   return "Experimental";
 }
 
