@@ -153,6 +153,16 @@
         provider: provider.id,
         model: coderModel || provider.defaultModel,
       });
+      resumedGeneratedFiles = { ...generatedFiles };
+      await updateProjectFiles(projectId, resumedGeneratedFiles);
+      await recordCoordinationEvent({
+        agent: "Planner",
+        type: "decision",
+        detail:
+          "Repair burst exhausted; preserving current files and coordination evidence before contract-aware redesign.",
+        provider: provider.id,
+        model: plannerModel || provider.defaultModel,
+      });
       emit("Planner", "redesign_required", {
         message: "Repair burst exhausted. Returning failure evidence to design for a materially different plan.",
         outerAttempt,
@@ -213,6 +223,8 @@
         testsBlocking: false,
         validateBilling: false,
         productContract,
+        productPlan: coordinationContext?.productPlan,
+        researchDecisions: coordinationContext?.researchDecisions,
       });
       emit("Validator", "complete", {
         passed: validationResult.passed,
