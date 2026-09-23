@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  assertStackSupportsProduct,
+  normalizeStackId,
+} from "./stackAdapters.js";
 
 export type ProductType =
   | "website"
@@ -567,21 +571,63 @@ export function selectProductStack(
   productType = classifyProductType(prompt),
 ): string {
   const text = prompt.toLowerCase();
+
+  if (productType === "website") {
+    if (/\b(static website|static site|vanilla html|html css javascript)\b/.test(text))
+      return "static-html";
+    if (/\b(next\.js|nextjs|next js)\b/.test(text)) return "next-node";
+    if (/\b(three\.js|threejs|webgl|3d website)\b/.test(text))
+      return "three-js-3d";
+    return "react-node";
+  }
+
+  if (productType === "saas_application" || productType === "ecommerce_product") {
+    if (/\b(next\.js|nextjs|next js)\b/.test(text)) return "next-node";
+    return "react-node";
+  }
+
   if (productType === "game")
     return /\b(3d|three\.js|threejs|webgl)\b/.test(text)
       ? "three-js-3d"
       : "phaser-html5";
-  if (productType === "ai_agent" || productType === "automation_tool")
-    return "ai-agent-node";
-  if (productType === "api") return "api-service";
+
+  if (productType === "ai_agent")
+    return /\b(python|fastapi)\b/.test(text)
+      ? "ai-agent-python"
+      : "ai-agent-node";
+
+  if (productType === "automation_tool")
+    return /\b(python|fastapi)\b/.test(text)
+      ? "python-service"
+      : /\b(browser automation|playwright|puppeteer)\b/.test(text)
+        ? "browser-automation"
+        : "node-service";
+
+  if (productType === "api")
+    return /\b(python|fastapi)\b/.test(text)
+      ? "python-service"
+      : "api-service";
+
   if (productType === "browser_extension") return "chrome-extension";
+
   if (productType === "mobile_app")
     return /\bflutter\b/.test(text) ? "flutter-firebase" : "react-native-expo";
+
   if (productType === "desktop_app")
     return /\btauri\b/.test(text) ? "tauri-rust" : "electron-react";
-  if (productType === "data_product") return "data-visualization";
-  if (productType === "website") return "react-node";
-  return "react-node";
+
+  if (productType === "data_product")
+    return /\bpython|fastapi\b/.test(text)
+      ? "python-service"
+      : "data-visualization";
+
+  if (productType === "developer_tool") {
+    if (/\bpython\b/.test(text)) return "python-service";
+    if (/\b(api|backend|service)\b/.test(text)) return "node-service";
+    return "react-node";
+  }
+
+  throw new Error(`No stack adapter is configured for product type ${productType}`);
 }
 
 export function renderCanonicalPromptContext(
@@ -658,8 +704,16 @@ export function validateProductContract(input: unknown): ProductContract {
   return productContractSchema.parse(input);
 }
 
-export function withSelectedTechnologyStack(contract: ProductContract, selectedTechnologyStack: string): ProductContract {
-  return validateProductContract({ ...contract, selectedTechnologyStack });
+export function withSelectedTechnologyStack(
+  contract: ProductContract,
+  selectedTechnologyStack: string,
+): ProductContract {
+  const normalized = normalizeStackId(selectedTechnologyStack);
+  assertStackSupportsProduct(normalized, contract.productType);
+  return validateProductContract({
+    ...contract,
+    selectedTechnologyStack: normalized,
+  });
 }
 
 export function renderProductContractForAgents(contract: ProductContract): string {
