@@ -114,6 +114,7 @@ export async function deployValidatedProject(opts: {
     projectName: opts.projectName,
     files,
     projectId: opts.projectId,
+    techStack: stackAdapter.id,
   });
 
   if (!deployed.url) {
