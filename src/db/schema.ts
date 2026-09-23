@@ -11,6 +11,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import type { ProductContract } from "../lib/productContract.js";
 
 // ── USERS ──
 export const users = pgTable("users", {
@@ -115,6 +116,7 @@ export const projects = pgTable(
     buildCapabilities: jsonb("build_capabilities")
       .$type<string[]>()
       .default([]),
+    productContract: jsonb("product_contract").$type<ProductContract>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
