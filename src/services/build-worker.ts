@@ -24,22 +24,11 @@ import {
   renderProductContractForAgents,
   validateProductContract,
   type ProductContract,
-  type PromptIntent,
 } from "../lib/productContract.js";
-
-export interface BuildJob {
-  projectId: number;
-  userId: number;
-  description: string;
-  techStack: string;
-  locale?: string;
-  buildCapabilities?: string[];
-  promptIntent?: PromptIntent;
-  productContract: ProductContract;
-  createdAt: string;
-  /** True only when this queued attempt actually deducted the build reservation. */
-  reservationCharged: boolean;
-}
+import {
+  validateBuildJob,
+  type BuildJob,
+} from "../lib/buildJob.js";
 
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
@@ -111,7 +100,8 @@ async function refundActiveDuplicateReservation(job: BuildJob): Promise<void> {
   }
 }
 
-export async function runBuildJob(job: BuildJob): Promise<void> {
+export async function runBuildJob(input: BuildJob): Promise<void> {
+  const job = validateBuildJob(input);
   if (activeJobs.has(job.projectId)) {
     await refundActiveDuplicateReservation(job);
     return;
