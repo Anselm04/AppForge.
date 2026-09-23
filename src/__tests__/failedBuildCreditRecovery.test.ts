@@ -6,6 +6,10 @@ const source = readFileSync(
   resolve(process.cwd(), "src/services/build-worker.ts"),
   "utf8",
 );
+const buildJob = readFileSync(
+  resolve(process.cwd(), "src/lib/buildJob.ts"),
+  "utf8",
+);
 
 describe("failed build credit recovery", () => {
   it("refunds failed reservations with an idempotent attempt key", () => {
@@ -15,7 +19,7 @@ describe("failed build credit recovery", () => {
   });
 
   it("refunds only attempts that actually charged a reservation", () => {
-    expect(source).toContain("reservationCharged: boolean");
+    expect(buildJob).toContain("reservationCharged: z.boolean()");
     expect(source).toContain("if (!reservationCharged) return");
     expect(source).toContain("build-refund-${projectId}-${createdAt}");
   });
