@@ -27,6 +27,8 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
+import type { ProductPlan } from "../lib/productPlan.js";
+import type { ResearchDecision } from "../lib/researchRecord.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -42,6 +44,8 @@ export type ValidateOptions = {
   /** When true, verify checkout/webhook/entitlements scaffold for income products. */
   validateBilling?: boolean;
   productContract?: ProductContract;
+  productPlan?: ProductPlan;
+  researchDecisions?: ResearchDecision[];
 };
 
 type RequirementManifest = {
@@ -227,7 +231,48 @@ export async function validateGeneratedBuild(
   const start = Date.now();
   const errors: string[] = [];
   if (options.productContract) {
-    validateProductContract(options.productContract);
+    const contract = validateProductContract(options.productContract);
+    if (options.productPlan) {
+      if (options.productPlan.productType !== contract.productType) {
+        return {
+          passed: false,
+          stage: "coordination",
+          errors: ["Validator product plan product type disagrees with canonical contract."],
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Agent coordination context is inconsistent.",
+        };
+      }
+      if (
+        options.productPlan.selectedTechnologyStack !==
+        contract.selectedTechnologyStack
+      ) {
+        return {
+          passed: false,
+          stage: "coordination",
+          errors: ["Validator product plan stack disagrees with canonical contract."],
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning: "Agent coordination context is inconsistent.",
+        };
+      }
+    }
+    if (
+      options.researchDecisions &&
+      options.productPlan &&
+      options.productPlan.researchDecisionIds.some(
+        (id) => !options.researchDecisions?.some((decision) => decision.id === id),
+      )
+    ) {
+      return {
+        passed: false,
+        stage: "coordination",
+        errors: ["Validator is missing research decisions referenced by the validated plan."],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning: "Agent coordination context is incomplete.",
+      };
+    }
   }
 
   try {
