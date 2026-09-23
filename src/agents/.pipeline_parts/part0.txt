@@ -81,6 +81,12 @@ import {
   type ProductPlanTask,
 } from "../lib/productPlan.js";
 import {
+  coderTaskInstruction,
+  ensureCodeGenerationSupportFiles,
+  validateCoderTaskOutput,
+  validateGeneratedCodeArtifact,
+} from "../lib/codeGeneration.js";
+import {
   agentCoordinationRecordSchema,
   appendCoordinationEvent,
   assertTaskOutputOwnership,
