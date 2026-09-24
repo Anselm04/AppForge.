@@ -368,9 +368,16 @@ This folder is auto-injected by AppForge for every generated app.
 }
 
 /** Merge compliance scaffolding into generated output */
-export function injectComplianceScaffolding(generatedFiles: Record<string, string>): void {
+export function injectComplianceScaffolding(
+  generatedFiles: Record<string, string>,
+  options: { reactComponents?: boolean } = {},
+): void {
+  const reactComponents = options.reactComponents ?? true;
   const boilerplate = getVantaComplianceBoilerplate();
   for (const file of boilerplate) {
+    // Node services get the server-side TypeScript modules only; the React
+    // cookie banner is never added to a project that does not use React.
+    if (!reactComponents && file.filename.endsWith(".tsx")) continue;
     generatedFiles[file.filename] = file.content;
   }
 }
