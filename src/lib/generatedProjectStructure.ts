@@ -134,8 +134,9 @@ export function getGeneratedProjectStructurePolicy(
       ? ["assets/"]
       : adapter.id === "react-native-expo"
         ? ["assets/"]
-        : adapter.runtime === "browser" || adapter.id === "next-node"
-          ? ["public/", "assets/", "src/assets/"]
+        : ["web", "static", "game", "data"].includes(adapter.artifactKind) ||
+          adapter.id === "next-node"
+        ? ["public/", "assets/", "src/assets/"]
           : adapter.runtime === "extension"
             ? ["icons/", "assets/"]
             : ["assets/"];
