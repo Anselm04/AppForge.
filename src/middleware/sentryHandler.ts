@@ -6,7 +6,21 @@ import { Request, Response, NextFunction } from "express";
 import * as Sentry from "@sentry/node";
 
 const SENSITIVE_KEY =
-  /authorization|cookie|token|secret|password|passwd|api[-_]?key|signature|session|credential|refresh/i;
+  /authorization|cookie|token|secret|password|passwd|api[-_]?key|signature|session|credential|refresh|database[-_]?url|service[-_]?role/i;
+
+function sanitizeString(value: string): string {
+  return value
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
+    .replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/g, "<redacted-stripe-key>")
+    .replace(/\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
+    .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "<redacted-google-key>")
+    .replace(/\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g, "<redacted-github-token>")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "<redacted-aws-key>")
+    .replace(
+      /((?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*\s*[:=]\s*)[^\s,;)]+/gi,
+      "$1<redacted>",
+    );
+}
 
 function sanitizeValue(value: unknown, depth = 0): unknown {
   if (depth > 4) return "[truncated]";
@@ -22,10 +36,17 @@ function sanitizeValue(value: unknown, depth = 0): unknown {
     }
     return clean;
   }
-  if (typeof value === "string" && value.length > 1000) {
-    return `${value.slice(0, 1000)}…[truncated]`;
+  if (typeof value === "string") {
+    const sanitized = sanitizeString(value);
+    return sanitized.length > 1000
+      ? `${sanitized.slice(0, 1000)}…[truncated]`
+      : sanitized;
   }
   return value;
+}
+
+export function sanitizeSentryEvent<T>(event: T): T {
+  return sanitizeValue(event) as T;
 }
 
 function safeRequestContext(req: Request) {
