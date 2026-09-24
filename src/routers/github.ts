@@ -5,6 +5,8 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
 import { revealGithubAccessToken } from "../lib/githubTokenCrypto.js";
+import { detectStackFromFiles } from "../lib/stackDetection.js";
+import { resolveProjectStack } from "../lib/projectStack.js";
 
 async function fetchRepoFiles(
   token: string,
@@ -183,6 +185,16 @@ export const githubRouter = router({
         });
       }
 
+      // The imported repository keeps its own stack. Unsupported repositories
+      // are refused instead of being recorded (and later edited) as React.
+      const detected = detectStackFromFiles(files);
+      if (!detected.ok) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot import ${input.owner}/${input.repo}: ${detected.reason}`,
+        });
+      }
+
       const { createProject, updateProjectFiles } = await import("../db.js");
       let projectId = input.projectId;
       if (!projectId) {
@@ -190,7 +202,7 @@ export const githubRouter = router({
           userId: ctx.user.id,
           title: input.title ?? input.repo,
           description: `Imported from GitHub ${input.owner}/${input.repo}`,
-          techStack: "react-node",
+          techStack: detected.stack,
           status: "completed",
         });
       } else {
@@ -198,8 +210,19 @@ export const githubRouter = router({
         if (!project || project.userId !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN" });
         }
+        const projectStack = resolveProjectStack(project).techStack;
+        if (projectStack !== detected.stack) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Repository ${input.owner}/${input.repo} uses ${detected.stack} (${detected.reason}) but this project uses ${projectStack}. Import it as a new project instead.`,
+          });
+        }
       }
       await updateProjectFiles(projectId, files);
-      return { projectId, fileCount: Object.keys(files).length };
+      return {
+        projectId,
+        fileCount: Object.keys(files).length,
+        techStack: detected.stack,
+      };
     }),
 });

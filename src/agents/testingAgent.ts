@@ -11,6 +11,41 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
+import { hardeningProfileForStack } from "../lib/reliableBuild.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
+
+/**
+ * Test harness per stack adapter: React stacks get the React Testing Library
+ * harness, other browser stacks (static sites, Phaser, Three.js) a plain
+ * jsdom harness, and Node services a node-environment harness. Non-React
+ * projects never receive React test tooling.
+ */
+export type TestHarness = "react" | "dom" | "node";
+
+export function testHarnessForStack(techStack: string): TestHarness {
+  const adapter = getStackAdapter(techStack);
+  if (adapter.previewMode === "service" || adapter.runtime === "python") {
+    return "node";
+  }
+  const profile = hardeningProfileForStack(adapter.id);
+  return profile === "vite-react" || profile === "next" ? "react" : "dom";
+}
+
+function harnessPromptLine(techStack: string): string {
+  let harness: TestHarness;
+  try {
+    harness = testHarnessForStack(techStack);
+  } catch {
+    return "";
+  }
+  if (harness === "react") {
+    return "If the file is a React component, use @testing-library/react (render, screen, fireEvent).";
+  }
+  if (harness === "dom") {
+    return "This project does not use React: test DOM/canvas code with plain jsdom and never import React or @testing-library/react.";
+  }
+  return "This is a Node service: tests run in the node environment; never import React, @testing-library/react or browser globals.";
+}
 
 export async function generateTestsForModule(
   moduleName: string,
@@ -36,7 +71,7 @@ Given a source file, write a Vitest unit test file that covers:
 Use vitest (describe, it, expect, vi.fn).
 Mock external dependencies (DB, API calls, fetch) with vi.fn().
 Output ONLY the test file content, starting with // filename: <path>.test.ts or <path>.test.tsx.
-If the file is a React component, use @testing-library/react (render, screen, fireEvent).
+${harnessPromptLine(techStack)}
 If the file is a tRPC router, test with mocked context.
 If the file is a utility, test pure functions directly.
 The product requirements below are the acceptance contract. Cover every requirement
@@ -80,7 +115,8 @@ export function createRequirementContract(
     }));
 }
 
-const VITEST_CONFIG = `// filename: vitest.config.ts
+const VITEST_CONFIG: Record<TestHarness, string> = {
+  react: `// filename: vitest.config.ts
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -89,7 +125,33 @@ export default defineConfig({
   test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
 });
-`;
+`,
+  dom: `// filename: vitest.config.ts
+import { defineConfig } from 'vitest/config';
+export default defineConfig({
+  test: { globals: true, environment: 'jsdom', setupFiles: ['./src/__tests__/setup.ts'] },
+});
+`,
+  node: `// filename: vitest.config.ts
+import { defineConfig } from 'vitest/config';
+export default defineConfig({
+  test: { globals: true, environment: 'node' },
+});
+`,
+};
+
+const HARNESS_DEV_DEPENDENCIES: Record<TestHarness, Record<string, string>> = {
+  react: {
+    vite: "^5.4.21",
+    "@vitejs/plugin-react": "^4.2.1",
+    vitest: "^3.2.7",
+    jsdom: "^24.0.0",
+    "@testing-library/react": "^14.2.0",
+    "@testing-library/jest-dom": "^6.4.0",
+  },
+  dom: { vitest: "^3.2.7", jsdom: "^24.0.0" },
+  node: { vitest: "^3.2.7" },
+};
 
 /**
  * Ensure generated full-validation projects can load and run AppForge's Vitest harness
@@ -97,6 +159,7 @@ export default defineConfig({
  */
 function ensureGeneratedTestDependencies(
   generatedFiles: Record<string, string>,
+  harness: TestHarness,
 ): void {
   const raw = generatedFiles["package.json"];
   if (!raw) return;
@@ -122,22 +185,19 @@ function ensureGeneratedTestDependencies(
     pkg.scripts = scripts;
     pkg.devDependencies = devDependencies;
     scripts.test = scripts.test ?? "vitest run";
-    devDependencies.vite = devDependencies.vite ?? "^5.4.21";
-    devDependencies["@vitejs/plugin-react"] =
-      devDependencies["@vitejs/plugin-react"] ?? "^4.2.1";
-    devDependencies.vitest = devDependencies.vitest ?? "^3.2.7";
-    devDependencies.jsdom = devDependencies.jsdom ?? "^24.0.0";
-    devDependencies["@testing-library/react"] =
-      devDependencies["@testing-library/react"] ?? "^14.2.0";
-    devDependencies["@testing-library/jest-dom"] =
-      devDependencies["@testing-library/jest-dom"] ?? "^6.4.0";
+    for (const [name, version] of Object.entries(
+      HARNESS_DEV_DEPENDENCIES[harness],
+    )) {
+      devDependencies[name] = devDependencies[name] ?? version;
+    }
     generatedFiles["package.json"] = JSON.stringify(pkg, null, 2);
   } catch {
     // The build validator will fail invalid package.json explicitly.
   }
 }
 
-const VITEST_SETUP = `// filename: src/__tests__/setup.ts
+const VITEST_SETUP: Record<"react" | "dom", string> = {
+  react: `// filename: src/__tests__/setup.ts
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
@@ -146,7 +206,14 @@ window.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: 
 window.scrollTo = vi.fn();
 window.IntersectionObserver = vi.fn().mockImplementation(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }));
 global.fetch = vi.fn();
-`;
+`,
+  dom: `// filename: src/__tests__/setup.ts
+import { vi } from 'vitest';
+window.matchMedia = vi.fn().mockImplementation((q) => ({ matches: false, media: q, addListener: vi.fn(), removeListener: vi.fn() }));
+window.scrollTo = vi.fn();
+global.fetch = vi.fn();
+`,
+};
 
 /** Generate vitest files for code modules — used before validation in the build pipeline. */
 export async function attachGeneratedTests(
@@ -161,7 +228,10 @@ export async function attachGeneratedTests(
     ? validateProductContract(productContract)
     : null;
   const requirementContract = validatedContract
-    ? validatedContract.functionalRequirements.map(({ id, text }) => ({ id, text }))
+    ? validatedContract.functionalRequirements.map(({ id, text }) => ({
+        id,
+        text,
+      }))
     : createRequirementContract(requirements);
   for (const [filename, content] of Object.entries(generatedFiles)) {
     if (
@@ -187,16 +257,18 @@ export async function attachGeneratedTests(
       testFiles[testResult.filename] = testResult.testFile;
     }
   }
+  const harness = testHarnessForStack(techStack);
   if (!generatedFiles["vitest.config.ts"] && !testFiles["vitest.config.ts"]) {
-    testFiles["vitest.config.ts"] = VITEST_CONFIG;
+    testFiles["vitest.config.ts"] = VITEST_CONFIG[harness];
   }
   if (
+    harness !== "node" &&
     !generatedFiles["src/__tests__/setup.ts"] &&
     !testFiles["src/__tests__/setup.ts"]
   ) {
-    testFiles["src/__tests__/setup.ts"] = VITEST_SETUP;
+    testFiles["src/__tests__/setup.ts"] = VITEST_SETUP[harness];
   }
-  ensureGeneratedTestDependencies(generatedFiles);
+  ensureGeneratedTestDependencies(generatedFiles, harness);
   if (requirementContract.length > 0) {
     testFiles["appforge.requirements.json"] = JSON.stringify(
       { version: 1, requirements: requirementContract },
@@ -215,7 +287,9 @@ export const TestingAgent: Agent = {
   async run(context: AgentContext): Promise<AgentResult> {
     const { prompt, architecture } = context;
     const files = architecture?.generatedFiles ?? {};
-    const techStack = architecture?.techStack ?? "react-node";
+    // Legacy orchestrator path: describe the stack as unspecified rather than
+    // assuming React when the architect did not record one.
+    const techStack = architecture?.techStack ?? "unspecified";
 
     const testFiles: Record<string, string> = {};
     let testCount = 0;

@@ -8,6 +8,7 @@ import {
   updateProjectFiles,
 } from "../db.js";
 import { sanitizeArtifactName } from "../services/artifactEngine.js";
+import { resolveProjectStack } from "../lib/projectStack.js";
 
 const SECRET_PATH_SEGMENTS = [
   "credentials.json",
@@ -46,8 +47,7 @@ export function isSafeTemplatePath(path: string): boolean {
   if (/\.(pem|key|p12|pfx|jks)$/i.test(normalized)) return false;
   if (
     SECRET_PATH_SEGMENTS.some(
-      (segment) =>
-        normalized === segment || normalized.endsWith(`/${segment}`),
+      (segment) => normalized === segment || normalized.endsWith(`/${segment}`),
     )
   ) {
     return false;
@@ -119,7 +119,7 @@ export const templateFactoryRouter = router({
         sourceProjectId: input.projectId,
         name: input.name,
         description: input.description,
-        techStack: project.techStack ?? "react-node",
+        techStack: resolveProjectStack(project).techStack,
         createdAt: new Date().toISOString(),
         filePaths: Object.keys(files).sort(),
       };
@@ -159,13 +159,19 @@ export const templateFactoryRouter = router({
         });
       }
 
+      // A clone keeps the source project's stack and canonical contract; no
+      // React fallback and no reclassification.
+      const sourceStack = resolveProjectStack(source);
       const projectId = await createProject({
         userId: ctx.user.id,
         title: input.title,
         description:
           input.description ??
           `Created from reusable AppForge project template ${input.sourceProjectId}`,
-        techStack: source.techStack ?? "react-node",
+        techStack: sourceStack.techStack,
+        ...(sourceStack.productContract
+          ? { productContract: sourceStack.productContract }
+          : {}),
         status: "pending",
         locale: source.locale ?? "en",
         buildCapabilities: Array.isArray(source.buildCapabilities)

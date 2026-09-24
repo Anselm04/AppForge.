@@ -5,8 +5,15 @@
  * keeps iterating with real LLMs instead.
  */
 
-import { hardenGeneratedProject } from "./reliableBuild.js";
-import { buildRecipeApp, classifyRecipe } from "./appRecipes.js";
+import {
+  buildRecipeApp,
+  classifyRecipe,
+  recipeCoderHint,
+} from "./appRecipes.js";
+import {
+  hardenGeneratedProject,
+  hardeningProfileForStack,
+} from "./reliableBuild.js";
 
 /**
  * Build a minimal, known-good Vite React app that typechecks and vite-builds.
@@ -18,6 +25,12 @@ export function buildGuaranteedGreenApp(opts: {
   description: string;
   techStack: string;
 }): Record<string, string> {
+  // Recipes are Vite React apps; never substitute one for another stack.
+  if (hardeningProfileForStack(opts.techStack) !== "vite-react") {
+    throw new Error(
+      `Guaranteed-green recipes only exist for React + Vite stacks, not ${opts.techStack}`,
+    );
+  }
   const recipe = classifyRecipe(opts.description);
   const files = buildRecipeApp({
     title: opts.title,
@@ -25,5 +38,19 @@ export function buildGuaranteedGreenApp(opts: {
     techStack: opts.techStack,
     recipe,
   });
-  return hardenGeneratedProject(files, opts.techStack || "react-node");
+  return hardenGeneratedProject(files, opts.techStack);
+}
+
+/**
+ * Recipes describe React UI screens. Only React-based web stacks (Vite React,
+ * Next.js) get a recipe hint; games, services, mobile, Python and extensions
+ * get none.
+ */
+export function stackRecipeCoderHint(
+  description: string,
+  techStack: string,
+): string {
+  const profile = hardeningProfileForStack(techStack);
+  if (profile !== "vite-react" && profile !== "next") return "";
+  return recipeCoderHint(description);
 }

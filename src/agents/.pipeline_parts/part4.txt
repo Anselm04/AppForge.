@@ -97,10 +97,10 @@
           : validationSummary)
       : `# ${appTitle}\n${validationSummary}`;
 
-    if (validationResult?.passed && !isGoldenStack(techStack) && !techStack.includes("react")) {
-      injectComplianceScaffolding(generatedFiles);
+    if (validationResult?.passed && complianceScaffoldingAllowed(techStack)) {
+      injectComplianceScaffolding(generatedFiles, { reactComponents: false });
     }
-    if (isGoldenStack(techStack) || techStack.includes("react")) {
+    if (appliesGoldenWebLimits(techStack)) {
       generatedFiles = stripComplianceFromGolden(generatedFiles);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);

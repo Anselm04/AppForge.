@@ -3,11 +3,12 @@
  * Apply chat patches, harden, validate, fix, or roll back.
  */
 
-import { hardenGeneratedProject, isGoldenStack } from "./reliableBuild.js";
 import {
-  stripComplianceFromGolden,
-  capGoldenFiles,
-} from "./goldenLimits.js";
+  appliesGoldenWebLimits,
+  hardenGeneratedProject,
+} from "./reliableBuild.js";
+import { requireExplicitStack } from "./stackDefaults.js";
+import { stripComplianceFromGolden, capGoldenFiles } from "./goldenLimits.js";
 import { applyDeterministicErrorFixes } from "./errorFixTable.js";
 import { mergeSurgicalPatches } from "./surgicalFix.js";
 import type { ValidationResult } from "../agents/buildValidator.js";
@@ -24,7 +25,9 @@ export function applyPatches(
 ): Record<string, string> {
   const next = { ...files };
   for (const patch of patches) {
-    const safePath = (patch.path || "").replace(/^\/+/, "").replace(/\.\./g, "");
+    const safePath = (patch.path || "")
+      .replace(/^\/+/, "")
+      .replace(/\.\./g, "");
     if (!safePath || safePath.includes("..")) continue;
     if (patch.action === "delete") {
       delete next[safePath];
@@ -35,17 +38,23 @@ export function applyPatches(
   return next;
 }
 
-/** Post-edit harden: same floor as generation for golden stacks. */
+/**
+ * Post-edit harden with the same stack adapter as generation. Runnable web
+ * bundler stacks keep the golden file cap; every other stack (mobile, desktop
+ * shells, services, Python, extensions) is hardened without trimming or
+ * converting it.
+ */
 export function hardenAfterIterate(
   files: Record<string, string>,
   techStack: string,
 ): Record<string, string> {
+  const stack = requireExplicitStack(techStack);
   let out = { ...files };
-  if (isGoldenStack(techStack) || techStack.includes("react")) {
+  if (appliesGoldenWebLimits(stack)) {
     out = stripComplianceFromGolden(out);
     out = capGoldenFiles(out, 14);
   }
-  out = hardenGeneratedProject(out, techStack);
+  out = hardenGeneratedProject(out, stack);
   return out;
 }
 
@@ -72,7 +81,7 @@ export async function ensureIterateGreen(opts: {
   maxFixAttempts?: number;
 }): Promise<IterateOutcome> {
   const notes: string[] = [];
-  const techStack = opts.techStack || "react-node";
+  const techStack = requireExplicitStack(opts.techStack);
   let files = hardenAfterIterate(opts.candidate, techStack);
   let validation = await opts.validate(files);
 

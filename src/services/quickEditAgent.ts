@@ -12,7 +12,8 @@ import {
 } from "../lib/iterateReliable.js";
 import { parseGeneratedFiles } from "./multiFileCoder.js";
 import { goldenCoderRules } from "../lib/reliableBuild.js";
-import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import { requireExplicitStack } from "../lib/stackDefaults.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 
 export type QuickEditPatch = IteratePatch;
 
@@ -25,15 +26,24 @@ export type QuickEditResult = {
   fixed?: boolean;
 };
 
-const SYSTEM = `You are AppForge Quick Edit — surgical chat-to-edit for a running app.
+/**
+ * Quick Edit instructions for the project's own stack adapter. The edit must
+ * keep the adapter's language, framework and entrypoints — never convert the
+ * project to another stack.
+ */
+export function quickEditSystemPrompt(techStack: string): string {
+  const adapter = getStackAdapter(techStack);
+  return `You are AppForge Quick Edit — surgical chat-to-edit for an existing ${adapter.label} project.
 Given the user request and current files, return precise file patches only.
 Rules:
 - Minimal focused changes; prefer modify over create
-- Match existing style (React 18, TypeScript, Tailwind)
-- Do NOT add npm dependencies unless explicitly requested
-- Keep the app compiling; preserve entrypoints (src/App.tsx, src/main.tsx, index.html)
+- Match the existing code style and stay on ${adapter.label}; do NOT switch framework or language
+- Do NOT add dependencies to ${adapter.dependencyManifest} unless explicitly requested
+- Keep the project building; preserve entrypoints (${adapter.entrypoints.join(", ")})
 - Return ONLY valid JSON: { "summary": string, "patches": [{ "path", "action": "create"|"modify"|"delete", "content"? }] }
-- For modify/create, content must be the FULL file body`;
+- For modify/create, content must be the FULL file body
+${goldenCoderRules(techStack)}`;
+}
 
 async function surgicalIterateFix(
   files: Record<string, string>,
@@ -68,7 +78,7 @@ export async function runQuickEdit(params: {
   request: string;
   techStack?: string | null;
 }): Promise<QuickEditResult> {
-  const techStack = preferReactNodeStack(params.techStack);
+  const techStack = requireExplicitStack(params.techStack);
   const baseline = await getProjectFiles(params.projectId);
   const fileList = Object.keys(baseline).sort();
   if (fileList.length === 0) {
@@ -84,7 +94,7 @@ export async function runQuickEdit(params: {
   const response = await invokeLLM({
     model: modelForAgent("coder"),
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: quickEditSystemPrompt(techStack) },
       {
         role: "user",
         content: `Tech stack: ${techStack}

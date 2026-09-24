@@ -212,7 +212,7 @@
                 [
                   {
                     role: "system",
-                    content: `You are the ${task.agent} specialist operating inside AppForge's coordinated Coder stage. Output files as // filename: path then full code.\nBuild real implementations only; never stubs, TODOs, empty handlers, fake success, or unrelated features.\nYou may only write files assigned to this task.\n${goldenCoderRules(techStack)}\n${runtimeContract}\n${recipeCoderHint(productContract.originalPrompt)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
+                    content: `You are the ${task.agent} specialist operating inside AppForge's coordinated Coder stage. Output files as // filename: path then full code.\nBuild real implementations only; never stubs, TODOs, empty handlers, fake success, or unrelated features.\nYou may only write files assigned to this task.\n${goldenCoderRules(techStack)}\n${runtimeContract}\n${stackRecipeCoderHint(productContract.originalPrompt, techStack)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
                   },
                   {
                     role: "user",
@@ -410,7 +410,7 @@
         );
         generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
         generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
-        if (isGoldenStack(techStack) || techStack.includes("react")) {
+        if (appliesGoldenWebLimits(techStack)) {
           generatedFiles = ensureRecipeFloor(generatedFiles, {
             title: appTitle,
             description,
@@ -424,11 +424,15 @@
           });
         }
         emit("System", "info", { message: "Reliability pass applied (entrypoints, package.json, imports)." });
-        if (mergeBilling) {
+        if (mergeBilling && billingScaffoldSupported(techStack)) {
           const fintechSchema = generatedFiles["fintech/fintech-schema.json"];
           generatedFiles = mergeBillingScaffold(generatedFiles, techStack, fintechSchema, productContract);
           generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
           emit("System", "info", { message: "Merged Stripe billing scaffold." });
+        } else if (mergeBilling) {
+          emit("System", "info", {
+            message: `Stripe billing scaffold is React + Node only; ${techStack} keeps its own stack and implements billing natively.`,
+          });
         }
       } catch (reliabilityError) {
         const message =

@@ -32,7 +32,11 @@ const SOURCE_EXTENSIONS = [
 ];
 
 const NODE_BUILTINS = new Set(
-  builtinModules.flatMap((name) => [name, name.replace(/^node:/, ""), `node:${name}`]),
+  builtinModules.flatMap((name) => [
+    name,
+    name.replace(/^node:/, ""),
+    `node:${name}`,
+  ]),
 );
 
 function json(value: unknown): string {
@@ -54,7 +58,9 @@ export function isSafeProjectPath(path: string): boolean {
   return !path.split("/").some((segment) => segment === ".." || segment === "");
 }
 
-function packageManagerFor(stack: string): GeneratedProjectStructurePolicy["packageManager"] {
+function packageManagerFor(
+  stack: string,
+): GeneratedProjectStructurePolicy["packageManager"] {
   const adapter = getStackAdapter(stack);
   if (adapter.dependencyManifest === "pubspec.yaml") return "flutter";
   if (adapter.dependencyManifest === "requirements.txt") return "pip";
@@ -69,12 +75,27 @@ function requiredConfigFiles(stack: string): string[] {
     if (
       adapter.runtime === "node" ||
       adapter.id.includes("react") ||
-      ["next-node", "phaser-html5", "three-js-3d", "data-visualization", "electron-react", "tauri-rust", "chrome-extension"].includes(adapter.id)
+      [
+        "next-node",
+        "phaser-html5",
+        "three-js-3d",
+        "data-visualization",
+        "electron-react",
+        "tauri-rust",
+        "chrome-extension",
+      ].includes(adapter.id)
     ) {
       files.add("tsconfig.json");
     }
     if (
-      ["react-node", "phaser-html5", "three-js-3d", "data-visualization", "electron-react", "tauri-rust"].includes(adapter.id)
+      [
+        "react-node",
+        "phaser-html5",
+        "three-js-3d",
+        "data-visualization",
+        "electron-react",
+        "tauri-rust",
+      ].includes(adapter.id)
     ) {
       files.add("vite.config.ts");
     }
@@ -118,16 +139,18 @@ export function getGeneratedProjectStructurePolicy(
         ? "app/"
         : null;
 
-  const databaseBoundary =
-    ["saas_application", "api", "automation_tool", "data_product"].some((type) =>
-      adapter.productTypes.includes(type as never),
-    )
-      ? adapter.runtime === "python"
-        ? "app/db/"
-        : adapter.runtime === "node"
-          ? "src/db/"
-          : null
-      : null;
+  const databaseBoundary = [
+    "saas_application",
+    "api",
+    "automation_tool",
+    "data_product",
+  ].some((type) => adapter.productTypes.includes(type as never))
+    ? adapter.runtime === "python"
+      ? "app/db/"
+      : adapter.runtime === "node"
+        ? "src/db/"
+        : null
+    : null;
 
   const assetRoots =
     adapter.id === "flutter-firebase"
@@ -135,8 +158,8 @@ export function getGeneratedProjectStructurePolicy(
       : adapter.id === "react-native-expo"
         ? ["assets/"]
         : ["web", "static", "game", "data"].includes(adapter.artifactKind) ||
-          adapter.id === "next-node"
-        ? ["public/", "assets/", "src/assets/"]
+            adapter.id === "next-node"
+          ? ["public/", "assets/", "src/assets/"]
           : adapter.runtime === "extension"
             ? ["icons/", "assets/"]
             : ["assets/"];
@@ -223,7 +246,8 @@ export function ensureGeneratedProjectStructure(
 }
 
 function npmPackageNameValid(name: unknown): boolean {
-  if (typeof name !== "string" || name.length < 1 || name.length > 214) return false;
+  if (typeof name !== "string" || name.length < 1 || name.length > 214)
+    return false;
   if (name.startsWith(".") || name.startsWith("_")) return false;
   if (/[A-Z\s]/.test(name)) return false;
   return /^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)$/.test(
@@ -246,7 +270,10 @@ function packageNameFromSpecifier(specifier: string): string | null {
   ) {
     return null;
   }
-  if (NODE_BUILTINS.has(specifier) || NODE_BUILTINS.has(specifier.replace(/^node:/, ""))) {
+  if (
+    NODE_BUILTINS.has(specifier) ||
+    NODE_BUILTINS.has(specifier.replace(/^node:/, ""))
+  ) {
     return null;
   }
   if (specifier.startsWith("@")) {
@@ -284,8 +311,17 @@ function isDevContext(path: string): boolean {
 
 function sourceCandidates(base: string): string[] {
   const candidates = [base];
+  // NodeNext/ESM TypeScript imports name the emitted .js file (./agent.js
+  // resolves to ./agent.ts at compile time).
+  const emitted = base.match(/^(.*)\.(m|c)?jsx?$/);
+  if (emitted) {
+    const stem = emitted[1];
+    const flavor = emitted[2] ?? "";
+    candidates.push(`${stem}.${flavor}ts`, `${stem}.tsx`);
+  }
   for (const ext of SOURCE_EXTENSIONS) candidates.push(base + ext);
-  for (const ext of SOURCE_EXTENSIONS) candidates.push(posix.join(base, "index" + ext));
+  for (const ext of SOURCE_EXTENSIONS)
+    candidates.push(posix.join(base, "index" + ext));
   return candidates;
 }
 
@@ -324,13 +360,16 @@ function dependencyProblems(
   }
 
   const problems: string[] = [];
-  if (!npmPackageNameValid(pkg.name)) problems.push("package.json has invalid package name");
+  if (!npmPackageNameValid(pkg.name))
+    problems.push("package.json has invalid package name");
   const deps = pkg.dependencies ?? {};
   const devDeps = pkg.devDependencies ?? {};
 
   for (const name of Object.keys(deps)) {
     if (name in devDeps && deps[name] !== devDeps[name]) {
-      problems.push(`dependency ${name} is declared with conflicting runtime/dev versions`);
+      problems.push(
+        `dependency ${name} is declared with conflicting runtime/dev versions`,
+      );
     }
   }
 
@@ -355,7 +394,9 @@ function dependencyProblems(
       if (!packageName) continue;
       if (isDevContext(path)) {
         if (!(packageName in devDeps) && !(packageName in deps)) {
-          problems.push(`${path}: undeclared development dependency ${packageName}`);
+          problems.push(
+            `${path}: undeclared development dependency ${packageName}`,
+          );
         }
       } else if (
         !(packageName in deps) &&
@@ -390,14 +431,16 @@ function scriptProblems(
         .slice("npm run ".length)
         .trim()
         .split(/\s+/)[0];
-      if (!scripts[script]) problems.push(`package.json missing required ${script} script`);
+      if (!scripts[script])
+        problems.push(`package.json missing required ${script} script`);
     }
     if (policy.startCommand?.startsWith("npm run ")) {
       const script = policy.startCommand
         .slice("npm run ".length)
         .trim()
         .split(/\s+/)[0];
-      if (!scripts[script]) problems.push(`package.json missing required ${script} script`);
+      if (!scripts[script])
+        problems.push(`package.json missing required ${script} script`);
     }
     return problems;
   } catch {
@@ -414,7 +457,9 @@ function conflictingEntrypointProblems(
       ["src/main.tsx", "src/main.ts", "src/main.jsx", "src/main.js"],
       ["src/App.tsx", "src/App.jsx", "src/App.ts", "src/App.js"],
     ],
-    "data-visualization": [["src/main.tsx", "src/main.ts", "src/main.jsx", "src/main.js"]],
+    "data-visualization": [
+      ["src/main.tsx", "src/main.ts", "src/main.jsx", "src/main.js"],
+    ],
     "next-node": [["app/page.tsx", "pages/index.tsx", "pages/index.jsx"]],
     "api-service": [["src/server.ts", "src/index.ts"]],
     "node-service": [["src/index.ts", "src/server.ts"]],
@@ -430,13 +475,20 @@ function conflictingEntrypointProblems(
   return problems;
 }
 
-function lockfileProblems(files: Record<string, string>, stack: string): string[] {
+function lockfileProblems(
+  files: Record<string, string>,
+  stack: string,
+): string[] {
   const policy = getGeneratedProjectStructurePolicy(stack);
   if (policy.packageManager !== "npm") return [];
-  const locks = ["package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"].filter(
-    (path) => path in files,
-  );
-  if (locks.length > 1) return [`conflicting package-manager lockfiles: ${locks.join(", ")}`];
+  const locks = [
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+  ].filter((path) => path in files);
+  if (locks.length > 1)
+    return [`conflicting package-manager lockfiles: ${locks.join(", ")}`];
   if (!files["package-lock.json"]) return [];
 
   try {
@@ -467,10 +519,14 @@ function lockfileProblems(files: Record<string, string>, stack: string): string[
     }
     if (root) {
       if (root.name && pkg.name && root.name !== pkg.name) {
-        problems.push("package-lock.json package name disagrees with package.json");
+        problems.push(
+          "package-lock.json package name disagrees with package.json",
+        );
       }
       if (root.version && pkg.version && root.version !== pkg.version) {
-        problems.push("package-lock.json package version disagrees with package.json");
+        problems.push(
+          "package-lock.json package version disagrees with package.json",
+        );
       }
       if (
         JSON.stringify(root.dependencies ?? {}) !==
@@ -500,20 +556,24 @@ export function validateGeneratedProjectStructure(
   const problems: string[] = [];
 
   for (const path of Object.keys(files)) {
-    if (!isSafeProjectPath(path)) problems.push(`unsafe project path escapes project directory: ${path}`);
+    if (!isSafeProjectPath(path))
+      problems.push(`unsafe project path escapes project directory: ${path}`);
   }
 
   if (!files[adapter.dependencyManifest]?.trim()) {
     problems.push(`missing dependency manifest ${adapter.dependencyManifest}`);
   }
   for (const entrypoint of adapter.entrypoints) {
-    if (!files[entrypoint]?.trim()) problems.push(`missing runtime entrypoint ${entrypoint}`);
+    if (!files[entrypoint]?.trim())
+      problems.push(`missing runtime entrypoint ${entrypoint}`);
   }
   for (const config of policy.requiredConfigFiles) {
-    if (!(config in files)) problems.push(`missing configuration/environment file ${config}`);
+    if (!(config in files))
+      problems.push(`missing configuration/environment file ${config}`);
   }
   for (const doc of policy.requiredDocumentation) {
-    if (!files[doc]?.trim()) problems.push(`missing project documentation ${doc}`);
+    if (!files[doc]?.trim())
+      problems.push(`missing project documentation ${doc}`);
   }
   if (!files["appforge.structure.json"]?.trim()) {
     problems.push("missing appforge.structure.json");

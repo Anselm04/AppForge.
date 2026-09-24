@@ -8,6 +8,7 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { ensureUserCredits } from "../db.js";
 import { runQuickEdit } from "../services/quickEditAgent.js";
+import { resolveProjectStack } from "../lib/projectStack.js";
 
 export const projectChatRouter = router({
   list: protectedProcedure
@@ -90,7 +91,7 @@ export const projectChatRouter = router({
           const edit = await runQuickEdit({
             projectId: input.projectId,
             request: input.content,
-            techStack: project.techStack,
+            techStack: resolveProjectStack(project).techStack,
           });
           await db.insert(schema.projectMessages).values({
             projectId: input.projectId,

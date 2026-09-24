@@ -6,7 +6,7 @@ import {
   hardenAfterIterate,
   ensureIterateGreen,
 } from "../lib/iterateReliable.js";
-import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import { requireExplicitStack } from "../lib/stackDefaults.js";
 import {
   renderProductContractForAgents,
   type ProductContract,
@@ -499,6 +499,8 @@ export async function runSeniorDevAgent(
   );
 
   try {
+    // Edits run on the project's recorded stack; no silent React fallback.
+    techStack = requireExplicitStack(techStack);
     let context = "";
 
     if (!(task.planApproved && task.plan)) {
@@ -537,7 +539,6 @@ export async function runSeniorDevAgent(
     );
     task.changes = changes;
 
-    techStack = preferReactNodeStack(techStack);
     Object.assign(
       generatedFiles,
       hardenAfterIterate(generatedFiles, techStack),

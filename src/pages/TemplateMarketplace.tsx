@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
-import { writePromptDraft, writePromptStack } from "../lib/promptDraft.js";
 import { TemplateCard } from "../components/TemplateCard.js";
 import { TemplateFilters } from "../components/TemplateFilters.js";
 import { TemplatePreview } from "../components/TemplatePreview.js";
@@ -62,6 +61,16 @@ export function TemplateMarketplace() {
           onSearchChange={setSearchQuery}
         />
 
+        {cloneTemplate.isError && (
+          <div
+            role="alert"
+            className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {(cloneTemplate.error as Error)?.message ||
+              "Could not start a build from this template."}
+          </div>
+        )}
+
         {/* Templates Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -88,16 +97,10 @@ export function TemplateMarketplace() {
                   setShowPreview(true);
                 }}
                 onUse={() => {
-                  cloneTemplate.mutate(template.id, {
-                    onError: () => {
-                      writePromptDraft(
-                        `Build a ${template.name}: ${template.description}`,
-                      );
-                      const stack = template.techStack[0];
-                      if (stack) writePromptStack(stack);
-                      navigate("/");
-                    },
-                  });
+                  // The template's stack is applied server-side. On failure we
+                  // show the reason instead of dropping the stack and sending
+                  // the prompt to an auto-selected build.
+                  cloneTemplate.mutate(template.id);
                 }}
               />
             ))}

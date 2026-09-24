@@ -2,6 +2,24 @@
  * Deterministic error-class patches — fix common compile failures without an LLM round-trip.
  */
 
+function declaresReact(packageJson: string | undefined): boolean {
+  if (typeof packageJson !== "string") return false;
+  try {
+    const pkg = JSON.parse(packageJson) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    return Boolean(
+      pkg.dependencies?.react ??
+      pkg.devDependencies?.react ??
+      pkg.peerDependencies?.react,
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function applyDeterministicErrorFixes(
   files: Record<string, string>,
   errors: string[],
@@ -9,9 +27,12 @@ export function applyDeterministicErrorFixes(
   const out = { ...files };
   const applied: string[] = [];
   const blob = errors.join("\n");
+  const usesReact = declaresReact(out["package.json"]);
 
-  // Missing React import when JSX present
+  // Missing React import when JSX present — only in projects that actually
+  // depend on React; never introduce React into another stack.
   for (const [path, content] of Object.entries(out)) {
+    if (!usesReact) break;
     if (!/\.(tsx|jsx)$/.test(path)) continue;
     if (/<[A-Za-z]/.test(content) && !/from\s+["']react["']/.test(content)) {
       out[path] = `import React from "react";\n${content}`;
@@ -19,11 +40,12 @@ export function applyDeterministicErrorFixes(
     }
   }
 
-  // Cannot find module './X' with extension — strip .tsx from imports (also in harden)
+  // Cannot find module './X.tsx' — strip TypeScript source extensions from
+  // imports. `.js` specifiers are left alone: NodeNext services require them.
   for (const [path, content] of Object.entries(out)) {
     if (!/\.(tsx?|jsx?)$/.test(path)) continue;
     const next = content.replace(
-      /(from\s+["'])(\.[^"']+)\.(tsx?|jsx?)(["'])/g,
+      /(from\s+["'])(\.[^"']+)\.(tsx?)(["'])/g,
       "$1$2$4",
     );
     if (next !== content) {
@@ -71,11 +93,14 @@ export function applyDeterministicErrorFixes(
     const dup = content.match(/import React from ["']react["']/g);
     if (dup && dup.length > 1) {
       let once = false;
-      out[path] = content.replace(/import React from ["']react["'];?\n?/g, () => {
-        if (once) return "";
-        once = true;
-        return `import React from "react";\n`;
-      });
+      out[path] = content.replace(
+        /import React from ["']react["'];?\n?/g,
+        () => {
+          if (once) return "";
+          once = true;
+          return `import React from "react";\n`;
+        },
+      );
       applied.push(`dedupe-react:${path}`);
     }
   }

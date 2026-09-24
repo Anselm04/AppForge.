@@ -37,6 +37,7 @@ export const useCases = [
 export const templates = [
   {
     id: "template-1",
+    stackId: "react-node",
     name: "SaaS Starter",
     description:
       "SaaS starter with auth, dashboard, and Stripe billing scaffold — configure keys and DB before live payments",
@@ -68,6 +69,7 @@ export const templates = [
   },
   {
     id: "template-2",
+    stackId: "react-node",
     name: "E-commerce Store",
     description:
       "Full-featured online store with product catalog, cart, and payments",
@@ -98,6 +100,7 @@ export const templates = [
   },
   {
     id: "template-3",
+    stackId: "react-node",
     name: "CRM System",
     description:
       "Customer relationship management with pipeline tracking and analytics",
@@ -121,6 +124,7 @@ export const templates = [
   },
   {
     id: "template-4",
+    stackId: "react-node",
     name: "Project Management",
     description:
       "Task and project tracking with boards, timelines, and team collaboration",
@@ -145,6 +149,7 @@ export const templates = [
   },
   {
     id: "template-5",
+    stackId: "data-visualization",
     name: "Analytics Dashboard",
     description:
       "Data visualization and analytics with charts, metrics, and reports",
@@ -175,6 +180,7 @@ export const templates = [
   },
   {
     id: "template-6",
+    stackId: "react-node",
     name: "Social Network",
     description:
       "Social platform with feeds, profiles, messaging, and notifications",

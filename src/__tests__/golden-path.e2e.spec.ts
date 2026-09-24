@@ -79,13 +79,11 @@ test("production proof requires generated tests before deploy certification", as
   );
   expect(pipeline).toContain('testGateRequired: validationMode === "full"');
   expect(pipeline).toContain("generatedTestFileCount:");
-  expect(testingAgent).toContain(
-    'scripts.test = scripts.test ?? "vitest run"',
-  );
-  expect(testingAgent).toContain("devDependencies.vitest");
-  expect(testingAgent).toContain(
-    'devDependencies["@testing-library/react"]',
-  );
+  expect(testingAgent).toContain('scripts.test = scripts.test ?? "vitest run"');
+  // Every stack's harness installs vitest; only React stacks get RTL.
+  expect(testingAgent).toContain("HARNESS_DEV_DEPENDENCIES[harness]");
+  expect(testingAgent).toContain('node: { vitest: "^3.2.7" }');
+  expect(testingAgent).toContain('"@testing-library/react": "^14.2.0"');
   expect(canary).toContain("done.validationPassed !== true");
   expect(canary).toContain("done.testGateRequired !== true");
   expect(canary).toContain("done.generatedTestFileCount > 0");

@@ -55,7 +55,7 @@
       emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
       validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
         testsBlocking,
-        validateBilling: mergeBilling,
+        validateBilling: mergeBilling && billingScaffoldSupported(techStack),
         productContract,
         productPlan: coordinationContext?.productPlan,
         researchDecisions: coordinationContext?.researchDecisions,
@@ -92,6 +92,7 @@
           description,
           recipe: activeRecipe,
           title: appTitle,
+          techStack,
         });
         if (!quality.ok) {
           validationResult = {
@@ -298,7 +299,7 @@
     );
     if (
       allowGuaranteedGreen &&
-      (isGoldenStack(techStack) || techStack.includes("react"))
+      hardeningProfileForStack(techStack) === "vite-react"
     ) {
       emit("System", "info", {
         message: `ALLOW_GUARANTEED_GREEN: applying recipe baseline (${classifyRecipe(description).id}) — not customer success.`,

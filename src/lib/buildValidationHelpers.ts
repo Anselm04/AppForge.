@@ -3,6 +3,7 @@ import {
   type ValidationResult,
 } from "../agents/buildValidator.js";
 import { getValidationMode } from "./validationMode.js";
+import { requireExplicitStack } from "./stackDefaults.js";
 
 /** Score paths by relevance to an edit request (imports, routes, mentioned paths). */
 export function selectFilesForEditContext(
@@ -66,7 +67,7 @@ export async function validateProjectFiles(
   techStack: string | null | undefined,
   options?: { testsBlocking?: boolean },
 ): Promise<ValidationResult> {
-  const stack = techStack ?? "react-node";
+  const stack = requireExplicitStack(techStack);
   const mode = getValidationMode(stack);
   const testsBlocking = options?.testsBlocking ?? mode === "full";
   return validateGeneratedBuild(files, stack, { testsBlocking });

@@ -30,10 +30,16 @@ import { runResearchAgent } from "./researchAgent.js";
 import { attachGeneratedTests } from "./testingAgent.js";
 import { plannerLocaleHint } from "../lib/localePlanner.js";
 import { detectIncomeIntent } from "../lib/revenueReadiness.js";
-import { mergeBillingScaffold } from "../services/saasBillingScaffold.js";
 import {
+  billingScaffoldSupported,
+  mergeBillingScaffold,
+} from "../services/saasBillingScaffold.js";
+import {
+  appliesGoldenWebLimits,
+  complianceScaffoldingAllowed,
   goldenCoderRules,
   hardenGeneratedProject,
+  hardeningProfileForStack,
   isGoldenStack,
   maxFixRetriesForStack,
 } from "../lib/reliableBuild.js";
@@ -41,10 +47,12 @@ import {
   buildSurgicalFixPrompt,
   mergeSurgicalPatches,
 } from "../lib/surgicalFix.js";
-import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
+import {
+  buildGuaranteedGreenApp,
+  stackRecipeCoderHint,
+} from "../lib/guaranteedGreen.js";
 import {
   classifyRecipe,
-  recipeCoderHint,
   ensureRecipeFloor,
 } from "../lib/appRecipes.js";
 import {
@@ -66,8 +74,8 @@ import {
   stripComplianceFromGolden,
   capGoldenFiles,
 } from "../lib/goldenLimits.js";
-import { preferReactNodeStack } from "../lib/stackDefaults.js";
-import { getStackAdapter } from "../lib/stackAdapters.js";
+import { requireExplicitStack } from "../lib/stackDefaults.js";
+import { getStackAdapter, STACK_ADAPTERS } from "../lib/stackAdapters.js";
 import { runtimeArchitectureInstruction } from "../lib/runtimeArchitecture.js";
 import type { TripleAuditResult } from "./tripleAudit.js";
 import { db } from "../db.js";
@@ -121,23 +129,16 @@ import {
   type AgentCoordinationRecord,
 } from "../lib/agentCoordination.js";
 
-const SUPPORTED_TECH_STACKS = [
-  "react-node","react-python","vue-node","svelte-node","next-node","angular-node",
-  "vanilla-node","react-django","react-supabase","remix-node","astro-node",
-  "phaser-html5","three-js-3d","babylon-js-3d","unity-webgl","godot-html5",
-  "react-native-game","flutter-game","ai-agent-python","ai-agent-node","openai-tool",
-  "langchain-tool","crewai-agent","autogen-agent","electron-react","tauri-rust",
-  "react-native-expo","flutter-firebase","capacitor-ionic","chrome-extension",
-  "vscode-extension","discord-bot","telegram-bot","slack-bot","browser-automation",
-  "web-scraper","data-visualization","api-service","serverless-aws","serverless-vercel",
-] as const;
+// The stack adapter registry is the only list of buildable stacks. Ids
+// without an adapter (vue-node, unity-webgl, ...) are not valid build stacks.
+const SUPPORTED_TECH_STACKS = STACK_ADAPTERS.map((adapter) => adapter.id);
 
-export type TechStack = (typeof SUPPORTED_TECH_STACKS)[number];
+export type TechStack = string;
 export function isValidTechStack(stack: string): stack is TechStack {
-  return (SUPPORTED_TECH_STACKS as readonly string[]).includes(stack);
+  return SUPPORTED_TECH_STACKS.includes(stack);
 }
 export function getTechStackDescription(stack: TechStack): string {
-  return stack;
+  return getStackAdapter(stack).label;
 }
 
 type AgentRole = "Planner"|"Coder"|"Reviewer"|"Validator"|"Cosine"|"Testing"|"Research"|"System";
@@ -226,7 +227,8 @@ export async function runAgentPipeline(
   creditCheck?: CreditChecker,
   options?: PipelineOptions,
 ): Promise<void> {
-  techStack = preferReactNodeStack(techStack);
+  // The queued contract stack is authoritative; never fall back to React.
+  techStack = requireExplicitStack(techStack);
   const locale = options?.locale ?? "en";
   const localeHint = `${LOCALE_UI_HINT(locale)}\n${plannerLocaleHint(locale)}`.trim();
   const capabilities = normalizeCapabilities(options?.buildCapabilities ?? []);
@@ -254,6 +256,11 @@ export async function runAgentPipeline(
   const productContract = validateProductContract(
     options?.productContract ?? projectRow?.productContract,
   );
+  if (productContract.selectedTechnologyStack !== techStack) {
+    throw new Error(
+      `Build stack ${techStack} does not match the product contract stack ${productContract.selectedTechnologyStack}`,
+    );
+  }
   const contractContext = renderProductContractForAgents(productContract);
   const storedCaps = normalizeCapabilities(projectRow?.buildCapabilities ?? []);
   const activeCapabilities = capabilities.length > 0 ? capabilities : storedCaps;

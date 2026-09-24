@@ -55,6 +55,10 @@ Production deployment to Fly.io is automatic for green `main`. When the `CI Pipe
 
 Every queued build carries the typed context resolved at intake: the original prompt, the resolved prompt intent, the canonical product contract, and the stack. The worker never reclassifies a prompt. A dequeued build whose context is missing, ambiguous, invalid, or disagrees with the persisted project (its contract or its `techStack`) is rejected before any agent runs. Its reservation is refunded with the normal per-attempt refund key, and the project is marked `failed` with reason `build_contract_invalid`. The customer is asked to create the project again. Autonomous self-healing repairs refuse to run when the project's contract is invalid or its snapshot stack disagrees with that contract. If projects start failing with `build_contract_invalid` after a release, treat it as a producer/queue regression and roll back that release. Do not relax the check.
 
+### Stack-specific production deploys and structural-only stacks
+
+The build worker deploys a validated build with its stack adapter's own packaging: static output (React/Vite, data dashboards, Phaser, Three.js, static sites) is served by nginx, Next.js runs `next start`, Node services and Node AI agents run `npm run start` and are certified through their `/health/live` and `/health/ready` endpoints plus the `/.well-known/appforge-build.json` identity, and browser automation uses the Playwright image pinned to the scaffold's `playwright` version. Structural-only stacks (Expo, Flutter, Electron, Tauri, Python service, Python AI agent, Chrome extension) are never deployed: the build completes as a source deliverable with `structuralOnly: true` and `deployment: "structural_source_only"` in the `done` event and no live URL. If customer deploys of one stack start failing after a release, roll back that release. Do not mark a structural stack as deployed.
+
 ## Emergency decision tree
 
 ### Case A: Daily device is lost or unavailable
