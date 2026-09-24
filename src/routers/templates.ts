@@ -11,6 +11,38 @@ import { getStackScaffold } from "../services/stackScaffolds.js";
 import { templates } from "../data/templates.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { ensureUserCredits } from "../db.js";
+import {
+  resolveIntakeContract,
+  type ProductContract,
+} from "../lib/productContract.js";
+import { isSupportedStack, normalizeStackId } from "../lib/stackAdapters.js";
+
+type Template = (typeof templates)[number];
+
+/**
+ * A template's stack is explicit: its stackId must be a supported stack
+ * adapter that can build the template's product, and the project is created
+ * with that contract. No React fallback.
+ */
+export function templateIntake(
+  template: Template,
+):
+  | { ok: true; productContract: ProductContract }
+  | { ok: false; message: string } {
+  const declared = template.stackId;
+  if (!declared || !isSupportedStack(declared)) {
+    return {
+      ok: false,
+      message: `Template ${template.id} does not declare a supported technology stack`,
+    };
+  }
+  const intake = resolveIntakeContract(
+    `Build a ${template.name}: ${template.description}`,
+    normalizeStackId(declared),
+  );
+  if (!intake.ok) return { ok: false, message: intake.message };
+  return { ok: true, productContract: intake.productContract };
+}
 
 export const templatesRouter = router({
   list: protectedProcedure.query(() => templates),
@@ -35,8 +67,16 @@ export const templatesRouter = router({
         });
       }
 
-      const techStack = template.techStack[0] ?? "react-node";
-      const scaffold = getStackScaffold(techStack);
+      const intake = templateIntake(template);
+      if (!intake.ok) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: intake.message,
+        });
+      }
+      const { productContract } = intake;
+      const techStack = productContract.selectedTechnologyStack;
+      const scaffold = getStackScaffold(techStack, productContract.productType);
       const starterFiles: Record<string, string> = {
         ...scaffold,
         "README.md": `# ${template.name}\n\n${template.description}\n\nStarted from AppForge template **${template.id}**.\n`,
@@ -46,9 +86,10 @@ export const templatesRouter = router({
       const projectId = await createProject({
         userId: ctx.user.id,
         title: template.name,
-        description: `Build a ${template.name}: ${template.description}`,
+        description: productContract.originalPrompt,
         techStack,
         status: "pending",
+        productContract,
       });
 
       await updateProjectFiles(projectId, starterFiles);
