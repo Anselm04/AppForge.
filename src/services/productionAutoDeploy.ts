@@ -119,6 +119,7 @@ export async function deployValidatedProject(opts: {
   const securityPosture = validateGeneratedSecurityPosture(
     opts.files,
     stackAdapter.id,
+    contract,
   );
   const blockingSecurityFindings = [
     ...securityScan.findings.filter(
