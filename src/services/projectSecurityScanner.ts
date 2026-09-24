@@ -92,6 +92,24 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
+    id: "command.dangerous-fixed-shell",
+    severity: "high",
+    message:
+      "Generated code invokes a dangerous shell/network/system command.",
+    pattern:
+      /\b(?:exec|execSync)\s*\(\s*["']\s*(?:rm\s+-rf|curl\b|wget\b|nc\b|netcat\b|ssh\b|scp\b|sudo\b|chmod\b|chown\b|mkfifo\b|mount\b|umount\b)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "path.system-file-operation",
+    severity: "high",
+    message:
+      "Generated code attempts filesystem operations on protected host-system paths.",
+    pattern:
+      /(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\s*\(\s*["']\/(?:etc|root|proc|sys|dev)(?:\/|["'])/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
     id: "sql.string-interpolation",
     severity: "high",
     message:
@@ -392,6 +410,45 @@ function scanEnvironmentSecrets(
   return findings;
 }
 
+function scanSensitiveAssignments(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  if (
+    /(?:^|\/)\.env(?:\.|$)/i.test(path) ||
+    /\.(?:lock|map|min\.js)$/i.test(path)
+  ) {
+    return [];
+  }
+
+  const findings: ProjectSecurityFinding[] = [];
+  const assignment =
+    /\b([A-Za-z_][A-Za-z0-9_]*(?:secret|token|password|private[_-]?key|service[_-]?role|api[_-]?key|database[_-]?url)[A-Za-z0-9_]*)\b\s*(?::[^=;\n]+)?=\s*["']([^"'\n]+)["']/gi;
+  let match: RegExpExecArray | null;
+  while ((match = assignment.exec(content)) !== null) {
+    const value = match[2].trim();
+    if (
+      !value ||
+      /^(?:changeme|replace-me|example|placeholder|your[-_].+|<.+>|\$\{.+\})$/i.test(
+        value,
+      )
+    ) {
+      continue;
+    }
+    findings.push(
+      makeFinding(
+        "secret.literal-assignment",
+        "critical",
+        path,
+        "Generated source contains a literal value assigned to a secret-bearing variable.",
+        match[1] + "=<redacted>",
+        lineNumberAt(content, match.index),
+      ),
+    );
+  }
+  return findings;
+}
+
 function scanDependencies(
   path: string,
   content: string,
@@ -558,6 +615,7 @@ export function scanProjectFiles(
 
     scannedFiles += 1;
     findings.push(...scanEnvironmentSecrets(path, content));
+    findings.push(...scanSensitiveAssignments(path, content));
     findings.push(...scanDependencies(path, content));
 
     for (const rule of RULES) {
