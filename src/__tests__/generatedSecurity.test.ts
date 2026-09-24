@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   scanProjectFiles,
@@ -13,6 +14,11 @@ describe("#16 generated security", () => {
         "fetch(req.query.url);",
         "res.redirect(req.query.next);",
         "execSync(`echo ${req.body.value}`);",
+      ].join("\n"),
+      "src/auth.ts": [
+        "const userId = req.body.userId;",
+        "console.log(process.env.OPENAI_API_KEY);",
+        "element.innerHTML = req.body.html;",
       ].join("\n"),
       "package.json": JSON.stringify({
         dependencies: {
@@ -30,6 +36,9 @@ describe("#16 generated security", () => {
         "code.shell-exec-interpolation",
         "dependency.unpinned",
         "dependency.remote-source",
+        "auth.client-controlled-identity",
+        "secret.logging",
+        "web.inner-html-assignment",
       ]),
     );
   });
@@ -74,6 +83,19 @@ describe("#16 generated security", () => {
     expect(findings.map((finding) => finding.ruleId)).toEqual(
       expect.arrayContaining(["upload.unbounded", "ai.unrestricted-tools"]),
     );
+  });
+
+  it("wires mandatory security gates into validation, isolated builds and production deploy", () => {
+    const validator = readFileSync("src/agents/buildValidator.ts", "utf8");
+    const deployer = readFileSync("src/services/productionAutoDeploy.ts", "utf8");
+    const isolated = readFileSync("src/services/isolatedBuildRunner.ts", "utf8");
+    expect(validator).toContain("scanProjectFiles(files)");
+    expect(validator).toContain('stage: "security"');
+    expect(deployer).toContain("Production deployment blocked by generated-project security findings");
+    expect(isolated).toContain('"security"');
+    expect(isolated).toContain("dependencyAudit: true");
+    expect(isolated).toContain("blockNetworkToPrivateRanges: true");
+    expect(isolated).toContain("blockShellExecution: true");
   });
 
   it("keeps the Node service scaffold on the secure baseline", () => {
