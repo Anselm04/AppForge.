@@ -317,6 +317,72 @@ describe("#16 generated security", () => {
     expect(docker).toContain("--ignore-scripts");
   });
 
+  it("redacts detected credentials from security evidence", () => {
+    const rawSecret =
+      "sk_test_1234567890ABCDEFGHIJ1234567890";
+    const scan = scanProjectFiles({
+      "src/server.ts":
+        'const stripeSecret = "' + rawSecret + '"; console.error(process.env.OPENAI_API_KEY);',
+    });
+    expect(scan.passed).toBe(false);
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining(["secret.stripe-key", "secret.logged-env"]),
+    );
+    expect(
+      scan.findings.some((finding) => finding.evidence.includes(rawSecret)),
+    ).toBe(false);
+  });
+
+  it("blocks hard-coded model-provider credentials and Python secret logging", () => {
+    const scan = scanProjectFiles({
+      "app/main.py": [
+        'MODEL_KEY = "sk-ant-1234567890abcdefghijklmnopqrstuv"',
+        'print(os.getenv("OPENAI_API_KEY"))',
+      ].join("\n"),
+    });
+    expect(scan.passed).toBe(false);
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "secret.model-provider-key",
+        "secret.python-logging",
+      ]),
+    );
+  });
+
+  it("rejects insecure cookie defaults and accepts explicit safe cookie flags", () => {
+    const unsafe = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts":
+          'res.cookie("session", token, { secure: true }); app.post("/change", handler);',
+      },
+      "api-service",
+    );
+    expect(unsafe.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "auth.insecure-cookie-defaults",
+        "web.csrf-protection",
+      ]),
+    );
+
+    const pythonSafe = validateGeneratedSecurityPosture(
+      {
+        "app/main.py": [
+          'response.set_cookie("session", token, httponly=True, samesite="strict")',
+          "csrf_token = verify_csrf(request)",
+        ].join("\n"),
+      },
+      "python-service",
+    );
+    expect(
+      pythonSafe.filter((finding) =>
+        [
+          "auth.insecure-cookie-defaults",
+          "web.csrf-protection",
+        ].includes(finding.ruleId),
+      ),
+    ).toEqual([]);
+  });
+
   it("keeps the Node service scaffold on the secure baseline", () => {
     const files = getStackScaffold("api-service", "api");
     expect(scanProjectFiles(files).passed).toBe(true);
