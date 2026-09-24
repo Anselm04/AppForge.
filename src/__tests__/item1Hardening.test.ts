@@ -89,7 +89,10 @@ describe("Item 1 hardening suite", () => {
 
   it("deterministic fixes add react import", () => {
     const { files, applied } = applyDeterministicErrorFixes(
-      { "src/App.tsx": "export function App(){ return <div/> }" },
+      {
+        "package.json": JSON.stringify({ dependencies: { react: "^18.2.0" } }),
+        "src/App.tsx": "export function App(){ return <div/> }",
+      },
       ["error TS2686"],
     );
     expect(files["src/App.tsx"]).toContain("react");
