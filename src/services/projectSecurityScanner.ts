@@ -193,7 +193,7 @@ const RULES: SecurityRule[] = [
       "Server/service credentials must never be exposed in generated browser code.",
     pattern:
       /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN)/i,
-    paths: /(?:^|\/)(?:src|app|pages|components|public)\/.*\.(?:js|jsx|ts|tsx|html)$/i,
+    paths: /(?:^|\/)(?:public|components|pages|client|frontend|ui)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
   },
   {
     id: "secret.logged-env",
