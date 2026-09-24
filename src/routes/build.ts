@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import { deployToVercel } from "../services/deployer.js";
+import { deployProject } from "../services/deployer.js";
 import { watchProject } from "../agents/selfHealing.js";
 import { getBuildEventsSince } from "../services/build-event-store.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
@@ -33,10 +33,8 @@ import {
   type ProgressEvent,
 } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
-import {
-  productContractSchema,
-  type ProductContract,
-} from "../lib/productContract.js";
+import { resolveProjectStack } from "../lib/projectStack.js";
+import { manualDeployPreflight } from "../lib/stackDeployment.js";
 import {
   claimSeniorDevResume,
   claimSeniorDevStart,
@@ -50,22 +48,11 @@ import {
 } from "../services/senior-dev-reservation.js";
 
 /**
- * Senior Dev edits run against the project's canonical contract when it has a
- * valid one, so manual changes cannot drift to another stack. Legacy projects
- * created before contracts existed keep their stored stack.
+ * Senior Dev edits run against the project's canonical contract stack (or the
+ * recorded stack for legacy projects), so manual changes cannot drift to
+ * another stack. A project with no stack is rejected, never treated as React.
  */
-function seniorDevContext(
-  project: { techStack?: string | null; productContract?: unknown } | null,
-): { techStack: string; productContract?: ProductContract } {
-  const parsed = productContractSchema.safeParse(project?.productContract);
-  if (parsed.success) {
-    return {
-      techStack: parsed.data.selectedTechnologyStack,
-      productContract: parsed.data,
-    };
-  }
-  return { techStack: project?.techStack || "react-node" };
-}
+const seniorDevContext = resolveProjectStack;
 
 const router = Router();
 
@@ -671,11 +658,36 @@ router.post("/deploy", async (req: Request, res: Response) => {
       return;
     }
 
+    // Same stack rules as every other deploy path: structural-only stacks are
+    // never deployed, the destination must be one the stack supports, and the
+    // canonical contract gates completeness inside deployProject.
+    const { techStack, productContract } = resolveProjectStack(project);
+    const preflight = manualDeployPreflight(techStack, "vercel");
+    if (!preflight.ok) {
+      res
+        .status(preflight.status)
+        .json({ error: preflight.error, message: preflight.message });
+      return;
+    }
+    if (!productContract) {
+      res.status(409).json({
+        error: "product_contract_required",
+        message:
+          "This project has no canonical product contract, so it cannot be deployed. Rebuild it first.",
+      });
+      return;
+    }
+
     const files = current.files as Record<string, string>;
-    const deployUrl = await deployToVercel(
-      project.title || "appforge-app",
+    const { url: deployUrl } = await deployProject({
+      destination: "vercel",
+      projectName: project.title || "appforge-app",
       files,
-    );
+      projectId,
+      techStack,
+      productContract,
+      productPlan: project.productPlan ?? undefined,
+    });
 
     watchProject(projectId, req.user.id, deployUrl);
     res.json({ success: true, deployUrl });
