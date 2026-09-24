@@ -6,6 +6,16 @@
           coordinationContextText,
         );
         Object.assign(generatedFiles, testFiles);
+        if (!requirementManifest) {
+          throw new Error("Requirement manifest was not initialized by the Planner");
+        }
+        requirementManifest = markRequirementTests(
+          requirementManifest,
+          generatedFiles,
+        );
+        generatedFiles["appforge.requirements.json"] =
+          serializeRequirementManifest(requirementManifest);
+        await updateProjectRequirementManifest(projectId, requirementManifest);
         const testingLogId = await appendAgentLog({
           projectId,
           agent: "Testing",
@@ -131,6 +141,49 @@
           emit("Validator", "completeness_fail", {
             message,
             outerAttempt,
+          });
+        }
+      }
+
+      if (!requirementManifest) {
+        throw new Error("Requirement manifest was not initialized by the Planner");
+      }
+      requirementManifest = markRequirementImplementation(
+        requirementManifest,
+        generatedFiles,
+      );
+      requirementManifest = markRequirementTests(
+        requirementManifest,
+        generatedFiles,
+      );
+      requirementManifest = markRequirementValidation(requirementManifest, {
+        passed: validationResult.passed,
+        stage: validationResult.stage,
+        errors: validationResult.errors,
+      });
+      generatedFiles["appforge.requirements.json"] =
+        serializeRequirementManifest(requirementManifest);
+      await updateProjectRequirementManifest(projectId, requirementManifest);
+
+      if (validationResult.passed) {
+        try {
+          assertMustHaveRequirementsResolved(requirementManifest);
+        } catch (requirementError) {
+          const message =
+            requirementError instanceof Error
+              ? requirementError.message
+              : "Unresolved must-have requirements";
+          validationResult = {
+            ...validationResult,
+            passed: false,
+            stage: "requirements",
+            errors: [...validationResult.errors, message],
+            warning:
+              "Must-have requirements remain unresolved; build completion is blocked.",
+          };
+          emit("Validator", "requirements_fail", {
+            message,
+            unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
           });
         }
       }
