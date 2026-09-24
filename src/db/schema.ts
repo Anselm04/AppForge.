@@ -16,6 +16,7 @@ import type { ResearchRecord } from "../lib/researchRecord.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { AgentCoordinationRecord } from "../lib/agentCoordination.js";
 import type { RequirementManifest } from "../lib/requirementManifest.js";
+import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 
 // ── USERS ──
 export const users = pgTable("users", {
@@ -114,6 +115,8 @@ export const projects = pgTable(
     errorMessage: text("error_message"),
     pauseReason: text("pause_reason"), // 'credits_exhausted', 'user_cancelled', etc
     generatedFiles: jsonb("generated_files"),
+    workingArtifactVersion: integer("working_artifact_version").default(0).notNull(),
+    workingArtifactIntegrity: jsonb("working_artifact_integrity").$type<ArtifactIntegrity>(),
     creditsSpent: integer("credits_spent").default(0),
     creditsReserved: integer("credits_reserved").default(0), // reserved at build start
     locale: varchar("locale", { length: 10 }).default("en"),
@@ -528,10 +531,12 @@ export const buildSnapshots = pgTable(
     auditScores: jsonb("audit_scores"),
     costEstimate: jsonb("cost_estimate"),
     requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
-    isCurrent: boolean("is_current").default(true),
+    artifactIntegrity: jsonb("artifact_integrity").$type<ArtifactIntegrity>(),
+    isCurrent: boolean("is_current").default(false),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [
+    uniqueIndex("snapshots_project_version_unique").on(table.projectId, table.version),
     index("snapshots_project_version_idx").on(table.projectId, table.version),
     index("snapshots_current_idx").on(table.isCurrent),
     index("snapshots_project_idx").on(table.projectId),
