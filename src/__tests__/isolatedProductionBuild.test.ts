@@ -22,7 +22,7 @@ describe("isolated production build runner", () => {
     expect(isolatedBuildConfigured()).toBe(true);
   });
 
-  it("accepts success only with install, test, build, and runtime evidence", async () => {
+  it("accepts success only with install, security, test, build, and runtime evidence", async () => {
     process.env.NODE_ENV = "production";
     process.env.SPRITES_BUILD_URL = "https://sprites.example.test/build";
     process.env.SPRITES_API_TOKEN = "secret";
@@ -36,6 +36,7 @@ describe("isolated production build runner", () => {
             isolationId: "sandbox-123",
             steps: {
               install: { passed: true },
+              security: { passed: true },
               tests: { passed: true },
               build: { passed: true },
               runtime: { passed: true },
@@ -69,6 +70,7 @@ describe("isolated production build runner", () => {
             isolationId: "sandbox-123",
             steps: {
               install: { passed: true },
+              security: { passed: true },
               tests: { passed: true },
               build: { passed: true },
             },
