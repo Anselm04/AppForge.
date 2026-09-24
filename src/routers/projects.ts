@@ -562,18 +562,16 @@ export const projectsRouter = router({
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
 
-      const { getCurrentSnapshot } = await import("../db.js");
-      const snapshot = await getCurrentSnapshot(input.id);
-      const files =
-        (snapshot?.files as Record<string, string> | null) ??
-        (project.generatedFiles as Record<string, string> | null) ??
-        {};
-      if (Object.keys(files).length === 0) {
+      const { getCurrentArtifact } = await import("../db.js");
+      const artifact = await getCurrentArtifact(input.id);
+      if (!artifact) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No generated files to download",
+          message:
+            "No validated current artifact is available for download. Working/partial files are never exported.",
         });
       }
+      const files = artifact.files;
       const { zipFiles } = await import("../services/deployer.js");
       const { base64, filename } = await zipFiles(
         project.title || "appforge-app",
