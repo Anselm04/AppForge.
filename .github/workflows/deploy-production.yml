@@ -1,11 +1,15 @@
 name: Deploy Production
 
-# Production releases are owner-initiated only. A green CI Pipeline on main no
-# longer deploys automatically: the owner reviews what changed and starts this
-# workflow manually (Actions -> Deploy Production -> Run workflow on main). The
-# validate job below re-runs lint, typecheck, tests, e2e and build on the exact
-# SHA and refuses stale SHAs before any Fly deployment step can run.
+# A green CI Pipeline run for a push to main deploys that exact commit to Fly
+# automatically. The owner can also start a release manually on main
+# (Actions -> Deploy Production -> Run workflow). Either way, the validate job
+# re-runs lint, typecheck, tests, e2e and build on the exact SHA and refuses
+# stale SHAs before any Fly deployment step can run.
 on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,11 +21,11 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
-  RELEASE_SHA: ${{ github.sha }}
+  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   validate:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     name: Validate release
     environment: production
@@ -360,13 +364,45 @@ jobs:
 
           echo "Customer-flow entry and deep-link routes are live after deploy"
 
+      - name: Verify Fly is running the released commit
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="appforge-unfurling-moon-9058"
+          # flyctl stamps every image built from GitHub Actions with GH_SHA.
+          # Every started app Machine must serve the image built from this run's
+          # exact release SHA; otherwise the deploy did not really ship.
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started_shas="$(printf '%s' "$machines_json" | jq -r '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started") | (.image_ref.labels.GH_SHA // "unknown")] | unique | join(",")')"
+          if [ "$started_shas" != "$RELEASE_SHA" ]; then
+            echo "Started app Machines report image commit(s) '$started_shas', expected $RELEASE_SHA."
+            exit 1
+          fi
+          echo "Every started app Machine serves release $RELEASE_SHA"
+
+      # The deploy job has no project node_modules, and installing one package
+      # into the repository without its lockfile crashes npm's resolver
+      # ("Cannot read properties of null (reading 'edgesOut')"). Install the
+      # browser verifier in an isolated directory instead and run the spec there.
       - name: Install browser verifier for live shell
-        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/live-shell"
+          mkdir -p "$dir"
+          cp scripts/production-shell-browser.spec.mjs "$dir/"
+          cd "$dir"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund @playwright/test@1.63.0
 
       - name: Install Chromium for live shell verification
+        working-directory: ${{ runner.temp }}/live-shell
         run: npx playwright install --with-deps chromium
 
       - name: Verify production customer shell interactions in Chromium
+        working-directory: ${{ runner.temp }}/live-shell
         env:
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
-        run: npx playwright test scripts/production-shell-browser.spec.mjs --reporter=line
+        run: npx playwright test production-shell-browser.spec.mjs --reporter=line

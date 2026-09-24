@@ -45,7 +45,7 @@ For privileged accounts:
 
 ## Production release control
 
-Production deployment to Fly.io is manual. A green `CI Pipeline` run on `main` does not deploy anything. The owner starts `Deploy Production` explicitly from GitHub Actions (`workflow_dispatch` on `main`). That workflow re-validates the exact current `main` SHA (lint, typecheck, tests, e2e, build) and refuses stale SHAs before any Fly step runs. During an incident, simply not dispatching the workflow keeps production on the last released version; no workflow edits are needed to pause releases.
+Production deployment to Fly.io is automatic for green `main`. When the `CI Pipeline` run for a push to `main` succeeds, `Deploy Production` deploys that exact commit. The owner can also start `Deploy Production` manually on `main` (`workflow_dispatch`). Every release re-validates the exact SHA (lint, typecheck, tests, e2e, build), refuses stale SHAs before any Fly step runs, and after deploy checks that every started Fly Machine serves the image built from that SHA (the `GH_SHA` image label, also visible with `flyctl machines list --json`). To pause releases during an incident, disable the workflow (GitHub Actions -> Deploy Production -> Disable workflow, or `gh workflow disable "Deploy Production"`). Production then stays on the last released version until the workflow is re-enabled.
 
 ### Project intake kill switch
 
