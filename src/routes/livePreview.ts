@@ -9,6 +9,7 @@ import { verifyPreviewSignature } from "../services/deployer.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { validateProductContract } from "../lib/productContract.js";
+import { ensureIsolatedPreview, invalidateIsolatedPreview } from "../services/previewRuntime.js";
 
 const livePreviewRouter = Router();
 
@@ -16,6 +17,7 @@ type DistCache = { hash: string; dir: string; builtAt: number };
 const distCache = new Map<number, DistCache>();
 
 export function invalidatePreviewCache(projectId: number): void {
+  invalidateIsolatedPreview(projectId);
   const cached = distCache.get(projectId);
   distCache.delete(projectId);
   if (cached?.dir) {
@@ -379,11 +381,48 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       }
       const content = files[rel];
       if (content === undefined) {
+        const looksLikeClientRoute =
+          !rel.includes(".") || req.accepts(["html", "json"]) === "html";
+        if (looksLikeClientRoute) {
+          res.type("html").send(files["index.html"]);
+          return;
+        }
         res.status(404).send("Not found");
         return;
       }
       res.setHeader("Content-Type", mimeFor(rel));
       res.send(content);
+      return;
+    }
+
+    const runtimeBackedPreview =
+      stackAdapter &&
+      stackAdapter.generationMode === "runnable" &&
+      stackAdapter.previewMode !== "static";
+
+    if (runtimeBackedPreview && process.env.NODE_ENV === "production") {
+      const runtimeUrl = await ensureIsolatedPreview({
+        projectId,
+        artifact,
+        stack: stackAdapter,
+      });
+      if (!runtimeUrl) {
+        res.status(503).json({
+          error:
+            "Runnable preview runtime is not configured. The generated artifact is preserved and validated, but AppForge will not substitute a shell or source listing for the real product.",
+          previewStatus: "runtime_unavailable",
+          stack: stackAdapter.id,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+        });
+        return;
+      }
+      const target = new URL(runtimeUrl);
+      const basePath = target.pathname.replace(/\/$/, "");
+      target.pathname = (basePath + "/" + (rel || "")).replace(/\/+/g, "/");
+      target.search = "";
+      target.hash = "";
+      res.redirect(307, target.toString());
       return;
     }
 
@@ -399,7 +438,19 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
         res.send(buf);
         return;
       } catch {
-        // fall through to listing
+        const looksLikeClientRoute =
+          !assetPath.includes(".") ||
+          req.accepts(["html", "json"]) === "html";
+        if (looksLikeClientRoute) {
+          try {
+            const index = await readFile(join(distDir, "index.html"));
+            res.setHeader("Content-Type", mimeFor("index.html"));
+            res.send(index);
+            return;
+          } catch {
+            // fall through to explicit status
+          }
+        }
       }
     }
 
