@@ -4,6 +4,7 @@ import { STACK_ADAPTERS } from "../stackAdapters.js";
 import {
   getRuntimeArchitecture,
   runtimeArchitectureInstruction,
+  validateRuntimeImplementation,
 } from "../runtimeArchitecture.js";
 import { getStackScaffold } from "../../services/stackScaffolds.js";
 
@@ -42,6 +43,21 @@ describe("#15 runtime architecture", () => {
     }
   });
 
+  it("keeps browser web and framework-server assumptions separate", () => {
+    const react = getRuntimeArchitecture("react-node");
+    expect(react.health.mode).toBe("native_runtime");
+    expect(react.shutdown.mode).toBe("host_managed");
+    expect(react.port.mode).toBe("none");
+    expect(react.webSockets).toBe("unsupported");
+
+    const next = getRuntimeArchitecture("next-node");
+    expect(next.health.mode).toBe("http");
+    expect(next.health.livenessPath).toBe("/api/health/live");
+    expect(next.health.readinessPath).toBe("/api/health/ready");
+    expect(next.port.environmentVariable).toBe("PORT");
+    expect(next.webSockets).toBe("conditional");
+  });
+
   it("uses native platform lifecycle for mobile, desktop and extensions", () => {
     for (const stack of ["react-native-expo", "flutter-firebase", "electron-react", "tauri-rust", "chrome-extension"]) {
       const runtime = getRuntimeArchitecture(stack);
@@ -72,6 +88,23 @@ describe("#15 runtime architecture", () => {
     expect(python).toContain('/health/live');
     expect(python).toContain('/health/ready');
     expect(python).toContain('lifespan');
+  });
+
+  it("fails generated services that omit required runtime behavior", () => {
+    const incomplete = {
+      "src/server.ts":
+        'import express from "express"; const app=express(); app.listen(3000);',
+    };
+    const problems = validateRuntimeImplementation(incomplete, "api-service");
+    expect(problems).toContain("missing runtime liveness endpoint /health/live");
+    expect(problems).toContain("missing runtime readiness endpoint /health/ready");
+    expect(problems).toContain("runtime must read port from PORT");
+    expect(problems).toContain("missing graceful shutdown handler for SIGTERM");
+
+    const scaffold = getStackScaffold("api-service", "api");
+    expect(validateRuntimeImplementation(scaffold, "api-service")).toEqual([]);
+    const next = getStackScaffold("next-node", "website");
+    expect(validateRuntimeImplementation(next, "next-node")).toEqual([]);
   });
 
   it("injects the authoritative runtime contract into planner and coder stages", () => {
