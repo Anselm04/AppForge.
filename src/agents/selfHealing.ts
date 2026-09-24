@@ -337,6 +337,11 @@ async function createAutonomousFixTask(
       projectName: project.title ?? `appforge-${projectId}`,
       files: persistedArtifact.files,
       productContract: project.productContract,
+      snapshot: {
+        id: persistedArtifact.snapshotId,
+        version: persistedArtifact.version,
+        integrity: persistedArtifact.integrity,
+      },
     });
 
     await markSnapshotAsCurrent(newSnapshotId, projectId);
