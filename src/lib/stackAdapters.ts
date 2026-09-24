@@ -11,12 +11,7 @@ export type StackPreviewMode =
   | "extension"
   | "source";
 export type StackRuntime =
-  | "browser"
-  | "node"
-  | "python"
-  | "mobile"
-  | "desktop"
-  | "extension";
+  "browser" | "node" | "python" | "mobile" | "desktop" | "extension";
 
 export type StackAdapter = {
   id: string;
@@ -53,7 +48,12 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     id: "react-node",
     label: "React + Node",
     aliases: ["react", "react vite", "vite react", "web app"],
-    productTypes: ["website", "saas_application", "ecommerce_product", "developer_tool"],
+    productTypes: [
+      "website",
+      "saas_application",
+      "ecommerce_product",
+      "developer_tool",
+    ],
     generationMode: "runnable",
     runtime: "node",
     entrypoints: ["src/main.tsx", "src/App.tsx"],
@@ -70,7 +70,12 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
   A({
     id: "static-html",
     label: "Static HTML/CSS/JavaScript",
-    aliases: ["static website", "static site", "html css javascript", "vanilla website"],
+    aliases: [
+      "static website",
+      "static site",
+      "html css javascript",
+      "vanilla website",
+    ],
     productTypes: ["website"],
     generationMode: "runnable",
     runtime: "browser",
@@ -81,7 +86,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     buildCommand: "npm run build",
     startCommand: null,
     previewMode: "static",
-    deploymentTargets: ["vercel", "netlify", "github-pages", "preview"],
+    deploymentTargets: ["vercel", "netlify", "github-pages", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "static",
   }),
@@ -89,7 +94,12 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     id: "next-node",
     label: "Next.js + Node",
     aliases: ["next", "nextjs", "next.js"],
-    productTypes: ["website", "saas_application", "ecommerce_product", "developer_tool"],
+    productTypes: [
+      "website",
+      "saas_application",
+      "ecommerce_product",
+      "developer_tool",
+    ],
     generationMode: "runnable",
     runtime: "node",
     entrypoints: ["app/page.tsx", "app/layout.tsx"],
@@ -117,7 +127,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     buildCommand: "npm run build",
     startCommand: null,
     previewMode: "vite",
-    deploymentTargets: ["vercel", "netlify", "preview"],
+    deploymentTargets: ["vercel", "netlify", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "game",
   }),
@@ -135,7 +145,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     buildCommand: "npm run build",
     startCommand: null,
     previewMode: "vite",
-    deploymentTargets: ["vercel", "netlify", "preview"],
+    deploymentTargets: ["vercel", "netlify", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "game",
   }),
@@ -214,7 +224,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
   A({
     id: "api-service",
     label: "Node API Service",
-    aliases: ["api", "rest api", "node api", "node service"],
+    aliases: ["api", "rest api", "node api"],
     productTypes: ["api", "developer_tool"],
     generationMode: "runnable",
     runtime: "node",
@@ -232,7 +242,12 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
   A({
     id: "node-service",
     label: "Node.js Service",
-    aliases: ["nodejs service", "node.js service", "node backend"],
+    aliases: [
+      "node service",
+      "nodejs service",
+      "node.js service",
+      "node backend",
+    ],
     productTypes: ["api", "automation_tool", "developer_tool"],
     generationMode: "runnable",
     runtime: "node",
@@ -251,7 +266,13 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     id: "python-service",
     label: "Python Service",
     aliases: ["python", "python api", "python service", "fastapi"],
-    productTypes: ["api", "automation_tool", "developer_tool", "data_product", "ai_agent"],
+    productTypes: [
+      "api",
+      "automation_tool",
+      "developer_tool",
+      "data_product",
+      "ai_agent",
+    ],
     generationMode: "structural",
     runtime: "python",
     entrypoints: ["app/main.py"],
@@ -351,7 +372,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     buildCommand: "npm run build",
     startCommand: null,
     previewMode: "vite",
-    deploymentTargets: ["vercel", "netlify", "preview"],
+    deploymentTargets: ["vercel", "netlify", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "data",
   }),
@@ -362,7 +383,8 @@ const BY_ALIAS = new Map<string, StackAdapter>();
 for (const adapter of STACK_ADAPTERS) {
   BY_ALIAS.set(adapter.id, adapter);
   BY_ALIAS.set(adapter.label.toLowerCase(), adapter);
-  for (const alias of adapter.aliases) BY_ALIAS.set(alias.toLowerCase(), adapter);
+  for (const alias of adapter.aliases)
+    BY_ALIAS.set(alias.toLowerCase(), adapter);
 }
 
 export function getStackAdapter(stackId: string): StackAdapter {
