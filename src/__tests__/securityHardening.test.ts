@@ -49,7 +49,7 @@ describe("#16 security hardening", () => {
     expect(ids).toEqual(
       expect.arrayContaining([
         "secret.env-artifact",
-        "secret.openai-key",
+        "secret.model-provider-key",
         "dependency.unsafe-source",
         "dependency.unsafe-script",
         "dependency.known-malicious",
@@ -86,7 +86,7 @@ describe("#16 security hardening", () => {
         "web.python-unsafe-html",
         "web.python-open-redirect",
         "auth.python-client-controlled-identity",
-        "python.secret-logging",
+        "secret.python-logging",
       ]),
     );
     expect(scan.passed).toBe(false);
