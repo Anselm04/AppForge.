@@ -4,7 +4,7 @@ import { mkdir, writeFile, rm, readFile, readdir, stat } from "fs/promises";
 import { join, extname, relative } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
-import { getProjectById } from "../db.js";
+import { getCurrentArtifact, getProjectById } from "../db.js";
 import { verifyPreviewSignature } from "../services/deployer.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
@@ -292,9 +292,18 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    const files = normalizeFiles(
-      (project.generatedFiles as Record<string, string> | null) ?? {},
-    );
+    const artifact = await getCurrentArtifact(projectId);
+    if (!artifact) {
+      res.status(409).json({
+        error:
+          "No validated current artifact is available for preview. Working/partial build files are never served.",
+      });
+      return;
+    }
+    const files = normalizeFiles(artifact.files);
+    res.setHeader("X-AppForge-Snapshot-Id", String(artifact.snapshotId));
+    res.setHeader("X-AppForge-Artifact-Version", String(artifact.version));
+    res.setHeader("X-AppForge-Artifact-Sha256", artifact.integrity.sha256);
     const contract = project.productContract
       ? validateProductContract(project.productContract)
       : null;
