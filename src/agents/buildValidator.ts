@@ -31,6 +31,10 @@ import type { ProductPlan } from "../lib/productPlan.js";
 import type { ResearchDecision } from "../lib/researchRecord.js";
 import { validateGeneratedProjectStructure } from "../lib/generatedProjectStructure.js";
 import { validateRuntimeImplementation } from "../lib/runtimeArchitecture.js";
+import {
+  scanProjectFiles,
+  validateGeneratedSecurityPosture,
+} from "../services/projectSecurityScanner.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -304,6 +308,30 @@ export async function validateGeneratedBuild(
         fileCount: Object.keys(files).length,
         warning:
           "Generated runtime behavior does not satisfy the selected stack runtime contract.",
+      };
+    }
+
+    const securityScan = scanProjectFiles(files);
+    const securityPosture = validateGeneratedSecurityPosture(files, techStack);
+    const blockingSecurityFindings = [
+      ...securityScan.findings.filter(
+        (finding) =>
+          finding.severity === "critical" || finding.severity === "high",
+      ),
+      ...securityPosture,
+    ];
+    if (blockingSecurityFindings.length > 0) {
+      return {
+        passed: false,
+        stage: "security",
+        errors: blockingSecurityFindings.map(
+          (finding) =>
+            `${finding.ruleId} (${finding.path}:${finding.line}): ${finding.message}`,
+        ),
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Generated project failed mandatory security scanning before execution.",
       };
     }
 
