@@ -28,7 +28,6 @@ export type ArtifactIntegrity = {
 const APPFORGE_SOURCE_PATHS = new Set([
   "src/agents/pipeline.generated.ts",
   "src/services/build-worker.ts",
-  "src/db/schema.ts",
   "src/db/ensureSchema.ts",
 ]);
 
