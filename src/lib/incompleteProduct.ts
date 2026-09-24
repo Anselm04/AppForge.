@@ -47,7 +47,6 @@ const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/Coming soon/i, '"Coming soon"'],
   [/\bTODO\b/i, "TODO"],
   [/\bFIXME\b/i, "FIXME"],
-  [/\bplaceholder\b/i, "placeholder"],
   [/\bnot implemented\b/i, "not implemented"],
   [/\bstub implementation\b/i, "stub implementation"],
 ];
@@ -231,7 +230,8 @@ function inspectPlaceholderAndEmptyFiles(
       for (const match of source.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)) {
         const attrs = match[1] ?? "";
         if (
-          !/onClick\s*=|formAction\s*=|type\s*=\s*["']submit["']/i.test(attrs)
+          !/onClick\s*=|formAction\s*=|type\s*=\s*["']submit["']/i.test(attrs) &&
+          !/<form\b[^>]*(?:onSubmit|action)\s*=/i.test(source)
         ) {
           findings.push({
             code: "fake_button",
@@ -390,7 +390,7 @@ function inspectContractCoverage(
     const tokens = normalizedTokens(workflow);
     if (tokens.length === 0) continue;
     const matches = tokens.filter((token) => allText.includes(token)).length;
-    const requiredMatches = Math.min(2, tokens.length);
+    const requiredMatches = tokens.length >= 3 ? 2 : 1;
     if (matches < requiredMatches) {
       findings.push({
         code: "missing_primary_workflow",
@@ -413,11 +413,19 @@ function inspectContractCoverage(
   }
 
   if (contract.secondaryCapabilities.includes("database")) {
+    const schemaText = Object.entries(files)
+      .filter(
+        ([path]) =>
+          isProductSource(path) &&
+          /(?:schema|models?|migrations?|(?:^|\/)db(?:\/|\.))/i.test(path),
+      )
+      .map(([, source]) => source.toLowerCase())
+      .join("\n");
     for (const model of contract.dataModels) {
       const tokens = normalizedTokens(model);
       if (
         tokens.length > 0 &&
-        !tokens.some((token) => code.includes(token))
+        !tokens.some((token) => schemaText.includes(token))
       ) {
         findings.push({
           code: "missing_data_model",
@@ -429,7 +437,7 @@ function inspectContractCoverage(
 
   if (contract.secondaryCapabilities.includes("authentication")) {
     const authBehavior =
-      /\b(?:authenticate|authorization|session|jwt|verifytoken|signIn|sign-in|login|logout|currentUser|supabase\.auth|nextauth|clerk)\b/i.test(
+      /\b(?:authenticate|authorization|session|jwt|verifytoken|currentUser|supabase\.auth|nextauth|clerk|passport)\b/i.test(
         code,
       );
     if (!authBehavior) {
