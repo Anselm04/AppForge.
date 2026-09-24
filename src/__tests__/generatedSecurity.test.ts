@@ -6,6 +6,8 @@ import {
 } from "../services/projectSecurityScanner.js";
 import { getStackScaffold } from "../services/stackScaffolds.js";
 import type { ProductContract } from "../lib/productContract.js";
+import { validateGeneratedBuild } from "../agents/buildValidator.js";
+import { deployValidatedProject } from "../services/productionAutoDeploy.js";
 
 describe("#16 generated security", () => {
   it("blocks high-risk generated source patterns", () => {
@@ -381,6 +383,110 @@ describe("#16 generated security", () => {
         ].includes(finding.ruleId),
       ),
     ).toEqual([]);
+  });
+
+  it("rejects missing auth and tenant enforcement through the actual build validator", async () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt: "Build a multi-tenant admin API with login",
+      productType: "api",
+      productFamilies: ["backend", "database", "auth"],
+      targetUsers: ["members", "admins"],
+      userRoles: ["member", "admin"],
+      coreWorkflows: ["sign in", "manage tenant records"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Authenticated users can access only their tenant",
+          category: "security",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure by default"],
+      dataModels: ["User", "Tenant"],
+      integrations: [],
+      securityRequirements: [
+        "Require authentication, tenant isolation, and admin authorization",
+      ],
+      deploymentRequirements: ["deploy securely"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "api-service",
+      researchRequirements: [],
+      runtimeRequirements: ["HTTP service"],
+      secondaryCapabilities: [
+        "authentication",
+        "database",
+        "administration",
+        "teams",
+      ],
+      intentConfidence: 1,
+      canonicalInterpretation: "Secure multi-tenant admin API",
+    };
+    const files = getStackScaffold("api-service", "api");
+
+    const result = await validateGeneratedBuild(files, "api-service", {
+      productContract: contract,
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.stage).toBe("security");
+    expect(result.errors.join("\n")).toContain(
+      "auth.missing-server-enforcement",
+    );
+    expect(result.errors.join("\n")).toContain("tenant.missing-isolation");
+    expect(result.errors.join("\n")).toContain(
+      "auth.missing-admin-separation",
+    );
+  });
+
+  it("rechecks contract-aware security before production deployment", async () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt: "Build a multi-tenant admin API with login",
+      productType: "api",
+      productFamilies: ["backend", "database", "auth"],
+      targetUsers: ["members", "admins"],
+      userRoles: ["member", "admin"],
+      coreWorkflows: ["sign in", "manage tenant records"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Authenticated users can access only their tenant",
+          category: "security",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure by default"],
+      dataModels: ["User", "Tenant"],
+      integrations: [],
+      securityRequirements: [
+        "Require authentication, tenant isolation, and admin authorization",
+      ],
+      deploymentRequirements: ["deploy securely"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "api-service",
+      researchRequirements: [],
+      runtimeRequirements: ["HTTP service"],
+      secondaryCapabilities: [
+        "authentication",
+        "database",
+        "administration",
+        "teams",
+      ],
+      intentConfidence: 1,
+      canonicalInterpretation: "Secure multi-tenant admin API",
+    };
+
+    await expect(
+      deployValidatedProject({
+        projectId: 777,
+        projectName: "security-gate-test",
+        files: getStackScaffold("api-service", "api"),
+        productContract: contract,
+      }),
+    ).rejects.toThrow(
+      "Production deployment blocked by generated-project security findings",
+    );
   });
 
   it("keeps the Node service scaffold on the secure baseline", () => {
