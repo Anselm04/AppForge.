@@ -5,7 +5,7 @@ import { ENV } from "../_core/env.js";
 import { runBuildJob } from "./build-worker.js";
 import {
   cloneBuildJob,
-  deserializeBuildJob,
+  extractBuildJobIdentity,
   serializeBuildJob,
   validateBuildJob,
   type BuildJob,
@@ -25,7 +25,8 @@ const QUEUE_KEY = "appforge:build:queue";
 const BULL_QUEUE_NAME = "appforge-builds";
 const queueClaimKey = (projectId: number) =>
   `appforge:build:queued:${projectId}`;
-const isTerminalEvent = (event: string) => event === "done" || event === "error";
+const isTerminalEvent = (event: string) =>
+  event === "done" || event === "error";
 
 async function refundDuplicateReservation(job: BuildJob): Promise<void> {
   if (!job.reservationCharged) return;
@@ -68,7 +69,9 @@ async function initBullMQ(): Promise<boolean> {
     bullWorker = new Worker(
       BULL_QUEUE_NAME,
       async (job) => {
-        await runBuildJob(validateBuildJob(job.data));
+        // runBuildJob validates the typed context and settles (refund + failed
+        // status) any job whose contract is missing or invalid.
+        await runBuildJob(job.data);
       },
       { connection, concurrency: 2 },
     );
@@ -115,14 +118,22 @@ async function processRedisQueue(): Promise<void> {
   if (!redis) return;
   const raw = await redis.rPop(QUEUE_KEY);
   if (!raw) return;
-  let job: BuildJob | null = null;
+  let payload: unknown;
   try {
-    job = deserializeBuildJob(raw);
-    await runBuildJob(job);
+    payload = JSON.parse(raw);
+  } catch (err) {
+    logger.error({ err }, "redis_queue_job_unparseable");
+    return;
+  }
+  // Release the per-project claim even when the payload fails validation, so
+  // a rejected job cannot block that project's queue for the claim TTL.
+  const identity = extractBuildJobIdentity(payload);
+  try {
+    await runBuildJob(payload);
   } catch (err) {
     logger.error({ err }, "redis_queue_job_failed");
   } finally {
-    if (job) await redis.del(queueClaimKey(job.projectId));
+    if (identity) await redis.del(queueClaimKey(identity.projectId));
   }
 }
 
@@ -285,10 +296,7 @@ export async function subscribeBuildEvents(
       await closeSubscription();
     }
   } catch (error: unknown) {
-    logger.error(
-      { projectId, error },
-      "redis_build_terminal_catchup_failed",
-    );
+    logger.error({ projectId, error }, "redis_build_terminal_catchup_failed");
   }
 
   return closeSubscription;
