@@ -9,12 +9,14 @@ import { useLocale } from "../i18n/LocaleContext.js";
 import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
 import { Badge } from "../design-system/Badge.js";
+import { stackPresentation } from "../lib/stackPresentation.js";
 
 interface Project {
   id: number;
   title: string | null;
   description: string | null;
   status: string | null;
+  techStack?: string | null;
   createdAt: string | null;
 }
 
@@ -159,7 +161,10 @@ export function Dashboard() {
         )}
 
         {integrationHealth && (
-          <section aria-labelledby="connected-power-heading" className="space-y-4">
+          <section
+            aria-labelledby="connected-power-heading"
+            className="space-y-4"
+          >
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-forge-cyan">
@@ -172,8 +177,9 @@ export function Dashboard() {
                   Plugin Management
                 </h2>
                 <p className="text-sm text-forge-text-muted mt-1">
-                  {integrationHealth.connected} of {integrationHealth.total} capabilities
-                  verified. Production-critical: {integrationHealth.requiredConnected} of{" "}
+                  {integrationHealth.connected} of {integrationHealth.total}{" "}
+                  capabilities verified. Production-critical:{" "}
+                  {integrationHealth.requiredConnected} of{" "}
                   {integrationHealth.requiredTotal}.
                 </p>
               </div>
@@ -298,6 +304,7 @@ function ProjectCard({ project }: { project: Project }) {
 
   const canImprove =
     project.status === "completed" || project.status === "paused";
+  const stack = stackPresentation(project.techStack);
 
   const sendToMarketing = async () => {
     setMarketingState("sending");
@@ -326,9 +333,12 @@ function ProjectCard({ project }: { project: Project }) {
         {project.description}
       </p>
       <div className="flex items-center justify-between mb-4">
-        <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
-          {project.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
+            {project.status}
+          </Badge>
+          {stack?.structuralOnly && <Badge tone="gold">{stack.badge}</Badge>}
+        </div>
         <p className="text-xs text-forge-text-muted">
           {project.createdAt
             ? new Date(project.createdAt).toLocaleDateString()
