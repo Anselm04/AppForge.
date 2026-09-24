@@ -339,6 +339,54 @@ export async function validateGeneratedBuild(
       };
     }
 
+    // Production must never execute generated customer code on the AppForge host.
+    // Run every stack through an isolated Sprites/Docker boundary before any
+    // local syntax, package, build, or runtime command can execute.
+    if (process.env.NODE_ENV === "production") {
+      const remoteIsolatedResult = await validateWithIsolatedBuildRunner(
+        files,
+        techStack,
+      );
+      if (remoteIsolatedResult) {
+        return {
+          passed: remoteIsolatedResult.passed,
+          stage: remoteIsolatedResult.stage,
+          errors: remoteIsolatedResult.errors,
+          durationMs: remoteIsolatedResult.durationMs,
+          fileCount: Object.keys(files).length,
+          warning: remoteIsolatedResult.passed
+            ? `Isolated production validation passed (${remoteIsolatedResult.isolationId}).`
+            : "Isolated production validation failed.",
+        };
+      }
+
+      const dockerResult = await validateWithDocker(files, techStack);
+      if (dockerResult && !dockerResult.skipped) {
+        return {
+          passed: dockerResult.passed,
+          stage: dockerResult.stage,
+          errors: dockerResult.errors,
+          durationMs: dockerResult.durationMs,
+          fileCount: Object.keys(files).length,
+          warning: dockerResult.passed
+            ? `Docker sandbox passed (${dockerResult.stage}).`
+            : "Docker sandbox validation failed.",
+        };
+      }
+
+      return {
+        passed: false,
+        stage: "isolation",
+        errors: [
+          "No isolated build runner was available. Production validation may not execute generated code on the AppForge host.",
+        ],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Configure the Sprites build bridge or a functioning Docker isolation runtime.",
+      };
+    }
+
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
       const fullPath = join(tmpDir, filePath);
@@ -380,7 +428,10 @@ export async function validateGeneratedBuild(
       techStack.includes("autogen");
     if (isPython && !hasPackageJson) {
       const entry =
-        files["main.py"] || files["src/main.py"] || files["agent.py"];
+        files["main.py"] ||
+        files["src/main.py"] ||
+        files["app/main.py"] ||
+        files["agent.py"];
       if (!entry) {
         errors.push("Python scaffold missing main.py entrypoint");
         return {
@@ -397,7 +448,9 @@ export async function validateGeneratedBuild(
         ? "main.py"
         : files["src/main.py"]
           ? "src/main.py"
-          : "agent.py";
+          : files["app/main.py"]
+            ? "app/main.py"
+            : "agent.py";
       const pyCheck = await runCommand(
         "python3",
         ["-m", "py_compile", entryPath],
