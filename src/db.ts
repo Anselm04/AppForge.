@@ -914,18 +914,48 @@ export async function createBuildSnapshot(data: {
     state: "final",
     files,
   });
-  const result = await db
-    .insert(schema.buildSnapshots)
-    .values({
-      ...data,
-      files,
-      fileCount: artifactIntegrity.fileCount,
-      requirementManifest,
-      artifactIntegrity,
-      isCurrent: false,
-    })
-    .returning({ id: schema.buildSnapshots.id });
-  return result[0].id;
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
+    const projects = await tx
+      .select({ userId: schema.projects.userId })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, data.projectId))
+      .limit(1);
+    const project = projects[0];
+    if (!project) throw new Error("Snapshot project does not exist");
+    if (project.userId !== data.userId) {
+      throw new Error("Snapshot user does not own the target project");
+    }
+
+    const existingVersion = await tx
+      .select({ id: schema.buildSnapshots.id })
+      .from(schema.buildSnapshots)
+      .where(
+        and(
+          eq(schema.buildSnapshots.projectId, data.projectId),
+          eq(schema.buildSnapshots.version, data.version),
+        ),
+      )
+      .limit(1);
+    if (existingVersion[0]) {
+      throw new Error(
+        `Snapshot version ${data.version} already exists for project ${data.projectId}`,
+      );
+    }
+
+    const result = await tx
+      .insert(schema.buildSnapshots)
+      .values({
+        ...data,
+        files,
+        fileCount: artifactIntegrity.fileCount,
+        requirementManifest,
+        artifactIntegrity,
+        isCurrent: false,
+      })
+      .returning({ id: schema.buildSnapshots.id });
+    return result[0].id;
+  });
 }
 
 export async function getSnapshotsByProject(projectId: number) {
