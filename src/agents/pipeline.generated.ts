@@ -13,6 +13,7 @@ import {
 import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
+  validateStackScaffold,
 } from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
@@ -1083,9 +1084,23 @@ export async function runAgentPipeline(
         }
 
         try {
+          const stackScaffold = getStackScaffold(
+            techStack,
+            productContract.productType,
+          );
+          const scaffoldProblems = validateStackScaffold(
+            techStack,
+            stackScaffold,
+          );
+          if (scaffoldProblems.length > 0) {
+            throw new Error(
+              "Invalid stack scaffold: " + scaffoldProblems.join("; "),
+            );
+          }
           generatedFiles = mergeScaffoldWithGenerated(
-            getStackScaffold(techStack),
+            stackScaffold,
             generatedFiles,
+            techStack,
           );
           generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
           generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
@@ -1099,7 +1114,7 @@ export async function runAgentPipeline(
             generatedFiles = capGoldenFiles(generatedFiles, 12);
             generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
             emit("System", "info", {
-              message: `Recipe floor + file cap + no compliance (${activeRecipe.id}).`,
+              message: `Recipe guidance preserved generated output; infrastructure hardening applied (${activeRecipe.id}).`,
             });
           }
           emit("System", "info", {
