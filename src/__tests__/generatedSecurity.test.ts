@@ -36,7 +36,7 @@ describe("#16 generated security", () => {
         "web.open-redirect",
         "code.shell-exec-interpolation",
         "dependency.unpinned",
-        "dependency.remote-source",
+        "dependency.unsafe-source",
         "auth.client-controlled-identity",
         "secret.logging",
         "web.inner-html-assignment",
@@ -231,6 +231,90 @@ describe("#16 generated security", () => {
         ].includes(finding.ruleId),
       ),
     ).toEqual([]);
+  });
+
+  it("blocks Python command injection, SSRF, path traversal, SQL interpolation and open redirects", () => {
+    const scan = scanProjectFiles({
+      "app/main.py": [
+        "import os, subprocess, requests",
+        "os.system(request.query_params['cmd'])",
+        "subprocess.run(request.query_params['cmd'], shell=True)",
+        "requests.get(request.query_params['url'])",
+        "open(request.path_params['file'])",
+        "cursor.execute(f\"SELECT * FROM users WHERE id={request.path_params['id']}\")",
+        "RedirectResponse(request.query_params['next'])",
+      ].join("\n"),
+    });
+
+    expect(scan.passed).toBe(false);
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "command.python-shell",
+        "ssrf.python-untrusted-request",
+        "path.python-untrusted-file-operation",
+        "sql.python-interpolation",
+        "web.python-open-redirect",
+      ]),
+    );
+  });
+
+  it("blocks persisted secret-bearing env files and unsafe dependency sources", () => {
+    const scan = scanProjectFiles({
+      ".env.production": "DATABASE_URL=postgres://real-user:real-pass@db/prod\n",
+      "requirements.txt": "git+https://github.com/example/private-package.git\n",
+      "pubspec.yaml": "dependencies:\n  custom_pkg:\n    path: ../custom_pkg\n",
+      "package.json": JSON.stringify({
+        dependencies: {
+          localpkg: "file:../localpkg",
+          "flatmap-stream": "0.1.1",
+        },
+      }),
+    });
+
+    expect(scan.passed).toBe(false);
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "secret.env-artifact",
+        "dependency.python-unsafe-source",
+        "dependency.dart-unsafe-source",
+        "dependency.unsafe-source",
+        "dependency.known-malicious",
+      ]),
+    );
+  });
+
+  it("requires explicit abuse controls on generated HTTP services", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          'import helmet from "helmet";',
+          'import { rateLimit } from "express-rate-limit";',
+          "app.use(helmet()); app.use(rateLimit({windowMs:1000,limit:10}));",
+        ].join("\n"),
+      },
+      "api-service",
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toContain(
+      "service.abuse-controls",
+    );
+  });
+
+  it("keeps the Python service scaffold on the secure baseline", () => {
+    const files = getStackScaffold("python-service", "api");
+    expect(scanProjectFiles(files).passed).toBe(true);
+    expect(validateGeneratedSecurityPosture(files, "python-service")).toEqual([]);
+    expect(files["app/main.py"]).toContain("SlowAPIMiddleware");
+    expect(files["app/main.py"]).toContain("MAX_BODY_BYTES");
+    expect(files["app/main.py"]).toContain("X-Content-Type-Options");
+  });
+
+  it("makes Docker fallback audit dependencies and execute generated code without network", () => {
+    const docker = readFileSync("src/lib/dockerValidator.ts", "utf8");
+    expect(docker).toContain("npm audit --audit-level=high");
+    expect(docker).toContain("pip-audit -r requirements.txt");
+    expect(docker).toContain('"--network=none"');
+    expect(docker).toContain("--ignore-scripts");
   });
 
   it("keeps the Node service scaffold on the secure baseline", () => {
