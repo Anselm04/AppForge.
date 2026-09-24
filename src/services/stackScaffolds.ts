@@ -258,6 +258,9 @@ void scene;
 }
 
 function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
+  const compiledEntry = entry
+    .replace(/^src\//, "dist/")
+    .replace(/\.ts$/, ".js");
   return {
     "package.json": json({
       name: "appforge-node-service",
@@ -266,7 +269,7 @@ function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
       type: "module",
       scripts: {
         build: "tsc -p tsconfig.json",
-        start: "node dist/index.js",
+        start: `node ${compiledEntry}`,
         typecheck: "tsc --noEmit",
       },
       dependencies: { express: "^5.1.0" },
@@ -474,6 +477,87 @@ export function getStackScaffold(
       );
   }
   return withStackMetadata(adapter.id, files);
+}
+
+export function validateStackScaffold(
+  techStack: string,
+  scaffold: ScaffoldFiles,
+): string[] {
+  const adapter = getStackAdapter(techStack);
+  const problems: string[] = [];
+
+  if (!(adapter.dependencyManifest in scaffold)) {
+    problems.push(
+      `missing dependency manifest ${adapter.dependencyManifest}`,
+    );
+  }
+
+  for (const entrypoint of adapter.entrypoints) {
+    if (!(entrypoint in scaffold)) {
+      problems.push(`missing scaffold entrypoint ${entrypoint}`);
+    }
+  }
+
+  for (const envFile of adapter.environmentFiles) {
+    if (!(envFile in scaffold)) {
+      problems.push(`missing environment/config file ${envFile}`);
+    }
+  }
+
+  const stackMeta = scaffold["appforge.stack.json"];
+  const previewMeta = scaffold["appforge.preview.json"];
+  const deployMeta = scaffold["appforge.deploy.json"];
+  if (!stackMeta) problems.push("missing appforge.stack.json");
+  if (!previewMeta) problems.push("missing appforge.preview.json");
+  if (!deployMeta) problems.push("missing appforge.deploy.json");
+
+  try {
+    if (stackMeta) {
+      const parsed = JSON.parse(stackMeta) as Record<string, unknown>;
+      if (parsed.stack !== adapter.id) problems.push("stack metadata id mismatch");
+      if (parsed.runtime !== adapter.runtime)
+        problems.push("stack metadata runtime mismatch");
+      if (parsed.outputDirectory !== adapter.outputDirectory)
+        problems.push("stack metadata output directory mismatch");
+    }
+    if (previewMeta) {
+      const parsed = JSON.parse(previewMeta) as Record<string, unknown>;
+      if (parsed.mode !== adapter.previewMode)
+        problems.push("preview metadata mode mismatch");
+    }
+    if (deployMeta) {
+      const parsed = JSON.parse(deployMeta) as {
+        targets?: unknown;
+        buildCommand?: unknown;
+        startCommand?: unknown;
+      };
+      if (
+        JSON.stringify(parsed.targets) !==
+        JSON.stringify(adapter.deploymentTargets)
+      ) {
+        problems.push("deployment metadata targets mismatch");
+      }
+      if (parsed.buildCommand !== adapter.buildCommand)
+        problems.push("deployment metadata build command mismatch");
+      if (parsed.startCommand !== adapter.startCommand)
+        problems.push("deployment metadata start command mismatch");
+    }
+  } catch {
+    problems.push("invalid scaffold metadata JSON");
+  }
+
+  const visiblePlaceholder = Object.entries(scaffold)
+    .filter(([path]) => !path.endsWith(".json"))
+    .some(([, source]) =>
+      /Scaffold is ready|Your generated UI will replace this screen|Generated product|Coming soon/i.test(
+        source,
+      ),
+    );
+  if (visiblePlaceholder) {
+    problems.push("placeholder scaffold language detected");
+  }
+
+  return [...new Set(problems)];
 }
 
 export function mergeScaffoldWithGenerated(
