@@ -1,10 +1,48 @@
-import { getStackAdapter } from "../lib/stackAdapters.js";
+import { assertStackSupportsProduct, getStackAdapter } from "../lib/stackAdapters.js";
+import type { ProductType } from "../lib/productContract.js";
 
 /** Stack-shaped infrastructure shells. Generated product logic must overwrite/add substantive files. */
 export type ScaffoldFiles = Record<string, string>;
 
 function json(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+function withStackMetadata(
+  techStack: string,
+  files: ScaffoldFiles,
+): ScaffoldFiles {
+  const adapter = getStackAdapter(techStack);
+  return {
+    ...files,
+    "appforge.stack.json": json({
+      version: 1,
+      stack: adapter.id,
+      runtime: adapter.runtime,
+      entrypoints: adapter.entrypoints,
+      dependencyManifest: adapter.dependencyManifest,
+      environmentFiles: adapter.environmentFiles,
+      projectStructure: adapter.projectStructure,
+      buildCommand: adapter.buildCommand,
+      startCommand: adapter.startCommand,
+      previewMode: adapter.previewMode,
+      deploymentTargets: adapter.deploymentTargets,
+      outputDirectory: adapter.outputDirectory,
+      artifactKind: adapter.artifactKind,
+      generationMode: adapter.generationMode,
+    }),
+  };
+}
+
+function isProductImplementationPath(
+  techStack: string,
+  filePath: string,
+): boolean {
+  const adapter = getStackAdapter(techStack);
+  if (adapter.entrypoints.includes(filePath)) return true;
+  return /^(?:src\/App\.(?:tsx|jsx)|app\/page\.(?:tsx|jsx)|lib\/main\.dart|App\.tsx|app\/main\.py)$/i.test(
+    filePath,
+  );
 }
 
 function viteReactShell(title = "AppForge App"): ScaffoldFiles {
@@ -366,55 +404,83 @@ function extensionShell(): ScaffoldFiles {
   };
 }
 
-export function getStackScaffold(techStack: string): ScaffoldFiles {
-  const adapter = getStackAdapter(techStack);
+export function getStackScaffold(
+  techStack: string,
+  productType?: ProductType,
+): ScaffoldFiles {
+  const adapter = productType
+    ? assertStackSupportsProduct(techStack, productType)
+    : getStackAdapter(techStack);
+  let files: ScaffoldFiles;
   switch (adapter.id) {
     case "react-node":
     case "data-visualization":
-      return viteReactShell();
+      files = viteReactShell();
+      break;
     case "static-html":
-      return staticShell();
+      files = staticShell();
+      break;
     case "next-node":
-      return nextShell();
+      files = nextShell();
+      break;
     case "phaser-html5":
-      return phaserShell();
+      files = phaserShell();
+      break;
     case "three-js-3d":
-      return threeShell();
+      files = threeShell();
+      break;
     case "api-service":
     case "node-service":
     case "ai-agent-node":
     case "browser-automation":
-      return nodeServiceShell(
+      files = nodeServiceShell(
         adapter.id === "api-service" ? "src/server.ts" : "src/index.ts",
       );
+      break;
     case "python-service":
     case "ai-agent-python":
-      return pythonServiceShell();
+      files = pythonServiceShell();
+      break;
     case "react-native-expo":
-      return reactNativeShell();
+      files = reactNativeShell();
+      break;
     case "flutter-firebase":
-      return flutterShell();
+      files = flutterShell();
+      break;
     case "electron-react":
-      return electronShell();
+      files = electronShell();
+      break;
     case "tauri-rust":
-      return tauriShell();
+      files = tauriShell();
+      break;
     case "chrome-extension":
-      return extensionShell();
+      files = extensionShell();
+      break;
     default:
       throw new Error(
         `No scaffold implementation for stack adapter ${adapter.id}`,
       );
   }
+  return withStackMetadata(adapter.id, files);
 }
 
 export function mergeScaffoldWithGenerated(
   scaffold: ScaffoldFiles,
   generated: ScaffoldFiles,
+  techStack?: string,
 ): ScaffoldFiles {
-  const out: ScaffoldFiles = { ...scaffold };
-  for (const [filePath, content] of Object.entries(generated)) {
-    if (typeof content === "string" && content.trim()) out[filePath] = content;
+  const out: ScaffoldFiles = { ...generated };
+
+  for (const [filePath, content] of Object.entries(scaffold)) {
+    if (filePath in generated) continue;
+    if (techStack && isProductImplementationPath(techStack, filePath)) {
+      continue;
+    }
+    if (typeof content === "string" && content.trim()) {
+      out[filePath] = content;
+    }
   }
+
   return out;
 }
 
