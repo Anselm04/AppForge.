@@ -390,6 +390,15 @@ export const projectsRouter = router({
         input.destination === "netlify" ||
         input.destination === "fly" ||
         input.destination === "github-pages";
+
+      let requirementManifest = project.requirementManifest ?? null;
+      if (productionDestination) {
+        const { assertMustHaveRequirementsResolved } =
+          await import("../lib/requirementManifest.js");
+        requirementManifest = assertMustHaveRequirementsResolved(
+          requirementManifest,
+        );
+      }
       if (
         stackAdapter.generationMode === "structural" &&
         productionDestination
@@ -463,6 +472,25 @@ export const projectsRouter = router({
           projectName: project.title ?? undefined,
           hasBillingSchema: hasBillingMigration(files),
         });
+
+        if (productionDestination && requirementManifest && result.url) {
+          const { markRequirementDeployment } =
+            await import("../lib/requirementManifest.js");
+          const { persistRequirementDeploymentEvidence } =
+            await import("../db.js");
+          requirementManifest = markRequirementDeployment(
+            requirementManifest,
+            {
+              destination: input.destination,
+              url: result.url,
+              verified: !!smoke?.ok,
+            },
+          );
+          await persistRequirementDeploymentEvidence(
+            input.id,
+            requirementManifest,
+          );
+        }
 
         await db
           .update(schema.projects)
