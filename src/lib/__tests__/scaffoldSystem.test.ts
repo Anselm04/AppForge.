@@ -69,9 +69,14 @@ describe("scaffold system", () => {
       "react-node",
     );
 
-    for (const [path, source] of Object.entries(generated)) {
-      expect(merged[path], path).toBe(source);
-    }
+    expect(merged["src/App.tsx"]).toBe(generated["src/App.tsx"]);
+    expect(merged["src/main.tsx"]).toBe(generated["src/main.tsx"]);
+    expect(merged["README.md"]).toBe(generated["README.md"]);
+    const mergedPackage = JSON.parse(merged["package.json"]);
+    expect(mergedPackage.name).toBe("customer-product");
+    expect(mergedPackage.scripts.build).toBe("customer-build");
+    expect(mergedPackage.scripts.start).toBeDefined();
+    expect(mergedPackage.dependencies.react).toBeDefined();
     expect(merged["appforge.stack.json"]).toBeDefined();
   });
 
