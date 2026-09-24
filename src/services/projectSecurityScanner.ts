@@ -253,6 +253,76 @@ const RULES: SecurityRule[] = [
     paths: /\.py$/i,
   },
   {
+    id: "code.python-dynamic-exec",
+    severity: "high",
+    message: "Python eval()/exec() can enable code injection.",
+    pattern: /\b(?:eval|exec)\s*\(/,
+    paths: /\.py$/i,
+  },
+  {
+    id: "command.python-shell",
+    severity: "high",
+    message:
+      "Python shell execution is unsafe for generated services; use fixed executable and argument arrays.",
+    pattern:
+      /(?:\bos\.system\s*\(|\bsubprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^)]*shell\s*=\s*True)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "ssrf.python-untrusted-request",
+    severity: "high",
+    message:
+      "Python server-side network request appears to use request-controlled input without an allowlist.",
+    pattern:
+      /(?:requests|httpx)\.(?:get|post|put|patch|delete)\s*\(\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "path.python-untrusted-file-operation",
+    severity: "high",
+    message:
+      "Python file operation appears to use request-controlled input and may permit path traversal.",
+    pattern:
+      /(?:\bopen|Path|send_file|FileResponse)\s*\([^)\n]*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "sql.python-interpolation",
+    severity: "high",
+    message:
+      "Python SQL execution appears to interpolate values into SQL; use bound parameters.",
+    pattern:
+      /(?:execute|executemany)\s*\(\s*f["'][^"']*(?:SELECT|INSERT|UPDATE|DELETE)[^"']*\{/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "web.python-open-redirect",
+    severity: "high",
+    message:
+      "Python redirect target appears to come directly from request-controlled input.",
+    pattern:
+      /(?:RedirectResponse|redirect)\s*\(\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "web.python-unsafe-html",
+    severity: "high",
+    message:
+      "Python HTML rendering appears to mark request-controlled content as trusted.",
+    pattern:
+      /(?:Markup|mark_safe|render_template_string)\s*\([^)\n]*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "auth.python-client-controlled-identity",
+    severity: "high",
+    message:
+      "Python authorization identity appears to be accepted directly from request-controlled fields.",
+    pattern:
+      /(?:user_id|tenant_id|organization_id|org_id)\s*=\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
     id: "dependency.install-script",
     severity: "high",
     message:
@@ -365,74 +435,162 @@ function scanPythonRequirements(
   return findings;
 }
 
+function dependencyFinding(
+  ruleId: string,
+  path: string,
+  message: string,
+  evidence: string,
+): ProjectSecurityFinding {
+  return {
+    ruleId,
+    severity: "high",
+    path,
+    line: 1,
+    message,
+    evidence: evidence.slice(0, 240),
+  };
+}
+
 function scanDependencyManifest(
   path: string,
   content: string,
 ): ProjectSecurityFinding[] {
-  if (!/(?:^|\/)package\.json$/i.test(path)) return [];
+  const findings: ProjectSecurityFinding[] = [];
 
-  try {
-    const manifest = JSON.parse(content) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      scripts?: Record<string, string>;
-    };
-    const findings: ProjectSecurityFinding[] = [];
-    for (const [name, version] of Object.entries({
-      ...(manifest.dependencies ?? {}),
-      ...(manifest.devDependencies ?? {}),
-    })) {
-      if (version === "*" || /^latest$/i.test(version)) {
-        findings.push({
-          ruleId: "dependency.unpinned",
-          severity: "high",
-          path,
-          line: 1,
-          message: `Dependency ${name} is not version constrained.`,
-          evidence: `${name}: ${version}`,
-        });
+  if (/(?:^|\/)package\.json$/i.test(path)) {
+    try {
+      const manifest = JSON.parse(content) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      for (const [name, version] of Object.entries({
+        ...(manifest.dependencies ?? {}),
+        ...(manifest.devDependencies ?? {}),
+      })) {
+        if (version === "*" || /^latest$/i.test(version)) {
+          findings.push(
+            dependencyFinding(
+              "dependency.unpinned",
+              path,
+              "Dependency " + name + " is not version constrained.",
+              name + ": " + version,
+            ),
+          );
+        }
+        if (/^(?:git\+|https?:\/\/|file:|link:)/i.test(version)) {
+          findings.push(
+            dependencyFinding(
+              "dependency.unsafe-source",
+              path,
+              "Dependency " + name + " uses a direct/local source instead of a registry version.",
+              name + ": " + version,
+            ),
+          );
+        }
+        if (
+          name === "flatmap-stream" ||
+          (name === "event-stream" &&
+            /(?:^|[^\d])3\.3\.6(?:[^\d]|$)/.test(version))
+        ) {
+          findings.push(
+            dependencyFinding(
+              "dependency.known-malicious",
+              path,
+              "Dependency " + name + " matches a known malicious package/version and is blocked.",
+              name + ": " + version,
+            ),
+          );
+        }
       }
-      if (/^(?:git\+|https?:\/\/)/i.test(version)) {
-        findings.push({
-          ruleId: "dependency.remote-source",
-          severity: "high",
+    } catch {
+      findings.push(
+        dependencyFinding(
+          "dependency.invalid-manifest",
           path,
-          line: 1,
-          message: `Dependency ${name} installs directly from a remote source.`,
-          evidence: `${name}: ${version}`.slice(0, 240),
-        });
-      }
+          "package.json could not be parsed.",
+          "Invalid JSON",
+        ),
+      );
     }
-    for (const [scriptName, script] of Object.entries(manifest.scripts ?? {})) {
+    return findings;
+  }
+
+  if (/(?:^|\/)requirements\.txt$/i.test(path)) {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
       if (
-        /(?:^|[;&|])\s*(?:curl|wget|nc|netcat|ssh|scp|sudo|chmod|chown|mkfifo|mount|umount)\b|\$\(|\x60/i.test(
-          script,
+        /^(?:-e\s+|--(?:extra-)?index-url\b|git\+|https?:\/\/|file:|\.\.?\/)/i.test(
+          line,
         )
       ) {
         findings.push(
-          finding(
-            "dependency.unsafe-script",
-            "high",
+          dependencyFinding(
+            "dependency.python-unsafe-source",
             path,
-            "Generated package script contains a dangerous shell/network primitive.",
-            scriptName + ": " + script,
+            "Python dependency uses an editable, alternate-index, remote, or local path source.",
+            line,
           ),
         );
       }
     }
     return findings;
-  } catch {
-    return [
-      {
-        ruleId: "dependency.invalid-manifest",
-        severity: "high",
-        path,
-        line: 1,
-        message: "package.json could not be parsed.",
-        evidence: "Invalid JSON",
-      },
-    ];
   }
+
+  if (/(?:^|\/)pubspec\.ya?ml$/i.test(path)) {
+    if (/^\s*(?:git|path)\s*:/im.test(content)) {
+      findings.push(
+        dependencyFinding(
+          "dependency.dart-unsafe-source",
+          path,
+          "Dart/Flutter dependency uses a git or local path source.",
+          "git/path dependency source",
+        ),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function scanEnvironmentSecrets(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  const normalized = path.replace(/\\/g, "/");
+  if (
+    !/(?:^|\/)\.env(?:\.[A-Za-z0-9_-]+)?$/i.test(normalized) ||
+    /\.(?:example|sample|template)$/i.test(normalized)
+  ) {
+    return [];
+  }
+
+  const findings: ProjectSecurityFinding[] = [];
+  const lines = content.split(/\r?\n/);
+  lines.forEach((raw, index) => {
+    const match = raw.match(
+      /^\s*([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/i,
+    );
+    if (!match) return;
+    const value = match[2].replace(/^["']|["']$/g, "").trim();
+    if (
+      !value ||
+      /^\$\{[^}]+\}$/.test(value) ||
+      /^(?:changeme|replace-me|example|your[-_].+|<.+>)$/i.test(value)
+    ) {
+      return;
+    }
+    findings.push({
+      ruleId: "secret.env-artifact",
+      severity: "critical",
+      path,
+      line: index + 1,
+      message:
+        "Generated artifact contains a secret-bearing .env value. Only examples/placeholders may be persisted.",
+      evidence: match[1] + "=<redacted>",
+    });
+  });
+  return findings;
 }
 
 export function scanProjectFiles(
@@ -462,6 +620,7 @@ export function scanProjectFiles(
     findings.push(...scanEnvironmentFile(path, content));
     findings.push(...scanPythonRequirements(path, content));
     findings.push(...scanDependencyManifest(path, content));
+    findings.push(...scanEnvironmentSecrets(path, content));
 
     for (const rule of RULES) {
       if (rule.paths && !rule.paths.test(path)) continue;
@@ -521,6 +680,11 @@ export function validateGeneratedSecurityPosture(
     "ai-agent-node",
     "browser-automation",
   ].includes(techStack);
+  const isPythonService = [
+    "python-service",
+    "ai-agent-python",
+  ].includes(techStack);
+  const isHttpService = isNodeService || isPythonService;
 
   const add = (ruleId: string, message: string, evidence: string) => {
     findings.push({
@@ -533,25 +697,56 @@ export function validateGeneratedSecurityPosture(
     });
   };
 
-  if (isNodeService) {
-    if (!/(?:helmet\s*\(|Content-Security-Policy|X-Content-Type-Options|contentSecurityPolicy)/i.test(source)) {
+  if (isHttpService) {
+    if (!/(?:helmet\s*\(|Content-Security-Policy|X-Content-Type-Options|contentSecurityPolicy|X-Frame-Options|Referrer-Policy)/i.test(source)) {
       add(
         "service.secure-headers",
         "Generated HTTP service must configure secure default response headers.",
         "No Helmet or equivalent secure-header policy detected.",
       );
     }
-    if (!/(?:express-rate-limit|rateLimit\s*\(|createRateLimiter|rateLimiter)/i.test(source)) {
+    if (!/(?:express-rate-limit|rateLimit\s*\(|createRateLimiter|rateLimiter|slowapi|Limiter\s*\()/i.test(source)) {
       add(
         "service.rate-limiting",
         "Generated HTTP service must enforce server-side rate limiting.",
         "No rate-limiting middleware detected.",
       );
     }
+
+    if (
+      !/(?:express\.json\s*\(\s*\{[^}]*limit\s*:|MAX_BODY_BYTES|content-length|max_request_size|client_max_body_size)/i.test(
+        source,
+      )
+    ) {
+      add(
+        "service.abuse-controls",
+        "Generated HTTP services must enforce bounded request payloads in addition to rate limiting.",
+        "No explicit request body/payload size boundary was detected.",
+      );
+    }
   }
 
-  const usesCookies = /(?:res\.)?cookie\s*\(|set-cookie|cookies\(\)/i.test(source);
-  const mutatesState = /\.(?:post|put|patch|delete)\s*\(|export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b/i.test(source);
+  const usesCookies =
+    /(?:res\.)?cookie\s*\(|set-cookie|cookies\(\)|\.set_cookie\s*\(/i.test(
+      source,
+    );
+  if (
+    usesCookies &&
+    !/(?:(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))(?=[\s\S]{0,300}(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'])|(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'](?=[\s\S]{0,300}(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))/i.test(
+      source,
+    )
+  ) {
+    add(
+      "auth.insecure-cookie-defaults",
+      "Authentication/session cookies must be HttpOnly and SameSite=Lax/Strict.",
+      "Cookie usage detected without both HttpOnly and SameSite protections.",
+    );
+  }
+
+  const mutatesState =
+    /\.(?:post|put|patch|delete)\s*\(|export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b|@(?:app|router)\.(?:post|put|patch|delete)\s*\(/i.test(
+      source,
+    );
   if (usesCookies && mutatesState && !/(?:csrf|xsrf|same-origin|origin\s*check)/i.test(source)) {
     add(
       "web.csrf-protection",
@@ -560,10 +755,13 @@ export function validateGeneratedSecurityPosture(
     );
   }
 
-  const uploadSurface = /(?:multer|formidable|busboy|fileUpload|upload\.single|upload\.array)/i.test(source);
+  const uploadSurface =
+    /(?:multer|formidable|busboy|fileUpload|upload\.single|upload\.array|UploadFile|File\s*\()/i.test(
+      source,
+    );
   if (
     uploadSurface &&
-    !/(?:fileSize|limits\s*:|mimetype|mime|allowedTypes|content-type|maxFileSize)/i.test(source)
+    !/(?:fileSize|limits\s*:|mimetype|mime|allowedTypes|content-type|maxFileSize|max_file_size|content_type)/i.test(source)
   ) {
     add(
       "upload.unbounded",
@@ -602,7 +800,7 @@ export function validateGeneratedSecurityPosture(
     );
   if (
     authRequired &&
-    !/(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser)/i.test(
+    !/(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser|current_user|Depends\s*\(\s*(?:get_current_user|require_auth)|request\.state\.user)/i.test(
       source,
     )
   ) {
