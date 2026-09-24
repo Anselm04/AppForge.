@@ -259,7 +259,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     environmentFiles: [".env.example"],
     projectStructure: ["app/", "tests/"],
     buildCommand: "python -m compileall app",
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port 8000",
+    startCommand: "python -m app.main",
     previewMode: "service",
     deploymentTargets: ["fly"],
     outputDirectory: null,
