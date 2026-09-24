@@ -1226,6 +1226,8 @@ export async function appendArtifactToCurrentSnapshot(input: {
         userId: schema.projects.userId,
         techStack: schema.projects.techStack,
         requirementManifest: schema.projects.requirementManifest,
+        workingArtifactVersion: schema.projects.workingArtifactVersion,
+        workingArtifactIntegrity: schema.projects.workingArtifactIntegrity,
       })
       .from(schema.projects)
       .where(eq(schema.projects.id, input.projectId))
@@ -1326,9 +1328,22 @@ export async function appendArtifactToCurrentSnapshot(input: {
       .set({ isCurrent: true })
       .where(eq(schema.buildSnapshots.id, snapshotId));
 
+    const workingArtifactVersion =
+      (project.workingArtifactVersion ?? 0) + 1;
+    const workingArtifactIntegrity = buildArtifactIntegrity({
+      projectId: input.projectId,
+      artifactVersion: workingArtifactVersion,
+      state: "working",
+      files,
+      previousIntegrity: project.workingArtifactIntegrity ?? currentIntegrity,
+    });
+
     await tx
       .update(schema.projects)
       .set({
+        generatedFiles: files,
+        workingArtifactVersion,
+        workingArtifactIntegrity,
         requirementManifest,
         status: "completed",
         updatedAt: new Date(),
