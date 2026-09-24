@@ -249,6 +249,9 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
       let productionCertification:
         | {
             artifactSha256: string;
+            snapshotId?: number;
+            artifactVersion?: number;
+            persistedArtifactSha256?: string;
             httpVerified: true;
             assetsVerified: number;
             browserVerified: true;
