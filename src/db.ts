@@ -955,19 +955,7 @@ export async function getCurrentSnapshot(projectId: number) {
 export async function getProjectFiles(
   projectId: number,
 ): Promise<Record<string, string>> {
-  const snapshot = await getCurrentSnapshot(projectId);
-  if (!snapshot) return {};
-  const files = validateArtifactFiles(
-    (snapshot.files as Record<string, string> | null) ?? {},
-  );
-  assertArtifactIntegrity({
-    files,
-    integrity: snapshot.artifactIntegrity,
-    projectId,
-    artifactVersion: snapshot.version,
-    requiredState: "final",
-  });
-  return files;
+  return (await getCurrentArtifact(projectId))?.files ?? {};
 }
 
 export async function getCurrentArtifact(projectId: number): Promise<{
@@ -981,13 +969,32 @@ export async function getCurrentArtifact(projectId: number): Promise<{
   const files = validateArtifactFiles(
     (snapshot.files as Record<string, string> | null) ?? {},
   );
+  const persistedIntegrity =
+    snapshot.artifactIntegrity ??
+    buildArtifactIntegrity({
+      projectId,
+      artifactVersion: snapshot.version,
+      state: "final",
+      files,
+    });
   const integrity = assertArtifactIntegrity({
     files,
-    integrity: snapshot.artifactIntegrity,
+    integrity: persistedIntegrity,
     projectId,
     artifactVersion: snapshot.version,
     requiredState: "final",
   });
+  if (!snapshot.artifactIntegrity) {
+    await db
+      .update(schema.buildSnapshots)
+      .set({ artifactIntegrity: integrity })
+      .where(
+        and(
+          eq(schema.buildSnapshots.id, snapshot.id),
+          eq(schema.buildSnapshots.projectId, projectId),
+        ),
+      );
+  }
   return {
     snapshotId: snapshot.id,
     version: snapshot.version,
@@ -1042,13 +1049,27 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
     const files = validateArtifactFiles(
       snapshot.files as Record<string, string>,
     );
+    const integrity =
+      snapshot.artifactIntegrity ??
+      buildArtifactIntegrity({
+        projectId,
+        artifactVersion: snapshot.version,
+        state: "final",
+        files,
+      });
     assertArtifactIntegrity({
       files,
-      integrity: snapshot.artifactIntegrity,
+      integrity,
       projectId,
       artifactVersion: snapshot.version,
       requiredState: "final",
     });
+    if (!snapshot.artifactIntegrity) {
+      await tx
+        .update(schema.buildSnapshots)
+        .set({ artifactIntegrity: integrity })
+        .where(eq(schema.buildSnapshots.id, id));
+    }
 
     await tx
       .update(schema.buildSnapshots)
