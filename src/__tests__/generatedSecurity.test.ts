@@ -369,7 +369,7 @@ describe("#16 generated security", () => {
     const pythonSafe = validateGeneratedSecurityPosture(
       {
         "app/main.py": [
-          'response.set_cookie("session", token, httponly=True, samesite="strict")',
+          'response.set_cookie("session", token, httponly=True, secure=True, samesite="strict")',
           "csrf_token = verify_csrf(request)",
         ].join("\n"),
       },
