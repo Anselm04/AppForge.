@@ -303,7 +303,10 @@ function brokenRelativeImports(files: Record<string, string>): string[] {
   return problems;
 }
 
-function dependencyProblems(files: Record<string, string>): string[] {
+function dependencyProblems(
+  files: Record<string, string>,
+  stack: string,
+): string[] {
   const raw = files["package.json"];
   if (!raw) return [];
   let pkg: {
@@ -353,7 +356,14 @@ function dependencyProblems(files: Record<string, string>): string[] {
         if (!(packageName in devDeps) && !(packageName in deps)) {
           problems.push(`${path}: undeclared development dependency ${packageName}`);
         }
-      } else if (!(packageName in deps)) {
+      } else if (
+        !(packageName in deps) &&
+        !(
+          stack === "electron-react" &&
+          packageName === "electron" &&
+          packageName in devDeps
+        )
+      ) {
         problems.push(`${path}: missing runtime dependency ${packageName}`);
       }
     }
@@ -504,7 +514,7 @@ export function validateGeneratedProjectStructure(
 
   problems.push(...conflictingEntrypointProblems(files, adapter.id));
   problems.push(...brokenRelativeImports(files));
-  problems.push(...dependencyProblems(files));
+  problems.push(...dependencyProblems(files, adapter.id));
   problems.push(...scriptProblems(files, adapter.id));
   problems.push(...lockfileProblems(files, adapter.id));
 
