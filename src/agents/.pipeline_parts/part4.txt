@@ -104,6 +104,23 @@
       generatedFiles = stripComplianceFromGolden(generatedFiles);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    if (!requirementManifest) {
+      throw new Error("Requirement manifest was not initialized by the Planner");
+    }
+    requirementManifest = markRequirementImplementation(
+      requirementManifest,
+      generatedFiles,
+    );
+    requirementManifest = markRequirementTests(
+      requirementManifest,
+      generatedFiles,
+    );
+    requirementManifest = assertMustHaveRequirementsResolved(
+      requirementManifest,
+    );
+    generatedFiles["appforge.requirements.json"] =
+      serializeRequirementManifest(requirementManifest);
+    await updateProjectRequirementManifest(projectId, requirementManifest);
     generatedFiles = attachCompletenessEvidence({
       files: generatedFiles,
       productContract,
@@ -154,6 +171,7 @@
           }
         : null,
       costEstimate: costReport,
+      requirementManifest,
     });
     logger.info({ projectId, snapshotId, version: nextVersion }, "build_snapshot_saved");
     await markSnapshotAsCurrent(snapshotId, projectId);
@@ -165,6 +183,8 @@
       validationPassed: true,
       validationStage: validationResult?.stage ?? "unknown",
       validationErrors: [],
+      unresolvedMustHaveRequirements: requirementManifest.unresolvedMustHaveIds,
+      requirementManifestRevision: requirementManifest.revision,
       testGateRequired: validationMode === "full",
       generatedTestFileCount: Object.keys(generatedFiles).filter(
         (path) =>
