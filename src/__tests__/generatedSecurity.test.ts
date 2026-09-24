@@ -89,6 +89,41 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("does not accept unrelated permission text as AI tool authorization", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          'const agent={tools:[deleteFileTool]};',
+          'const permission = "profile:read";',
+          'executeTool(requestedTool, input);',
+        ].join("\n"),
+      },
+      "api-service",
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toContain(
+      "ai.unrestricted-tools",
+    );
+  });
+
+  it("accepts explicit AI tool allowlist evidence", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          'const agent={tools:[deleteFileTool]};',
+          'const allowedTools = new Set(["readFile"]);',
+          'if (!allowedTools.has(requestedTool)) throw new Error("Tool denied");',
+          'executeTool(requestedTool, input);',
+        ].join("\n"),
+      },
+      "api-service",
+    );
+
+    expect(
+      findings.filter((finding) => finding.ruleId === "ai.unrestricted-tools"),
+    ).toEqual([]);
+  });
+
   it("wires mandatory security gates into validation, isolated builds and production deploy", () => {
     const validator = readFileSync("src/agents/buildValidator.ts", "utf8");
     const deployer = readFileSync("src/services/productionAutoDeploy.ts", "utf8");
