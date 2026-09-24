@@ -19,7 +19,5 @@ UPDATE "build_snapshots" b
 SET "is_current" = FALSE
 FROM ranked_current r
 WHERE b."id" = r."id" AND r.rn > 1;
-CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_project_version_unique"
-  ON "build_snapshots" ("project_id","version");
 CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_one_current_per_project"
   ON "build_snapshots" ("project_id") WHERE "is_current" = TRUE;
