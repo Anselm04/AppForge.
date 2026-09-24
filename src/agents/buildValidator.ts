@@ -312,7 +312,11 @@ export async function validateGeneratedBuild(
     }
 
     const securityScan = scanProjectFiles(files);
-    const securityPosture = validateGeneratedSecurityPosture(files, techStack);
+    const securityPosture = validateGeneratedSecurityPosture(
+      files,
+      techStack,
+      options.productContract,
+    );
     const blockingSecurityFindings = [
       ...securityScan.findings.filter(
         (finding) =>
