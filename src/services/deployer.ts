@@ -8,6 +8,7 @@ import { getStackAdapter } from "../lib/stackAdapters.js";
 import { assertProductComplete } from "../lib/incompleteProduct.js";
 import type { ProductContract } from "../lib/productContract.js";
 import type { ProductPlan } from "../lib/productPlan.js";
+import { productionPlanForStack } from "../lib/stackDeployment.js";
 
 interface VercelDeployResponse {
   id: string;
@@ -269,6 +270,7 @@ async function deployToFly(
   projectName: string,
   files: Record<string, string>,
   projectId?: number,
+  techStack?: string,
 ): Promise<{ url: string; note?: string }> {
   const token = process.env.FLY_API_TOKEN;
   if (!token) throw new Error("FLY_API_TOKEN not configured");
@@ -294,6 +296,11 @@ async function deployToFly(
     );
   }
 
+  if (!files["Dockerfile"] && techStack) {
+    // Stack-specific packaging (nginx static output, Next.js, Node service,
+    // Playwright image for automation). Throws for structural-only stacks.
+    files["Dockerfile"] = productionPlanForStack(techStack, files).dockerfile;
+  }
   if (!files["Dockerfile"]) {
     files["Dockerfile"] =
       `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\nCMD ["npm", "run", "start"]\n`;
@@ -468,7 +475,12 @@ export async function deployProject(opts: {
     case "netlify":
       return { url: await deployToNetlify(projectName, files), destination };
     case "fly": {
-      const r = await deployToFly(projectName, { ...files }, projectId);
+      const r = await deployToFly(
+        projectName,
+        { ...files },
+        projectId,
+        techStack,
+      );
       return { url: r.url, destination, note: r.note };
     }
     case "github-pages": {
