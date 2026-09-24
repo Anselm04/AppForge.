@@ -11,7 +11,8 @@ import {
   listConfiguredLlmProviders,
   type LlmProvider,
 } from "./llmProviders.js";
-import { isGoldenStack } from "./reliableBuild.js";
+import { hardeningProfileForStack, isGoldenStack } from "./reliableBuild.js";
+import { getStackAdapter } from "./stackAdapters.js";
 import type { AppRecipe } from "./appRecipes.js";
 
 function flag(v: string | undefined, defaultOn: boolean): boolean {
@@ -188,13 +189,11 @@ export function buildFailureDossier(input: BuildFailureDossierInput): string {
         .filter(Boolean),
     ),
   ].slice(0, 12);
-  const tasks = (input.previousTasks ?? [])
-    .slice(0, 8)
-    .map((task, index) => ({
-      id: sanitizeFailureDossierText(task.id ?? String(index + 1), 40),
-      module: sanitizeFailureDossierText(task.module ?? "task", 120),
-      description: sanitizeFailureDossierText(task.description ?? "", 420),
-    }));
+  const tasks = (input.previousTasks ?? []).slice(0, 8).map((task, index) => ({
+    id: sanitizeFailureDossierText(task.id ?? String(index + 1), 40),
+    module: sanitizeFailureDossierText(task.module ?? "task", 120),
+    description: sanitizeFailureDossierText(task.description ?? "", 420),
+  }));
   const stack = sanitizeFailureDossierText(input.techStack, 120);
   const stage = sanitizeFailureDossierText(input.stage ?? "unknown", 120);
   const provider = sanitizeFailureDossierText(input.provider ?? "unknown", 120);
@@ -241,10 +240,39 @@ const STUB_PATTERNS = [
   /not implemented/i,
 ];
 
+const REACT_INTERACTIVE =
+  /\buseState\b|\bonClick\b|\bonSubmit\b|\bonChange\b|<button\b|<input\b|<form\b|<textarea\b|\.map\s*\(/i;
+
 /**
- * Quality bar: "passed" must mean a real working product UI, not a thin stub
+ * Stack-specific "does something" signals for non-React stacks: DOM/game
+ * input for browser stacks, route handlers for services, tool/automation
+ * actions for agents and workers, native widgets for mobile.
+ */
+const NON_REACT_INTERACTIVE =
+  /addEventListener|\bonclick\b|<button\b|<input\b|<form\b|<canvas\b|setInteractive\s*\(|input\.keyboard|\bkeydown\b|pointerdown|OrbitControls|requestAnimationFrame|setAnimationLoop|\.(get|post|put|patch|delete|all)\s*\(\s*["'`]\/|createServer\s*\(|@(app|router)\.(get|post|put|patch|delete)\b|\bonPress\b|\bonPressed\b|\bsetState\b|\buseState\b|chrome\.(runtime|action|tabs|storage)|\bpage\.goto\s*\(|\btools?\s*[:=]/i;
+
+const SOURCE_CODE_RE = /\.(tsx?|jsx?|mjs|cjs|py|dart|rs|html|vue|svelte)$/;
+const TEST_PATH_RE = /(^|\/)(__tests__|tests?)\/|\.(test|spec)\.[a-z]+$/;
+
+function isProductSource(path: string): boolean {
+  return (
+    SOURCE_CODE_RE.test(path) &&
+    !TEST_PATH_RE.test(path) &&
+    !/(^|\/)(node_modules|dist|build)\//.test(path) &&
+    !/\.config\.[cm]?[jt]s$/.test(path)
+  );
+}
+
+/**
+ * Quality bar: "passed" must mean a real working product, not a thin stub
  * or reliability scaffold. Soft-miss → keep looping with real AI (do not ship
  * recipe/template as success).
+ *
+ * The bar is stack-aware: React/Next stacks are judged on their App/page
+ * component; every other stack is judged on its adapter's own entrypoints
+ * and source files, so a Phaser game, API service or Python worker is never
+ * pushed toward producing a React `src/App.tsx` to satisfy the gate. Recipe
+ * feature keywords describe web product UIs and apply only to React stacks.
  */
 export function assertProductQuality(
   files: Record<string, string>,
@@ -252,49 +280,74 @@ export function assertProductQuality(
     description: string;
     recipe?: AppRecipe;
     title?: string;
+    techStack: string;
   },
 ): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
-  const appPath =
-    [
-      "src/App.tsx",
-      "src/App.jsx",
-      "App.tsx",
-      "app/page.tsx",
-      "pages/index.tsx",
-    ].find((p) => files[p]) ?? null;
-  const app = appPath ? files[appPath] : "";
+  const adapter = getStackAdapter(opts.techStack);
+  const profile = hardeningProfileForStack(adapter.id);
+  const reactUi = profile === "vite-react" || profile === "next";
 
-  if (!app || app.trim().length < 400) {
+  const productSources = Object.keys(files).filter(isProductSource);
+  let surface: string;
+  let surfaceLabel: string;
+  if (reactUi) {
+    const appPath =
+      [
+        "src/App.tsx",
+        "src/App.jsx",
+        "App.tsx",
+        "app/page.tsx",
+        "pages/index.tsx",
+      ].find((p) => files[p]) ?? null;
+    surface = appPath ? (files[appPath] ?? "") : "";
+    surfaceLabel = "App UI";
+  } else {
+    const codeEntrypoints = adapter.entrypoints.filter(
+      (p) => SOURCE_CODE_RE.test(p) || p.endsWith(".html"),
+    );
+    const presentEntrypoints = codeEntrypoints.filter(
+      (p) => typeof files[p] === "string",
+    );
+    if (presentEntrypoints.length === 0) {
+      errors.push(
+        `Product quality: missing ${adapter.label} entrypoint (${codeEntrypoints.join(", ")}) — generate the stack's real entry file.`,
+      );
+    }
+    surface = productSources.map((p) => files[p] ?? "").join("\n");
+    surfaceLabel = `${adapter.label} source`;
+  }
+
+  if (!surface || surface.trim().length < 400) {
     errors.push(
-      `Product quality: App UI too thin (${app.trim().length} chars) — need a real interactive product, not a stub.`,
+      `Product quality: ${surfaceLabel} too thin (${surface.trim().length} chars) — need a real working product, not a stub.`,
     );
   }
 
   for (const pat of STUB_PATTERNS) {
-    if (pat.test(app)) {
+    if (pat.test(surface)) {
       errors.push(
-        `Product quality: stub/scaffold text detected (${pat.source}) — regenerate a real product UI.`,
+        `Product quality: stub/scaffold text detected (${pat.source}) — regenerate a real product.`,
       );
       break;
     }
   }
 
-  // Interactive surface signals (inputs, buttons, state, lists)
-  const interactive =
-    /\buseState\b|\bonClick\b|\bonSubmit\b|\bonChange\b|<button\b|<input\b|<form\b|<textarea\b|\.map\s*\(/i.test(
-      app,
-    );
-  if (app && !interactive) {
+  const interactive = (
+    reactUi ? REACT_INTERACTIVE : NON_REACT_INTERACTIVE
+  ).test(surface);
+  if (surface && !interactive) {
     errors.push(
-      "Product quality: App lacks interactive UI (state, inputs, or actions) — keep building a working product.",
+      reactUi
+        ? "Product quality: App lacks interactive UI (state, inputs, or actions) — keep building a working product."
+        : `Product quality: ${adapter.label} source has no working behaviour (input handling, routes, or actions) — keep building a working product.`,
     );
   }
 
   // Title / description must appear somehow (branded product, not generic shell)
   const title = (opts.title ?? "").trim();
   const blob = Object.entries(files)
-    .filter(([p]) => /\.(tsx?|jsx?|html|md)$/.test(p))
+    .filter(([p]) => /\.(tsx?|jsx?|html|md|py|dart|rs)$/.test(p))
     .map(([, c]) => c)
     .join("\n");
   if (
@@ -304,11 +357,11 @@ export function assertProductQuality(
       .includes(title.toLowerCase().slice(0, Math.min(24, title.length)))
   ) {
     errors.push(
-      `Product quality: generated UI does not mention app title "${title.slice(0, 40)}" — product feels generic.`,
+      `Product quality: generated project does not mention app title "${title.slice(0, 40)}" — product feels generic.`,
     );
   }
 
-  if (opts.recipe && opts.recipe.specKeywords.length > 0) {
+  if (reactUi && opts.recipe && opts.recipe.specKeywords.length > 0) {
     const lower = blob.toLowerCase();
     const missing = opts.recipe.specKeywords.filter(
       (k) => !lower.includes(k.toLowerCase()),
@@ -322,11 +375,13 @@ export function assertProductQuality(
     }
   }
 
-  // Reject pure reliability scaffold package with almost no src files of substance
-  const srcFiles = Object.keys(files).filter(
-    (p) => p.startsWith("src/") && /\.(tsx?|jsx?)$/.test(p),
-  );
-  const substantialSrc = srcFiles.filter(
+  // Reject pure reliability scaffold package with almost no source of substance
+  const candidateSources = reactUi
+    ? productSources.filter(
+        (p) => p.startsWith("src/") || p.startsWith("app/") || p === "App.tsx",
+      )
+    : productSources;
+  const substantialSrc = candidateSources.filter(
     (p) => (files[p] ?? "").trim().length >= 200,
   );
   if (substantialSrc.length < 1) {
