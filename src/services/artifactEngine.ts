@@ -1,4 +1,4 @@
-import { getProjectFiles, updateProjectFiles } from "../db.js";
+import { appendArtifactToCurrentSnapshot } from "../db.js";
 
 export type ArtifactFormat =
   | "markdown"
@@ -12,6 +12,9 @@ export type StoredArtifact = {
   mimeType: string;
   encoding: "utf8" | "base64";
   size: number;
+  snapshotId: number;
+  snapshotVersion: number;
+  artifactSha256: string;
 };
 
 export function sanitizeArtifactName(value: string, fallback: string): string {
@@ -204,11 +207,7 @@ export async function saveProjectArtifact(input: {
   path: string;
   content: string;
 }): Promise<StoredArtifact> {
-  const files = await getProjectFiles(input.projectId);
-  await updateProjectFiles(input.projectId, {
-    ...files,
-    [input.path]: input.content,
-  });
+  const revision = await appendArtifactToCurrentSnapshot(input);
 
   const isBase64Pdf = input.path.endsWith(".pdf.base64");
   return {
@@ -218,5 +217,8 @@ export async function saveProjectArtifact(input: {
       : "text/plain; charset=utf-8",
     encoding: isBase64Pdf ? "base64" : "utf8",
     size: Buffer.byteLength(input.content, "utf8"),
+    snapshotId: revision.snapshotId,
+    snapshotVersion: revision.version,
+    artifactSha256: revision.integrity.sha256,
   };
 }
