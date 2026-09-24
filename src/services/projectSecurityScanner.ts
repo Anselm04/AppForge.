@@ -66,7 +66,7 @@ const RULES: SecurityRule[] = [
   },
   {
     id: "web.dangerous-html",
-    severity: "medium",
+    severity: "high",
     message: "dangerouslySetInnerHTML requires trusted or sanitized input.",
     pattern: /dangerouslySetInnerHTML\s*=/,
     paths: /\.(?:jsx|tsx)$/i,
@@ -146,6 +146,24 @@ const RULES: SecurityRule[] = [
       "Redirect target appears to come directly from request-controlled input.",
     pattern:
       /(?:res\.redirect|redirect)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "secret.logging",
+    severity: "high",
+    message:
+      "Generated code logs a sensitive environment value; secrets must never be written to logs.",
+    pattern:
+      /console\.(?:log|info|warn|error|debug)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH)[A-Z0-9_]*)|os\.getenv\s*\(\s*["'][^"']*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH)[^"']*["'])/i,
+    paths: /\.(?:js|ts|mjs|cjs|py)$/i,
+  },
+  {
+    id: "auth.client-controlled-identity",
+    severity: "high",
+    message:
+      "Authorization identity appears to be accepted directly from request-controlled user/tenant fields.",
+    pattern:
+      /(?:const|let|var)\s+(?:userId|tenantId|organizationId|orgId)\s*=\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
