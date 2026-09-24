@@ -5,6 +5,7 @@ import {
   validateGeneratedSecurityPosture,
 } from "../services/projectSecurityScanner.js";
 import { getStackScaffold } from "../services/stackScaffolds.js";
+import type { ProductContract } from "../lib/productContract.js";
 
 describe("#16 generated security", () => {
   it("blocks high-risk generated source patterns", () => {
@@ -96,6 +97,140 @@ describe("#16 generated security", () => {
     expect(isolated).toContain("dependencyAudit: true");
     expect(isolated).toContain("blockNetworkToPrivateRanges: true");
     expect(isolated).toContain("blockShellExecution: true");
+  });
+
+
+  it("blocks server/service credentials in browser code and secret logging", () => {
+    const scan = scanProjectFiles({
+      "src/App.tsx":
+        'export const config={key:process.env.SUPABASE_SERVICE_ROLE_KEY};',
+      "src/server.ts":
+        'console.log(process.env.STRIPE_SECRET_KEY);',
+    });
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "secret.client-service-role",
+        "secret.logged-env",
+      ]),
+    );
+    expect(scan.passed).toBe(false);
+  });
+
+  it("enforces auth, tenant and admin boundaries required by the product contract", () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt: "Build a multi-tenant admin SaaS with login",
+      productType: "saas_application",
+      productFamilies: ["frontend", "backend", "database", "auth"],
+      targetUsers: ["customers", "admins"],
+      userRoles: ["member", "admin"],
+      coreWorkflows: ["sign in", "manage workspace"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Authenticated users manage their own workspace",
+          category: "security",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure by default"],
+      dataModels: ["User", "Workspace"],
+      integrations: [],
+      securityRequirements: [
+        "Require authentication, tenant isolation, and admin authorization",
+      ],
+      deploymentRequirements: ["deploy securely"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "api-service",
+      researchRequirements: [],
+      runtimeRequirements: ["HTTP service"],
+      secondaryCapabilities: [
+        "authentication",
+        "database",
+        "administration",
+        "teams",
+      ],
+      intentConfidence: 1,
+      canonicalInterpretation: "Multi-tenant admin SaaS",
+    };
+
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          'import express from "express";',
+          'import helmet from "helmet";',
+          'import { rateLimit } from "express-rate-limit";',
+          "const app=express(); app.use(helmet()); app.use(rateLimit({windowMs:1000,limit:10}));",
+        ].join("\n"),
+      },
+      "api-service",
+      contract,
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "auth.missing-server-enforcement",
+        "tenant.missing-isolation",
+        "auth.missing-admin-separation",
+      ]),
+    );
+  });
+
+  it("accepts explicit server-side auth, tenant and admin authorization evidence", () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt: "Build a secure team admin API",
+      productType: "api",
+      productFamilies: ["backend", "database", "auth"],
+      targetUsers: ["members", "admins"],
+      userRoles: ["member", "admin"],
+      coreWorkflows: ["access tenant resources"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Enforce authenticated tenant access",
+          category: "security",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure"],
+      dataModels: ["User", "Workspace"],
+      integrations: [],
+      securityRequirements: ["authentication tenant role-based access control"],
+      deploymentRequirements: ["deploy"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "api-service",
+      researchRequirements: [],
+      runtimeRequirements: ["HTTP service"],
+      secondaryCapabilities: ["authentication", "database", "administration", "teams"],
+      intentConfidence: 1,
+      canonicalInterpretation: "Secure team admin API",
+    };
+
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          'import helmet from "helmet";',
+          'import { rateLimit } from "express-rate-limit";',
+          "app.use(helmet()); app.use(rateLimit({windowMs:1000,limit:10}));",
+          "app.use(requireAuth);",
+          "const tenantId=req.user.tenantId;",
+          'if(req.user.role === "admin"){ next(); }',
+        ].join("\n"),
+      },
+      "api-service",
+      contract,
+    );
+
+    expect(
+      findings.filter((finding) =>
+        [
+          "auth.missing-server-enforcement",
+          "tenant.missing-isolation",
+          "auth.missing-admin-separation",
+        ].includes(finding.ruleId),
+      ),
+    ).toEqual([]);
   });
 
   it("keeps the Node service scaffold on the secure baseline", () => {
