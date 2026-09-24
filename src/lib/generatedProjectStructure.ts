@@ -385,11 +385,17 @@ function scriptProblems(
     const scripts = pkg.scripts ?? {};
     const problems: string[] = [];
     if (policy.buildCommand?.startsWith("npm run ")) {
-      const script = policy.buildCommand.slice("npm run ".length);
+      const script = policy.buildCommand
+        .slice("npm run ".length)
+        .trim()
+        .split(/\s+/)[0];
       if (!scripts[script]) problems.push(`package.json missing required ${script} script`);
     }
     if (policy.startCommand?.startsWith("npm run ")) {
-      const script = policy.startCommand.slice("npm run ".length);
+      const script = policy.startCommand
+        .slice("npm run ".length)
+        .trim()
+        .split(/\s+/)[0];
       if (!scripts[script]) problems.push(`package.json missing required ${script} script`);
     }
     return problems;
