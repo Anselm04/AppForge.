@@ -1137,6 +1137,7 @@ export async function getEditableProjectFiles(
 
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${projectId})`);
     const snapshots = await tx
       .select({
         id: schema.buildSnapshots.id,
