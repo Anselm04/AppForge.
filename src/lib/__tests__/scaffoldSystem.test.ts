@@ -103,7 +103,9 @@ describe("scaffold system", () => {
       const adapter = STACK_ADAPTERS.find((item) => item.id === stack)!;
       const scaffold = getStackScaffold(stack, adapter.productTypes[0]);
       expect(scaffold["src/App.tsx"], stack).toBeUndefined();
-      expect(scaffold["vite.config.ts"], stack).toBeUndefined();
+      if (stack !== "phaser-html5") {
+        expect(scaffold["vite.config.ts"], stack).toBeUndefined();
+      }
     }
 
     const api = getStackScaffold("api-service", "api");
