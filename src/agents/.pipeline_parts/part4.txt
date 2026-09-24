@@ -147,7 +147,9 @@
 
     const { logger } = await import("../_core/logger.js");
     const {
-      createBuildSnapshot, getNextVersion, getProjectById, markSnapshotAsCurrent,
+      createAndActivateBuildSnapshot,
+      getNextVersion,
+      getProjectById,
     } = await import("../db.js");
     const { estimateLicenseAndCost } = await import("./licenseCostEstimator.js");
     const nextVersion = await getNextVersion(projectId);
@@ -155,7 +157,7 @@
     const pkgJson = generatedFiles["package.json"];
     const parsedDeps = pkgJson ? (JSON.parse(pkgJson).dependencies ?? {}) : {};
     const costReport = estimateLicenseAndCost(parsedDeps, techStack, 50, true);
-    const snapshotId = await createBuildSnapshot({
+    const finalizedSnapshot = await createAndActivateBuildSnapshot({
       projectId, userId, version: nextVersion,
       label: appTitle ? `v${nextVersion} — ${appTitle}` : `v${nextVersion}`,
       files: generatedFiles,
@@ -173,9 +175,16 @@
       costEstimate: costReport,
       requirementManifest,
     });
-    logger.info({ projectId, snapshotId, version: nextVersion }, "build_snapshot_saved");
-    await markSnapshotAsCurrent(snapshotId, projectId);
-    await updateProjectStatus(projectId, "completed");
+    const snapshotId = finalizedSnapshot.id;
+    logger.info(
+      {
+        projectId,
+        snapshotId,
+        version: nextVersion,
+        artifactSha256: finalizedSnapshot.integrity.sha256,
+      },
+      "build_snapshot_saved",
+    );
     write("done", {
       projectId, snapshotId, title: appTitle,
       fileCount: Object.keys(generatedFiles).length,
