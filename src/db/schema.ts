@@ -10,7 +10,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import type { ProductContract } from "../lib/productContract.js";
 import type { ResearchRecord } from "../lib/researchRecord.js";
 import type { ProductPlan } from "../lib/productPlan.js";
@@ -536,7 +536,13 @@ export const buildSnapshots = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [
-    index("snapshots_project_version_idx").on(table.projectId, table.version),
+    uniqueIndex("snapshots_project_version_unique").on(
+      table.projectId,
+      table.version,
+    ),
+    uniqueIndex("snapshots_one_current_per_project")
+      .on(table.projectId)
+      .where(sql`${table.isCurrent} = true`),
     index("snapshots_current_idx").on(table.isCurrent),
     index("snapshots_project_idx").on(table.projectId),
   ],
