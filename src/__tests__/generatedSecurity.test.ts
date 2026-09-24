@@ -40,7 +40,7 @@ describe("#16 generated security", () => {
         "dependency.unpinned",
         "dependency.unsafe-source",
         "auth.client-controlled-identity",
-        "secret.logging",
+        "secret.logged-env",
         "web.inner-html-assignment",
       ]),
     );
