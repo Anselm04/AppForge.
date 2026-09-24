@@ -1,3 +1,5 @@
+import type { ProductContract } from "../lib/productContract.js";
+
 export type SecuritySeverity = "critical" | "high" | "medium" | "low";
 
 export type ProjectSecurityFinding = {
@@ -183,6 +185,25 @@ const RULES: SecurityRule[] = [
     pattern: /"(?:preinstall|install|postinstall)"\s*:\s*"[^"]+"/i,
     paths: /(?:^|\/)package\.json$/i,
   },
+
+  {
+    id: "secret.client-service-role",
+    severity: "critical",
+    message:
+      "Server/service credentials must never be exposed in generated browser code.",
+    pattern:
+      /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN)/i,
+    paths: /(?:^|\/)(?:src|app|pages|components|public)\/.*\.(?:js|jsx|ts|tsx|html)$/i,
+  },
+  {
+    id: "secret.logged-env",
+    severity: "high",
+    message:
+      "Generated code appears to log a secret-bearing environment variable.",
+    pattern:
+      /console\.(?:log|info|warn|error)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL))|process\.env\[[\"'][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL)[\"']\])/i,
+    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
+  },
 ];
 
 const SKIP_PATHS =
@@ -332,6 +353,7 @@ export function scanProjectFiles(
 export function validateGeneratedSecurityPosture(
   files: Record<string, string>,
   techStack: string,
+  productContract?: ProductContract,
 ): ProjectSecurityFinding[] {
   const findings: ProjectSecurityFinding[] = [];
   const source = Object.entries(files)
@@ -404,6 +426,67 @@ export function validateGeneratedSecurityPosture(
       "ai.unrestricted-tools",
       "Generated AI tools must use explicit permissions/allowlists or human approval boundaries.",
       "AI tool execution detected without a permission boundary.",
+    );
+  }
+
+
+  const capabilities = new Set(productContract?.secondaryCapabilities ?? []);
+  const securityText = [
+    ...(productContract?.securityRequirements ?? []),
+    ...(productContract?.functionalRequirements
+      ?.filter((item) => item.category === "security")
+      .map((item) => item.text) ?? []),
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  const authRequired =
+    capabilities.has("authentication") ||
+    /\b(auth|authentication|login|session|oauth|sso|jwt|access control)\b/i.test(
+      securityText,
+    );
+  if (
+    authRequired &&
+    !/(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser)/i.test(
+      source,
+    )
+  ) {
+    add(
+      "auth.missing-server-enforcement",
+      "Products requiring authentication must enforce identity on the server, not only in client UI.",
+      "Authentication is required by the canonical product contract but no server-side auth enforcement was detected.",
+    );
+  }
+
+  const tenantRequired =
+    capabilities.has("teams") ||
+    (productContract?.userRoles?.length ?? 0) > 1 ||
+    /\b(tenant|organization|organisation|workspace|ownership|role[- ]based|rbac)\b/i.test(
+      securityText,
+    );
+  if (
+    tenantRequired &&
+    !/(?:tenantId|tenant_id|organizationId|organization_id|workspaceId|workspace_id|ownerId|owner_id|userId|user_id|membership|role\s*===|hasRole|requireRole|row level security|\bRLS\b|auth\.uid\(\))/i.test(
+      source,
+    )
+  ) {
+    add(
+      "tenant.missing-isolation",
+      "Multi-user/team products must enforce ownership, membership, role, or tenant isolation in server/database logic.",
+      "Tenant/team/role boundaries are required by the canonical product contract but no isolation enforcement was detected.",
+    );
+  }
+
+  if (
+    capabilities.has("administration") &&
+    !/(?:requireAdmin|isAdmin|role\s*===\s*[\"']admin[\"']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin)/i.test(
+      source,
+    )
+  ) {
+    add(
+      "auth.missing-admin-separation",
+      "Administrative functionality must be protected by explicit server-side authorization.",
+      "Administration is required by the canonical product contract but no explicit admin authorization boundary was detected.",
     );
   }
 
