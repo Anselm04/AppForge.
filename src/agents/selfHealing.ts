@@ -281,6 +281,22 @@ async function createAutonomousFixTask(
       );
     }
 
+    const {
+      assertMustHaveRequirementsResolved,
+      markRequirementDeployment,
+      markRequirementImplementation,
+      markRequirementTests,
+      serializeRequirementManifest,
+    } = await import("../lib/requirementManifest.js");
+    let requirementManifest = markRequirementImplementation(
+      assertMustHaveRequirementsResolved(project.requirementManifest),
+      result.files,
+    );
+    requirementManifest = markRequirementTests(requirementManifest, result.files);
+    requirementManifest = assertMustHaveRequirementsResolved(requirementManifest);
+    result.files["appforge.requirements.json"] =
+      serializeRequirementManifest(requirementManifest);
+
     // Reuse the exact production deployment + live smoke gate used by normal
     // validated builds. Do not call a database-only repair "healed".
     const deployment = await deployValidatedProject({
@@ -289,6 +305,14 @@ async function createAutonomousFixTask(
       files: result.files,
       productContract: project.productContract,
     });
+
+    requirementManifest = markRequirementDeployment(requirementManifest, {
+      destination: "fly",
+      url: deployment.liveUrl,
+      verified: true,
+    });
+    result.files["appforge.requirements.json"] =
+      serializeRequirementManifest(requirementManifest);
 
     const { getNextVersion, createBuildSnapshot, markSnapshotAsCurrent } =
       await import("../db.js");
@@ -304,6 +328,7 @@ async function createAutonomousFixTask(
       validationResult: result.validations,
       auditScores: null,
       costEstimate: null,
+      requirementManifest,
     });
     await markSnapshotAsCurrent(newSnapshotId, projectId);
 
@@ -313,6 +338,7 @@ async function createAutonomousFixTask(
       .set({
         status: "completed",
         generatedFiles: result.files,
+        requirementManifest,
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
