@@ -251,6 +251,7 @@ CREATE INDEX IF NOT EXISTS "senior_dev_tasks_project_idx" ON "senior_dev_tasks" 
 CREATE INDEX IF NOT EXISTS "senior_dev_tasks_user_idx" ON "senior_dev_tasks" ("user_id");
 CREATE INDEX IF NOT EXISTS "senior_dev_tasks_status_idx" ON "senior_dev_tasks" ("status");
 CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_one_current_per_project" ON "build_snapshots" ("project_id") WHERE "is_current" = TRUE;
+CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_project_version_unique" ON "build_snapshots" ("project_id", "version");
 CREATE INDEX IF NOT EXISTS "snapshots_project_version_idx" ON "build_snapshots" ("project_id", "version");
 CREATE INDEX IF NOT EXISTS "snapshots_current_idx" ON "build_snapshots" ("is_current");
 CREATE INDEX IF NOT EXISTS "snapshots_project_idx" ON "build_snapshots" ("project_id");
