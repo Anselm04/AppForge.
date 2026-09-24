@@ -1089,14 +1089,43 @@ export async function getWorkingProjectFiles(
   const files = validateArtifactFiles(
     project.generatedFiles as Record<string, string>,
   );
+  let artifactVersion = project.workingArtifactVersion ?? 0;
+  let integrity = project.workingArtifactIntegrity;
+
+  if (!integrity || artifactVersion <= 0) {
+    artifactVersion = Math.max(1, artifactVersion);
+    integrity = buildArtifactIntegrity({
+      projectId,
+      artifactVersion,
+      state: "working",
+      files,
+    });
+    await db
+      .update(schema.projects)
+      .set({
+        workingArtifactVersion: artifactVersion,
+        workingArtifactIntegrity: integrity,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, projectId));
+  }
+
   assertArtifactIntegrity({
     files,
-    integrity: project.workingArtifactIntegrity,
+    integrity,
     projectId,
-    artifactVersion: project.workingArtifactVersion ?? 0,
+    artifactVersion,
     requiredState: "working",
   });
   return files;
+}
+
+export async function getEditableProjectFiles(
+  projectId: number,
+): Promise<Record<string, string>> {
+  const working = await getWorkingProjectFiles(projectId);
+  if (Object.keys(working).length > 0) return working;
+  return getProjectFiles(projectId);
 }
 
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
