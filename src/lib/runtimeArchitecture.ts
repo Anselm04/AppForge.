@@ -209,6 +209,19 @@ export function validateRuntimeImplementation(
 ): string[] {
   const runtime = getRuntimeArchitecture(stackId);
   const problems: string[] = [];
+  const runtimeSources = Object.entries(files).filter(([path]) =>
+    /\.(?:[cm]?[jt]sx?|py|dart|rs)$/i.test(path),
+  );
+  const combined = runtimeSources.map(([, source]) => source).join("\n");
+
+  const implementsHttpPath = (path: string): boolean => {
+    if (combined.includes(path)) return true;
+    if (stackId === "next-node" && path.startsWith("/api/")) {
+      const routeBase = "app/" + path.slice(1);
+      return Object.keys(files).some((file) =>
+        new RegExp(
+          "^" + routeBase.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\  const runtime = getRuntimeArchitecture(stackId);
+  const problems: string[] = [];
   const combined = Object.values(files).join("\n");
 
   if (runtime.health.mode === "http") {
@@ -223,6 +236,32 @@ export function validateRuntimeImplementation(
     if (
       runtime.health.readinessPath &&
       !combined.includes(runtime.health.readinessPath)
+    ) {
+      problems.push(
+        "missing runtime readiness endpoint " + runtime.health.readinessPath,
+      );
+    }
+  }
+") +
+            "/route\\.(?:ts|tsx|js|jsx)$",
+        ).test(file),
+      );
+    }
+    return false;
+  };
+
+  if (runtime.health.mode === "http") {
+    if (
+      runtime.health.livenessPath &&
+      !implementsHttpPath(runtime.health.livenessPath)
+    ) {
+      problems.push(
+        "missing runtime liveness endpoint " + runtime.health.livenessPath,
+      );
+    }
+    if (
+      runtime.health.readinessPath &&
+      !implementsHttpPath(runtime.health.readinessPath)
     ) {
       problems.push(
         "missing runtime readiness endpoint " + runtime.health.readinessPath,
