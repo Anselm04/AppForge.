@@ -12,13 +12,15 @@ describe("scaffold system", () => {
     for (const adapter of STACK_ADAPTERS) {
       const productType = adapter.productTypes[0];
       const scaffold = getStackScaffold(adapter.id, productType);
-      expect(
-        validateStackScaffold(adapter.id, scaffold),
-        adapter.id,
-      ).toEqual([]);
+      expect(validateStackScaffold(adapter.id, scaffold), adapter.id).toEqual(
+        [],
+      );
       expect(scaffold[adapter.dependencyManifest]).toBeDefined();
       for (const entrypoint of adapter.entrypoints) {
-        expect(scaffold[entrypoint], `${adapter.id}:${entrypoint}`).toBeDefined();
+        expect(
+          scaffold[entrypoint],
+          `${adapter.id}:${entrypoint}`,
+        ).toBeDefined();
       }
       for (const envFile of adapter.environmentFiles) {
         expect(
@@ -31,10 +33,7 @@ describe("scaffold system", () => {
 
   it("persists preview, deployment, runtime and output metadata per stack", () => {
     for (const adapter of STACK_ADAPTERS) {
-      const scaffold = getStackScaffold(
-        adapter.id,
-        adapter.productTypes[0],
-      );
+      const scaffold = getStackScaffold(adapter.id, adapter.productTypes[0]);
       const stackMeta = JSON.parse(scaffold["appforge.stack.json"]);
       const previewMeta = JSON.parse(scaffold["appforge.preview.json"]);
       const deployMeta = JSON.parse(scaffold["appforge.deploy.json"]);
@@ -54,8 +53,7 @@ describe("scaffold system", () => {
     const generated = {
       "src/App.tsx":
         'export function App(){ return <main data-product="real">Real product</main>; }',
-      "src/main.tsx":
-        'import { App } from "./App"; console.info(App);',
+      "src/main.tsx": 'import { App } from "./App"; console.info(App);',
       "package.json": JSON.stringify({
         name: "customer-product",
         scripts: { build: "customer-build" },
@@ -86,7 +84,7 @@ describe("scaffold system", () => {
       scaffold,
       {
         "src/App.tsx":
-          'export function App(){ return <main>Substantive product</main>; }',
+          "export function App(){ return <main>Substantive product</main>; }",
       },
       "react-node",
     );
@@ -119,10 +117,7 @@ describe("scaffold system", () => {
       "node dist/server.js",
     );
 
-    const extension = getStackScaffold(
-      "chrome-extension",
-      "browser_extension",
-    );
+    const extension = getStackScaffold("chrome-extension", "browser_extension");
     expect(JSON.parse(extension["manifest.json"]).manifest_version).toBe(3);
 
     const flutter = getStackScaffold("flutter-firebase", "mobile_app");
@@ -133,20 +128,17 @@ describe("scaffold system", () => {
   });
 
   it("rejects generic or incompatible stack use for a product type", () => {
-    expect(() =>
-      getStackScaffold("react-node", "api"),
-    ).toThrow(/does not support product type api/);
-    expect(() =>
-      getStackScaffold("phaser-html5", "mobile_app"),
-    ).toThrow(/does not support product type mobile_app/);
+    expect(() => getStackScaffold("react-node", "api")).toThrow(
+      /does not support product type api/,
+    );
+    expect(() => getStackScaffold("phaser-html5", "mobile_app")).toThrow(
+      /does not support product type mobile_app/,
+    );
   });
 
   it("contains no production placeholder scaffold language", () => {
     for (const adapter of STACK_ADAPTERS) {
-      const scaffold = getStackScaffold(
-        adapter.id,
-        adapter.productTypes[0],
-      );
+      const scaffold = getStackScaffold(adapter.id, adapter.productTypes[0]);
       const text = Object.values(scaffold).join("\n");
       expect(text).not.toMatch(/Scaffold is ready/i);
       expect(text).not.toMatch(/Your generated UI will replace this screen/i);
