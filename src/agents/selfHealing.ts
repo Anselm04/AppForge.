@@ -11,6 +11,7 @@ import {
   releaseSelfHealingProject,
 } from "../services/self-healing-lock.js";
 import { deployValidatedProject } from "../services/productionAutoDeploy.js";
+import { productContractSchema } from "../lib/productContract.js";
 
 // ── Self-Healing Production Monitor ──
 // Watches Sentry for error spikes on deployed/completed projects.
@@ -226,6 +227,29 @@ async function createAutonomousFixTask(
     logger.warn({ projectId }, "self_healing_missing_product_contract");
     return false;
   }
+  // Repair works from the same canonical contract as the original build. An
+  // invalid contract, or a snapshot built for a different stack, is refused
+  // instead of being repaired under a guessed stack.
+  const contractCheck = productContractSchema.safeParse(
+    project.productContract,
+  );
+  if (!contractCheck.success) {
+    logger.warn({ projectId }, "self_healing_invalid_product_contract");
+    return false;
+  }
+  const productContract = contractCheck.data;
+  const techStack = productContract.selectedTechnologyStack;
+  if (currentSnapshot.techStack && currentSnapshot.techStack !== techStack) {
+    logger.warn(
+      {
+        projectId,
+        snapshotStack: currentSnapshot.techStack,
+        contractStack: techStack,
+      },
+      "self_healing_snapshot_stack_mismatch",
+    );
+    return false;
+  }
   if (!project.requirementManifest) {
     logger.warn({ projectId }, "self_healing_missing_requirement_manifest");
     return false;
@@ -256,13 +280,13 @@ async function createAutonomousFixTask(
     validationResults: [],
     summary: "",
     creditsSpent: 0,
+    productContract,
   };
 
   const baselineFiles = {
     ...(currentSnapshot.files as Record<string, string>),
   };
   const candidateFiles = { ...baselineFiles };
-  const techStack = currentSnapshot.techStack ?? "react-node";
 
   try {
     const result = await runSeniorDevAgent(
@@ -297,8 +321,12 @@ async function createAutonomousFixTask(
       assertMustHaveRequirementsResolved(project.requirementManifest),
       result.files,
     );
-    requirementManifest = markRequirementTests(requirementManifest, result.files);
-    requirementManifest = assertMustHaveRequirementsResolved(requirementManifest);
+    requirementManifest = markRequirementTests(
+      requirementManifest,
+      result.files,
+    );
+    requirementManifest =
+      assertMustHaveRequirementsResolved(requirementManifest);
     result.files["appforge.requirements.json"] =
       serializeRequirementManifest(requirementManifest);
 
@@ -336,7 +364,7 @@ async function createAutonomousFixTask(
       projectId,
       projectName: project.title ?? `appforge-${projectId}`,
       files: persistedArtifact.files,
-      productContract: project.productContract,
+      productContract,
       snapshot: {
         id: persistedArtifact.snapshotId,
         version: persistedArtifact.version,

@@ -34,6 +34,10 @@ import {
 } from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
 import {
+  productContractSchema,
+  type ProductContract,
+} from "../lib/productContract.js";
+import {
   claimSeniorDevResume,
   claimSeniorDevStart,
   failStaleSeniorDevExecution,
@@ -44,6 +48,24 @@ import {
   refundOutstandingSeniorDevReservation,
   wasSeniorDevReservationCharged,
 } from "../services/senior-dev-reservation.js";
+
+/**
+ * Senior Dev edits run against the project's canonical contract when it has a
+ * valid one, so manual changes cannot drift to another stack. Legacy projects
+ * created before contracts existed keep their stored stack.
+ */
+function seniorDevContext(
+  project: { techStack?: string | null; productContract?: unknown } | null,
+): { techStack: string; productContract?: ProductContract } {
+  const parsed = productContractSchema.safeParse(project?.productContract);
+  if (parsed.success) {
+    return {
+      techStack: parsed.data.selectedTechnologyStack,
+      productContract: parsed.data,
+    };
+  }
+  return { techStack: project?.techStack || "react-node" };
+}
 
 const router = Router();
 
@@ -383,6 +405,7 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
   try {
     const files =
       (project.generatedFiles as Record<string, string> | null) ?? {};
+    const context = seniorDevContext(project);
 
     const agentTask = {
       id: task.id,
@@ -397,12 +420,13 @@ router.get("/senior/:taskId", async (req: Request, res: Response) => {
       validationResults: (task.validationResult as any) ?? [],
       summary: task.summary ?? "",
       creditsSpent: task.creditsSpent ?? 0,
+      productContract: context.productContract,
     };
 
     const result = await runSeniorDevAgent(
       agentTask,
       { ...files },
-      project.techStack || "react-node",
+      context.techStack,
       onProgress,
     );
 
@@ -542,6 +566,7 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
     const project = await getProjectById(task.projectId);
     const files =
       (project?.generatedFiles as Record<string, string> | null) ?? {};
+    const context = seniorDevContext(project ?? null);
 
     const result = await resumeAfterApproval(
       {
@@ -557,9 +582,10 @@ router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
         validationResults: (task.validationResult as any) ?? [],
         summary: task.summary ?? "",
         creditsSpent: task.creditsSpent ?? 0,
+        productContract: context.productContract,
       },
       { ...files },
-      project?.techStack || "react-node",
+      context.techStack,
       onProgress,
     );
 

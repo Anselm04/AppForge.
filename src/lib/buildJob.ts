@@ -72,7 +72,7 @@ export const buildJobSchema = z
     techStack: z.string().min(1).max(120),
     locale: z.string().min(1).max(32).optional(),
     buildCapabilities: z.array(z.string().min(1)).optional(),
-    promptIntent: promptIntentSchema.optional(),
+    promptIntent: promptIntentSchema,
     productContract: productContractSchema,
     createdAt: z.string().min(1),
     reservationCharged: z.boolean(),
@@ -82,7 +82,8 @@ export const buildJobSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["productContract", "originalPrompt"],
-        message: "Build job original prompt must match the canonical product contract",
+        message:
+          "Build job original prompt must match the canonical product contract",
       });
     }
 
@@ -94,35 +95,77 @@ export const buildJobSchema = z
       });
     }
 
-    if (job.promptIntent) {
-      if (job.promptIntent.originalPrompt !== job.description) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["promptIntent", "originalPrompt"],
-          message: "Prompt intent original prompt must match the build job",
-        });
-      }
+    // The worker never re-derives intent from the prompt: the intent resolved
+    // at intake (including a user's clarification answer) travels with the job
+    // and must already be unambiguous and agree with the contract.
+    if (job.promptIntent.originalPrompt !== job.description) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["promptIntent", "originalPrompt"],
+        message: "Prompt intent original prompt must match the build job",
+      });
+    }
 
-      if (
-        job.promptIntent.primaryProductType &&
-        job.promptIntent.primaryProductType !== job.productContract.productType
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["promptIntent", "primaryProductType"],
-          message: "Prompt intent product type must match the canonical product contract",
-        });
-      }
+    if (job.promptIntent.ambiguous || !job.promptIntent.primaryProductType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["promptIntent", "primaryProductType"],
+        message:
+          "Build job prompt intent is ambiguous; it must be resolved to one product type",
+      });
+    } else if (
+      job.promptIntent.primaryProductType !== job.productContract.productType
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["promptIntent", "primaryProductType"],
+        message:
+          "Prompt intent product type must match the canonical product contract",
+      });
     }
   });
 
 export type BuildJob = z.infer<typeof buildJobSchema> & {
   productContract: ProductContract;
-  promptIntent?: PromptIntent;
+  promptIntent: PromptIntent;
 };
 
 export function validateBuildJob(input: unknown): BuildJob {
   return buildJobSchema.parse(input) as BuildJob;
+}
+
+export type BuildJobParseResult =
+  { ok: true; job: BuildJob } | { ok: false; reason: string };
+
+/** Validates a dequeued job without throwing, with a short reason on failure. */
+export function parseBuildJob(input: unknown): BuildJobParseResult {
+  const parsed = buildJobSchema.safeParse(input);
+  if (parsed.success) return { ok: true, job: parsed.data as BuildJob };
+  const reason = parsed.error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.join(".") || "job"}: ${issue.message}`)
+    .join("; ");
+  return { ok: false, reason };
+}
+
+const buildJobIdentitySchema = z.object({
+  projectId: z.number().int().positive(),
+  userId: z.number().int().positive(),
+  createdAt: z.string().min(1),
+  reservationCharged: z.boolean(),
+});
+
+export type BuildJobIdentity = z.infer<typeof buildJobIdentitySchema>;
+
+/**
+ * Reads only the fields needed to settle a rejected job (fail the project and
+ * refund its reservation). Returns null when even those are unusable.
+ */
+export function extractBuildJobIdentity(
+  input: unknown,
+): BuildJobIdentity | null {
+  const parsed = buildJobIdentitySchema.safeParse(input);
+  return parsed.success ? parsed.data : null;
 }
 
 export function serializeBuildJob(input: BuildJob): string {

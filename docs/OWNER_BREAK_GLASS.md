@@ -51,6 +51,10 @@ Production deployment to Fly.io is automatic for green `main`. When the `CI Pipe
 
 `projects.create` and `POST /api/generate` build every product contract deterministically from the user's prompt. When a model provider is configured, an optional enrichment step can only add schema-valid items to that contract. If enrichment ever misbehaves during an incident, set `APPFORGE_CONTRACT_LLM_ENRICHMENT=off` in the runtime environment. Intake then uses only the deterministic prompt-specific contract, with no redeploy of code needed. Prompts that cannot be classified return a structured clarification (question plus choices) instead of creating or charging a project.
 
+### Queued build contract enforcement
+
+Every queued build carries the typed context resolved at intake: the original prompt, the resolved prompt intent, the canonical product contract, and the stack. The worker never reclassifies a prompt. A dequeued build whose context is missing, ambiguous, invalid, or disagrees with the persisted project (its contract or its `techStack`) is rejected before any agent runs. Its reservation is refunded with the normal per-attempt refund key, and the project is marked `failed` with reason `build_contract_invalid`. The customer is asked to create the project again. Autonomous self-healing repairs refuse to run when the project's contract is invalid or its snapshot stack disagrees with that contract. If projects start failing with `build_contract_invalid` after a release, treat it as a producer/queue regression and roll back that release. Do not relax the check.
+
 ## Emergency decision tree
 
 ### Case A: Daily device is lost or unavailable

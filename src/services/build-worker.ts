@@ -22,13 +22,13 @@ import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { deployValidatedProject } from "./productionAutoDeploy.js";
 import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 import {
-  classifyProductIntent,
+  productContractSchema,
   renderProductContractForAgents,
-  validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
 import {
-  validateBuildJob,
+  extractBuildJobIdentity,
+  parseBuildJob,
   type BuildJob,
 } from "../lib/buildJob.js";
 
@@ -107,8 +107,96 @@ async function refundActiveDuplicateReservation(job: BuildJob): Promise<void> {
   }
 }
 
-export async function runBuildJob(input: BuildJob): Promise<void> {
-  const job = validateBuildJob(input);
+/**
+ * A queued build whose typed context (prompt, intent, contract, stack) is
+ * missing, invalid, or disagrees with the persisted project. The worker never
+ * repairs or re-derives that context; it fails the build clearly instead.
+ */
+export class BuildContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BuildContractError";
+  }
+}
+
+export const BUILD_CONTRACT_INVALID_MESSAGE =
+  "This build was stopped before it started because its product contract was missing or invalid. Any reserved credits were refunded. Please create the project again.";
+
+/**
+ * Settles a dequeued job that failed schema validation: refund the attempt's
+ * reservation and mark the project failed with a specific reason, so it never
+ * sits "running" forever. Only acts when the job's identity is readable and
+ * the project really belongs to the job's user.
+ */
+async function rejectInvalidBuildJob(
+  input: unknown,
+  reason: string,
+): Promise<void> {
+  const identity = extractBuildJobIdentity(input);
+  if (!identity) {
+    logger.error({ reason }, "invalid_build_job_unidentifiable");
+    return;
+  }
+  const { projectId, userId, createdAt, reservationCharged } = identity;
+  logger.error({ projectId, reason }, "invalid_build_job_rejected");
+
+  const project = await getProjectById(projectId);
+  if (!project || project.userId !== userId) {
+    logger.error(
+      { projectId, reason },
+      "invalid_build_job_project_mismatch_not_settled",
+    );
+    return;
+  }
+
+  if (reservationCharged) {
+    // Same attempt key as a normal failed build, so this can never refund twice.
+    const refundKey = `build-refund-${projectId}-${createdAt}`;
+    try {
+      await addCredits(
+        userId,
+        BUILD_CREDIT_COST,
+        "build_refund",
+        `Invalid build contract reservation refund for project ${projectId}`,
+        refundKey,
+      );
+    } catch (error: unknown) {
+      logger.error(
+        { projectId, refundKey, error },
+        "invalid_build_job_refund_failed",
+      );
+    }
+  }
+
+  // A different, valid attempt may be running for this project; leave it alone.
+  if (activeJobs.has(projectId)) return;
+
+  await updateProjectCreditsSpent(projectId, 0);
+  await recordBuildOutcome(userId, false, 0);
+  await emit(projectId, "error", {
+    error: "build_contract_invalid",
+    message: BUILD_CONTRACT_INVALID_MESSAGE,
+  });
+  await updateProjectStatus(projectId, "failed", "build_contract_invalid");
+}
+
+function assertPersistedContract(input: unknown): ProductContract {
+  const parsed = productContractSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new BuildContractError(
+      "Persisted project product contract is missing or invalid",
+    );
+  }
+  return parsed.data;
+}
+
+export async function runBuildJob(input: unknown): Promise<void> {
+  const parsedJob = parseBuildJob(input);
+  if (!parsedJob.ok) {
+    await rejectInvalidBuildJob(input, parsedJob.reason);
+    return;
+  }
+  const job = parsedJob.job;
   if (activeJobs.has(job.projectId)) {
     await refundActiveDuplicateReservation(job);
     return;
@@ -122,7 +210,6 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
     techStack,
     locale,
     buildCapabilities,
-    promptIntent,
     productContract,
     createdAt,
     reservationCharged,
@@ -181,40 +268,38 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
       );
     }
     if (!description.trim() || description.length > 20_000) {
-      throw new Error("Queued build description is invalid");
+      throw new BuildContractError("Queued build description is invalid");
     }
     if (!techStack.trim() || techStack.length > 120) {
-      throw new Error("Queued build tech stack is invalid");
+      throw new BuildContractError("Queued build tech stack is invalid");
     }
 
-    const resolvedPromptIntent =
-      promptIntent ?? classifyProductIntent(description);
-    if (
-      resolvedPromptIntent.ambiguous ||
-      !resolvedPromptIntent.primaryProductType
-    ) {
-      throw new Error(
-        resolvedPromptIntent.clarificationQuestions[0] ??
-          "Queued build prompt is ambiguous",
+    // The job schema already guarantees the queued contract, prompt intent,
+    // original prompt and stack agree with each other. The persisted project is
+    // the other source of truth: it must carry the identical contract and the
+    // same stack, or the build is rejected rather than reinterpreted.
+    const queuedContract = productContract;
+    const persistedContract = assertPersistedContract(project.productContract);
+
+    if (persistedContract.originalPrompt !== description) {
+      throw new BuildContractError(
+        "Persisted product contract original prompt mismatch",
       );
     }
-    const queuedContract = validateProductContract(productContract);
-    const persistedContract = validateProductContract(project.productContract);
-
-    if (queuedContract.originalPrompt !== description) {
-      throw new Error("Queued product contract original prompt mismatch");
-    }
-    if (persistedContract.originalPrompt !== description) {
-      throw new Error("Persisted product contract original prompt mismatch");
-    }
-    if (queuedContract.selectedTechnologyStack !== techStack) {
-      throw new Error("Queued product contract selected stack mismatch");
-    }
     if (persistedContract.selectedTechnologyStack !== techStack) {
-      throw new Error("Persisted product contract selected stack mismatch");
+      throw new BuildContractError(
+        "Persisted product contract selected stack mismatch",
+      );
+    }
+    if (project.techStack && project.techStack !== techStack) {
+      throw new BuildContractError(
+        "Project stack disagrees with the queued build stack",
+      );
     }
     if (JSON.stringify(queuedContract) !== JSON.stringify(persistedContract)) {
-      throw new Error("Queued product contract disagrees with persisted project contract");
+      throw new BuildContractError(
+        "Queued product contract disagrees with persisted project contract",
+      );
     }
 
     if (project.status === "paused") {
@@ -335,11 +420,19 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
     }
 
     await recordBuildOutcome(userId, false, 0);
-    await emit(projectId, "error", {
-      error: "build_failed",
-      message: "Build failed. Please retry or contact support.",
-    });
-    await updateProjectStatus(projectId, "failed", "build_failed");
+    if (err instanceof BuildContractError) {
+      await emit(projectId, "error", {
+        error: "build_contract_invalid",
+        message: BUILD_CONTRACT_INVALID_MESSAGE,
+      });
+      await updateProjectStatus(projectId, "failed", "build_contract_invalid");
+    } else {
+      await emit(projectId, "error", {
+        error: "build_failed",
+        message: "Build failed. Please retry or contact support.",
+      });
+      await updateProjectStatus(projectId, "failed", "build_failed");
+    }
   } finally {
     if (timeout) clearTimeout(timeout);
     activeJobs.delete(projectId);
