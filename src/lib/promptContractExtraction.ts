@@ -258,7 +258,9 @@ const ROLE_LEXICON: Array<{ pattern: RegExp; role: string }> = [
 ];
 
 const TYPE_DEFAULT_ROLES: Record<ProductType, string[]> = {
-  website: ["visitor", "site_owner"],
+  // A public website has one runtime role; the content owner is a target
+  // user, not a signed-in role, so no tenant isolation is implied.
+  website: ["visitor"],
   saas_application: ["user", "admin"],
   mobile_app: ["user"],
   desktop_app: ["user"],
@@ -315,7 +317,7 @@ const INTEGRATION_CANDIDATES: Array<{ name: string; pattern: RegExp }> = [
     name: "Google",
     pattern: /\bgoogle\b(?!\s+(?:sheets?|calendar|play|maps))/i,
   },
-  { name: "Google Maps", pattern: /\bgoogle maps\b|\bmaps?\b/i },
+  { name: "Google Maps", pattern: /\bgoogle maps\b/i },
   { name: "Shopify", pattern: /\bshopify\b/i },
   { name: "Salesforce", pattern: /\bsalesforce\b/i },
   { name: "HubSpot", pattern: /\bhubspot\b/i },
