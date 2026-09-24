@@ -17,7 +17,7 @@ type RemoteProof = {
   steps?: Record<string, { passed?: boolean }>;
 };
 
-const REQUIRED_STEPS = ["install", "tests", "build", "runtime"] as const;
+const REQUIRED_STEPS = ["install", "security", "tests", "build", "runtime"] as const;
 
 export function isolatedBuildConfigured(): boolean {
   return Boolean(
@@ -97,6 +97,10 @@ export async function validateWithIsolatedBuildRunner(
           disposable: true,
           noHostCredentials: true,
           testsBlocking: true,
+          dependencyAudit: true,
+          secretScan: true,
+          blockNetworkToPrivateRanges: true,
+          blockShellExecution: true,
         },
       }),
       signal: controller.signal,
