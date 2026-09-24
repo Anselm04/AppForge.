@@ -12,6 +12,10 @@ import { DeployWizard } from "../components/DeployWizard.js";
 import { RevenueReadinessPanel } from "../components/RevenueReadinessPanel.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
 import { AgentTerminal } from "../components/AgentTerminal.js";
+import {
+  completedBuildUrl,
+  stackPresentation,
+} from "../lib/stackPresentation.js";
 
 interface BuildLog {
   agent: string;
@@ -52,6 +56,7 @@ export function Build() {
   const [deploying, setDeploying] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [structuralDone, setStructuralDone] = useState(false);
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
   const [hasPartialFiles, setHasPartialFiles] = useState(false);
@@ -180,15 +185,27 @@ export function Build() {
         }
         if (event === "done") {
           const data = JSON.parse(raw) as {
-            payload?: { creditsSpent?: number; liveUrl?: string };
+            payload?: {
+              creditsSpent?: number;
+              liveUrl?: string;
+              structuralOnly?: boolean;
+            };
             creditsSpent?: number;
             liveUrl?: string;
+            structuralOnly?: boolean;
           };
           setIsComplete(true);
           const spent = data.payload?.creditsSpent ?? data.creditsSpent;
           if (spent) setCreditsSpent(spent);
+          const structuralOnly =
+            data.structuralOnly === true ||
+            data.payload?.structuralOnly === true;
+          if (structuralOnly) setStructuralDone(true);
+          // Structural-only builds never open or claim a live URL.
           const live = normalizeLiveProductUrl(
-            data.liveUrl ?? data.payload?.liveUrl,
+            structuralOnly
+              ? undefined
+              : (data.liveUrl ?? data.payload?.liveUrl),
           );
           if (live) {
             setDeployUrl(live);
@@ -197,7 +214,13 @@ export function Build() {
             window.location.assign(live);
             return;
           }
-          if (projectId) setDeployUrl("/apps/" + projectId);
+          setDeployUrl(
+            completedBuildUrl({
+              liveUrl: null,
+              projectId: projectId ? Number(projectId) : null,
+              structuralOnly,
+            }),
+          );
           closed = true;
           thisStream.abort();
           return;
@@ -343,7 +366,12 @@ export function Build() {
 
   const canUseWorkspace = isComplete || hasPartialFiles;
 
+  const stack = stackPresentation(project?.techStack);
+  const structuralOnly = structuralDone || stack?.structuralOnly === true;
+
   const destinationDisabled = (dest: DeployDestination): boolean => {
+    if (structuralOnly) return true;
+    if (stack && !stack.deployDestinations.includes(dest)) return true;
     if (dest === "preview") return false;
     const opt = deployOptions?.[dest];
     return opt ? !opt.configured : false;
@@ -357,7 +385,15 @@ export function Build() {
         </h1>
         {project && (
           <p className="text-slate-400 mb-4">
-            {project.title} — {project.techStack}
+            {project.title} — {stack?.label ?? project.techStack}
+            {stack?.structuralOnly && (
+              <span
+                data-testid="structural-stack-badge"
+                className="ml-2 rounded bg-amber-900/60 px-2 py-0.5 text-xs font-medium text-amber-200"
+              >
+                {stack.badge}
+              </span>
+            )}
             {project.status === "running" && (
               <span className="ml-2 text-amber-400 text-sm">
                 (runs in background — safe to refresh)
@@ -439,45 +475,54 @@ export function Build() {
 
         {isComplete && !error && !isPaused && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
-            <p className="font-semibold text-lg">App generation complete!</p>
+            <p className="font-semibold text-lg">
+              {structuralOnly
+                ? "Source generation complete (not deployed)"
+                : "App generation complete!"}
+            </p>
             <p className="mt-2">
-              Edit files in the Code tab, iterate in Chat, then deploy.
+              {structuralOnly
+                ? (stack?.notice ??
+                  "This stack is structural-only: download or export the source; it has not been deployed.")
+                : "Edit files in the Code tab, iterate in Chat, then deploy."}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <label className="text-sm text-green-200/80">
-                Destination{" "}
-                <select
-                  value={destination}
-                  onChange={(e) =>
-                    setDestination(e.target.value as DeployDestination)
-                  }
-                  className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
-                >
-                  <option value="preview">Preview</option>
-                  <option
-                    value="vercel"
-                    disabled={destinationDisabled("vercel")}
+              {!structuralOnly && (
+                <label className="text-sm text-green-200/80">
+                  Destination{" "}
+                  <select
+                    value={destination}
+                    onChange={(e) =>
+                      setDestination(e.target.value as DeployDestination)
+                    }
+                    className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
                   >
-                    Vercel
-                  </option>
-                  <option
-                    value="netlify"
-                    disabled={destinationDisabled("netlify")}
-                  >
-                    Netlify
-                  </option>
-                  <option value="fly" disabled={destinationDisabled("fly")}>
-                    Fly.io
-                  </option>
-                  <option
-                    value="github-pages"
-                    disabled={destinationDisabled("github-pages")}
-                  >
-                    GitHub Pages
-                  </option>
-                </select>
-              </label>
-              {deployUrl ? (
+                    <option value="preview">Preview</option>
+                    <option
+                      value="vercel"
+                      disabled={destinationDisabled("vercel")}
+                    >
+                      Vercel
+                    </option>
+                    <option
+                      value="netlify"
+                      disabled={destinationDisabled("netlify")}
+                    >
+                      Netlify
+                    </option>
+                    <option value="fly" disabled={destinationDisabled("fly")}>
+                      Fly.io
+                    </option>
+                    <option
+                      value="github-pages"
+                      disabled={destinationDisabled("github-pages")}
+                    >
+                      GitHub Pages
+                    </option>
+                  </select>
+                </label>
+              )}
+              {structuralOnly ? null : deployUrl ? (
                 <a
                   href={deployUrl}
                   target="_blank"
@@ -511,9 +556,10 @@ export function Build() {
             </div>
             <DeployWizard
               projectId={pid}
-              deployUrl={deployUrl}
+              deployUrl={structuralOnly ? null : deployUrl}
               deployGuide={deployGuide}
-              techStack={project?.techStack}
+              techStack={stack?.label ?? project?.techStack}
+              structuralNotice={structuralOnly ? (stack?.notice ?? null) : null}
             />
             <RevenueReadinessPanel projectId={pid} enabled={canUseWorkspace} />
           </div>
