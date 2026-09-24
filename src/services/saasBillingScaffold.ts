@@ -27,7 +27,29 @@ export const BILLING_REQUIRED_PATHS = [
   "database/billing-schema.sql",
 ] as const;
 
+/**
+ * The Stripe billing scaffold is React components plus Express / Next.js
+ * route handlers, so it only exists for the React + Node web stacks. Other
+ * stacks (games, services, Python, mobile, desktop, extensions) never get
+ * React/Express files merged in; billing there is implemented natively by
+ * the generator for that stack.
+ */
+export const BILLING_SCAFFOLD_STACKS = [
+  "react-node",
+  "data-visualization",
+  "next-node",
+] as const;
+
+export function billingScaffoldSupported(techStack: string): boolean {
+  return (BILLING_SCAFFOLD_STACKS as readonly string[]).includes(techStack);
+}
+
 export function billingScaffoldFiles(techStack: string): Files {
+  if (!billingScaffoldSupported(techStack)) {
+    throw new Error(
+      `The Stripe billing scaffold is React + Node only; it is not merged into ${techStack} projects`,
+    );
+  }
   const isNext = techStack.includes("next");
   const webhooks = billingWebhookHandlers(isNext);
 
@@ -213,7 +235,9 @@ export function mergeBillingScaffold(
   if (productContract) {
     const contract = validateProductContract(productContract);
     if (contract.monetizationRequirements.length === 0) {
-      throw new Error("Billing requested without monetization requirements in canonical product contract");
+      throw new Error(
+        "Billing requested without monetization requirements in canonical product contract",
+      );
     }
   }
   const billing = billingScaffoldFiles(techStack);
