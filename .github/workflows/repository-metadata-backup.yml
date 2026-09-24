@@ -135,7 +135,7 @@ jobs:
           aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp "${encrypted}.hmac-sha256" "s3://${OFFSITE_2_BUCKET}/${key}.hmac-sha256" --no-progress
 
       - name: Upload GitHub metadata recovery artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: appforge-metadata-${{ github.sha }}
           path: |
