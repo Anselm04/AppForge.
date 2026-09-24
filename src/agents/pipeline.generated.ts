@@ -83,6 +83,10 @@ import {
   type ProductPlanTask,
 } from "../lib/productPlan.js";
 import {
+  assertProductComplete,
+  attachCompletenessEvidence,
+} from "../lib/incompleteProduct.js";
+import {
   coderTaskInstruction,
   ensureCodeGenerationSupportFiles,
   validateCoderOwnedArtifact,
@@ -1290,6 +1294,43 @@ export async function runAgentPipeline(
           }
         }
 
+        if (validationResult.passed) {
+          try {
+            const completeness = assertProductComplete({
+              files: generatedFiles,
+              productContract,
+              productPlan: coordinationContext?.productPlan,
+              context: "Build completeness gate",
+            });
+            generatedFiles["appforge.completeness.json"] = JSON.stringify(
+              completeness,
+              null,
+              2,
+            );
+            emit("Validator", "completeness_pass", {
+              complete: true,
+              findingCount: 0,
+            });
+          } catch (completenessError) {
+            const message =
+              completenessError instanceof Error
+                ? completenessError.message
+                : "Unknown incomplete-product finding";
+            validationResult = {
+              ...validationResult,
+              passed: false,
+              stage: "completeness",
+              errors: [...validationResult.errors, message],
+              warning:
+                "Incomplete artifacts cannot receive completed status, deployment, or production-ready presentation.",
+            };
+            emit("Validator", "completeness_fail", {
+              message,
+              outerAttempt,
+            });
+          }
+        }
+
         await appendAgentLog({
           projectId,
           agent: "Validator",
@@ -1601,6 +1642,17 @@ export async function runAgentPipeline(
       generatedFiles = stripComplianceFromGolden(generatedFiles);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    generatedFiles = attachCompletenessEvidence({
+      files: generatedFiles,
+      productContract,
+      productPlan: coordinationContext?.productPlan,
+    });
+    await recordCoordinationEvent({
+      agent: "Validator",
+      type: "complete",
+      detail:
+        "Final incomplete-product protection gate passed immediately before snapshot/current/completed state.",
+    });
     const { materializeHostedHtml, publicAppUrl } =
       await import("../lib/hostedRuntime.js");
     const liveUrl = publicAppUrl(projectId);
