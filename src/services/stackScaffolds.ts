@@ -1,5 +1,9 @@
 import { assertStackSupportsProduct, getStackAdapter } from "../lib/stackAdapters.js";
 import type { ProductType } from "../lib/productContract.js";
+import {
+  ensureGeneratedProjectStructure,
+  validateGeneratedProjectStructure,
+} from "../lib/generatedProjectStructure.js";
 
 /** Stack-shaped infrastructure shells. Generated product logic must overwrite/add substantive files. */
 export type ScaffoldFiles = Record<string, string>;
@@ -70,6 +74,7 @@ function viteReactShell(title = "Application"): ScaffoldFiles {
         dev: "vite",
         build: "vite build",
         preview: "vite preview",
+        start: "vite preview --host 0.0.0.0",
         typecheck: "tsc --noEmit",
       },
       dependencies: { react: "^18.2.0", "react-dom": "^18.2.0" },
@@ -382,8 +387,16 @@ function electronShell(): ScaffoldFiles {
 }
 
 function tauriShell(): ScaffoldFiles {
+  const web = viteReactShell("Desktop Application");
+  const pkg = JSON.parse(web["package.json"]);
+  pkg.scripts = { ...pkg.scripts, tauri: "tauri" };
+  pkg.devDependencies = {
+    ...pkg.devDependencies,
+    "@tauri-apps/cli": "^2.0.0",
+  };
+  web["package.json"] = json(pkg);
   return {
-    ...viteReactShell("Desktop Application"),
+    ...web,
     "src-tauri/Cargo.toml":
       '[package]\nname="appforge_tauri"\nversion="0.1.0"\nedition="2021"\n[dependencies]\ntauri={version="2"}\n',
     "src-tauri/src/main.rs":
@@ -405,6 +418,17 @@ function extensionShell(): ScaffoldFiles {
       type: "module",
       scripts: { build: "tsc --noEmit && vite build" },
       devDependencies: { typescript: "^5.6.0", vite: "^5.4.0" },
+    }),
+    "tsconfig.json": json({
+      compilerOptions: {
+        target: "ES2020",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        strict: true,
+        noEmit: true,
+        lib: ["ES2020", "DOM"],
+      },
+      include: ["src"],
     }),
     "manifest.json": json({
       manifest_version: 3,
@@ -476,7 +500,10 @@ export function getStackScaffold(
         `No scaffold implementation for stack adapter ${adapter.id}`,
       );
   }
-  return withStackMetadata(adapter.id, files);
+  return withStackMetadata(
+    adapter.id,
+    ensureGeneratedProjectStructure(files, adapter.id),
+  );
 }
 
 export function validateStackScaffold(
@@ -545,6 +572,8 @@ export function validateStackScaffold(
   } catch {
     problems.push("invalid scaffold metadata JSON");
   }
+
+  problems.push(...validateGeneratedProjectStructure(scaffold, adapter.id));
 
   const visiblePlaceholder = Object.entries(scaffold)
     .filter(([path]) => !path.endsWith(".json"))
