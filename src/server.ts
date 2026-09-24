@@ -168,30 +168,6 @@ const webhookLimiter = createLocalRateLimiter({
   max: 60,
   message: "Webhook rate limit exceeded. Please retry with exponential backoff.",
 });
-app.use("/api/webhooks/stripe", webhookLimiter);
-
-// Keep Stripe's full signature verification, idempotency, fulfillment and refund
-// implementation intact, but do not execute that module before the HTTP listener
-// exists. The readiness gate above already fails closed when required production
-// billing configuration is invalid, so a degraded dependency cannot take down
-// process liveness before operators can diagnose it.
-app.post(
-  "/api/webhooks/stripe",
-  express.raw({ type: "application/json" }),
-  async (req, res, next) => {
-    try {
-      const { stripeWebhookHandler } = await import("./webhooks/stripe.js");
-      return await stripeWebhookHandler(req, res);
-    } catch (error) {
-      return next(error);
-    }
-  },
-);
-
-app.use(csrfProtection);
-app.get("/api/csrf-token", csrfTokenHandler);
-app.use(express.json({ limit: "10mb" }));
-
 const globalLimiter = createLocalRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -214,11 +190,39 @@ const slowDown = createSlowDown({
   message: "Too many requests, responses are being delayed.",
 });
 
+app.use("/api/webhooks/stripe", webhookLimiter);
+
+// Keep Stripe's full signature verification, idempotency, fulfillment and refund
+// implementation intact, but do not execute that module before the HTTP listener
+// exists. The readiness gate above already fails closed when required production
+// billing configuration is invalid, so a degraded dependency cannot take down
+// process liveness before operators can diagnose it.
+app.post(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  async (req, res, next) => {
+    try {
+      const { stripeWebhookHandler } = await import("./webhooks/stripe.js");
+      return await stripeWebhookHandler(req, res);
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// Apply abuse controls before CSRF and normal JSON parsing so rejected traffic
+// cannot consume the expensive body-parsing/build path first. Stripe webhooks
+// remain on their dedicated limiter and raw-body signature-verification route
+// above, so this ordering does not interfere with webhook verification.
 app.use(globalLimiter);
 app.use(slowDown);
 app.use("/api/trpc/projects.create", buildLimiter);
 app.use("/api/generate", buildLimiter);
 app.use("/api/trpc", apiLimiter);
+
+app.use(csrfProtection);
+app.get("/api/csrf-token", csrfTokenHandler);
+app.use(express.json({ limit: "10mb" }));
 
 app.use("/api/health", healthRouter);
 
