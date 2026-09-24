@@ -86,9 +86,13 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
           ? "native_platform"
           : "none";
 
+  const documentRuntime =
+    browser ||
+    adapter.previewMode === "vite" ||
+    adapter.previewMode === "static";
   const healthMode: RuntimeArchitecture["health"]["mode"] = serverCapable
     ? "http"
-    : browser
+    : documentRuntime
       ? "document"
       : "native_runtime";
 
