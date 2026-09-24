@@ -4,6 +4,7 @@ import {
   resolveIntakeContract,
 } from "../productContract.js";
 import { buildJobSchema } from "../buildJob.js";
+import { validateGeneratedSecurityPosture } from "../../services/projectSecurityScanner.js";
 
 describe("intake contract resolution (#1 prompt understanding, #4 stack selection)", () => {
   it.each([
@@ -324,5 +325,73 @@ describe("section 2: the contract is derived from the actual prompt", () => {
       /^Primary product type: API\./,
     );
     expect(contract.canonicalInterpretation).toMatch(/Interpreted product:/);
+  });
+});
+
+describe("prompt-specific contracts do not over-constrain generated builds", () => {
+  const websiteFiles = {
+    "src/App.tsx":
+      "export default function App() { return <main><h1>Fresh bread daily</h1></main>; }",
+    "server/index.ts":
+      "import express from 'express';\nconst app = express();\napp.get('/api/health', (_req, res) => res.json({ ok: true }));\napp.listen(3000);",
+  };
+
+  it("gives a plain marketing website a single public role", () => {
+    const intake = resolveIntakeContract(
+      "Marketing website for my bakery",
+      undefined,
+    );
+    expect(intake.ok).toBe(true);
+    if (!intake.ok) return;
+    expect(intake.productContract.productType).toBe("website");
+    expect(intake.productContract.userRoles).toEqual(["visitor"]);
+  });
+
+  it("does not demand tenant isolation from a plain website build", () => {
+    const intake = resolveIntakeContract(
+      "Marketing website for my bakery",
+      undefined,
+    );
+    if (!intake.ok) throw new Error("expected a website contract");
+    const findings = validateGeneratedSecurityPosture(
+      websiteFiles,
+      intake.productContract.selectedTechnologyStack,
+      intake.productContract,
+    );
+    expect(findings.map((finding) => finding.ruleId)).not.toContain(
+      "tenant.missing-isolation",
+    );
+  });
+
+  it("still demands tenant isolation from a team CRM build without it", () => {
+    const intake = resolveIntakeContract(
+      "CRM for plumbers with Stripe billing and team accounts",
+      undefined,
+    );
+    if (!intake.ok) throw new Error("expected a CRM contract");
+    const findings = validateGeneratedSecurityPosture(
+      websiteFiles,
+      intake.productContract.selectedTechnologyStack,
+      intake.productContract,
+    );
+    expect(findings.map((finding) => finding.ruleId)).toContain(
+      "tenant.missing-isolation",
+    );
+  });
+
+  it("only adds a Google Maps integration when the prompt names Google Maps", () => {
+    const plain = resolveIntakeContract(
+      "Website for my cafe with a map of our locations",
+      undefined,
+    );
+    if (!plain.ok) throw new Error("expected a website contract");
+    expect(plain.productContract.integrations).not.toContain("Google Maps");
+
+    const named = resolveIntakeContract(
+      "Store locator website using Google Maps for my cafe chain",
+      undefined,
+    );
+    if (!named.ok) throw new Error("expected a website contract");
+    expect(named.productContract.integrations).toContain("Google Maps");
   });
 });
