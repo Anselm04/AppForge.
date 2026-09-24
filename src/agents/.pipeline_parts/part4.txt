@@ -104,6 +104,17 @@
       generatedFiles = stripComplianceFromGolden(generatedFiles);
     }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
+    generatedFiles = attachCompletenessEvidence({
+      files: generatedFiles,
+      productContract,
+      productPlan: coordinationContext?.productPlan,
+    });
+    await recordCoordinationEvent({
+      agent: "Validator",
+      type: "complete",
+      detail:
+        "Final incomplete-product protection gate passed immediately before snapshot/current/completed state.",
+    });
     const { materializeHostedHtml, publicAppUrl } = await import(
       "../lib/hostedRuntime.js"
     );
