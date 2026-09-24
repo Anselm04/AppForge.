@@ -45,7 +45,7 @@ describe("#15 runtime architecture", () => {
 
   it("keeps browser web and framework-server assumptions separate", () => {
     const react = getRuntimeArchitecture("react-node");
-    expect(react.health.mode).toBe("native_runtime");
+    expect(react.health.mode).toBe("document");
     expect(react.shutdown.mode).toBe("host_managed");
     expect(react.port.mode).toBe("none");
     expect(react.webSockets).toBe("unsupported");
