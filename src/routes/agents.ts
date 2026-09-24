@@ -35,7 +35,8 @@ router.post("/build", async (req: Request, res: Response) => {
     migration: {
       createProject: "POST /api/trpc/projects.create",
       streamBuild: "GET /api/build/:projectId (SSE)",
-      techStack: parseResult.data.techStack ?? "react-node",
+      // Omit techStack to let the canonical product contract select it.
+      techStack: parseResult.data.techStack ?? null,
     },
   });
 });
