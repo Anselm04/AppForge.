@@ -317,6 +317,7 @@ export async function updateProjectFiles(
     const rows = await tx
       .select({
         workingArtifactVersion: schema.projects.workingArtifactVersion,
+        workingArtifactIntegrity: schema.projects.workingArtifactIntegrity,
       })
       .from(schema.projects)
       .where(eq(schema.projects.id, id))
@@ -329,6 +330,7 @@ export async function updateProjectFiles(
       artifactVersion,
       state: "working",
       files: normalized,
+      previousIntegrity: project.workingArtifactIntegrity ?? null,
     });
     await tx
       .update(schema.projects)
@@ -908,16 +910,13 @@ export async function createBuildSnapshot(data: {
   if (data.fileCount !== Object.keys(files).length) {
     throw new Error("Snapshot fileCount does not match persisted artifact files");
   }
-  const artifactIntegrity = buildArtifactIntegrity({
-    projectId: data.projectId,
-    artifactVersion: data.version,
-    state: "final",
-    files,
-  });
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
     const projects = await tx
-      .select({ userId: schema.projects.userId })
+      .select({
+        userId: schema.projects.userId,
+        workingArtifactIntegrity: schema.projects.workingArtifactIntegrity,
+      })
       .from(schema.projects)
       .where(eq(schema.projects.id, data.projectId))
       .limit(1);
@@ -926,6 +925,14 @@ export async function createBuildSnapshot(data: {
     if (project.userId !== data.userId) {
       throw new Error("Snapshot user does not own the target project");
     }
+
+    const artifactIntegrity = buildArtifactIntegrity({
+      projectId: data.projectId,
+      artifactVersion: data.version,
+      state: "final",
+      files,
+      previousIntegrity: project.workingArtifactIntegrity ?? null,
+    });
 
     const existingVersion = await tx
       .select({ id: schema.buildSnapshots.id })
@@ -1284,6 +1291,7 @@ export async function appendArtifactToCurrentSnapshot(input: {
       artifactVersion: version,
       state: "final",
       files,
+      previousIntegrity: currentIntegrity,
     });
 
     const inserted = await tx
