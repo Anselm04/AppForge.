@@ -11,7 +11,12 @@ const MAX_DEPTH = 8;
 function sanitizeString(value: string): string {
   return value
     .replace(BEARER_TOKEN, "Bearer [REDACTED]")
-    .replace(SENSITIVE_STRING, "$1$2[REDACTED]");
+    .replace(SENSITIVE_STRING, "$1$2[REDACTED]")
+    .replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/g, "[REDACTED_STRIPE_KEY]")
+    .replace(/\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_MODEL_KEY]")
+    .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "[REDACTED_GOOGLE_KEY]")
+    .replace(/\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g, "[REDACTED_GITHUB_TOKEN]")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[REDACTED_AWS_KEY]");
 }
 
 function sanitize(value: unknown, depth = 0): unknown {
