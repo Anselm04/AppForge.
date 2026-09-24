@@ -1200,6 +1200,141 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
   invalidatePreviewCache(projectId);
 }
 
+export async function appendArtifactToCurrentSnapshot(input: {
+  projectId: number;
+  path: string;
+  content: string;
+}): Promise<{
+  snapshotId: number;
+  version: number;
+  files: Record<string, string>;
+  integrity: ArtifactIntegrity;
+}> {
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${input.projectId})`);
+
+    const projects = await tx
+      .select({
+        id: schema.projects.id,
+        userId: schema.projects.userId,
+        techStack: schema.projects.techStack,
+        requirementManifest: schema.projects.requirementManifest,
+      })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, input.projectId))
+      .limit(1);
+    const project = projects[0];
+    if (!project?.userId) {
+      throw new Error("Artifact project does not exist or has no owner");
+    }
+
+    const currents = await tx
+      .select()
+      .from(schema.buildSnapshots)
+      .where(
+        and(
+          eq(schema.buildSnapshots.projectId, input.projectId),
+          eq(schema.buildSnapshots.isCurrent, true),
+        ),
+      )
+      .orderBy(desc(schema.buildSnapshots.createdAt))
+      .limit(1);
+    const current = currents[0];
+    if (!current) {
+      throw new Error(
+        "Artifact revision requires a validated current snapshot",
+      );
+    }
+
+    const currentFiles = validateArtifactFiles(
+      current.files as Record<string, string>,
+    );
+    const currentIntegrity =
+      current.artifactIntegrity ??
+      buildArtifactIntegrity({
+        projectId: input.projectId,
+        artifactVersion: current.version,
+        state: "final",
+        files: currentFiles,
+      });
+    assertArtifactIntegrity({
+      files: currentFiles,
+      integrity: currentIntegrity,
+      projectId: input.projectId,
+      artifactVersion: current.version,
+      requiredState: "final",
+    });
+
+    const files = validateArtifactFiles({
+      ...currentFiles,
+      [input.path]: input.content,
+    });
+    const versions = await tx
+      .select({ maxVersion: schema.buildSnapshots.version })
+      .from(schema.buildSnapshots)
+      .where(eq(schema.buildSnapshots.projectId, input.projectId))
+      .orderBy(desc(schema.buildSnapshots.version))
+      .limit(1);
+    const version = (versions[0]?.maxVersion ?? 0) + 1;
+    const requirementManifest = assertMustHaveRequirementsResolved(
+      current.requirementManifest ?? project.requirementManifest,
+    );
+    const integrity = buildArtifactIntegrity({
+      projectId: input.projectId,
+      artifactVersion: version,
+      state: "final",
+      files,
+    });
+
+    const inserted = await tx
+      .insert(schema.buildSnapshots)
+      .values({
+        projectId: input.projectId,
+        userId: project.userId,
+        version,
+        label: `v${version} — artifact update`,
+        files,
+        fileCount: integrity.fileCount,
+        techStack: current.techStack ?? project.techStack,
+        validationResult: current.validationResult,
+        auditScores: current.auditScores,
+        costEstimate: current.costEstimate,
+        requirementManifest,
+        artifactIntegrity: integrity,
+        isCurrent: false,
+      })
+      .returning({ id: schema.buildSnapshots.id });
+    const snapshotId = inserted[0]?.id;
+    if (!snapshotId) {
+      throw new Error("Failed to persist artifact snapshot revision");
+    }
+
+    await tx
+      .update(schema.buildSnapshots)
+      .set({ isCurrent: false })
+      .where(eq(schema.buildSnapshots.projectId, input.projectId));
+    await tx
+      .update(schema.buildSnapshots)
+      .set({ isCurrent: true })
+      .where(eq(schema.buildSnapshots.id, snapshotId));
+
+    await tx
+      .update(schema.projects)
+      .set({
+        requirementManifest,
+        status: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, input.projectId));
+
+    return { snapshotId, version, files, integrity };
+  });
+
+  const { invalidatePreviewCache } = await import("./routes/livePreview.js");
+  invalidatePreviewCache(input.projectId);
+  return result;
+}
+
 export async function getNextVersion(projectId: number): Promise<number> {
   const result = await db
     .select({ maxVersion: schema.buildSnapshots.version })
