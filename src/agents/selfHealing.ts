@@ -215,6 +215,7 @@ async function createAutonomousFixTask(
       title: true,
       status: true,
       productContract: true,
+      requirementManifest: true,
     },
   });
   if (!project || project.status !== "completed") {
@@ -223,6 +224,10 @@ async function createAutonomousFixTask(
   }
   if (!project.productContract) {
     logger.warn({ projectId }, "self_healing_missing_product_contract");
+    return false;
+  }
+  if (!project.requirementManifest) {
+    logger.warn({ projectId }, "self_healing_missing_requirement_manifest");
     return false;
   }
 
