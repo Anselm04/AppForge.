@@ -193,6 +193,25 @@ export function ensureGeneratedProjectStructure(
   const files = { ...inputFiles };
   const policy = getGeneratedProjectStructurePolicy(stack);
 
+  if (!files["README.md"]) {
+    files["README.md"] = [
+      "# Generated project",
+      "",
+      `Technology stack: ${policy.stack}`,
+      `Runtime: ${policy.runtime}`,
+      `Build: ${policy.buildCommand ?? "not applicable"}`,
+      `Start: ${policy.startCommand ?? "not applicable"}`,
+      "",
+      "## Project boundaries",
+      `Routing: ${policy.routingBoundary}`,
+      `API: ${policy.apiBoundary ?? "not applicable"}`,
+      `Database: ${policy.databaseBoundary ?? "not applicable"}`,
+      `Assets: ${policy.assetRoots.join(", ")}`,
+      "",
+      "Copy environment examples to local runtime configuration and provide real secrets only through the deployment environment.",
+      "",
+    ].join("\n");
+  }
   if (!files["SECURITY.md"]) files["SECURITY.md"] = defaultSecurityDoc();
   if (!files["LICENSE"]) files["LICENSE"] = defaultLicense();
   if (!files["appforge.structure.json"]) {
