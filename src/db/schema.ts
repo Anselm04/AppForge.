@@ -536,7 +536,6 @@ export const buildSnapshots = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => [
-    uniqueIndex("snapshots_project_version_unique").on(table.projectId, table.version),
     index("snapshots_project_version_idx").on(table.projectId, table.version),
     index("snapshots_current_idx").on(table.isCurrent),
     index("snapshots_project_idx").on(table.projectId),
