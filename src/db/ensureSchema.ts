@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS "projects" (
   "error_message" TEXT,
   "pause_reason" TEXT,
   "generated_files" JSONB,
+  "working_artifact_version" INTEGER NOT NULL DEFAULT 0,
+  "working_artifact_integrity" JSONB,
   "credits_spent" INTEGER DEFAULT 0,
   "credits_reserved" INTEGER DEFAULT 0,
   "product_contract" JSONB,
@@ -208,7 +210,8 @@ CREATE TABLE IF NOT EXISTS "build_snapshots" (
   "audit_scores" JSONB,
   "cost_estimate" JSONB,
   "requirement_manifest" JSONB,
-  "is_current" BOOLEAN DEFAULT TRUE,
+  "artifact_integrity" JSONB,
+  "is_current" BOOLEAN DEFAULT FALSE,
   "created_at" TIMESTAMP DEFAULT NOW()
 );
 
@@ -247,6 +250,8 @@ CREATE INDEX IF NOT EXISTS "user_sessions_user_idx" ON "user_sessions" ("user_id
 CREATE INDEX IF NOT EXISTS "senior_dev_tasks_project_idx" ON "senior_dev_tasks" ("project_id");
 CREATE INDEX IF NOT EXISTS "senior_dev_tasks_user_idx" ON "senior_dev_tasks" ("user_id");
 CREATE INDEX IF NOT EXISTS "senior_dev_tasks_status_idx" ON "senior_dev_tasks" ("status");
+CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_project_version_unique" ON "build_snapshots" ("project_id", "version");
+CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_one_current_per_project" ON "build_snapshots" ("project_id") WHERE "is_current" = TRUE;
 CREATE INDEX IF NOT EXISTS "snapshots_project_version_idx" ON "build_snapshots" ("project_id", "version");
 CREATE INDEX IF NOT EXISTS "snapshots_current_idx" ON "build_snapshots" ("is_current");
 CREATE INDEX IF NOT EXISTS "snapshots_project_idx" ON "build_snapshots" ("project_id");
@@ -326,7 +331,10 @@ ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "research_record" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "product_plan" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "agent_coordination" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "requirement_manifest" JSONB;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "working_artifact_version" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "working_artifact_integrity" JSONB;
 ALTER TABLE "build_snapshots" ADD COLUMN IF NOT EXISTS "requirement_manifest" JSONB;
+ALTER TABLE "build_snapshots" ADD COLUMN IF NOT EXISTS "artifact_integrity" JSONB;
 
 CREATE TABLE IF NOT EXISTS "organizations" (
   "id" SERIAL PRIMARY KEY,
