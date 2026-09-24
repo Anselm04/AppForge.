@@ -28,49 +28,6 @@ import {
 } from "../lib/revenueReadiness.js";
 import { trpc } from "../utils/trpc.js";
 
-const TECH_STACKS = [
-  "react-node",
-  "react-python",
-  "vue-node",
-  "svelte-node",
-  "next-node",
-  "angular-node",
-  "vanilla-node",
-  "react-django",
-  "react-supabase",
-  "remix-node",
-  "astro-node",
-  "phaser-html5",
-  "three-js-3d",
-  "babylon-js-3d",
-  "unity-webgl",
-  "godot-html5",
-  "react-native-game",
-  "flutter-game",
-  "ai-agent-python",
-  "ai-agent-node",
-  "openai-tool",
-  "langchain-tool",
-  "crewai-agent",
-  "autogen-agent",
-  "electron-react",
-  "tauri-rust",
-  "react-native-expo",
-  "flutter-firebase",
-  "capacitor-ionic",
-  "chrome-extension",
-  "vscode-extension",
-  "discord-bot",
-  "telegram-bot",
-  "slack-bot",
-  "browser-automation",
-  "web-scraper",
-  "data-visualization",
-  "api-service",
-  "serverless-aws",
-  "serverless-vercel",
-] as const;
-
 // Home never picks a stack. projects.create derives it from the canonical
 // product contract (game -> Phaser, mobile -> Expo, API -> service, ...), so
 // sending a fixed web stack here would reject or mis-build non-web products.
