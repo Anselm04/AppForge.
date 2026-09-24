@@ -1,4 +1,8 @@
 import { getStackAdapter } from "./stackAdapters.js";
+import {
+  ensureGeneratedProjectStructure,
+  validateGeneratedProjectStructure,
+} from "./generatedProjectStructure.js";
 import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchDecision } from "./researchRecord.js";
@@ -361,7 +365,10 @@ export function ensureCodeGenerationSupportFiles(input: {
     ].join("\n");
   }
 
-  return files;
+  return ensureGeneratedProjectStructure(
+    files,
+    input.contract.selectedTechnologyStack,
+  );
 }
 
 export function validateGeneratedCodeArtifact(input: {
@@ -406,6 +413,12 @@ export function validateGeneratedCodeArtifact(input: {
     input.contract.selectedTechnologyStack,
   );
   problems.push(...stackProblems);
+  problems.push(
+    ...validateGeneratedProjectStructure(
+      input.files,
+      input.contract.selectedTechnologyStack,
+    ),
+  );
 
   for (const [path, source] of Object.entries(input.files)) {
     if (!isTextSource(path)) continue;
