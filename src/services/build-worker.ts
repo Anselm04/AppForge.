@@ -20,6 +20,7 @@ import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { deployValidatedProject } from "./productionAutoDeploy.js";
+import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 import {
   classifyProductIntent,
   renderProductContractForAgents,
@@ -50,6 +51,11 @@ export async function deployValidatedProjectWithRetry(input: {
   projectName: string;
   files: Record<string, string>;
   productContract: ProductContract;
+  snapshot?: {
+    id: number;
+    version: number;
+    integrity: ArtifactIntegrity;
+  };
 }) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
