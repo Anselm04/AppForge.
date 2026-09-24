@@ -23,7 +23,9 @@ const DEFAULT_TTL_MS = 10 * 60_000;
 const MIN_TTL_MS = 30_000;
 
 function previewEndpoint(): URL | null {
-  const raw = process.env.SPRITES_PREVIEW_URL?.trim();
+  const raw =
+    process.env.SPRITES_PREVIEW_URL?.trim() ||
+    process.env.SPRITES_EXEC_URL?.trim();
   if (!raw) return null;
   const endpoint = new URL(raw);
   if (endpoint.username || endpoint.password) {
@@ -37,7 +39,8 @@ function previewEndpoint(): URL | null {
 
 export function isolatedPreviewConfigured(): boolean {
   return Boolean(
-    process.env.SPRITES_PREVIEW_URL?.trim() &&
+    (process.env.SPRITES_PREVIEW_URL?.trim() ||
+      process.env.SPRITES_EXEC_URL?.trim()) &&
       process.env.SPRITES_API_TOKEN?.trim(),
   );
 }
