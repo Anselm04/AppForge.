@@ -104,6 +104,7 @@
       }
 
     const selectedStackAdapter = getStackAdapter(techStack);
+    const runtimeContract = runtimeArchitectureInstruction(techStack);
 
     emit("Planner", "start", {
       message:
@@ -130,6 +131,7 @@
       "Required runtime entrypoints: " + selectedStackAdapter.entrypoints.join(", "),
       "Required environment/config files: " + (selectedStackAdapter.environmentFiles.join(", ") || "none"),
       "Required documentation file: README.md",
+      runtimeContract,
       "Do not output a generic plan for a complex product. Do not use Core App or Core UI as a fallback.",
       "Selected stack: " + techStack,
       designHints,
