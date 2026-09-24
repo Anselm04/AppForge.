@@ -105,6 +105,66 @@ const RULES: SecurityRule[] = [
       /(?:query|execute)\s*\(\s*`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*\$\{/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
+  {
+    id: "ssrf.untrusted-fetch",
+    severity: "high",
+    message:
+      "Server-side network request appears to use request-controlled input without an allowlist.",
+    pattern:
+      /(?:fetch|axios\.(?:get|post|put|patch|delete)|new\s+URL)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "path.untrusted-file-operation",
+    severity: "high",
+    message:
+      "Filesystem operation appears to use request-controlled input and may permit path traversal.",
+    pattern:
+      /(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\s*\([^\n;]*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "command.shell-enabled",
+    severity: "high",
+    message:
+      "Child process enables shell execution; generated services must use fixed executable/argument arrays.",
+    pattern: /(?:spawn|execFile)\s*\([^;\n]+\{[^}]*shell\s*:\s*true/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "web.inner-html-assignment",
+    severity: "high",
+    message:
+      "Direct innerHTML assignment can enable XSS; render text safely or sanitize trusted HTML.",
+    pattern: /\.innerHTML\s*=\s*(?!["'`][^"'`]*["'`])/i,
+    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
+  },
+  {
+    id: "web.open-redirect",
+    severity: "high",
+    message:
+      "Redirect target appears to come directly from request-controlled input.",
+    pattern:
+      /(?:res\.redirect|redirect)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "auth.insecure-cookie",
+    severity: "high",
+    message:
+      "Authentication/session cookie is missing secure HttpOnly/SameSite protections.",
+    pattern:
+      /(?:res\.)?cookie\s*\([^;\n]+\{(?!(?=[^}]*httpOnly\s*:\s*true)(?=[^}]*sameSite\s*:\s*["'](?:strict|lax)["'])[^}]*\})/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "dependency.install-script",
+    severity: "high",
+    message:
+      "Generated package lifecycle scripts may execute arbitrary commands during dependency installation.",
+    pattern: /"(?:preinstall|install|postinstall)"\s*:\s*"[^"]+"/i,
+    paths: /(?:^|\/)package\.json$/i,
+  },
 ];
 
 const SKIP_PATHS =
@@ -150,7 +210,7 @@ function scanDependencyManifest(
       if (version === "*" || /^latest$/i.test(version)) {
         findings.push({
           ruleId: "dependency.unpinned",
-          severity: "medium",
+          severity: "high",
           path,
           line: 1,
           message: `Dependency ${name} is not version constrained.`,
@@ -160,7 +220,7 @@ function scanDependencyManifest(
       if (/^(?:git\+|https?:\/\/)/i.test(version)) {
         findings.push({
           ruleId: "dependency.remote-source",
-          severity: "medium",
+          severity: "high",
           path,
           line: 1,
           message: `Dependency ${name} installs directly from a remote source.`,
@@ -248,4 +308,86 @@ export function scanProjectFiles(
     severityCounts,
     passed: severityCounts.critical === 0 && severityCounts.high === 0,
   };
+}
+
+
+export function validateGeneratedSecurityPosture(
+  files: Record<string, string>,
+  techStack: string,
+): ProjectSecurityFinding[] {
+  const findings: ProjectSecurityFinding[] = [];
+  const source = Object.entries(files)
+    .filter(([path]) => /\.(?:[cm]?[jt]sx?|py)$/i.test(path))
+    .map(([, content]) => content)
+    .join("\n");
+  const isNodeService = [
+    "api-service",
+    "node-service",
+    "ai-agent-node",
+    "browser-automation",
+  ].includes(techStack);
+
+  const add = (ruleId: string, message: string, evidence: string) => {
+    findings.push({
+      ruleId,
+      severity: "high",
+      path: "appforge.security",
+      line: 1,
+      message,
+      evidence,
+    });
+  };
+
+  if (isNodeService) {
+    if (!/(?:helmet\s*\(|Content-Security-Policy|X-Content-Type-Options|contentSecurityPolicy)/i.test(source)) {
+      add(
+        "service.secure-headers",
+        "Generated HTTP service must configure secure default response headers.",
+        "No Helmet or equivalent secure-header policy detected.",
+      );
+    }
+    if (!/(?:express-rate-limit|rateLimit\s*\(|createRateLimiter|rateLimiter)/i.test(source)) {
+      add(
+        "service.rate-limiting",
+        "Generated HTTP service must enforce server-side rate limiting.",
+        "No rate-limiting middleware detected.",
+      );
+    }
+  }
+
+  const usesCookies = /(?:res\.)?cookie\s*\(|set-cookie|cookies\(\)/i.test(source);
+  const mutatesState = /\.(?:post|put|patch|delete)\s*\(|export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b/i.test(source);
+  if (usesCookies && mutatesState && !/(?:csrf|xsrf|same-origin|origin\s*check)/i.test(source)) {
+    add(
+      "web.csrf-protection",
+      "Cookie-authenticated state-changing routes must include CSRF or strict same-origin protection.",
+      "Cookies and mutating HTTP routes detected without CSRF/same-origin enforcement.",
+    );
+  }
+
+  const uploadSurface = /(?:multer|formidable|busboy|fileUpload|upload\.single|upload\.array)/i.test(source);
+  if (
+    uploadSurface &&
+    !/(?:fileSize|limits\s*:|mimetype|mime|allowedTypes|content-type|maxFileSize)/i.test(source)
+  ) {
+    add(
+      "upload.unbounded",
+      "Generated file-upload handlers must enforce size and type restrictions.",
+      "Upload handling detected without visible size/type validation.",
+    );
+  }
+
+  const aiToolSurface = /(?:tools\s*:|toolDefinitions|executeTool|functionCalling|tool_calls)/i.test(source);
+  if (
+    aiToolSurface &&
+    !/(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|permission)/i.test(source)
+  ) {
+    add(
+      "ai.unrestricted-tools",
+      "Generated AI tools must use explicit permissions/allowlists or human approval boundaries.",
+      "AI tool execution detected without a permission boundary.",
+    );
+  }
+
+  return findings;
 }
