@@ -289,7 +289,11 @@ function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
         start: `node ${compiledEntry}`,
         typecheck: "tsc --noEmit",
       },
-      dependencies: { express: "^5.1.0" },
+      dependencies: {
+        express: "^5.1.0",
+        "express-rate-limit": "^7.5.1",
+        helmet: "^8.1.0",
+      },
       devDependencies: {
         "@types/express": "^5.0.3",
         "@types/node": "^22.0.0",
@@ -308,8 +312,23 @@ function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
       include: ["src/**/*.ts"],
     }),
     [entry]: `import express from "express";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
+
 const app = express();
 let ready = false;
+app.disable("x-powered-by");
+app.use(helmet({
+  contentSecurityPolicy: true,
+  crossOriginResourcePolicy: { policy: "same-site" },
+}));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+}));
+app.use(express.json({ limit: "1mb" }));
 app.get("/health/live", (_req,res) => res.json({ ok: true }));
 app.get("/health/ready", (_req,res) => res.status(ready ? 200 : 503).json({ ok: ready }));
 const port = Number(process.env.PORT ?? 3000);
