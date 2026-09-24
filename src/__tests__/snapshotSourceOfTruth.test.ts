@@ -2,14 +2,23 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("snapshot source-of-truth integrity", () => {
-  it("activates only a validated final snapshot without copying it into working files", () => {
+  it("atomically persists and activates only validated final snapshots", () => {
     const source = readFileSync("src/db.ts", "utf8");
-    expect(source).toContain("Snapshot not found for project");
-    expect(source).toContain('requiredState: "final"');
+    const pipeline = readFileSync(
+      "src/agents/.pipeline_parts/part4.txt",
+      "utf8",
+    );
+    expect(source).toContain("createAndActivateBuildSnapshot");
+    expect(source).toContain("Snapshot project does not exist");
+    expect(source).toContain('state: "final"');
     expect(source).toContain(".set({ isCurrent: false })");
     expect(source).toContain(".set({ isCurrent: true })");
     expect(source).not.toContain("generatedFiles: snapshot.files");
-    expect(source).toContain("invalidatePreviewCache(projectId)");
+    expect(source).toContain("invalidatePreviewCache(data.projectId)");
+    expect(pipeline).toContain("createAndActivateBuildSnapshot");
+    expect(pipeline).not.toContain(
+      "await markSnapshotAsCurrent(snapshotId, projectId)",
+    );
   });
 
   it("keeps working artifacts separate from preview/deployment source-of-truth", () => {
@@ -27,6 +36,21 @@ describe("snapshot source-of-truth integrity", () => {
     expect(projectRouter).not.toContain(
       "(project.generatedFiles as Record<string, string> | null)",
     );
+  });
+
+  it("binds production deployment to the same persisted snapshot used as source-of-truth", () => {
+    const workerSource = readFileSync("src/services/build-worker.ts", "utf8");
+    const deploySource = readFileSync(
+      "src/services/productionAutoDeploy.ts",
+      "utf8",
+    );
+    expect(workerSource).toContain("snapshot: {");
+    expect(workerSource).toContain("id: artifact.snapshotId");
+    expect(workerSource).toContain("version: artifact.version");
+    expect(workerSource).toContain("integrity: artifact.integrity");
+    expect(deploySource).toContain("assertArtifactIntegrity");
+    expect(deploySource).toContain('requiredState: "final"');
+    expect(deploySource).toContain("persistedArtifactSha256");
   });
 
   it("routes rollback through the atomic snapshot activation path without copying into working files", () => {
