@@ -39,6 +39,40 @@ describe("artifact persistence integrity", () => {
     expect(a.totalBytes).toBeGreaterThan(0);
   });
 
+  it("preserves unchanged file versions and increments changed files", () => {
+    const firstFiles = {
+      "src/App.tsx": "export const version = 1;",
+      "src/stable.ts": "export const stable = true;",
+    };
+    const first = buildArtifactIntegrity({
+      projectId: 21,
+      artifactVersion: 1,
+      state: "working",
+      files: firstFiles,
+    });
+    const second = buildArtifactIntegrity({
+      projectId: 21,
+      artifactVersion: 2,
+      state: "working",
+      files: {
+        "src/App.tsx": "export const version = 2;",
+        "src/stable.ts": firstFiles["src/stable.ts"],
+        "src/new.ts": "export const created = true;",
+      },
+      previousIntegrity: first,
+    });
+
+    const firstByPath = new Map(first.files.map((file) => [file.path, file]));
+    const secondByPath = new Map(second.files.map((file) => [file.path, file]));
+    expect(secondByPath.get("src/stable.ts")?.fileVersion).toBe(
+      firstByPath.get("src/stable.ts")?.fileVersion,
+    );
+    expect(secondByPath.get("src/App.tsx")?.fileVersion).toBe(
+      (firstByPath.get("src/App.tsx")?.fileVersion ?? 0) + 1,
+    );
+    expect(secondByPath.get("src/new.ts")?.fileVersion).toBe(1);
+  });
+
   it("rejects integrity metadata bound to another project or artifact version", () => {
     const files = { "src/App.tsx": "export const App = true;" };
     const integrity = buildArtifactIntegrity({
