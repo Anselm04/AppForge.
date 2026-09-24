@@ -339,6 +339,17 @@ function reactNativeShell(): ScaffoldFiles {
     "app.json": json({
       expo: { name: "Application", slug: "generated-app" },
     }),
+    "tsconfig.json": json({
+      compilerOptions: {
+        target: "ES2020",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        jsx: "react-jsx",
+        strict: true,
+        noEmit: true,
+      },
+      include: ["App.tsx", "src"],
+    }),
     "App.tsx":
       'import { SafeAreaView } from "react-native";\nexport default function App(){return <SafeAreaView />}\n',
     ".env.example": "",
