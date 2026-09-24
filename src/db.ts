@@ -970,6 +970,32 @@ export async function getProjectFiles(
   return files;
 }
 
+export async function getCurrentArtifact(projectId: number): Promise<{
+  snapshotId: number;
+  version: number;
+  files: Record<string, string>;
+  integrity: ArtifactIntegrity;
+} | null> {
+  const snapshot = await getCurrentSnapshot(projectId);
+  if (!snapshot) return null;
+  const files = validateArtifactFiles(
+    (snapshot.files as Record<string, string> | null) ?? {},
+  );
+  const integrity = assertArtifactIntegrity({
+    files,
+    integrity: snapshot.artifactIntegrity,
+    projectId,
+    artifactVersion: snapshot.version,
+    requiredState: "final",
+  });
+  return {
+    snapshotId: snapshot.id,
+    version: snapshot.version,
+    files,
+    integrity,
+  };
+}
+
 export async function getWorkingProjectFiles(
   projectId: number,
 ): Promise<Record<string, string>> {
