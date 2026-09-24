@@ -30,6 +30,7 @@ import {
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { ResearchDecision } from "../lib/researchRecord.js";
 import { validateGeneratedProjectStructure } from "../lib/generatedProjectStructure.js";
+import { validateRuntimeImplementation } from "../lib/runtimeArchitecture.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -290,6 +291,19 @@ export async function validateGeneratedBuild(
         fileCount: Object.keys(files).length,
         warning:
           "Generated project structure failed before any generated path was written or executed.",
+      };
+    }
+
+    const runtimeProblems = validateRuntimeImplementation(files, techStack);
+    if (runtimeProblems.length > 0) {
+      return {
+        passed: false,
+        stage: "runtime_contract",
+        errors: runtimeProblems,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Generated runtime behavior does not satisfy the selected stack runtime contract.",
       };
     }
 
