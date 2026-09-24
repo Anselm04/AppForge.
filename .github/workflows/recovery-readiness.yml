@@ -121,15 +121,29 @@ jobs:
             exit 1
           fi
 
-      - name: Verify production remains gated by successful CI
+      - name: Verify production is owner-dispatched and re-validated
         shell: bash
         run: |
           set -euo pipefail
           file=.github/workflows/deploy-production.yml
-          grep -Fq 'workflow_run:' "$file"
-          grep -Fq 'workflows: ["CI Pipeline"]' "$file"
-          grep -Fq "github.event.workflow_run.conclusion == 'success'" "$file"
-          grep -Fq 'github.event.workflow_run.head_sha' "$file"
+          # Production releases are started manually by the owner. A green CI
+          # run on main must never deploy by itself (see OWNER_BREAK_GLASS.md,
+          # "Production release control").
+          grep -Eq '^[[:space:]]+workflow_dispatch:' "$file"
+          if grep -Eq '^[[:space:]]+(workflow_run|push|pull_request|pull_request_target|schedule):' "$file"; then
+            echo 'Deploy Production must be owner-dispatched only; automatic triggers are not allowed.'
+            exit 1
+          fi
+          grep -Fq "github.ref == 'refs/heads/main'" "$file"
+          # The dispatched release re-runs the CI gates on the exact SHA and
+          # refuses stale SHAs before any Fly step.
+          grep -Fq 'Verify exact release SHA' "$file"
+          grep -Fq 'Refuse stale release SHA' "$file"
+          grep -Fq 'Reconfirm release freshness immediately before deploy' "$file"
+          grep -Fq 'run: npm run lint' "$file"
+          grep -Fq 'run: npm run typecheck' "$file"
+          grep -Fq 'run: npm run test -- --run' "$file"
+          grep -Fq 'run: npm run build' "$file"
 
       - name: Verify exact two-machine production recovery contract
         shell: bash
@@ -215,6 +229,6 @@ jobs:
           echo 'Recovery inventory present.'
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
-          echo 'Production deploy remains bound to successful CI and exact SHA.'
+          echo 'Production deploy is owner-dispatched only, re-validated on the exact current main SHA.'
           echo 'Exact two-Machine Fly recovery, shared Redis coordination, single-writer background side effects, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
           echo 'Recovery governance remains active.'
