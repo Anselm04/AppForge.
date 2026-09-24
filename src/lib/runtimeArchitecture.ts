@@ -75,7 +75,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     adapter.runtime === "desktop" ||
     adapter.runtime === "extension";
   const frameworkServer = adapter.previewMode === "next";
-  const serverCapable = serverCapable;
+  const serverCapable = service || frameworkServer;
 
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
     serverCapable
