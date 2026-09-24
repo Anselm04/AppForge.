@@ -96,7 +96,9 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
     serverCapable || reactNode
       ? "external_service"
-      : browser || adapter.previewMode === "vite" || adapter.previewMode === "static"
+      : browser ||
+          adapter.previewMode === "vite" ||
+          adapter.previewMode === "static"
         ? "client_local"
         : nativeLifecycle
           ? "native_platform"
@@ -104,7 +106,9 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
 
   const healthMode: RuntimeArchitecture["health"]["mode"] = serverCapable
     ? "http"
-    : browser || adapter.previewMode === "vite" || adapter.previewMode === "static"
+    : browser ||
+        adapter.previewMode === "vite" ||
+        adapter.previewMode === "static"
       ? "document"
       : "native_runtime";
 
@@ -167,11 +171,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
           : "none",
       environmentVariable: serverCapable ? "PORT" : null,
       defaultPort:
-        adapter.runtime === "python"
-          ? 8000
-          : serverCapable
-            ? 3000
-            : null,
+        adapter.runtime === "python" ? 8000 : serverCapable ? 3000 : null,
     },
     assets: {
       mode: assetsMode,
@@ -204,12 +204,23 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
   };
 }
 
+/** Node HTTP service stacks (API, Node service, Node agent, automation). */
+export function isNodeServiceStack(stackId: string): boolean {
+  const adapter = getStackAdapter(stackId);
+  return adapter.previewMode === "service" && adapter.runtime === "node";
+}
+
 export function runtimeArchitectureInstruction(stackId: string): string {
   const runtime = getRuntimeArchitecture(stackId);
   return [
     "[APPFORGE STACK RUNTIME CONTRACT — AUTHORITATIVE]",
     JSON.stringify(runtime, null, 2),
     "Do not apply runtime assumptions from another stack.",
+    ...(isNodeServiceStack(stackId)
+      ? [
+          "Production identity: serve the file public/.well-known/appforge-build.json at GET /.well-known/appforge-build.json (AppForge writes it at deploy time; e.g. express.static on public/.well-known).",
+        ]
+      : []),
     "Implement only capabilities marked native/conditional when required by the product contract.",
     "For conditional capabilities, generate explicit configuration, validation, error handling, and lifecycle behavior.",
     "[END APPFORGE STACK RUNTIME CONTRACT]",
@@ -264,12 +275,7 @@ export function validateRuntimeImplementation(
   if (runtime.health.mode === "http") {
     if (
       runtime.health.livenessPath &&
-      !implementsHttpPath(
-        files,
-        stackId,
-        runtime.health.livenessPath,
-        combined,
-      )
+      !implementsHttpPath(files, stackId, runtime.health.livenessPath, combined)
     ) {
       problems.push(
         "missing runtime liveness endpoint " + runtime.health.livenessPath,
@@ -311,6 +317,12 @@ export function validateRuntimeImplementation(
     }
   }
 
+  if (isNodeServiceStack(stackId) && !combined.includes(".well-known")) {
+    problems.push(
+      "node service must serve the production build identity at /.well-known/appforge-build.json",
+    );
+  }
+
   if (runtime.persistence.isolateFromAppForge) {
     const forbidden = [
       "APPFORGE_DATABASE_URL",
@@ -319,7 +331,9 @@ export function validateRuntimeImplementation(
     ];
     for (const token of forbidden) {
       if (combined.toLowerCase().includes(token.toLowerCase())) {
-        problems.push("runtime persistence references AppForge production data");
+        problems.push(
+          "runtime persistence references AppForge production data",
+        );
       }
     }
   }
