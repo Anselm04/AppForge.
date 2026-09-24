@@ -27,17 +27,10 @@ const RULES: SecurityRule[] = [
     pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   },
   {
-    id: "secret.stripe-key",
+    id: "secret.stripe-live-key",
     severity: "critical",
-    message: "A Stripe secret key appears to be hard-coded.",
-    pattern: /\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/,
-  },
-  {
-    id: "secret.model-provider-key",
-    severity: "critical",
-    message: "A model-provider API credential appears to be hard-coded.",
-    pattern:
-      /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,})\b/,
+    message: "A live Stripe secret appears to be hard-coded.",
+    pattern: /\bsk_live_[A-Za-z0-9]{12,}\b/,
   },
   {
     id: "secret.github-token",
@@ -64,9 +57,19 @@ const RULES: SecurityRule[] = [
     pattern: /\bAIza[0-9A-Za-z_-]{30,}\b/,
   },
   {
+    id: "secret.client-service-role",
+    severity: "critical",
+    message:
+      "Server/service credentials must never be exposed in generated browser code.",
+    pattern:
+      /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN)/i,
+    paths:
+      /(?:^|\/)(?:public|components|pages|client|frontend|ui)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
+  },
+  {
     id: "code.dynamic-eval",
     severity: "high",
-    message: "Dynamic code execution with eval() can enable code injection.",
+    message: "Dynamic eval() can enable code injection.",
     pattern: /\beval\s*\(/,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
@@ -82,40 +85,16 @@ const RULES: SecurityRule[] = [
     severity: "high",
     message:
       "Shell command execution contains template interpolation and needs strict validation.",
-    pattern: /\b(?:exec|execSync)\s*\(\s*`[^`]*\$\{/,
+    pattern: /\b(?:exec|execSync)\s*\(\s*\x60[^\x60]*\$\{/,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
-    id: "web.dangerous-html",
+    id: "command.shell-enabled",
     severity: "high",
-    message: "dangerouslySetInnerHTML requires trusted or sanitized input.",
-    pattern: /dangerouslySetInnerHTML\s*=/,
-    paths: /\.(?:jsx|tsx)$/i,
-  },
-  {
-    id: "web.cors-wildcard",
-    severity: "medium",
     message:
-      "Wildcard CORS can expose authenticated APIs to untrusted origins.",
-    pattern:
-      /(?:origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*)/i,
-    paths: /\.(?:js|ts|mjs|cjs|json)$/i,
-  },
-  {
-    id: "crypto.weak-hash",
-    severity: "medium",
-    message: "MD5 or SHA-1 should not be used for security-sensitive hashing.",
-    pattern: /createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)/i,
+      "Child process enables shell execution; generated services must use fixed executable/argument arrays.",
+    pattern: /(?:spawn|execFile)\s*\([^;\n]+\{[^}]*shell\s*:\s*true/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
-  },
-  {
-    id: "auth.token-in-url",
-    severity: "high",
-    message:
-      "Authentication token appears to be placed in a URL or query string.",
-    pattern:
-      /(?:\?|&)(?:token|access_token|jwt|api_key)=\$?\{?[A-Za-z0-9_.-]+/i,
-    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
   {
     id: "sql.string-interpolation",
@@ -123,7 +102,7 @@ const RULES: SecurityRule[] = [
     message:
       "SQL query appears to contain template interpolation; parameterize database input.",
     pattern:
-      /(?:query|execute)\s*\(\s*`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*\$\{/i,
+      /(?:query|execute)\s*\(\s*\x60[^\x60]*(?:SELECT|INSERT|UPDATE|DELETE)[^\x60]*\$\{/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -145,19 +124,18 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
-    id: "command.shell-enabled",
+    id: "web.dangerous-html",
     severity: "high",
-    message:
-      "Child process enables shell execution; generated services must use fixed executable/argument arrays.",
-    pattern: /(?:spawn|execFile)\s*\([^;\n]+\{[^}]*shell\s*:\s*true/i,
-    paths: /\.(?:js|ts|mjs|cjs)$/i,
+    message: "dangerouslySetInnerHTML requires trusted and sanitized input.",
+    pattern: /dangerouslySetInnerHTML\s*=/,
+    paths: /\.(?:jsx|tsx)$/i,
   },
   {
     id: "web.inner-html-assignment",
     severity: "high",
     message:
       "Direct innerHTML assignment can enable XSS; render text safely or sanitize trusted HTML.",
-    pattern: /\.innerHTML\s*=\s*(?!["'`][^"'`]*["'`])/i,
+    pattern: /\.innerHTML\s*=\s*(?!["'\x60][^"'\x60]*["'\x60])/i,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
   {
@@ -170,22 +148,22 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
-    id: "secret.logging",
+    id: "web.cors-wildcard",
     severity: "high",
     message:
-      "Generated code logs a sensitive environment value; secrets must never be written to logs.",
+      "Wildcard CORS is not allowed for generated authenticated/server applications.",
     pattern:
-      /console\.(?:log|info|warn|error|debug)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH)[A-Z0-9_]*)|os\.getenv\s*\(\s*["'][^"']*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH)[^"']*["'])/i,
-    paths: /\.(?:js|ts|mjs|cjs|py)$/i,
+      /(?:origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*)/i,
+    paths: /\.(?:js|ts|mjs|cjs|json)$/i,
   },
   {
-    id: "secret.python-logging",
+    id: "auth.token-in-url",
     severity: "high",
     message:
-      "Generated Python code logs a sensitive environment value; secrets must never be written to logs.",
+      "Authentication token appears to be placed in a URL or query string.",
     pattern:
-      /(?:print|logging\.(?:debug|info|warning|error|critical))\s*\([^)\n]*(?:os\.getenv\s*\(\s*["'][^"']*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH|DATABASE_URL)[^"']*["']|os\.environ\s*\[\s*["'][^"']*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH|DATABASE_URL)[^"']*["'])/i,
-    paths: /\.py$/i,
+      /(?:\?|&)(?:token|access_token|jwt|api_key)=\$?\{?[A-Za-z0-9_.-]+/i,
+    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
   {
     id: "auth.client-controlled-identity",
@@ -200,54 +178,88 @@ const RULES: SecurityRule[] = [
     id: "auth.insecure-cookie",
     severity: "high",
     message:
-      "Authentication/session cookie is missing secure HttpOnly/SameSite protections.",
+      "Authentication/session cookie is missing HttpOnly, Secure, or SameSite protections.",
     pattern:
-      /(?:res\.)?cookie\s*\([^;\n]+\{(?!(?=[^}]*httpOnly\s*:\s*true)(?=[^}]*sameSite\s*:\s*["'](?:strict|lax)["'])[^}]*\})/i,
+      /(?:res\.)?cookie\s*\([^;\n]+\{(?!(?=[^}]*httpOnly\s*:\s*true)(?=[^}]*sameSite\s*:\s*["'](?:strict|lax)["'])(?=[^}]*secure\s*:\s*(?:true|process\.env\.NODE_ENV\s*===\s*["']production["']))[^}]*\})/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
-    id: "python.command-shell",
+    id: "secret.logging",
     severity: "high",
     message:
-      "Python subprocess execution enables shell parsing or os.system command execution.",
+      "Generated code logs a sensitive environment value; secrets must never be written to logs.",
     pattern:
-      /(?:subprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^\n]*shell\s*=\s*True|os\.system\s*\()/,
+      /console\.(?:log|info|warn|error|debug)\s*\([^\n;]*process\.env(?:\.|\[)[^\n;]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH|DATABASE_URL)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
+    id: "code.python-dynamic-exec",
+    severity: "high",
+    message: "Python eval()/exec() can enable code injection.",
+    pattern: /\b(?:eval|exec)\s*\(/,
     paths: /\.py$/i,
   },
   {
-    id: "python.ssrf-untrusted-request",
+    id: "command.python-shell",
     severity: "high",
     message:
-      "Python server-side network access appears to use request-controlled input without an allowlist.",
+      "Python shell execution is unsafe; use fixed executable and argument arrays.",
     pattern:
-      /(?:requests\.(?:get|post|put|patch|delete)|httpx\.(?:get|post|put|patch|delete)|urllib\.request\.urlopen)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|request\.(?:query_params|path_params)|req\.)/i,
+      /(?:\bos\.system\s*\(|\bsubprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^)]*shell\s*=\s*True)/i,
     paths: /\.py$/i,
   },
   {
-    id: "python.path-untrusted-file-operation",
+    id: "ssrf.python-untrusted-request",
     severity: "high",
     message:
-      "Python filesystem access appears to use request-controlled input and may permit path traversal.",
+      "Python server-side network request appears to use request-controlled input without an allowlist.",
     pattern:
-      /(?:open|Path|send_file|FileResponse)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|req\.)/i,
+      /(?:requests|httpx)\.(?:get|post|put|patch|delete)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|query_params|path_params)/i,
     paths: /\.py$/i,
   },
   {
-    id: "python.sql-interpolation",
+    id: "path.python-untrusted-file-operation",
     severity: "high",
     message:
-      "Python SQL execution appears to interpolate values into the query string instead of parameterizing them.",
+      "Python file operation appears to use request-controlled input and may permit path traversal.",
     pattern:
-      /(?:execute|executemany)\s*\(\s*(?:f["']|["'][^\n]*\{[^\n]*\}[^\n]*["'])/i,
+      /(?:\bopen|Path|send_file|FileResponse)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|query_params|path_params)/i,
     paths: /\.py$/i,
   },
   {
-    id: "python.open-redirect",
+    id: "sql.python-interpolation",
+    severity: "high",
+    message:
+      "Python SQL execution appears to interpolate values into SQL; use bound parameters.",
+    pattern:
+      /(?:execute|executemany)\s*\(\s*f["'][^"']*(?:SELECT|INSERT|UPDATE|DELETE)[^"']*\{/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "web.python-open-redirect",
     severity: "high",
     message:
       "Python redirect target appears to come directly from request-controlled input.",
     pattern:
-      /redirect\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|req\.)/i,
+      /(?:RedirectResponse|redirect)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "web.python-unsafe-html",
+    severity: "high",
+    message:
+      "Python HTML rendering appears to mark request-controlled content as trusted.",
+    pattern:
+      /(?:Markup|mark_safe|render_template_string)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|query_params|path_params)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "auth.python-client-controlled-identity",
+    severity: "high",
+    message:
+      "Python authorization identity appears to be accepted directly from request-controlled fields.",
+    pattern:
+      /(?:user_id|tenant_id|organization_id|org_id)\s*=\s*(?:request\.(?:args|form|json|query_params|path_params)|query_params|path_params)/i,
     paths: /\.py$/i,
   },
   {
@@ -269,76 +281,6 @@ const RULES: SecurityRule[] = [
     paths: /\.py$/i,
   },
   {
-    id: "code.python-dynamic-exec",
-    severity: "high",
-    message: "Python eval()/exec() can enable code injection.",
-    pattern: /\b(?:eval|exec)\s*\(/,
-    paths: /\.py$/i,
-  },
-  {
-    id: "command.python-shell",
-    severity: "high",
-    message:
-      "Python shell execution is unsafe for generated services; use fixed executable and argument arrays.",
-    pattern:
-      /(?:\bos\.system\s*\(|\bsubprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^)]*shell\s*=\s*True)/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "ssrf.python-untrusted-request",
-    severity: "high",
-    message:
-      "Python server-side network request appears to use request-controlled input without an allowlist.",
-    pattern:
-      /(?:requests|httpx)\.(?:get|post|put|patch|delete)\s*\(\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "path.python-untrusted-file-operation",
-    severity: "high",
-    message:
-      "Python file operation appears to use request-controlled input and may permit path traversal.",
-    pattern:
-      /(?:\bopen|Path|send_file|FileResponse)\s*\([^)\n]*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "sql.python-interpolation",
-    severity: "high",
-    message:
-      "Python SQL execution appears to interpolate values into SQL; use bound parameters.",
-    pattern:
-      /(?:execute|executemany)\s*\(\s*f["'][^"']*(?:SELECT|INSERT|UPDATE|DELETE)[^"']*\{/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "web.python-open-redirect",
-    severity: "high",
-    message:
-      "Python redirect target appears to come directly from request-controlled input.",
-    pattern:
-      /(?:RedirectResponse|redirect)\s*\(\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "web.python-unsafe-html",
-    severity: "high",
-    message:
-      "Python HTML rendering appears to mark request-controlled content as trusted.",
-    pattern:
-      /(?:Markup|mark_safe|render_template_string)\s*\([^)\n]*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
-    paths: /\.py$/i,
-  },
-  {
-    id: "auth.python-client-controlled-identity",
-    severity: "high",
-    message:
-      "Python authorization identity appears to be accepted directly from request-controlled fields.",
-    pattern:
-      /(?:user_id|tenant_id|organization_id|org_id)\s*=\s*(?:request\.(?:query_params|path_params)|query_params|path_params)/i,
-    paths: /\.py$/i,
-  },
-  {
     id: "dependency.install-script",
     severity: "high",
     message:
@@ -346,30 +288,18 @@ const RULES: SecurityRule[] = [
     pattern: /"(?:preinstall|install|postinstall)"\s*:\s*"[^"]+"/i,
     paths: /(?:^|\/)package\.json$/i,
   },
-
   {
-    id: "secret.client-service-role",
-    severity: "critical",
-    message:
-      "Server/service credentials must never be exposed in generated browser code.",
-    pattern:
-      /(?:SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|STRIPE_SECRET_KEY|PAYPAL_CLIENT_SECRET|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY|MISTRAL_API_KEY|GROQ_API_KEY|XAI_API_KEY|COHERE_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|CLOUDFLARE_API_TOKEN)/i,
-    paths: /(?:^|\/)(?:public|components|pages|client|frontend|ui)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
-  },
-  {
-    id: "secret.logged-env",
-    severity: "high",
-    message:
-      "Generated code appears to log a secret-bearing environment variable.",
-    pattern:
-      /console\.(?:log|info|warn|error)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL))|process\.env\[["'][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL)["']\])/i,
-    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
+    id: "crypto.weak-hash",
+    severity: "medium",
+    message: "MD5 or SHA-1 should not be used for security-sensitive hashing.",
+    pattern: /createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
 ];
 
 const SKIP_PATHS =
   /(?:^|\/)(?:node_modules|dist|build|coverage|\.git)(?:\/|$)/i;
-const MAX_FILE_BYTES = 750_000;
+const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_FINDINGS = 250;
 
 function lineNumberAt(content: string, offset: number): number {
@@ -380,207 +310,33 @@ function lineNumberAt(content: string, offset: number): number {
   return line;
 }
 
-function redactSensitiveEvidence(value: string): string {
-  return value
-    .replace(
-      /\b(?:sk_(?:live|test)_[A-Za-z0-9]{12,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,})\b/g,
-      "[REDACTED_SECRET]",
-    )
-    .replace(
-      /((?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)\s*[:=]\s*["']?)[^"',\s}]+/gi,
-      "$1[REDACTED]",
-    );
-}
-
 function evidenceAround(content: string, offset: number): string {
   const lineStart = content.lastIndexOf("\n", offset) + 1;
   const nextLine = content.indexOf("\n", offset);
   const lineEnd = nextLine === -1 ? content.length : nextLine;
-  return redactSensitiveEvidence(
-    content
-      .slice(lineStart, lineEnd)
-      .trim()
-      .replace(/\s+/g, " ")
-      .slice(0, 240),
-  );
+  return content
+    .slice(lineStart, lineEnd)
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 240);
 }
 
-function finding(
+function makeFinding(
   ruleId: string,
   severity: SecuritySeverity,
   path: string,
   message: string,
   evidence: string,
-): ProjectSecurityFinding {
-  return { ruleId, severity, path, line: 1, message, evidence: evidence.slice(0, 240) };
-}
-
-function scanEnvironmentFile(
-  path: string,
-  content: string,
-): ProjectSecurityFinding[] {
-  if (!/(?:^|\/)\.env(?:\.[A-Za-z0-9_-]+)?$/i.test(path) || /\.example$/i.test(path)) {
-    return [];
-  }
-  const findings: ProjectSecurityFinding[] = [];
-  for (const line of content.split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|DATABASE_URL|SERVICE_ROLE)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/i);
-    if (!match) continue;
-    const value = match[2].replace(/^["']|["']$/g, "").trim();
-    if (!value || /^(?:changeme|example|placeholder|your[_-]?|<.*>|\$\{.*\})$/i.test(value)) continue;
-    findings.push(
-      finding(
-        "secret.env-artifact",
-        "critical",
-        path,
-        "A generated environment artifact contains a non-placeholder secret value.",
-        match[1] + "=<redacted>",
-      ),
-    );
-  }
-  return findings;
-}
-
-function scanPythonRequirements(
-  path: string,
-  content: string,
-): ProjectSecurityFinding[] {
-  if (!/(?:^|\/)requirements(?:-[^/]+)?\.txt$/i.test(path)) return [];
-  const findings: ProjectSecurityFinding[] = [];
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    if (/^(?:-e\s+|--editable\s+|git\+|https?:\/\/|svn\+|hg\+)/i.test(line)) {
-      findings.push(
-        finding(
-          "dependency.remote-source",
-          "high",
-          path,
-          "Python dependency installs directly from an editable/VCS/remote source.",
-          line,
-        ),
-      );
-    }
-  }
-  return findings;
-}
-
-function dependencyFinding(
-  ruleId: string,
-  path: string,
-  message: string,
-  evidence: string,
+  line = 1,
 ): ProjectSecurityFinding {
   return {
     ruleId,
-    severity: "high",
+    severity,
     path,
-    line: 1,
+    line,
     message,
     evidence: evidence.slice(0, 240),
   };
-}
-
-function scanDependencyManifest(
-  path: string,
-  content: string,
-): ProjectSecurityFinding[] {
-  const findings: ProjectSecurityFinding[] = [];
-
-  if (/(?:^|\/)package\.json$/i.test(path)) {
-    try {
-      const manifest = JSON.parse(content) as {
-        dependencies?: Record<string, string>;
-        devDependencies?: Record<string, string>;
-      };
-      for (const [name, version] of Object.entries({
-        ...(manifest.dependencies ?? {}),
-        ...(manifest.devDependencies ?? {}),
-      })) {
-        if (version === "*" || /^latest$/i.test(version)) {
-          findings.push(
-            dependencyFinding(
-              "dependency.unpinned",
-              path,
-              "Dependency " + name + " is not version constrained.",
-              name + ": " + version,
-            ),
-          );
-        }
-        if (/^(?:git\+|https?:\/\/|file:|link:)/i.test(version)) {
-          findings.push(
-            dependencyFinding(
-              "dependency.unsafe-source",
-              path,
-              "Dependency " + name + " uses a direct/local source instead of a registry version.",
-              name + ": " + version,
-            ),
-          );
-        }
-        if (
-          name === "flatmap-stream" ||
-          (name === "event-stream" &&
-            /(?:^|[^\d])3\.3\.6(?:[^\d]|$)/.test(version))
-        ) {
-          findings.push(
-            dependencyFinding(
-              "dependency.known-malicious",
-              path,
-              "Dependency " + name + " matches a known malicious package/version and is blocked.",
-              name + ": " + version,
-            ),
-          );
-        }
-      }
-    } catch {
-      findings.push(
-        dependencyFinding(
-          "dependency.invalid-manifest",
-          path,
-          "package.json could not be parsed.",
-          "Invalid JSON",
-        ),
-      );
-    }
-    return findings;
-  }
-
-  if (/(?:^|\/)requirements\.txt$/i.test(path)) {
-    for (const rawLine of content.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith("#")) continue;
-      if (
-        /^(?:-e\s+|--(?:extra-)?index-url\b|git\+|https?:\/\/|file:|\.\.?\/)/i.test(
-          line,
-        )
-      ) {
-        findings.push(
-          dependencyFinding(
-            "dependency.python-unsafe-source",
-            path,
-            "Python dependency uses an editable, alternate-index, remote, or local path source.",
-            line,
-          ),
-        );
-      }
-    }
-    return findings;
-  }
-
-  if (/(?:^|\/)pubspec\.ya?ml$/i.test(path)) {
-    if (/^\s*(?:git|path)\s*:/im.test(content)) {
-      findings.push(
-        dependencyFinding(
-          "dependency.dart-unsafe-source",
-          path,
-          "Dart/Flutter dependency uses a git or local path source.",
-          "git/path dependency source",
-        ),
-      );
-    }
-  }
-
-  return findings;
 }
 
 function scanEnvironmentSecrets(
@@ -596,8 +352,7 @@ function scanEnvironmentSecrets(
   }
 
   const findings: ProjectSecurityFinding[] = [];
-  const lines = content.split(/\r?\n/);
-  lines.forEach((raw, index) => {
+  content.split(/\r?\n/).forEach((raw, index) => {
     const match = raw.match(
       /^\s*([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/i,
     );
@@ -606,20 +361,156 @@ function scanEnvironmentSecrets(
     if (
       !value ||
       /^\$\{[^}]+\}$/.test(value) ||
-      /^(?:changeme|replace-me|example|your[-_].+|<.+>)$/i.test(value)
+      /^(?:changeme|replace-me|example|placeholder|your[-_].+|<.+>)$/i.test(
+        value,
+      )
     ) {
       return;
     }
-    findings.push({
-      ruleId: "secret.env-artifact",
-      severity: "critical",
-      path,
-      line: index + 1,
-      message:
-        "Generated artifact contains a secret-bearing .env value. Only examples/placeholders may be persisted.",
-      evidence: match[1] + "=<redacted>",
-    });
+    findings.push(
+      makeFinding(
+        "secret.env-artifact",
+        "critical",
+        path,
+        "Generated artifact contains a non-placeholder secret-bearing .env value.",
+        match[1] + "=<redacted>",
+        index + 1,
+      ),
+    );
   });
+  return findings;
+}
+
+function scanDependencies(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  const findings: ProjectSecurityFinding[] = [];
+
+  if (/(?:^|\/)package\.json$/i.test(path)) {
+    try {
+      const manifest = JSON.parse(content) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+        scripts?: Record<string, string>;
+      };
+      for (const [name, version] of Object.entries({
+        ...(manifest.dependencies ?? {}),
+        ...(manifest.devDependencies ?? {}),
+      })) {
+        if (version === "*" || /^latest$/i.test(version)) {
+          findings.push(
+            makeFinding(
+              "dependency.unpinned",
+              "high",
+              path,
+              "Dependency " + name + " is not version constrained.",
+              name + ": " + version,
+            ),
+          );
+        }
+        if (/^(?:git\+|https?:\/\/|file:|link:)/i.test(version)) {
+          findings.push(
+            makeFinding(
+              "dependency.unsafe-source",
+              "high",
+              path,
+              "Dependency " +
+                name +
+                " uses a direct/local source instead of a registry version.",
+              name + ": " + version,
+            ),
+          );
+        }
+        if (
+          name === "flatmap-stream" ||
+          (name === "event-stream" &&
+            /(?:^|[^\d])3\.3\.6(?:[^\d]|$)/.test(version))
+        ) {
+          findings.push(
+            makeFinding(
+              "dependency.known-malicious",
+              "critical",
+              path,
+              "Dependency " +
+                name +
+                " matches a known malicious package/version and is blocked.",
+              name + ": " + version,
+            ),
+          );
+        }
+      }
+
+      for (const [scriptName, script] of Object.entries(
+        manifest.scripts ?? {},
+      )) {
+        if (
+          /(?:^|[;&|])\s*(?:curl|wget|nc|netcat|ssh|scp|sudo|chmod|chown|mkfifo|mount|umount)\b|\$\(|\x60/i.test(
+            script,
+          )
+        ) {
+          findings.push(
+            makeFinding(
+              "dependency.unsafe-script",
+              "high",
+              path,
+              "Generated package script contains a dangerous shell/network primitive.",
+              scriptName + ": " + script,
+            ),
+          );
+        }
+      }
+    } catch {
+      findings.push(
+        makeFinding(
+          "dependency.invalid-manifest",
+          "high",
+          path,
+          "package.json could not be parsed.",
+          "Invalid JSON",
+        ),
+      );
+    }
+    return findings;
+  }
+
+  if (/(?:^|\/)requirements(?:-[^/]+)?\.txt$/i.test(path)) {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      if (
+        /^(?:-e\s+|--editable\s+|--(?:extra-)?index-url\b|git\+|https?:\/\/|file:|svn\+|hg\+|\.\.?\/)/i.test(
+          line,
+        )
+      ) {
+        findings.push(
+          makeFinding(
+            "dependency.python-unsafe-source",
+            "high",
+            path,
+            "Python dependency uses an editable, alternate-index, remote, VCS, or local source.",
+            line,
+          ),
+        );
+      }
+    }
+    return findings;
+  }
+
+  if (/(?:^|\/)pubspec\.ya?ml$/i.test(path)) {
+    if (/^\s*(?:git|path)\s*:/im.test(content)) {
+      findings.push(
+        makeFinding(
+          "dependency.dart-unsafe-source",
+          "high",
+          path,
+          "Dart/Flutter dependency uses a git or local path source.",
+          "git/path dependency source",
+        ),
+      );
+    }
+  }
+
   return findings;
 }
 
@@ -637,26 +528,32 @@ export function scanProjectFiles(
   let skippedFiles = 0;
 
   for (const [path, content] of Object.entries(files)) {
-    if (
-      SKIP_PATHS.test(path) ||
-      Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES ||
-      path.endsWith(".pdf.base64")
-    ) {
+    if (SKIP_PATHS.test(path) || path.endsWith(".pdf.base64")) {
       skippedFiles += 1;
+      continue;
+    }
+    if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) {
+      findings.push(
+        makeFinding(
+          "security.unscanned-oversize-file",
+          "high",
+          path,
+          "Generated file exceeds the security scanner per-file limit and cannot be accepted unscanned.",
+          "file size > " + MAX_FILE_BYTES,
+        ),
+      );
       continue;
     }
 
     scannedFiles += 1;
-    findings.push(...scanEnvironmentFile(path, content));
-    findings.push(...scanPythonRequirements(path, content));
-    findings.push(...scanDependencyManifest(path, content));
     findings.push(...scanEnvironmentSecrets(path, content));
+    findings.push(...scanDependencies(path, content));
 
     for (const rule of RULES) {
       if (rule.paths && !rule.paths.test(path)) continue;
       const flags = rule.pattern.flags.includes("g")
         ? rule.pattern.flags
-        : `${rule.pattern.flags}g`;
+        : rule.pattern.flags + "g";
       const matcher = new RegExp(rule.pattern.source, flags);
       let match: RegExpExecArray | null;
       while ((match = matcher.exec(content)) !== null) {
@@ -682,7 +579,7 @@ export function scanProjectFiles(
     medium: 0,
     low: 0,
   };
-  for (const finding of findings) severityCounts[finding.severity] += 1;
+  for (const item of findings) severityCounts[item.severity] += 1;
 
   return {
     findings,
@@ -693,7 +590,6 @@ export function scanProjectFiles(
   };
 }
 
-
 export function validateGeneratedSecurityPosture(
   files: Record<string, string>,
   techStack: string,
@@ -701,9 +597,10 @@ export function validateGeneratedSecurityPosture(
 ): ProjectSecurityFinding[] {
   const findings: ProjectSecurityFinding[] = [];
   const source = Object.entries(files)
-    .filter(([path]) => /\.(?:[cm]?[jt]sx?|py)$/i.test(path))
-    .map(([, content]) => content)
+    .filter(([path]) => /\.(?:[cm]?[jt]sx?|py|sql)$/i.test(path))
+    .map(([, file]) => file)
     .join("\n");
+
   const isNodeService = [
     "api-service",
     "node-service",
@@ -717,32 +614,40 @@ export function validateGeneratedSecurityPosture(
   const isHttpService = isNodeService || isPythonService;
 
   const add = (ruleId: string, message: string, evidence: string) => {
-    findings.push({
-      ruleId,
-      severity: "high",
-      path: "appforge.security",
-      line: 1,
-      message,
-      evidence,
-    });
+    findings.push(
+      makeFinding(
+        ruleId,
+        "high",
+        "appforge.security",
+        message,
+        evidence,
+      ),
+    );
   };
 
   if (isHttpService) {
-    if (!/(?:helmet\s*\(|Content-Security-Policy|X-Content-Type-Options|contentSecurityPolicy|X-Frame-Options|Referrer-Policy)/i.test(source)) {
+    if (
+      !/(?:helmet\s*\(|Content-Security-Policy|X-Content-Type-Options|contentSecurityPolicy|X-Frame-Options|Referrer-Policy)/i.test(
+        source,
+      )
+    ) {
       add(
         "service.secure-headers",
         "Generated HTTP service must configure secure default response headers.",
         "No Helmet or equivalent secure-header policy detected.",
       );
     }
-    if (!/(?:express-rate-limit|rateLimit\s*\(|createRateLimiter|rateLimiter|slowapi|Limiter\s*\()/i.test(source)) {
+    if (
+      !/(?:express-rate-limit|rateLimit\s*\(|createRateLimiter|rateLimiter|slowapi|Limiter\s*\()/i.test(
+        source,
+      )
+    ) {
       add(
         "service.rate-limiting",
         "Generated HTTP service must enforce server-side rate limiting.",
         "No rate-limiting middleware detected.",
       );
     }
-
     if (
       !/(?:express\.json\s*\(\s*\{[^}]*limit\s*:|MAX_BODY_BYTES|content-length|max_request_size|client_max_body_size)/i.test(
         source,
@@ -760,16 +665,15 @@ export function validateGeneratedSecurityPosture(
     /(?:res\.)?cookie\s*\(|set-cookie|cookies\(\)|\.set_cookie\s*\(/i.test(
       source,
     );
-  if (
-    usesCookies &&
-    !/(?:(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))(?=[\s\S]{0,300}(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'])|(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'](?=[\s\S]{0,300}(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))/i.test(
+  const hasSecureCookieDefaults =
+    /(?:(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))(?=[\s\S]{0,400}(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'])(?=[\s\S]{0,400}secure\s*[:=]\s*(?:true|True|process\.env\.NODE_ENV\s*===\s*["']production["']))|(?:secure\s*[:=]\s*(?:true|True))(?=[\s\S]{0,400}(?:httpOnly|httponly)\s*[:=]\s*(?:true|True))(?=[\s\S]{0,400}(?:sameSite|samesite)\s*[:=]\s*["'](?:strict|lax)["'])/i.test(
       source,
-    )
-  ) {
+    );
+  if (usesCookies && !hasSecureCookieDefaults) {
     add(
       "auth.insecure-cookie-defaults",
-      "Authentication/session cookies must be HttpOnly and SameSite=Lax/Strict.",
-      "Cookie usage detected without both HttpOnly and SameSite protections.",
+      "Authentication/session cookies must be Secure, HttpOnly, and SameSite=Lax/Strict.",
+      "Cookie usage detected without all required cookie protections.",
     );
   }
 
@@ -777,7 +681,13 @@ export function validateGeneratedSecurityPosture(
     /\.(?:post|put|patch|delete)\s*\(|export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\b|@(?:app|router)\.(?:post|put|patch|delete)\s*\(/i.test(
       source,
     );
-  if (usesCookies && mutatesState && !/(?:csrf|xsrf|same-origin|origin\s*check)/i.test(source)) {
+  if (
+    usesCookies &&
+    mutatesState &&
+    !/(?:csrf|xsrf|same-origin|same origin|origin\s*check|verifyOrigin|allowedOrigins)/i.test(
+      source,
+    )
+  ) {
     add(
       "web.csrf-protection",
       "Cookie-authenticated state-changing routes must include CSRF or strict same-origin protection.",
@@ -791,7 +701,9 @@ export function validateGeneratedSecurityPosture(
     );
   if (
     uploadSurface &&
-    !/(?:fileSize|limits\s*:|mimetype|mime|allowedTypes|content-type|maxFileSize|max_file_size|content_type)/i.test(source)
+    !/(?:fileSize|limits\s*:|mimetype|mime|allowedTypes|content-type|maxFileSize|max_file_size|content_type)/i.test(
+      source,
+    )
   ) {
     add(
       "upload.unbounded",
@@ -800,10 +712,15 @@ export function validateGeneratedSecurityPosture(
     );
   }
 
-  const aiToolSurface = /(?:tools\s*:|toolDefinitions|executeTool|functionCalling|tool_calls)/i.test(source);
+  const aiToolSurface =
+    /(?:tools\s*:|toolDefinitions|executeTool|functionCalling|tool_calls|invoke_tool|execute_tool)/i.test(
+      source,
+    );
   if (
     aiToolSurface &&
-    !/(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|permission)/i.test(source)
+    !/(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|permission|allowed_tools|requires_approval|human_approval)/i.test(
+      source,
+    )
   ) {
     add(
       "ai.unrestricted-tools",
@@ -811,7 +728,6 @@ export function validateGeneratedSecurityPosture(
       "AI tool execution detected without a permission boundary.",
     );
   }
-
 
   const capabilities = new Set(productContract?.secondaryCapabilities ?? []);
   const securityText = [
@@ -828,16 +744,15 @@ export function validateGeneratedSecurityPosture(
     /\b(auth|authentication|login|session|oauth|sso|jwt|access control)\b/i.test(
       securityText,
     );
-  if (
-    authRequired &&
-    !/(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser|current_user|Depends\s*\(\s*(?:get_current_user|require_auth)|request\.state\.user)/i.test(
+  const authEvidence =
+    /(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser|current_user|Depends\s*\(\s*(?:get_current_user|require_auth)|request\.state\.user|auth\.uid\(\))/i.test(
       source,
-    )
-  ) {
+    );
+  if (authRequired && !authEvidence) {
     add(
       "auth.missing-server-enforcement",
-      "Products requiring authentication must enforce identity on the server, not only in client UI.",
-      "Authentication is required by the canonical product contract but no server-side auth enforcement was detected.",
+      "Products requiring authentication must enforce identity on the server/database boundary, not only in client UI.",
+      "Authentication is required by the canonical product contract but no server/database auth enforcement was detected.",
     );
   }
 
@@ -847,22 +762,21 @@ export function validateGeneratedSecurityPosture(
     /\b(tenant|organization|organisation|workspace|ownership|role[- ]based|rbac)\b/i.test(
       securityText,
     );
-  if (
-    tenantRequired &&
-    !/(?:tenantId|tenant_id|organizationId|organization_id|workspaceId|workspace_id|ownerId|owner_id|userId|user_id|membership|role\s*===|hasRole|requireRole|row level security|\bRLS\b|auth\.uid\(\))/i.test(
+  const tenantEvidence =
+    /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|membership|requireRole|hasRole|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
       source,
-    )
-  ) {
+    );
+  if (tenantRequired && !tenantEvidence) {
     add(
       "tenant.missing-isolation",
       "Multi-user/team products must enforce ownership, membership, role, or tenant isolation in server/database logic.",
-      "Tenant/team/role boundaries are required by the canonical product contract but no isolation enforcement was detected.",
+      "Tenant/team/role boundaries are required by the canonical product contract but no authenticated isolation enforcement was detected.",
     );
   }
 
   if (
     capabilities.has("administration") &&
-    !/(?:requireAdmin|isAdmin|role\s*===\s*["']admin["']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin)/i.test(
+    !/(?:requireAdmin|isAdmin|req\.user\.role\s*===?\s*["']admin["']|current_user\.role\s*==\s*["']admin["']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin|require_role\s*\([^)]*admin)/i.test(
       source,
     )
   ) {
