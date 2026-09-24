@@ -88,7 +88,9 @@ export function validateArtifactFiles(
   input: Record<string, string>,
 ): Record<string, string> {
   const entries = Object.entries(input);
-  if (entries.length === 0) throw new Error("Artifact must contain at least one file");
+  if (entries.length === 0) {
+    throw new Error("Artifact must contain at least one file");
+  }
   if (entries.length > MAX_ARTIFACT_FILES) {
     throw new Error(
       `Artifact exceeds file-count limit: ${entries.length} > ${MAX_ARTIFACT_FILES}`,
@@ -102,7 +104,9 @@ export function validateArtifactFiles(
       throw new Error(`Artifact file must be text: ${rawPath}`);
     }
     const path = safeArtifactPath(rawPath);
-    if (path in out) throw new Error(`Duplicate artifact path after normalization: ${path}`);
+    if (path in out) {
+      throw new Error(`Duplicate artifact path after normalization: ${path}`);
+    }
     const bytes = byteLength(content);
     if (bytes > MAX_ARTIFACT_FILE_BYTES) {
       throw new Error(
