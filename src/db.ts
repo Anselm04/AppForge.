@@ -958,6 +958,54 @@ export async function getProjectFiles(
   return (await getCurrentArtifact(projectId))?.files ?? {};
 }
 
+export async function getSnapshotArtifact(
+  snapshotId: number,
+  projectId: number,
+): Promise<{
+  snapshotId: number;
+  version: number;
+  files: Record<string, string>;
+  integrity: ArtifactIntegrity;
+} | null> {
+  const snapshot = await db.query.buildSnapshots.findFirst({
+    where: and(
+      eq(schema.buildSnapshots.id, snapshotId),
+      eq(schema.buildSnapshots.projectId, projectId),
+    ),
+  });
+  if (!snapshot) return null;
+  const files = validateArtifactFiles(
+    (snapshot.files as Record<string, string> | null) ?? {},
+  );
+  const persistedIntegrity =
+    snapshot.artifactIntegrity ??
+    buildArtifactIntegrity({
+      projectId,
+      artifactVersion: snapshot.version,
+      state: "final",
+      files,
+    });
+  const integrity = assertArtifactIntegrity({
+    files,
+    integrity: persistedIntegrity,
+    projectId,
+    artifactVersion: snapshot.version,
+    requiredState: "final",
+  });
+  if (!snapshot.artifactIntegrity) {
+    await db
+      .update(schema.buildSnapshots)
+      .set({ artifactIntegrity: integrity })
+      .where(
+        and(
+          eq(schema.buildSnapshots.id, snapshotId),
+          eq(schema.buildSnapshots.projectId, projectId),
+        ),
+      );
+  }
+  return { snapshotId, version: snapshot.version, files, integrity };
+}
+
 export async function getCurrentArtifact(projectId: number): Promise<{
   snapshotId: number;
   version: number;
