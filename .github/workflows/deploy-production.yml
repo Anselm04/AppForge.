@@ -360,12 +360,19 @@ jobs:
           echo "Customer-flow entry and deep-link routes are live after deploy"
 
       - name: Install browser verifier for live shell
-        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          PW_ROOT="${RUNNER_TEMP}/appforge-playwright"
+          rm -rf "$PW_ROOT"
+          mkdir -p "$PW_ROOT"
+          npm install --prefix "$PW_ROOT" --no-package-lock --no-save playwright@1.63.0
+          echo "APPFORGE_PLAYWRIGHT_ROOT=$PW_ROOT" >> "$GITHUB_ENV"
 
       - name: Install Chromium for live shell verification
-        run: npx playwright install --with-deps chromium
+        run: node "$APPFORGE_PLAYWRIGHT_ROOT/node_modules/playwright/cli.js" install --with-deps chromium
 
       - name: Verify production customer shell interactions in Chromium
         env:
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
-        run: npx playwright test scripts/production-shell-browser.spec.mjs --reporter=line
+        run: node scripts/production-shell-browser.spec.mjs
