@@ -965,6 +965,115 @@ export async function createBuildSnapshot(data: {
   });
 }
 
+export async function createAndActivateBuildSnapshot(data: {
+  projectId: number;
+  userId: number;
+  version: number;
+  label?: string;
+  files: Record<string, string>;
+  fileCount: number;
+  techStack: string;
+  validationResult?: any;
+  auditScores?: any;
+  costEstimate?: any;
+  requirementManifest: RequirementManifest;
+}): Promise<{ id: number; integrity: ArtifactIntegrity }> {
+  const requirementManifest = assertMustHaveRequirementsResolved(
+    data.requirementManifest,
+  );
+  const files = validateArtifactFiles(data.files);
+  if (data.fileCount !== Object.keys(files).length) {
+    throw new Error("Snapshot fileCount does not match persisted artifact files");
+  }
+
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
+
+    const projects = await tx
+      .select({
+        userId: schema.projects.userId,
+        workingArtifactIntegrity: schema.projects.workingArtifactIntegrity,
+      })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, data.projectId))
+      .limit(1);
+    const project = projects[0];
+    if (!project) throw new Error("Snapshot project does not exist");
+    if (project.userId !== data.userId) {
+      throw new Error("Snapshot user does not own the target project");
+    }
+
+    const existingVersion = await tx
+      .select({ id: schema.buildSnapshots.id })
+      .from(schema.buildSnapshots)
+      .where(
+        and(
+          eq(schema.buildSnapshots.projectId, data.projectId),
+          eq(schema.buildSnapshots.version, data.version),
+        ),
+      )
+      .limit(1);
+    if (existingVersion[0]) {
+      throw new Error(
+        `Snapshot version ${data.version} already exists for project ${data.projectId}`,
+      );
+    }
+
+    const artifactIntegrity = buildArtifactIntegrity({
+      projectId: data.projectId,
+      artifactVersion: data.version,
+      state: "final",
+      files,
+      previousIntegrity: project.workingArtifactIntegrity ?? null,
+    });
+
+    const inserted = await tx
+      .insert(schema.buildSnapshots)
+      .values({
+        ...data,
+        files,
+        fileCount: artifactIntegrity.fileCount,
+        requirementManifest,
+        artifactIntegrity,
+        isCurrent: false,
+      })
+      .returning({ id: schema.buildSnapshots.id });
+    const id = inserted[0]?.id;
+    if (!id) throw new Error("Failed to persist final artifact snapshot");
+
+    // The final snapshot write, current-pointer switch and completed project
+    // state are one transaction. A partial/new snapshot can never become
+    // externally current unless every step commits together.
+    await tx
+      .update(schema.buildSnapshots)
+      .set({ isCurrent: false })
+      .where(eq(schema.buildSnapshots.projectId, data.projectId));
+    await tx
+      .update(schema.buildSnapshots)
+      .set({ isCurrent: true })
+      .where(
+        and(
+          eq(schema.buildSnapshots.id, id),
+          eq(schema.buildSnapshots.projectId, data.projectId),
+        ),
+      );
+    await tx
+      .update(schema.projects)
+      .set({
+        requirementManifest,
+        status: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, data.projectId));
+
+    return { id, integrity: artifactIntegrity };
+  });
+
+  const { invalidatePreviewCache } = await import("./routes/livePreview.js");
+  invalidatePreviewCache(data.projectId);
+  return result;
+}
+
 export async function getSnapshotsByProject(projectId: number) {
   return db.query.buildSnapshots.findMany({
     where: eq(schema.buildSnapshots.projectId, projectId),
