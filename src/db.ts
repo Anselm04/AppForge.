@@ -1061,14 +1061,6 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
     await tx
       .update(schema.projects)
       .set({
-        generatedFiles: snapshot.files,
-        workingArtifactVersion: snapshot.version,
-        workingArtifactIntegrity: buildArtifactIntegrity({
-          projectId,
-          artifactVersion: snapshot.version,
-          state: "working",
-          files,
-        }),
         requirementManifest,
         status: "completed",
         updatedAt: new Date(),
