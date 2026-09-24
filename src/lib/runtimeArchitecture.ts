@@ -104,7 +104,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
 
   const healthMode: RuntimeArchitecture["health"]["mode"] = serverCapable
     ? "http"
-    : browser
+    : browser || adapter.previewMode === "vite" || adapter.previewMode === "static"
       ? "document"
       : "native_runtime";
 
