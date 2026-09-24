@@ -74,9 +74,11 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     adapter.runtime === "mobile" ||
     adapter.runtime === "desktop" ||
     adapter.runtime === "extension";
+  const frameworkServer = adapter.previewMode === "next";
+  const serverCapable = serverCapable;
 
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
-    service || frameworkServer
+    serverCapable
       ? "external_service"
       : browser
         ? "client_local"
@@ -84,7 +86,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
           ? "native_platform"
           : "none";
 
-  const healthMode: RuntimeArchitecture["health"]["mode"] = service
+  const healthMode: RuntimeArchitecture["health"]["mode"] = serverCapable
     ? "http"
     : browser
       ? "document"
@@ -101,9 +103,8 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
             ? "static_output"
             : "framework";
 
-  const frameworkServer = adapter.previewMode === "next";
   const webCapability: RuntimeSupport =
-    service || frameworkServer ? "conditional" : "unsupported";
+    serverCapable ? "conditional" : "unsupported";
 
   return {
     version: 1,
@@ -125,28 +126,36 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     },
     health: {
       mode: healthMode,
-      livenessPath: service ? "/health/live" : null,
-      readinessPath: service ? "/health/ready" : null,
+      livenessPath: service
+        ? "/health/live"
+        : frameworkServer
+          ? "/api/health/live"
+          : null,
+      readinessPath: service
+        ? "/health/ready"
+        : frameworkServer
+          ? "/api/health/ready"
+          : null,
     },
     environment: {
       files: adapter.environmentFiles,
-      secretsServerSide: service || frameworkServer,
+      secretsServerSide: serverCapable,
       failClosedWhenMissing: true,
     },
     port: {
-      mode: service || frameworkServer
+      mode: serverCapable
         ? "environment"
         : nativeLifecycle
           ? "platform"
           : "none",
       environmentVariable:
-        service || frameworkServer
+        serverCapable
           ? "PORT"
           : null,
       defaultPort:
         adapter.runtime === "python"
           ? 8000
-          : service || frameworkServer
+          : serverCapable
             ? 3000
             : null,
     },
@@ -159,19 +168,21 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
       mode: persistence,
       isolateFromAppForge: true,
     },
-    backgroundWorkers: service ? "conditional" : "unsupported",
+    backgroundWorkers: serverCapable ? "conditional" : "unsupported",
     scheduledTasks:
-      adapter.artifactKind === "automation" || service ? "conditional" : "unsupported",
+      adapter.artifactKind === "automation" || serverCapable
+        ? "conditional"
+        : "unsupported",
     streaming: webCapability,
     webSockets: webCapability,
     fileUploads:
-      service || frameworkServer
+      serverCapable
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
           : "unsupported",
     externalServices:
-      service || frameworkServer
+      serverCapable
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
