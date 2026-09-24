@@ -151,6 +151,16 @@ describe("artifact persistence integrity", () => {
       "src\\escape.ts",
       "src/agents/pipeline.generated.ts",
       "src/services/build-worker.ts",
+      "src/db.ts",
+      "src/db/schema.ts",
+      "src/routes/livePreview.ts",
+      "src/routes/hostedApps.ts",
+      "src/routers/projects.ts",
+      "src/lib/artifactIntegrity.ts",
+      "src/services/deployer.ts",
+      "src/services/productionAutoDeploy.ts",
+      "src/agents/selfHealing.ts",
+      "src/_core/env.ts",
     ]) {
       expect(() => validateArtifactFiles({ [path]: "x" }), path).toThrow();
     }
@@ -179,5 +189,21 @@ describe("artifact persistence integrity", () => {
       ]),
     );
     expect(() => validateArtifactFiles(tooLarge)).toThrow(/total-size limit/);
+  });
+});
+
+
+describe("artifact snapshot database invariants", () => {
+  it("runtime schema enforces one current snapshot and unique versions per project", () => {
+    const { readFileSync } = require("node:fs");
+    const schema = readFileSync("src/db/ensureSchema.ts", "utf8");
+    const migration = readFileSync(
+      "drizzle/0002_artifact_persistence.sql",
+      "utf8",
+    );
+    for (const source of [schema, migration]) {
+      expect(source).toContain("snapshots_one_current_per_project");
+      expect(source).toContain("snapshots_project_version_unique");
+    }
   });
 });
