@@ -13,6 +13,7 @@ import {
 import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
+  validateStackScaffold,
 } from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
