@@ -266,6 +266,11 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
           projectName: updated.title || `appforge-${projectId}`,
           files: artifact.files,
           productContract: queuedContract,
+          snapshot: {
+            id: artifact.snapshotId,
+            version: artifact.version,
+            integrity: artifact.integrity,
+          },
         });
         liveUrl = deployed.liveUrl;
         productionCertification = {
