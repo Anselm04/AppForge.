@@ -14,10 +14,10 @@ import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { BUILD_CAPABILITY_IDS } from "../lib/buildCapabilities.js";
 import {
-  buildProductContract,
-  classifyProductIntent,
-  withSelectedTechnologyStack,
+  PRODUCT_TYPES,
+  resolveIntakeContract,
 } from "../lib/productContract.js";
+import { enrichProductContract } from "../lib/contractEnrichment.js";
 import { logger } from "../_core/logger.js";
 import {
   claimProjectBuildStart,
@@ -30,6 +30,7 @@ export const generateRouter = Router();
 const bodySchema = z.object({
   description: z.string().min(1).max(PROMPT_MAX_CHARS),
   techStack: z.string().min(1).max(80).optional(),
+  productType: z.enum(PRODUCT_TYPES).optional(),
   title: z.string().min(1).max(255).optional(),
   locale: z.string().max(10).optional(),
   buildCapabilities: z.array(z.string()).max(10).optional(),
@@ -59,30 +60,35 @@ generateRouter.post("/", async (req: Request, res: Response) => {
     }
 
     const description = parsed.data.description;
-    const promptIntent = classifyProductIntent(description);
-    if (promptIntent.ambiguous || !promptIntent.primaryProductType) {
+    const intake = resolveIntakeContract(description, parsed.data.techStack, {
+      productType: parsed.data.productType,
+    });
+    if (!intake.ok && intake.reason === "clarification_required") {
+      // Structured clarification (question + suggested choices). Answer by
+      // resubmitting with `productType` set to one of the choice values.
       res.status(422).json({
-        error: "clarification_required",
-        message:
-          promptIntent.clarificationQuestions[0] ??
-          "Please clarify what kind of product you want AppForge to build.",
-        confidence: promptIntent.confidence,
-        clarificationQuestions: promptIntent.clarificationQuestions,
+        error: intake.reason,
+        message: intake.message,
+        confidence: intake.promptIntent.confidence,
+        clarificationQuestions: intake.clarificationQuestions,
+        clarification: intake.clarification,
       });
       return;
     }
-    const baseContract = buildProductContract(description);
-    const requestedStack = parsed.data.techStack?.trim();
-    const techStack =
-      requestedStack &&
-      requestedStack !== "auto" &&
-      requestedStack !== "default"
-        ? requestedStack
-        : baseContract.selectedTechnologyStack;
-    const contract = withSelectedTechnologyStack(baseContract, techStack);
+    if (!intake.ok) {
+      res.status(400).json({
+        error: intake.reason,
+        message: intake.message,
+        compatibleStack: intake.compatibleStack,
+      });
+      return;
+    }
+    const { promptIntent } = intake;
+    const baseContract = intake.productContract;
+    const techStack = baseContract.selectedTechnologyStack;
     const title = (parsed.data.title || description).trim().slice(0, 60);
     const locale = parsed.data.locale || "en";
-    const inferredCapabilities = contract.productFamilies.filter((family) =>
+    const inferredCapabilities = baseContract.productFamilies.filter((family) =>
       (BUILD_CAPABILITY_IDS as readonly string[]).includes(family),
     );
     const buildCapabilities = [
@@ -137,6 +143,10 @@ generateRouter.post("/", async (req: Request, res: Response) => {
         return;
       }
     }
+
+    // Optional model enrichment runs only after captcha, moderation, and
+    // credit checks. It adds schema-valid items or falls back unchanged.
+    const { contract } = await enrichProductContract(baseContract);
 
     const id = await createProject({
       userId: user.id,

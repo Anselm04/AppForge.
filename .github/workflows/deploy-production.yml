@@ -1,10 +1,11 @@
 name: Deploy Production
 
+# Production releases are owner-initiated only. A green CI Pipeline on main no
+# longer deploys automatically: the owner reviews what changed and starts this
+# workflow manually (Actions -> Deploy Production -> Run workflow on main). The
+# validate job below re-runs lint, typecheck, tests, e2e and build on the exact
+# SHA and refuses stale SHAs before any Fly deployment step can run.
 on:
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,11 +17,11 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
-  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  RELEASE_SHA: ${{ github.sha }}
 
 jobs:
   validate:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     name: Validate release
     environment: production

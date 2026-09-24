@@ -3,6 +3,15 @@ import {
   assertStackSupportsProduct,
   normalizeStackId,
 } from "./stackAdapters.js";
+import {
+  buildPromptMonetization,
+  buildPromptNonFunctional,
+  buildPromptRequirements,
+  buildPromptSecurity,
+  buildPromptTargetUsers,
+  buildPromptWorkflows,
+  extractPromptFacts,
+} from "./promptContractExtraction.js";
 
 export type ProductType =
   | "website"
@@ -69,26 +78,62 @@ export type PromptIntent = {
   canonicalInterpretation: string;
 };
 
+export const PRODUCT_TYPES = [
+  "website",
+  "saas_application",
+  "mobile_app",
+  "desktop_app",
+  "game",
+  "ai_agent",
+  "developer_tool",
+  "api",
+  "ecommerce_product",
+  "browser_extension",
+  "automation_tool",
+  "data_product",
+] as const satisfies readonly ProductType[];
+
 export const productContractSchema = z.object({
   version: z.literal(2),
   originalPrompt: z.string().min(1),
-  productType: z.enum([
-    "website","saas_application","mobile_app","desktop_app","game","ai_agent",
-    "developer_tool","api","ecommerce_product","browser_extension","automation_tool","data_product",
-  ]),
-  productFamilies: z.array(z.enum([
-    "frontend","backend","database","ai","interactive","mobile","desktop",
-    "billing","auth","analytics","integrations","deployment",
-  ])).min(1),
+  productType: z.enum(PRODUCT_TYPES),
+  productFamilies: z
+    .array(
+      z.enum([
+        "frontend",
+        "backend",
+        "database",
+        "ai",
+        "interactive",
+        "mobile",
+        "desktop",
+        "billing",
+        "auth",
+        "analytics",
+        "integrations",
+        "deployment",
+      ]),
+    )
+    .min(1),
   targetUsers: z.array(z.string().min(1)).min(1),
   userRoles: z.array(z.string().min(1)).min(1),
   coreWorkflows: z.array(z.string().min(1)).min(1),
-  functionalRequirements: z.array(z.object({
-    id: z.string().regex(/^REQ-\d{3}$/),
-    text: z.string().min(1),
-    category: z.enum(["workflow","quality","security","monetization","operations"]),
-    priority: z.enum(["must","should","could"]),
-  })).min(1),
+  functionalRequirements: z
+    .array(
+      z.object({
+        id: z.string().regex(/^REQ-\d{3}$/),
+        text: z.string().min(1),
+        category: z.enum([
+          "workflow",
+          "quality",
+          "security",
+          "monetization",
+          "operations",
+        ]),
+        priority: z.enum(["must", "should", "could"]),
+      }),
+    )
+    .min(1),
   nonFunctionalRequirements: z.array(z.string().min(1)).min(1),
   dataModels: z.array(z.string().min(1)),
   integrations: z.array(z.string().min(1)),
@@ -98,12 +143,32 @@ export const productContractSchema = z.object({
   selectedTechnologyStack: z.string().min(1),
   researchRequirements: z.array(z.string().min(1)),
   runtimeRequirements: z.array(z.string().min(1)).min(1),
-  secondaryCapabilities: z.array(z.enum([
-    "authentication","database","billing","ai","analytics","administration",
-    "teams","notifications","search","file_uploads","external_integrations","deployment",
-  ])),
+  secondaryCapabilities: z.array(
+    z.enum([
+      "authentication",
+      "database",
+      "billing",
+      "ai",
+      "analytics",
+      "administration",
+      "teams",
+      "notifications",
+      "search",
+      "file_uploads",
+      "external_integrations",
+      "deployment",
+    ]),
+  ),
   intentConfidence: z.number().min(0).max(1),
   canonicalInterpretation: z.string().min(1),
+  /**
+   * How the contract content was produced. Every contract starts from the
+   * deterministic prompt-specific extraction; LLM enrichment may only add
+   * schema-valid items on top of it.
+   */
+  contractDerivation: z
+    .enum(["prompt_deterministic", "prompt_deterministic_llm_enriched"])
+    .optional(),
 });
 
 export type ProductContract = z.infer<typeof productContractSchema>;
@@ -134,6 +199,7 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
         weight: 8,
       },
       { pattern: /\b(static site|web page|brochure site)\b/i, weight: 6 },
+      { pattern: /\b(site|webpage|one[- ]pager)\b/i, weight: 5 },
     ],
   },
   {
@@ -147,6 +213,13 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
         weight: 8,
       },
       { pattern: /\bweb app(?:lication)?\b/i, weight: 5 },
+      {
+        // Common business/productivity application nouns. These are
+        // interactive multi-user web applications, not marketing websites.
+        pattern:
+          /\b(crm|erp|helpdesk|help desk|ticketing system|project management (?:app|tool|software)|task manager|to-?do (?:app|list app)|booking (?:app|system|platform)|scheduling (?:app|system|platform)|appointment booking|inventory management|invoicing (?:app|tool|software)|client portal|customer portal|member portal|internal tool|applicant tracking|habit tracker|expense tracker|note[- ]taking app|learning management system|lms)\b/i,
+        weight: 7,
+      },
     ],
   },
   {
@@ -158,6 +231,13 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
         weight: 10,
       },
       { pattern: /\b(react native|expo|flutter)\b/i, weight: 8 },
+      {
+        // Device platforms named without the word "app" next to them, e.g.
+        // "iPhone habit tracker app" or "Android app for field workers".
+        pattern: /\b(iphone|ipad|ios|android)\b/i,
+        weight: 9,
+      },
+      { pattern: /\bmobile\b/i, weight: 6 },
       { pattern: /\b(app store|google play|play store)\b/i, weight: 6 },
     ],
   },
@@ -292,6 +372,11 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
         weight: 7,
       },
       { pattern: /\b(zapier|make\.com|n8n)\b/i, weight: 6 },
+      {
+        pattern:
+          /\b(discord|telegram|slack|whatsapp|twitter|x)\s+bot\b|\bbot that (?:posts|sends|replies|monitors|alerts|reminds)\b/i,
+        weight: 8,
+      },
     ],
   },
   {
@@ -310,6 +395,11 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
       },
       {
         pattern: /\b(kpi dashboard|metrics platform|reporting tool)\b/i,
+        weight: 7,
+      },
+      {
+        pattern:
+          /\b(dashboard|visuali[sz]es?|charts?|graphs?)\b[^.]{0,80}\b(data|csv|spreadsheet|metrics|sales|dataset|analytics)\b|\b(csv|spreadsheet|dataset)\b[^.]{0,80}\b(dashboard|visuali[sz]es?|charts?|graphs?)\b/i,
         weight: 7,
       },
     ],
@@ -402,17 +492,61 @@ function clamp(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Tie-break order when two product types score exactly the same. More specific
+ * delivery targets (an extension, a mobile app, a game) win over generic web
+ * application types, because a generic noun rarely overrides a named platform.
+ */
+const SPECIFICITY_ORDER: ProductType[] = [
+  "browser_extension",
+  "mobile_app",
+  "desktop_app",
+  "game",
+  "ai_agent",
+  "api",
+  "ecommerce_product",
+  "automation_tool",
+  "data_product",
+  "developer_tool",
+  "saas_application",
+  "website",
+];
+
+/**
+ * Generic application nouns. They are only used when no product-type signal
+ * matched at all, so "Build an app to manage my plumbing jobs" becomes a SaaS
+ * application with low confidence instead of an error.
+ */
+const GENERIC_APPLICATION_PATTERN =
+  /\b(apps?|applications?|platform|portal|tracker|manager|management|system|software|tool|dashboard|planner|organi[sz]er|scheduler|marketplace)\b/i;
+const GENERIC_APPLICATION_SCORE = 4;
+
+/** Below this the primary type is a best guess and is reported as such. */
+export const LOW_CONFIDENCE_THRESHOLD = 0.6;
+
 function scoreProductTypes(
   prompt: string,
 ): Array<{ type: ProductType; score: number }> {
-  return PRODUCT_INTENTS.map(({ type, signals }) => ({
+  const scored = PRODUCT_INTENTS.map(({ type, signals }) => ({
     type,
     score: signals.reduce(
       (total, signal) =>
         total + (signal.pattern.test(prompt) ? signal.weight : 0),
       0,
     ),
-  })).sort((a, b) => b.score - a.score || a.type.localeCompare(b.type));
+  }));
+  if (
+    scored.every((entry) => entry.score === 0) &&
+    GENERIC_APPLICATION_PATTERN.test(prompt)
+  ) {
+    const saas = scored.find((entry) => entry.type === "saas_application");
+    if (saas) saas.score = GENERIC_APPLICATION_SCORE;
+  }
+  return scored.sort(
+    (a, b) =>
+      b.score - a.score ||
+      SPECIFICITY_ORDER.indexOf(a.type) - SPECIFICITY_ORDER.indexOf(b.type),
+  );
 }
 
 export function detectSecondaryCapabilities(
@@ -421,6 +555,53 @@ export function detectSecondaryCapabilities(
   return CAPABILITY_SIGNALS.filter(({ patterns }) =>
     patterns.some((pattern) => pattern.test(prompt)),
   ).map(({ capability }) => capability);
+}
+
+const PRODUCT_CHOICE_DESCRIPTIONS: Record<ProductType, string> = {
+  website: "Marketing site, landing page, portfolio or blog",
+  saas_application: "Web app with accounts and data (CRM, booking, tasks)",
+  mobile_app: "iPhone / Android app",
+  desktop_app: "Installable Windows / macOS / Linux app",
+  game: "Playable 2D or 3D game",
+  ai_agent: "AI assistant or agent that uses tools",
+  developer_tool: "CLI, SDK or developer utility",
+  api: "Backend HTTP API or service",
+  ecommerce_product: "Online store with catalog, cart and checkout",
+  browser_extension: "Chrome / Firefox / Edge extension",
+  automation_tool: "Bot, scheduled job or workflow automation",
+  data_product: "Dashboard or data visualization",
+};
+
+export type ClarificationChoice = {
+  value: ProductType;
+  label: string;
+  description: string;
+};
+
+export type ClarificationQuestion = {
+  id: "primary_product_type";
+  question: string;
+  choices: ClarificationChoice[];
+};
+
+/**
+ * Structured clarification the UI can render as a question with one-click
+ * choices. Answering sends the chosen value back as `productType`.
+ */
+export type ClarificationRequest = {
+  reason: "clarification_required";
+  message: string;
+  confidence: number;
+  bestGuess: ProductType | null;
+  questions: ClarificationQuestion[];
+};
+
+function productChoice(type: ProductType): ClarificationChoice {
+  return {
+    value: type,
+    label: PRODUCT_LABELS[type],
+    description: PRODUCT_CHOICE_DESCRIPTIONS[type],
+  };
 }
 
 function buildClarificationQuestions(
@@ -443,6 +624,66 @@ function buildClarificationQuestions(
   ];
 }
 
+export function buildClarificationRequest(
+  intent: PromptIntent,
+): ClarificationRequest {
+  const tied = [
+    intent.primaryProductType,
+    ...intent.alternatives.map((alternative) => alternative.productType),
+  ].filter((type): type is ProductType => type !== null);
+  const ordered = [
+    ...new Set<ProductType>([...tied, ...SPECIFICITY_ORDER.slice().reverse()]),
+  ];
+  const question =
+    intent.clarificationQuestions[0] ??
+    "What kind of product should AppForge build?";
+  return {
+    reason: "clarification_required",
+    message:
+      "AppForge needs one answer before it can plan this build: " + question,
+    confidence: intent.confidence,
+    bestGuess: intent.primaryProductType,
+    questions: [
+      {
+        id: "primary_product_type",
+        question,
+        choices: ordered.map(productChoice),
+      },
+    ],
+  };
+}
+
+export function isProductType(value: unknown): value is ProductType {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_TYPES as readonly string[]).includes(value)
+  );
+}
+
+function renderInterpretation(
+  primaryProductType: ProductType | null,
+  secondaryCapabilities: SecondaryCapability[],
+  confidence: number,
+  ambiguous: boolean,
+  clarificationQuestions: string[],
+  basis: string,
+): string {
+  const primaryLabel = primaryProductType
+    ? PRODUCT_LABELS[primaryProductType]
+    : "unresolved";
+  const capabilityText =
+    secondaryCapabilities.length > 0
+      ? secondaryCapabilities.join(", ")
+      : "none explicitly requested";
+  return (
+    `Primary product type: ${primaryLabel}. Secondary capabilities: ${capabilityText}. ` +
+    `Intent confidence: ${confidence.toFixed(2)}${basis}. ` +
+    (ambiguous
+      ? `Clarification required before build: ${clarificationQuestions.join(" ")}`
+      : "This interpretation is canonical for downstream agents; do not independently change the primary product type or requested capabilities.")
+  );
+}
+
 export function classifyProductIntent(prompt: string): PromptIntent {
   const originalPrompt = prompt;
   const normalized = prompt.trim();
@@ -451,15 +692,22 @@ export function classifyProductIntent(prompt: string): PromptIntent {
   const second = ranked[1];
   const noEvidence = !top || top.score === 0;
   const gap = (top?.score ?? 0) - (second?.score ?? 0);
-  const weakEvidence = (top?.score ?? 0) < 6;
-  const closeCompetition = (second?.score ?? 0) >= 6 && gap <= 2;
-  const ambiguous = noEvidence || weakEvidence || closeCompetition;
+  const genericGuess = !noEvidence && top.score === GENERIC_APPLICATION_SCORE;
+  // Only genuinely unresolvable prompts ask a question: no product evidence at
+  // all, or two different product types named with equally strong signals
+  // ("a browser extension and a developer tool"). Weak or close evidence picks
+  // the best-scoring type and reports a lower confidence plus alternatives.
+  const exactTie = (second?.score ?? 0) >= 8 && gap === 0;
+  const ambiguous = noEvidence || exactTie;
   const primaryProductType = noEvidence ? null : top.type;
   const baseConfidence = noEvidence
     ? 0.15
-    : 0.52 +
-      Math.min(0.28, top.score * 0.02) +
-      Math.min(0.18, Math.max(0, gap) * 0.025);
+    : genericGuess
+      ? 0.45
+      : 0.52 +
+        Math.min(0.28, top.score * 0.02) +
+        Math.min(0.18, Math.max(0, gap) * 0.025) -
+        (exactTie ? 0.1 : 0);
   const confidence = Number(clamp(baseConfidence, 0.05, 0.99).toFixed(2));
   const secondaryCapabilities = detectSecondaryCapabilities(normalized);
   const alternatives = ranked
@@ -478,23 +726,23 @@ export function classifyProductIntent(prompt: string): PromptIntent {
   const clarificationQuestions = ambiguous
     ? buildClarificationQuestions(
         primaryProductType,
-        closeCompetition ? (second?.type ?? null) : null,
+        exactTie ? (second?.type ?? null) : null,
         noEvidence,
       )
     : [];
-  const primaryLabel = primaryProductType
-    ? PRODUCT_LABELS[primaryProductType]
-    : "unresolved";
-  const capabilityText =
-    secondaryCapabilities.length > 0
-      ? secondaryCapabilities.join(", ")
-      : "none explicitly requested";
-  const canonicalInterpretation =
-    `Primary product type: ${primaryLabel}. Secondary capabilities: ${capabilityText}. ` +
-    `Intent confidence: ${confidence.toFixed(2)}. ` +
-    (ambiguous
-      ? `Clarification required before build: ${clarificationQuestions.join(" ")}`
-      : "This interpretation is canonical for downstream agents; do not independently change the primary product type or requested capabilities.");
+  const basis = genericGuess
+    ? " (default guess from generic application wording)"
+    : confidence < LOW_CONFIDENCE_THRESHOLD && !ambiguous
+      ? " (best match; alternatives recorded)"
+      : "";
+  const canonicalInterpretation = renderInterpretation(
+    primaryProductType,
+    secondaryCapabilities,
+    confidence,
+    ambiguous,
+    clarificationQuestions,
+    basis,
+  );
 
   return {
     originalPrompt,
@@ -505,6 +753,37 @@ export function classifyProductIntent(prompt: string): PromptIntent {
     ambiguous,
     clarificationQuestions,
     canonicalInterpretation,
+  };
+}
+
+/**
+ * Apply a product type the user explicitly chose (for example by answering a
+ * clarification question). The prompt text is unchanged; only the primary
+ * type is fixed and recorded as user-confirmed.
+ */
+export function confirmProductIntent(
+  prompt: string,
+  productType: ProductType,
+): PromptIntent {
+  const classified = classifyProductIntent(prompt);
+  const confidence = 1;
+  return {
+    ...classified,
+    primaryProductType: productType,
+    confidence,
+    alternatives: classified.alternatives.filter(
+      (alternative) => alternative.productType !== productType,
+    ),
+    ambiguous: false,
+    clarificationQuestions: [],
+    canonicalInterpretation: renderInterpretation(
+      productType,
+      classified.secondaryCapabilities,
+      confidence,
+      false,
+      [],
+      " (product type confirmed by the user)",
+    ),
   };
 }
 
@@ -573,7 +852,11 @@ export function selectProductStack(
   const text = prompt.toLowerCase();
 
   if (productType === "website") {
-    if (/\b(static website|static site|vanilla html|html css javascript)\b/.test(text))
+    if (
+      /\b(static website|static site|vanilla html|html css javascript)\b/.test(
+        text,
+      )
+    )
       return "static-html";
     if (/\b(next\.js|nextjs|next js)\b/.test(text)) return "next-node";
     if (/\b(three\.js|threejs|webgl|3d website)\b/.test(text))
@@ -581,7 +864,10 @@ export function selectProductStack(
     return "react-node";
   }
 
-  if (productType === "saas_application" || productType === "ecommerce_product") {
+  if (
+    productType === "saas_application" ||
+    productType === "ecommerce_product"
+  ) {
     if (/\b(next\.js|nextjs|next js)\b/.test(text)) return "next-node";
     return "react-node";
   }
@@ -604,9 +890,7 @@ export function selectProductStack(
         : "node-service";
 
   if (productType === "api")
-    return /\b(python|fastapi)\b/.test(text)
-      ? "python-service"
-      : "api-service";
+    return /\b(python|fastapi)\b/.test(text) ? "python-service" : "api-service";
 
   if (productType === "browser_extension") return "chrome-extension";
 
@@ -623,11 +907,14 @@ export function selectProductStack(
 
   if (productType === "developer_tool") {
     if (/\bpython\b/.test(text)) return "python-service";
-    if (/\b(api|backend|service)\b/.test(text)) return "node-service";
+    if (/\b(api|backend|service|cli|command[- ]line|terminal)\b/.test(text))
+      return "node-service";
     return "react-node";
   }
 
-  throw new Error(`No stack adapter is configured for product type ${productType}`);
+  throw new Error(
+    `No stack adapter is configured for product type ${productType}`,
+  );
 }
 
 export function renderCanonicalPromptContext(
@@ -644,7 +931,6 @@ export function renderCanonicalPromptContext(
     "[END APPFORGE CANONICAL PROMPT INTERPRETATION]",
   ].join("\n");
 }
-
 
 function defaultTargetUsers(type: ProductType): string[] {
   const map: Record<ProductType, string[]> = {
@@ -664,40 +950,32 @@ function defaultTargetUsers(type: ProductType): string[] {
   return map[type];
 }
 
-function defaultRoles(type: ProductType, capabilities: SecondaryCapability[]): string[] {
-  const roles = new Set<string>(["user"]);
-  if (capabilities.includes("administration") || type !== "website") roles.add("admin");
-  if (capabilities.includes("teams")) roles.add("team_member");
-  if (type === "ecommerce_product") roles.add("customer");
-  if (type === "api") roles.add("api_client");
-  return [...roles];
-}
-
-function coreWorkflows(type: ProductType, capabilities: SecondaryCapability[]): string[] {
-  const workflows = ["Complete the primary " + PRODUCT_LABELS[type] + " workflow described in the original prompt"];
-  if (capabilities.includes("authentication")) workflows.push("Create account, authenticate, refresh session, and sign out");
-  if (capabilities.includes("billing")) workflows.push("Select an offer, pay server-side, receive entitlement, and manage billing state");
-  if (capabilities.includes("file_uploads")) workflows.push("Upload, validate, persist, retrieve, and delete permitted files");
-  if (capabilities.includes("search")) workflows.push("Search domain data and display empty/error/result states");
-  if (capabilities.includes("external_integrations")) workflows.push("Configure and execute requested external integrations with observable failure handling");
-  return workflows;
-}
-
-function dataModelsFor(type: ProductType, capabilities: SecondaryCapability[]): string[] {
+function dataModelsFor(
+  capabilities: SecondaryCapability[],
+  promptEntities: string[],
+  monetizationModel: string,
+): string[] {
   const models = new Set<string>();
   if (capabilities.includes("authentication")) models.add("User");
-  if (capabilities.includes("teams")) { models.add("Organization"); models.add("Membership"); }
-  if (capabilities.includes("billing")) { models.add("Subscription"); models.add("Entitlement"); models.add("BillingEvent"); }
+  if (capabilities.includes("teams")) {
+    models.add("Organization");
+    models.add("Membership");
+  }
+  for (const entity of promptEntities) models.add(entity);
+  if (capabilities.includes("billing")) {
+    if (monetizationModel === "one_time_purchase") {
+      models.add("Payment");
+    } else if (monetizationModel === "in_app_purchase") {
+      models.add("Purchase");
+      models.add("Entitlement");
+    } else {
+      models.add("Subscription");
+      models.add("Entitlement");
+    }
+    models.add("BillingEvent");
+  }
   if (capabilities.includes("file_uploads")) models.add("FileAsset");
-  if (type === "ecommerce_product") { models.add("Product"); models.add("Cart"); models.add("Order"); }
-  if (type === "data_product") models.add("Dataset");
-  if (type === "ai_agent") { models.add("AgentRun"); models.add("AgentAuditEvent"); }
   return [...models];
-}
-
-function detectIntegrationNames(prompt: string): string[] {
-  const candidates = ["Stripe","GitHub","Slack","Twilio","Google","Shopify","Salesforce","Xero","Supabase","OpenAI","Anthropic","Gemini"];
-  return candidates.filter((name) => new RegExp("\\b" + name + "\\b", "i").test(prompt));
 }
 
 export function validateProductContract(input: unknown): ProductContract {
@@ -716,7 +994,9 @@ export function withSelectedTechnologyStack(
   });
 }
 
-export function renderProductContractForAgents(contract: ProductContract): string {
+export function renderProductContractForAgents(
+  contract: ProductContract,
+): string {
   const validated = validateProductContract(contract);
   return [
     "[APPFORGE CANONICAL PRODUCT CONTRACT — AUTHORITATIVE]",
@@ -726,65 +1006,195 @@ export function renderProductContractForAgents(contract: ProductContract): strin
   ].join("\n");
 }
 
-export function buildProductContract(prompt: string): ProductContract {
-  const intent = classifyProductIntent(prompt);
+export type BuildProductContractOptions = {
+  /** Product type the user explicitly confirmed (clarification answer). */
+  productType?: ProductType;
+};
+
+export function buildProductContract(
+  prompt: string,
+  options: BuildProductContractOptions = {},
+): ProductContract {
+  const intent = options.productType
+    ? confirmProductIntent(prompt, options.productType)
+    : classifyProductIntent(prompt);
   if (!intent.primaryProductType || intent.ambiguous) {
-    throw new Error("Ambiguous product intent: " + (intent.clarificationQuestions[0] ?? "clarification required"));
+    throw new Error(
+      "Ambiguous product intent: " +
+        (intent.clarificationQuestions[0] ?? "clarification required"),
+    );
   }
   const productType = intent.primaryProductType;
   const capabilities = intent.secondaryCapabilities;
   const selectedTechnologyStack = selectProductStack(prompt, productType);
-  const monetized = capabilities.includes("billing");
+  const typeLabel = PRODUCT_LABELS[productType];
+  // Everything below is derived from this prompt's own words (subject,
+  // audience, features, entities, integrations, schedule, monetization), so
+  // two different prompts never share one generic requirement list.
+  const facts = extractPromptFacts(prompt, productType, capabilities);
+  const audienceText =
+    facts.audience.length > 0 ? ` for ${facts.audience.join("; ")}` : "";
   return validateProductContract({
     version: 2,
     originalPrompt: prompt,
     productType,
     productFamilies: inferProductFamilies(prompt, productType),
-    targetUsers: defaultTargetUsers(productType),
-    userRoles: defaultRoles(productType, capabilities),
-    coreWorkflows: coreWorkflows(productType, capabilities),
-    functionalRequirements: [
-      { id: "REQ-001", text: "Implement the complete primary workflow in the original prompt.", category: "workflow", priority: "must" },
-      { id: "REQ-002", text: "Provide functional loading, empty, success, and error states.", category: "quality", priority: "must" },
-      { id: "REQ-003", text: "Enforce security boundaries and keep credentials server-side.", category: "security", priority: "must" },
-      { id: "REQ-004", text: monetized ? "Implement requested monetization with server-authoritative entitlements." : "Do not invent monetization when it was not requested.", category: "monetization", priority: monetized ? "must" : "should" },
-      { id: "REQ-005", text: "Build, start, health-check, and verify the selected runtime before completion.", category: "operations", priority: "must" },
-    ],
-    nonFunctionalRequirements: [
-      "Production-safe error handling and observability",
-      "Responsive, accessible user experience where a UI exists",
-      "Deterministic build and startup commands",
-      "No placeholder-only implementation may be treated as complete",
-    ],
-    dataModels: dataModelsFor(productType, capabilities),
-    integrations: detectIntegrationNames(prompt),
-    securityRequirements: [
-      "No secrets in browser bundles, generated artifacts, or logs",
-      "Authorization is enforced server-side for privileged actions",
-      "Validate untrusted input at trust boundaries",
-      "Generated product data is isolated from AppForge production data",
-    ],
+    targetUsers: buildPromptTargetUsers(
+      productType,
+      facts,
+      defaultTargetUsers(productType),
+    ),
+    userRoles: facts.roles,
+    coreWorkflows: buildPromptWorkflows({
+      type: productType,
+      typeLabel,
+      capabilities,
+      facts,
+    }),
+    functionalRequirements: buildPromptRequirements({
+      prompt,
+      type: productType,
+      typeLabel,
+      capabilities,
+      facts,
+      stack: selectedTechnologyStack,
+    }),
+    nonFunctionalRequirements: buildPromptNonFunctional(productType, prompt),
+    dataModels: dataModelsFor(
+      capabilities,
+      facts.entities,
+      facts.monetization.model,
+    ),
+    integrations: facts.integrations,
+    securityRequirements: buildPromptSecurity({
+      prompt,
+      type: productType,
+      capabilities,
+      facts,
+    }),
     deploymentRequirements: [
       "Deploy using a runtime compatible with " + selectedTechnologyStack,
       "Require environment configuration before production activation",
       "Require health verification and artifact identity before production certification",
     ],
-    monetizationRequirements: monetized
-      ? ["Billing state is server-authoritative","Webhook events are signature-validated and idempotent","Paid functionality is protected by entitlements"]
-      : [],
+    monetizationRequirements: buildPromptMonetization(facts),
     selectedTechnologyStack,
     researchRequirements: [
-      "Verify current official documentation and supported versions for " + selectedTechnologyStack,
-      "Verify current deployment constraints for " + PRODUCT_LABELS[productType],
+      "Verify current official documentation and supported versions for " +
+        selectedTechnologyStack,
+      "Verify current deployment constraints for " + typeLabel,
+      ...facts.integrations
+        .slice(0, 4)
+        .map(
+          (integration) =>
+            "Verify the current " + integration + " API and SDK documentation",
+        ),
     ],
     runtimeRequirements: [
-      "Use the " + selectedTechnologyStack + " runtime and its native entrypoint",
+      "Use the " +
+        selectedTechnologyStack +
+        " runtime and its native entrypoint",
       "Expose a health-verifiable startup path",
       "Use environment variables for external services and secrets",
       "Fail closed when required runtime configuration is missing",
     ],
     secondaryCapabilities: capabilities,
     intentConfidence: intent.confidence,
-    canonicalInterpretation: intent.canonicalInterpretation,
+    canonicalInterpretation:
+      intent.canonicalInterpretation +
+      ` Interpreted product: "${facts.subject}" (${typeLabel})${audienceText}.`,
+    contractDerivation: "prompt_deterministic",
   });
+}
+
+export type IntakeResolution =
+  | {
+      ok: true;
+      promptIntent: PromptIntent;
+      productContract: ProductContract;
+    }
+  | {
+      ok: false;
+      reason: "clarification_required";
+      message: string;
+      promptIntent: PromptIntent;
+      clarificationQuestions: string[];
+      clarification: ClarificationRequest;
+    }
+  | {
+      ok: false;
+      reason: "unsupported_stack";
+      message: string;
+      promptIntent: PromptIntent;
+      clarificationQuestions: string[];
+      compatibleStack: string;
+    };
+
+export type IntakeOptions = {
+  /** Product type the user explicitly chose, e.g. a clarification answer. */
+  productType?: ProductType | null;
+};
+
+/**
+ * Single intake path for every entrypoint (tRPC projects.create and the REST
+ * generate route). The canonical contract selects the stack from the product
+ * intent. An explicitly requested stack is preserved only when its adapter
+ * supports the classified product type. An incompatible stack is rejected as a
+ * user error; it is never silently replaced and never surfaces as a 500.
+ */
+export function resolveIntakeContract(
+  description: string,
+  requestedStack?: string | null,
+  options: IntakeOptions = {},
+): IntakeResolution {
+  const promptIntent = options.productType
+    ? confirmProductIntent(description, options.productType)
+    : classifyProductIntent(description);
+  if (promptIntent.ambiguous || !promptIntent.primaryProductType) {
+    const clarification = buildClarificationRequest(promptIntent);
+    return {
+      ok: false,
+      reason: "clarification_required",
+      message: clarification.message,
+      promptIntent,
+      clarificationQuestions: promptIntent.clarificationQuestions,
+      clarification,
+    };
+  }
+
+  // Only a user-chosen type is passed through; an auto-classified prompt keeps
+  // its classifier confidence and interpretation in the contract.
+  const baseContract = buildProductContract(
+    description,
+    options.productType ? { productType: options.productType } : {},
+  );
+  const explicitStack = requestedStack?.trim();
+  if (
+    !explicitStack ||
+    explicitStack.toLowerCase() === "auto" ||
+    explicitStack.toLowerCase() === "default"
+  ) {
+    return { ok: true, promptIntent, productContract: baseContract };
+  }
+
+  try {
+    return {
+      ok: true,
+      promptIntent,
+      productContract: withSelectedTechnologyStack(baseContract, explicitStack),
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      reason: "unsupported_stack",
+      message:
+        `The requested stack "${explicitStack}" cannot build a ${PRODUCT_LABELS[baseContract.productType]}. ` +
+        `Choose a compatible stack or leave it on automatic (AppForge would use ${baseContract.selectedTechnologyStack}). ` +
+        detail,
+      promptIntent,
+      clarificationQuestions: [],
+      compatibleStack: baseContract.selectedTechnologyStack,
+    };
+  }
 }
