@@ -421,13 +421,25 @@ export async function deployProject(opts: {
     productContract,
     productPlan,
   } = opts;
+  const productionDestination =
+    destination === "vercel" ||
+    destination === "netlify" ||
+    destination === "fly" ||
+    destination === "github-pages";
+
+  if (productionDestination && !techStack) {
+    throw new Error(
+      "Production deployment requires the canonical selected technology stack",
+    );
+  }
+  if (productionDestination && !productContract) {
+    throw new Error(
+      "Production deployment requires the canonical product contract so incomplete artifacts cannot bypass validation",
+    );
+  }
+
   if (techStack) {
     const adapter = getStackAdapter(techStack);
-    const productionDestination =
-      destination === "vercel" ||
-      destination === "netlify" ||
-      destination === "fly" ||
-      destination === "github-pages";
     if (adapter.generationMode === "structural" && productionDestination) {
       throw new Error(
         `Structural-only stack ${adapter.id} cannot be deployed to ${destination} before native runtime verification`,
@@ -442,14 +454,9 @@ export async function deployProject(opts: {
       );
     }
     if (productionDestination) {
-      if (!productContract) {
-        throw new Error(
-          "Production deployment requires the canonical product contract so incomplete artifacts cannot bypass validation",
-        );
-      }
       assertProductComplete({
         files,
-        productContract,
+        productContract: productContract!,
         productPlan,
         context: "Deployment completeness gate",
       });
