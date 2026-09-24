@@ -11,6 +11,10 @@ import {
   assertArtifactIntegrity,
   type ArtifactIntegrity,
 } from "../lib/artifactIntegrity.js";
+import {
+  scanProjectFiles,
+  validateGeneratedSecurityPosture,
+} from "./projectSecurityScanner.js";
 
 export type ProductionCertification = {
   liveUrl: string;
@@ -111,6 +115,31 @@ export async function deployValidatedProject(opts: {
     });
   }
   const stackAdapter = getStackAdapter(contract.selectedTechnologyStack);
+  const securityScan = scanProjectFiles(opts.files);
+  const securityPosture = validateGeneratedSecurityPosture(
+    opts.files,
+    stackAdapter.id,
+  );
+  const blockingSecurityFindings = [
+    ...securityScan.findings.filter(
+      (finding) =>
+        finding.severity === "critical" || finding.severity === "high",
+    ),
+    ...securityPosture,
+  ];
+  if (blockingSecurityFindings.length > 0) {
+    throw new Error(
+      "Production deployment blocked by generated-project security findings: " +
+        blockingSecurityFindings
+          .slice(0, 10)
+          .map(
+            (finding) =>
+              `${finding.ruleId} at ${finding.path}:${finding.line}`,
+          )
+          .join(", "),
+    );
+  }
+
   if (stackAdapter.generationMode === "structural") {
     throw new Error(
       `Structural-only stack ${stackAdapter.id} cannot be production-certified until its native runtime is verified`,
