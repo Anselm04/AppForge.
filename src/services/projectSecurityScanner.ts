@@ -27,10 +27,10 @@ const RULES: SecurityRule[] = [
     pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   },
   {
-    id: "secret.stripe-live-key",
+    id: "secret.stripe-key",
     severity: "critical",
-    message: "A live Stripe secret appears to be hard-coded.",
-    pattern: /\bsk_live_[A-Za-z0-9]{12,}\b/,
+    message: "A Stripe secret key appears to be hard-coded.",
+    pattern: /\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/,
   },
   {
     id: "secret.github-token",
@@ -45,16 +45,11 @@ const RULES: SecurityRule[] = [
     pattern: /\bAKIA[0-9A-Z]{16}\b/,
   },
   {
-    id: "secret.openai-key",
+    id: "secret.model-provider-key",
     severity: "critical",
-    message: "An OpenAI API key appears to be hard-coded.",
-    pattern: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/,
-  },
-  {
-    id: "secret.google-api-key",
-    severity: "critical",
-    message: "A Google API key appears to be hard-coded.",
-    pattern: /\bAIza[0-9A-Za-z_-]{30,}\b/,
+    message: "A model-provider API credential appears to be hard-coded.",
+    pattern:
+      /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,})\b/,
   },
   {
     id: "secret.client-service-role",
@@ -184,7 +179,7 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
-    id: "secret.logging",
+    id: "secret.logged-env",
     severity: "high",
     message:
       "Generated code logs a sensitive environment value; secrets must never be written to logs.",
@@ -263,7 +258,7 @@ const RULES: SecurityRule[] = [
     paths: /\.py$/i,
   },
   {
-    id: "python.secret-logging",
+    id: "secret.python-logging",
     severity: "high",
     message:
       "Python generated code logs a secret-bearing environment variable.",
@@ -310,15 +305,31 @@ function lineNumberAt(content: string, offset: number): number {
   return line;
 }
 
+function redactSecurityEvidence(value: string): string {
+  return value
+    .replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/g, "<redacted-stripe-key>")
+    .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
+    .replace(/\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
+    .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "<redacted-google-key>")
+    .replace(/\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g, "<redacted-github-token>")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "<redacted-aws-key>")
+    .replace(
+      /([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*\s*=\s*)[^\s;,]+/gi,
+      "$1<redacted>",
+    );
+}
+
 function evidenceAround(content: string, offset: number): string {
   const lineStart = content.lastIndexOf("\n", offset) + 1;
   const nextLine = content.indexOf("\n", offset);
   const lineEnd = nextLine === -1 ? content.length : nextLine;
-  return content
-    .slice(lineStart, lineEnd)
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 240);
+  return redactSecurityEvidence(
+    content
+      .slice(lineStart, lineEnd)
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 240),
+  );
 }
 
 function makeFinding(
