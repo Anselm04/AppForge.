@@ -68,6 +68,10 @@
     let tasks: PlanTask[] = [];
     let redesignBrief = "";
     let coordinationContextText = "";
+    let requirementManifest: RequirementManifest | null =
+      projectRow?.requirementManifest
+        ? validateRequirementManifest(projectRow.requirementManifest)
+        : null;
 
     // Outer never-give-up: re-plan → code → validate → escalate provider until real quality pass
     outerLoop: while (!signal?.aborted) {
@@ -243,6 +247,13 @@
       .where(eq(schema.projects.id, projectId));
     await markAgentLogComplete(plannerLogId);
 
+    requirementManifest = createRequirementManifest({
+      productContract,
+      productPlan,
+      previous: requirementManifest,
+    });
+    await updateProjectRequirementManifest(projectId, requirementManifest);
+
     const coordinationRow = await db.query.projects.findFirst({
       where: eq(schema.projects.id, projectId),
       columns: {
@@ -260,6 +271,7 @@
       {
         plan: productPlan,
         requirements: productContract.functionalRequirements,
+        requirementManifest,
         researchDecisions: coordinationContext.researchDecisions,
       },
       null,
@@ -335,6 +347,8 @@
       message: "Validated architecture and implementation plan complete.",
       taskCount: productPlan.tasks.length,
       requirementMappings: Object.keys(productPlan.requirementToTasks).length,
+      requirementManifestRevision: requirementManifest.revision,
+      unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
     });
 
     tasks = productPlan.tasks;
