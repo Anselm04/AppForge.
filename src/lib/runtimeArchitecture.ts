@@ -49,7 +49,7 @@ export type RuntimeArchitecture = {
 };
 
 function serviceRuntime(adapter: StackAdapter): boolean {
-  return adapter.runtime === "node" || adapter.runtime === "python";
+  return adapter.previewMode === "service";
 }
 
 function browserRuntime(adapter: StackAdapter): boolean {
@@ -76,7 +76,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     adapter.runtime === "extension";
 
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
-    service || adapter.id === "next-node" || adapter.id === "react-node"
+    service || frameworkServer
       ? "external_service"
       : browser
         ? "client_local"
@@ -101,8 +101,9 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
             ? "static_output"
             : "framework";
 
+  const frameworkServer = adapter.previewMode === "next";
   const webCapability: RuntimeSupport =
-    service || adapter.id === "next-node" ? "conditional" : "unsupported";
+    service || frameworkServer ? "conditional" : "unsupported";
 
   return {
     version: 1,
@@ -129,23 +130,23 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     },
     environment: {
       files: adapter.environmentFiles,
-      secretsServerSide: service || adapter.id === "next-node" || adapter.id === "react-node",
+      secretsServerSide: service || frameworkServer,
       failClosedWhenMissing: true,
     },
     port: {
-      mode: service || adapter.id === "next-node" || adapter.id === "react-node"
+      mode: service || frameworkServer
         ? "environment"
         : nativeLifecycle
           ? "platform"
           : "none",
       environmentVariable:
-        service || adapter.id === "next-node" || adapter.id === "react-node"
+        service || frameworkServer
           ? "PORT"
           : null,
       defaultPort:
         adapter.runtime === "python"
           ? 8000
-          : service || adapter.id === "next-node" || adapter.id === "react-node"
+          : service || frameworkServer
             ? 3000
             : null,
     },
@@ -164,13 +165,13 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     streaming: webCapability,
     webSockets: webCapability,
     fileUploads:
-      service || adapter.id === "next-node" || adapter.id === "react-node"
+      service || frameworkServer
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
           : "unsupported",
     externalServices:
-      service || adapter.id === "next-node" || adapter.id === "react-node"
+      service || frameworkServer
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
