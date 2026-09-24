@@ -232,8 +232,10 @@ describe("requirements system", () => {
     );
 
     expect(
-      implemented.requirements.filter((item) => item.priority === "must"),
-    ).toSatisfyAll((item) => item.status === "implemented");
+      implemented.requirements
+        .filter((item) => item.priority === "must")
+        .every((item) => item.status === "implemented"),
+    ).toBe(true);
     expect(
       implemented.requirements.every((item) => !!item.implementationHash),
     ).toBe(true);
