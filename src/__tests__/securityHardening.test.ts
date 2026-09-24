@@ -8,6 +8,19 @@ import {
 import { getStackScaffold } from "../services/stackScaffolds.js";
 
 describe("#16 security hardening", () => {
+  it("applies global abuse controls before CSRF and normal JSON body parsing", () => {
+    const server = readFileSync("src/server.ts", "utf8");
+    const limiter = server.indexOf("app.use(globalLimiter)");
+    const slowdown = server.indexOf("app.use(slowDown)");
+    const csrf = server.indexOf("app.use(csrfProtection)");
+    const json = server.indexOf('app.use(express.json({ limit: "10mb" }))');
+
+    expect(limiter).toBeGreaterThan(-1);
+    expect(slowdown).toBeGreaterThan(limiter);
+    expect(csrf).toBeGreaterThan(slowdown);
+    expect(json).toBeGreaterThan(csrf);
+  });
+
   it("fails closed on Docker artifact paths that can escape or alias the project root", () => {
     expect(safeDockerRelativePath("src/index.ts")).toBe("src/index.ts");
     expect(safeDockerRelativePath("../escape.ts")).toBeNull();
