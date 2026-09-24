@@ -520,38 +520,15 @@ export function buildRecipeApp(opts: {
 }
 
 /**
- * Seed a floor under LLM output: recipe shell fills gaps; keep LLM App if substantial.
+ * Recipe guidance must never replace substantive generated product code.
+ * Scaffolds own infrastructure; missing product functionality must fail the
+ * generation/validation gates and be repaired by the Coder.
  */
 export function ensureRecipeFloor(
   generated: Record<string, string>,
-  opts: { title: string; description: string; recipe?: AppRecipe },
+  _opts: { title: string; description: string; recipe?: AppRecipe },
 ): Record<string, string> {
-  const recipe = opts.recipe ?? classifyRecipe(opts.description);
-  const floor = buildRecipeApp({ ...opts, recipe });
-  const out = { ...floor, ...generated };
-
-  const app =
-    out["src/App.tsx"] || out["src/App.jsx"] || out["App.tsx"] || "";
-  const thin =
-    !app ||
-    app.trim().length < 120 ||
-    /TODO|placeholder|coming soon/i.test(app);
-
-  if (thin) {
-    out["src/App.tsx"] = floor["src/App.tsx"];
-  }
-  // Always ensure entrypoints from floor if missing
-  for (const key of [
-    "index.html",
-    "src/main.tsx",
-    "src/index.css",
-    "package.json",
-    "vite.config.ts",
-    "tsconfig.json",
-  ]) {
-    if (!out[key] || !String(out[key]).trim()) out[key] = floor[key];
-  }
-  return out;
+  return { ...generated };
 }
 
 /** If spec soft-fails, replace App with recipe App (deterministic, still green). */
