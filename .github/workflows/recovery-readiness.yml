@@ -121,25 +121,32 @@ jobs:
             exit 1
           fi
 
-      - name: Verify production is owner-dispatched and re-validated
+      - name: Verify production deploys only green main CI and exact SHA
         shell: bash
         run: |
           set -euo pipefail
           file=.github/workflows/deploy-production.yml
-          # Production releases are started manually by the owner. A green CI
-          # run on main must never deploy by itself (see OWNER_BREAK_GLASS.md,
-          # "Production release control").
+          # A green CI Pipeline run for a push to main deploys that exact commit
+          # automatically; the owner can also dispatch a release manually on main
+          # (see OWNER_BREAK_GLASS.md, "Production release control").
+          grep -Fq 'workflow_run:' "$file"
+          grep -Fq 'workflows: ["CI Pipeline"]' "$file"
           grep -Eq '^[[:space:]]+workflow_dispatch:' "$file"
-          if grep -Eq '^[[:space:]]+(workflow_run|push|pull_request|pull_request_target|schedule):' "$file"; then
-            echo 'Deploy Production must be owner-dispatched only; automatic triggers are not allowed.'
+          if grep -Eq '^[[:space:]]+(push|pull_request|pull_request_target|schedule):' "$file"; then
+            echo 'Deploy Production may only be triggered by a completed CI Pipeline run or a manual dispatch.'
             exit 1
           fi
+          grep -Fq "github.event.workflow_run.conclusion == 'success'" "$file"
+          grep -Fq "github.event.workflow_run.event == 'push'" "$file"
+          grep -Fq "github.event.workflow_run.head_branch == 'main'" "$file"
+          grep -Fq 'github.event.workflow_run.head_sha' "$file"
           grep -Fq "github.ref == 'refs/heads/main'" "$file"
-          # The dispatched release re-runs the CI gates on the exact SHA and
-          # refuses stale SHAs before any Fly step.
+          # Every release re-runs the CI gates on the exact SHA, refuses stale
+          # SHAs before any Fly step, and proves Fly serves that commit.
           grep -Fq 'Verify exact release SHA' "$file"
           grep -Fq 'Refuse stale release SHA' "$file"
           grep -Fq 'Reconfirm release freshness immediately before deploy' "$file"
+          grep -Fq 'Verify Fly is running the released commit' "$file"
           grep -Fq 'run: npm run lint' "$file"
           grep -Fq 'run: npm run typecheck' "$file"
           grep -Fq 'run: npm run test -- --run' "$file"
@@ -229,6 +236,6 @@ jobs:
           echo 'Recovery inventory present.'
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository and metadata backup controls structurally verified.'
-          echo 'Production deploy is owner-dispatched only, re-validated on the exact current main SHA.'
+          echo 'Production deploy is bound to successful main CI (or owner dispatch on main), re-validated on the exact current main SHA.'
           echo 'Exact two-Machine Fly recovery, shared Redis coordination, single-writer background side effects, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
           echo 'Recovery governance remains active.'
