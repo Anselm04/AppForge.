@@ -5,6 +5,9 @@ import { tmpdir } from "os";
 import { spawn } from "child_process";
 import JSZip from "jszip";
 import { getStackAdapter } from "../lib/stackAdapters.js";
+import { assertProductComplete } from "../lib/incompleteProduct.js";
+import type { ProductContract } from "../lib/productContract.js";
+import type { ProductPlan } from "../lib/productPlan.js";
 
 interface VercelDeployResponse {
   id: string;
@@ -405,8 +408,19 @@ export async function deployProject(opts: {
   projectId?: number;
   previewBaseUrl?: string;
   techStack?: string;
+  productContract?: ProductContract;
+  productPlan?: ProductPlan;
 }): Promise<{ url: string; destination: DeployDestination; note?: string }> {
-  const { destination, projectName, files, projectId, previewBaseUrl, techStack } = opts;
+  const {
+    destination,
+    projectName,
+    files,
+    projectId,
+    previewBaseUrl,
+    techStack,
+    productContract,
+    productPlan,
+  } = opts;
   if (techStack) {
     const adapter = getStackAdapter(techStack);
     const productionDestination =
@@ -426,6 +440,19 @@ export async function deployProject(opts: {
       throw new Error(
         `Stack ${adapter.id} does not support deployment destination ${destination}`,
       );
+    }
+    if (productionDestination) {
+      if (!productContract) {
+        throw new Error(
+          "Production deployment requires the canonical product contract so incomplete artifacts cannot bypass validation",
+        );
+      }
+      assertProductComplete({
+        files,
+        productContract,
+        productPlan,
+        context: "Deployment completeness gate",
+      });
     }
   }
   switch (destination) {
