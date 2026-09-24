@@ -349,18 +349,16 @@ export const projectsRouter = router({
         });
       }
 
-      const { getCurrentSnapshot } = await import("../db.js");
-      const snapshot = await getCurrentSnapshot(input.id);
-      const files =
-        (snapshot?.files as Record<string, string> | null) ??
-        (project.generatedFiles as Record<string, string> | null) ??
-        {};
-      if (Object.keys(files).length === 0) {
+      const { getCurrentArtifact } = await import("../db.js");
+      const artifact = await getCurrentArtifact(input.id);
+      if (!artifact) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No generated files to deploy",
+          message:
+            "No validated current artifact is available. Working/partial files cannot be deployed or exported.",
         });
       }
+      const files = artifact.files;
 
       const { deployProject, zipFiles, listDeployDestinations } =
         await import("../services/deployer.js");
@@ -382,6 +380,9 @@ export const projectsRouter = router({
           destination: "zip" as const,
           base64,
           filename,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          artifactSha256: artifact.integrity.sha256,
         };
       }
 
@@ -532,6 +533,9 @@ export const projectsRouter = router({
         return {
           deployUrl: result.url,
           destination: result.destination,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          artifactSha256: artifact.integrity.sha256,
           note: result.note,
           deployGuide,
           smokeTest: smoke,
