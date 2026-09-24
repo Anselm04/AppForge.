@@ -45,6 +45,18 @@ const RULES: SecurityRule[] = [
     pattern: /\bAKIA[0-9A-Z]{16}\b/,
   },
   {
+    id: "secret.openai-key",
+    severity: "critical",
+    message: "An OpenAI API key appears to be hard-coded.",
+    pattern: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/,
+  },
+  {
+    id: "secret.google-api-key",
+    severity: "critical",
+    message: "A Google API key appears to be hard-coded.",
+    pattern: /\bAIza[0-9A-Za-z_-]{30,}\b/,
+  },
+  {
     id: "code.dynamic-eval",
     severity: "high",
     message: "Dynamic code execution with eval() can enable code injection.",
@@ -178,6 +190,69 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
+    id: "python.command-shell",
+    severity: "high",
+    message:
+      "Python subprocess execution enables shell parsing or os.system command execution.",
+    pattern:
+      /(?:subprocess\.(?:run|Popen|call|check_call|check_output)\s*\([^\n]*shell\s*=\s*True|os\.system\s*\()/,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.ssrf-untrusted-request",
+    severity: "high",
+    message:
+      "Python server-side network access appears to use request-controlled input without an allowlist.",
+    pattern:
+      /(?:requests\.(?:get|post|put|patch|delete)|httpx\.(?:get|post|put|patch|delete)|urllib\.request\.urlopen)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|request\.(?:query_params|path_params)|req\.)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.path-untrusted-file-operation",
+    severity: "high",
+    message:
+      "Python filesystem access appears to use request-controlled input and may permit path traversal.",
+    pattern:
+      /(?:open|Path|send_file|FileResponse)\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|req\.)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.sql-interpolation",
+    severity: "high",
+    message:
+      "Python SQL execution appears to interpolate values into the query string instead of parameterizing them.",
+    pattern:
+      /(?:execute|executemany)\s*\(\s*(?:f["']|["'][^\n]*\{[^\n]*\}[^\n]*["'])/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.open-redirect",
+    severity: "high",
+    message:
+      "Python redirect target appears to come directly from request-controlled input.",
+    pattern:
+      /redirect\s*\([^\n]*(?:request\.(?:args|form|json|query_params|path_params)|req\.)/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.secret-logging",
+    severity: "high",
+    message:
+      "Python generated code logs a secret-bearing environment variable.",
+    pattern:
+      /(?:print|logger\.(?:debug|info|warning|error|critical))\s*\([^\n]*(?:os\.(?:getenv|environ)[^\n]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|DATABASE_URL|AUTH))/i,
+    paths: /\.py$/i,
+  },
+  {
+    id: "python.insecure-cookie",
+    severity: "high",
+    message:
+      "Python authentication/session cookie is missing Secure, HttpOnly, or SameSite protection.",
+    pattern:
+      /set_cookie\s*\([^\n]*(?!(?:[^\n]*httponly\s*=\s*True)(?:[^\n]*secure\s*=\s*True)(?:[^\n]*samesite\s*=\s*["'](?:lax|strict)["']))/i,
+    paths: /\.py$/i,
+  },
+  {
     id: "dependency.install-script",
     severity: "high",
     message:
@@ -230,6 +305,66 @@ function evidenceAround(content: string, offset: number): string {
     .slice(0, 240);
 }
 
+function finding(
+  ruleId: string,
+  severity: SecuritySeverity,
+  path: string,
+  message: string,
+  evidence: string,
+): ProjectSecurityFinding {
+  return { ruleId, severity, path, line: 1, message, evidence: evidence.slice(0, 240) };
+}
+
+function scanEnvironmentFile(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  if (!/(?:^|\/)\.env(?:\.[A-Za-z0-9_-]+)?$/i.test(path) || /\.example$/i.test(path)) {
+    return [];
+  }
+  const findings: ProjectSecurityFinding[] = [];
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|DATABASE_URL|SERVICE_ROLE)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/i);
+    if (!match) continue;
+    const value = match[2].replace(/^["']|["']$/g, "").trim();
+    if (!value || /^(?:changeme|example|placeholder|your[_-]?|<.*>|\$\{.*\})$/i.test(value)) continue;
+    findings.push(
+      finding(
+        "secret.env-artifact",
+        "critical",
+        path,
+        "A generated environment artifact contains a non-placeholder secret value.",
+        match[1] + "=<redacted>",
+      ),
+    );
+  }
+  return findings;
+}
+
+function scanPythonRequirements(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  if (!/(?:^|\/)requirements(?:-[^/]+)?\.txt$/i.test(path)) return [];
+  const findings: ProjectSecurityFinding[] = [];
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    if (/^(?:-e\s+|--editable\s+|git\+|https?:\/\/|svn\+|hg\+)/i.test(line)) {
+      findings.push(
+        finding(
+          "dependency.remote-source",
+          "high",
+          path,
+          "Python dependency installs directly from an editable/VCS/remote source.",
+          line,
+        ),
+      );
+    }
+  }
+  return findings;
+}
+
 function scanDependencyManifest(
   path: string,
   content: string,
@@ -240,6 +375,7 @@ function scanDependencyManifest(
     const manifest = JSON.parse(content) as {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
     };
     const findings: ProjectSecurityFinding[] = [];
     for (const [name, version] of Object.entries({
@@ -265,6 +401,23 @@ function scanDependencyManifest(
           message: `Dependency ${name} installs directly from a remote source.`,
           evidence: `${name}: ${version}`.slice(0, 240),
         });
+      }
+    }
+    for (const [scriptName, script] of Object.entries(manifest.scripts ?? {})) {
+      if (
+        /(?:^|[;&|])\s*(?:curl|wget|nc|netcat|ssh|scp|sudo|chmod|chown|mkfifo|mount|umount)\b|\$\(|\x60/i.test(
+          script,
+        )
+      ) {
+        findings.push(
+          finding(
+            "dependency.unsafe-script",
+            "high",
+            path,
+            "Generated package script contains a dangerous shell/network primitive.",
+            scriptName + ": " + script,
+          ),
+        );
       }
     }
     return findings;
@@ -306,6 +459,8 @@ export function scanProjectFiles(
     }
 
     scannedFiles += 1;
+    findings.push(...scanEnvironmentFile(path, content));
+    findings.push(...scanPythonRequirements(path, content));
     findings.push(...scanDependencyManifest(path, content));
 
     for (const rule of RULES) {
