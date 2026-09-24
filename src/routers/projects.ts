@@ -701,8 +701,8 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const { getProjectFiles } = await import("../db.js");
-      return getProjectFiles(input.id);
+      const { getEditableProjectFiles } = await import("../db.js");
+      return getEditableProjectFiles(input.id);
     }),
 
   updateFile: protectedProcedure
@@ -718,8 +718,8 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const { getProjectFiles } = await import("../db.js");
-      const files = await getProjectFiles(input.id);
+      const { getEditableProjectFiles } = await import("../db.js");
+      const files = await getEditableProjectFiles(input.id);
       files[input.path] = input.content;
       await updateProjectFiles(input.id, files);
       const { invalidatePreviewCache } =
@@ -741,10 +741,10 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const { getProjectFiles } = await import("../db.js");
+      const { getEditableProjectFiles } = await import("../db.js");
       const { validateSingleFile } =
         await import("../lib/validateSingleFile.js");
-      const files = await getProjectFiles(input.id);
+      const files = await getEditableProjectFiles(input.id);
       const content = input.content ?? files[input.path] ?? "";
       return validateSingleFile(input.path, content, files);
     }),
