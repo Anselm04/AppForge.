@@ -173,7 +173,11 @@ function nextShell(title = "Application"): ScaffoldFiles {
     "app/layout.tsx":
       'export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}\n',
     "app/page.tsx": "export default function Page(){return null;}\n",
-    ".env.example": "",
+    "app/api/health/live/route.ts":
+      'export async function GET(){return Response.json({ok:true});}\n',
+    "app/api/health/ready/route.ts":
+      'export async function GET(){return Response.json({ok:true});}\n',
+    ".env.example": "PORT=3000\n",
   };
 }
 
@@ -327,7 +331,7 @@ function pythonServiceShell(): ScaffoldFiles {
     "requirements.txt": "fastapi>=0.116,<1\nuvicorn[standard]>=0.35,<1\n",
     "app/__init__.py": "",
     "app/main.py":
-      'from contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nready = False\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global ready\n    ready = True\n    try:\n        yield\n    finally:\n        ready = False\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get("/health/live")\ndef live():\n    return {"ok": True}\n\n@app.get("/health/ready")\ndef readiness():\n    return {"ok": ready}\n',
+      'import os\nfrom contextlib import asynccontextmanager\nimport uvicorn\nfrom fastapi import FastAPI\n\nready = False\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global ready\n    ready = True\n    try:\n        yield\n    finally:\n        ready = False\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get("/health/live")\ndef live():\n    return {"ok": True}\n\n@app.get("/health/ready")\ndef readiness():\n    return {"ok": ready}\n\nif __name__ == "__main__":\n    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")))\n',
     ".env.example": "PORT=8000\n",
   };
 }
