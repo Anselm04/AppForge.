@@ -21,9 +21,8 @@ import {
   type BuildCapabilityId,
 } from "../lib/buildCapabilities.js";
 import {
-  buildProductContract,
-  classifyProductIntent,
-  withSelectedTechnologyStack,
+  PRODUCT_TYPES,
+  resolveIntakeContract,
 } from "../lib/productContract.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
@@ -101,7 +100,12 @@ const projectCreateSchema = z.object({
       (value) => value.trim().length >= 10,
       "Description must be at least 10 characters",
     ),
-  techStack: techStackEnum.default("react-node"),
+  // Optional: when omitted, the canonical product contract selects the stack
+  // from the classified product intent (never a hard-coded web default).
+  techStack: techStackEnum.optional(),
+  // Set when the user answers a clarification question (or otherwise picks
+  // the product type explicitly). The prompt itself is never rewritten.
+  productType: z.enum(PRODUCT_TYPES).optional(),
   title: z
     .string()
     .min(1, "Title is required")
@@ -151,19 +155,22 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(projectCreateSchema)
     .mutation(async ({ ctx, input }) => {
-      const promptIntent = classifyProductIntent(input.description);
-      if (promptIntent.ambiguous || !promptIntent.primaryProductType) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            promptIntent.clarificationQuestions[0] ??
-            "Please clarify what kind of product you want AppForge to build.",
-        });
+      const intake = resolveIntakeContract(input.description, input.techStack, {
+        productType: input.productType,
+      });
+      if (!intake.ok && intake.reason === "clarification_required") {
+        // Structured, non-error response: nothing is created or charged; the
+        // UI shows the question with one-click choices and resubmits with
+        // `productType` set to the chosen value.
+        return {
+          status: "clarification_required" as const,
+          clarification: intake.clarification,
+        };
       }
-      const productContract = withSelectedTechnologyStack(
-        buildProductContract(input.description),
-        input.techStack,
-      );
+      if (!intake.ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: intake.message });
+      }
+      const { promptIntent } = intake;
 
       const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
       const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
@@ -212,11 +219,21 @@ export const projectsRouter = router({
         });
       }
 
+      // Deterministic prompt-specific contract, optionally enriched by a model
+      // when one is configured. Enrichment can only add schema-valid items and
+      // falls back to the deterministic contract on any failure.
+      const { enrichProductContract } =
+        await import("../lib/contractEnrichment.js");
+      const { contract: productContract } = await enrichProductContract(
+        intake.productContract,
+      );
+      const techStack = productContract.selectedTechnologyStack;
+
       const id = await createProject({
         userId: ctx.user.id,
         title: input.title,
         description: input.description,
-        techStack: input.techStack,
+        techStack,
         status: "pending",
         locale: input.locale,
         buildCapabilities: input.buildCapabilities ?? [],
@@ -264,7 +281,7 @@ export const projectsRouter = router({
           projectId: id,
           userId: ctx.user.id,
           description: input.description,
-          techStack: input.techStack,
+          techStack,
           locale: input.locale || "en",
           buildCapabilities: input.buildCapabilities ?? [],
           promptIntent,
@@ -396,9 +413,8 @@ export const projectsRouter = router({
       if (productionDestination) {
         const { assertMustHaveRequirementsResolved } =
           await import("../lib/requirementManifest.js");
-        requirementManifest = assertMustHaveRequirementsResolved(
-          requirementManifest,
-        );
+        requirementManifest =
+          assertMustHaveRequirementsResolved(requirementManifest);
       }
       if (
         stackAdapter.generationMode === "structural" &&
@@ -406,8 +422,7 @@ export const projectsRouter = router({
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message:
-            `This project uses structural-only stack ${stackAdapter.id}. Export or preview the source until its native runtime is verified.`,
+          message: `This project uses structural-only stack ${stackAdapter.id}. Export or preview the source until its native runtime is verified.`,
         });
       }
 
@@ -479,14 +494,11 @@ export const projectsRouter = router({
             await import("../lib/requirementManifest.js");
           const { persistRequirementDeploymentEvidence } =
             await import("../db.js");
-          requirementManifest = markRequirementDeployment(
-            requirementManifest,
-            {
-              destination: input.destination,
-              url: result.url,
-              verified: !!smoke?.ok,
-            },
-          );
+          requirementManifest = markRequirementDeployment(requirementManifest, {
+            destination: input.destination,
+            url: result.url,
+            verified: !!smoke?.ok,
+          });
           await persistRequirementDeploymentEvidence(
             input.id,
             requirementManifest,

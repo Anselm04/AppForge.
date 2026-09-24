@@ -31,7 +31,8 @@ describe("critical customer flow contract", () => {
     expect(home).not.toContain("<select");
     expect(home).not.toContain("<CapabilityPicker");
     expect(home).not.toContain("BuildPurposeStatement");
-    expect(home).toContain("INTERNAL_DEFAULT_STACK");
+    // The stack comes from the canonical product contract, not a Home default.
+    expect(home).not.toMatch(/techStack\s*:/);
     expect(home).toContain("Owner account · Unlimited lifetime access");
 
     // Mobile tester controls are release-critical.

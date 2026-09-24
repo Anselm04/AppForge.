@@ -6,6 +6,21 @@ import {
 } from "../productPlan.js";
 import { buildProductContract } from "../productContract.js";
 
+const contract = buildProductContract(
+  "Build a paid multi-tenant SaaS application for teams with login, Stripe billing, database storage, admin controls, and production deployment",
+);
+
+// Requirements are derived from the prompt, so the fixture plan maps every
+// requirement id the contract actually contains across the two tasks.
+const requirementIds = contract.functionalRequirements.map(
+  (requirement) => requirement.id,
+);
+const task1Requirements = requirementIds.slice(
+  0,
+  Math.ceil(requirementIds.length / 2),
+);
+const task2Requirements = requirementIds.slice(task1Requirements.length);
+
 function validPlan() {
   return {
     version: 1 as const,
@@ -23,7 +38,8 @@ function validPlan() {
       databaseModules: ["Users", "Organizations", "Contacts", "Subscriptions"],
       aiModules: [],
       integrationModules: ["Stripe"],
-      authenticationDesign: "Session-based authentication with refresh handling.",
+      authenticationDesign:
+        "Session-based authentication with refresh handling.",
       authorizationDesign: "Server-side role and tenant checks.",
       billingDesign: "Server-authoritative Stripe subscription entitlements.",
       deploymentDesign: "Build, health-check, and deploy the selected stack.",
@@ -39,8 +55,10 @@ function validPlan() {
         description: "Implement auth, users, organizations, and authorization.",
         sequence: 1,
         dependencies: [],
-        acceptanceCriteria: ["Users can sign in and tenant access is enforced."],
-        requirementIds: ["REQ-001", "REQ-003"],
+        acceptanceCriteria: [
+          "Users can sign in and tenant access is enforced.",
+        ],
+        requirementIds: [...task1Requirements],
         files: ["src/auth.ts", "src/tenancy.ts"],
         agent: "backend" as const,
         validations: ["auth integration test", "tenant isolation test"],
@@ -48,23 +66,23 @@ function validPlan() {
       {
         id: "TASK-002",
         module: "Billing and runtime",
-        description: "Implement subscription entitlements and production runtime.",
+        description:
+          "Implement subscription entitlements and production runtime.",
         sequence: 2,
         dependencies: ["TASK-001"],
-        acceptanceCriteria: ["Paid access is enforced and runtime health passes."],
-        requirementIds: ["REQ-002", "REQ-004", "REQ-005"],
+        acceptanceCriteria: [
+          "Paid access is enforced and runtime health passes.",
+        ],
+        requirementIds: [...task2Requirements],
         files: ["src/billing.ts", "src/health.ts"],
         agent: "deployment" as const,
         validations: ["billing webhook test", "runtime health test"],
       },
     ],
-    requirementToTasks: {
-      "REQ-001": ["TASK-001"],
-      "REQ-002": ["TASK-002"],
-      "REQ-003": ["TASK-001"],
-      "REQ-004": ["TASK-002"],
-      "REQ-005": ["TASK-002"],
-    },
+    requirementToTasks: Object.fromEntries([
+      ...task1Requirements.map((id) => [id, ["TASK-001"]]),
+      ...task2Requirements.map((id) => [id, ["TASK-002"]]),
+    ]) as Record<string, string[]>,
     taskToFiles: {
       "TASK-001": ["src/auth.ts", "src/tenancy.ts"],
       "TASK-002": ["src/billing.ts", "src/health.ts"],
@@ -82,10 +100,6 @@ function validPlan() {
 }
 
 describe("contract-aware planner schema", () => {
-  const contract = buildProductContract(
-    "Build a paid multi-tenant SaaS application for teams with login, Stripe billing, database storage, admin controls, and production deployment",
-  );
-
   it("accepts a complete structured plan", () => {
     const plan = validateProductPlan(validPlan(), contract);
     expect(plan.tasks).toHaveLength(2);
@@ -98,7 +112,7 @@ describe("contract-aware planner schema", () => {
       contract,
     );
     expect(plan.title).toBe("Team CRM");
-    expect(() => parsePlannerJson("prefix {\"version\":1} suffix")).toThrow();
+    expect(() => parsePlannerJson('prefix {"version":1} suffix')).toThrow();
   });
 
   it("rejects empty planner responses", () => {
@@ -116,7 +130,9 @@ describe("contract-aware planner schema", () => {
   it("rejects generic Core App output for complex products", () => {
     const plan = validPlan();
     plan.tasks[0].module = "Core App";
-    expect(() => validateProductPlan(plan, contract)).toThrow(/generic output/i);
+    expect(() => validateProductPlan(plan, contract)).toThrow(
+      /generic output/i,
+    );
   });
 
   it("rejects task mappings that disagree with task files", () => {

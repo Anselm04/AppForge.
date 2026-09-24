@@ -17,6 +17,14 @@ function fixture() {
   const contract = buildProductContract(
     "Build a SaaS application with login, database storage, Stripe billing, Slack integration, analytics, and production deployment",
   );
+  // The contract's requirements are derived from the prompt, so the plan maps
+  // whatever requirement ids the contract actually contains.
+  const requirementIds = contract.functionalRequirements.map(
+    (requirement) => requirement.id,
+  );
+  const split = Math.ceil(requirementIds.length / 2);
+  const t1Requirements = requirementIds.slice(0, split);
+  const t2Requirements = requirementIds.slice(split);
   const plan = validateProductPlan(
     {
       version: 1,
@@ -51,7 +59,7 @@ function fixture() {
           sequence: 1,
           dependencies: [],
           acceptanceCriteria: ["User can sign in"],
-          requirementIds: ["REQ-001", "REQ-002", "REQ-003"],
+          requirementIds: t1Requirements,
           files: ["src/auth.ts", "src/db.ts"],
           agent: "backend",
           validations: ["auth tests"],
@@ -63,19 +71,16 @@ function fixture() {
           sequence: 2,
           dependencies: ["T1"],
           acceptanceCriteria: ["Paid access is enforced"],
-          requirementIds: ["REQ-004", "REQ-005"],
+          requirementIds: t2Requirements,
           files: ["src/billing.ts", "src/health.ts"],
           agent: "integration",
           validations: ["billing tests", "health test"],
         },
       ],
-      requirementToTasks: {
-        "REQ-001": ["T1"],
-        "REQ-002": ["T1"],
-        "REQ-003": ["T1"],
-        "REQ-004": ["T2"],
-        "REQ-005": ["T2"],
-      },
+      requirementToTasks: Object.fromEntries([
+        ...t1Requirements.map((id) => [id, ["T1"]]),
+        ...t2Requirements.map((id) => [id, ["T2"]]),
+      ]),
       taskToFiles: {
         T1: ["src/auth.ts", "src/db.ts"],
         T2: ["src/billing.ts", "src/health.ts"],
