@@ -31,6 +31,20 @@ function withStackMetadata(
       artifactKind: adapter.artifactKind,
       generationMode: adapter.generationMode,
     }),
+    "appforge.preview.json": json({
+      stack: adapter.id,
+      mode: adapter.previewMode,
+      runtime: adapter.runtime,
+      outputDirectory: adapter.outputDirectory,
+    }),
+    "appforge.deploy.json": json({
+      stack: adapter.id,
+      targets: adapter.deploymentTargets,
+      buildCommand: adapter.buildCommand,
+      startCommand: adapter.startCommand,
+      outputDirectory: adapter.outputDirectory,
+      generationMode: adapter.generationMode,
+    }),
   };
 }
 
@@ -45,7 +59,7 @@ function isProductImplementationPath(
   );
 }
 
-function viteReactShell(title = "AppForge App"): ScaffoldFiles {
+function viteReactShell(title = "Application"): ScaffoldFiles {
   return {
     "package.json": json({
       name: "appforge-app",
@@ -98,7 +112,7 @@ if (root) createRoot(root).render(<React.StrictMode><App /></React.StrictMode>);
   };
 }
 
-function staticShell(title = "AppForge Site"): ScaffoldFiles {
+function staticShell(title = "Website"): ScaffoldFiles {
   return {
     "package.json": json({
       name: "appforge-static-site",
@@ -118,7 +132,7 @@ function staticShell(title = "AppForge Site"): ScaffoldFiles {
   };
 }
 
-function nextShell(title = "AppForge App"): ScaffoldFiles {
+function nextShell(title = "Application"): ScaffoldFiles {
   return {
     "package.json": json({
       name: "appforge-next",
@@ -158,7 +172,7 @@ function nextShell(title = "AppForge App"): ScaffoldFiles {
   };
 }
 
-function phaserShell(title = "AppForge Game"): ScaffoldFiles {
+function phaserShell(title = "Game"): ScaffoldFiles {
   return {
     "package.json": json({
       name: "appforge-phaser-game",
@@ -197,7 +211,7 @@ new Phaser.Game({ type: Phaser.AUTO, parent: "game", width: 960, height: 540, sc
   };
 }
 
-function threeShell(title = "AppForge 3D"): ScaffoldFiles {
+function threeShell(title = "3D Experience"): ScaffoldFiles {
   return {
     "package.json": json({
       name: "appforge-three-app",
@@ -311,10 +325,10 @@ function reactNativeShell(): ScaffoldFiles {
       devDependencies: { typescript: "^5.6.0" },
     }),
     "app.json": json({
-      expo: { name: "AppForge Mobile", slug: "appforge-mobile" },
+      expo: { name: "Application", slug: "generated-app" },
     }),
     "App.tsx":
-      'import { SafeAreaView, Text } from "react-native";\nexport default function App(){return <SafeAreaView><Text>AppForge Mobile</Text></SafeAreaView>}\n',
+      'import { SafeAreaView, Text } from "react-native";\nexport default function App(){return <SafeAreaView><Text>Application</Text></SafeAreaView>}\n',
     ".env.example": "",
   };
 }
@@ -322,16 +336,16 @@ function reactNativeShell(): ScaffoldFiles {
 function flutterShell(): ScaffoldFiles {
   return {
     "pubspec.yaml":
-      'name: appforge_mobile\ndescription: AppForge generated Flutter application\npublish_to: "none"\nenvironment:\n  sdk: ">=3.4.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n',
+      'name: appforge_mobile\ndescription: Generated Flutter application\npublish_to: "none"\nenvironment:\n  sdk: ">=3.4.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n',
     "lib/main.dart":
-      'import "package:flutter/material.dart";\nvoid main()=>runApp(const App());\nclass App extends StatelessWidget{const App({super.key});@override Widget build(BuildContext context)=>const MaterialApp(home:Scaffold(body:Center(child:Text("AppForge Mobile"))));}\n',
+      'import "package:flutter/material.dart";\nvoid main()=>runApp(const App());\nclass App extends StatelessWidget{const App({super.key});@override Widget build(BuildContext context)=>const MaterialApp(home:Scaffold(body:Center(child:Text("Application"))));}\n',
     ".env.example": "",
   };
 }
 
 function electronShell(): ScaffoldFiles {
   return {
-    ...viteReactShell("AppForge Desktop"),
+    ...viteReactShell("Desktop Application"),
     "package.json": json({
       name: "appforge-electron",
       private: true,
@@ -368,13 +382,13 @@ function electronShell(): ScaffoldFiles {
 
 function tauriShell(): ScaffoldFiles {
   return {
-    ...viteReactShell("AppForge Tauri"),
+    ...viteReactShell("Desktop Application"),
     "src-tauri/Cargo.toml":
       '[package]\nname="appforge_tauri"\nversion="0.1.0"\nedition="2021"\n[dependencies]\ntauri={version="2"}\n',
     "src-tauri/src/main.rs":
       '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]\nfn main(){tauri::Builder::default().run(tauri::generate_context!()).expect("tauri runtime error");}\n',
     "src-tauri/tauri.conf.json": json({
-      productName: "AppForge Tauri",
+      productName: "Desktop Application",
       version: "0.1.0",
       build: { frontendDist: "../dist", devUrl: "http://localhost:5173" },
     }),
@@ -393,7 +407,7 @@ function extensionShell(): ScaffoldFiles {
     }),
     "manifest.json": json({
       manifest_version: 3,
-      name: "AppForge Extension",
+      name: "Browser Extension",
       version: "0.1.0",
       background: { service_worker: "dist/background.js", type: "module" },
       permissions: ["storage"],
