@@ -42,7 +42,7 @@
           [
             {
               role: "system",
-              content: `You are the Coder agent performing a SURGICAL FIX.\nOutput only corrected files with // filename: path markers.\nDo not regenerate the whole app.\nPreserve the validated product plan, requirement mappings, file ownership, and research decisions.\n${goldenCoderRules(techStack)}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
+              content: `You are the Coder agent performing a SURGICAL FIX.\nOutput only corrected files with // filename: path markers.\nDo not regenerate the whole app.\nPreserve the validated product plan, requirement mappings, file ownership, and research decisions.\n${goldenCoderRules(techStack)}\n${runtimeContract}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
             },
             { role: "user", content: fixPrompt },
           ],
@@ -212,7 +212,7 @@
                 [
                   {
                     role: "system",
-                    content: `You are the ${task.agent} specialist operating inside AppForge's coordinated Coder stage. Output files as // filename: path then full code.\nBuild real implementations only; never stubs, TODOs, empty handlers, fake success, or unrelated features.\nYou may only write files assigned to this task.\n${goldenCoderRules(techStack)}\n${recipeCoderHint(productContract.originalPrompt)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
+                    content: `You are the ${task.agent} specialist operating inside AppForge's coordinated Coder stage. Output files as // filename: path then full code.\nBuild real implementations only; never stubs, TODOs, empty handlers, fake success, or unrelated features.\nYou may only write files assigned to this task.\n${goldenCoderRules(techStack)}\n${runtimeContract}\n${recipeCoderHint(productContract.originalPrompt)}\n${designHints}\n${capabilityHints}\n${localeHint}\n${contractContext}\nCOORDINATION_CONTEXT:\n${coordinationContextText}`,
                   },
                   {
                     role: "user",
