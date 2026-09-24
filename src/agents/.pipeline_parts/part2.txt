@@ -390,7 +390,11 @@
       }
 
       try {
-        generatedFiles = mergeScaffoldWithGenerated(getStackScaffold(techStack), generatedFiles);
+        generatedFiles = mergeScaffoldWithGenerated(
+          getStackScaffold(techStack, productContract.productType),
+          generatedFiles,
+          techStack,
+        );
         generatedFiles = ensureEssentialFiles(generatedFiles, techStack);
         generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
         if (isGoldenStack(techStack) || techStack.includes("react")) {
@@ -403,7 +407,7 @@
           generatedFiles = capGoldenFiles(generatedFiles, 12);
           generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
           emit("System", "info", {
-            message: `Recipe floor + file cap + no compliance (${activeRecipe.id}).`,
+            message: `Recipe guidance preserved generated output; infrastructure hardening applied (${activeRecipe.id}).`,
           });
         }
         emit("System", "info", { message: "Reliability pass applied (entrypoints, package.json, imports)." });
