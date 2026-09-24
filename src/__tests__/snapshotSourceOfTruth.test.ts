@@ -32,7 +32,10 @@ describe("snapshot source-of-truth integrity", () => {
   it("routes rollback through the atomic snapshot activation path without copying into working files", () => {
     const source = readFileSync("src/routers/projects.ts", "utf8");
     const rollbackStart = source.indexOf("rollback: protectedProcedure");
-    const rollbackEnd = source.indexOf("getFiles: protectedProcedure", rollbackStart);
+    const rollbackEnd = source.indexOf(
+      "getFiles: protectedProcedure",
+      rollbackStart,
+    );
     const rollback = source.slice(rollbackStart, rollbackEnd);
     expect(rollback).toContain(
       "await markSnapshotAsCurrent(input.snapshotId, input.projectId)",
