@@ -236,6 +236,75 @@ describe("#16 generated security", () => {
     ).toEqual([]);
   });
 
+  it("does not treat client-only auth, membership, or admin UI as server enforcement", () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt: "Build a multi-tenant admin SaaS with login",
+      productType: "saas_application",
+      productFamilies: ["frontend", "backend", "database", "auth"],
+      targetUsers: ["members", "admins"],
+      userRoles: ["member", "admin"],
+      coreWorkflows: ["sign in", "manage workspace"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Authenticated users can access only their workspace",
+          category: "security",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure by default"],
+      dataModels: ["User", "Workspace"],
+      integrations: [],
+      securityRequirements: [
+        "Require authentication, workspace isolation, and admin authorization",
+      ],
+      deploymentRequirements: ["deploy securely"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "react-node",
+      researchRequirements: [],
+      runtimeRequirements: ["web application"],
+      secondaryCapabilities: [
+        "authentication",
+        "database",
+        "administration",
+        "teams",
+      ],
+      intentConfidence: 1,
+      canonicalInterpretation: "Multi-tenant admin SaaS",
+    };
+
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/App.tsx": [
+          "const currentUser = useCurrentUser();",
+          "const membership = currentUser.workspaceMembership;",
+          "const isAdmin = currentUser.role === \"admin\";",
+          "export function App(){ return isAdmin ? <AdminPanel /> : <MemberPanel />; }",
+        ].join("\n"),
+        "server/index.ts": [
+          'import express from "express";',
+          'import helmet from "helmet";',
+          'import { rateLimit } from "express-rate-limit";',
+          "const app=express();",
+          "app.use(helmet());",
+          "app.use(rateLimit({windowMs:1000,limit:10}));",
+          'app.use(express.json({limit:"1mb"}));',
+        ].join("\n"),
+      },
+      "react-node",
+      contract,
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "auth.missing-server-enforcement",
+        "tenant.missing-isolation",
+        "auth.missing-admin-separation",
+      ]),
+    );
+  });
+
   it("blocks Python command injection, SSRF, path traversal, SQL interpolation and open redirects", () => {
     const scan = scanProjectFiles({
       "app/main.py": [

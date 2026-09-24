@@ -685,6 +685,22 @@ export function validateGeneratedSecurityPosture(
   ].includes(techStack);
   const isHttpService = isNodeService || isPythonService;
 
+  // Contract-aware authentication/authorization evidence must come from a
+  // server or database boundary. Client UI can display auth/admin state, but it
+  // cannot prove that protected data/actions are enforced server-side.
+  const serverBoundarySource = Object.entries(files)
+    .filter(([path]) => {
+      const normalized = path.replace(/\\/g, "/").toLowerCase();
+      if (/\.(?:sql|py)$/i.test(normalized)) return true;
+      if (!/\.(?:[cm]?[jt]s)$/i.test(normalized)) return false;
+      if (isNodeService) return true;
+      return /(?:^|\/)(?:server|backend|api|routes?|routers?|middleware|functions?|db|database|services?)(?:\/|$)|(?:^|\/)(?:server|api|auth|authorization)\.(?:[cm]?[jt]s)$/i.test(
+        normalized,
+      );
+    })
+    .map(([, file]) => file)
+    .join("\n");
+
   const add = (ruleId: string, message: string, evidence: string) => {
     findings.push(
       makeFinding(
@@ -818,7 +834,7 @@ export function validateGeneratedSecurityPosture(
     );
   const authEvidence =
     /(?:authenticate|requireAuth|authMiddleware|verifyToken|verifyJwt|jwt\.verify|supabase\.auth\.getUser|session\.(?:user|account)|getServerSession|currentUser|current_user|Depends\s*\(\s*(?:get_current_user|require_auth)|request\.state\.user|auth\.uid\(\))/i.test(
-      source,
+      serverBoundarySource,
     );
   if (authRequired && !authEvidence) {
     add(
@@ -836,7 +852,7 @@ export function validateGeneratedSecurityPosture(
     );
   const tenantEvidence =
     /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|membership|requireRole|hasRole|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
-      source,
+      serverBoundarySource,
     );
   if (tenantRequired && !tenantEvidence) {
     add(
@@ -849,7 +865,7 @@ export function validateGeneratedSecurityPosture(
   if (
     capabilities.has("administration") &&
     !/(?:requireAdmin|isAdmin|req\.user\.role\s*===?\s*["']admin["']|current_user\.role\s*==\s*["']admin["']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin|require_role\s*\([^)]*admin)/i.test(
-      source,
+      serverBoundarySource,
     )
   ) {
     add(
