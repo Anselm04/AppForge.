@@ -7,6 +7,10 @@ import {
   ensureIterateGreen,
 } from "../lib/iterateReliable.js";
 import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import {
+  renderProductContractForAgents,
+  type ProductContract,
+} from "../lib/productContract.js";
 
 // ── Types ──
 
@@ -61,7 +65,18 @@ export type SeniorDevTask = {
   validationResults: ValidationResult[];
   summary: string;
   creditsSpent: number;
+  /**
+   * Canonical product contract of the project being changed, when known. Plans
+   * and edits must stay inside it (same product type, stack, requirements).
+   */
+  productContract?: ProductContract;
 };
+
+function contractSection(task: SeniorDevTask): string {
+  return task.productContract
+    ? `\n\n${renderProductContractForAgents(task.productContract)}`
+    : "";
+}
 
 export type ProgressEvent = {
   stage: AgentState;
@@ -199,7 +214,7 @@ export async function createPlan(
     { role: "system", content: PLAN_SYSTEM_PROMPT },
     {
       role: "user",
-      content: `Project context:\n${context}\n\nUser request: ${task.request}\n\nMode: ${task.mode}`,
+      content: `Project context:\n${context}\n\nUser request: ${task.request}\n\nMode: ${task.mode}${contractSection(task)}`,
     },
   ];
 
@@ -248,7 +263,7 @@ export async function executePlan(
       { role: "system", content: EXECUTE_SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Plan step: ${step.title}\nAction: ${step.action}\nReason: ${step.reason}\n\nCurrent file contents:\n${JSON.stringify(currentFiles, null, 2)}`,
+        content: `Plan step: ${step.title}\nAction: ${step.action}\nReason: ${step.reason}${contractSection(task)}\n\nCurrent file contents:\n${JSON.stringify(currentFiles, null, 2)}`,
       },
     ];
 
@@ -523,7 +538,10 @@ export async function runSeniorDevAgent(
     task.changes = changes;
 
     techStack = preferReactNodeStack(techStack);
-    Object.assign(generatedFiles, hardenAfterIterate(generatedFiles, techStack));
+    Object.assign(
+      generatedFiles,
+      hardenAfterIterate(generatedFiles, techStack),
+    );
     onProgress({
       stage: "validating",
       message: "Hardened post-edit tree (entrypoints, deps, file cap)…",
@@ -576,7 +594,8 @@ export async function runSeniorDevAgent(
     if (!finalPassed) {
       onProgress({
         stage: "fixing",
-        message: "Edits still failing validation — restoring last green snapshot…",
+        message:
+          "Edits still failing validation — restoring last green snapshot…",
       });
       const outcome = await ensureIterateGreen({
         baseline: originalFiles,
