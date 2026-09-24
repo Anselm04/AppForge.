@@ -8,6 +8,7 @@ import { getStackScaffold } from "../services/stackScaffolds.js";
 import type { ProductContract } from "../lib/productContract.js";
 import { validateGeneratedBuild } from "../agents/buildValidator.js";
 import { deployValidatedProject } from "../services/productionAutoDeploy.js";
+import { sanitizeSentryEvent } from "../middleware/sentryHandler.js";
 
 describe("#16 generated security", () => {
   it("blocks high-risk generated source patterns", () => {
@@ -487,6 +488,31 @@ describe("#16 generated security", () => {
     ).rejects.toThrow(
       "Production deployment blocked by generated-project security findings",
     );
+  });
+
+  it("redacts secrets from Sentry telemetry", () => {
+    const bearer = ["abc", "def", "ghi"].join(".");
+    const modelKey = ["sk", "proj", "syntheticcredentialvalue1234567890"].join("-");
+    const stripeKey = ["sk", "live", "synthetickeyvalue1234567890"].join("_");
+    const databaseUrl = ["postgres://user", "pass@db/prod"].join(":");
+
+    const event = sanitizeSentryEvent({
+      authorization: "Bearer " + bearer,
+      nested: {
+        apiKey: "synthetic-sensitive-value",
+        message:
+          "provider=" + modelKey + " DATABASE_URL=" + databaseUrl,
+      },
+      stripe: stripeKey,
+    });
+
+    const serialized = JSON.stringify(event);
+    expect(serialized).not.toContain(bearer);
+    expect(serialized).not.toContain("synthetic-sensitive-value");
+    expect(serialized).not.toContain(modelKey);
+    expect(serialized).not.toContain(stripeKey);
+    expect(serialized).not.toContain(databaseUrl);
+    expect(serialized).toContain("redacted");
   });
 
   it("keeps the Node service scaffold on the secure baseline", () => {
