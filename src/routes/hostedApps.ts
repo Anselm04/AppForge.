@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { extname } from "path";
-import { getProjectById } from "../db.js";
+import { getCurrentArtifact, getProjectById } from "../db.js";
 import { HOSTED_MIME, materializeHostedHtml } from "../lib/hostedRuntime.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
 import { injectVisualPreviewBridge } from "../lib/visualPreviewBridge.js";
@@ -41,9 +41,20 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
       return;
     }
 
-    const files = normalizeFiles(
-      (project.generatedFiles as Record<string, string> | null) ?? {},
-    );
+    const artifact = await getCurrentArtifact(projectId);
+    if (!artifact) {
+      res
+        .status(409)
+        .type("html")
+        .send(
+          `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#020617;color:#e2e8f0"><h1>No validated release</h1><p>Working or partial build files are never served as the hosted product.</p></body></html>`,
+        );
+      return;
+    }
+    const files = normalizeFiles(artifact.files);
+    res.setHeader("X-AppForge-Snapshot-Id", String(artifact.snapshotId));
+    res.setHeader("X-AppForge-Artifact-Version", String(artifact.version));
+    res.setHeader("X-AppForge-Artifact-Sha256", artifact.integrity.sha256);
     if (Object.keys(files).length === 0) {
       res
         .status(404)
