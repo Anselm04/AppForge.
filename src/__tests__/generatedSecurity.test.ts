@@ -93,9 +93,9 @@ describe("#16 generated security", () => {
     const findings = validateGeneratedSecurityPosture(
       {
         "src/server.ts": [
-          'const agent={tools:[deleteFileTool]};',
+          "const agent={tools:[deleteFileTool]};",
           'const permission = "profile:read";',
-          'executeTool(requestedTool, input);',
+          "executeTool(requestedTool, input);",
         ].join("\n"),
       },
       "api-service",
@@ -110,10 +110,10 @@ describe("#16 generated security", () => {
     const findings = validateGeneratedSecurityPosture(
       {
         "src/server.ts": [
-          'const agent={tools:[deleteFileTool]};',
+          "const agent={tools:[deleteFileTool]};",
           'const allowedTools = new Set(["readFile"]);',
           'if (!allowedTools.has(requestedTool)) throw new Error("Tool denied");',
-          'executeTool(requestedTool, input);',
+          "executeTool(requestedTool, input);",
         ].join("\n"),
       },
       "api-service",
@@ -124,26 +124,145 @@ describe("#16 generated security", () => {
     ).toEqual([]);
   });
 
+  it("does not accept an unused tool allowlist as AI tool authorization", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/server.ts": [
+          "const agent={tools:[deleteFileTool]};",
+          'const allowedTools = new Set(["readFile"]);',
+          "executeTool(requestedTool, input);",
+        ].join("\n"),
+      },
+      "api-service",
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toContain(
+      "ai.unrestricted-tools",
+    );
+  });
+
+  it("does not accept a declared approval flag that never gates execution", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/agent.ts": [
+          "const tools = { deleteFile: { requiresApproval: true, run: deleteFile } };",
+          "executeTool(requestedTool, input);",
+        ].join("\n"),
+      },
+      "ai-agent-node",
+    );
+
+    expect(findings.map((finding) => finding.ruleId)).toContain(
+      "ai.unrestricted-tools",
+    );
+  });
+
+  it("accepts structural tool guards with arbitrary collection names", () => {
+    const findings = validateGeneratedSecurityPosture(
+      {
+        "src/agent.ts": [
+          "const agent={tools:[deleteFileTool]};",
+          "if (!permissions.has(requestedTool)) {",
+          '  throw new Error("Tool denied");',
+          "}",
+          "executeTool(requestedTool, input);",
+        ].join("\n"),
+      },
+      "ai-agent-node",
+    );
+
+    expect(
+      findings.filter((finding) => finding.ruleId === "ai.unrestricted-tools"),
+    ).toEqual([]);
+  });
+
+  it("accepts authorization-function and human-approval guards that control execution", () => {
+    const authorized = validateGeneratedSecurityPosture(
+      {
+        "src/agent.ts": [
+          "const agent={tools:[deleteFileTool]};",
+          "if (!(await authorizeTool(req.user, call.name))) return res.status(403).end();",
+          "executeTool(call.name, call.args);",
+        ].join("\n"),
+      },
+      "ai-agent-node",
+    );
+    const approved = validateGeneratedSecurityPosture(
+      {
+        "src/agent.ts": [
+          "const agent={tools:[deleteFileTool]};",
+          'if (tool.requiresApproval && !approval.granted) throw new Error("Approval required");',
+          "executeTool(tool.name, input);",
+        ].join("\n"),
+      },
+      "ai-agent-node",
+    );
+
+    for (const findings of [authorized, approved]) {
+      expect(
+        findings.filter(
+          (finding) => finding.ruleId === "ai.unrestricted-tools",
+        ),
+      ).toEqual([]);
+    }
+  });
+
+  it("applies the same execution-guard requirement to Python agents", () => {
+    const unguarded = validateGeneratedSecurityPosture(
+      {
+        "app/agent.py": [
+          'ALLOWED_TOOLS = {"search"}',
+          "result = execute_tool(tool_name, args)",
+        ].join("\n"),
+      },
+      "ai-agent-python",
+    );
+    const guarded = validateGeneratedSecurityPosture(
+      {
+        "app/agent.py": [
+          'ALLOWED_TOOLS = {"search"}',
+          "if tool_name not in ALLOWED_TOOLS:",
+          '    raise PermissionError("tool denied")',
+          "result = execute_tool(tool_name, args)",
+        ].join("\n"),
+      },
+      "ai-agent-python",
+    );
+
+    expect(unguarded.map((finding) => finding.ruleId)).toContain(
+      "ai.unrestricted-tools",
+    );
+    expect(
+      guarded.filter((finding) => finding.ruleId === "ai.unrestricted-tools"),
+    ).toEqual([]);
+  });
+
   it("wires mandatory security gates into validation, isolated builds and production deploy", () => {
     const validator = readFileSync("src/agents/buildValidator.ts", "utf8");
-    const deployer = readFileSync("src/services/productionAutoDeploy.ts", "utf8");
-    const isolated = readFileSync("src/services/isolatedBuildRunner.ts", "utf8");
+    const deployer = readFileSync(
+      "src/services/productionAutoDeploy.ts",
+      "utf8",
+    );
+    const isolated = readFileSync(
+      "src/services/isolatedBuildRunner.ts",
+      "utf8",
+    );
     expect(validator).toContain("scanProjectFiles(files)");
     expect(validator).toContain('stage: "security"');
-    expect(deployer).toContain("Production deployment blocked by generated-project security findings");
+    expect(deployer).toContain(
+      "Production deployment blocked by generated-project security findings",
+    );
     expect(isolated).toContain('"security"');
     expect(isolated).toContain("dependencyAudit: true");
     expect(isolated).toContain("blockNetworkToPrivateRanges: true");
     expect(isolated).toContain("blockShellExecution: true");
   });
 
-
   it("blocks server/service credentials in browser code and secret logging", () => {
     const scan = scanProjectFiles({
       "src/App.tsx":
-        'export const config={key:process.env.SUPABASE_SERVICE_ROLE_KEY};',
-      "src/server.ts":
-        'console.log(process.env.STRIPE_SECRET_KEY);',
+        "export const config={key:process.env.SUPABASE_SERVICE_ROLE_KEY};",
+      "src/server.ts": "console.log(process.env.STRIPE_SECRET_KEY);",
     });
     expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
       expect.arrayContaining([
@@ -240,7 +359,12 @@ describe("#16 generated security", () => {
       selectedTechnologyStack: "api-service",
       researchRequirements: [],
       runtimeRequirements: ["HTTP service"],
-      secondaryCapabilities: ["authentication", "database", "administration", "teams"],
+      secondaryCapabilities: [
+        "authentication",
+        "database",
+        "administration",
+        "teams",
+      ],
       intentConfidence: 1,
       canonicalInterpretation: "Secure team admin API",
     };
@@ -314,7 +438,7 @@ describe("#16 generated security", () => {
         "src/App.tsx": [
           "const currentUser = useCurrentUser();",
           "const membership = currentUser.workspaceMembership;",
-          "const isAdmin = currentUser.role === \"admin\";",
+          'const isAdmin = currentUser.role === "admin";',
           "export function App(){ return isAdmin ? <AdminPanel /> : <MemberPanel />; }",
         ].join("\n"),
         "server/index.ts": [
@@ -367,8 +491,10 @@ describe("#16 generated security", () => {
 
   it("blocks persisted secret-bearing env files and unsafe dependency sources", () => {
     const scan = scanProjectFiles({
-      ".env.production": "DATABASE_URL=postgres://real-user:real-pass@db/prod\n",
-      "requirements.txt": "git+https://github.com/example/private-package.git\n",
+      ".env.production":
+        "DATABASE_URL=postgres://real-user:real-pass@db/prod\n",
+      "requirements.txt":
+        "git+https://github.com/example/private-package.git\n",
       "pubspec.yaml": "dependencies:\n  custom_pkg:\n    path: ../custom_pkg\n",
       "package.json": JSON.stringify({
         dependencies: {
@@ -410,7 +536,9 @@ describe("#16 generated security", () => {
   it("keeps the Python service scaffold on the secure baseline", () => {
     const files = getStackScaffold("python-service", "api");
     expect(scanProjectFiles(files).passed).toBe(true);
-    expect(validateGeneratedSecurityPosture(files, "python-service")).toEqual([]);
+    expect(validateGeneratedSecurityPosture(files, "python-service")).toEqual(
+      [],
+    );
     expect(files["app/main.py"]).toContain("SlowAPIMiddleware");
     expect(files["app/main.py"]).toContain("MAX_BODY_BYTES");
     expect(files["app/main.py"]).toContain("X-Content-Type-Options");
@@ -425,11 +553,12 @@ describe("#16 generated security", () => {
   });
 
   it("redacts detected credentials from security evidence", () => {
-    const rawSecret =
-      "sk_test_1234567890ABCDEFGHIJ1234567890";
+    const rawSecret = "sk_test_1234567890ABCDEFGHIJ1234567890";
     const scan = scanProjectFiles({
       "src/server.ts":
-        'const stripeSecret = "' + rawSecret + '"; console.error(process.env.OPENAI_API_KEY);',
+        'const stripeSecret = "' +
+        rawSecret +
+        '"; console.error(process.env.OPENAI_API_KEY);',
     });
     expect(scan.passed).toBe(false);
     expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
@@ -482,10 +611,9 @@ describe("#16 generated security", () => {
     );
     expect(
       pythonSafe.filter((finding) =>
-        [
-          "auth.insecure-cookie-defaults",
-          "web.csrf-protection",
-        ].includes(finding.ruleId),
+        ["auth.insecure-cookie-defaults", "web.csrf-protection"].includes(
+          finding.ruleId,
+        ),
       ),
     ).toEqual([]);
   });
@@ -539,9 +667,7 @@ describe("#16 generated security", () => {
       "auth.missing-server-enforcement",
     );
     expect(result.errors.join("\n")).toContain("tenant.missing-isolation");
-    expect(result.errors.join("\n")).toContain(
-      "auth.missing-admin-separation",
-    );
+    expect(result.errors.join("\n")).toContain("auth.missing-admin-separation");
   });
 
   it("rechecks contract-aware security before production deployment", async () => {
@@ -596,7 +722,9 @@ describe("#16 generated security", () => {
 
   it("redacts secrets from Sentry telemetry", () => {
     const bearer = ["abc", "def", "ghi"].join(".");
-    const modelKey = ["sk", "proj", "syntheticcredentialvalue1234567890"].join("-");
+    const modelKey = ["sk", "proj", "syntheticcredentialvalue1234567890"].join(
+      "-",
+    );
     const stripeKey = ["sk", "live", "synthetickeyvalue1234567890"].join("_");
     const databaseUrl = ["postgres://user", "pass@db/prod"].join(":");
 
@@ -604,8 +732,7 @@ describe("#16 generated security", () => {
       authorization: "Bearer " + bearer,
       nested: {
         apiKey: "synthetic-sensitive-value",
-        message:
-          "provider=" + modelKey + " DATABASE_URL=" + databaseUrl,
+        message: "provider=" + modelKey + " DATABASE_URL=" + databaseUrl,
       },
       stripe: stripeKey,
     });

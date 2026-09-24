@@ -94,8 +94,7 @@ const RULES: SecurityRule[] = [
   {
     id: "command.dangerous-fixed-shell",
     severity: "high",
-    message:
-      "Generated code invokes a dangerous shell/network/system command.",
+    message: "Generated code invokes a dangerous shell/network/system command.",
     pattern:
       /\b(?:exec|execSync)\s*\(\s*["']\s*(?:rm\s+-rf|curl\b|wget\b|nc\b|netcat\b|ssh\b|scp\b|sudo\b|chmod\b|chown\b|mkfifo\b|mount\b|umount\b)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
@@ -329,7 +328,10 @@ function redactSecurityEvidence(value: string): string {
     .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
     .replace(/\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
     .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "<redacted-google-key>")
-    .replace(/\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g, "<redacted-github-token>")
+    .replace(
+      /\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g,
+      "<redacted-github-token>",
+    )
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, "<redacted-aws-key>")
     .replace(
       /([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*\s*=\s*)[^\s;,]+/gi,
@@ -342,11 +344,7 @@ function evidenceAround(content: string, offset: number): string {
   const nextLine = content.indexOf("\n", offset);
   const lineEnd = nextLine === -1 ? content.length : nextLine;
   return redactSecurityEvidence(
-    content
-      .slice(lineStart, lineEnd)
-      .trim()
-      .replace(/\s+/g, " ")
-      .slice(0, 240),
+    content.slice(lineStart, lineEnd).trim().replace(/\s+/g, " ").slice(0, 240),
   );
 }
 
@@ -585,9 +583,7 @@ function scanDependencies(
   return findings;
 }
 
-export function scanProjectFiles(
-  files: Record<string, string>,
-): {
+export function scanProjectFiles(files: Record<string, string>): {
   findings: ProjectSecurityFinding[];
   scannedFiles: number;
   skippedFiles: number;
@@ -662,6 +658,49 @@ export function scanProjectFiles(
   };
 }
 
+// A denial branch directly controlled by the preceding condition: either a
+// braced block that throws/returns/raises/rejects, or a single statement.
+const DENIAL_BRANCH = String.raw`(?:\{[^{}]{0,240}?\b(?:throw|return|raise|reject)\b|(?:throw|return|raise)\b)`;
+
+// Declaring an allowlist or an approval flag is not enough: the authorization
+// result has to gate tool execution. Each pattern below requires a check that
+// is wired to a denial branch (or an assert-style call that throws, or a
+// framework-enforced approval option).
+const AI_TOOL_EXECUTION_GUARDS: RegExp[] = [
+  // if (!allowedTools.has(name)) throw ... / if (!permissions.has(requestedTool)) return ...
+  new RegExp(
+    String.raw`if\s*\(\s*!\s*(?:[\w$.]*tool[\w$.]*\s*\.\s*(?:has|includes)\s*\([^()]*\)|[\w$.]+\s*\.\s*(?:has|includes)\s*\([^()]*tool[^()]*\))\s*\)\s*` +
+      DENIAL_BRANCH,
+    "i",
+  ),
+  // if (!(await authorizeTool(user, tool))) throw ...
+  new RegExp(
+    String.raw`if\s*\(\s*!\s*\(?\s*(?:await\s+)?[\w$.]*(?:authorizeTool|canExecuteTool|isToolAllowed|canUseTool|checkToolPermission)\s*\([^()]*\)\s*\)?\s*\)\s*` +
+      DENIAL_BRANCH,
+    "i",
+  ),
+  // Assert-style guards that throw on denial.
+  /(?:^|[^\w$.])(?:await\s+)?(?:assertToolAllowed|assertToolAuthorized|requireToolPermission|enforceToolPolicy|assert_tool_allowed|require_tool_permission)\s*\(/im,
+  // if (tool.requiresApproval && !approval.granted) throw ...
+  new RegExp(
+    String.raw`if\s*\([^()\n]{0,160}(?:requiresApproval|humanApproval|approvalGranted|isApproved)[^()\n]{0,160}\)\s*` +
+      DENIAL_BRANCH,
+    "i",
+  ),
+  // Framework-enforced approval (AI SDK / Agents SDK tool option).
+  /\bneedsApproval\s*:\s*(?:true\b|async\b|\(|[A-Za-z_$][\w$]*\s*=>)/,
+  // Python: if tool_name not in allowed_tools: raise ...
+  /if\s+(?:[\w.[\]'"]*tool[\w.[\]'"]*\s+not\s+in\s+[\w.]+|[\w.[\]'"]+\s+not\s+in\s+[\w.]*tool[\w.]*)\s*:\s*(?:#[^\n]*)?\n?\s*(?:raise|return)\b/i,
+  // Python: if not authorize_tool(...): raise ...
+  /if\s+not\s+(?:await\s+)?[\w.]*(?:authorize_tool|can_execute_tool|is_tool_allowed|can_use_tool)\s*\([^()]*\)\s*:\s*(?:#[^\n]*)?\n?\s*(?:raise|return)\b/i,
+  // Python: if tool.requires_approval and not approved: raise ...
+  /if\s+[^\n:]{0,160}(?:requires_approval|human_approval|approval_granted|is_approved)[^\n:]{0,160}:\s*(?:#[^\n]*)?\n?\s*(?:raise|return)\b/i,
+];
+
+function hasAiToolExecutionGuard(source: string): boolean {
+  return AI_TOOL_EXECUTION_GUARDS.some((guard) => guard.test(source));
+}
+
 export function validateGeneratedSecurityPosture(
   files: Record<string, string>,
   techStack: string,
@@ -679,10 +718,9 @@ export function validateGeneratedSecurityPosture(
     "ai-agent-node",
     "browser-automation",
   ].includes(techStack);
-  const isPythonService = [
-    "python-service",
-    "ai-agent-python",
-  ].includes(techStack);
+  const isPythonService = ["python-service", "ai-agent-python"].includes(
+    techStack,
+  );
   const isHttpService = isNodeService || isPythonService;
 
   // Contract-aware authentication/authorization evidence must come from a
@@ -703,13 +741,7 @@ export function validateGeneratedSecurityPosture(
 
   const add = (ruleId: string, message: string, evidence: string) => {
     findings.push(
-      makeFinding(
-        ruleId,
-        "high",
-        "appforge.security",
-        message,
-        evidence,
-      ),
+      makeFinding(ruleId, "high", "appforge.security", message, evidence),
     );
   };
 
@@ -804,15 +836,11 @@ export function validateGeneratedSecurityPosture(
     /(?:tools\s*:|toolDefinitions|executeTool|functionCalling|tool_calls|invoke_tool|execute_tool)/i.test(
       source,
     );
-  const aiToolPermissionEvidence =
-    /(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|authorizeTool|canExecuteTool|isToolAllowed|allowed_tools|requires_approval|human_approval|authorize_tool|can_execute_tool|is_tool_allowed)/i.test(
-      source,
-    );
-  if (aiToolSurface && !aiToolPermissionEvidence) {
+  if (aiToolSurface && !hasAiToolExecutionGuard(source)) {
     add(
       "ai.unrestricted-tools",
       "Generated AI tools must use explicit tool allowlists, authorization checks, or human approval boundaries.",
-      "AI tool execution detected without explicit tool-specific authorization or approval evidence.",
+      "AI tool execution detected without a tool-specific authorization or approval check that controls execution.",
     );
   }
 
