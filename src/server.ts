@@ -13,6 +13,7 @@ import { compressionMiddleware } from "./middleware/compression.js";
 import { createLocalRateLimiter } from "./middleware/rateLimiter.js";
 import { createSlowDown } from "./middleware/slowDown.js";
 import {
+  sanitizeSentryEvent,
   sentryErrorHandler,
   sentryRequestLogging,
 } from "./middleware/sentryHandler.js";
@@ -63,6 +64,7 @@ Sentry.init({
   environment: process.env.NODE_ENV || "development",
   release: process.env.npm_package_version,
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  beforeSend: (event) => sanitizeSentryEvent(event),
 });
 
 if (ENV.isProduction) {
