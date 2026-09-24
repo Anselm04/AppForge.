@@ -338,12 +338,14 @@ async function createAutonomousFixTask(
     await markSnapshotAsCurrent(newSnapshotId, projectId);
 
     const summary = `${result.summary}\n\nProduction recovery deployed and live-verified at ${deployment.liveUrl}`;
+    const { updateProjectFiles, updateProjectRequirementManifest } =
+      await import("../db.js");
+    await updateProjectFiles(projectId, result.files);
+    await updateProjectRequirementManifest(projectId, requirementManifest);
     await db
       .update(schema.projects)
       .set({
         status: "completed",
-        generatedFiles: result.files,
-        requirementManifest,
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
