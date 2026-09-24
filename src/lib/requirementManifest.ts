@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   validateProductContract,
@@ -57,6 +58,7 @@ export const requirementManifestEntrySchema = z.object({
   files: z.array(z.string().min(1)),
   tests: z.array(z.string().min(1)),
   validations: z.array(z.string().min(1)),
+  implementationHash: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
   validationEvidence: z.array(requirementValidationEvidenceSchema),
   deploymentEvidence: z.array(requirementDeploymentEvidenceSchema),
   status: requirementStatusSchema,
@@ -293,6 +295,7 @@ export function createRequirementManifest(input: {
         files,
         tests: prior?.tests ?? [],
         validations,
+        implementationHash: prior?.implementationHash ?? null,
         validationEvidence: prior?.validationEvidence ?? [],
         deploymentEvidence: prior?.deploymentEvidence ?? [],
         status: mapped ? (prior?.status ?? "planned") : "blocked",
@@ -348,6 +351,7 @@ export function markRequirementImplementation(
       return {
         ...requirement,
         status: "planned" as const,
+        implementationHash: null,
         unresolvedReason:
           existingFiles.length !== requirement.files.length
             ? "One or more mapped implementation files are missing."
@@ -355,19 +359,26 @@ export function markRequirementImplementation(
       };
     }
 
-    const currentRank = [
-      "pending",
-      "planned",
-      "implemented",
-      "tested",
-      "validated",
-      "deployed",
-    ].indexOf(requirement.status);
+    const implementationHash = createHash("sha256")
+      .update(
+        requirement.files
+          .slice()
+          .sort()
+          .map((path) => `${path}\0${files[path] ?? ""}\0`)
+          .join(""),
+      )
+      .digest("hex");
+    const implementationChanged =
+      requirement.implementationHash !== implementationHash;
 
     return {
       ...requirement,
+      implementationHash,
       status:
-        currentRank >= 2 && requirement.status !== "blocked"
+        !implementationChanged &&
+        (requirement.status === "tested" ||
+          requirement.status === "validated" ||
+          requirement.status === "deployed")
           ? requirement.status
           : ("implemented" as const),
       unresolvedReason: null,
@@ -441,9 +452,18 @@ export function markRequirementValidation(
   const requirements = manifest.requirements.map((requirement) => {
     const validationEvidence = [...requirement.validationEvidence, evidence];
     if (!validation.passed) {
+      const fallbackStatus =
+        requirement.tests.length > 0
+          ? ("tested" as const)
+          : requirement.implementationHash
+            ? ("implemented" as const)
+            : requirement.status === "blocked"
+              ? ("blocked" as const)
+              : ("planned" as const);
       return {
         ...requirement,
         validationEvidence,
+        status: fallbackStatus,
         unresolvedReason:
           requirement.priority === "must"
             ? `Validation failed at stage ${evidence.stage}.`
