@@ -7,6 +7,7 @@ import { injectVisualPreviewBridge } from "../lib/visualPreviewBridge.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { validateProductContract } from "../lib/productContract.js";
 import { ensureIsolatedPreview } from "../services/previewRuntime.js";
+import { resolveProjectStack } from "../lib/projectStack.js";
 
 export const hostedAppsRouter = Router();
 
@@ -59,7 +60,10 @@ hostedAppsRouter.use("/:projectId", async (req: Request, res: Response) => {
       ? validateProductContract(project.productContract)
       : null;
     const stackAdapter = getStackAdapter(
-      contract?.selectedTechnologyStack || project.techStack || "react-node",
+      resolveProjectStack({
+        techStack: project.techStack,
+        productContract: contract,
+      }).techStack,
     );
     res.setHeader("X-AppForge-Snapshot-Id", String(artifact.snapshotId));
     res.setHeader("X-AppForge-Artifact-Version", String(artifact.version));
