@@ -423,9 +423,12 @@ function scanSensitiveAssignments(
 
   const findings: ProjectSecurityFinding[] = [];
   const assignment =
-    /\b([A-Za-z_][A-Za-z0-9_]*(?:secret|password|private[_-]?key|service[_-]?role|api[_-]?key|database[_-]?url|access[_-]?token|refresh[_-]?token|auth[_-]?token|github[_-]?token|fly[_-]?token|vercel[_-]?token|stripe[_-]?(?:key|token))[A-Za-z0-9_]*)\b\s*(?::[^=;\n]+)?=\s*["']([^"'\n]+)["']/gi;
+    /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*(?::[^=;\n]+)?=\s*["']([^"'\n]+)["']/g;
+  const sensitiveName =
+    /(?:secret|password|private[_-]?key|service[_-]?role|api[_-]?key|database[_-]?url|access[_-]?token|refresh[_-]?token|auth[_-]?token|github[_-]?token|fly[_-]?token|vercel[_-]?token|stripe[_-]?(?:key|token))/i;
   let match: RegExpExecArray | null;
   while ((match = assignment.exec(content)) !== null) {
+    if (!sensitiveName.test(match[1])) continue;
     const value = match[2].trim();
     if (
       !value ||
