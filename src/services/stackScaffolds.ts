@@ -347,10 +347,11 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 function pythonServiceShell(): ScaffoldFiles {
   return {
-    "requirements.txt": "fastapi>=0.116,<1\nuvicorn[standard]>=0.35,<1\n",
+    "requirements.txt":
+      "fastapi>=0.116,<1\nuvicorn[standard]>=0.35,<1\nslowapi>=0.1.9,<1\n",
     "app/__init__.py": "",
     "app/main.py":
-      'import os\nfrom contextlib import asynccontextmanager\nimport uvicorn\nfrom fastapi import FastAPI\n\nready = False\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global ready\n    ready = True\n    try:\n        yield\n    finally:\n        ready = False\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get("/health/live")\ndef live():\n    return {"ok": True}\n\n@app.get("/health/ready")\ndef readiness():\n    return {"ok": ready}\n\nif __name__ == "__main__":\n    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")))\n',
+      'import os\nfrom contextlib import asynccontextmanager\nimport uvicorn\nfrom fastapi import FastAPI, Request\nfrom fastapi.responses import JSONResponse\nfrom slowapi import Limiter, _rate_limit_exceeded_handler\nfrom slowapi.errors import RateLimitExceeded\nfrom slowapi.middleware import SlowAPIMiddleware\nfrom slowapi.util import get_remote_address\n\nMAX_BODY_BYTES = 1024 * 1024\nready = False\nlimiter = Limiter(key_func=get_remote_address, default_limits=["300/15minutes"])\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global ready\n    ready = True\n    try:\n        yield\n    finally:\n        ready = False\n\napp = FastAPI(lifespan=lifespan)\napp.state.limiter = limiter\napp.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)\napp.add_middleware(SlowAPIMiddleware)\n\n@app.middleware("http")\nasync def security_middleware(request: Request, call_next):\n    content_length = request.headers.get("content-length")\n    if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:\n        return JSONResponse(status_code=413, content={"detail": "Request too large"})\n    response = await call_next(request)\n    response.headers["X-Content-Type-Options"] = "nosniff"\n    response.headers["X-Frame-Options"] = "DENY"\n    response.headers["Referrer-Policy"] = "no-referrer"\n    return response\n\n@app.get("/health/live")\ndef live():\n    return {"ok": True}\n\n@app.get("/health/ready")\ndef readiness():\n    return {"ok": ready}\n\nif __name__ == "__main__":\n    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")))\n',
     ".env.example": "PORT=8000\n",
   };
 }
