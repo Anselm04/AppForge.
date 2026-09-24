@@ -8,6 +8,10 @@ import {
 } from "../lib/productContract.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import {
+  productionPlanForStack,
+  type ProductionVerification,
+} from "../lib/stackDeployment.js";
+import {
   assertArtifactIntegrity,
   type ArtifactIntegrity,
 } from "../lib/artifactIntegrity.js";
@@ -24,7 +28,10 @@ export type ProductionCertification = {
   artifactSha256: string;
   httpVerified: true;
   assetsVerified: number;
-  browserVerified: true;
+  /** true for UI stacks (Chromium render); false for HTTP services. */
+  browserVerified: boolean;
+  verification: ProductionVerification;
+  healthPathsVerified: string[];
 };
 
 export function generatedArtifactSha256(files: Record<string, string>): string {
@@ -40,42 +47,24 @@ export function generatedArtifactSha256(files: Record<string, string>): string {
   return createHash("sha256").update(canonical).digest("hex");
 }
 
-function productionDockerfile(files: Record<string, string>): string {
-  let hasStart = false;
-  try {
-    const pkg = JSON.parse(files["package.json"] || "{}") as {
-      scripts?: Record<string, string>;
-    };
-    hasStart =
-      typeof pkg.scripts?.start === "string" && pkg.scripts.start.length > 0;
-  } catch {
-    hasStart = false;
-  }
-
-  const isVite =
-    !!files["vite.config.ts"] ||
-    !!files["vite.config.js"] ||
-    !!files["index.html"];
-
-  const command = hasStart
-    ? 'CMD ["npm", "run", "start"]'
-    : isVite
-      ? 'CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "3000", "--strictPort"]'
-      : 'CMD ["npm", "run", "start"]';
-
-  return `FROM node:22-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi\nCOPY . .\nRUN npm run build\nENV NODE_ENV=production\nENV PORT=3000\nEXPOSE 3000\n${command}\n`;
-}
-
+/**
+ * Package a validated artifact for production with the stack adapter's own
+ * Dockerfile (static output via nginx, Next.js server, Node service, or the
+ * Playwright image for browser automation) and the build identity file.
+ * Structural-only stacks have no production packaging and throw.
+ */
 export function prepareProductionFiles(
   files: Record<string, string>,
+  techStack: string,
 ): Record<string, string> {
+  const plan = productionPlanForStack(techStack, files);
   const prepared = { ...files };
   const artifactSha256 = generatedArtifactSha256(files);
-  prepared["public/.well-known/appforge-build.json"] = JSON.stringify({
+  prepared[plan.identityFile] = JSON.stringify({
     artifactSha256,
   });
   if (!prepared["Dockerfile"]) {
-    prepared["Dockerfile"] = productionDockerfile(prepared);
+    prepared["Dockerfile"] = plan.dockerfile;
   }
   return prepared;
 }
@@ -134,8 +123,7 @@ export async function deployValidatedProject(opts: {
         blockingSecurityFindings
           .slice(0, 10)
           .map(
-            (finding) =>
-              `${finding.ruleId} at ${finding.path}:${finding.line}`,
+            (finding) => `${finding.ruleId} at ${finding.path}:${finding.line}`,
           )
           .join(", "),
     );
@@ -150,7 +138,9 @@ export async function deployValidatedProject(opts: {
     contract.deploymentRequirements.length === 0 ||
     contract.runtimeRequirements.length === 0
   ) {
-    throw new Error("Canonical product contract is missing deployment/runtime requirements");
+    throw new Error(
+      "Canonical product contract is missing deployment/runtime requirements",
+    );
   }
   if (!process.env.FLY_API_TOKEN) {
     throw new Error(
@@ -158,7 +148,8 @@ export async function deployValidatedProject(opts: {
     );
   }
 
-  const files = prepareProductionFiles(opts.files);
+  const plan = productionPlanForStack(stackAdapter.id, opts.files);
+  const files = prepareProductionFiles(opts.files, stackAdapter.id);
   const artifactSha256 = generatedArtifactSha256(opts.files);
   const deployed = await deployProject({
     destination: "fly",
@@ -175,7 +166,7 @@ export async function deployValidatedProject(opts: {
 
   const liveUrl = requireVerifiedLiveUrl(deployed.url);
   const identity = await probeDeployUrl(
-    new URL("/.well-known/appforge-build.json", liveUrl).toString(),
+    new URL(plan.identityPath, liveUrl).toString(),
     15_000,
     true,
   );
@@ -192,6 +183,39 @@ export async function deployValidatedProject(opts: {
       `Production deployment artifact identity verification failed at ${liveUrl}`,
     );
   }
+  if (plan.verification === "http_health") {
+    // HTTP services have no UI to render; they are certified by their
+    // runtime-contract liveness/readiness endpoints instead.
+    if (plan.healthPaths.length === 0) {
+      throw new Error(
+        `Stack ${stackAdapter.id} has no health endpoints to verify`,
+      );
+    }
+    for (const healthPath of plan.healthPaths) {
+      const health = await probeDeployUrl(
+        new URL(healthPath, liveUrl).toString(),
+        15_000,
+      );
+      if (!health.ok) {
+        throw new Error(
+          `Production deployment failed service health verification at ${healthPath} (HTTP ${health.statusCode ?? "unreachable"}) at ${liveUrl}`,
+        );
+      }
+    }
+    return {
+      liveUrl,
+      snapshotId: opts.snapshot?.id,
+      artifactVersion: opts.snapshot?.version,
+      persistedArtifactSha256: opts.snapshot?.integrity.sha256,
+      artifactSha256,
+      httpVerified: true,
+      assetsVerified: 0,
+      browserVerified: false,
+      verification: plan.verification,
+      healthPathsVerified: plan.healthPaths,
+    };
+  }
+
   const smoke = await runPostDeploySmokeTest(liveUrl);
   if (!smoke.ok) {
     throw new Error(
@@ -218,5 +242,7 @@ export async function deployValidatedProject(opts: {
     httpVerified: true,
     assetsVerified: smoke.assets.length,
     browserVerified: true,
+    verification: plan.verification,
+    healthPathsVerified: [],
   };
 }
