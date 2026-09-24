@@ -1,5 +1,6 @@
 import { assertStackSupportsProduct, getStackAdapter } from "../lib/stackAdapters.js";
 import type { ProductType } from "../lib/productContract.js";
+import { getRuntimeArchitecture } from "../lib/runtimeArchitecture.js";
 import {
   ensureGeneratedProjectStructure,
   validateGeneratedProjectStructure,
@@ -49,6 +50,7 @@ function withStackMetadata(
       outputDirectory: adapter.outputDirectory,
       generationMode: adapter.generationMode,
     }),
+    "appforge.runtime.json": json(getRuntimeArchitecture(adapter.id)),
   };
 }
 
@@ -303,9 +305,18 @@ function nodeServiceShell(entry = "src/index.ts"): ScaffoldFiles {
     }),
     [entry]: `import express from "express";
 const app = express();
-app.get("/health", (_req,res) => res.json({ ok: true }));
+let ready = false;
+app.get("/health/live", (_req,res) => res.json({ ok: true }));
+app.get("/health/ready", (_req,res) => res.status(ready ? 200 : 503).json({ ok: ready }));
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log("listening on " + port));
+const server = app.listen(port, () => { ready = true; console.log("listening on " + port); });
+const shutdown = (signal: string) => {
+  ready = false;
+  server.close(() => { console.log("shutdown " + signal); process.exit(0); });
+  setTimeout(() => process.exit(1), 10000).unref();
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 `,
     ".env.example": "PORT=3000\n",
   };
@@ -316,7 +327,7 @@ function pythonServiceShell(): ScaffoldFiles {
     "requirements.txt": "fastapi>=0.116,<1\nuvicorn[standard]>=0.35,<1\n",
     "app/__init__.py": "",
     "app/main.py":
-      'from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/health")\ndef health():\n    return {"ok": True}\n',
+      'from contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nready = False\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global ready\n    ready = True\n    try:\n        yield\n    finally:\n        ready = False\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get("/health/live")\ndef live():\n    return {"ok": True}\n\n@app.get("/health/ready")\ndef readiness():\n    return {"ok": ready}\n',
     ".env.example": "PORT=8000\n",
   };
 }
@@ -551,9 +562,11 @@ export function validateStackScaffold(
   const stackMeta = scaffold["appforge.stack.json"];
   const previewMeta = scaffold["appforge.preview.json"];
   const deployMeta = scaffold["appforge.deploy.json"];
+  const runtimeMeta = scaffold["appforge.runtime.json"];
   if (!stackMeta) problems.push("missing appforge.stack.json");
   if (!previewMeta) problems.push("missing appforge.preview.json");
   if (!deployMeta) problems.push("missing appforge.deploy.json");
+  if (!runtimeMeta) problems.push("missing appforge.runtime.json");
 
   try {
     if (stackMeta) {
@@ -568,6 +581,13 @@ export function validateStackScaffold(
       const parsed = JSON.parse(previewMeta) as Record<string, unknown>;
       if (parsed.mode !== adapter.previewMode)
         problems.push("preview metadata mode mismatch");
+    }
+    if (runtimeMeta) {
+      const parsed = JSON.parse(runtimeMeta) as Record<string, unknown>;
+      const expected = getRuntimeArchitecture(adapter.id);
+      if (JSON.stringify(parsed) !== JSON.stringify(expected)) {
+        problems.push("runtime metadata mismatch");
+      }
     }
     if (deployMeta) {
       const parsed = JSON.parse(deployMeta) as {
