@@ -63,12 +63,13 @@ describe("autonomous self-healing recovery guardrails", () => {
     expect(healing).toContain("claimSeniorDevStart(taskId, userId)");
   });
 
-  it("deploys and live-verifies the repair before making its snapshot current", () => {
+  it("persists the repair snapshot before deploy and only makes it current after live verification", () => {
     const healing = source("src/agents/selfHealing.ts");
     expectInOrder(healing, [
       "hasEffectiveFileChange(baselineFiles, result.files)",
-      "await deployValidatedProject({",
       "await createBuildSnapshot({",
+      "await getSnapshotArtifact(",
+      "await deployValidatedProject({",
       "await markSnapshotAsCurrent(newSnapshotId, projectId)",
       'status: "completed"',
     ]);
