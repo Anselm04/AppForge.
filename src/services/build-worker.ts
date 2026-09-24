@@ -20,6 +20,8 @@ import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { deployValidatedProject } from "./productionAutoDeploy.js";
+import { buildDeploymentDecision } from "../lib/stackDeployment.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 import {
   productContractSchema,
@@ -345,10 +347,19 @@ export async function runBuildJob(input: unknown): Promise<void> {
             persistedArtifactSha256?: string;
             httpVerified: true;
             assetsVerified: number;
-            browserVerified: true;
+            browserVerified: boolean;
+            verification: string;
+            healthPathsVerified: string[];
           }
         | undefined;
-      if (process.env.NODE_ENV === "production") {
+      // Structural-only stacks finish as source deliverables: no deploy, no
+      // live URL, and the done event says so explicitly.
+      const deploymentDecision = buildDeploymentDecision(
+        techStack,
+        process.env.NODE_ENV,
+      );
+      const stackAdapter = getStackAdapter(techStack);
+      if (deploymentDecision.action === "deploy") {
         const artifact = await getCurrentArtifact(projectId);
         if (!artifact) {
           throw new Error(
@@ -372,8 +383,19 @@ export async function runBuildJob(input: unknown): Promise<void> {
           httpVerified: deployed.httpVerified,
           assetsVerified: deployed.assetsVerified,
           browserVerified: deployed.browserVerified,
+          verification: deployed.verification,
+          healthPathsVerified: deployed.healthPathsVerified,
         };
       }
+      const stackDelivery = {
+        stack: stackAdapter.id,
+        structuralOnly: stackAdapter.generationMode === "structural",
+        deployment: liveUrl
+          ? "deployed"
+          : deploymentDecision.action === "skip"
+            ? deploymentDecision.deployment
+            : "not_deployed",
+      };
 
       await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
       await recordBuildOutcome(userId, true, BUILD_CREDIT_COST);
@@ -389,12 +411,14 @@ export async function runBuildJob(input: unknown): Promise<void> {
               ...(pendingDone as Record<string, unknown>),
               liveUrl,
               productionCertification,
+              ...stackDelivery,
             }
           : {
               projectId,
               creditsSpent: BUILD_CREDIT_COST,
               liveUrl,
               productionCertification,
+              ...stackDelivery,
             };
       await emit(projectId, "done", donePayload);
     } else {
