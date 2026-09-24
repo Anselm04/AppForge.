@@ -201,3 +201,71 @@ export function runtimeArchitectureInstruction(stackId: string): string {
     "[END APPFORGE STACK RUNTIME CONTRACT]",
   ].join("\n");
 }
+
+
+export function validateRuntimeImplementation(
+  files: Record<string, string>,
+  stackId: string,
+): string[] {
+  const runtime = getRuntimeArchitecture(stackId);
+  const problems: string[] = [];
+  const combined = Object.values(files).join("\n");
+
+  if (runtime.health.mode === "http") {
+    if (
+      runtime.health.livenessPath &&
+      !combined.includes(runtime.health.livenessPath)
+    ) {
+      problems.push(
+        "missing runtime liveness endpoint " + runtime.health.livenessPath,
+      );
+    }
+    if (
+      runtime.health.readinessPath &&
+      !combined.includes(runtime.health.readinessPath)
+    ) {
+      problems.push(
+        "missing runtime readiness endpoint " + runtime.health.readinessPath,
+      );
+    }
+  }
+
+  if (
+    runtime.port.mode === "environment" &&
+    runtime.port.environmentVariable &&
+    !new RegExp(
+      "(?:process\\.env\\.|os\\.(?:environ|getenv)|env\\[|PORT)",
+      "i",
+    ).test(combined)
+  ) {
+    problems.push(
+      "runtime must read port from " + runtime.port.environmentVariable,
+    );
+  }
+
+  if (runtime.shutdown.mode === "signals" && runtime.runtime === "node") {
+    for (const signal of runtime.shutdown.signals) {
+      if (!combined.includes(signal)) {
+        problems.push("missing graceful shutdown handler for " + signal);
+      }
+    }
+    if (!/\.close\s*\(/.test(combined)) {
+      problems.push("node service must close its server during shutdown");
+    }
+  }
+
+  if (runtime.persistence.isolateFromAppForge) {
+    const forbidden = [
+      "APPFORGE_DATABASE_URL",
+      "APPFORGE_SUPABASE_SERVICE_ROLE_KEY",
+      "appforge production database",
+    ];
+    for (const token of forbidden) {
+      if (combined.toLowerCase().includes(token.toLowerCase())) {
+        problems.push("runtime persistence references AppForge production data");
+      }
+    }
+  }
+
+  return [...new Set(problems)];
+}
