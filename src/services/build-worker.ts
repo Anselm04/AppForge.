@@ -2,6 +2,7 @@ import { runAgentPipeline } from "../agents/pipeline.js";
 import { resolveBuildTimeoutMs } from "../lib/neverGiveUp.js";
 import {
   addCredits,
+  getCurrentArtifact,
   getProjectById,
   resumeProject,
   updateProjectCreditsSpent,
@@ -254,17 +255,16 @@ export async function runBuildJob(input: BuildJob): Promise<void> {
           }
         | undefined;
       if (process.env.NODE_ENV === "production") {
-        const files =
-          (updated.generatedFiles as Record<string, string> | null) ?? {};
-        if (Object.keys(files).length === 0) {
+        const artifact = await getCurrentArtifact(projectId);
+        if (!artifact) {
           throw new Error(
-            "Validated build has no generated files available for production deployment",
+            "Validated build has no current snapshot available for production deployment",
           );
         }
         const deployed = await deployValidatedProjectWithRetry({
           projectId,
           projectName: updated.title || `appforge-${projectId}`,
-          files,
+          files: artifact.files,
           productContract: queuedContract,
         });
         liveUrl = deployed.liveUrl;
