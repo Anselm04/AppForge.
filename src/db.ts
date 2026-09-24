@@ -11,6 +11,12 @@ import {
   type ProductContract,
 } from "./lib/productContract.js";
 import {
+  assertArtifactIntegrity,
+  buildArtifactIntegrity,
+  validateArtifactFiles,
+  type ArtifactIntegrity,
+} from "./lib/artifactIntegrity.js";
+import {
   assertMustHaveRequirementsResolved,
   validateRequirementManifest,
   type RequirementManifest,
@@ -305,13 +311,36 @@ export async function updateProjectFiles(
   id: number,
   files: Record<string, string>,
 ) {
-  await db
-    .update(schema.projects)
-    .set({
-      generatedFiles: files,
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.projects.id, id));
+  const normalized = validateArtifactFiles(files);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${id})`);
+    const rows = await tx
+      .select({
+        workingArtifactVersion: schema.projects.workingArtifactVersion,
+      })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, id))
+      .limit(1);
+    const project = rows[0];
+    if (!project) throw new Error("Project not found for working artifact");
+    const artifactVersion = (project.workingArtifactVersion ?? 0) + 1;
+    const integrity = buildArtifactIntegrity({
+      projectId: id,
+      artifactVersion,
+      state: "working",
+      files: normalized,
+    });
+    await tx
+      .update(schema.projects)
+      .set({
+        generatedFiles: normalized,
+        workingArtifactVersion: artifactVersion,
+        workingArtifactIntegrity: integrity,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, id));
+    return integrity;
+  });
 }
 
 export async function updateProjectRequirementManifest(
@@ -875,9 +904,26 @@ export async function createBuildSnapshot(data: {
   const requirementManifest = assertMustHaveRequirementsResolved(
     data.requirementManifest,
   );
+  const files = validateArtifactFiles(data.files);
+  if (data.fileCount !== Object.keys(files).length) {
+    throw new Error("Snapshot fileCount does not match persisted artifact files");
+  }
+  const artifactIntegrity = buildArtifactIntegrity({
+    projectId: data.projectId,
+    artifactVersion: data.version,
+    state: "final",
+    files,
+  });
   const result = await db
     .insert(schema.buildSnapshots)
-    .values({ ...data, requirementManifest })
+    .values({
+      ...data,
+      files,
+      fileCount: artifactIntegrity.fileCount,
+      requirementManifest,
+      artifactIntegrity,
+      isCurrent: false,
+    })
     .returning({ id: schema.buildSnapshots.id });
   return result[0].id;
 }
@@ -905,17 +951,41 @@ export async function getCurrentSnapshot(projectId: number) {
   });
 }
 
-/** Latest build files: prefer current snapshot, fall back to project.generatedFiles */
+/** Deployment/preview files must come only from the validated current snapshot. */
 export async function getProjectFiles(
   projectId: number,
 ): Promise<Record<string, string>> {
   const snapshot = await getCurrentSnapshot(projectId);
-  const fromSnapshot = snapshot?.files as Record<string, string> | undefined;
-  if (fromSnapshot && Object.keys(fromSnapshot).length > 0) {
-    return fromSnapshot;
-  }
+  if (!snapshot) return {};
+  const files = validateArtifactFiles(
+    (snapshot.files as Record<string, string> | null) ?? {},
+  );
+  assertArtifactIntegrity({
+    files,
+    integrity: snapshot.artifactIntegrity,
+    projectId,
+    artifactVersion: snapshot.version,
+    requiredState: "final",
+  });
+  return files;
+}
+
+export async function getWorkingProjectFiles(
+  projectId: number,
+): Promise<Record<string, string>> {
   const project = await getProjectById(projectId);
-  return (project?.generatedFiles as Record<string, string> | null) ?? {};
+  if (!project?.generatedFiles) return {};
+  const files = validateArtifactFiles(
+    project.generatedFiles as Record<string, string>,
+  );
+  assertArtifactIntegrity({
+    files,
+    integrity: project.workingArtifactIntegrity,
+    projectId,
+    artifactVersion: project.workingArtifactVersion ?? 0,
+    requiredState: "working",
+  });
+  return files;
 }
 
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
@@ -923,7 +993,9 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
     const snapshots = await tx
       .select({
         id: schema.buildSnapshots.id,
+        version: schema.buildSnapshots.version,
         files: schema.buildSnapshots.files,
+        artifactIntegrity: schema.buildSnapshots.artifactIntegrity,
         requirementManifest: schema.buildSnapshots.requirementManifest,
       })
       .from(schema.buildSnapshots)
@@ -941,6 +1013,16 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
     const requirementManifest = assertMustHaveRequirementsResolved(
       snapshot.requirementManifest,
     );
+    const files = validateArtifactFiles(
+      snapshot.files as Record<string, string>,
+    );
+    assertArtifactIntegrity({
+      files,
+      integrity: snapshot.artifactIntegrity,
+      projectId,
+      artifactVersion: snapshot.version,
+      requiredState: "final",
+    });
 
     await tx
       .update(schema.buildSnapshots)
@@ -954,6 +1036,13 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .update(schema.projects)
       .set({
         generatedFiles: snapshot.files,
+        workingArtifactVersion: snapshot.version,
+        workingArtifactIntegrity: buildArtifactIntegrity({
+          projectId,
+          artifactVersion: snapshot.version,
+          state: "working",
+          files,
+        }),
         requirementManifest,
         status: "completed",
         updatedAt: new Date(),
