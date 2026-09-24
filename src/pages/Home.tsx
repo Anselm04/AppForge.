@@ -11,6 +11,10 @@ import {
   refreshSession,
 } from "../lib/auth.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
+import type {
+  ClarificationRequest,
+  ProductType,
+} from "../lib/productContract.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import {
@@ -18,7 +22,6 @@ import {
   readPromptDraft,
   writePromptDraft,
 } from "../lib/promptDraft.js";
-import { PRODUCTION_READY_STACK } from "../lib/productionPreset.js";
 import {
   detectIncomeIntent,
   suggestCapabilitiesForIncome,
@@ -68,13 +71,16 @@ const TECH_STACKS = [
   "serverless-vercel",
 ] as const;
 
-const INTERNAL_DEFAULT_STACK: (typeof TECH_STACKS)[number] =
-  PRODUCTION_READY_STACK;
+// Home never picks a stack. projects.create derives it from the canonical
+// product contract (game -> Phaser, mobile -> Expo, API -> service, ...), so
+// sending a fixed web stack here would reject or mis-build non-web products.
 
 export function Home() {
   const [description, setDescription] = useState(() => readPromptDraft());
   const [isBuilding, setIsBuilding] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [clarification, setClarification] =
+    useState<ClarificationRequest | null>(null);
   const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
   const [buildCapabilities, setBuildCapabilities] = useState<
     BuildCapabilityId[]
@@ -98,6 +104,8 @@ export function Home() {
 
   useEffect(() => {
     writePromptDraft(description);
+    // A clarification belongs to the prompt it was asked about.
+    setClarification(null);
   }, [description]);
 
   useEffect(() => {
@@ -106,22 +114,29 @@ export function Home() {
   }, [description]);
 
   const createProjectMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (productType?: ProductType) =>
       trpc.projects.create.mutate({
         title: description.slice(0, 60) || "Untitled App",
         description,
-        techStack: INTERNAL_DEFAULT_STACK,
+        productType,
         hcaptchaToken: hcaptchaToken ?? undefined,
         locale,
         buildCapabilities:
           buildCapabilities.length > 0 ? buildCapabilities : undefined,
       }),
     onSuccess: (data) => {
+      if (data.status === "clarification_required") {
+        // Nothing was created or charged; ask the structured question.
+        writePromptDraft(description);
+        setClarification(data.clarification);
+        return;
+      }
+      setClarification(null);
       clearPromptDraft();
       setIsBuilding(true);
       navigate(`/build/${data.id}`);
     },
-    onError: async (error) => {
+    onError: async (error, productType) => {
       const message = error instanceof Error ? error.message : String(error);
       const code =
         (
@@ -139,7 +154,7 @@ export function Home() {
           retriedAuth.current = true;
           const refreshed = await refreshSession();
           if (refreshed) {
-            createProjectMutation.mutate();
+            createProjectMutation.mutate(productType);
             return;
           }
         }
@@ -161,8 +176,7 @@ export function Home() {
     creditBalance < BUILD_CREDIT_COST;
   const overLimit = description.length > PROMPT_MAX_CHARS;
 
-  const handleStartBuild = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const startBuild = async (productType?: ProductType) => {
     setFormError(null);
 
     if (!description.trim() || overLimit) return;
@@ -174,7 +188,12 @@ export function Home() {
       return;
     }
 
-    createProjectMutation.mutate();
+    createProjectMutation.mutate(productType);
+  };
+
+  const handleStartBuild = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await startBuild();
   };
 
   const generateDisabled =
@@ -222,20 +241,20 @@ export function Home() {
                       credits: tierStatus.credits ?? 0,
                     })
                   : tierStatus.tier === "starter"
-                  ? t("home.planStarter", {
-                      remaining: tierStatus.remaining ?? 0,
-                      credits: tierStatus.credits ?? 0,
-                    })
-                  : tierStatus.tier === "builder"
-                    ? t("home.planBuilder", {
+                    ? t("home.planStarter", {
                         remaining: tierStatus.remaining ?? 0,
                         credits: tierStatus.credits ?? 0,
                       })
-                    : tierStatus.tier === "studio"
-                      ? t("home.planStudio", {
+                    : tierStatus.tier === "builder"
+                      ? t("home.planBuilder", {
+                          remaining: tierStatus.remaining ?? 0,
                           credits: tierStatus.credits ?? 0,
                         })
-                      : t("home.planEnterprise")}
+                      : tierStatus.tier === "studio"
+                        ? t("home.planStudio", {
+                            credits: tierStatus.credits ?? 0,
+                          })
+                        : t("home.planEnterprise")}
             </p>
             {!tierStatus.unlimited && tierStatus.tier === "free" && (
               <a
@@ -283,6 +302,44 @@ export function Home() {
             </div>
 
             <HcaptchaWidget onToken={setHcaptchaToken} />
+
+            {clarification && (
+              <div
+                role="group"
+                aria-labelledby="home-clarification-question"
+                data-testid="home-clarification"
+                className="rounded-2xl border border-forge-border bg-forge-bg p-4 space-y-3"
+              >
+                {clarification.questions.map((question) => (
+                  <div key={question.id} className="space-y-2">
+                    <p
+                      id="home-clarification-question"
+                      className="text-sm font-semibold text-forge-text-primary"
+                    >
+                      {question.question}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {question.choices.map((choice) => (
+                        <button
+                          key={choice.value}
+                          type="button"
+                          title={choice.description}
+                          disabled={createProjectMutation.isPending}
+                          data-testid={`home-clarification-choice-${choice.value}`}
+                          onClick={() => {
+                            setClarification(null);
+                            void startBuild(choice.value);
+                          }}
+                          className="px-3 py-1.5 text-sm rounded-full border border-forge-border text-forge-text-primary hover:border-[color:var(--forge-focus)] disabled:opacity-50"
+                        >
+                          {choice.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {(formError || createProjectMutation.isError) && (
               <p className="text-sm text-amber-700 dark:text-amber-300">

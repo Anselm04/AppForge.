@@ -47,6 +47,10 @@ For privileged accounts:
 
 Production deployment to Fly.io is manual. A green `CI Pipeline` run on `main` does not deploy anything. The owner starts `Deploy Production` explicitly from GitHub Actions (`workflow_dispatch` on `main`). That workflow re-validates the exact current `main` SHA (lint, typecheck, tests, e2e, build) and refuses stale SHAs before any Fly step runs. During an incident, simply not dispatching the workflow keeps production on the last released version; no workflow edits are needed to pause releases.
 
+### Project intake kill switch
+
+`projects.create` and `POST /api/generate` build every product contract deterministically from the user's prompt. When a model provider is configured, an optional enrichment step can only add schema-valid items to that contract. If enrichment ever misbehaves during an incident, set `APPFORGE_CONTRACT_LLM_ENRICHMENT=off` in the runtime environment. Intake then uses only the deterministic prompt-specific contract, with no redeploy of code needed. Prompts that cannot be classified return a structured clarification (question plus choices) instead of creating or charging a project.
+
 ## Emergency decision tree
 
 ### Case A: Daily device is lost or unavailable
