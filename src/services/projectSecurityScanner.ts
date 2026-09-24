@@ -201,7 +201,7 @@ const RULES: SecurityRule[] = [
     message:
       "Generated code appears to log a secret-bearing environment variable.",
     pattern:
-      /console\.(?:log|info|warn|error)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL))|process\.env\[[\"'][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL)[\"']\])/i,
+      /console\.(?:log|info|warn|error)\s*\([^\n;]*(?:process\.env\.(?:[A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL))|process\.env\[["'][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL)["']\])/i,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
   },
 ];
@@ -479,7 +479,7 @@ export function validateGeneratedSecurityPosture(
 
   if (
     capabilities.has("administration") &&
-    !/(?:requireAdmin|isAdmin|role\s*===\s*[\"']admin[\"']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin)/i.test(
+    !/(?:requireAdmin|isAdmin|role\s*===\s*["']admin["']|hasRole\s*\([^)]*admin|adminOnly|authorize\s*\([^)]*admin)/i.test(
       source,
     )
   ) {
