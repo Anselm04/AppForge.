@@ -225,7 +225,7 @@ describe("critical customer flow contract", () => {
     expectInOrder(pipeline, [
       "validationResult = await validateGeneratedBuild(",
       "if (!validationResult?.passed) {",
-      'await updateProjectStatus(projectId, "completed");',
+      "const finalizedSnapshot = await createAndActivateBuildSnapshot({",
       'write("done", {',
     ]);
   });
@@ -247,7 +247,7 @@ describe("critical customer flow contract", () => {
       "attachGeneratedTests(",
       "validateGeneratedBuild(",
       "testsBlocking,",
-      'await updateProjectStatus(projectId, "completed");',
+      "const finalizedSnapshot = await createAndActivateBuildSnapshot({",
     ]);
   });
 
