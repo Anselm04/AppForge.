@@ -302,25 +302,13 @@ async function createAutonomousFixTask(
     result.files["appforge.requirements.json"] =
       serializeRequirementManifest(requirementManifest);
 
-    // Reuse the exact production deployment + live smoke gate used by normal
-    // validated builds. Do not call a database-only repair "healed".
-    const deployment = await deployValidatedProject({
-      projectId,
-      projectName: project.title ?? `appforge-${projectId}`,
-      files: result.files,
-      productContract: project.productContract,
-    });
-
-    requirementManifest = markRequirementDeployment(requirementManifest, {
-      destination: "fly",
-      url: deployment.liveUrl,
-      verified: true,
-    });
-    result.files["appforge.requirements.json"] =
-      serializeRequirementManifest(requirementManifest);
-
-    const { getNextVersion, createBuildSnapshot, markSnapshotAsCurrent } =
-      await import("../db.js");
+    const {
+      createBuildSnapshot,
+      getNextVersion,
+      getSnapshotArtifact,
+      markSnapshotAsCurrent,
+      persistRequirementDeploymentEvidence,
+    } = await import("../db.js");
     const newVersion = await getNextVersion(projectId);
     const newSnapshotId = await createBuildSnapshot({
       projectId,
@@ -335,7 +323,31 @@ async function createAutonomousFixTask(
       costEstimate: null,
       requirementManifest,
     });
+    const persistedArtifact = await getSnapshotArtifact(
+      newSnapshotId,
+      projectId,
+    );
+    if (!persistedArtifact) {
+      throw new Error("Persisted self-healing artifact could not be reloaded");
+    }
+
+    // Deploy the exact immutable snapshot bytes that may become current.
+    const deployment = await deployValidatedProject({
+      projectId,
+      projectName: project.title ?? `appforge-${projectId}`,
+      files: persistedArtifact.files,
+      productContract: project.productContract,
+    });
+
     await markSnapshotAsCurrent(newSnapshotId, projectId);
+    requirementManifest = markRequirementDeployment(requirementManifest, {
+      destination: "fly",
+      url: deployment.liveUrl,
+      verified: true,
+    });
+    result.files["appforge.requirements.json"] =
+      serializeRequirementManifest(requirementManifest);
+    await persistRequirementDeploymentEvidence(projectId, requirementManifest);
 
     const summary = `${result.summary}\n\nProduction recovery deployed and live-verified at ${deployment.liveUrl}`;
     const { updateProjectFiles, updateProjectRequirementManifest } =
