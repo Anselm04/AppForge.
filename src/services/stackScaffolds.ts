@@ -202,6 +202,9 @@ function phaserShell(title = "Game"): ScaffoldFiles {
       },
       include: ["src"],
     }),
+    "vite.config.ts": `import { defineConfig } from "vite";
+export default defineConfig({});
+`,
     "index.html": `<!doctype html><html><body><main id="game"></main><script type="module" src="/src/main.ts"></script></body></html>`,
     "src/main.ts": `import Phaser from "phaser";
 class MainScene extends Phaser.Scene {
@@ -245,6 +248,9 @@ function threeShell(title = "3D Experience"): ScaffoldFiles {
       },
       include: ["src"],
     }),
+    "vite.config.ts": `import { defineConfig } from "vite";
+export default defineConfig({});
+`,
     "index.html":
       '<!doctype html><html><body><canvas id="app"></canvas><script type="module" src="/src/main.ts"></script></body></html>',
     "src/main.ts": `import * as THREE from "three";
