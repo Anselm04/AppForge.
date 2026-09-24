@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   MAX_ARTIFACT_FILE_BYTES,
@@ -195,7 +196,6 @@ describe("artifact persistence integrity", () => {
 
 describe("artifact snapshot database invariants", () => {
   it("runtime schema enforces one current snapshot and unique versions per project", () => {
-    const { readFileSync } = require("node:fs");
     const schema = readFileSync("src/db/ensureSchema.ts", "utf8");
     const migration = readFileSync(
       "drizzle/0002_artifact_persistence.sql",
