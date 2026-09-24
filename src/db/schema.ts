@@ -15,6 +15,7 @@ import type { ProductContract } from "../lib/productContract.js";
 import type { ResearchRecord } from "../lib/researchRecord.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { AgentCoordinationRecord } from "../lib/agentCoordination.js";
+import type { RequirementManifest } from "../lib/requirementManifest.js";
 
 // ── USERS ──
 export const users = pgTable("users", {
@@ -123,6 +124,7 @@ export const projects = pgTable(
     researchRecord: jsonb("research_record").$type<ResearchRecord>(),
     productPlan: jsonb("product_plan").$type<ProductPlan>(),
     agentCoordination: jsonb("agent_coordination").$type<AgentCoordinationRecord>(),
+    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -525,6 +527,7 @@ export const buildSnapshots = pgTable(
     validationResult: jsonb("validation_result"),
     auditScores: jsonb("audit_scores"),
     costEstimate: jsonb("cost_estimate"),
+    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
     isCurrent: boolean("is_current").default(true),
     createdAt: timestamp("created_at").defaultNow(),
   },
