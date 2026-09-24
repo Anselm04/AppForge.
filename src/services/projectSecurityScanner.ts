@@ -804,16 +804,15 @@ export function validateGeneratedSecurityPosture(
     /(?:tools\s*:|toolDefinitions|executeTool|functionCalling|tool_calls|invoke_tool|execute_tool)/i.test(
       source,
     );
-  if (
-    aiToolSurface &&
-    !/(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|permission|allowed_tools|requires_approval|human_approval)/i.test(
+  const aiToolPermissionEvidence =
+    /(?:allowedTools|toolAllowlist|toolPermissions|requiresApproval|humanApproval|authorizeTool|canExecuteTool|isToolAllowed|allowed_tools|requires_approval|human_approval|authorize_tool|can_execute_tool|is_tool_allowed)/i.test(
       source,
-    )
-  ) {
+    );
+  if (aiToolSurface && !aiToolPermissionEvidence) {
     add(
       "ai.unrestricted-tools",
-      "Generated AI tools must use explicit permissions/allowlists or human approval boundaries.",
-      "AI tool execution detected without a permission boundary.",
+      "Generated AI tools must use explicit tool allowlists, authorization checks, or human approval boundaries.",
+      "AI tool execution detected without explicit tool-specific authorization or approval evidence.",
     );
   }
 
