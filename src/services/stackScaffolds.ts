@@ -606,6 +606,42 @@ export function validateStackScaffold(
   return [...new Set(problems)];
 }
 
+function mergePackageManifest(
+  scaffoldPackage: string,
+  generatedPackage: string,
+): string {
+  try {
+    const base = JSON.parse(scaffoldPackage) as Record<string, unknown>;
+    const current = JSON.parse(generatedPackage) as Record<string, unknown>;
+    const mergeRecord = (
+      baseValue: unknown,
+      currentValue: unknown,
+    ): Record<string, unknown> => ({
+      ...((baseValue && typeof baseValue === "object" && !Array.isArray(baseValue)
+        ? baseValue
+        : {}) as Record<string, unknown>),
+      ...((currentValue &&
+      typeof currentValue === "object" &&
+      !Array.isArray(currentValue)
+        ? currentValue
+        : {}) as Record<string, unknown>),
+    });
+
+    return json({
+      ...base,
+      ...current,
+      scripts: mergeRecord(base.scripts, current.scripts),
+      dependencies: mergeRecord(base.dependencies, current.dependencies),
+      devDependencies: mergeRecord(
+        base.devDependencies,
+        current.devDependencies,
+      ),
+    });
+  } catch {
+    return generatedPackage;
+  }
+}
+
 export function mergeScaffoldWithGenerated(
   scaffold: ScaffoldFiles,
   generated: ScaffoldFiles,
@@ -614,6 +650,13 @@ export function mergeScaffoldWithGenerated(
   const out: ScaffoldFiles = { ...generated };
 
   for (const [filePath, content] of Object.entries(scaffold)) {
+    if (
+      filePath === "package.json" &&
+      typeof generated[filePath] === "string"
+    ) {
+      out[filePath] = mergePackageManifest(content, generated[filePath]);
+      continue;
+    }
     if (filePath in generated) continue;
     if (techStack && isProductImplementationPath(techStack, filePath)) {
       continue;
