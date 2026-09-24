@@ -7,9 +7,16 @@ import {
   type ProductContract,
 } from "../lib/productContract.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
+import {
+  assertArtifactIntegrity,
+  type ArtifactIntegrity,
+} from "../lib/artifactIntegrity.js";
 
 export type ProductionCertification = {
   liveUrl: string;
+  snapshotId?: number;
+  artifactVersion?: number;
+  persistedArtifactSha256?: string;
   artifactSha256: string;
   httpVerified: true;
   assetsVerified: number;
@@ -87,8 +94,22 @@ export async function deployValidatedProject(opts: {
   projectName: string;
   files: Record<string, string>;
   productContract: ProductContract;
+  snapshot?: {
+    id: number;
+    version: number;
+    integrity: ArtifactIntegrity;
+  };
 }): Promise<ProductionCertification> {
   const contract = validateProductContract(opts.productContract);
+  if (opts.snapshot) {
+    assertArtifactIntegrity({
+      files: opts.files,
+      integrity: opts.snapshot.integrity,
+      projectId: opts.projectId,
+      artifactVersion: opts.snapshot.version,
+      requiredState: "final",
+    });
+  }
   const stackAdapter = getStackAdapter(contract.selectedTechnologyStack);
   if (stackAdapter.generationMode === "structural") {
     throw new Error(
@@ -160,6 +181,9 @@ export async function deployValidatedProject(opts: {
 
   return {
     liveUrl,
+    snapshotId: opts.snapshot?.id,
+    artifactVersion: opts.snapshot?.version,
+    persistedArtifactSha256: opts.snapshot?.integrity.sha256,
     artifactSha256,
     httpVerified: true,
     assetsVerified: smoke.assets.length,
