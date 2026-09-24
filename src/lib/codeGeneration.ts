@@ -1,4 +1,5 @@
 import { getStackAdapter } from "./stackAdapters.js";
+import { getRuntimeArchitecture, validateRuntimeImplementation } from "./runtimeArchitecture.js";
 import {
   ensureGeneratedProjectStructure,
   validateGeneratedProjectStructure,
@@ -92,6 +93,7 @@ export function coderTaskInstruction(input: {
 }): string {
   const { contract, plan, task } = input;
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
+  const runtime = getRuntimeArchitecture(adapter.id);
   const taskRequirements = contract.functionalRequirements.filter((requirement) =>
     task.requirementIds.includes(requirement.id),
   );
@@ -136,6 +138,9 @@ export function coderTaskInstruction(input: {
     `Product type: ${contract.productType}`,
     `Selected stack: ${adapter.id} (${adapter.label})`,
     `Runtime: ${adapter.runtime}`,
+    `Runtime health: ${runtime.health.mode}${runtime.health.livenessPath ? " " + runtime.health.livenessPath : ""}${runtime.health.readinessPath ? " " + runtime.health.readinessPath : ""}`,
+    `Runtime port: ${runtime.port.mode}${runtime.port.environmentVariable ? " via " + runtime.port.environmentVariable : ""}`,
+    `Runtime shutdown: ${runtime.shutdown.mode}${runtime.shutdown.signals.length ? " " + runtime.shutdown.signals.join(",") : ""}`,
     `Runtime entrypoints: ${adapter.entrypoints.join(", ")}`,
     `Environment files: ${adapter.environmentFiles.join(", ") || "none"}`,
     `Task ID: ${task.id}`,
@@ -415,6 +420,12 @@ export function validateGeneratedCodeArtifact(input: {
   problems.push(...stackProblems);
   problems.push(
     ...validateGeneratedProjectStructure(
+      input.files,
+      input.contract.selectedTechnologyStack,
+    ),
+  );
+  problems.push(
+    ...validateRuntimeImplementation(
       input.files,
       input.contract.selectedTechnologyStack,
     ),
