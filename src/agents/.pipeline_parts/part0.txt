@@ -83,6 +83,10 @@ import {
   type ProductPlanTask,
 } from "../lib/productPlan.js";
 import {
+  assertProductComplete,
+  attachCompletenessEvidence,
+} from "../lib/incompleteProduct.js";
+import {
   coderTaskInstruction,
   ensureCodeGenerationSupportFiles,
   validateCoderOwnedArtifact,
