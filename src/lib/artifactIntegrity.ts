@@ -11,6 +11,11 @@ export type ArtifactFileIntegrity = {
   path: string;
   sha256: string;
   bytes: number;
+  /**
+   * Monotonic version for this path. Legacy persisted integrity rows may omit
+   * this field; new writes always populate it.
+   */
+  fileVersion?: number;
 };
 
 export type ArtifactIntegrity = {
@@ -108,6 +113,7 @@ export function buildArtifactIntegrity(input: {
   artifactVersion: number;
   state: ArtifactState;
   files: Record<string, string>;
+  previousIntegrity?: ArtifactIntegrity | null;
   now?: string;
 }): ArtifactIntegrity {
   if (!Number.isInteger(input.projectId) || input.projectId <= 0) {
@@ -117,17 +123,35 @@ export function buildArtifactIntegrity(input: {
     throw new Error("Artifact version must be a positive integer");
   }
   const files = validateArtifactFiles(input.files);
+  const previousByPath = new Map(
+    (input.previousIntegrity?.files ?? []).map((entry) => [entry.path, entry]),
+  );
   const fileIntegrity = Object.keys(files)
     .sort()
-    .map((path) => ({
-      path,
-      sha256: fileSha(path, files[path]),
-      bytes: byteLength(files[path]),
-    }));
+    .map((path) => {
+      const sha256 = fileSha(path, files[path]);
+      const previous = previousByPath.get(path);
+      const previousVersion =
+        previous?.fileVersion ??
+        (previous ? input.previousIntegrity?.artifactVersion ?? 0 : 0);
+      const fileVersion =
+        previous && previous.sha256 === sha256
+          ? Math.max(1, previousVersion)
+          : Math.max(1, previousVersion + 1);
+      return {
+        path,
+        sha256,
+        bytes: byteLength(files[path]),
+        fileVersion,
+      };
+    });
   const sha256 = createHash("sha256")
     .update(
       fileIntegrity
-        .map((entry) => `${entry.path}\0${entry.sha256}\0${entry.bytes}\0`)
+        .map(
+          (entry) =>
+            `${entry.path}\0${entry.sha256}\0${entry.bytes}\0${entry.fileVersion}\0`,
+        )
         .join(""),
     )
     .digest("hex");
@@ -169,19 +193,57 @@ export function assertArtifactIntegrity(input: {
     );
   }
 
-  const rebuilt = buildArtifactIntegrity({
-    projectId: input.projectId,
-    artifactVersion: input.artifactVersion,
-    state: integrity.state,
-    files: input.files,
-    now: integrity.createdAt,
-  });
+  const files = validateArtifactFiles(input.files);
+  const expectedPaths = Object.keys(files).sort();
+  const persistedFiles = [...(integrity.files ?? [])].sort((a, b) =>
+    a.path.localeCompare(b.path),
+  );
   if (
-    rebuilt.sha256 !== integrity.sha256 ||
-    rebuilt.fileCount !== integrity.fileCount ||
-    rebuilt.totalBytes !== integrity.totalBytes ||
-    JSON.stringify(rebuilt.files) !== JSON.stringify(integrity.files)
+    integrity.fileCount !== expectedPaths.length ||
+    persistedFiles.length !== expectedPaths.length
   ) {
+    throw new Error("Artifact integrity verification failed");
+  }
+
+  for (let index = 0; index < expectedPaths.length; index += 1) {
+    const path = expectedPaths[index];
+    const persisted = persistedFiles[index];
+    if (
+      !persisted ||
+      persisted.path !== path ||
+      persisted.sha256 !== fileSha(path, files[path]) ||
+      persisted.bytes !== byteLength(files[path])
+    ) {
+      throw new Error("Artifact integrity verification failed");
+    }
+    if (
+      persisted.fileVersion !== undefined &&
+      (!Number.isInteger(persisted.fileVersion) || persisted.fileVersion <= 0)
+    ) {
+      throw new Error("Artifact file version metadata is invalid");
+    }
+  }
+
+  const totalBytes = persistedFiles.reduce((sum, file) => sum + file.bytes, 0);
+  if (integrity.totalBytes !== totalBytes) {
+    throw new Error("Artifact integrity verification failed");
+  }
+
+  const versioned = persistedFiles.every(
+    (file) => typeof file.fileVersion === "number",
+  );
+  const aggregate = createHash("sha256")
+    .update(
+      persistedFiles
+        .map((entry) =>
+          versioned
+            ? `${entry.path}\0${entry.sha256}\0${entry.bytes}\0${entry.fileVersion}\0`
+            : `${entry.path}\0${entry.sha256}\0${entry.bytes}\0`,
+        )
+        .join(""),
+    )
+    .digest("hex");
+  if (aggregate !== integrity.sha256) {
     throw new Error("Artifact integrity verification failed");
   }
   return integrity;
