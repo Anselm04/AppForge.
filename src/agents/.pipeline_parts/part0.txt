@@ -30,7 +30,10 @@ import { runResearchAgent } from "./researchAgent.js";
 import { attachGeneratedTests } from "./testingAgent.js";
 import { plannerLocaleHint } from "../lib/localePlanner.js";
 import { detectIncomeIntent } from "../lib/revenueReadiness.js";
-import { mergeBillingScaffold } from "../services/saasBillingScaffold.js";
+import {
+  billingScaffoldSupported,
+  mergeBillingScaffold,
+} from "../services/saasBillingScaffold.js";
 import {
   appliesGoldenWebLimits,
   complianceScaffoldingAllowed,
