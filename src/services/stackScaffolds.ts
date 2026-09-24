@@ -105,8 +105,7 @@ import { App } from "./App";
 const root = document.getElementById("root");
 if (root) createRoot(root).render(<React.StrictMode><App /></React.StrictMode>);
 `,
-    "src/App.tsx": `export function App(){return <main><h1>${title}</h1></main>;}
-`,
+    "src/App.tsx": "export function App(){return null;}\n",
     ".env.example": "",
     ".gitignore": "node_modules\ndist\n.env\n",
   };
@@ -125,8 +124,7 @@ function staticShell(title = "Website"): ScaffoldFiles {
       devDependencies: { serve: "^14.2.4" },
     }),
     "index.html": `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><main id="app"></main><script type="module" src="/assets/main.js"></script></body></html>`,
-    "assets/main.js":
-      'document.querySelector("#app").textContent = "AppForge static site";\n',
+    "assets/main.js": 'document.querySelector("#app");\n',
     "assets/styles.css": "",
     ".gitignore": "node_modules\ndist\n",
   };
@@ -167,7 +165,7 @@ function nextShell(title = "Application"): ScaffoldFiles {
     }),
     "app/layout.tsx":
       'export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}\n',
-    "app/page.tsx": `export default function Page(){return <main><h1>${title}</h1></main>}\n`,
+    "app/page.tsx": "export default function Page(){return null;}\n",
     ".env.example": "",
   };
 }
@@ -203,7 +201,7 @@ function phaserShell(title = "Game"): ScaffoldFiles {
     "src/main.ts": `import Phaser from "phaser";
 class MainScene extends Phaser.Scene {
   constructor(){ super("main"); }
-  create(){ this.add.text(24,24,"${title}"); }
+  create(){}
 }
 new Phaser.Game({ type: Phaser.AUTO, parent: "game", width: 960, height: 540, scene: [MainScene] });
 `,
@@ -253,7 +251,7 @@ const camera = new THREE.PerspectiveCamera(60, 16/9, 0.1, 100);
 camera.position.z = 3;
 renderer.setSize(960,540);
 renderer.render(scene,camera);
-console.info("${title}");
+void scene;
 `,
     ".env.example": "",
   };
@@ -328,7 +326,7 @@ function reactNativeShell(): ScaffoldFiles {
       expo: { name: "Application", slug: "generated-app" },
     }),
     "App.tsx":
-      'import { SafeAreaView, Text } from "react-native";\nexport default function App(){return <SafeAreaView><Text>Application</Text></SafeAreaView>}\n',
+      'import { SafeAreaView } from "react-native";\nexport default function App(){return <SafeAreaView />}\n',
     ".env.example": "",
   };
 }
@@ -338,7 +336,7 @@ function flutterShell(): ScaffoldFiles {
     "pubspec.yaml":
       'name: appforge_mobile\ndescription: Generated Flutter application\npublish_to: "none"\nenvironment:\n  sdk: ">=3.4.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n',
     "lib/main.dart":
-      'import "package:flutter/material.dart";\nvoid main()=>runApp(const App());\nclass App extends StatelessWidget{const App({super.key});@override Widget build(BuildContext context)=>const MaterialApp(home:Scaffold(body:Center(child:Text("Application"))));}\n',
+      'import "package:flutter/material.dart";\nvoid main()=>runApp(const App());\nclass App extends StatelessWidget{const App({super.key});@override Widget build(BuildContext context)=>const MaterialApp(home:SizedBox.shrink());}\n',
     ".env.example": "",
   };
 }
