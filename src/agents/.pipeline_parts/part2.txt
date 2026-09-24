@@ -454,7 +454,27 @@
             codeGenerationProblems.join("; "),
         );
       }
+      if (!requirementManifest) {
+        throw new Error("Requirement manifest was not initialized by the Planner");
+      }
+      requirementManifest = markRequirementImplementation(
+        requirementManifest,
+        generatedFiles,
+      );
+      generatedFiles["appforge.requirements.json"] =
+        serializeRequirementManifest(requirementManifest);
+      await updateProjectRequirementManifest(projectId, requirementManifest);
       await updateProjectFiles(projectId, { ...generatedFiles });
+      emit("System", "requirements_updated", {
+        revision: requirementManifest.revision,
+        unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
+        requirements: requirementManifest.requirements.map((requirement) => ({
+          id: requirement.id,
+          status: requirement.status,
+          taskIds: requirement.taskIds,
+          files: requirement.files,
+        })),
+      });
       await recordCoordinationEvent({
         agent: "Coder",
         type: "complete",
