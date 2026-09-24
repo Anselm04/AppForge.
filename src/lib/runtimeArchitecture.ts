@@ -32,7 +32,12 @@ export type RuntimeArchitecture = {
     defaultPort: number | null;
   };
   assets: {
-    mode: "static_output" | "framework" | "service" | "native_bundle" | "extension_bundle";
+    mode:
+      | "static_output"
+      | "framework"
+      | "service"
+      | "native_bundle"
+      | "extension_bundle";
     roots: string[];
     outputDirectory: string | null;
   };
@@ -56,13 +61,26 @@ function browserRuntime(adapter: StackAdapter): boolean {
   return adapter.runtime === "browser";
 }
 
+function nativeLifecycleRuntime(adapter: StackAdapter): boolean {
+  return (
+    adapter.runtime === "mobile" ||
+    adapter.runtime === "desktop" ||
+    adapter.runtime === "extension"
+  );
+}
+
 function assetRoots(adapter: StackAdapter): string[] {
   if (adapter.runtime === "mobile") return ["assets/"];
   if (adapter.runtime === "extension") return ["icons/", "assets/"];
   if (adapter.runtime === "desktop") return ["assets/", "src/assets/"];
   if (adapter.id === "next-node") return ["public/", "app/"];
-  if (browserRuntime(adapter) || adapter.artifactKind === "web")
+  if (
+    browserRuntime(adapter) ||
+    adapter.previewMode === "vite" ||
+    adapter.artifactKind === "web"
+  ) {
     return ["public/", "assets/", "src/assets/"];
+  }
   return ["assets/"];
 }
 
@@ -70,29 +88,23 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
   const adapter = getStackAdapter(stackId);
   const service = serviceRuntime(adapter);
   const browser = browserRuntime(adapter);
-  const nativeLifecycle =
-    adapter.runtime === "mobile" ||
-    adapter.runtime === "desktop" ||
-    adapter.runtime === "extension";
+  const nativeLifecycle = nativeLifecycleRuntime(adapter);
   const frameworkServer = adapter.previewMode === "next";
   const serverCapable = service || frameworkServer;
+  const reactNode = adapter.id === "react-node";
 
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
-    serverCapable
+    serverCapable || reactNode
       ? "external_service"
-      : browser
+      : browser || adapter.previewMode === "vite" || adapter.previewMode === "static"
         ? "client_local"
         : nativeLifecycle
           ? "native_platform"
           : "none";
 
-  const documentRuntime =
-    browser ||
-    adapter.previewMode === "vite" ||
-    adapter.previewMode === "static";
   const healthMode: RuntimeArchitecture["health"]["mode"] = serverCapable
     ? "http"
-    : documentRuntime
+    : browser
       ? "document"
       : "native_runtime";
 
@@ -107,8 +119,9 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
             ? "static_output"
             : "framework";
 
-  const webCapability: RuntimeSupport =
-    serverCapable ? "conditional" : "unsupported";
+  const webCapability: RuntimeSupport = serverCapable
+    ? "conditional"
+    : "unsupported";
 
   return {
     version: 1,
@@ -143,7 +156,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     },
     environment: {
       files: adapter.environmentFiles,
-      secretsServerSide: serverCapable,
+      secretsServerSide: serverCapable || reactNode,
       failClosedWhenMissing: true,
     },
     port: {
@@ -152,10 +165,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
         : nativeLifecycle
           ? "platform"
           : "none",
-      environmentVariable:
-        serverCapable
-          ? "PORT"
-          : null,
+      environmentVariable: serverCapable ? "PORT" : null,
       defaultPort:
         adapter.runtime === "python"
           ? 8000
@@ -180,13 +190,13 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     streaming: webCapability,
     webSockets: webCapability,
     fileUploads:
-      serverCapable
+      serverCapable || reactNode
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
           : "unsupported",
     externalServices:
-      serverCapable
+      serverCapable || reactNode
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
@@ -206,6 +216,39 @@ export function runtimeArchitectureInstruction(stackId: string): string {
   ].join("\n");
 }
 
+function implementsHttpPath(
+  files: Record<string, string>,
+  stackId: string,
+  path: string,
+  combined: string,
+): boolean {
+  if (combined.includes(path)) return true;
+  if (stackId !== "next-node" || !path.startsWith("/api/")) return false;
+  const routeFile = "app/" + path.slice(1) + "/route";
+  return [".ts", ".tsx", ".js", ".jsx"].some(
+    (extension) => files[routeFile + extension] !== undefined,
+  );
+}
+
+function readsEnvironmentPort(
+  files: Record<string, string>,
+  stackId: string,
+  combined: string,
+): boolean {
+  if (
+    /process\.env\.PORT|process\.env\[["']PORT["']\]|os\.(?:getenv|environ)|env\[["']PORT["']\]/i.test(
+      combined,
+    )
+  ) {
+    return true;
+  }
+  if (stackId === "next-node") {
+    const pkg = files["package.json"] ?? "";
+    const envExample = files[".env.example"] ?? "";
+    return /next\s+start/i.test(pkg) && /(?:^|\n)PORT=/m.test(envExample);
+  }
+  return false;
+}
 
 export function validateRuntimeImplementation(
   files: Record<string, string>,
@@ -218,20 +261,15 @@ export function validateRuntimeImplementation(
   );
   const combined = runtimeSources.map(([, source]) => source).join("\n");
 
-  const implementsHttpPath = (path: string): boolean => {
-    if (combined.includes(path)) return true;
-    if (stackId === "next-node" && path.startsWith("/api/")) {
-      const routeBase = "app/" + path.slice(1);
-      return Object.keys(files).some((file) =>
-        new RegExp(
-          "^" + routeBase.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\  const runtime = getRuntimeArchitecture(stackId);
-  const problems: string[] = [];
-  const combined = Object.values(files).join("\n");
-
   if (runtime.health.mode === "http") {
     if (
       runtime.health.livenessPath &&
-      !combined.includes(runtime.health.livenessPath)
+      !implementsHttpPath(
+        files,
+        stackId,
+        runtime.health.livenessPath,
+        combined,
+      )
     ) {
       problems.push(
         "missing runtime liveness endpoint " + runtime.health.livenessPath,
@@ -239,33 +277,12 @@ export function validateRuntimeImplementation(
     }
     if (
       runtime.health.readinessPath &&
-      !combined.includes(runtime.health.readinessPath)
-    ) {
-      problems.push(
-        "missing runtime readiness endpoint " + runtime.health.readinessPath,
-      );
-    }
-  }
-") +
-            "/route\\.(?:ts|tsx|js|jsx)$",
-        ).test(file),
-      );
-    }
-    return false;
-  };
-
-  if (runtime.health.mode === "http") {
-    if (
-      runtime.health.livenessPath &&
-      !implementsHttpPath(runtime.health.livenessPath)
-    ) {
-      problems.push(
-        "missing runtime liveness endpoint " + runtime.health.livenessPath,
-      );
-    }
-    if (
-      runtime.health.readinessPath &&
-      !implementsHttpPath(runtime.health.readinessPath)
+      !implementsHttpPath(
+        files,
+        stackId,
+        runtime.health.readinessPath,
+        combined,
+      )
     ) {
       problems.push(
         "missing runtime readiness endpoint " + runtime.health.readinessPath,
@@ -276,10 +293,7 @@ export function validateRuntimeImplementation(
   if (
     runtime.port.mode === "environment" &&
     runtime.port.environmentVariable &&
-    !new RegExp(
-      "(?:process\\.env\\.|os\\.(?:environ|getenv)|env\\[|PORT)",
-      "i",
-    ).test(combined)
+    !readsEnvironmentPort(files, stackId, combined)
   ) {
     problems.push(
       "runtime must read port from " + runtime.port.environmentVariable,
