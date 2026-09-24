@@ -2,6 +2,7 @@ import {
   appendAgentLog,
   markAgentLogComplete,
   updateProjectFiles,
+  updateProjectRequirementManifest,
   updateProjectStatus,
 } from "../db.js";
 import { invokeLLM } from "../_core/llm.js";
@@ -86,6 +87,16 @@ import {
   assertProductComplete,
   attachCompletenessEvidence,
 } from "../lib/incompleteProduct.js";
+import {
+  assertMustHaveRequirementsResolved,
+  createRequirementManifest,
+  markRequirementImplementation,
+  markRequirementTests,
+  markRequirementValidation,
+  serializeRequirementManifest,
+  validateRequirementManifest,
+  type RequirementManifest,
+} from "../lib/requirementManifest.js";
 import {
   coderTaskInstruction,
   ensureCodeGenerationSupportFiles,
@@ -236,6 +247,7 @@ export async function runAgentPipeline(
       researchRecord: true,
       productPlan: true,
       agentCoordination: true,
+      requirementManifest: true,
     },
   });
   const productContract = validateProductContract(
