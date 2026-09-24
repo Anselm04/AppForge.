@@ -194,3 +194,41 @@ export function buildDeploymentDecision(
   }
   return { action: "deploy" };
 }
+
+export type ManualDeployPreflight =
+  | { ok: true }
+  | {
+      ok: false;
+      status: 409;
+      error: "structural_only_stack" | "destination_unsupported";
+      message: string;
+    };
+
+/**
+ * Guard for user-triggered deploy endpoints: structural-only stacks are source
+ * deliverables and are never deployed, and a stack may only be deployed to a
+ * destination its adapter supports.
+ */
+export function manualDeployPreflight(
+  techStack: string,
+  destination: string,
+): ManualDeployPreflight {
+  const adapter = getStackAdapter(techStack);
+  if (adapter.generationMode === "structural") {
+    return {
+      ok: false,
+      status: 409,
+      error: "structural_only_stack",
+      message: `${adapter.label} builds are source deliverables and are never deployed. Download the source instead.`,
+    };
+  }
+  if (!adapter.deploymentTargets.includes(destination)) {
+    return {
+      ok: false,
+      status: 409,
+      error: "destination_unsupported",
+      message: `${adapter.label} projects cannot be deployed to ${destination}.`,
+    };
+  }
+  return { ok: true };
+}
