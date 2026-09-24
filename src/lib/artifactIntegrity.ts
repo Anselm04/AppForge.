@@ -31,6 +31,15 @@ export type ArtifactIntegrity = {
 };
 
 const APPFORGE_SOURCE_PATHS = new Set([
+  "src/agents/selfHealing.ts",
+  "src/services/productionAutoDeploy.ts",
+  "src/services/deployer.ts",
+  "src/lib/artifactIntegrity.ts",
+  "src/routers/projects.ts",
+  "src/routes/hostedApps.ts",
+  "src/routes/livePreview.ts",
+  "src/db/schema.ts",
+  "src/db.ts",
   "src/agents/pipeline.generated.ts",
   "src/services/build-worker.ts",
   "src/db/ensureSchema.ts",
@@ -40,6 +49,7 @@ const APPFORGE_SOURCE_PATHS = new Set([
 ]);
 
 const APPFORGE_SOURCE_PREFIXES = [
+  "src/_core/",
   "src/agents/.pipeline_parts/",
   ".codex/coordination/",
   ".sdlc/runs/",
