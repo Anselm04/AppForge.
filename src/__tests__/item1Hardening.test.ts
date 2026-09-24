@@ -50,14 +50,17 @@ describe("Item 1 hardening suite", () => {
     expect(capped["src/App.tsx"]).toBeTruthy();
   });
 
-  it("ensureRecipeFloor fills thin App", () => {
+  it("ensureRecipeFloor preserves generated output instead of replacing it", () => {
     const recipe = classifyRecipe("todo list");
-    const out = ensureRecipeFloor(
-      { "src/App.tsx": "// TODO" },
-      { title: "Tasks", description: "todo list", recipe },
-    );
-    expect(out["src/App.tsx"].length).toBeGreaterThan(120);
-    expect(assertBuildableShape(out, "react-node")).toEqual([]);
+    const generated = { "src/App.tsx": "// TODO" };
+    const out = ensureRecipeFloor(generated, {
+      title: "Tasks",
+      description: "todo list",
+      recipe,
+    });
+    expect(out).toEqual(generated);
+    expect(out).not.toBe(generated);
+    expect(out["src/main.tsx"]).toBeUndefined();
   });
 
   it("repairSpecWithRecipe restores keywords", () => {
