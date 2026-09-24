@@ -390,8 +390,21 @@
       }
 
       try {
+        const stackScaffold = getStackScaffold(
+          techStack,
+          productContract.productType,
+        );
+        const scaffoldProblems = validateStackScaffold(
+          techStack,
+          stackScaffold,
+        );
+        if (scaffoldProblems.length > 0) {
+          throw new Error(
+            "Invalid stack scaffold: " + scaffoldProblems.join("; "),
+          );
+        }
         generatedFiles = mergeScaffoldWithGenerated(
-          getStackScaffold(techStack, productContract.productType),
+          stackScaffold,
           generatedFiles,
           techStack,
         );
