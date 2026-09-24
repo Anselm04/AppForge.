@@ -7,6 +7,8 @@ type Props = {
   deployUrl?: string | null;
   deployGuide?: string[];
   techStack?: string | null;
+  /** Set for structural-only stacks: no live URL is ever shown. */
+  structuralNotice?: string | null;
 };
 
 export function DeployWizard({
@@ -14,6 +16,7 @@ export function DeployWizard({
   deployUrl,
   deployGuide,
   techStack,
+  structuralNotice,
 }: Props) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -52,11 +55,21 @@ export function DeployWizard({
 
   return (
     <div className="mt-4 bg-slate-800/80 border border-slate-600 rounded-lg p-4 text-slate-200">
-      <h3 className="font-semibold text-lg mb-2">Deploy next steps</h3>
-      {deployUrl && (
+      <h3 className="font-semibold text-lg mb-2">
+        {structuralNotice ? "Source export next steps" : "Deploy next steps"}
+      </h3>
+      {structuralNotice && (
+        <p
+          data-testid="structural-deploy-notice"
+          className="text-sm mb-3 rounded border border-amber-700 bg-amber-900/30 px-3 py-2 text-amber-200"
+        >
+          {structuralNotice}
+        </p>
+      )}
+      {deployUrl && !structuralNotice && (
         <div className="text-sm mb-3 space-y-2">
           <p>
-            Live URL:{" "}
+            {/^https:\/\//.test(deployUrl) ? "Live URL" : "Preview URL"}:{" "}
             <a
               href={deployUrl}
               target="_blank"
