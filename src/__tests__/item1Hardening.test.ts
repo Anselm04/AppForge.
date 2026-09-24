@@ -11,18 +11,26 @@ import {
   stripComplianceFromGolden,
   capGoldenFiles,
 } from "../lib/goldenLimits.js";
-import { preferReactNodeStack } from "../lib/stackDefaults.js";
+import { requireExplicitStack } from "../lib/stackDefaults.js";
 import {
   hardenGeneratedProject,
   assertBuildableShape,
 } from "../lib/reliableBuild.js";
 
 describe("Item 1 hardening suite", () => {
-  it("preferReactNodeStack defaults safely", () => {
-    expect(preferReactNodeStack("")).toBe("react-node");
-    expect(preferReactNodeStack("auto")).toBe("react-node");
-    expect(preferReactNodeStack("next-node")).toBe("next-node");
-    expect(() => preferReactNodeStack("unknown-foo")).toThrow(
+  it("requireExplicitStack never falls back to React", () => {
+    expect(() => requireExplicitStack("")).toThrow(
+      /technology stack is required/,
+    );
+    expect(() => requireExplicitStack("auto")).toThrow(
+      /technology stack is required/,
+    );
+    expect(() => requireExplicitStack(null)).toThrow(
+      /technology stack is required/,
+    );
+    expect(requireExplicitStack("next-node")).toBe("next-node");
+    expect(requireExplicitStack("Phaser")).toBe("phaser-html5");
+    expect(() => requireExplicitStack("unknown-foo")).toThrow(
       /Unsupported technology stack/,
     );
   });
