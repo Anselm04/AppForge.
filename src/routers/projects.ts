@@ -414,6 +414,8 @@ export const projectsRouter = router({
           projectId: input.id,
           previewBaseUrl: origin.replace(/\/$/, ""),
           techStack: stackAdapter.id,
+          productContract,
+          productPlan: project.productPlan ?? undefined,
         });
 
         if (input.destination === "preview" && result.url) {
