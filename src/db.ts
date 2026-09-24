@@ -10,6 +10,11 @@ import {
   withSelectedTechnologyStack,
   type ProductContract,
 } from "./lib/productContract.js";
+import {
+  assertMustHaveRequirementsResolved,
+  validateRequirementManifest,
+  type RequirementManifest,
+} from "./lib/requirementManifest.js";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -304,10 +309,52 @@ export async function updateProjectFiles(
     .update(schema.projects)
     .set({
       generatedFiles: files,
-      status: "completed",
       updatedAt: new Date(),
     })
     .where(eq(schema.projects.id, id));
+}
+
+export async function updateProjectRequirementManifest(
+  id: number,
+  requirementManifest: RequirementManifest,
+) {
+  const validated = validateRequirementManifest(requirementManifest);
+  await db
+    .update(schema.projects)
+    .set({ requirementManifest: validated, updatedAt: new Date() })
+    .where(eq(schema.projects.id, id));
+}
+
+export async function persistRequirementDeploymentEvidence(
+  projectId: number,
+  requirementManifest: RequirementManifest,
+) {
+  const validated = validateRequirementManifest(requirementManifest);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.projects)
+      .set({ requirementManifest: validated, updatedAt: new Date() })
+      .where(eq(schema.projects.id, projectId));
+
+    const current = await tx
+      .select({ id: schema.buildSnapshots.id })
+      .from(schema.buildSnapshots)
+      .where(
+        and(
+          eq(schema.buildSnapshots.projectId, projectId),
+          eq(schema.buildSnapshots.isCurrent, true),
+        ),
+      )
+      .orderBy(desc(schema.buildSnapshots.createdAt))
+      .limit(1);
+
+    if (current[0]) {
+      await tx
+        .update(schema.buildSnapshots)
+        .set({ requirementManifest: validated })
+        .where(eq(schema.buildSnapshots.id, current[0].id));
+    }
+  });
 }
 
 export async function countBuildsThisMonth(userId: number) {
@@ -823,10 +870,14 @@ export async function createBuildSnapshot(data: {
   validationResult?: any;
   auditScores?: any;
   costEstimate?: any;
+  requirementManifest: RequirementManifest;
 }) {
+  const requirementManifest = assertMustHaveRequirementsResolved(
+    data.requirementManifest,
+  );
   const result = await db
     .insert(schema.buildSnapshots)
-    .values(data)
+    .values({ ...data, requirementManifest })
     .returning({ id: schema.buildSnapshots.id });
   return result[0].id;
 }
@@ -873,6 +924,7 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .select({
         id: schema.buildSnapshots.id,
         files: schema.buildSnapshots.files,
+        requirementManifest: schema.buildSnapshots.requirementManifest,
       })
       .from(schema.buildSnapshots)
       .where(
@@ -886,6 +938,9 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
     if (!snapshot) {
       throw new Error("Snapshot not found for project");
     }
+    const requirementManifest = assertMustHaveRequirementsResolved(
+      snapshot.requirementManifest,
+    );
 
     await tx
       .update(schema.buildSnapshots)
@@ -899,6 +954,7 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .update(schema.projects)
       .set({
         generatedFiles: snapshot.files,
+        requirementManifest,
         status: "completed",
         updatedAt: new Date(),
       })
