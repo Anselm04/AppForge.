@@ -669,7 +669,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { getSnapshotById, markSnapshotAsCurrent, updateProjectFiles } =
+      const { getSnapshotById, markSnapshotAsCurrent } =
         await import("../db.js");
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
@@ -683,10 +683,6 @@ export const projectsRouter = router({
         });
       }
       await markSnapshotAsCurrent(input.snapshotId, input.projectId);
-      await updateProjectFiles(
-        input.projectId,
-        snapshot.files as Record<string, string>,
-      );
       return {
         success: true,
         version: snapshot.version,
