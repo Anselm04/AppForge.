@@ -187,14 +187,19 @@ function inspectPlaceholderAndEmptyFiles(
   for (const [path, source] of Object.entries(files)) {
     if (!isProductSource(path)) continue;
 
-    for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
-      if (pattern.test(source)) {
+    if (
+      !/\.(?:md|json|ya?ml)$/i.test(path) &&
+      !/^appforge\./i.test(path)
+    ) {
+      for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
+        if (pattern.test(source)) {
         findings.push({
           code: "placeholder_text",
           path,
           message: `${label} content detected in generated product source.`,
         });
-        break;
+          break;
+        }
       }
     }
 
@@ -335,7 +340,10 @@ function inspectRequirementEvidence(
       !entry ||
       (mappedFiles.length > 0 && existingFiles.length !== mappedFiles.length) ||
       !(entry.taskIds?.length ?? 0) ||
-      !(entry.validations?.length ?? 0)
+      !(entry.validations?.length ?? 0) ||
+      !existingFiles.some((path) =>
+        (files[path] ?? "").includes(`requirement: ${requirement.id}`),
+      )
     ) {
       findings.push({
         code: "missing_requirement_evidence",
@@ -389,7 +397,7 @@ function inspectContractCoverage(
   for (const workflow of contract.coreWorkflows) {
     const tokens = normalizedTokens(workflow);
     if (tokens.length === 0) continue;
-    const matches = tokens.filter((token) => allText.includes(token)).length;
+    const matches = tokens.filter((token) => code.includes(token)).length;
     const requiredMatches = tokens.length >= 3 ? 2 : 1;
     if (matches < requiredMatches) {
       findings.push({
