@@ -12,7 +12,7 @@
 // If validation FAILS, the pipeline will feed the errors back to the LLM
 // for an automatic retry (see pipeline.ts "Validator" phase).
 
-import { mkdir, writeFile, rm } from "fs/promises";
+import { mkdir, writeFile, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { spawn } from "child_process";
@@ -29,6 +29,7 @@ import {
 } from "../lib/productContract.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { ResearchDecision } from "../lib/researchRecord.js";
+import { validateGeneratedProjectStructure } from "../lib/generatedProjectStructure.js";
 
 export interface ValidationResult {
   passed: boolean;
@@ -276,6 +277,22 @@ export async function validateGeneratedBuild(
   }
 
   try {
+    const structureProblems = validateGeneratedProjectStructure(
+      files,
+      techStack,
+    );
+    if (structureProblems.length > 0) {
+      return {
+        passed: false,
+        stage: "structure",
+        errors: structureProblems,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Generated project structure failed before any generated path was written or executed.",
+      };
+    }
+
     await mkdir(tmpDir, { recursive: true });
     for (const [filePath, content] of Object.entries(files)) {
       const fullPath = join(tmpDir, filePath);
@@ -575,6 +592,37 @@ export async function validateGeneratedBuild(
             "LLM generated invalid dependencies or no package.json. Manual review required.",
         };
       }
+    }
+
+    if (files["package.json"]) {
+      try {
+        const generatedLock = await readFile(
+          join(tmpDir, "package-lock.json"),
+          "utf-8",
+        );
+        if (generatedLock.trim()) {
+          files["package-lock.json"] = generatedLock;
+        }
+      } catch {
+        // npm may be configured not to create a lockfile; structure validation
+        // remains authoritative and rejects conflicting/stale locks when present.
+      }
+    }
+
+    const postInstallStructureProblems = validateGeneratedProjectStructure(
+      files,
+      techStack,
+    );
+    if (postInstallStructureProblems.length > 0) {
+      return {
+        passed: false,
+        stage: "structure",
+        errors: postInstallStructureProblems,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Generated project structure became inconsistent after dependency installation.",
+      };
     }
 
     const tsFiles = Object.keys(files).filter(
