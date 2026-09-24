@@ -34,7 +34,19 @@ const APPFORGE_SOURCE_PATHS = new Set([
   "src/agents/pipeline.generated.ts",
   "src/services/build-worker.ts",
   "src/db/ensureSchema.ts",
+  "src/_core/env.ts",
+  "src/_core/trpc.ts",
+  "src/routers/projects.ts",
+  "scripts/assemble-pipeline.mjs",
+  ".codex/coordination/project.yaml",
+  ".sdlc/project.yaml",
 ]);
+
+const APPFORGE_SOURCE_PREFIXES = [
+  "src/agents/.pipeline_parts/",
+  ".codex/coordination/",
+  ".sdlc/runs/",
+];
 
 function safeArtifactPath(path: string): string {
   if (!path || path.includes("\0") || path.includes("\\")) {
@@ -52,7 +64,10 @@ function safeArtifactPath(path: string): string {
   ) {
     throw new Error(`Artifact path escapes project root: ${path}`);
   }
-  if (APPFORGE_SOURCE_PATHS.has(normalized)) {
+  if (
+    APPFORGE_SOURCE_PATHS.has(normalized) ||
+    APPFORGE_SOURCE_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+  ) {
     throw new Error(
       `AppForge source path cannot be persisted as generated artifact: ${normalized}`,
     );
