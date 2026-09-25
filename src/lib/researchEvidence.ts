@@ -14,7 +14,7 @@ export {
   canonicalizeResearchUrl,
   containsInstructionLikeResearchText,
   verifyResearchEvidence,
-} from "./researchEvidenceCore.js";
+} from "./researchEvidenceVerify.js";
 
 export { buildContractResearchQueries } from "./researchQueries.js";
 
