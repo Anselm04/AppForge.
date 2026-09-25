@@ -81,19 +81,57 @@ function isComplexContract(contract: ProductContract): boolean {
   );
 }
 
+/**
+ * Strip a whole-response markdown fence (``` or ```json) without salvaging
+ * JSON from surrounding prose. Fenced replies parse on the first attempt;
+ * prefixed/suffixed garbage still fails and burns a validation retry.
+ */
+export function stripPlannerMarkdownFence(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(
+    /^```(?:json|JSON)?\s*\r?\n?([\s\S]*?)\r?\n?```\s*$/,
+  );
+  if (fenced) return fenced[1].trim();
+  return trimmed;
+}
+
 export function parsePlannerJson(text: string): unknown {
-  const candidate = text.trim();
+  const candidate = stripPlannerMarkdownFence(text);
   if (!candidate) {
     throw new Error("Planner returned an empty response");
   }
-  return JSON.parse(candidate);
+  try {
+    return JSON.parse(candidate);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "invalid JSON";
+    throw new Error("Planner returned invalid JSON: " + detail);
+  }
+}
+
+export function formatPlannerValidationError(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    return error.issues
+      .slice(0, 12)
+      .map((issue) => {
+        const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+        return path + ": " + issue.message;
+      })
+      .join("; ");
+  }
+  if (error instanceof Error) return error.message;
+  return "Unknown planner validation error";
 }
 
 export function validateProductPlan(
   input: unknown,
   contract: ProductContract,
 ): ProductPlan {
-  const plan = productPlanSchema.parse(input);
+  let plan: ProductPlan;
+  try {
+    plan = productPlanSchema.parse(input);
+  } catch (error) {
+    throw new Error(formatPlannerValidationError(error));
+  }
 
   if (plan.productType !== contract.productType) {
     throw new Error(
@@ -263,16 +301,24 @@ export function validateProductPlan(
     }
   }
 
-  if (
-    isComplexContract(contract) &&
-    (plan.tasks.length < 2 ||
-      plan.tasks.some((task) =>
-        GENERIC_MODULE_NAMES.has(task.module.trim().toLowerCase()),
-      ))
-  ) {
-    throw new Error(
-      "Planner returned generic output for a complex product; detailed modules are required",
+  if (isComplexContract(contract)) {
+    const moduleNames = [
+      plan.title,
+      ...plan.tasks.map((task) => task.module),
+      ...plan.architecture.frontendModules,
+      ...plan.architecture.backendModules,
+      ...plan.architecture.databaseModules,
+      ...plan.architecture.aiModules,
+      ...plan.architecture.integrationModules,
+    ];
+    const hasGenericModule = moduleNames.some((name) =>
+      GENERIC_MODULE_NAMES.has(name.trim().toLowerCase()),
     );
+    if (plan.tasks.length < 2 || hasGenericModule) {
+      throw new Error(
+        "Planner returned generic output for a complex product; detailed modules are required",
+      );
+    }
   }
 
   return plan;
@@ -287,10 +333,16 @@ export function parseAndValidateProductPlan(
 
 export function plannerJsonSchemaInstruction(): string {
   return [
-    "Return ONLY one JSON object. Do not include markdown, prose, or commentary.",
+    "Return ONLY one JSON object. A single ```json fence around the object is allowed; do not add prose before or after it.",
     "Required top-level fields: version, title, overview, productType, selectedTechnologyStack, architecture, implementationSequence, tasks, requirementToTasks, taskToFiles, taskToAgent, taskToValidation, researchDecisionIds.",
+    "version must be the number 1 (not a string, not 2).",
     "Architecture must include: summary, workflows, personas, roles, frontendModules, backendModules, databaseModules, aiModules, integrationModules, authenticationDesign, authorizationDesign, billingDesign, deploymentDesign, operationsDesign, recoveryDesign, monetizationPlan.",
     "Each task must include: id, module, description, sequence, dependencies, acceptanceCriteria, requirementIds, files, agent, validations.",
+    "acceptanceCriteria and validations must be arrays of strings (never a single string).",
+    "agent must be exactly one of: frontend, backend, database, ai, integration, security, deployment, operations, general.",
+    "requirementIds must use the contract IDs like REQ-001.",
+    "implementationSequence must list every task id in ascending sequence order.",
+    "requirementToTasks, taskToFiles, taskToAgent, and taskToValidation must agree with the tasks array.",
     "Every must-have requirement ID must map to at least one task.",
     "Every task must have acceptance criteria, files, owner agent, validations, dependencies, and requirement IDs.",
     "For complex products, use specific modules; never use generic Core App/Core UI fallbacks.",

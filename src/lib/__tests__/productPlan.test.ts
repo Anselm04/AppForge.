@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseAndValidateProductPlan,
   parsePlannerJson,
+  stripPlannerMarkdownFence,
   validateProductPlan,
 } from "../productPlan.js";
 import { buildProductContract } from "../productContract.js";
@@ -106,13 +107,42 @@ describe("contract-aware planner schema", () => {
     expect(plan.architecture.personas).toContain("Team member");
   });
 
-  it("parses direct JSON without regex extraction", () => {
+  it("parses direct JSON without regex extraction from prose", () => {
     const plan = parseAndValidateProductPlan(
       JSON.stringify(validPlan()),
       contract,
     );
     expect(plan.title).toBe("Team CRM");
-    expect(() => parsePlannerJson('prefix {"version":1} suffix')).toThrow();
+    expect(() => parsePlannerJson('prefix {"version":1} suffix')).toThrow(
+      /invalid JSON/i,
+    );
+  });
+
+  it("parses markdown-fenced JSON without burning a retry", () => {
+    const fenced = "```json\n" + JSON.stringify(validPlan(), null, 2) + "\n```";
+    expect(stripPlannerMarkdownFence(fenced).startsWith("{")).toBe(true);
+    const plan = parseAndValidateProductPlan(fenced, contract);
+    expect(plan.title).toBe("Team CRM");
+    expect(plan.tasks).toHaveLength(2);
+
+    const plainFence = "```\n" + JSON.stringify(validPlan()) + "\n```\n";
+    expect(
+      parseAndValidateProductPlan(plainFence, contract).overview,
+    ).toContain("multi-tenant");
+  });
+
+  it("rejects Core App in architecture modules for complex products", () => {
+    const plan = validPlan();
+    plan.architecture.frontendModules = ["Core UI", "CRM UI"];
+    expect(() => validateProductPlan(plan, contract)).toThrow(
+      /generic output/i,
+    );
+  });
+
+  it("formats Zod schema errors for planner retries", () => {
+    expect(() =>
+      validateProductPlan({ version: 1, title: 123 }, contract),
+    ).toThrow(/title|Required|expected/i);
   });
 
   it("rejects empty planner responses", () => {

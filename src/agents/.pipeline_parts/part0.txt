@@ -87,6 +87,7 @@ import {
   type ProductContract,
 } from "../lib/productContract.js";
 import {
+  formatPlannerValidationError,
   parseAndValidateProductPlan,
   plannerJsonSchemaInstruction,
   type ProductPlan,
