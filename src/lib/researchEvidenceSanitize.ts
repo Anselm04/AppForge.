@@ -182,8 +182,12 @@ function normalizeTopicTokens(query: string): string[] {
     .slice(0, 24);
 }
 
-export function relevanceScore(result: WebSearchResult, queries: string[]): number {
-  const haystack = `${result.title} ${result.snippet} ${result.url}`.toLowerCase();
+export function relevanceScore(
+  result: WebSearchResult,
+  queries: string[],
+): number {
+  const haystack =
+    `${result.title} ${result.snippet} ${result.url}`.toLowerCase();
   const tokens = [...new Set(queries.flatMap(normalizeTopicTokens))];
   if (tokens.length === 0) return 0;
   const hits = tokens.filter((token) => haystack.includes(token)).length;
