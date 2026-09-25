@@ -2,10 +2,7 @@ import { logger } from "../_core/logger.js";
 import { researchFetch, ResearchAbortedError } from "./researchHttp.js";
 
 export type WebSearchProvider =
-  | "tavily"
-  | "serpapi"
-  | "gemini_grounding"
-  | "duckduckgo";
+  "tavily" | "serpapi" | "gemini_grounding" | "duckduckgo";
 
 export type WebSearchProviderAttempt = {
   provider: WebSearchProvider;
@@ -127,7 +124,10 @@ async function searchGeminiGrounding(
   apiKey: string,
   signal?: AbortSignal,
 ): Promise<ProviderOutcome> {
-  const model = process.env.GEMINI_SEARCH_MODEL || process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+  const model =
+    process.env.GEMINI_SEARCH_MODEL ||
+    process.env.GEMINI_MODEL ||
+    "gemini-3-flash-preview";
   const res = await researchFetch<GeminiGroundingResponse>(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
@@ -182,7 +182,8 @@ async function resolveRedirect(
 ): Promise<string | null> {
   try {
     const parsed = new URL(uri);
-    if (!parsed.hostname.endsWith("vertexaisearch.cloud.google.com")) return uri;
+    if (!parsed.hostname.endsWith("vertexaisearch.cloud.google.com"))
+      return uri;
   } catch {
     return null;
   }
@@ -236,7 +237,11 @@ async function searchDuckDuckGo(
   for (const item of res.data.Results ?? []) {
     if (item.Text) add(item.Text.slice(0, 80), item.FirstURL, item.Text);
   }
-  return { ok: true, results: results.slice(0, maxResults), answer: res.data.AbstractText };
+  return {
+    ok: true,
+    results: results.slice(0, maxResults),
+    answer: res.data.AbstractText,
+  };
 }
 
 /**
@@ -251,7 +256,8 @@ export async function searchWeb(
 ): Promise<WebSearchResponse> {
   const tavilyKey = process.env.TAVILY_API_KEY ?? "";
   const serpKey = process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY ?? "";
-  const geminiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
+  const geminiKey =
+    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
   const groundingEnabled = truthyFlag(process.env.GEMINI_SEARCH_GROUNDING);
 
   const providers: {
@@ -287,7 +293,11 @@ export async function searchWeb(
   const providerAttempts: WebSearchProviderAttempt[] = [];
   for (const entry of providers) {
     if (entry.unavailable) {
-      providerAttempts.push({ provider: entry.provider, ok: false, detail: entry.unavailable });
+      providerAttempts.push({
+        provider: entry.provider,
+        ok: false,
+        detail: entry.unavailable,
+      });
       continue;
     }
     let outcome: ProviderOutcome;
@@ -298,12 +308,23 @@ export async function searchWeb(
       outcome = { ok: false, detail: "provider_exception" };
     }
     if (!outcome.ok) {
-      logger.warn({ provider: entry.provider, detail: outcome.detail }, "web_search_provider_failed");
-      providerAttempts.push({ provider: entry.provider, ok: false, detail: outcome.detail });
+      logger.warn(
+        { provider: entry.provider, detail: outcome.detail },
+        "web_search_provider_failed",
+      );
+      providerAttempts.push({
+        provider: entry.provider,
+        ok: false,
+        detail: outcome.detail,
+      });
       continue;
     }
     if (outcome.results.length === 0) {
-      providerAttempts.push({ provider: entry.provider, ok: false, detail: "no_results" });
+      providerAttempts.push({
+        provider: entry.provider,
+        ok: false,
+        detail: "no_results",
+      });
       continue;
     }
     providerAttempts.push({
