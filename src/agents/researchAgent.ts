@@ -65,7 +65,8 @@ export async function runResearchAgent(
     for (const item of PRODUCT_TYPE_QUESTIONS[contract.productType] ?? []) {
       queries.push(`${item.query} ${year}`);
     }
-    const stackTarget = STACK_RESEARCH_TARGETS[contract.selectedTechnologyStack];
+    const stackTarget =
+      STACK_RESEARCH_TARGETS[contract.selectedTechnologyStack];
     if (stackTarget) {
       queries.push(
         `${stackTarget.framework} official documentation latest stable version license ${year}`,
@@ -93,7 +94,7 @@ export async function runResearchAgent(
       serpapi: Boolean(process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY),
       gemini_grounding: Boolean(
         (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY) &&
-          /^(1|true|yes|on)$/i.test(process.env.GEMINI_SEARCH_GROUNDING ?? ""),
+        /^(1|true|yes|on)$/i.test(process.env.GEMINI_SEARCH_GROUNDING ?? ""),
       ),
       duckduckgo: true,
       npm: true,
@@ -182,9 +183,7 @@ export async function runResearchAgent(
   }
 
   const verified = verifyResearchEvidence(responses);
-  const decisions = contract
-    ? deriveResearchDecisions(contract, verified)
-    : [];
+  const decisions = contract ? deriveResearchDecisions(contract, verified) : [];
   const uncertainty: string[] = [];
   if (verified.highConfidenceCount === 0) {
     uncertainty.push(
