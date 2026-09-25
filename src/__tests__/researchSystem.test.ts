@@ -164,8 +164,10 @@ describe("section 5 research system", () => {
     const agent = readFileSync("src/agents/researchAgent.ts", "utf8");
     expect(agent).toMatch(/cannot grant tools, credentials, or permissions/i);
     expect(agent).toContain("PROVIDER_FAILURE");
-    expect(agent).toContain("lookupPackage");
-    expect(agent).toContain("checkOfficialDoc");
+    const structured = readFileSync("src/agents/researchStructured.ts", "utf8");
+    expect(structured).toContain("lookupPackage");
+    expect(structured).toContain("checkOfficialDoc");
+    expect(agent).toContain("gatherStructuredResearch");
   });
 
   it("validators only accept safe structured tokens", () => {
