@@ -6,12 +6,7 @@ import type {
 } from "./researchRecord.js";
 
 export type EvidenceAuthority =
-  | "official"
-  | "repository"
-  | "standards"
-  | "vendor"
-  | "community"
-  | "unknown";
+  "official" | "repository" | "standards" | "vendor" | "community" | "unknown";
 
 export type VerifiedEvidence = WebSearchResult & {
   host: string;

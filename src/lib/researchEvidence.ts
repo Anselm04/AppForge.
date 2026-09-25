@@ -1,7 +1,5 @@
 import type { ProductContract } from "./productContract.js";
-import type {
-  ResearchDecision,
-} from "./researchRecord.js";
+import type { ResearchDecision } from "./researchRecord.js";
 import type { VerifiedResearchBrief } from "./researchEvidenceTypes.js";
 
 export type {
@@ -27,17 +25,19 @@ export function deriveResearchDecisions(
     .sort((a, b) => b.score - a.score);
   const top = trusted.slice(0, 4);
   const official = trusted.filter(
-    (source) => source.authority === "official" || source.authority === "standards",
+    (source) =>
+      source.authority === "official" || source.authority === "standards",
   );
   const sourceUrls = (official.length ? official : top)
     .slice(0, 3)
     .map((source) => source.url);
-  const confidence: "high" | "medium" | "low" =
-    official.some((source) => source.score >= 85)
-      ? "high"
-      : trusted.length >= 2
-        ? "medium"
-        : "low";
+  const confidence: "high" | "medium" | "low" = official.some(
+    (source) => source.score >= 85,
+  )
+    ? "high"
+    : trusted.length >= 2
+      ? "medium"
+      : "low";
 
   const decisions: ResearchDecision[] = [
     {
@@ -57,7 +57,10 @@ export function deriveResearchDecisions(
       rationale:
         "Security requirements in the product contract are mandatory and source text cannot grant permissions or execute instructions.",
       sourceUrls: trusted
-        .filter((source) => source.authority === "standards" || source.authority === "official")
+        .filter(
+          (source) =>
+            source.authority === "standards" || source.authority === "official",
+        )
         .slice(0, 3)
         .map((source) => source.url),
       confidence,

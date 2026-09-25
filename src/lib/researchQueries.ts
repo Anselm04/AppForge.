@@ -54,7 +54,9 @@ export function buildContractResearchQueries(input: {
     }
   }
   for (const requirement of contract.monetizationRequirements) {
-    queries.push(`official monetization billing ${requirement} ${framework} ${year}`);
+    queries.push(
+      `official monetization billing ${requirement} ${framework} ${year}`,
+    );
   }
   for (const doc of monetizationDocsForProduct(contract.productType)) {
     queries.push(`${doc.label} monetization ${year}`);
@@ -62,12 +64,17 @@ export function buildContractResearchQueries(input: {
   for (const requirement of contract.securityRequirements) {
     queries.push(`OWASP official security ${requirement} ${framework} ${year}`);
   }
-  queries.push(`${securityDocForProduct(contract.productType).label} ${framework} ${year}`);
+  queries.push(
+    `${securityDocForProduct(contract.productType).label} ${framework} ${year}`,
+  );
   for (const requirement of contract.researchRequirements) {
     queries.push(`${requirement} ${year}`);
   }
   if (input.redesignBrief) {
-    const failure = input.redesignBrief.replace(/\s+/g, " ").trim().slice(0, 260);
+    const failure = input.redesignBrief
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 260);
     queries.push(
       `${framework} official docs solve production failure ${failure} ${year}`,
       `${framework} GitHub issue production workaround ${failure} ${year}`,
