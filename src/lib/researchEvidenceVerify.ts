@@ -32,7 +32,9 @@ function versionTokens(text: string): Set<string> {
   );
 }
 
-function detectEvidenceConflicts(items: VerifiedEvidence[]): ResearchConflict[] {
+function detectEvidenceConflicts(
+  items: VerifiedEvidence[],
+): ResearchConflict[] {
   const conflicts: ResearchConflict[] = [];
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
@@ -216,4 +218,7 @@ export function verifyResearchEvidence(
   };
 }
 
-export { canonicalizeResearchUrl, containsInstructionLikeResearchText } from "./researchEvidenceSanitize.js";
+export {
+  canonicalizeResearchUrl,
+  containsInstructionLikeResearchText,
+} from "./researchEvidenceSanitize.js";
