@@ -207,10 +207,7 @@
         );
         break;
       } catch (error) {
-        plannerValidationError =
-          error instanceof Error
-            ? error.message
-            : "Unknown planner validation error";
+        plannerValidationError = formatPlannerValidationError(error);
       }
     }
 
