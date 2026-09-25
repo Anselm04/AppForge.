@@ -33,7 +33,8 @@ export function isCallerAbort(signal: AbortSignal | undefined): boolean {
 
 /** Describe an HTTP failure without echoing response bodies or credentials. */
 export function httpFailureDetail(status: number): string {
-  if (status === 401 || status === 403) return `http_${status}_unauthorized_or_blocked`;
+  if (status === 401 || status === 403)
+    return `http_${status}_unauthorized_or_blocked`;
   if (status === 404) return "http_404_not_found";
   if (status === 429) return "http_429_rate_limited_or_quota_exhausted";
   if (status >= 500) return `http_${status}_provider_error`;
@@ -69,11 +70,20 @@ export async function researchFetch<T>(
     if (!res.ok) {
       // Drain without reading potentially large bodies into memory.
       await res.body?.cancel().catch(() => undefined);
-      return { ok: false, status: res.status, detail: httpFailureDetail(res.status) };
+      return {
+        ok: false,
+        status: res.status,
+        detail: httpFailureDetail(res.status),
+      };
     }
     if (parse === "text") {
       const text = await readLimitedText(res, maxBytes ?? 65_536);
-      return { ok: true, status: res.status, data: text as T, headers: res.headers };
+      return {
+        ok: true,
+        status: res.status,
+        data: text as T,
+        headers: res.headers,
+      };
     }
     try {
       const data = (await res.json()) as T;
@@ -93,7 +103,10 @@ export async function researchFetch<T>(
   }
 }
 
-async function readLimitedText(res: Response, maxBytes: number): Promise<string> {
+async function readLimitedText(
+  res: Response,
+  maxBytes: number,
+): Promise<string> {
   if (!res.body) return "";
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -116,12 +129,15 @@ export async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
-  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await task(items[index], index);
-    }
-  });
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await task(items[index], index);
+      }
+    },
+  );
   await Promise.all(workers);
   return results;
 }
