@@ -17,7 +17,8 @@ afterEach(() => {
   else process.env.SERP_API_KEY = originalSerpAlt;
   if (originalGemini === undefined) delete process.env.GEMINI_API_KEY;
   else process.env.GEMINI_API_KEY = originalGemini;
-  if (originalGrounding === undefined) delete process.env.GEMINI_SEARCH_GROUNDING;
+  if (originalGrounding === undefined)
+    delete process.env.GEMINI_SEARCH_GROUNDING;
   else process.env.GEMINI_SEARCH_GROUNDING = originalGrounding;
 });
 
@@ -33,7 +34,9 @@ describe("web search cancellation", () => {
     controller.abort();
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    await expect(searchWeb("cancel me", 6, controller.signal)).rejects.toMatchObject({
+    await expect(
+      searchWeb("cancel me", 6, controller.signal),
+    ).rejects.toMatchObject({
       name: "AbortError",
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -54,7 +57,9 @@ describe("web search cancellation", () => {
       return Promise.reject(abort);
     });
 
-    await expect(searchWeb("cancel me", 6, controller.signal)).rejects.toMatchObject({
+    await expect(
+      searchWeb("cancel me", 6, controller.signal),
+    ).rejects.toMatchObject({
       name: "AbortError",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);

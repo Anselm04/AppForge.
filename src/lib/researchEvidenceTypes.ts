@@ -1,6 +1,4 @@
-import type {
-  WebSearchResult,
-} from "../services/webSearch.js";
+import type { WebSearchResult } from "../services/webSearch.js";
 import type {
   RejectedResearchSource,
   ResearchConflict,

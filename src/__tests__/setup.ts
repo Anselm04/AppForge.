@@ -27,8 +27,9 @@ window.IntersectionObserver = vi.fn().mockImplementation(() => ({
 }));
 
 // Preserve Node's real fetch so live-network research tests can restore it.
-(globalThis as typeof globalThis & { __originalFetch?: typeof fetch }).__originalFetch =
-  globalThis.fetch;
+(
+  globalThis as typeof globalThis & { __originalFetch?: typeof fetch }
+).__originalFetch = globalThis.fetch;
 global.fetch = vi.fn();
 
 const localStorageMock = {
