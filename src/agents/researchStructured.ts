@@ -195,24 +195,28 @@ export async function gatherStructuredResearch(
   }
 
   const repoNames = [...new Set(stackTarget?.repositories ?? [])];
-  const repoResults = await mapWithConcurrency(repoNames, 3, async (fullName) => {
-    try {
-      return await lookupRepository(fullName, signal);
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      return {
-        fact: null,
-        attempts: [
-          {
-            provider: "github" as const,
-            target: fullName,
-            ok: false,
-            detail: "provider_exception",
-          },
-        ],
-      };
-    }
-  });
+  const repoResults = await mapWithConcurrency(
+    repoNames,
+    3,
+    async (fullName) => {
+      try {
+        return await lookupRepository(fullName, signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        return {
+          fact: null,
+          attempts: [
+            {
+              provider: "github" as const,
+              target: fullName,
+              ok: false,
+              detail: "provider_exception",
+            },
+          ],
+        };
+      }
+    },
+  );
   for (const result of repoResults) {
     attempts.push(...result.attempts);
     for (const attempt of result.attempts) emit("structured_attempt", attempt);
