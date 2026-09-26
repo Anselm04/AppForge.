@@ -300,6 +300,32 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("blocks bracket-form browser secret access", () => {
+    const scan = scanProjectFiles({
+      "src/App.tsx": [
+        "const serviceRole = import.meta.env[\"VITE_SUPABASE_SERVICE_ROLE_KEY\"];",
+        "const providerSecret = process.env[\"ANTHROPIC_API_KEY\"];",
+      ].join("\n"),
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toContain(
+      "secret.client-service-role",
+    );
+    expect(scan.passed).toBe(false);
+  });
+
+  it("scans generated src/lib browser modules for server-only credentials", () => {
+    const scan = scanProjectFiles({
+      "src/lib/clientConfig.ts":
+        "export const secret = import.meta.env.VITE_OAUTH_CLIENT_SECRET;",
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toContain(
+      "secret.client-service-role",
+    );
+    expect(scan.passed).toBe(false);
+  });
+
   it("detects and redacts hard-coded Stripe webhook signing secrets", () => {
     const raw = "whsec_1234567890abcdefghijklmnop";
     const scan = scanProjectFiles({
