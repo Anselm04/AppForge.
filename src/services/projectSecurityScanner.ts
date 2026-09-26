@@ -57,7 +57,7 @@ const RULES: SecurityRule[] = [
     message:
       "Server/service credentials must never be exposed in generated browser code.",
     pattern:
-      /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN)/i,
+      /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY|MISTRAL_API_KEY|COHERE_API_KEY|AZURE_OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|CLOUDFLARE_API_TOKEN|TWILIO_AUTH_TOKEN|RESEND_API_KEY|SENDGRID_API_KEY|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)/i,
     paths:
       /(?:^|\/)(?:public|components|pages|client|frontend|ui)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
   },
@@ -74,6 +74,13 @@ const RULES: SecurityRule[] = [
     message: "Dynamic Function construction can enable code injection.",
     pattern: /\bnew\s+Function\s*\(/,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
+  },
+  {
+    id: "command.untrusted-exec",
+    severity: "high",
+    message: "Shell/process execution appears to use request-controlled input.",
+    pattern: /\\b(?:exec|execSync|spawn|execFile)\\s*\\(\\s*(?:req\\.(?:body|query|params)|request\\.(?:body|query|params)|body\\.|query\\.|params\\.)/i,
+    paths: /\\.(?:js|ts|mjs|cjs)$/i,
   },
   {
     id: "code.shell-exec-interpolation",
@@ -450,6 +457,81 @@ function scanSensitiveAssignments(
   return findings;
 }
 
+function scanIndirectUntrustedFlows(
+  path: string,
+  content: string,
+): ProjectSecurityFinding[] {
+  if (!/\\.(?:js|jsx|ts|tsx|mjs|cjs)$/i.test(path)) return [];
+
+  const findings: ProjectSecurityFinding[] = [];
+  const tainted = new Map<string, { line: number; source: string }>();
+  const assignment =
+    /\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*((?:req|request)\\.(?:body|query|params)(?:\\??\\.[A-Za-z_$][\\w$]*|\\[[^\\]\\n]+\\])?|(?:body|query|params)\\.[A-Za-z_$][\\w$]*)/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = assignment.exec(content)) !== null) {
+    tainted.set(match[1], {
+      line: lineNumberAt(content, match.index),
+      source: match[2],
+    });
+  }
+
+  const addTaintedFinding = (
+    ruleId: string,
+    variable: string,
+    message: string,
+    sink: RegExp,
+  ) => {
+    if (!sink.test(content)) return;
+    const detail = tainted.get(variable);
+    if (!detail) return;
+    findings.push(
+      makeFinding(
+        ruleId,
+        "high",
+        path,
+        message,
+        variable + " derives from " + detail.source,
+        detail.line,
+      ),
+    );
+  };
+
+  for (const variable of tainted.keys()) {
+    addTaintedFinding(
+      "ssrf.indirect-untrusted-request",
+      variable,
+      "Server-side network request uses request-controlled data through an intermediate variable.",
+      new RegExp("(?:fetch|axios\\\\.(?:get|post|put|patch|delete)|new\\\\s+URL)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+    );
+    addTaintedFinding(
+      "command.indirect-untrusted-exec",
+      variable,
+      "Process execution uses request-controlled data through an intermediate variable.",
+      new RegExp("\\b(?:exec|execSync|spawn|execFile)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+    );
+    addTaintedFinding(
+      "path.indirect-untrusted-file-operation",
+      variable,
+      "Filesystem access uses request-controlled data through an intermediate variable.",
+      new RegExp("(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\\\\s*\\\\([^;\\\\n]*\\b" + variable + "\\b", "i"),
+    );
+    addTaintedFinding(
+      "web.indirect-open-redirect",
+      variable,
+      "Redirect target uses request-controlled data through an intermediate variable.",
+      new RegExp("(?:res\\\\.redirect|redirect)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+    );
+    addTaintedFinding(
+      "sql.indirect-string-concatenation",
+      variable,
+      "SQL execution concatenates request-controlled data through an intermediate variable.",
+      new RegExp("(?:query|execute)\\\\s*\\\\([^;\\\\n]*(?:SELECT|INSERT|UPDATE|DELETE)[^;\\\\n]*(?:\\\\+\\\\s*" + variable + "\\b|" + variable + "\\b\\\\s*\\\\+)", "i"),
+    );
+  }
+
+  return findings;
+}
 function scanDependencies(
   path: string,
   content: string,
@@ -615,6 +697,7 @@ export function scanProjectFiles(files: Record<string, string>): {
     scannedFiles += 1;
     findings.push(...scanEnvironmentSecrets(path, content));
     findings.push(...scanSensitiveAssignments(path, content));
+    findings.push(...scanIndirectUntrustedFlows(path, content));
     findings.push(...scanDependencies(path, content));
 
     for (const rule of RULES) {
@@ -878,7 +961,7 @@ export function validateGeneratedSecurityPosture(
       securityText,
     );
   const tenantEvidence =
-    /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|membership|requireRole|hasRole|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
+    /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|requireRole|hasRole|requireMembership|assertMembership|membership\.(?:tenantId|organizationId|orgId|workspaceId|role)|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
       serverBoundarySource,
     );
   if (tenantRequired && !tenantEvidence) {
