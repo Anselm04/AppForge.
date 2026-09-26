@@ -308,8 +308,14 @@ describe("#16 generated security", () => {
       ].join("\n"),
     });
 
-    expect(scan.findings.map((finding) => finding.ruleId)).toContain(
-      "secret.client-service-role",
+    const clientLeaks = scan.findings.filter(
+      (finding) => finding.ruleId === "secret.client-service-role",
+    );
+    expect(clientLeaks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "src/App.tsx", line: 1 }),
+        expect.objectContaining({ path: "src/App.tsx", line: 2 }),
+      ]),
     );
     expect(scan.passed).toBe(false);
   });
