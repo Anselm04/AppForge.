@@ -461,12 +461,12 @@ function scanIndirectUntrustedFlows(
   path: string,
   content: string,
 ): ProjectSecurityFinding[] {
-  if (!/\\.(?:js|jsx|ts|tsx|mjs|cjs)$/i.test(path)) return [];
+  if (!/\.(?:js|jsx|ts|tsx|mjs|cjs)$/i.test(path)) return [];
 
   const findings: ProjectSecurityFinding[] = [];
   const tainted = new Map<string, { line: number; source: string }>();
   const assignment =
-    /\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*((?:req|request)\\.(?:body|query|params)(?:\\??\\.[A-Za-z_$][\\w$]*|\\[[^\\]\\n]+\\])?|(?:body|query|params)\\.[A-Za-z_$][\\w$]*)/g;
+    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*((?:req|request)\.(?:body|query|params)(?:\??\.[A-Za-z_$][\w$]*|\[[^\]\n]+\])?|(?:body|query|params)\.[A-Za-z_$][\w$]*)/g;
 
   let match: RegExpExecArray | null;
   while ((match = assignment.exec(content)) !== null) {
@@ -502,31 +502,31 @@ function scanIndirectUntrustedFlows(
       "ssrf.indirect-untrusted-request",
       variable,
       "Server-side network request uses request-controlled data through an intermediate variable.",
-      new RegExp("(?:fetch|axios\\\\.(?:get|post|put|patch|delete)|new\\\\s+URL)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+      new RegExp("(?:fetch|axios\\.(?:get|post|put|patch|delete)|new\\s+URL)\\s*\\(\\s*" + variable + "\\b", "i"),
     );
     addTaintedFinding(
       "command.indirect-untrusted-exec",
       variable,
       "Process execution uses request-controlled data through an intermediate variable.",
-      new RegExp("\\b(?:exec|execSync|spawn|execFile)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+      new RegExp("\\b(?:exec|execSync|spawn|execFile)\\s*\\(\\s*" + variable + "\\b", "i"),
     );
     addTaintedFinding(
       "path.indirect-untrusted-file-operation",
       variable,
       "Filesystem access uses request-controlled data through an intermediate variable.",
-      new RegExp("(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\\\\s*\\\\([^;\\\\n]*\\b" + variable + "\\b", "i"),
+      new RegExp("(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\\s*\\([^;\\n]*\\b" + variable + "\\b", "i"),
     );
     addTaintedFinding(
       "web.indirect-open-redirect",
       variable,
       "Redirect target uses request-controlled data through an intermediate variable.",
-      new RegExp("(?:res\\\\.redirect|redirect)\\\\s*\\\\(\\\\s*" + variable + "\\b", "i"),
+      new RegExp("(?:res\\.redirect|redirect)\\s*\\(\\s*" + variable + "\\b", "i"),
     );
     addTaintedFinding(
       "sql.indirect-string-concatenation",
       variable,
       "SQL execution concatenates request-controlled data through an intermediate variable.",
-      new RegExp("(?:query|execute)\\\\s*\\\\([^;\\\\n]*(?:SELECT|INSERT|UPDATE|DELETE)[^;\\\\n]*(?:\\\\+\\\\s*" + variable + "\\b|" + variable + "\\b\\\\s*\\\\+)", "i"),
+      new RegExp("(?:query|execute)\\s*\\([^;\\n]*(?:SELECT|INSERT|UPDATE|DELETE)[^;\\n]*(?:\\+\\s*" + variable + "\\b|" + variable + "\\b\\s*\\+)", "i"),
     );
   }
 
