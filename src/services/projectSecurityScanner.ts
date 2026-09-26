@@ -1,4 +1,5 @@
 import type { ProductContract } from "../lib/productContract.js";
+import { scanRequestTaintFlows } from "./requestTaintScanner.js";
 
 export type SecuritySeverity = "critical" | "high" | "medium" | "low";
 
@@ -616,6 +617,7 @@ export function scanProjectFiles(files: Record<string, string>): {
     findings.push(...scanEnvironmentSecrets(path, content));
     findings.push(...scanSensitiveAssignments(path, content));
     findings.push(...scanDependencies(path, content));
+    findings.push(...scanRequestTaintFlows(path, content));
 
     for (const rule of RULES) {
       if (rule.paths && !rule.paths.test(path)) continue;
