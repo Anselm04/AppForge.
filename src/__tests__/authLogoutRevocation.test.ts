@@ -12,15 +12,20 @@ describe("logout session revocation", () => {
   it("clears local state and revokes only the current Supabase session", () => {
     expect(auth).toContain("const session = getSession()");
     expect(auth).toContain("clearStoredUser()");
-    expect(auth).toContain("void clearServerSession(session?.accessToken)");
-    expect(auth).toContain("supabaseClient.signOut(session.accessToken)");
-    expect(client).toContain(
-      'request<Record<string, never>>("/auth/v1/logout?scope=local"',
-    );
+    expect(auth).toContain('void clearServerSession(session?.accessToken, "local")');
+    expect(auth).toContain('.signOut(session.accessToken, "local")');
+    expect(client).toContain(`/auth/v1/logout?scope=${scope}`);
     expect(client).toContain("Authorization: `Bearer ${accessToken}`");
     expect(client).not.toContain(
       'request<Record<string, never>>("/auth/v1/logout",',
     );
+  });
+
+  it("supports explicit all-device revocation without reusing browser refresh tokens", () => {
+    expect(auth).toContain("export function signOutAllDevices()");
+    expect(auth).toContain('clearServerSession(session?.accessToken, "global")');
+    expect(auth).toContain('.signOut(session.accessToken, "global")');
+    expect(client).toContain('scope: "local" | "global" = "local"');
   });
 
   it("keeps refresh credentials out of browser-managed session storage", () => {
