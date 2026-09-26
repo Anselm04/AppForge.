@@ -310,14 +310,14 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
 function accessTokenExpired(token: string, skewMs = 30_000): boolean {
   try {
     const parts = token.split(".");
-    if (parts.length < 2) return false;
+    if (parts.length < 2) return true;
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
     const json = JSON.parse(atob(padded)) as { exp?: number };
-    if (typeof json.exp !== "number") return false;
+    if (typeof json.exp !== "number") return true;
     return json.exp * 1000 <= Date.now() + skewMs;
   } catch {
-    return false;
+    return true;
   }
 }
 
