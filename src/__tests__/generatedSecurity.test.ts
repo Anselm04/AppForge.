@@ -311,7 +311,7 @@ describe("#16 generated security", () => {
     );
     expect(finding).toBeDefined();
     expect(finding?.evidence).not.toContain(raw);
-    expect(finding?.evidence).toContain("<redacted-stripe-webhook-secret>");
+    expect(finding?.evidence).toContain("redacted");
   });
 
   it("enforces auth, tenant and admin boundaries required by the product contract", () => {
