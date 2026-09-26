@@ -69,6 +69,15 @@ const RULES: SecurityRule[] = [
       /(?:^|\/)(?:public|components|pages|client|frontend|ui|src\/lib)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
   },
   {
+    id: "auth.appforge-identity-boundary",
+    severity: "high",
+    message:
+      "Generated products must define their own identity boundary and must not reuse AppForge platform session keys, cookies, or session endpoints.",
+    pattern:
+      /(?:appforge\.user|appforge\.access-token|\/api\/auth\/session|sb-access-token|sb-refresh-token)/i,
+    paths: /\.(?:js|jsx|ts|tsx|mjs|cjs|py)$/i,
+  },
+  {
     id: "code.dynamic-eval",
     severity: "high",
     message: "Dynamic eval() can enable code injection.",
