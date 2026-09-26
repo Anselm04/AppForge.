@@ -283,8 +283,7 @@ describe("#16 generated security", () => {
       ].join("\n"),
       "src/public-config.ts":
         "export const publicKey = import.meta.env.VITE_PUBLIC_MAPS_KEY;",
-      "server/index.ts":
-        "const anthropic = process.env.ANTHROPIC_API_KEY;",
+      "server/index.ts": "const anthropic = process.env.ANTHROPIC_API_KEY;",
     });
 
     const clientLeaks = scan.findings.filter(
