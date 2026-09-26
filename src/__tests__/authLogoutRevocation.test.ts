@@ -52,6 +52,16 @@ describe("logout session revocation", () => {
     expect(ensureSource).not.toContain("return session.accessToken");
   });
 
+  it("treats malformed or undated access tokens as stale and refreshes them server-side", () => {
+    const start = auth.indexOf("function accessTokenExpired");
+    const end = auth.indexOf("export async function ensureFreshSession", start);
+    const source = auth.slice(start, end);
+
+    expect(source).toContain("if (parts.length < 2) return true");
+    expect(source).toContain('if (typeof json.exp !== "number") return true');
+    expect(source).toContain("catch {\n    return true;");
+  });
+
   it("does not expose raw Supabase 5xx responses to the UI", () => {
     expect(client).toContain("if (response.status >= 500)");
     expect(client).toContain(
