@@ -60,7 +60,7 @@ describe("#16 generated security", () => {
         "readFile(filename);",
         "res.redirect(nextUrl);",
         'db.query("SELECT * FROM users WHERE id=" + unsafeId);',
-      ].join("\\n"),
+      ].join("\n"),
     });
     expect(scan.passed).toBe(false);
     expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
@@ -87,7 +87,7 @@ describe("#16 generated security", () => {
         "process.env.TWILIO_AUTH_TOKEN",
         "process.env.CLOUDFLARE_API_TOKEN",
         "process.env.AWS_SECRET_ACCESS_KEY",
-      ].join("\\n"),
+      ].join("\n"),
     });
     expect(scan.findings.filter((finding) => finding.ruleId === "secret.client-service-role").length).toBeGreaterThanOrEqual(5);
     expect(scan.passed).toBe(false);
