@@ -175,12 +175,15 @@ async function syncServerSessionBestEffort(
   }
 }
 
-async function clearServerSession(accessToken?: string): Promise<void> {
+async function clearServerSession(
+  accessToken?: string,
+  scope: "local" | "global" = "local",
+): Promise<void> {
   try {
     const headers = await withCsrfHeaders(
       accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     );
-    await fetch("/api/auth/session", {
+    await fetch(`/api/auth/session?scope=${scope}`, {
       method: "DELETE",
       credentials: "same-origin",
       headers,
@@ -221,7 +224,7 @@ export function useSession(): AppForgeSession | null {
   return useSyncExternalStore(subscribeSession, getSession, () => null);
 }
 
-export function signOut() {
+function clearLocalSessionState(): AppForgeSession | null {
   const session = getSession();
   sessionGeneration += 1;
   cachedSession = null;
@@ -229,10 +232,26 @@ export function signOut() {
   clearStoredAccessToken();
   refreshInFlight = null;
   emitSessionChange();
+  return session;
+}
 
-  void clearServerSession(session?.accessToken);
+export function signOut() {
+  const session = clearLocalSessionState();
+  void clearServerSession(session?.accessToken, "local");
   if (session?.accessToken) {
-    void supabaseClient.signOut(session.accessToken).catch(() => undefined);
+    void supabaseClient
+      .signOut(session.accessToken, "local")
+      .catch(() => undefined);
+  }
+}
+
+export function signOutAllDevices() {
+  const session = clearLocalSessionState();
+  void clearServerSession(session?.accessToken, "global");
+  if (session?.accessToken) {
+    void supabaseClient
+      .signOut(session.accessToken, "global")
+      .catch(() => undefined);
   }
 }
 
