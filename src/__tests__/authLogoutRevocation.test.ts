@@ -14,7 +14,7 @@ describe("logout session revocation", () => {
     expect(auth).toContain("clearStoredUser()");
     expect(auth).toContain('void clearServerSession(session?.accessToken, "local")');
     expect(auth).toContain('.signOut(session.accessToken, "local")');
-    expect(client).toContain(`/auth/v1/logout?scope=${scope}`);
+    expect(client).toContain("`/auth/v1/logout?scope=${scope}`");
     expect(client).toContain("Authorization: `Bearer ${accessToken}`");
     expect(client).not.toContain(
       'request<Record<string, never>>("/auth/v1/logout",',
