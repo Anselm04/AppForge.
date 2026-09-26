@@ -33,6 +33,12 @@ const RULES: SecurityRule[] = [
     pattern: /\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/,
   },
   {
+    id: "secret.stripe-webhook-secret",
+    severity: "critical",
+    message: "A Stripe webhook signing secret appears to be hard-coded.",
+    pattern: /\bwhsec_[A-Za-z0-9]{16,}\b/,
+  },
+  {
     id: "secret.github-token",
     severity: "critical",
     message: "A GitHub access token appears to be hard-coded.",
@@ -57,7 +63,7 @@ const RULES: SecurityRule[] = [
     message:
       "Server/service credentials must never be exposed in generated browser code.",
     pattern:
-      /(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|OPENAI_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN)/i,
+      /(?:process\.env(?:\.|\[["'])(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*)|import\.meta\.env\.(?:VITE_)?(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*))/i,
     paths:
       /(?:^|\/)(?:public|components|pages|client|frontend|ui)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
   },
@@ -325,6 +331,7 @@ function lineNumberAt(content: string, offset: number): number {
 function redactSecurityEvidence(value: string): string {
   return value
     .replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/g, "<redacted-stripe-key>")
+    .replace(/\bwhsec_[A-Za-z0-9]{16,}\b/g, "<redacted-stripe-webhook-secret>")
     .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
     .replace(/\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
     .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "<redacted-google-key>")
