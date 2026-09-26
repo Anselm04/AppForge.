@@ -120,6 +120,23 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("prevents generated products from inheriting AppForge identity privileges", () => {
+    const scan = scanProjectFiles({
+      "src/auth.ts": [
+        'const user = localStorage.getItem("appforge.user");',
+        'const token = sessionStorage.getItem("appforge.access-token");',
+        'fetch("/api/auth/session", { credentials: "include" });',
+        'document.cookie = "sb-access-token=borrowed";',
+      ].join("\n"),
+    });
+
+    const findings = scan.findings.filter(
+      (finding) => finding.ruleId === "auth.appforge-identity-boundary",
+    );
+    expect(findings.length).toBeGreaterThanOrEqual(4);
+    expect(scan.passed).toBe(false);
+  });
+
   it("requires secure HTTP service defaults", () => {
     const findings = validateGeneratedSecurityPosture(
       {
