@@ -79,8 +79,8 @@ const RULES: SecurityRule[] = [
     id: "command.untrusted-exec",
     severity: "high",
     message: "Shell/process execution appears to use request-controlled input.",
-    pattern: /\\b(?:exec|execSync|spawn|execFile)\\s*\\(\\s*(?:req\\.(?:body|query|params)|request\\.(?:body|query|params)|body\\.|query\\.|params\\.)/i,
-    paths: /\\.(?:js|ts|mjs|cjs)$/i,
+    pattern: /\b(?:exec|execSync|spawn|execFile)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
     id: "code.shell-exec-interpolation",
