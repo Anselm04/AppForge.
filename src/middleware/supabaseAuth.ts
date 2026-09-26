@@ -142,6 +142,29 @@ function clearSessionCookies(res: Response) {
   res.clearCookie(REFRESH_COOKIE, authCookieOptions());
 }
 
+async function revokeSupabaseSession(
+  accessToken: string,
+  scope: "local" | "global" = "local",
+): Promise<boolean> {
+  if (!supabaseUrl || !supabaseKey) return false;
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/auth/v1/logout?scope=${scope}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    return response.ok;
+  } catch (error) {
+    logger.warn({ error, scope }, "supabase_auth_revocation_failed");
+    return false;
+  }
+}
+
 function isSessionEndpoint(req: Request): boolean {
   const url = req.originalUrl || req.url || "";
   return url.split("?", 1)[0] === SESSION_PATH;
@@ -214,8 +237,19 @@ export async function supabaseAuthMiddleware(
   next: NextFunction,
 ) {
   if (isSessionEndpoint(req) && req.method === "DELETE") {
+    const accessToken = readAccessToken(req);
+    const scope = req.query.scope === "global" ? "global" : "local";
     clearSessionCookies(res);
     res.setHeader("Cache-Control", "no-store");
+    if (!accessToken) return res.status(204).end();
+
+    const revoked = await revokeSupabaseSession(accessToken, scope);
+    if (!revoked) {
+      return res.status(502).json({
+        error: "Session cleared locally, but provider revocation could not be confirmed",
+        code: "AUTH_REVOCATION_UNCONFIRMED",
+      });
+    }
     return res.status(204).end();
   }
 
@@ -311,6 +345,19 @@ export async function supabaseAuthMiddleware(
         });
       }
       return next();
+    }
+
+    if (dbUser.isBanned) {
+      logger.warn(
+        { userId: dbUser.id, supabaseUid },
+        "supabase_auth_banned_user_blocked",
+      );
+      clearSessionCookies(res);
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(403).json({
+        error: "Account access is disabled",
+        code: "ACCOUNT_DISABLED",
+      });
     }
 
     await ensureUserCredits(dbUser.id);
