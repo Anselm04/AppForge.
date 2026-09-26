@@ -10,6 +10,7 @@ const collaboration = readFileSync("src/routers/collaboration.ts", "utf8");
 const orgs = readFileSync("src/routers/orgs.ts", "utf8");
 const sso = readFileSync("src/routers/sso.ts", "utf8");
 const assets = readFileSync("src/routers/assets.ts", "utf8");
+const account = readFileSync("src/pages/Account.tsx", "utf8");
 const rls = readFileSync(
   "supabase/migrations/20260909142116_optimize_appforge_rls_and_fk_indexes.sql",
   "utf8",
@@ -42,6 +43,8 @@ describe("#17 authentication and authorization", () => {
     expect(middleware).toContain(
       'req.query.scope === "global" ? "global" : "local"',
     );
+    expect(account).toContain("signOutAllDevices");
+    expect(account).toContain("Sign out all devices");
   });
 
   it("enforces project ownership and cross-user isolation", () => {
