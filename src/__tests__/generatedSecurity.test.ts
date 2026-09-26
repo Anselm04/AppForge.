@@ -47,6 +47,79 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("blocks request-controlled aliases across high-risk sinks", () => {
+    const javascript = scanProjectFiles({
+      "src/server.ts": [
+        "const target = req.query.url;",
+        "const redirectTarget = req.query.next;",
+        "const command = req.body.command;",
+        "const filePath = req.params.file;",
+        "const sql = req.body.sql;",
+        "const html = req.body.html;",
+        "fetch(target);",
+        "res.redirect(redirectTarget);",
+        "exec(command);",
+        "readFile(filePath);",
+        "db.query(sql);",
+        "element.innerHTML = html;",
+      ].join("\n"),
+    });
+
+    expect(javascript.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "ssrf.tainted-alias",
+        "web.open-redirect-alias",
+        "command.tainted-alias",
+        "path.tainted-alias",
+        "sql.tainted-alias",
+        "web.xss-tainted-alias",
+      ]),
+    );
+
+    const python = scanProjectFiles({
+      "app/main.py": [
+        'url = request.query_params["url"]',
+        'cmd = request.query_params["cmd"]',
+        'path = request.path_params["file"]',
+        'redirect_to = request.query_params["next"]',
+        'sql = request.json["sql"]',
+        'html = request.form["html"]',
+        "requests.get(url)",
+        "subprocess.run(cmd)",
+        "open(path)",
+        "RedirectResponse(redirect_to)",
+        "cursor.execute(sql)",
+        "Markup(html)",
+      ].join("\n"),
+    });
+
+    expect(python.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "ssrf.python-tainted-alias",
+        "command.python-tainted-alias",
+        "path.python-tainted-alias",
+        "web.python-open-redirect-alias",
+        "sql.python-tainted-alias",
+        "web.python-xss-tainted-alias",
+      ]),
+    );
+  });
+
+  it("propagates request taint through simple aliases", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "const rawUrl = req.query.url;",
+        "const target = rawUrl;",
+        "const finalTarget = target;",
+        "fetch(finalTarget);",
+      ].join("\n"),
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toContain(
+      "ssrf.tainted-alias",
+    );
+  });
+
   it("requires secure HTTP service defaults", () => {
     const findings = validateGeneratedSecurityPosture(
       {
