@@ -91,10 +91,7 @@ export function scanRequestTaintFlows(
   const isPython = /\.py$/i.test(path);
   if (!isJavaScript && !isPython) return [];
 
-  const tainted = collectTainted(
-    content,
-    isPython ? "python" : "javascript",
-  );
+  const tainted = collectTainted(content, isPython ? "python" : "javascript");
   const findings: RequestTaintFinding[] = [];
   const seen = new Set<string>();
 
@@ -159,19 +156,13 @@ export function scanRequestTaintFlows(
       addMatch(
         "web.open-redirect-alias",
         "Redirect targets must not come from request-controlled aliases without allowlisting.",
-        new RegExp(
-          "\\b(?:res\\.)?redirect\\s*\\(\\s*" + name + "\\b",
-          "i",
-        ),
+        new RegExp("\\b(?:res\\.)?redirect\\s*\\(\\s*" + name + "\\b", "i"),
         identifier + " -> redirect",
       );
       addMatch(
         "sql.tainted-alias",
         "SQL execution must not use request-controlled SQL text.",
-        new RegExp(
-          "\\b(?:query|execute)\\s*\\(\\s*" + name + "\\b",
-          "i",
-        ),
+        new RegExp("\\b(?:query|execute)\\s*\\(\\s*" + name + "\\b", "i"),
         identifier + " -> SQL execution",
       );
       addMatch(
