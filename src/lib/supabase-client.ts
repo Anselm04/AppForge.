@@ -91,8 +91,8 @@ export const supabaseClient = {
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
   },
-  signOut(accessToken: string) {
-    return request<Record<string, never>>("/auth/v1/logout?scope=local", {
+  signOut(accessToken: string, scope: "local" | "global" = "local") {
+    return request<Record<string, never>>(`/auth/v1/logout?scope=${scope}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
