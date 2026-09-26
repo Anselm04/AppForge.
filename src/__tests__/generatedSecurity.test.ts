@@ -273,6 +273,48 @@ describe("#16 generated security", () => {
     expect(scan.passed).toBe(false);
   });
 
+  it("blocks server-only credentials from generated browser bundles without banning public client config", () => {
+    const scan = scanProjectFiles({
+      "src/App.tsx": [
+        "const anthropic = process.env.ANTHROPIC_API_KEY;",
+        "const db = import.meta.env.VITE_DATABASE_URL;",
+        "const serviceRole = process.env.MY_SERVICE_ROLE_TOKEN;",
+        "const oauthSecret = import.meta.env.VITE_OAUTH_CLIENT_SECRET;",
+      ].join("\n"),
+      "src/public-config.ts":
+        "export const publicKey = import.meta.env.VITE_PUBLIC_MAPS_KEY;",
+      "server/index.ts":
+        "const anthropic = process.env.ANTHROPIC_API_KEY;",
+    });
+
+    const clientLeaks = scan.findings.filter(
+      (finding) => finding.ruleId === "secret.client-service-role",
+    );
+    expect(clientLeaks.map((finding) => finding.path)).toEqual(
+      expect.arrayContaining(["src/App.tsx"]),
+    );
+    expect(clientLeaks.map((finding) => finding.path)).not.toContain(
+      "server/index.ts",
+    );
+    expect(clientLeaks.map((finding) => finding.path)).not.toContain(
+      "src/public-config.ts",
+    );
+  });
+
+  it("detects and redacts hard-coded Stripe webhook signing secrets", () => {
+    const raw = "whsec_1234567890abcdefghijklmnop";
+    const scan = scanProjectFiles({
+      "server/webhook.ts": `const signingSecret = "${raw}";`,
+    });
+
+    const finding = scan.findings.find(
+      (item) => item.ruleId === "secret.stripe-webhook-secret",
+    );
+    expect(finding).toBeDefined();
+    expect(finding?.evidence).not.toContain(raw);
+    expect(finding?.evidence).toContain("<redacted-stripe-webhook-secret>");
+  });
+
   it("enforces auth, tenant and admin boundaries required by the product contract", () => {
     const contract: ProductContract = {
       version: 2,
