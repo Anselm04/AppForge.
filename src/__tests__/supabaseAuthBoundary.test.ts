@@ -63,6 +63,20 @@ describe("Supabase server authentication boundary", () => {
     expect(middleware).toContain('res.setHeader("Cache-Control", "no-store")');
   });
 
+  it("revokes the Supabase session before completing server-side logout", () => {
+    expect(middleware).toContain("revokeSupabaseSession");
+    expect(middleware).toContain('/auth/v1/logout?scope=');
+    expect(middleware).toContain('req.query.scope === "global" ? "global" : "local"');
+    expect(middleware).toContain('code: "AUTH_REVOCATION_UNCONFIRMED"');
+  });
+
+  it("blocks banned AppForge accounts after verified Supabase authentication", () => {
+    expect(middleware).toContain("if (dbUser.isBanned)");
+    expect(middleware).toContain('code: "ACCOUNT_DISABLED"');
+    expect(middleware).toContain('"supabase_auth_banned_user_blocked"');
+    expect(middleware).toContain("clearSessionCookies(res)");
+  });
+
   it("derives AppForge identity from the verified Supabase user", () => {
     expect(middleware).toContain("const supabaseUid = authUser.id");
     expect(middleware).toContain("await upsertUserFromAuth({");
