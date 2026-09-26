@@ -47,6 +47,52 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("blocks indirect request-data flows into dangerous server sinks", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "const targetUrl = req.body.url;",
+        "const command = req.body.command;",
+        "const filename = req.params.filename;",
+        "const nextUrl = req.query.next;",
+        "const unsafeId = req.query.id;",
+        "await fetch(targetUrl);",
+        "exec(command);",
+        "readFile(filename);",
+        "res.redirect(nextUrl);",
+        'db.query("SELECT * FROM users WHERE id=" + unsafeId);',
+      ].join("\\n"),
+    });
+    expect(scan.passed).toBe(false);
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "ssrf.indirect-untrusted-request",
+        "command.indirect-untrusted-exec",
+        "path.indirect-untrusted-file-operation",
+        "web.indirect-open-redirect",
+        "sql.indirect-string-concatenation",
+      ]),
+    );
+  });
+
+  it("blocks direct request-controlled process execution", () => {
+    const scan = scanProjectFiles({ "src/server.ts": "exec(req.body.command);" });
+    expect(scan.findings.map((finding) => finding.ruleId)).toContain("command.untrusted-exec");
+  });
+
+  it("blocks additional provider, billing, deployment and database secrets in browser code", () => {
+    const scan = scanProjectFiles({
+      "src/App.tsx": [
+        "process.env.ANTHROPIC_API_KEY",
+        "process.env.GEMINI_API_KEY",
+        "process.env.TWILIO_AUTH_TOKEN",
+        "process.env.CLOUDFLARE_API_TOKEN",
+        "process.env.AWS_SECRET_ACCESS_KEY",
+      ].join("\\n"),
+    });
+    expect(scan.findings.filter((finding) => finding.ruleId === "secret.client-service-role").length).toBeGreaterThanOrEqual(5);
+    expect(scan.passed).toBe(false);
+  });
+
   it("requires secure HTTP service defaults", () => {
     const findings = validateGeneratedSecurityPosture(
       {
