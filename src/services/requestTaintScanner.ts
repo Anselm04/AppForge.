@@ -65,9 +65,7 @@ function collectTainted(
               "g",
             )
           : new RegExp(
-              "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*" +
-                escaped +
-                "\\b",
+              "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*" + escaped + "\\b",
               "gm",
             );
       let match: RegExpExecArray | null;
@@ -207,9 +205,7 @@ export function scanRequestTaintFlows(
         "path.python-tainted-alias",
         "Python file operations must not receive request-controlled aliases directly.",
         new RegExp(
-          "\\b(?:open|Path|send_file|FileResponse)\\s*\\(\\s*" +
-            name +
-            "\\b",
+          "\\b(?:open|Path|send_file|FileResponse)\\s*\\(\\s*" + name + "\\b",
           "i",
         ),
         identifier + " -> filesystem operation",
@@ -218,9 +214,7 @@ export function scanRequestTaintFlows(
         "web.python-open-redirect-alias",
         "Python redirect targets must not come from request-controlled aliases without allowlisting.",
         new RegExp(
-          "\\b(?:RedirectResponse|redirect)\\s*\\(\\s*" +
-            name +
-            "\\b",
+          "\\b(?:RedirectResponse|redirect)\\s*\\(\\s*" + name + "\\b",
           "i",
         ),
         identifier + " -> redirect",
@@ -228,10 +222,7 @@ export function scanRequestTaintFlows(
       addMatch(
         "sql.python-tainted-alias",
         "Python SQL execution must not use request-controlled SQL text.",
-        new RegExp(
-          "\\b(?:execute|executemany)\\s*\\(\\s*" + name + "\\b",
-          "i",
-        ),
+        new RegExp("\\b(?:execute|executemany)\\s*\\(\\s*" + name + "\\b", "i"),
         identifier + " -> SQL execution",
       );
       addMatch(
