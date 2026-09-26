@@ -1,6 +1,11 @@
 import { FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getAccessToken, ensureFreshSession } from "../lib/auth.js";
+import {
+  getAccessToken,
+  ensureFreshSession,
+  signOutAllDevices,
+} from "../lib/auth.js";
 import { supabaseClient } from "../lib/supabase-client.js";
 import { trpc } from "../utils/trpc.js";
 import { Button } from "../design-system/Button.js";
@@ -8,6 +13,7 @@ import { GlassCard } from "../design-system/GlassCard.js";
 import { Input } from "../design-system/Input.js";
 
 export function Account() {
+  const navigate = useNavigate();
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
@@ -73,6 +79,26 @@ export function Account() {
           <a href="/forgot-password" className="mt-5 inline-block text-sm text-forge-cyan hover:underline">
             Forgot your password? Send a reset email
           </a>
+          <div className="mt-8 border-t border-forge-border pt-6">
+            <h2 className="text-lg font-semibold text-forge-text-primary mb-2">
+              Session security
+            </h2>
+            <p className="text-sm text-forge-text-muted mb-4">
+              Sign out this account on every device if a device is lost or you
+              suspect unauthorized access.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                signOutAllDevices();
+                navigate("/login", { replace: true });
+              }}
+            >
+              Sign out all devices
+            </Button>
+          </div>
         </GlassCard>
       </div>
     </div>
