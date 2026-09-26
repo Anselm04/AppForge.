@@ -303,8 +303,8 @@ describe("#16 generated security", () => {
   it("blocks bracket-form browser secret access", () => {
     const scan = scanProjectFiles({
       "src/App.tsx": [
-        "const serviceRole = import.meta.env[\"VITE_SUPABASE_SERVICE_ROLE_KEY\"];",
-        "const providerSecret = process.env[\"ANTHROPIC_API_KEY\"];",
+        'const serviceRole = import.meta.env["VITE_SUPABASE_SERVICE_ROLE_KEY"];',
+        'const providerSecret = process.env["ANTHROPIC_API_KEY"];',
       ].join("\n"),
     });
 
