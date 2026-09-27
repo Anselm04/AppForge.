@@ -11,10 +11,7 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../productContract.js";
-import {
-  validateProductPlan,
-  type ProductPlan,
-} from "../productPlan.js";
+import { validateProductPlan, type ProductPlan } from "../productPlan.js";
 
 function fixture(): {
   contract: ProductContract;
@@ -224,9 +221,13 @@ describe("code generation guard", () => {
       ],
     });
 
-    expect(instruction).toContain("Task files (ALL must be returned as complete files)");
+    expect(instruction).toContain(
+      "Task files (ALL must be returned as complete files)",
+    );
     expect(instruction).toContain("loading, empty, success, and error states");
-    expect(instruction).toContain("Authentication must implement real sign-in/session/error behavior");
+    expect(instruction).toContain(
+      "Authentication must implement real sign-in/session/error behavior",
+    );
     expect(instruction).toContain("// requirement: REQ-001");
     expect(instruction).toContain("RD-001");
   });
@@ -255,7 +256,8 @@ describe("code generation guard", () => {
         contract,
         task: plan.tasks[0],
         files: {
-          "src/main.tsx": "// requirement: REQ-001\n// TODO\nexport const x = 1;",
+          "src/main.tsx":
+            "// requirement: REQ-001\n// TODO\nexport const x = 1;",
         },
       }),
     ).toThrow(/omitted planned complete file/);
@@ -282,7 +284,9 @@ describe("code generation guard", () => {
       },
     });
     expect(problems).toContain("Coder omitted runtime entrypoint src/App.tsx");
-    expect(problems).toContain("Coder omitted environment example .env.example");
+    expect(problems).toContain(
+      "Coder omitted environment example .env.example",
+    );
     expect(problems).toContain("Coder omitted README.md documentation");
   });
 
