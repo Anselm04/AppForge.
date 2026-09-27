@@ -268,6 +268,13 @@ export async function supabaseAuthMiddleware(
       res.setHeader("Cache-Control", "no-store");
       return res.status(204).end();
     }
+    if (sessionDeleteScope === "others" || sessionDeleteScope === "global") {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).json({
+        error: "Authentication service unavailable",
+        code: "AUTH_UNAVAILABLE",
+      });
+    }
     if (process.env.NODE_ENV === "production") {
       logger.error(
         {
