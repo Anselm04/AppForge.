@@ -387,7 +387,7 @@ CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("org
 `;
 
 
-const SECTION18_INTEGRITY_SQL = \`
+const SECTION18_INTEGRITY_SQL = `
 DO $
 BEGIN
   IF EXISTS (SELECT 1 FROM "subscriptions" WHERE "user_id" IS NULL) THEN
@@ -470,7 +470,7 @@ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $;
-\`;
+`;
 
 type AppForgeSchemaMigration = {
   version: string;
@@ -501,14 +501,14 @@ function migrationChecksum(migrationSql: string): string {
 }
 
 async function applyAppForgeSchemaMigrations(sql: postgres.Sql): Promise<void> {
-  await sql.unsafe(\`
+  await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS "appforge_schema_migrations" (
       "version" VARCHAR(64) PRIMARY KEY,
       "name" VARCHAR(255) NOT NULL,
       "checksum" VARCHAR(64) NOT NULL,
       "applied_at" TIMESTAMP NOT NULL DEFAULT NOW()
     )
-  \`);
+  `);
 
   await sql.unsafe(
     "SELECT pg_advisory_lock(hashtext('appforge_schema_migrations_v1'))",
@@ -517,16 +517,16 @@ async function applyAppForgeSchemaMigrations(sql: postgres.Sql): Promise<void> {
   try {
     for (const migration of APPFORGE_SCHEMA_MIGRATIONS) {
       const checksum = migrationChecksum(migration.sql);
-      const existing = await sql\`
+      const existing = await sql`
         SELECT "checksum", "name"
         FROM "appforge_schema_migrations"
-        WHERE "version" = \${migration.version}
-      \`;
+        WHERE "version" = ${migration.version}
+      `;
       const appliedChecksum = existing[0]?.checksum as string | undefined;
       if (appliedChecksum) {
         if (appliedChecksum !== checksum) {
           throw new Error(
-            \`Applied database migration \${migration.version} checksum changed; create a new migration instead of editing history\`,
+            `Applied database migration ${migration.version} checksum changed; create a new migration instead of editing history`,
           );
         }
         continue;
@@ -534,15 +534,15 @@ async function applyAppForgeSchemaMigrations(sql: postgres.Sql): Promise<void> {
 
       await sql.begin(async (tx) => {
         await tx.unsafe(migration.sql);
-        await tx\`
+        await tx`
           INSERT INTO "appforge_schema_migrations"
             ("version", "name", "checksum", "applied_at")
           VALUES
-            (\${migration.version}, \${migration.name}, \${checksum}, NOW())
-        \`;
+            (${migration.version}, ${migration.name}, ${checksum}, NOW())
+        `;
       });
       console.log(
-        \`Applied AppForge migration \${migration.version} (\${migration.name})\`,
+        `Applied AppForge migration ${migration.version} (${migration.name})`,
       );
     }
   } finally {
