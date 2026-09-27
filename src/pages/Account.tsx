@@ -1,6 +1,12 @@
 import { FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getAccessToken, ensureFreshSession } from "../lib/auth.js";
+import {
+  ensureFreshSession,
+  getAccessToken,
+  signOutAllDevices,
+  signOutOtherDevices,
+} from "../lib/auth.js";
 import { supabaseClient } from "../lib/supabase-client.js";
 import { trpc } from "../utils/trpc.js";
 import { Button } from "../design-system/Button.js";
@@ -8,6 +14,7 @@ import { GlassCard } from "../design-system/GlassCard.js";
 import { Input } from "../design-system/Input.js";
 
 export function Account() {
+  const navigate = useNavigate();
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
@@ -17,6 +24,10 @@ export function Account() {
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+  const [sessionAction, setSessionAction] = useState<
+    "others" | "global" | null
+  >(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,6 +62,41 @@ export function Account() {
     }
   };
 
+  const revokeOtherDevices = async () => {
+    setSessionMessage(null);
+    setSessionAction("others");
+    try {
+      await signOutOtherDevices();
+      setSessionMessage(
+        "Other AppForge sessions have been signed out. This device remains signed in.",
+      );
+    } catch (error) {
+      setSessionMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign out other devices.",
+      );
+    } finally {
+      setSessionAction(null);
+    }
+  };
+
+  const revokeAllDevices = async () => {
+    setSessionMessage(null);
+    setSessionAction("global");
+    try {
+      await signOutAllDevices();
+      navigate("/login", { replace: true });
+    } catch (error) {
+      setSessionMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign out all devices.",
+      );
+      setSessionAction(null);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-forge-mesh px-4 py-12">
       <div className="mx-auto max-w-lg">
@@ -63,17 +109,86 @@ export function Account() {
             Change password
           </h2>
           <form onSubmit={submit} className="space-y-4">
-            <Input id="account-new-password" label="New password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} />
-            <Input id="account-confirm-password" label="Confirm new password" type="password" autoComplete="new-password" minLength={8} required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
-            {message && <p className="text-sm text-forge-text-muted" role="status">{message}</p>}
-            <Button type="submit" className="w-full" loading={pending} disabled={pending || password.length < 8 || confirm.length < 8}>
+            <Input
+              id="account-new-password"
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <Input
+              id="account-confirm-password"
+              label="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+            />
+            {message && (
+              <p className="text-sm text-forge-text-muted" role="status">
+                {message}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              loading={pending}
+              disabled={pending || password.length < 8 || confirm.length < 8}
+            >
               Change password
             </Button>
           </form>
-          <a href="/forgot-password" className="mt-5 inline-block text-sm text-forge-cyan hover:underline">
+          <a
+            href="/forgot-password"
+            className="mt-5 inline-block text-sm text-forge-cyan hover:underline"
+          >
             Forgot your password? Send a reset email
           </a>
         </GlassCard>
+
+        <div className="mt-6">
+          <GlassCard hover={false} padding="lg">
+            <h2 className="text-xl font-semibold text-forge-text-primary mb-2">
+              Sessions
+            </h2>
+            <p className="text-sm text-forge-text-muted mb-5">
+              End sessions on devices you no longer use. Signing out all devices
+              also signs out this browser.
+            </p>
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                loading={sessionAction === "others"}
+                disabled={sessionAction !== null}
+                onClick={() => void revokeOtherDevices()}
+              >
+                Sign out other devices
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                loading={sessionAction === "global"}
+                disabled={sessionAction !== null}
+                onClick={() => void revokeAllDevices()}
+              >
+                Sign out all devices
+              </Button>
+            </div>
+            {sessionMessage && (
+              <p className="mt-4 text-sm text-forge-text-muted" role="status">
+                {sessionMessage}
+              </p>
+            )}
+          </GlassCard>
+        </div>
       </div>
     </div>
   );

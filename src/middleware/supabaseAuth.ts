@@ -17,6 +17,43 @@ const REFRESH_HEADER = "x-supabase-refresh-token";
 const SESSION_PATH = "/api/auth/session";
 const REFRESH_GRACE_MS = 15_000;
 
+type SignOutScope = "local" | "others" | "global";
+
+function readSignOutScope(req: Request): SignOutScope | null {
+  const raw =
+    typeof req.query.scope === "string"
+      ? req.query.scope.trim().toLowerCase()
+      : "local";
+  if (raw === "local" || raw === "others" || raw === "global") return raw;
+  return null;
+}
+
+async function revokeSupabaseSession(
+  accessToken: string,
+  scope: SignOutScope,
+): Promise<void> {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase authentication is not configured");
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/auth/v1/logout?scope=${encodeURIComponent(scope)}`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(5_000),
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Supabase session revocation failed (${response.status})`);
+  }
+}
+
 type RefreshedSession = {
   accessToken: string;
   refreshToken: string;
@@ -213,13 +250,32 @@ export async function supabaseAuthMiddleware(
   res: Response,
   next: NextFunction,
 ) {
-  if (isSessionEndpoint(req) && req.method === "DELETE") {
-    clearSessionCookies(res);
+  const sessionDeleteScope =
+    isSessionEndpoint(req) && req.method === "DELETE"
+      ? readSignOutScope(req)
+      : undefined;
+
+  if (sessionDeleteScope === null) {
     res.setHeader("Cache-Control", "no-store");
-    return res.status(204).end();
+    return res.status(400).json({
+      error: "Invalid sign-out scope",
+      code: "INVALID_SIGN_OUT_SCOPE",
+    });
   }
 
   if (!supabase) {
+    if (sessionDeleteScope === "local") {
+      clearSessionCookies(res);
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(204).end();
+    }
+    if (sessionDeleteScope === "others" || sessionDeleteScope === "global") {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).json({
+        error: "Authentication service unavailable",
+        code: "AUTH_UNAVAILABLE",
+      });
+    }
     if (process.env.NODE_ENV === "production") {
       logger.error(
         {
@@ -259,11 +315,51 @@ export async function supabaseAuthMiddleware(
   }
 
   if (!token || !authUser) {
+    if (sessionDeleteScope) {
+      if (sessionDeleteScope === "local") {
+        clearSessionCookies(res);
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(204).end();
+      }
+      res.setHeader("Cache-Control", "no-store");
+      return res
+        .status(401)
+        .json({ error: "Not authenticated", code: "AUTH_REQUIRED" });
+    }
     if (isSessionEndpoint(req) && req.method === "POST") {
       res.setHeader("Cache-Control", "no-store");
-      return res.status(401).json({ error: "Not authenticated", code: "AUTH_REQUIRED" });
+      return res
+        .status(401)
+        .json({ error: "Not authenticated", code: "AUTH_REQUIRED" });
     }
     return next();
+  }
+
+  if (sessionDeleteScope) {
+    try {
+      await revokeSupabaseSession(token, sessionDeleteScope);
+    } catch (err) {
+      logger.warn(
+        { error: err, scope: sessionDeleteScope },
+        "supabase_auth_session_revocation_failed",
+      );
+      if (sessionDeleteScope === "local") {
+        clearSessionCookies(res);
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(204).end();
+      }
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(502).json({
+        error: "Unable to revoke requested sessions",
+        code: "SESSION_REVOCATION_FAILED",
+      });
+    }
+
+    if (sessionDeleteScope !== "others") {
+      clearSessionCookies(res);
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(204).end();
   }
 
   try {
