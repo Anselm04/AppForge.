@@ -175,6 +175,23 @@ describe("Section 18 generated database persistence contract", () => {
     expect(policy.modelNames).toEqual(["Workspace", "Contact", "Membership"]);
   });
 
+  it("derives seed requirements from normalized real model names", () => {
+    const base = contract();
+    const policy = databasePersistencePolicy({
+      ...base,
+      dataModels: ["   ", "Workspace", "Workspace"],
+    });
+    expect(policy.modelNames).toEqual(["Workspace"]);
+    expect(policy.seedRequired).toBe(true);
+
+    const noRealModels = databasePersistencePolicy({
+      ...base,
+      dataModels: ["   "],
+    });
+    expect(noRealModels.modelNames).toEqual([]);
+    expect(noRealModels.seedRequired).toBe(false);
+  });
+
   it("gives planner and database coder the same isolation and recovery requirements", () => {
     const planner = databasePlannerInstruction(contract());
     const coder = databaseCoderInstruction(contract());
