@@ -7,6 +7,14 @@ const client = readFileSync(
   resolve(process.cwd(), "src/lib/supabase-client.ts"),
   "utf8",
 );
+const middleware = readFileSync(
+  resolve(process.cwd(), "src/middleware/supabaseAuth.ts"),
+  "utf8",
+);
+const account = readFileSync(
+  resolve(process.cwd(), "src/pages/Account.tsx"),
+  "utf8",
+);
 
 describe("logout session revocation", () => {
   it("clears local state and revokes only the current Supabase session", () => {
@@ -21,6 +29,33 @@ describe("logout session revocation", () => {
     expect(client).not.toContain(
       'request<Record<string, never>>("/auth/v1/logout",',
     );
+  });
+
+  it("supports server-backed revocation for other devices and all devices", () => {
+    expect(auth).toContain('type SessionRevocationScope = "local" | "others" | "global"');
+    expect(auth).toContain('await revokeServerSessions("others", session?.accessToken)');
+    expect(auth).toContain('await revokeServerSessions("global", session?.accessToken)');
+    expect(auth).toContain("clearLocalSessionState()");
+
+    expect(middleware).toContain('type SignOutScope = "local" | "others" | "global"');
+    expect(middleware).toContain(
+      '/auth/v1/logout?scope=${encodeURIComponent(scope)}',
+    );
+    expect(middleware).toContain('sessionDeleteScope !== "others"');
+    expect(middleware).toContain('code: "SESSION_REVOCATION_FAILED"');
+
+    expect(account).toContain("signOutOtherDevices");
+    expect(account).toContain("signOutAllDevices");
+    expect(account).toContain("Sign out other devices");
+    expect(account).toContain("Sign out all devices");
+  });
+
+  it("fails closed for invalid or unavailable scoped session revocation", () => {
+    expect(middleware).toContain('code: "INVALID_SIGN_OUT_SCOPE"');
+    expect(middleware).toContain(
+      'sessionDeleteScope === "others" || sessionDeleteScope === "global"',
+    );
+    expect(middleware).toContain('code: "AUTH_UNAVAILABLE"');
   });
 
   it("keeps refresh credentials out of browser-managed session storage", () => {
