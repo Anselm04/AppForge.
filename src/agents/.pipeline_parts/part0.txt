@@ -94,6 +94,7 @@ import {
   type ProductPlanTask,
 } from "../lib/productPlan.js";
 import { databasePlannerInstruction } from "../lib/databasePersistence.js";
+import { integrationPlannerInstruction } from "../lib/integrationImplementation.js";
 import {
   assertProductComplete,
   attachCompletenessEvidence,
