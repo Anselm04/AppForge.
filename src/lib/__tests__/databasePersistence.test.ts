@@ -202,12 +202,9 @@ describe("Section 18 generated database persistence contract", () => {
     delete files["database/seed.ts"];
     delete files["docs/DATABASE_RECOVERY.md"];
     files["src/db/schema.ts"] = files["src/db/schema.ts"]
-      .replaceAll("workspaceId", "ownerKey")
-      .replaceAll("workspace_id", "owner_key");
-    files["src/db/repository.ts"] = files["src/db/repository.ts"].replaceAll(
-      "workspaceId",
-      "ownerKey",
-    );
+      .split("workspaceId").join("ownerKey")
+      .split("workspace_id").join("owner_key");
+    files["src/db/repository.ts"] = files["src/db/repository.ts"].split("workspaceId").join("ownerKey");
 
     const problems = validateDatabasePersistenceArtifact({
       contract: contract(),
