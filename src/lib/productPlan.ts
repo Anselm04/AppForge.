@@ -3,6 +3,7 @@ import type { ProductContract } from "./productContract.js";
 import {
   databasePersistencePolicy,
   isDatabaseMigrationPath,
+  isDatabasePersistencePath,
   isDatabaseRecoveryPath,
   isDatabaseSchemaPath,
   isDatabaseSeedPath,
@@ -201,6 +202,11 @@ export function validateProductPlan(
     if (databasePolicy.seedRequired && !databaseFiles.some(isDatabaseSeedPath)) {
       throw new Error(
         "Planner database task must include development/test seed data",
+      );
+    }
+    if (!databaseFiles.some(isDatabasePersistencePath)) {
+      throw new Error(
+        "Planner database task must include server-side persistence/repository code",
       );
     }
     if (!databaseFiles.some(isDatabaseRecoveryPath)) {
