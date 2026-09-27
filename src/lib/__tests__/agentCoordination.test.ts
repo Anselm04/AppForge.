@@ -25,6 +25,7 @@ function fixture() {
   const split = Math.ceil(requirementIds.length / 2);
   const t1Requirements = requirementIds.slice(0, split);
   const t2Requirements = requirementIds.slice(split);
+  const databaseRequirementId = requirementIds[0];
   const plan = validateProductPlan(
     {
       version: 1,
@@ -50,7 +51,7 @@ function fixture() {
         recoveryDesign: "Resume from persisted task state",
         monetizationPlan: "Subscription billing",
       },
-      implementationSequence: ["T1", "T2"],
+      implementationSequence: ["T1", "T2", "T3"],
       tasks: [
         {
           id: "T1",
@@ -76,19 +77,51 @@ function fixture() {
           agent: "integration",
           validations: ["billing tests", "health test"],
         },
+        {
+          id: "T3",
+          module: "Database persistence",
+          description:
+            "Implement schema, migration, seed, repository boundaries, and recovery.",
+          sequence: 3,
+          dependencies: ["T1"],
+          acceptanceCriteria: ["Database persistence is production-ready"],
+          requirementIds: [databaseRequirementId],
+          files: [
+            "src/db/schema.ts",
+            "src/db/repository.ts",
+            "database/migrations/20260927_initial.sql",
+            "database/seed.ts",
+            "docs/DATABASE_RECOVERY.md",
+          ],
+          agent: "database",
+          validations: [
+            "database schema migration transaction backup restore test",
+          ],
+        },
       ],
       requirementToTasks: Object.fromEntries([
-        ...t1Requirements.map((id) => [id, ["T1"]]),
+        ...t1Requirements.map((id) => [
+          id,
+          id === databaseRequirementId ? ["T1", "T3"] : ["T1"],
+        ]),
         ...t2Requirements.map((id) => [id, ["T2"]]),
       ]),
       taskToFiles: {
         T1: ["src/auth.ts", "src/db.ts"],
         T2: ["src/billing.ts", "src/health.ts"],
+        T3: [
+          "src/db/schema.ts",
+          "src/db/repository.ts",
+          "database/migrations/20260927_initial.sql",
+          "database/seed.ts",
+          "docs/DATABASE_RECOVERY.md",
+        ],
       },
-      taskToAgent: { T1: "backend", T2: "integration" },
+      taskToAgent: { T1: "backend", T2: "integration", T3: "database" },
       taskToValidation: {
         T1: ["auth tests"],
         T2: ["billing tests", "health test"],
+        T3: ["database schema migration transaction backup restore test"],
       },
       researchDecisionIds: ["RD-001"],
     },
@@ -228,7 +261,7 @@ describe("agent coordination", () => {
     const { record } = fixture();
     const summary = coordinationStatusSummary(record);
     expect(summary.pending).toBe(1);
-    expect(summary.blocked).toBe(1);
+    expect(summary.blocked).toBe(2);
     expect(summary.completed).toBe(0);
   });
 });
