@@ -93,6 +93,7 @@ import {
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
+import { databasePlannerInstruction } from "../lib/databasePersistence.js";
 import {
   assertProductComplete,
   attachCompletenessEvidence,

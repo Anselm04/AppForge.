@@ -1,9 +1,12 @@
 /**
- * Applies the AppForge Drizzle schema (idempotent).
- * The ./drizzle SQL folder is optional; boot-time ensureAppSchema() is the source of truth.
+ * Applies the authoritative AppForge production migration chain.
+ *
+ * Migration history, advisory locking, checksums and transactional execution
+ * live in ensureAppSchema(). SQL under drizzle/ is supporting history/diff
+ * material and is not a second production migration engine.
  */
 import { ensureAppSchema } from "./ensureSchema.js";
 
-console.log("🚀 Ensuring AppForge database schema...");
+console.log("Applying AppForge database migrations...");
 await ensureAppSchema();
-console.log("✅ Schema ready");
+console.log("AppForge database migrations complete");

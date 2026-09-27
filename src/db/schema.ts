@@ -36,9 +36,12 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
-  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", {
+    length: 255,
+  }).unique(),
   status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
   tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
   trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
@@ -51,6 +54,7 @@ export const githubConnections = pgTable("github_connections", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
   githubUsername: varchar("github_username", { length: 255 }),
   accessToken: text("access_token"),
@@ -64,6 +68,7 @@ export const userCredits = pgTable(
     id: serial("id").primaryKey(),
     userId: integer("user_id")
       .references(() => users.id, { onDelete: "cascade" })
+      .notNull()
       .unique(),
     balance: integer("balance").default(0).notNull(),
     tier: varchar("tier", { length: 50 }).default("free"),
@@ -83,9 +88,11 @@ export const creditTransactions = pgTable(
   "credit_transactions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     amount: integer("amount").notNull(),
     type: varchar("type", { length: 50 }).notNull(),
     projectId: integer("project_id"), // nullable - which build consumed these
@@ -105,9 +112,11 @@ export const projects = pgTable(
   "projects",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     title: varchar("title", { length: 255 }),
     description: text("description"),
     techStack: varchar("tech_stack", { length: 255 }).default("react-node"),
@@ -115,8 +124,12 @@ export const projects = pgTable(
     errorMessage: text("error_message"),
     pauseReason: text("pause_reason"), // 'credits_exhausted', 'user_cancelled', etc
     generatedFiles: jsonb("generated_files"),
-    workingArtifactVersion: integer("working_artifact_version").default(0).notNull(),
-    workingArtifactIntegrity: jsonb("working_artifact_integrity").$type<ArtifactIntegrity>(),
+    workingArtifactVersion: integer("working_artifact_version")
+      .default(0)
+      .notNull(),
+    workingArtifactIntegrity: jsonb(
+      "working_artifact_integrity",
+    ).$type<ArtifactIntegrity>(),
     creditsSpent: integer("credits_spent").default(0),
     creditsReserved: integer("credits_reserved").default(0), // reserved at build start
     locale: varchar("locale", { length: 10 }).default("en"),
@@ -126,8 +139,11 @@ export const projects = pgTable(
     productContract: jsonb("product_contract").$type<ProductContract>(),
     researchRecord: jsonb("research_record").$type<ResearchRecord>(),
     productPlan: jsonb("product_plan").$type<ProductPlan>(),
-    agentCoordination: jsonb("agent_coordination").$type<AgentCoordinationRecord>(),
-    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
+    agentCoordination:
+      jsonb("agent_coordination").$type<AgentCoordinationRecord>(),
+    requirementManifest: jsonb(
+      "requirement_manifest",
+    ).$type<RequirementManifest>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -143,9 +159,11 @@ export const agentLogs = pgTable(
   "agent_logs",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, {
-      onDelete: "cascade",
-    }),
+    projectId: integer("project_id")
+      .references(() => projects.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     agent: varchar("agent", { length: 50 }), // 'Planner', 'Coder', 'Reviewer', 'Cosine'
     content: text("content"),
     creditsCharged: integer("credits_charged").default(0),
@@ -167,12 +185,16 @@ export const cosineImprovements = pgTable(
   "cosine_improvements",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, {
-      onDelete: "cascade",
-    }),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    projectId: integer("project_id")
+      .references(() => projects.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     improvements: jsonb("improvements"), // Array of improvement types: ['bug-fix', 'feature-add', 'optimize', etc]
     prUrl: text("pr_url"),
     status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'in-progress', 'completed', 'failed'
@@ -312,6 +334,7 @@ export const cosineConnections = pgTable("cosine_connections", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
@@ -530,7 +553,9 @@ export const buildSnapshots = pgTable(
     validationResult: jsonb("validation_result"),
     auditScores: jsonb("audit_scores"),
     costEstimate: jsonb("cost_estimate"),
-    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
+    requirementManifest: jsonb(
+      "requirement_manifest",
+    ).$type<RequirementManifest>(),
     artifactIntegrity: jsonb("artifact_integrity").$type<ArtifactIntegrity>(),
     isCurrent: boolean("is_current").default(false),
     createdAt: timestamp("created_at").defaultNow(),

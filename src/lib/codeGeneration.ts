@@ -1,5 +1,8 @@
 import { getStackAdapter } from "./stackAdapters.js";
-import { getRuntimeArchitecture, validateRuntimeImplementation } from "./runtimeArchitecture.js";
+import {
+  getRuntimeArchitecture,
+  validateRuntimeImplementation,
+} from "./runtimeArchitecture.js";
 import {
   ensureGeneratedProjectStructure,
   validateGeneratedProjectStructure,
@@ -7,6 +10,10 @@ import {
 import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchDecision } from "./researchRecord.js";
+import {
+  databaseCoderInstruction,
+  validateDatabasePersistenceArtifact,
+} from "./databasePersistence.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/i, "TODO marker"],
@@ -15,7 +22,10 @@ const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/your generated ui will replace/i, "generated-UI placeholder"],
   [/\bgenerated product\b/i, "generic generated-product placeholder"],
   [/\bnot implemented\b/i, "not-implemented placeholder"],
-  [/throw\s+new\s+Error\s*\(\s*["'`]Not implemented/i, "not-implemented exception"],
+  [
+    /throw\s+new\s+Error\s*\(\s*["'`]Not implemented/i,
+    "not-implemented exception",
+  ],
 ];
 
 const EMPTY_HANDLER_PATTERNS: RegExp[] = [
@@ -42,11 +52,10 @@ function wrongStackProblems(
   for (const [path, source] of Object.entries(files)) {
     if (!isTextSource(path)) continue;
 
-    if (
-      adapter.runtime === "python" &&
-      /\.(?:tsx?|jsx?)$/i.test(path)
-    ) {
-      problems.push(`${path}: JavaScript/React file does not match Python runtime`);
+    if (adapter.runtime === "python" && /\.(?:tsx?|jsx?)$/i.test(path)) {
+      problems.push(
+        `${path}: JavaScript/React file does not match Python runtime`,
+      );
     }
 
     if (
@@ -62,13 +71,18 @@ function wrongStackProblems(
       adapter.id === "react-native-expo" &&
       /react-dom|document\.getElementById|<html\b|<body\b/i.test(source)
     ) {
-      problems.push(`${path}: browser DOM output does not match React Native stack`);
+      problems.push(
+        `${path}: browser DOM output does not match React Native stack`,
+      );
     }
 
     if (
-      ["api-service", "node-service", "ai-agent-node", "browser-automation"].includes(
-        adapter.id,
-      ) &&
+      [
+        "api-service",
+        "node-service",
+        "ai-agent-node",
+        "browser-automation",
+      ].includes(adapter.id) &&
       (/\.(?:tsx|jsx)$/i.test(path) || /react-dom\/client/i.test(source))
     ) {
       problems.push(`${path}: browser UI output does not match service stack`);
@@ -94,8 +108,8 @@ export function coderTaskInstruction(input: {
   const { contract, plan, task } = input;
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const runtime = getRuntimeArchitecture(adapter.id);
-  const taskRequirements = contract.functionalRequirements.filter((requirement) =>
-    task.requirementIds.includes(requirement.id),
+  const taskRequirements = contract.functionalRequirements.filter(
+    (requirement) => task.requirementIds.includes(requirement.id),
   );
   const applicableResearch = input.researchDecisions.filter((decision) =>
     plan.researchDecisionIds.includes(decision.id),
@@ -133,6 +147,9 @@ export function coderTaskInstruction(input: {
     );
   }
 
+  const databaseInstruction =
+    task.agent === "database" ? databaseCoderInstruction(contract) : "";
+
   return [
     "CODE GENERATION CONTRACT — authoritative:",
     `Product type: ${contract.productType}`,
@@ -168,6 +185,7 @@ export function coderTaskInstruction(input: {
     "- Never embed secrets. Read runtime configuration from environment/server configuration appropriate to the selected stack.",
     "- Generate production error handling and validation for external/user-controlled inputs.",
     ...capabilityRules.map((rule) => `- ${rule}`),
+    ...(databaseInstruction ? [databaseInstruction] : []),
   ].join("\n");
 }
 
@@ -211,9 +229,7 @@ export function validateCoderTaskOutput(input: {
 
     for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
       if (pattern.test(source)) {
-        throw new Error(
-          `Task ${input.task.id} returned ${label} in ${path}`,
-        );
+        throw new Error(`Task ${input.task.id} returned ${label} in ${path}`);
       }
     }
     if (
@@ -244,6 +260,18 @@ export function validateCoderTaskOutput(input: {
       `Task ${input.task.id} generated wrong-stack output: ${stackProblems.join("; ")}`,
     );
   }
+
+  if (input.task.agent === "database") {
+    const databaseProblems = validateDatabasePersistenceArtifact({
+      files: input.files,
+      contract: input.contract,
+    });
+    if (databaseProblems.length > 0) {
+      throw new Error(
+        `Task ${input.task.id} failed database persistence contract: ${databaseProblems.join("; ")}`,
+      );
+    }
+  }
 }
 
 export function validateCoderOwnedArtifact(input: {
@@ -271,10 +299,7 @@ export function validateCoderOwnedArtifact(input: {
   }
 
   problems.push(
-    ...wrongStackProblems(
-      input.files,
-      input.contract.selectedTechnologyStack,
-    ),
+    ...wrongStackProblems(input.files, input.contract.selectedTechnologyStack),
   );
 
   return [...new Set(problems)];
@@ -284,27 +309,31 @@ export function buildImplementationEvidence(input: {
   contract: ProductContract;
   plan: ProductPlan;
 }): string {
-  const requirements = input.contract.functionalRequirements.map((requirement) => {
-    const taskIds = input.plan.requirementToTasks[requirement.id] ?? [];
-    const files = [
-      ...new Set(
-        taskIds.flatMap((taskId) => input.plan.taskToFiles[taskId] ?? []),
-      ),
-    ];
-    return {
-      id: requirement.id,
-      priority: requirement.priority,
-      category: requirement.category,
-      text: requirement.text,
-      taskIds,
-      files,
-      validations: [
+  const requirements = input.contract.functionalRequirements.map(
+    (requirement) => {
+      const taskIds = input.plan.requirementToTasks[requirement.id] ?? [];
+      const files = [
         ...new Set(
-          taskIds.flatMap((taskId) => input.plan.taskToValidation[taskId] ?? []),
+          taskIds.flatMap((taskId) => input.plan.taskToFiles[taskId] ?? []),
         ),
-      ],
-    };
-  });
+      ];
+      return {
+        id: requirement.id,
+        priority: requirement.priority,
+        category: requirement.category,
+        text: requirement.text,
+        taskIds,
+        files,
+        validations: [
+          ...new Set(
+            taskIds.flatMap(
+              (taskId) => input.plan.taskToValidation[taskId] ?? [],
+            ),
+          ),
+        ],
+      };
+    },
+  );
 
   return JSON.stringify(
     {
@@ -341,7 +370,10 @@ export function ensureCodeGenerationSupportFiles(input: {
     }
   }
 
-  if (!files["README.md"] || /AppForge project|Generated by AppForge/i.test(files["README.md"])) {
+  if (
+    !files["README.md"] ||
+    /AppForge project|Generated by AppForge/i.test(files["README.md"])
+  ) {
     files["README.md"] = [
       `# ${input.plan.title}`,
       "",
@@ -429,6 +461,12 @@ export function validateGeneratedCodeArtifact(input: {
       input.files,
       input.contract.selectedTechnologyStack,
     ),
+  );
+  problems.push(
+    ...validateDatabasePersistenceArtifact({
+      files: input.files,
+      contract: input.contract,
+    }),
   );
 
   for (const [path, source] of Object.entries(input.files)) {

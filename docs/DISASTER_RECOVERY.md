@@ -39,6 +39,34 @@ The metadata workflow runs only from trusted `main`, schedule, or manual executi
 
 This metadata archive improves forensic and operational recovery if the GitHub repository/account is lost or damaged, but it is not a byte-for-byte backup of every GitHub account setting. GitHub Actions secrets, account MFA/recovery settings, branch/ruleset configuration that is not exposed to the workflow, external database state, Stripe state, Supabase data, Redis state/configuration, Fly.io secrets/configuration, DNS state, and credentials held by other providers still require their own recovery procedures.
 
+## Database migration and persistence recovery
+
+AppForge production schema changes are applied only through the ordered `APPFORGE_SCHEMA_MIGRATIONS` chain in `src/db/ensureSchema.ts`. PostgreSQL records each applied version, migration name, SHA-256 checksum, and timestamp in `appforge_schema_migrations`.
+
+- Migration execution uses a PostgreSQL advisory lock so only one AppForge instance can advance the schema at a time.
+- Each migration runs in its own transaction. A failed migration must roll back without recording the version as applied.
+- An already-applied migration whose source checksum changes is a recovery incident, not permission to overwrite migration history. Restore the original migration source or create a new forward migration.
+- Constraint-tightening migrations must run explicit data preflights first. Orphans, duplicate external billing IDs, or broken foreign-key targets block migration until an operator reconciles the affected rows.
+- `DATABASE_URL` must be supplied explicitly to migration, backup, and restore tools. A missing URL must fail closed rather than select a fallback database.
+- SQL under `drizzle/` and `supabase/migrations/` is not an alternate AppForge production migration path.
+
+Before a production schema change:
+
+1. Run and verify a fresh database backup.
+2. Record the exact release SHA and current highest migration version/checksum.
+3. Rehearse the migration against an empty database, a production-shaped prior schema, and a restored backup when the change affects existing data or constraints.
+4. Deploy only the exact CI-approved SHA and let the authoritative migration chain advance the schema.
+5. Verify `/api/health/ready`, ownership/billing invariants, and the production customer-flow checks.
+
+If a migration fails:
+
+1. Stop further production rollout; do not edit an already-applied migration to make it pass.
+2. Capture the migration version, checksum, SQL error, release SHA, and preflight findings.
+3. If the migration transaction rolled back, correct data with an explicit reviewed reconciliation procedure or create a new forward migration as appropriate.
+4. If database state is uncertain, restore the newest verified backup into a separate restore database.
+5. Run the full migration chain against the restored copy and verify migration checksums plus application data invariants.
+6. Promote a restored database only after normal CI/release checks, readiness, billing/auth boundaries, and customer-flow verification pass.
+
 ## Managed Redis production recovery path
 
 AppForge production uses the Fly-managed Upstash Redis database `appforge-production-redis` for shared state required by the two-Machine architecture. The database is provisioned or reconciled by `.github/workflows/provision-fly-redis.yml`, which derives the deployment region from the trusted `fly.toml` `primary_region` and targets the production Fly app `appforge-unfurling-moon-9058`.

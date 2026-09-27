@@ -1,5 +1,13 @@
 import { z } from "zod";
 import type { ProductContract } from "./productContract.js";
+import {
+  databasePersistencePolicy,
+  isDatabaseMigrationPath,
+  isDatabasePersistencePath,
+  isDatabaseRecoveryPath,
+  isDatabaseSchemaPath,
+  isDatabaseSeedPath,
+} from "./databasePersistence.js";
 
 const nonEmptyString = z.string().trim().min(1);
 const stringArray = z.array(nonEmptyString);
@@ -169,6 +177,61 @@ export function validateProductPlan(
     plan.architecture.aiModules.length === 0
   ) {
     throw new Error("Planner must include AI modules for this product");
+  }
+
+  const databasePolicy = databasePersistencePolicy(contract);
+  if (databasePolicy.required) {
+    const databaseTasks = plan.tasks.filter(
+      (task) => task.agent === "database",
+    );
+    if (databaseTasks.length === 0) {
+      throw new Error(
+        "Planner must include a database-owned task for database-capable products",
+      );
+    }
+
+    const databaseFiles = databaseTasks.flatMap((task) => task.files);
+    if (!databaseFiles.some(isDatabaseSchemaPath)) {
+      throw new Error(
+        "Planner database task must include schema/model definitions",
+      );
+    }
+    if (!databaseFiles.some(isDatabaseMigrationPath)) {
+      throw new Error(
+        "Planner database task must include at least one versioned migration",
+      );
+    }
+    if (
+      databasePolicy.seedRequired &&
+      !databaseFiles.some(isDatabaseSeedPath)
+    ) {
+      throw new Error(
+        "Planner database task must include development/test seed data",
+      );
+    }
+    if (!databaseFiles.some(isDatabasePersistencePath)) {
+      throw new Error(
+        "Planner database task must include server-side persistence/repository code",
+      );
+    }
+    if (!databaseFiles.some(isDatabaseRecoveryPath)) {
+      throw new Error(
+        "Planner database task must include database recovery documentation",
+      );
+    }
+
+    const databaseValidationText = databaseTasks
+      .flatMap((task) => task.validations)
+      .join(" ");
+    if (
+      !/database|schema|migration|transaction|tenant|persistence|restore|backup/i.test(
+        databaseValidationText,
+      )
+    ) {
+      throw new Error(
+        "Planner database task must include database-specific validation",
+      );
+    }
   }
 
   if (

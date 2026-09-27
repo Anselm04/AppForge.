@@ -1,70 +1,54 @@
-# Database Migrations
+# AppForge database migrations
 
-AppForge uses Drizzle Kit for database migrations with PostgreSQL/Supabase.
+AppForge production uses one migration authority:
 
-## Quick Start
+- `src/db/schema.ts` defines the current Drizzle model used by application code.
+- `APPFORGE_SCHEMA_MIGRATIONS` in `src/db/ensureSchema.ts` is the ordered production migration chain.
+- `appforge_schema_migrations` in PostgreSQL records version, name, checksum, and applied time.
+- `npm run db:migrate` executes that chain with an advisory lock and one transaction per migration.
 
-```bash
-# Install dependencies
-npm install
+Files under `drizzle/` are supporting historical/diff material. They are **not** a second production migration engine and must not be applied independently to the live AppForge database.
 
-# Set database URL
-export DATABASE_URL=postgresql://user:password@localhost:5432/appforge
+## Safety rules
 
-# Generate migrations from schema
-npm run db:generate
-
-# Run migrations
-npm run db:migrate
-```
+1. Set `DATABASE_URL` explicitly. Production migration, backup, and restore tooling must never guess a database.
+2. Never edit the SQL of an already-applied migration. The runtime verifies SHA-256 checksums and fails closed if migration history changes.
+3. Add a new migration entry for every schema change.
+4. Put data-quality preflight checks before stricter constraints. If invalid production rows exist, fail with an actionable reconciliation error rather than deleting or guessing data.
+5. Keep migrations forward-safe and transactional. When destructive restructuring is unavoidable, use expand/backfill/contract across separate reviewed migrations.
+6. Take and verify a backup before production schema changes.
+7. Test empty-database, existing-production-shape, and restored-snapshot migration paths before release.
 
 ## Commands
 
-| Command | Purpose | Environment |
-|---------|---------|-------------|
-| `npm run db:generate` | Generate SQL migrations from schema | Any |
-| `npm run db:migrate` | Run pending migrations | Production/Staging |
-| `npm run db:push` | Push schema directly (dev only) | Development |
-| `npm run db:studio` | Open Drizzle Studio UI | Development |
-
-## Environment Variables
-
 ```bash
-DATABASE_URL=postgresql://user:password@host:5432/database
-SUPABASE_DB_URL=postgresql://postgres:password@db.supabase.co:5432/postgres
+export DATABASE_URL='<explicit-postgres-connection>'
+
+npm run db:migrate
+npm run db:generate   # development schema-diff assistance only
+npm run db:studio     # development inspection only
 ```
 
-## Development Workflow
+`db:push` is development-only and must never replace the versioned production migration chain.
 
-1. Update `src/db/schema.ts`
-2. Run `npm run db:generate`
-3. Review generated SQL in `drizzle/`
-4. Run `npm run db:migrate` or `npm run db:push`
+## Adding a production migration
 
-## Drizzle Studio
+1. Update `src/db/schema.ts`.
+2. Add a new immutable entry to `APPFORGE_SCHEMA_MIGRATIONS`.
+3. Include preflight/backfill SQL before any new `NOT NULL`, unique, or foreign-key constraint.
+4. Add or update migration/invariant tests.
+5. Update recovery documentation when migration assumptions or restore procedures change.
+6. Run lint, typecheck, full tests, security scanning, production build, and release gate.
+7. Back up production, run `npm run db:migrate`, then verify readiness and customer-flow checks.
+
+## Backup and restore
+
+Backups and restores require an explicit `DATABASE_URL`:
 
 ```bash
-npm run db:studio
+DATABASE_URL='<explicit-postgres-connection>' bash scripts/backup-database.sh
+DATABASE_URL='<explicit-postgres-connection>' bash scripts/backup-verify.sh
+DATABASE_URL='<explicit-postgres-connection>' bash scripts/backup-restore.sh backups/daily/<file>.sql.gz
 ```
 
-Opens web UI to browse and edit your database.
-
-## Production Deployment
-
-1. Set `DATABASE_URL` in production environment
-2. Run `npm run db:migrate` as part of deployment
-3. Verify migrations completed successfully
-
-## Best Practices
-
-- ✅ Review generated migrations before committing
-- ✅ Test migrations on local/staging database first
-- ✅ Never edit committed migration files
-- ✅ Use `db:push` only in development
-- ✅ Keep migrations small and focused
-
-## Resources
-
-- [Drizzle Kit Docs](https://orm.drizzle.team/docs/kit-overview)
-- [Drizzle Migrations](https://orm.drizzle.team/docs/migrations)
-- [Drizzle + Supabase](https://orm.drizzle.team/docs/tutorials/drizzle-with-supabase)
+Restore rehearsals create a separate restore database. Do not replace the current production database until the restored copy passes migration checksum verification, schema/data invariants, application readiness, and the normal release/customer-flow gates.
