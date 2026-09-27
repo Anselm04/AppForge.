@@ -387,7 +387,7 @@ CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("org
 `;
 
 const SECTION18_INTEGRITY_SQL = `
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM "subscriptions" WHERE "user_id" IS NULL) THEN
     RAISE EXCEPTION 'Section 18 migration blocked: subscriptions contains rows without user_id';
@@ -442,7 +442,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Section 18 migration blocked: credit_transactions contains unknown project_id values';
   END IF;
-END $;
+END $$;
 
 ALTER TABLE "subscriptions" ALTER COLUMN "user_id" SET NOT NULL;
 ALTER TABLE "github_connections" ALTER COLUMN "user_id" SET NOT NULL;
@@ -461,14 +461,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_stripe_subscription_unique"
   ON "subscriptions" ("stripe_subscription_id")
   WHERE "stripe_subscription_id" IS NOT NULL;
 
-DO $
+DO $$
 BEGIN
   ALTER TABLE "credit_transactions"
     ADD CONSTRAINT "credit_transactions_project_fk"
     FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
-END $;
+END $$;
 `;
 
 type AppForgeSchemaMigration = {
