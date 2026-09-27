@@ -39,7 +39,9 @@ export const subscriptions = pgTable("subscriptions", {
     .notNull()
     .unique(),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", {
+    length: 255,
+  }).unique(),
   status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
   tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
   trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
@@ -122,8 +124,12 @@ export const projects = pgTable(
     errorMessage: text("error_message"),
     pauseReason: text("pause_reason"), // 'credits_exhausted', 'user_cancelled', etc
     generatedFiles: jsonb("generated_files"),
-    workingArtifactVersion: integer("working_artifact_version").default(0).notNull(),
-    workingArtifactIntegrity: jsonb("working_artifact_integrity").$type<ArtifactIntegrity>(),
+    workingArtifactVersion: integer("working_artifact_version")
+      .default(0)
+      .notNull(),
+    workingArtifactIntegrity: jsonb(
+      "working_artifact_integrity",
+    ).$type<ArtifactIntegrity>(),
     creditsSpent: integer("credits_spent").default(0),
     creditsReserved: integer("credits_reserved").default(0), // reserved at build start
     locale: varchar("locale", { length: 10 }).default("en"),
@@ -133,8 +139,11 @@ export const projects = pgTable(
     productContract: jsonb("product_contract").$type<ProductContract>(),
     researchRecord: jsonb("research_record").$type<ResearchRecord>(),
     productPlan: jsonb("product_plan").$type<ProductPlan>(),
-    agentCoordination: jsonb("agent_coordination").$type<AgentCoordinationRecord>(),
-    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
+    agentCoordination:
+      jsonb("agent_coordination").$type<AgentCoordinationRecord>(),
+    requirementManifest: jsonb(
+      "requirement_manifest",
+    ).$type<RequirementManifest>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -544,7 +553,9 @@ export const buildSnapshots = pgTable(
     validationResult: jsonb("validation_result"),
     auditScores: jsonb("audit_scores"),
     costEstimate: jsonb("cost_estimate"),
-    requirementManifest: jsonb("requirement_manifest").$type<RequirementManifest>(),
+    requirementManifest: jsonb(
+      "requirement_manifest",
+    ).$type<RequirementManifest>(),
     artifactIntegrity: jsonb("artifact_integrity").$type<ArtifactIntegrity>(),
     isCurrent: boolean("is_current").default(false),
     createdAt: timestamp("created_at").defaultNow(),
