@@ -46,18 +46,26 @@ function result(
   configured = false,
   verified = false,
 ): IntegrationHealth {
+  const normalizedState =
+    state === "connected" && verified !== true
+      ? "configuration_required"
+      : state;
+
   return {
     id: definition.id,
     name: definition.name,
     kind: definition.kind,
     job: definition.job,
     capabilities: definition.capabilities,
-    state,
+    state: normalizedState,
     configured,
     verified,
     requiredForProduction: definition.requiredForProduction,
     lastCheckedAt: new Date().toISOString(),
-    message,
+    message:
+      state === "connected" && verified !== true
+        ? message + "; active verification has not completed"
+        : message,
   };
 }
 
