@@ -117,7 +117,7 @@ function fixture(): {
         recoveryDesign: "Retry-safe operations.",
         monetizationPlan: "Subscription access.",
       },
-      implementationSequence: ["T1", "T2"],
+      implementationSequence: ["T1", "T2", "T3"],
       tasks: [
         {
           id: "T1",
@@ -143,22 +143,59 @@ function fixture(): {
           agent: "operations",
           validations: ["runtime checks"],
         },
+        {
+          id: "T3",
+          module: "Database persistence",
+          description:
+            "Implement schema, migrations, seed safety, transactional persistence, and recovery.",
+          sequence: 3,
+          dependencies: ["T1"],
+          acceptanceCriteria: [
+            "Database persistence is migratable, validated, transactional, and tenant-safe.",
+          ],
+          requirementIds: ["REQ-001", "REQ-003"],
+          files: [
+            "src/db/schema.ts",
+            "src/db/repository.ts",
+            "database/migrations/20260927_initial.sql",
+            "database/seed.ts",
+            "docs/DATABASE_RECOVERY.md",
+          ],
+          agent: "database",
+          validations: [
+            "database schema migration validation",
+            "tenant transaction isolation test",
+            "database backup restore rehearsal",
+          ],
+        },
       ],
       requirementToTasks: {
-        "REQ-001": ["T1"],
+        "REQ-001": ["T1", "T3"],
         "REQ-002": ["T1"],
-        "REQ-003": ["T2"],
+        "REQ-003": ["T2", "T3"],
         "REQ-004": ["T2"],
         "REQ-005": ["T2"],
       },
       taskToFiles: {
         T1: ["src/main.tsx", "src/App.tsx"],
         T2: [".env.example", "README.md"],
+        T3: [
+          "src/db/schema.ts",
+          "src/db/repository.ts",
+          "database/migrations/20260927_initial.sql",
+          "database/seed.ts",
+          "docs/DATABASE_RECOVERY.md",
+        ],
       },
-      taskToAgent: { T1: "frontend", T2: "operations" },
+      taskToAgent: { T1: "frontend", T2: "operations", T3: "database" },
       taskToValidation: {
         T1: ["UI workflow tests"],
         T2: ["runtime checks"],
+        T3: [
+          "database schema migration validation",
+          "tenant transaction isolation test",
+          "database backup restore rehearsal",
+        ],
       },
       researchDecisionIds: ["RD-001"],
     },
