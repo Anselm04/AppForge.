@@ -181,7 +181,9 @@ export function validateProductPlan(
 
   const databasePolicy = databasePersistencePolicy(contract);
   if (databasePolicy.required) {
-    const databaseTasks = plan.tasks.filter((task) => task.agent === "database");
+    const databaseTasks = plan.tasks.filter(
+      (task) => task.agent === "database",
+    );
     if (databaseTasks.length === 0) {
       throw new Error(
         "Planner must include a database-owned task for database-capable products",
@@ -199,7 +201,10 @@ export function validateProductPlan(
         "Planner database task must include at least one versioned migration",
       );
     }
-    if (databasePolicy.seedRequired && !databaseFiles.some(isDatabaseSeedPath)) {
+    if (
+      databasePolicy.seedRequired &&
+      !databaseFiles.some(isDatabaseSeedPath)
+    ) {
       throw new Error(
         "Planner database task must include development/test seed data",
       );
