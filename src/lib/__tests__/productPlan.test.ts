@@ -141,7 +141,7 @@ function validPlan() {
 describe("contract-aware planner schema", () => {
   it("accepts a complete structured plan", () => {
     const plan = validateProductPlan(validPlan(), contract);
-    expect(plan.tasks).toHaveLength(2);
+    expect(plan.tasks).toHaveLength(3);
     expect(plan.architecture.personas).toContain("Team member");
   });
 
@@ -161,7 +161,7 @@ describe("contract-aware planner schema", () => {
     expect(stripPlannerMarkdownFence(fenced).startsWith("{")).toBe(true);
     const plan = parseAndValidateProductPlan(fenced, contract);
     expect(plan.title).toBe("Team CRM");
-    expect(plan.tasks).toHaveLength(2);
+    expect(plan.tasks).toHaveLength(3);
 
     const plainFence = "```\n" + JSON.stringify(validPlan()) + "\n```\n";
     expect(
@@ -215,9 +215,9 @@ describe("contract-aware planner schema", () => {
     const plan = validPlan();
     plan.tasks = plan.tasks.filter((task) => task.id !== "TASK-003");
     plan.implementationSequence = ["TASK-001", "TASK-002"];
-    delete plan.taskToFiles["TASK-003"];
-    delete plan.taskToAgent["TASK-003"];
-    delete plan.taskToValidation["TASK-003"];
+    delete (plan.taskToFiles as Record<string, string[]>)["TASK-003"];
+    delete (plan.taskToAgent as Record<string, string>)["TASK-003"];
+    delete (plan.taskToValidation as Record<string, string[]>)["TASK-003"];
 
     expect(() => validateProductPlan(plan, contract)).toThrow(
       /database-owned task/i,
