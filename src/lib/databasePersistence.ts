@@ -91,7 +91,9 @@ export function databasePersistencePolicy(
     contract.secondaryCapabilities.includes("database") ||
     contract.productFamilies.includes("database");
   const modelNames = [
-    ...new Set(contract.dataModels.map((model) => model.trim()).filter(Boolean)),
+    ...new Set(
+      contract.dataModels.map((model) => model.trim()).filter(Boolean),
+    ),
   ];
 
   return {
