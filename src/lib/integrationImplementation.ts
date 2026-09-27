@@ -36,7 +36,9 @@ function textEntries(files: Record<string, string>): Array<[string, string]> {
 }
 
 function combined(entries: Array<[string, string]>): string {
-  return entries.map(([path, source]) => "// " + path + "\n" + source).join("\n");
+  return entries
+    .map(([path, source]) => "// " + path + "\n" + source)
+    .join("\n");
 }
 
 function isServerIntegrationPath(path: string, source: string): boolean {
@@ -62,7 +64,10 @@ function isClientExposedPath(
   if (/["']use client["']/.test(source)) return true;
   if (isServerIntegrationPath(path, source)) return false;
   if (adapter.id === "react-node") {
-    return /\.(?:tsx|jsx)$/i.test(path) || /^src\/(?:components|pages|hooks)\//i.test(path);
+    return (
+      /\.(?:tsx|jsx)$/i.test(path) ||
+      /^src\/(?:components|pages|hooks)\//i.test(path)
+    );
   }
   if (adapter.id === "next-node") {
     return /\.(?:tsx|jsx)$/i.test(path) && !/^app\/api\//i.test(path);
@@ -74,7 +79,9 @@ export function integrationImplementationPolicy(
   contract: ProductContract,
 ): IntegrationImplementationPolicy {
   const requestedIntegrations = [
-    ...new Set(contract.integrations.map((value) => value.trim()).filter(Boolean)),
+    ...new Set(
+      contract.integrations.map((value) => value.trim()).filter(Boolean),
+    ),
   ];
   const requirementText = [
     ...contract.coreWorkflows,
@@ -138,7 +145,9 @@ export function integrationCompatibilityProblems(
 }
 
 export function isIntegrationClientPath(path: string): boolean {
-  return INTEGRATION_CLIENT_PATH.test(path) && !INTEGRATION_HEALTH_PATH.test(path);
+  return (
+    INTEGRATION_CLIENT_PATH.test(path) && !INTEGRATION_HEALTH_PATH.test(path)
+  );
 }
 
 export function isIntegrationHealthPath(path: string): boolean {
@@ -157,7 +166,9 @@ export function isIntegrationEnvPath(path: string): boolean {
   return ENV_EXAMPLE_PATH.test(path);
 }
 
-export function integrationPlannerInstruction(contract: ProductContract): string {
+export function integrationPlannerInstruction(
+  contract: ProductContract,
+): string {
   const policy = integrationImplementationPolicy(contract);
   if (!policy.required) return "";
 
@@ -216,8 +227,12 @@ export function validateIntegrationArtifact(input: {
     ([path, source]) =>
       isIntegrationClientPath(path) || isServerIntegrationPath(path, source),
   );
-  const healthEntries = entries.filter(([path]) => isIntegrationHealthPath(path));
-  const webhookEntries = entries.filter(([path]) => isIntegrationWebhookPath(path));
+  const healthEntries = entries.filter(([path]) =>
+    isIntegrationHealthPath(path),
+  );
+  const webhookEntries = entries.filter(([path]) =>
+    isIntegrationWebhookPath(path),
+  );
   const docsEntries = entries.filter(([path]) => isIntegrationDocsPath(path));
   const envEntries = entries.filter(([path]) => isIntegrationEnvPath(path));
 
@@ -230,16 +245,24 @@ export function validateIntegrationArtifact(input: {
   const problems = integrationCompatibilityProblems(input.contract);
 
   if (clientEntries.length === 0) {
-    problems.push("integration contract: missing server-side integration client");
+    problems.push(
+      "integration contract: missing server-side integration client",
+    );
   }
   if (envEntries.length === 0) {
-    problems.push("integration contract: missing environment example/configuration");
+    problems.push(
+      "integration contract: missing environment example/configuration",
+    );
   }
   if (healthEntries.length === 0) {
-    problems.push("integration contract: missing integration health/status implementation");
+    problems.push(
+      "integration contract: missing integration health/status implementation",
+    );
   }
   if (docsEntries.length === 0) {
-    problems.push("integration contract: missing integration setup documentation");
+    problems.push(
+      "integration contract: missing integration setup documentation",
+    );
   }
   if (policy.webhookRequired && webhookEntries.length === 0) {
     problems.push("integration contract: missing webhook/callback handler");
@@ -260,28 +283,36 @@ export function validateIntegrationArtifact(input: {
     clientEntries.length > 0 &&
     !/AbortSignal\.timeout|AbortController|setTimeout\s*\(/i.test(clientSource)
   ) {
-    problems.push("integration contract: provider client has no bounded timeout handling");
+    problems.push(
+      "integration contract: provider client has no bounded timeout handling",
+    );
   }
 
   if (
     clientEntries.length > 0 &&
     !/retry|backoff|attempt|MAX_RETRIES|MAX_ATTEMPTS/i.test(clientSource)
   ) {
-    problems.push("integration contract: provider client has no bounded retry handling");
+    problems.push(
+      "integration contract: provider client has no bounded retry handling",
+    );
   }
 
   if (
     clientEntries.length > 0 &&
     !/429|Retry-After|retry-after|rate.?limit/i.test(clientSource)
   ) {
-    problems.push("integration contract: provider client has no rate-limit handling");
+    problems.push(
+      "integration contract: provider client has no rate-limit handling",
+    );
   }
 
   if (
     clientEntries.length > 0 &&
     !/try\s*\{|catch\s*\(|except\s+|finally\s*\{/i.test(clientSource)
   ) {
-    problems.push("integration contract: provider client has no explicit error handling");
+    problems.push(
+      "integration contract: provider client has no explicit error handling",
+    );
   }
 
   if (
@@ -336,7 +367,13 @@ export function validateIntegrationArtifact(input: {
   }
 
   if (docsEntries.length > 0) {
-    for (const term of ["environment", "verify", "retry", "rate", "troubleshoot"]) {
+    for (const term of [
+      "environment",
+      "verify",
+      "retry",
+      "rate",
+      "troubleshoot",
+    ]) {
       if (!new RegExp(term, "i").test(docsSource)) {
         problems.push(
           "integration contract: setup docs do not cover " + term + " guidance",
@@ -378,7 +415,9 @@ export function validateIntegrationArtifact(input: {
       allSource,
     )
   ) {
-    problems.push("integration contract: hard-coded provider credential detected");
+    problems.push(
+      "integration contract: hard-coded provider credential detected",
+    );
   }
 
   return [...new Set(problems)];
