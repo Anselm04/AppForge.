@@ -52,6 +52,7 @@ export const githubConnections = pgTable("github_connections", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
   githubUsername: varchar("github_username", { length: 255 }),
   accessToken: text("access_token"),
@@ -65,6 +66,7 @@ export const userCredits = pgTable(
     id: serial("id").primaryKey(),
     userId: integer("user_id")
       .references(() => users.id, { onDelete: "cascade" })
+      .notNull()
       .unique(),
     balance: integer("balance").default(0).notNull(),
     tier: varchar("tier", { length: 50 }).default("free"),
@@ -323,6 +325,7 @@ export const cosineConnections = pgTable("cosine_connections", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
