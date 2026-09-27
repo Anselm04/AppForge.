@@ -5,10 +5,7 @@ import {
 } from "./catalog.js";
 
 export type IntegrationConnectionState =
-  | "connected"
-  | "needs_attention"
-  | "not_connected"
-  | "configuration_required";
+  "connected" | "needs_attention" | "not_connected" | "configuration_required";
 
 export type IntegrationHealth = {
   id: string;
