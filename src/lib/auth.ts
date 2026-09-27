@@ -185,14 +185,11 @@ async function revokeServerSessions(
     const headers = await withCsrfHeaders(
       accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     );
-    return fetch(
-      `/api/auth/session?scope=${encodeURIComponent(scope)}`,
-      {
-        method: "DELETE",
-        credentials: "same-origin",
-        headers,
-      },
-    );
+    return fetch(`/api/auth/session?scope=${encodeURIComponent(scope)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers,
+    });
   };
 
   let response = await request();
