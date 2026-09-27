@@ -386,7 +386,6 @@ CREATE TABLE IF NOT EXISTS "organization_domains" (
 CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("organization_id");
 `;
 
-
 const SECTION18_INTEGRITY_SQL = `
 DO $
 BEGIN
