@@ -20,7 +20,9 @@ const disasterRecovery = source("docs/DISASTER_RECOVERY.md");
 
 describe("Section 18 AppForge database and persistence boundaries", () => {
   it("uses one locked, transactional, checksummed production migration chain", () => {
-    expect(ensureSchema).toContain('CREATE TABLE IF NOT EXISTS "appforge_schema_migrations"');
+    expect(ensureSchema).toContain(
+      'CREATE TABLE IF NOT EXISTS "appforge_schema_migrations"',
+    );
     expect(ensureSchema).toContain("APPFORGE_SCHEMA_MIGRATIONS");
     expect(ensureSchema).toContain("pg_advisory_lock");
     expect(ensureSchema).toContain("await sql.begin(async (tx)");
@@ -75,9 +77,7 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
     expect(drizzleSchema).toMatch(
       /creditTransactions[\s\S]*userId:[\s\S]*\.notNull\(\)/,
     );
-    expect(drizzleSchema).toMatch(
-      /projects[\s\S]*userId:[\s\S]*\.notNull\(\)/,
-    );
+    expect(drizzleSchema).toMatch(/projects[\s\S]*userId:[\s\S]*\.notNull\(\)/);
     expect(drizzleSchema).toMatch(
       /agentLogs[\s\S]*projectId:[\s\S]*\.notNull\(\)/,
     );
@@ -102,7 +102,9 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
   });
 
   it("documents database migration and restore recovery as a release boundary", () => {
-    expect(disasterRecovery).toContain("## Database migration and persistence recovery");
+    expect(disasterRecovery).toContain(
+      "## Database migration and persistence recovery",
+    );
     expect(disasterRecovery).toContain("advisory lock");
     expect(disasterRecovery).toContain("SHA-256 checksum");
     expect(disasterRecovery).toContain(
