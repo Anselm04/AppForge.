@@ -43,7 +43,8 @@ function combined(entries: Array<[string, string]>): string {
 function isServerDatabasePath(path: string, source: string): boolean {
   if (PERSISTENCE_PATH.test(path)) return true;
   if (/^(?:server|api)\//i.test(path)) return true;
-  if (/^(?:src\/server|app\/api|app\/db|lib\/server)\//i.test(path)) return true;
+  if (/^(?:src\/server|app\/api|app\/db|lib\/server)\//i.test(path))
+    return true;
   if (/["']use server["']/.test(source)) return true;
   return false;
 }
@@ -64,7 +65,10 @@ function isBrowserExposedCode(
   if (isServerDatabasePath(path, source)) return false;
 
   if (adapter.id === "react-node") {
-    return /\.(?:tsx|jsx)$/i.test(path) || /^src\/(?:components|pages|hooks)\//i.test(path);
+    return (
+      /\.(?:tsx|jsx)$/i.test(path) ||
+      /^src\/(?:components|pages|hooks)\//i.test(path)
+    );
   }
 
   if (adapter.id === "next-node") {
@@ -89,7 +93,11 @@ export function databasePersistencePolicy(
 
   return {
     required,
-    modelNames: [...new Set(contract.dataModels.map((model) => model.trim()).filter(Boolean))],
+    modelNames: [
+      ...new Set(
+        contract.dataModels.map((model) => model.trim()).filter(Boolean),
+      ),
+    ],
     tenantIsolationRequired:
       required &&
       (contract.productType === "saas_application" ||
@@ -138,7 +146,9 @@ export function databasePlannerInstruction(contract: ProductContract): string {
     "- Include at least one task owned by the database agent.",
     "- The database task/file plan must include: schema/model definitions, at least one versioned migration, a development/test seed when data models exist, persistence/repository code, and docs/DATABASE_RECOVERY.md.",
     "- Schema must be derived from these contract data models: " +
-      (policy.modelNames.length ? policy.modelNames.join(", ") : "the contract workflows"),
+      (policy.modelNames.length
+        ? policy.modelNames.join(", ")
+        : "the contract workflows"),
     "- Define indexes, relationships/foreign keys, constraints, created/updated audit fields, and validated write boundaries.",
     "- Use transaction-safe multi-record writes, explicit connection/error handling, and reversible/forward-safe migration procedures.",
     policy.tenantIsolationRequired
@@ -187,11 +197,12 @@ export function validateDatabasePersistenceArtifact(input: {
   if (!policy.required) return [];
 
   const entries = textFiles(input.files);
-  const schemaEntries = entries.filter(([path, source]) =>
-    isDatabaseSchemaPath(path) ||
-    /CREATE\s+TABLE|pgTable\s*\(|sqliteTable\s*\(|model\s+\w+\s*\{|class\s+\w+\([^)]*(?:Model|Base)\)|firestore\.rules/i.test(
-      source,
-    ),
+  const schemaEntries = entries.filter(
+    ([path, source]) =>
+      isDatabaseSchemaPath(path) ||
+      /CREATE\s+TABLE|pgTable\s*\(|sqliteTable\s*\(|model\s+\w+\s*\{|class\s+\w+\([^)]*(?:Model|Base)\)|firestore\.rules/i.test(
+        source,
+      ),
   );
   const migrationEntries = entries.filter(([path]) =>
     isDatabaseMigrationPath(path),
@@ -229,7 +240,9 @@ export function validateDatabasePersistenceArtifact(input: {
     problems.push("database contract: missing database recovery documentation");
   }
   if (persistenceEntries.length === 0) {
-    problems.push("database contract: missing server-side persistence/repository implementation");
+    problems.push(
+      "database contract: missing server-side persistence/repository implementation",
+    );
   }
 
   for (const modelName of policy.modelNames) {
@@ -257,7 +270,9 @@ export function validateDatabasePersistenceArtifact(input: {
       schemaSource,
     )
   ) {
-    problems.push("database contract: schema has no relationship/foreign-key evidence");
+    problems.push(
+      "database contract: schema has no relationship/foreign-key evidence",
+    );
   }
 
   if (
@@ -275,7 +290,9 @@ export function validateDatabasePersistenceArtifact(input: {
       schemaSource,
     )
   ) {
-    problems.push("database contract: schema is missing created/updated audit fields");
+    problems.push(
+      "database contract: schema is missing created/updated audit fields",
+    );
   }
 
   if (
@@ -284,7 +301,9 @@ export function validateDatabasePersistenceArtifact(input: {
       persistenceSource,
     )
   ) {
-    problems.push("database contract: persistence writes have no input-validation evidence");
+    problems.push(
+      "database contract: persistence writes have no input-validation evidence",
+    );
   }
 
   if (
@@ -309,20 +328,26 @@ export function validateDatabasePersistenceArtifact(input: {
       persistenceSource,
     )
   ) {
-    problems.push("database contract: no environment-backed connection handling");
+    problems.push(
+      "database contract: no environment-backed connection handling",
+    );
   }
 
   if (policy.tenantIsolationRequired) {
     const tenantPattern =
       /tenant_?id|tenantId|organization_?id|organizationId|workspace_?id|workspaceId/i;
     if (!tenantPattern.test(schemaSource)) {
-      problems.push("database contract: tenant-scoped product schema has no tenant ownership key");
+      problems.push(
+        "database contract: tenant-scoped product schema has no tenant ownership key",
+      );
     }
     if (
       !tenantPattern.test(persistenceSource) ||
       !/where|filter|eq\s*\(|query|select/i.test(persistenceSource)
     ) {
-      problems.push("database contract: tenant-scoped persistence does not prove tenant-filtered queries");
+      problems.push(
+        "database contract: tenant-scoped persistence does not prove tenant-filtered queries",
+      );
     }
   }
 
@@ -332,7 +357,9 @@ export function validateDatabasePersistenceArtifact(input: {
       schemaSource + "\n" + persistenceSource,
     )
   ) {
-    problems.push("database contract: recoverable delete workflow has no soft-delete/archive implementation");
+    problems.push(
+      "database contract: recoverable delete workflow has no soft-delete/archive implementation",
+    );
   }
 
   if (policy.seedRequired && seedEntries.length > 0) {
@@ -342,7 +369,9 @@ export function validateDatabasePersistenceArtifact(input: {
         seedSource,
       )
     ) {
-      problems.push("database contract: seed script has no non-production safety guard");
+      problems.push(
+        "database contract: seed script has no non-production safety guard",
+      );
     }
   }
 
@@ -352,23 +381,19 @@ export function validateDatabasePersistenceArtifact(input: {
   ) {
     problems.push("database contract: recovery docs do not cover migrations");
   }
-  if (
-    recoveryEntries.length > 0 &&
-    !/backup/i.test(recoverySource)
-  ) {
+  if (recoveryEntries.length > 0 && !/backup/i.test(recoverySource)) {
     problems.push("database contract: recovery docs do not cover backups");
   }
-  if (
-    recoveryEntries.length > 0 &&
-    !/restore/i.test(recoverySource)
-  ) {
+  if (recoveryEntries.length > 0 && !/restore/i.test(recoverySource)) {
     problems.push("database contract: recovery docs do not cover restore");
   }
   if (
     recoveryEntries.length > 0 &&
     !/rollback|roll forward|forward repair/i.test(recoverySource)
   ) {
-    problems.push("database contract: recovery docs do not cover rollback/forward repair");
+    problems.push(
+      "database contract: recovery docs do not cover rollback/forward repair",
+    );
   }
 
   for (const [path, source] of entries) {
@@ -396,7 +421,9 @@ export function validateDatabasePersistenceArtifact(input: {
       nonDocsSource,
     )
   ) {
-    problems.push("database contract: hard-coded database connection URI detected");
+    problems.push(
+      "database contract: hard-coded database connection URI detected",
+    );
   }
 
   return [...new Set(problems)];
