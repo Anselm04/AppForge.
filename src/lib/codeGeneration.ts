@@ -7,6 +7,10 @@ import {
 import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchDecision } from "./researchRecord.js";
+import {
+  databaseCoderInstruction,
+  validateDatabasePersistenceArtifact,
+} from "./databasePersistence.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/i, "TODO marker"],
@@ -133,6 +137,9 @@ export function coderTaskInstruction(input: {
     );
   }
 
+  const databaseInstruction =
+    task.agent === "database" ? databaseCoderInstruction(contract) : "";
+
   return [
     "CODE GENERATION CONTRACT — authoritative:",
     `Product type: ${contract.productType}`,
@@ -168,6 +175,7 @@ export function coderTaskInstruction(input: {
     "- Never embed secrets. Read runtime configuration from environment/server configuration appropriate to the selected stack.",
     "- Generate production error handling and validation for external/user-controlled inputs.",
     ...capabilityRules.map((rule) => `- ${rule}`),
+    ...(databaseInstruction ? [databaseInstruction] : []),
   ].join("\n");
 }
 
@@ -243,6 +251,18 @@ export function validateCoderTaskOutput(input: {
     throw new Error(
       `Task ${input.task.id} generated wrong-stack output: ${stackProblems.join("; ")}`,
     );
+  }
+
+  if (input.task.agent === "database") {
+    const databaseProblems = validateDatabasePersistenceArtifact({
+      files: input.files,
+      contract: input.contract,
+    });
+    if (databaseProblems.length > 0) {
+      throw new Error(
+        `Task ${input.task.id} failed database persistence contract: ${databaseProblems.join("; ")}`,
+      );
+    }
   }
 }
 
@@ -429,6 +449,12 @@ export function validateGeneratedCodeArtifact(input: {
       input.files,
       input.contract.selectedTechnologyStack,
     ),
+  );
+  problems.push(
+    ...validateDatabasePersistenceArtifact({
+      files: input.files,
+      contract: input.contract,
+    }),
   );
 
   for (const [path, source] of Object.entries(input.files)) {
