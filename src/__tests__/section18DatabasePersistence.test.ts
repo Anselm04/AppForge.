@@ -39,8 +39,8 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
       integrityStart,
     );
     const integrityMigration = ensureSchema.slice(integrityStart, integrityEnd);
-    expect(integrityMigration).toContain("DO $");
-    expect(integrityMigration).toContain("END $;");
+    expect(integrityMigration).toContain("DO $$");
+    expect(integrityMigration).toContain("END $$;");
     expect(integrityMigration).not.toContain("DO $\\n");
     expect(integrityMigration).not.toContain("END $;");
 
