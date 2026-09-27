@@ -66,8 +66,7 @@ function retryDelayMs(attempt: number, header: string | null): number {
 async function requestJson(url: string, options: RequestOptions = {}) {
   const parsed = requireHttpsInProduction(url);
   const method = options.method ?? "GET";
-  const retryMode =
-    options.retryMode ?? (method === "GET" ? "safe" : "none");
+  const retryMode = options.retryMode ?? (method === "GET" ? "safe" : "none");
   const maxAttempts =
     retryMode === "safe" || retryMode === "idempotent"
       ? MAX_INTEGRATION_ATTEMPTS
