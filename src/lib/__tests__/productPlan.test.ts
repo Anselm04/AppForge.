@@ -48,7 +48,7 @@ function validPlan() {
       recoveryDesign: "Known-good snapshots and rollback procedures.",
       monetizationPlan: "Paid subscription tiers with enforced entitlements.",
     },
-    implementationSequence: ["TASK-001", "TASK-002"],
+    implementationSequence: ["TASK-001", "TASK-002", "TASK-003"],
     tasks: [
       {
         id: "TASK-001",
@@ -79,6 +79,31 @@ function validPlan() {
         agent: "deployment" as const,
         validations: ["billing webhook test", "runtime health test"],
       },
+      {
+        id: "TASK-003",
+        module: "Database persistence",
+        description:
+          "Implement contract-derived schema, migrations, tenancy, seed safety, and recovery.",
+        sequence: 3,
+        dependencies: ["TASK-001"],
+        acceptanceCriteria: [
+          "Persistence is tenant-safe, transactional, migratable, and recoverable.",
+        ],
+        requirementIds: [requirementIds[0]],
+        files: [
+          "src/db/schema.ts",
+          "src/db/repository.ts",
+          "database/migrations/20260927_initial.sql",
+          "database/seed.ts",
+          "docs/DATABASE_RECOVERY.md",
+        ],
+        agent: "database" as const,
+        validations: [
+          "database schema and migration test",
+          "tenant transaction isolation test",
+          "database backup restore rehearsal",
+        ],
+      },
     ],
     requirementToTasks: Object.fromEntries([
       ...task1Requirements.map((id) => [id, ["TASK-001"]]),
@@ -87,14 +112,27 @@ function validPlan() {
     taskToFiles: {
       "TASK-001": ["src/auth.ts", "src/tenancy.ts"],
       "TASK-002": ["src/billing.ts", "src/health.ts"],
+      "TASK-003": [
+        "src/db/schema.ts",
+        "src/db/repository.ts",
+        "database/migrations/20260927_initial.sql",
+        "database/seed.ts",
+        "docs/DATABASE_RECOVERY.md",
+      ],
     },
     taskToAgent: {
       "TASK-001": "backend",
       "TASK-002": "deployment",
+      "TASK-003": "database",
     },
     taskToValidation: {
       "TASK-001": ["auth integration test", "tenant isolation test"],
       "TASK-002": ["billing webhook test", "runtime health test"],
+      "TASK-003": [
+        "database schema and migration test",
+        "tenant transaction isolation test",
+        "database backup restore rehearsal",
+      ],
     },
     researchDecisionIds: ["RD-001", "RD-002", "RD-003"],
   };
@@ -170,6 +208,19 @@ describe("contract-aware planner schema", () => {
     plan.taskToFiles["TASK-001"] = ["src/wrong.ts"];
     expect(() => validateProductPlan(plan, contract)).toThrow(
       /file mapping disagrees/i,
+    );
+  });
+
+  it("rejects database-capable plans without database-owned persistence artifacts", () => {
+    const plan = validPlan();
+    plan.tasks = plan.tasks.filter((task) => task.id !== "TASK-003");
+    plan.implementationSequence = ["TASK-001", "TASK-002"];
+    delete plan.taskToFiles["TASK-003"];
+    delete plan.taskToAgent["TASK-003"];
+    delete plan.taskToValidation["TASK-003"];
+
+    expect(() => validateProductPlan(plan, contract)).toThrow(
+      /database-owned task/i,
     );
   });
 
