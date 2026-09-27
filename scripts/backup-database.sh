@@ -2,7 +2,11 @@
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
-DATABASE_URL="${DATABASE_URL:-postgresql://postgres:password@localhost:5432/appforge}"
+DATABASE_URL="${DATABASE_URL:-}"
+if [ -z "$DATABASE_URL" ]; then
+  echo "DATABASE_URL is required; refusing to guess or use a fallback database." >&2
+  exit 1
+fi
 S3_BUCKET="${S3_BUCKET:-}"
 
 mkdir -p "$BACKUP_DIR"/{daily,weekly,monthly}
