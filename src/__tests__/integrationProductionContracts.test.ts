@@ -104,9 +104,7 @@ describe("production plugin and integration contracts", () => {
       'state === "connected" && verified !== true',
     );
     expect(healthSource).toContain('"configuration_required"');
-    expect(healthSource).toContain(
-      "active verification has not completed",
-    );
+    expect(healthSource).toContain("active verification has not completed");
   });
 
   it("keeps real runtime implementations for the requested plugin stack", () => {
