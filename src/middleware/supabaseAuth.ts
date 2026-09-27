@@ -40,6 +40,7 @@ async function revokeSupabaseSession(
     `${supabaseUrl}/auth/v1/logout?scope=${encodeURIComponent(scope)}`,
     {
       method: "POST",
+      signal: AbortSignal.timeout(5_000),
       headers: {
         apikey: supabaseKey,
         Authorization: `Bearer ${accessToken}`,
