@@ -35,9 +35,7 @@ describe("Section 17 authentication and authorization boundaries", () => {
     expect(orgs).toContain(
       "eq(schema.organizationMembers.userId, ctx.user.id)",
     );
-    expect(orgs).toContain(
-      '!["owner", "admin"].includes(membership.role)',
-    );
+    expect(orgs).toContain('!["owner", "admin"].includes(membership.role)');
     expect(orgs).toContain('membership.role !== "owner"');
   });
 
@@ -72,7 +70,9 @@ describe("Section 17 authentication and authorization boundaries", () => {
     expect(hostedApps).toContain(
       '"sandbox allow-scripts allow-forms allow-modals allow-popups"',
     );
-    expect(sandboxProxy).toContain("if (!project || project.userId !== userId)");
+    expect(sandboxProxy).toContain(
+      "if (!project || project.userId !== userId)",
+    );
     expect(sandboxProxy).toContain("delete headers.authorization");
     expect(sandboxProxy).toContain("delete headers.cookie");
     expect(sandboxProxy).toContain('delete headers["x-api-key"]');
