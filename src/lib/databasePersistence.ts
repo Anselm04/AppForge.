@@ -10,7 +10,7 @@ export type DatabasePersistencePolicy = {
 };
 
 const SCHEMA_PATH =
-  /(?:^|\/)(?:db|database|prisma|drizzle|models?|schema)(?:\/|\.|$)|firestore\.(?:rules|indexes\.json)$/i;
+  /(?:^|\/)(?:schema|models?)(?:\/|\.|$)|(?:^|\/)(?:db|database)\/(?:schema|models?)(?:\/|\.|$)|(?:^|\/)prisma\/schema\.prisma$|firestore\.(?:rules|indexes\.json)$/i;
 const MIGRATION_PATH =
   /(?:^|\/)(?:migrations?|drizzle)(?:\/|\.|$)|(?:^|\/)\d{4,}[_-].*\.(?:sql|ts|js|py|dart)$/i;
 const SEED_PATH =
