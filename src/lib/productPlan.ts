@@ -8,6 +8,15 @@ import {
   isDatabaseSchemaPath,
   isDatabaseSeedPath,
 } from "./databasePersistence.js";
+import {
+  integrationCompatibilityProblems,
+  integrationImplementationPolicy,
+  isIntegrationClientPath,
+  isIntegrationDocsPath,
+  isIntegrationEnvPath,
+  isIntegrationHealthPath,
+  isIntegrationWebhookPath,
+} from "./integrationImplementation.js";
 
 const nonEmptyString = z.string().trim().min(1);
 const stringArray = z.array(nonEmptyString);
@@ -241,6 +250,67 @@ export function validateProductPlan(
     throw new Error(
       "Planner must include integration modules for this product",
     );
+  }
+
+
+  const integrationPolicy = integrationImplementationPolicy(contract);
+  if (integrationPolicy.required) {
+    const compatibilityProblems = integrationCompatibilityProblems(contract);
+    if (compatibilityProblems.length > 0) {
+      throw new Error(compatibilityProblems.join("; "));
+    }
+
+    const integrationTasks = plan.tasks.filter(
+      (task) => task.agent === "integration",
+    );
+    if (integrationTasks.length === 0) {
+      throw new Error(
+        "Planner must include an integration-owned task for integration-capable products",
+      );
+    }
+
+    const integrationFiles = integrationTasks.flatMap((task) => task.files);
+    if (!integrationFiles.some(isIntegrationClientPath)) {
+      throw new Error(
+        "Planner integration task must include server-side provider client code",
+      );
+    }
+    if (!integrationFiles.some(isIntegrationEnvPath)) {
+      throw new Error(
+        "Planner integration task must include environment example/configuration",
+      );
+    }
+    if (!integrationFiles.some(isIntegrationHealthPath)) {
+      throw new Error(
+        "Planner integration task must include integration health/status code",
+      );
+    }
+    if (!integrationFiles.some(isIntegrationDocsPath)) {
+      throw new Error(
+        "Planner integration task must include integration setup documentation",
+      );
+    }
+    if (
+      integrationPolicy.webhookRequired &&
+      !integrationFiles.some(isIntegrationWebhookPath)
+    ) {
+      throw new Error(
+        "Planner integration task must include webhook/callback handling",
+      );
+    }
+
+    const validationText = integrationTasks
+      .flatMap((task) => task.validations)
+      .join(" ");
+    if (
+      !/integration|provider|webhook|signature|retry|rate.?limit|timeout|health|idempot/i.test(
+        validationText,
+      )
+    ) {
+      throw new Error(
+        "Planner integration task must include integration-specific validation",
+      );
+    }
   }
 
   const orderedTaskIds = [...plan.tasks]
