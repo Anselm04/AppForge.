@@ -119,6 +119,16 @@ export function isDatabaseRecoveryPath(path: string): boolean {
   return RECOVERY_PATH.test(path);
 }
 
+export function isDatabasePersistencePath(path: string): boolean {
+  return (
+    PERSISTENCE_PATH.test(path) &&
+    !isDatabaseSchemaPath(path) &&
+    !isDatabaseMigrationPath(path) &&
+    !isDatabaseSeedPath(path) &&
+    !/\.md$/i.test(path)
+  );
+}
+
 export function databasePlannerInstruction(contract: ProductContract): string {
   const policy = databasePersistencePolicy(contract);
   if (!policy.required) return "";
@@ -192,10 +202,12 @@ export function validateDatabasePersistenceArtifact(input: {
   );
   const persistenceEntries = entries.filter(
     ([path, source]) =>
-      isServerDatabasePath(path, source) &&
-      !isDatabaseMigrationPath(path) &&
-      !isDatabaseSeedPath(path) &&
-      !/\.md$/i.test(path),
+      isDatabasePersistencePath(path) ||
+      (isServerDatabasePath(path, source) &&
+        !isDatabaseSchemaPath(path) &&
+        !isDatabaseMigrationPath(path) &&
+        !isDatabaseSeedPath(path) &&
+        !/\.md$/i.test(path)),
   );
 
   const schemaSource = combined(schemaEntries);
