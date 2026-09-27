@@ -144,6 +144,7 @@
         : "",
       localeHint,
       contractContext,
+      databasePlannerInstruction(productContract),
     ]
       .filter(Boolean)
       .join("\n");
