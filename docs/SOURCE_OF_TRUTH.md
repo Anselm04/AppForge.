@@ -20,7 +20,7 @@ This file records which repository artifacts are authoritative so future fixes s
 | Build capabilities | `src/lib/buildCapabilities.ts` | capability picker / studios / agent hints | capability tests |
 | Runtime environment readiness | `src/utils/env-validator.ts` | `.env.schema.json`, `.env.example`, environment docs | `productionEnvValidator.test.ts`, `environmentSourceOfTruth.test.ts` |
 | AI provider readiness | `src/lib/llmProviderConfig.ts`; provider construction in `src/lib/llmProviders.ts` | `.env.example`, `.env.schema.json` | multi-provider environment tests |
-| App database schema | `src/db/schema.ts` and `src/db/ensureSchema.ts` | generated Drizzle migration history | DB migration workflow and `src/db/README.md` |
+| App database schema | `src/db/schema.ts` plus immutable `APPFORGE_SCHEMA_MIGRATIONS` in `src/db/ensureSchema.ts` | `appforge_schema_migrations` ledger; `drizzle/` historical/diff material | migration checksum/invariant tests, recovery governance, `src/db/README.md` |
 | Supabase preview migrations | `supabase/migrations/*` only for Supabase preview/optional hosted SQL | — | `supabase/migrations/README.md` explicitly separates this from AppForge app schema |
 | Stripe checkout products | `src/services/stripeCheckout.ts` + configured Stripe price IDs | pricing UI labels, subscription router | billing/customer-flow tests |
 | Credits charged by AppForge | `src/lib/credits.ts` | pricing UI and pipeline messages | credit tests |
@@ -40,7 +40,7 @@ A specific legacy AI provider is not mandatory. Production requires at least one
 
 ## Database rule
 
-The Express/Fly application schema is Drizzle-managed. SQL under `supabase/migrations` serves the Supabase GitHub preview / optional Supabase-hosted path and must not be treated as the AppForge production application schema.
+The Express/Fly application model is defined in `src/db/schema.ts`, while the only production migration executor is the immutable `APPFORGE_SCHEMA_MIGRATIONS` chain in `src/db/ensureSchema.ts`. Applied versions and SHA-256 checksums are recorded in `appforge_schema_migrations`; changing an applied migration must fail closed. SQL under `drizzle/` is supporting historical/diff material, and SQL under `supabase/migrations` serves the Supabase GitHub preview / optional Supabase-hosted path. Neither directory is a second production migration engine.
 
 ## Audit status
 
