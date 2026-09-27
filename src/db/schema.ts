@@ -36,9 +36,10 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
     .unique(),
-  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).unique(),
   status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
   tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
   trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
@@ -83,9 +84,11 @@ export const creditTransactions = pgTable(
   "credit_transactions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     amount: integer("amount").notNull(),
     type: varchar("type", { length: 50 }).notNull(),
     projectId: integer("project_id"), // nullable - which build consumed these
@@ -105,9 +108,11 @@ export const projects = pgTable(
   "projects",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     title: varchar("title", { length: 255 }),
     description: text("description"),
     techStack: varchar("tech_stack", { length: 255 }).default("react-node"),
@@ -143,9 +148,11 @@ export const agentLogs = pgTable(
   "agent_logs",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, {
-      onDelete: "cascade",
-    }),
+    projectId: integer("project_id")
+      .references(() => projects.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     agent: varchar("agent", { length: 50 }), // 'Planner', 'Coder', 'Reviewer', 'Cosine'
     content: text("content"),
     creditsCharged: integer("credits_charged").default(0),
@@ -167,12 +174,16 @@ export const cosineImprovements = pgTable(
   "cosine_improvements",
   {
     id: serial("id").primaryKey(),
-    projectId: integer("project_id").references(() => projects.id, {
-      onDelete: "cascade",
-    }),
-    userId: integer("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    projectId: integer("project_id")
+      .references(() => projects.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
     improvements: jsonb("improvements"), // Array of improvement types: ['bug-fix', 'feature-add', 'optimize', etc]
     prUrl: text("pr_url"),
     status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'in-progress', 'completed', 'failed'
