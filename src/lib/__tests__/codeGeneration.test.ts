@@ -114,7 +114,7 @@ function fixture(): {
         recoveryDesign: "Retry-safe operations.",
         monetizationPlan: "Subscription access.",
       },
-      implementationSequence: ["T1", "T2", "T3"],
+      implementationSequence: ["T1", "T2", "T3", "T4"],
       tasks: [
         {
           id: "T1",
@@ -165,12 +165,36 @@ function fixture(): {
             "database backup restore rehearsal",
           ],
         },
+        {
+          id: "T4",
+          module: "Stripe integration",
+          description:
+            "Implement server-side Stripe client, verified health, webhook safety, retries, and setup.",
+          sequence: 4,
+          dependencies: ["T2"],
+          acceptanceCriteria: [
+            "Stripe is explicitly configured, actively verified, rate-limit aware, and webhook-idempotent.",
+          ],
+          requirementIds: ["REQ-003", "REQ-004"],
+          files: [
+            "src/server/integrations/stripeClient.ts",
+            "src/server/integrations/health.ts",
+            "src/server/webhooks/stripe.ts",
+            ".env.example",
+            "docs/INTEGRATIONS.md",
+          ],
+          agent: "integration",
+          validations: [
+            "Stripe timeout retry rate-limit health test",
+            "Stripe webhook signature duplicate-event test",
+          ],
+        },
       ],
       requirementToTasks: {
         "REQ-001": ["T1", "T3"],
         "REQ-002": ["T1"],
-        "REQ-003": ["T2", "T3"],
-        "REQ-004": ["T2"],
+        "REQ-003": ["T2", "T3", "T4"],
+        "REQ-004": ["T2", "T4"],
         "REQ-005": ["T2"],
       },
       taskToFiles: {
@@ -183,8 +207,20 @@ function fixture(): {
           "database/seed.ts",
           "docs/DATABASE_RECOVERY.md",
         ],
+        T4: [
+          "src/server/integrations/stripeClient.ts",
+          "src/server/integrations/health.ts",
+          "src/server/webhooks/stripe.ts",
+          ".env.example",
+          "docs/INTEGRATIONS.md",
+        ],
       },
-      taskToAgent: { T1: "frontend", T2: "operations", T3: "database" },
+      taskToAgent: {
+        T1: "frontend",
+        T2: "operations",
+        T3: "database",
+        T4: "integration",
+      },
       taskToValidation: {
         T1: ["UI workflow tests"],
         T2: ["runtime checks"],
@@ -192,6 +228,10 @@ function fixture(): {
           "database schema migration validation",
           "tenant transaction isolation test",
           "database backup restore rehearsal",
+        ],
+        T4: [
+          "Stripe timeout retry rate-limit health test",
+          "Stripe webhook signature duplicate-event test",
         ],
       },
       researchDecisionIds: ["RD-001"],
