@@ -90,14 +90,13 @@ export function databasePersistencePolicy(
   const required =
     contract.secondaryCapabilities.includes("database") ||
     contract.productFamilies.includes("database");
+  const modelNames = [
+    ...new Set(contract.dataModels.map((model) => model.trim()).filter(Boolean)),
+  ];
 
   return {
     required,
-    modelNames: [
-      ...new Set(
-        contract.dataModels.map((model) => model.trim()).filter(Boolean),
-      ),
-    ],
+    modelNames,
     tenantIsolationRequired:
       required &&
       (contract.productType === "saas_application" ||
@@ -107,7 +106,7 @@ export function databasePersistencePolicy(
       /\b(delete|deleted|deletion|archive|archived|restore|trash|recover|undo delete)\b/i.test(
         requirementText,
       ),
-    seedRequired: required && contract.dataModels.length > 0,
+    seedRequired: required && modelNames.length > 0,
   };
 }
 
