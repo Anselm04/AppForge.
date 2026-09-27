@@ -148,8 +148,7 @@ describe("Section 19 generated integration contract", () => {
   it("detects named integrations from the original product prompt", () => {
     const detected = buildProductContract(
       "Build a SaaS app that sends Twilio SMS and syncs orders with Shopify",
-      "saas_application",
-      "react-node",
+      { productType: "saas_application" },
     );
     expect(detected.integrations).toContain("Twilio");
     expect(detected.integrations).toContain("Shopify");
