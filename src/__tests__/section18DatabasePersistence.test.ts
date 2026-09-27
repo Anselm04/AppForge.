@@ -31,6 +31,16 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
       "checksum changed; create a new migration instead of editing history",
     );
     expect(ensureSchema).toContain("section18_integrity_constraints");
+    const integrityStart = ensureSchema.indexOf("const SECTION18_INTEGRITY_SQL");
+    const integrityEnd = ensureSchema.indexOf(
+      "type AppForgeSchemaMigration",
+      integrityStart,
+    );
+    const integrityMigration = ensureSchema.slice(integrityStart, integrityEnd);
+    expect(integrityMigration).toContain("DO $");
+    expect(integrityMigration).toContain("END $;");
+    expect(integrityMigration).not.toContain("DO $\\n");
+    expect(integrityMigration).not.toContain("END $;");
 
     expect(sourceOfTruth).toContain(
       "the only production migration executor is the immutable",
