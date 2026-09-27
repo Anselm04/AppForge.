@@ -32,14 +32,22 @@ describe("logout session revocation", () => {
   });
 
   it("supports server-backed revocation for other devices and all devices", () => {
-    expect(auth).toContain('type SessionRevocationScope = "local" | "others" | "global"');
-    expect(auth).toContain('await revokeServerSessions("others", session?.accessToken)');
-    expect(auth).toContain('await revokeServerSessions("global", session?.accessToken)');
+    expect(auth).toContain(
+      'type SessionRevocationScope = "local" | "others" | "global"',
+    );
+    expect(auth).toContain(
+      'await revokeServerSessions("others", session?.accessToken)',
+    );
+    expect(auth).toContain(
+      'await revokeServerSessions("global", session?.accessToken)',
+    );
     expect(auth).toContain("clearLocalSessionState()");
 
-    expect(middleware).toContain('type SignOutScope = "local" | "others" | "global"');
     expect(middleware).toContain(
-      '/auth/v1/logout?scope=${encodeURIComponent(scope)}',
+      'type SignOutScope = "local" | "others" | "global"',
+    );
+    expect(middleware).toContain(
+      "/auth/v1/logout?scope=${encodeURIComponent(scope)}",
     );
     expect(middleware).toContain('sessionDeleteScope !== "others"');
     expect(middleware).toContain('code: "SESSION_REVOCATION_FAILED"');
