@@ -17,6 +17,10 @@ const runtime = readFileSync(
   join(repoRoot, "src/integrations/runtime.ts"),
   "utf8",
 );
+const healthSource = readFileSync(
+  join(repoRoot, "src/integrations/health.ts"),
+  "utf8",
+);
 const teamIntegrationSource = readFileSync(
   join(repoRoot, "src/config/teamIntegrations.ts"),
   "utf8",
@@ -82,6 +86,25 @@ describe("production plugin and integration contracts", () => {
     expect(runtime).toContain('redirect: "manual"');
     expect(runtime).toContain("MAX_INTEGRATION_REQUEST_BYTES");
     expect(runtime).toContain("MAX_INTEGRATION_RESPONSE_BYTES");
+  });
+
+  it("uses bounded safe retries and explicit provider rate-limit handling", () => {
+    expect(runtime).toContain("MAX_INTEGRATION_ATTEMPTS");
+    expect(runtime).toContain("RETRYABLE_INTEGRATION_STATUS");
+    expect(runtime).toContain("retryMode");
+    expect(runtime).toContain('response.headers.get("retry-after")');
+    expect(runtime).toContain("MAX_RETRY_DELAY_MS");
+    expect(runtime).toContain(
+      'options.retryMode ?? (method === "GET" ? "safe" : "none")',
+    );
+  });
+
+  it("never reports configured-but-unverified integrations as connected", () => {
+    expect(healthSource).toContain(
+      'state === "connected" && verified !== true',
+    );
+    expect(healthSource).toContain('"configuration_required"');
+    expect(healthSource).toContain("active verification has not completed");
   });
 
   it("keeps real runtime implementations for the requested plugin stack", () => {

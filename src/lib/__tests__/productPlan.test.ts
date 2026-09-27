@@ -23,6 +23,21 @@ const task1Requirements = requirementIds.slice(
 const task2Requirements = requirementIds.slice(task1Requirements.length);
 
 function validPlan() {
+  const integrationRequirementId =
+    contract.functionalRequirements.find((requirement) =>
+      /stripe|billing|payment|subscription/i.test(requirement.text),
+    )?.id ?? requirementIds[0];
+  const requirementToTasks = Object.fromEntries([
+    ...task1Requirements.map((id) => [id, ["TASK-001"]]),
+    ...task2Requirements.map((id) => [id, ["TASK-002"]]),
+  ]) as Record<string, string[]>;
+  requirementToTasks[integrationRequirementId] = [
+    ...new Set([
+      ...(requirementToTasks[integrationRequirementId] ?? []),
+      "TASK-004",
+    ]),
+  ];
+
   return {
     version: 1 as const,
     title: "Team CRM",
@@ -48,7 +63,7 @@ function validPlan() {
       recoveryDesign: "Known-good snapshots and rollback procedures.",
       monetizationPlan: "Paid subscription tiers with enforced entitlements.",
     },
-    implementationSequence: ["TASK-001", "TASK-002", "TASK-003"],
+    implementationSequence: ["TASK-001", "TASK-002", "TASK-003", "TASK-004"],
     tasks: [
       {
         id: "TASK-001",
@@ -104,11 +119,32 @@ function validPlan() {
           "database backup restore rehearsal",
         ],
       },
+      {
+        id: "TASK-004",
+        module: "Stripe integration",
+        description:
+          "Implement server-side Stripe client, verified health, webhook safety, rate limits, and setup.",
+        sequence: 4,
+        dependencies: ["TASK-002"],
+        acceptanceCriteria: [
+          "Stripe is explicitly configured, actively verifiable, retry-safe, and webhook-idempotent.",
+        ],
+        requirementIds: [integrationRequirementId],
+        files: [
+          "src/server/integrations/stripeClient.ts",
+          "src/server/integrations/health.ts",
+          "src/server/webhooks/stripe.ts",
+          ".env.example",
+          "docs/INTEGRATIONS.md",
+        ],
+        agent: "integration" as const,
+        validations: [
+          "Stripe integration timeout retry rate-limit health test",
+          "Stripe webhook signature idempotency test",
+        ],
+      },
     ],
-    requirementToTasks: Object.fromEntries([
-      ...task1Requirements.map((id) => [id, ["TASK-001"]]),
-      ...task2Requirements.map((id) => [id, ["TASK-002"]]),
-    ]) as Record<string, string[]>,
+    requirementToTasks,
     taskToFiles: {
       "TASK-001": ["src/auth.ts", "src/tenancy.ts"],
       "TASK-002": ["src/billing.ts", "src/health.ts"],
@@ -119,11 +155,19 @@ function validPlan() {
         "database/seed.ts",
         "docs/DATABASE_RECOVERY.md",
       ],
+      "TASK-004": [
+        "src/server/integrations/stripeClient.ts",
+        "src/server/integrations/health.ts",
+        "src/server/webhooks/stripe.ts",
+        ".env.example",
+        "docs/INTEGRATIONS.md",
+      ],
     },
     taskToAgent: {
       "TASK-001": "backend",
       "TASK-002": "deployment",
       "TASK-003": "database",
+      "TASK-004": "integration",
     },
     taskToValidation: {
       "TASK-001": ["auth integration test", "tenant isolation test"],
@@ -133,6 +177,10 @@ function validPlan() {
         "tenant transaction isolation test",
         "database backup restore rehearsal",
       ],
+      "TASK-004": [
+        "Stripe integration timeout retry rate-limit health test",
+        "Stripe webhook signature idempotency test",
+      ],
     },
     researchDecisionIds: ["RD-001", "RD-002", "RD-003"],
   };
@@ -141,7 +189,7 @@ function validPlan() {
 describe("contract-aware planner schema", () => {
   it("accepts a complete structured plan", () => {
     const plan = validateProductPlan(validPlan(), contract);
-    expect(plan.tasks).toHaveLength(3);
+    expect(plan.tasks).toHaveLength(4);
     expect(plan.architecture.personas).toContain("Team member");
   });
 
@@ -161,7 +209,7 @@ describe("contract-aware planner schema", () => {
     expect(stripPlannerMarkdownFence(fenced).startsWith("{")).toBe(true);
     const plan = parseAndValidateProductPlan(fenced, contract);
     expect(plan.title).toBe("Team CRM");
-    expect(plan.tasks).toHaveLength(3);
+    expect(plan.tasks).toHaveLength(4);
 
     const plainFence = "```\n" + JSON.stringify(validPlan()) + "\n```\n";
     expect(
@@ -214,13 +262,26 @@ describe("contract-aware planner schema", () => {
   it("rejects database-capable plans without database-owned persistence artifacts", () => {
     const plan = validPlan();
     plan.tasks = plan.tasks.filter((task) => task.id !== "TASK-003");
-    plan.implementationSequence = ["TASK-001", "TASK-002"];
+    plan.implementationSequence = ["TASK-001", "TASK-002", "TASK-004"];
     delete (plan.taskToFiles as Record<string, string[]>)["TASK-003"];
     delete (plan.taskToAgent as Record<string, string>)["TASK-003"];
     delete (plan.taskToValidation as Record<string, string[]>)["TASK-003"];
 
     expect(() => validateProductPlan(plan, contract)).toThrow(
       /database-owned task/i,
+    );
+  });
+
+  it("rejects integration-capable plans without integration-owned implementation artifacts", () => {
+    const plan = validPlan();
+    plan.tasks = plan.tasks.filter((task) => task.id !== "TASK-004");
+    plan.implementationSequence = ["TASK-001", "TASK-002", "TASK-003"];
+    delete (plan.taskToFiles as Record<string, string[]>)["TASK-004"];
+    delete (plan.taskToAgent as Record<string, string>)["TASK-004"];
+    delete (plan.taskToValidation as Record<string, string[]>)["TASK-004"];
+
+    expect(() => validateProductPlan(plan, contract)).toThrow(
+      /integration-owned task/i,
     );
   });
 

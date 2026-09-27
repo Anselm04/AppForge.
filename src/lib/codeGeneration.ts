@@ -14,6 +14,10 @@ import {
   databaseCoderInstruction,
   validateDatabasePersistenceArtifact,
 } from "./databasePersistence.js";
+import {
+  integrationCoderInstruction,
+  validateIntegrationArtifact,
+} from "./integrationImplementation.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/i, "TODO marker"],
@@ -149,6 +153,8 @@ export function coderTaskInstruction(input: {
 
   const databaseInstruction =
     task.agent === "database" ? databaseCoderInstruction(contract) : "";
+  const integrationInstruction =
+    task.agent === "integration" ? integrationCoderInstruction(contract) : "";
 
   return [
     "CODE GENERATION CONTRACT — authoritative:",
@@ -186,6 +192,7 @@ export function coderTaskInstruction(input: {
     "- Generate production error handling and validation for external/user-controlled inputs.",
     ...capabilityRules.map((rule) => `- ${rule}`),
     ...(databaseInstruction ? [databaseInstruction] : []),
+    ...(integrationInstruction ? [integrationInstruction] : []),
   ].join("\n");
 }
 
@@ -269,6 +276,18 @@ export function validateCoderTaskOutput(input: {
     if (databaseProblems.length > 0) {
       throw new Error(
         `Task ${input.task.id} failed database persistence contract: ${databaseProblems.join("; ")}`,
+      );
+    }
+  }
+
+  if (input.task.agent === "integration") {
+    const integrationProblems = validateIntegrationArtifact({
+      files: input.files,
+      contract: input.contract,
+    });
+    if (integrationProblems.length > 0) {
+      throw new Error(
+        `Task ${input.task.id} failed integration contract: ${integrationProblems.join("; ")}`,
       );
     }
   }
@@ -464,6 +483,12 @@ export function validateGeneratedCodeArtifact(input: {
   );
   problems.push(
     ...validateDatabasePersistenceArtifact({
+      files: input.files,
+      contract: input.contract,
+    }),
+  );
+  problems.push(
+    ...validateIntegrationArtifact({
       files: input.files,
       contract: input.contract,
     }),

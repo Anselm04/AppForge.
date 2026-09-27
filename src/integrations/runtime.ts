@@ -5,6 +5,7 @@ type RequestOptions = {
   headers?: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;
+  retryMode?: "none" | "safe" | "idempotent";
 };
 
 const MAX_INTEGRATION_REQUEST_BYTES = 500_000;
@@ -28,71 +29,133 @@ function requireHttpsInProduction(url: string): URL {
   return parsed;
 }
 
+const RETRYABLE_INTEGRATION_STATUS = new Set([
+  408, 425, 429, 500, 502, 503, 504,
+]);
+const MAX_INTEGRATION_ATTEMPTS = 3;
+const MAX_RETRY_DELAY_MS = 5_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryAfterMs(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(MAX_RETRY_DELAY_MS, seconds * 1_000);
+  }
+  const at = Date.parse(value);
+  if (Number.isNaN(at)) return null;
+  return Math.min(MAX_RETRY_DELAY_MS, Math.max(0, at - Date.now()));
+}
+
+function retryDelayMs(attempt: number, header: string | null): number {
+  const providerDelay = retryAfterMs(header);
+  if (providerDelay !== null) return providerDelay;
+  const exponential = Math.min(
+    MAX_RETRY_DELAY_MS,
+    250 * 2 ** Math.max(0, attempt - 1),
+  );
+  return Math.min(
+    MAX_RETRY_DELAY_MS,
+    exponential + Math.floor(Math.random() * 125),
+  );
+}
+
 async function requestJson(url: string, options: RequestOptions = {}) {
   const parsed = requireHttpsInProduction(url);
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? 15_000,
-  );
+  const method = options.method ?? "GET";
+  const retryMode = options.retryMode ?? (method === "GET" ? "safe" : "none");
+  const maxAttempts =
+    retryMode === "safe" || retryMode === "idempotent"
+      ? MAX_INTEGRATION_ATTEMPTS
+      : 1;
   const serializedBody =
     options.body === undefined ? undefined : JSON.stringify(options.body);
+
   if (
     serializedBody !== undefined &&
     Buffer.byteLength(serializedBody, "utf8") > MAX_INTEGRATION_REQUEST_BYTES
   ) {
-    clearTimeout(timeout);
     throw new Error("Integration request payload is too large");
   }
 
-  try {
-    const response = await fetch(parsed, {
-      method: options.method ?? "GET",
-      headers: {
-        accept: "application/json, text/plain;q=0.9",
-        ...options.headers,
-      },
-      body: serializedBody,
-      signal: controller.signal,
-      redirect: "manual",
-    });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      options.timeoutMs ?? 15_000,
+    );
 
-    const declaredLength = Number(response.headers.get("content-length") || "0");
-    if (
-      Number.isFinite(declaredLength) &&
-      declaredLength > MAX_INTEGRATION_RESPONSE_BYTES
-    ) {
-      throw new Error("Integration response is too large");
-    }
+    try {
+      const response = await fetch(parsed, {
+        method,
+        headers: {
+          accept: "application/json, text/plain;q=0.9",
+          ...options.headers,
+        },
+        body: serializedBody,
+        signal: controller.signal,
+        redirect: "manual",
+      });
 
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_INTEGRATION_RESPONSE_BYTES) {
-      throw new Error("Integration response is too large");
-    }
-    const raw = new TextDecoder().decode(bytes);
-    let data: unknown = null;
-    if (raw) {
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        data = raw.slice(0, 2_000);
+      if (
+        RETRYABLE_INTEGRATION_STATUS.has(response.status) &&
+        attempt < maxAttempts
+      ) {
+        await response.body?.cancel().catch(() => undefined);
+        await sleep(retryDelayMs(attempt, response.headers.get("retry-after")));
+        continue;
       }
-    }
 
-    if (!response.ok) {
-      const error = new Error(
-        `Integration request failed with HTTP ${response.status}`,
-      ) as Error & {
-        statusCode?: number;
-      };
-      error.statusCode = response.status;
-      throw error;
-    }
+      const declaredLength = Number(
+        response.headers.get("content-length") || "0",
+      );
+      if (
+        Number.isFinite(declaredLength) &&
+        declaredLength > MAX_INTEGRATION_RESPONSE_BYTES
+      ) {
+        throw new Error("Integration response is too large");
+      }
 
-    return { status: response.status, data };
-  } finally {
-    clearTimeout(timeout);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > MAX_INTEGRATION_RESPONSE_BYTES) {
+        throw new Error("Integration response is too large");
+      }
+
+      const raw = new TextDecoder().decode(bytes);
+      let data: unknown = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = raw.slice(0, 2_000);
+        }
+      }
+
+      if (!response.ok) {
+        const error = new Error(
+          "Integration request failed with HTTP " + response.status,
+        ) as Error & { statusCode?: number };
+        error.statusCode = response.status;
+        throw error;
+      }
+
+      return { status: response.status, data };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) throw error;
+      await sleep(retryDelayMs(attempt, null));
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Integration request failed");
 }
 
 export async function runMakeWorkflow(input: {

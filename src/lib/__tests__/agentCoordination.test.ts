@@ -73,9 +73,20 @@ function fixture() {
           dependencies: ["T1"],
           acceptanceCriteria: ["Paid access is enforced"],
           requirementIds: t2Requirements,
-          files: ["src/billing.ts", "src/health.ts"],
+          files: [
+            "src/billing.ts",
+            "src/server/integrations/stripeSlackClient.ts",
+            "src/server/integrations/health.ts",
+            "src/server/webhooks/stripeSlack.ts",
+            ".env.example",
+            "docs/INTEGRATIONS.md",
+          ],
           agent: "integration",
-          validations: ["billing tests", "health test"],
+          validations: [
+            "billing tests",
+            "integration timeout retry rate-limit health test",
+            "webhook signature duplicate-event idempotency test",
+          ],
         },
         {
           id: "T3",
@@ -108,7 +119,14 @@ function fixture() {
       ]),
       taskToFiles: {
         T1: ["src/auth.ts", "src/db.ts"],
-        T2: ["src/billing.ts", "src/health.ts"],
+        T2: [
+          "src/billing.ts",
+          "src/server/integrations/stripeSlackClient.ts",
+          "src/server/integrations/health.ts",
+          "src/server/webhooks/stripeSlack.ts",
+          ".env.example",
+          "docs/INTEGRATIONS.md",
+        ],
         T3: [
           "src/db/schema.ts",
           "src/db/repository.ts",
@@ -120,7 +138,11 @@ function fixture() {
       taskToAgent: { T1: "backend", T2: "integration", T3: "database" },
       taskToValidation: {
         T1: ["auth tests"],
-        T2: ["billing tests", "health test"],
+        T2: [
+          "billing tests",
+          "integration timeout retry rate-limit health test",
+          "webhook signature duplicate-event idempotency test",
+        ],
         T3: ["database schema migration transaction backup restore test"],
       },
       researchDecisionIds: ["RD-001"],
