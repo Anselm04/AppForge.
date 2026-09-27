@@ -65,34 +65,34 @@ function contract(): ProductContract {
 function completeFiles(): Record<string, string> {
   return {
     "src/db/schema.ts": [
-      "import { pgTable, serial, integer, varchar, timestamp, index, uniqueIndex } from \"drizzle-orm/pg-core\";",
-      "export const workspaces = pgTable(\"workspaces\", {",
-      "  id: serial(\"id\").primaryKey(),",
-      "  name: varchar(\"name\", { length: 120 }).notNull(),",
-      "  createdAt: timestamp(\"created_at\").notNull(),",
-      "  updatedAt: timestamp(\"updated_at\").notNull(),",
-      "}, (t) => [uniqueIndex(\"workspace_name_unique\").on(t.name)]);",
-      "export const memberships = pgTable(\"memberships\", {",
-      "  id: serial(\"id\").primaryKey(),",
-      "  workspaceId: integer(\"workspace_id\").notNull().references(() => workspaces.id),",
-      "  createdAt: timestamp(\"created_at\").notNull(),",
-      "  updatedAt: timestamp(\"updated_at\").notNull(),",
-      "}, (t) => [index(\"membership_workspace_idx\").on(t.workspaceId)]);",
-      "export const contacts = pgTable(\"contacts\", {",
-      "  id: serial(\"id\").primaryKey(),",
-      "  workspaceId: integer(\"workspace_id\").notNull().references(() => workspaces.id),",
-      "  name: varchar(\"name\", { length: 160 }).notNull(),",
-      "  deletedAt: timestamp(\"deleted_at\"),",
-      "  createdAt: timestamp(\"created_at\").notNull(),",
-      "  updatedAt: timestamp(\"updated_at\").notNull(),",
-      "}, (t) => [index(\"contact_workspace_idx\").on(t.workspaceId)]);",
+      'import { pgTable, serial, integer, varchar, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";',
+      'export const workspaces = pgTable("workspaces", {',
+      '  id: serial("id").primaryKey(),',
+      '  name: varchar("name", { length: 120 }).notNull(),',
+      '  createdAt: timestamp("created_at").notNull(),',
+      '  updatedAt: timestamp("updated_at").notNull(),',
+      '}, (t) => [uniqueIndex("workspace_name_unique").on(t.name)]);',
+      'export const memberships = pgTable("memberships", {',
+      '  id: serial("id").primaryKey(),',
+      '  workspaceId: integer("workspace_id").notNull().references(() => workspaces.id),',
+      '  createdAt: timestamp("created_at").notNull(),',
+      '  updatedAt: timestamp("updated_at").notNull(),',
+      '}, (t) => [index("membership_workspace_idx").on(t.workspaceId)]);',
+      'export const contacts = pgTable("contacts", {',
+      '  id: serial("id").primaryKey(),',
+      '  workspaceId: integer("workspace_id").notNull().references(() => workspaces.id),',
+      '  name: varchar("name", { length: 160 }).notNull(),',
+      '  deletedAt: timestamp("deleted_at"),',
+      '  createdAt: timestamp("created_at").notNull(),',
+      '  updatedAt: timestamp("updated_at").notNull(),',
+      '}, (t) => [index("contact_workspace_idx").on(t.workspaceId)]);',
     ].join("\n"),
     "src/db/repository.ts": [
-      "import { z } from \"zod\";",
-      "import postgres from \"postgres\";",
-      "import { drizzle } from \"drizzle-orm/postgres-js\";",
-      "import { and, eq, isNull } from \"drizzle-orm\";",
-      "import { contacts } from \"./schema\";",
+      'import { z } from "zod";',
+      'import postgres from "postgres";',
+      'import { drizzle } from "drizzle-orm/postgres-js";',
+      'import { and, eq, isNull } from "drizzle-orm";',
+      'import { contacts } from "./schema";',
       "const sql = postgres(process.env.DATABASE_URL!, { max: 10 });",
       "const db = drizzle(sql);",
       "const input = z.object({ workspaceId: z.number().int(), name: z.string().min(1) });",
@@ -108,7 +108,7 @@ function completeFiles(): Record<string, string> {
       "      }),",
       "    );",
       "  } catch (error) {",
-      "    throw new Error(\"Database write failed\", { cause: error });",
+      '    throw new Error("Database write failed", { cause: error });',
       "  } finally {",
       "    void sql;",
       "  }",
@@ -146,12 +146,12 @@ function completeFiles(): Record<string, string> {
       "COMMIT;",
     ].join("\n"),
     "database/seed.ts": [
-      "if (process.env.NODE_ENV === \"production\") {",
-      "  throw new Error(\"Refusing to seed production\");",
+      'if (process.env.NODE_ENV === "production") {',
+      '  throw new Error("Refusing to seed production");',
       "}",
       "export const developmentSeed = {",
-      "  workspace: { name: \"Example Workspace\" },",
-      "  contact: { name: \"Example Contact\" },",
+      '  workspace: { name: "Example Workspace" },',
+      '  contact: { name: "Example Contact" },',
       "};",
     ].join("\n"),
     "docs/DATABASE_RECOVERY.md": [
@@ -214,7 +214,9 @@ describe("Section 18 generated database persistence contract", () => {
       files,
     });
 
-    expect(problems).toContain("database contract: missing versioned migration");
+    expect(problems).toContain(
+      "database contract: missing versioned migration",
+    );
     expect(problems).toContain(
       "database contract: missing development/test seed data",
     );
@@ -249,9 +251,9 @@ describe("Section 18 generated database persistence contract", () => {
   it("rejects unguarded seed scripts and hard-coded connection URIs", () => {
     const files = completeFiles();
     files["database/seed.ts"] =
-      "export const seed = { contact: { name: \"Unsafe\" } };";
+      'export const seed = { contact: { name: "Unsafe" } };';
     files["src/db/repository.ts"] +=
-      "\nconst DATABASE_URL=\"postgresql://user:password@example.invalid/app\";";
+      '\nconst DATABASE_URL="postgresql://user:password@example.invalid/app";';
 
     const problems = validateDatabasePersistenceArtifact({
       contract: contract(),
