@@ -109,14 +109,44 @@ export function Account() {
             Change password
           </h2>
           <form onSubmit={submit} className="space-y-4">
-            <Input id="account-new-password" label="New password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} />
-            <Input id="account-confirm-password" label="Confirm new password" type="password" autoComplete="new-password" minLength={8} required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
-            {message && <p className="text-sm text-forge-text-muted" role="status">{message}</p>}
-            <Button type="submit" className="w-full" loading={pending} disabled={pending || password.length < 8 || confirm.length < 8}>
+            <Input
+              id="account-new-password"
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <Input
+              id="account-confirm-password"
+              label="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+            />
+            {message && (
+              <p className="text-sm text-forge-text-muted" role="status">
+                {message}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              loading={pending}
+              disabled={pending || password.length < 8 || confirm.length < 8}
+            >
               Change password
             </Button>
           </form>
-          <a href="/forgot-password" className="mt-5 inline-block text-sm text-forge-cyan hover:underline">
+          <a
+            href="/forgot-password"
+            className="mt-5 inline-block text-sm text-forge-cyan hover:underline"
+          >
             Forgot your password? Send a reset email
           </a>
         </GlassCard>
@@ -127,8 +157,8 @@ export function Account() {
               Sessions
             </h2>
             <p className="text-sm text-forge-text-muted mb-5">
-              End sessions on devices you no longer use. Signing out all
-              devices also signs out this browser.
+              End sessions on devices you no longer use. Signing out all devices
+              also signs out this browser.
             </p>
             <div className="space-y-3">
               <Button
