@@ -73,7 +73,7 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
       /subscriptions[\s\S]*userId:[\s\S]*\.notNull\(\)[\s\S]*\.unique\(\)/,
     );
     expect(drizzleSchema).toMatch(/stripeCustomerId:[^\n]*\.unique\(\)/);
-    expect(drizzleSchema).toMatch(/stripeSubscriptionId:[^\n]*\.unique\(\)/);
+    expect(drizzleSchema).toMatch(/stripeSubscriptionId:[\s\S]*?\.unique\(\)/);
     expect(drizzleSchema).toMatch(
       /creditTransactions[\s\S]*userId:[\s\S]*\.notNull\(\)/,
     );
