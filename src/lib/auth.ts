@@ -175,16 +175,45 @@ async function syncServerSessionBestEffort(
   }
 }
 
-async function clearServerSession(accessToken?: string): Promise<void> {
-  try {
+type SessionRevocationScope = "local" | "others" | "global";
+
+async function revokeServerSessions(
+  scope: SessionRevocationScope,
+  accessToken?: string,
+): Promise<void> {
+  const request = async (): Promise<Response> => {
     const headers = await withCsrfHeaders(
       accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     );
-    await fetch("/api/auth/session", {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers,
-    });
+    return fetch(
+      `/api/auth/session?scope=${encodeURIComponent(scope)}`,
+      {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers,
+      },
+    );
+  };
+
+  let response = await request();
+  if (response.status === 403) {
+    clearCsrfToken();
+    response = await request();
+  }
+  if (!response.ok) {
+    throw new Error(
+      scope === "others"
+        ? "Unable to sign out your other devices."
+        : scope === "global"
+          ? "Unable to sign out all devices."
+          : "Unable to end the current session.",
+    );
+  }
+}
+
+async function clearServerSession(accessToken?: string): Promise<void> {
+  try {
+    await revokeServerSessions("local", accessToken);
   } catch {
     // Local sign-out must still complete even if the server is unreachable.
   }
@@ -221,19 +250,34 @@ export function useSession(): AppForgeSession | null {
   return useSyncExternalStore(subscribeSession, getSession, () => null);
 }
 
-export function signOut() {
-  const session = getSession();
+function clearLocalSessionState() {
   sessionGeneration += 1;
   cachedSession = null;
   clearStoredUser();
   clearStoredAccessToken();
   refreshInFlight = null;
   emitSessionChange();
+}
+
+export function signOut() {
+  const session = getSession();
+  clearLocalSessionState();
 
   void clearServerSession(session?.accessToken);
   if (session?.accessToken) {
     void supabaseClient.signOut(session.accessToken).catch(() => undefined);
   }
+}
+
+export async function signOutOtherDevices(): Promise<void> {
+  const session = getSession();
+  await revokeServerSessions("others", session?.accessToken);
+}
+
+export async function signOutAllDevices(): Promise<void> {
+  const session = getSession();
+  await revokeServerSessions("global", session?.accessToken);
+  clearLocalSessionState();
 }
 
 async function refreshServerCookieSession(): Promise<boolean> {
