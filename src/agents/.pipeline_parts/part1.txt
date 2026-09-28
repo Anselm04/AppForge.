@@ -275,9 +275,21 @@
         updatedAt: new Date(),
       })
       .where(eq(schema.agentLogs.id, plannerLogId));
+    const consumedPlanRevision =
+      projectRow?.planStatus === "revision_requested" &&
+      Boolean(projectRow?.planRevisionRequest);
     await db
       .update(schema.projects)
-      .set({ productPlan, updatedAt: new Date() })
+      .set({
+        productPlan,
+        ...(consumedPlanRevision
+          ? {
+              planRevisionRequest: null,
+              planStatus: "awaiting_approval",
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(schema.projects.id, projectId));
     await markAgentLogComplete(plannerLogId);
 
