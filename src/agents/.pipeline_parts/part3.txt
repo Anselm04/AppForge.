@@ -55,7 +55,7 @@
       emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
       validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
         testsBlocking,
-        validateBilling: mergeBilling && billingScaffoldSupported(techStack),
+        validateBilling: mergeSubscriptionScaffold && billingScaffoldSupported(techStack),
         productContract,
         productPlan: coordinationContext?.productPlan,
         researchDecisions: coordinationContext?.researchDecisions,

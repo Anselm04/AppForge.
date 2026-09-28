@@ -134,13 +134,21 @@ function validPlan() {
           "src/server/integrations/stripeClient.ts",
           "src/server/integrations/health.ts",
           "src/server/webhooks/stripe.ts",
+          "billing/catalog.ts",
+          "billing/checkout.ts",
+          "billing/entitlements.ts",
+          "billing/limits.ts",
+          "billing/portal.ts",
+          "billing/audit.ts",
           ".env.example",
           "docs/INTEGRATIONS.md",
+          "docs/BILLING.md",
         ],
         agent: "integration" as const,
         validations: [
           "Stripe integration timeout retry rate-limit health test",
           "Stripe webhook signature idempotency test",
+          "billing product price entitlement portal audit validation",
         ],
       },
     ],
@@ -159,8 +167,15 @@ function validPlan() {
         "src/server/integrations/stripeClient.ts",
         "src/server/integrations/health.ts",
         "src/server/webhooks/stripe.ts",
+        "billing/catalog.ts",
+        "billing/checkout.ts",
+        "billing/entitlements.ts",
+        "billing/limits.ts",
+        "billing/portal.ts",
+        "billing/audit.ts",
         ".env.example",
         "docs/INTEGRATIONS.md",
+        "docs/BILLING.md",
       ],
     },
     taskToAgent: {
@@ -180,6 +195,7 @@ function validPlan() {
       "TASK-004": [
         "Stripe integration timeout retry rate-limit health test",
         "Stripe webhook signature idempotency test",
+        "billing product price entitlement portal audit validation",
       ],
     },
     researchDecisionIds: ["RD-001", "RD-002", "RD-003"],
@@ -281,7 +297,7 @@ describe("contract-aware planner schema", () => {
     delete (plan.taskToValidation as Record<string, string[]>)["TASK-004"];
 
     expect(() => validateProductPlan(plan, contract)).toThrow(
-      /integration-owned task/i,
+      /integration-owned task|backend\/integration monetization task/i,
     );
   });
 

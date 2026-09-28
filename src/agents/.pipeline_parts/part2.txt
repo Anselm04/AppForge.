@@ -424,7 +424,7 @@
           });
         }
         emit("System", "info", { message: "Reliability pass applied (entrypoints, package.json, imports)." });
-        if (mergeBilling && billingScaffoldSupported(techStack)) {
+        if (mergeSubscriptionScaffold && billingScaffoldSupported(techStack)) {
           const fintechSchema = generatedFiles["fintech/fintech-schema.json"];
           generatedFiles = mergeBillingScaffold(generatedFiles, techStack, fintechSchema, productContract);
           generatedFiles = hardenGeneratedProject(generatedFiles, techStack);

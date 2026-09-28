@@ -96,6 +96,8 @@ import {
 import { databasePlannerInstruction } from "../lib/databasePersistence.js";
 import { integrationPlannerInstruction } from "../lib/integrationImplementation.js";
 import { aiAgentPlannerInstruction } from "../lib/aiAgentImplementation.js";
+import { monetizationPlannerInstruction } from "../lib/monetizationImplementation.js";
+import { monetizationPolicy } from "../lib/monetizationImplementation.js";
 import {
   assertProductComplete,
   attachCompletenessEvidence,

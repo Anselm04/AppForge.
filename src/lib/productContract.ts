@@ -5,6 +5,7 @@ import {
 } from "./stackAdapters.js";
 import {
   buildPromptMonetization,
+  buildPromptMonetizationRecommendations,
   buildPromptNonFunctional,
   buildPromptRequirements,
   buildPromptSecurity,
@@ -140,6 +141,7 @@ export const productContractSchema = z.object({
   securityRequirements: z.array(z.string().min(1)).min(1),
   deploymentRequirements: z.array(z.string().min(1)).min(1),
   monetizationRequirements: z.array(z.string().min(1)),
+  monetizationRecommendations: z.array(z.string().min(1)).optional(),
   selectedTechnologyStack: z.string().min(1),
   researchRequirements: z.array(z.string().min(1)),
   runtimeRequirements: z.array(z.string().min(1)).min(1),
@@ -1078,6 +1080,10 @@ export function buildProductContract(
       "Require health verification and artifact identity before production certification",
     ],
     monetizationRequirements: buildPromptMonetization(facts),
+    monetizationRecommendations: buildPromptMonetizationRecommendations(
+      productType,
+      facts,
+    ),
     selectedTechnologyStack,
     researchRequirements: [
       "Verify current official documentation and supported versions for " +

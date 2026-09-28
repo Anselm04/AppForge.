@@ -29,6 +29,18 @@ import {
   isAiStatusPath,
   isAiToolsPath,
 } from "./aiAgentImplementation.js";
+import {
+  isMonetizationAuditPath,
+  isMonetizationCatalogPath,
+  isMonetizationCheckoutPath,
+  isMonetizationDocsPath,
+  isMonetizationEntitlementPath,
+  isMonetizationEnvPath,
+  isMonetizationLimitPath,
+  isMonetizationPortalPath,
+  isMonetizationWebhookPath,
+  monetizationPolicy,
+} from "./monetizationImplementation.js";
 
 const nonEmptyString = z.string().trim().min(1);
 const stringArray = z.array(nonEmptyString);
@@ -386,6 +398,62 @@ export function validateProductPlan(
     ) {
       throw new Error(
         "Planner integration task must include integration-specific validation",
+      );
+    }
+  }
+
+  const moneyPolicy = monetizationPolicy(contract);
+  if (moneyPolicy.required) {
+    const billingTasks = plan.tasks.filter(
+      (task) =>
+        (task.agent === "backend" || task.agent === "integration") &&
+        task.files.some((path) =>
+          [
+            isMonetizationCatalogPath,
+            isMonetizationCheckoutPath,
+            isMonetizationEntitlementPath,
+            isMonetizationLimitPath,
+            isMonetizationWebhookPath,
+            isMonetizationAuditPath,
+          ].some((match) => match(path)),
+        ),
+    );
+    if (billingTasks.length === 0) {
+      throw new Error(
+        "Planner must include a backend/integration monetization task for requested monetization",
+      );
+    }
+
+    const billingFiles = billingTasks.flatMap((task) => task.files);
+    const requiredArtifacts: Array<[string, (path: string) => boolean]> = [
+      ["product/price catalog", isMonetizationCatalogPath],
+      ["checkout/payment flow", isMonetizationCheckoutPath],
+      ["entitlement enforcement", isMonetizationEntitlementPath],
+      ["access limits/quotas", isMonetizationLimitPath],
+      ["billing webhook", isMonetizationWebhookPath],
+      ["billing audit ledger", isMonetizationAuditPath],
+      ["environment configuration", isMonetizationEnvPath],
+      ["billing documentation", isMonetizationDocsPath],
+    ];
+    if (moneyPolicy.models.includes("subscription")) {
+      requiredArtifacts.push(["customer portal", isMonetizationPortalPath]);
+    }
+    for (const [label, match] of requiredArtifacts) {
+      if (!billingFiles.some(match)) {
+        throw new Error("Planner monetization task must include " + label);
+      }
+    }
+
+    const validationText = billingTasks
+      .flatMap((task) => task.validations)
+      .join(" ");
+    if (
+      !/billing|payment|price|entitlement|webhook|invoice|refund|idempot|portal|quota|credit|usage/i.test(
+        validationText,
+      )
+    ) {
+      throw new Error(
+        "Planner monetization task must include billing-specific validation",
       );
     }
   }

@@ -26,6 +26,28 @@ describe("billing golden path scaffold", () => {
     expect(files["database/billing-schema.sql"]).toContain("UNIQUE");
   });
 
+  it("keeps Stripe subscription identity and webhook retries recoverable", () => {
+    const files = billingScaffoldFiles("next-node");
+    const checkout = files["src/app/api/checkout/route.ts"];
+    const subscriptions = files["src/lib/billing/subscriptions.ts"];
+    const audit = files["src/lib/billing/audit.ts"];
+
+    expect(checkout).toContain("subscription_data");
+    expect(checkout).toContain("userId: sessionUserId");
+    expect(subscriptions).toContain("WHERE stripe_customer_id");
+    expect(subscriptions).toContain("stripe_subscription_id");
+    expect(subscriptions).toContain("RETURNING user_id");
+    expect(subscriptions).toContain(
+      "subscriptions.status NOT IN ('inactive', 'pending')",
+    );
+    expect(audit).toContain("BILLING_EVENT_LEASE_MS");
+    expect(audit).toContain("claim_owner");
+    expect(audit).toContain("randomUUID");
+    expect(audit).toContain("BILLING_EVENT_HEARTBEAT_MS");
+    expect(audit).toContain("claim_owner = ${claimOwner}");
+    expect(audit).toContain("Billing event claim was lost before completion");
+  });
+
   it("passes strengthened billing validation", () => {
     const merged = mergeBillingScaffold(
       { "package.json": '{"name":"app","dependencies":{}}' },

@@ -1,5 +1,8 @@
   const incomeIntent = detectIncomeIntent(description);
-  const mergeBilling = activeCapabilities.includes("fintech") || incomeIntent;
+  const canonicalMonetization = monetizationPolicy(productContract);
+  const mergeBilling = canonicalMonetization.required;
+  const mergeSubscriptionScaffold =
+    mergeBilling && canonicalMonetization.models.includes("subscription");
 
   const assetRows = await db.query.projectAssets.findMany({
     where: eq(schema.projectAssets.projectId, projectId),
@@ -147,6 +150,7 @@
       databasePlannerInstruction(productContract),
       integrationPlannerInstruction(productContract),
       aiAgentPlannerInstruction(productContract),
+      monetizationPlannerInstruction(productContract),
     ]
       .filter(Boolean)
       .join("\n");
