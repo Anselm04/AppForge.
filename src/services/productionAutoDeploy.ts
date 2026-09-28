@@ -19,6 +19,14 @@ import {
   scanProjectFiles,
   validateGeneratedSecurityPosture,
 } from "./projectSecurityScanner.js";
+import {
+  assertDeploymentSourceReady,
+  createDeploymentAuditRecord,
+  createProductionDeploymentManifest,
+  type DeploymentAuditRecord,
+  type ProductionDeploymentManifest,
+  type TrustedProductionDestination,
+} from "../lib/deploymentImplementation.js";
 
 export type ProductionCertification = {
   liveUrl: string;
@@ -32,6 +40,9 @@ export type ProductionCertification = {
   browserVerified: boolean;
   verification: ProductionVerification;
   healthPathsVerified: string[];
+  deploymentVersion: 2;
+  deploymentManifestSha256: string;
+  deploymentAudit: DeploymentAuditRecord;
 };
 
 export function generatedArtifactSha256(files: Record<string, string>): string {
@@ -39,7 +50,8 @@ export function generatedArtifactSha256(files: Record<string, string>): string {
     .filter(
       (path) =>
         path !== "Dockerfile" &&
-        path !== "public/.well-known/appforge-build.json",
+        path !== "public/.well-known/appforge-build.json" &&
+        path !== "appforge.production.json",
     )
     .sort()
     .map((path) => `${path}\0${files[path]}\0`)
@@ -56,6 +68,9 @@ export function generatedArtifactSha256(files: Record<string, string>): string {
 export function prepareProductionFiles(
   files: Record<string, string>,
   techStack: string,
+  productContract?: ProductContract,
+  artifactVersion?: number,
+  destination: TrustedProductionDestination = "fly",
 ): Record<string, string> {
   const plan = productionPlanForStack(techStack, files);
   const prepared = { ...files };
@@ -63,6 +78,19 @@ export function prepareProductionFiles(
   prepared[plan.identityFile] = JSON.stringify({
     artifactSha256,
   });
+  if (productContract) {
+    prepared["appforge.production.json"] = JSON.stringify(
+      createProductionDeploymentManifest({
+        files,
+        productContract,
+        destination,
+        artifactSha256,
+        artifactVersion,
+      }),
+      null,
+      2,
+    );
+  }
   if (!prepared["Dockerfile"]) {
     prepared["Dockerfile"] = plan.dockerfile;
   }
@@ -104,6 +132,11 @@ export async function deployValidatedProject(opts: {
     });
   }
   const stackAdapter = getStackAdapter(contract.selectedTechnologyStack);
+  assertDeploymentSourceReady({
+    files: opts.files,
+    productContract: contract,
+    destination: "fly",
+  });
   const securityScan = scanProjectFiles(opts.files);
   const securityPosture = validateGeneratedSecurityPosture(
     opts.files,
@@ -149,8 +182,20 @@ export async function deployValidatedProject(opts: {
   }
 
   const plan = productionPlanForStack(stackAdapter.id, opts.files);
-  const files = prepareProductionFiles(opts.files, stackAdapter.id);
   const artifactSha256 = generatedArtifactSha256(opts.files);
+  const files = prepareProductionFiles(
+    opts.files,
+    stackAdapter.id,
+    contract,
+    opts.snapshot?.version,
+    "fly",
+  );
+  const deploymentManifest = JSON.parse(
+    files["appforge.production.json"] ?? "{}",
+  ) as ProductionDeploymentManifest;
+  const deploymentManifestSha256 = createHash("sha256")
+    .update(files["appforge.production.json"] ?? "")
+    .digest("hex");
   const deployed = await deployProject({
     destination: "fly",
     projectName: opts.projectName,
@@ -202,6 +247,11 @@ export async function deployValidatedProject(opts: {
         );
       }
     }
+    const deploymentAudit = createDeploymentAuditRecord({
+      projectId: opts.projectId,
+      manifest: deploymentManifest,
+      liveUrl,
+    });
     return {
       liveUrl,
       snapshotId: opts.snapshot?.id,
@@ -213,6 +263,9 @@ export async function deployValidatedProject(opts: {
       browserVerified: false,
       verification: plan.verification,
       healthPathsVerified: plan.healthPaths,
+      deploymentVersion: 2,
+      deploymentManifestSha256,
+      deploymentAudit,
     };
   }
 
@@ -233,6 +286,11 @@ export async function deployValidatedProject(opts: {
     );
   }
 
+  const deploymentAudit = createDeploymentAuditRecord({
+    projectId: opts.projectId,
+    manifest: deploymentManifest,
+    liveUrl,
+  });
   return {
     liveUrl,
     snapshotId: opts.snapshot?.id,
@@ -244,5 +302,8 @@ export async function deployValidatedProject(opts: {
     browserVerified: true,
     verification: plan.verification,
     healthPathsVerified: [],
+    deploymentVersion: 2,
+    deploymentManifestSha256,
+    deploymentAudit,
   };
 }
