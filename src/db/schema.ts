@@ -11,10 +11,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import type {
-  ProductContract,
-  PromptIntent,
-} from "../lib/productContract.js";
+import type { ProductContract, PromptIntent } from "../lib/productContract.js";
 import type { ResearchRecord } from "../lib/researchRecord.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { AgentCoordinationRecord } from "../lib/agentCoordination.js";
