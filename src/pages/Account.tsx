@@ -175,8 +175,8 @@ export function Account() {
                 <div className="font-semibold capitalize">
                   {diagnosticsError
                     ? "unavailable"
-                    : diagnostics?.status ??
-                      (diagnosticsLoading ? "checking" : "unavailable")}
+                    : (diagnostics?.status ??
+                      (diagnosticsLoading ? "checking" : "unavailable"))}
                 </div>
               </div>
               <div>
@@ -184,8 +184,8 @@ export function Account() {
                 <div className="font-semibold">
                   {diagnosticsError
                     ? "unavailable"
-                    : diagnostics?.startup ??
-                      (diagnosticsLoading ? "checking" : "unavailable")}
+                    : (diagnostics?.startup ??
+                      (diagnosticsLoading ? "checking" : "unavailable"))}
                 </div>
               </div>
               <div>
