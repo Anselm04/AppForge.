@@ -195,7 +195,12 @@ export const githubRouter = router({
         });
       }
 
-      const { createProject, updateProjectFiles } = await import("../db.js");
+      const {
+        createProject,
+        updateProjectBuildStage,
+        updateProjectFiles,
+        updateProjectStatus,
+      } = await import("../db.js");
       let projectId = input.projectId;
       if (!projectId) {
         projectId = await createProject({
