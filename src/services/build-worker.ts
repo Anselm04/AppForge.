@@ -350,6 +350,18 @@ export async function runBuildJob(input: unknown): Promise<void> {
             browserVerified: boolean;
             verification: string;
             healthPathsVerified: string[];
+            deploymentVersion: 2;
+            deploymentManifestSha256: string;
+            deploymentAudit: {
+              id: string;
+              event: "production_deployment_verified";
+              destination: string;
+              stack: string;
+              artifactSha256: string;
+              artifactVersion: number | null;
+              verifiedAt: string;
+              liveUrl: string;
+            };
           }
         | undefined;
       // Structural-only stacks finish as source deliverables: no deploy, no
@@ -385,6 +397,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
           browserVerified: deployed.browserVerified,
           verification: deployed.verification,
           healthPathsVerified: deployed.healthPathsVerified,
+          deploymentVersion: deployed.deploymentVersion,
+          deploymentManifestSha256: deployed.deploymentManifestSha256,
+          deploymentAudit: deployed.deploymentAudit,
         };
       }
       const stackDelivery = {
