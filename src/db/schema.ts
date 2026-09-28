@@ -581,6 +581,54 @@ export const buildSnapshotsRelations = relations(buildSnapshots, ({ one }) => ({
   user: one(users, { fields: [buildSnapshots.userId], references: [users.id] }),
 }));
 
+export const recoveryCheckpoints = pgTable(
+  "recovery_checkpoints",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    snapshotId: integer("snapshot_id")
+      .references(() => buildSnapshots.id, { onDelete: "cascade" })
+      .notNull(),
+    artifactVersion: integer("artifact_version").notNull(),
+    artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+    deploymentVersion: integer("deployment_version"),
+    deploymentManifestSha256: varchar("deployment_manifest_sha256", {
+      length: 64,
+    }),
+    liveUrl: text("live_url"),
+    source: varchar("source", { length: 32 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("recovery_checkpoint_project_artifact_source_unique").on(
+      table.projectId,
+      table.artifactVersion,
+      table.source,
+    ),
+    index("recovery_checkpoint_project_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index("recovery_checkpoint_snapshot_idx").on(table.snapshotId),
+  ],
+);
+
+export const recoveryCheckpointsRelations = relations(
+  recoveryCheckpoints,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [recoveryCheckpoints.projectId],
+      references: [projects.id],
+    }),
+    snapshot: one(buildSnapshots, {
+      fields: [recoveryCheckpoints.snapshotId],
+      references: [buildSnapshots.id],
+    }),
+  }),
+);
+
 export const projectMessages = pgTable(
   "project_messages",
   {
