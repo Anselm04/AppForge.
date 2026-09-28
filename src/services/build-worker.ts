@@ -73,7 +73,9 @@ export async function deployValidatedProjectWithRetry(input: {
     try {
       const result = await deployValidatedProject(input);
       deploymentTrace.end("ok", { attempt });
-      incrementOperationalMetric("appforge_deployments_total", { status: "ok" });
+      incrementOperationalMetric("appforge_deployments_total", {
+        status: "ok",
+      });
       return result;
     } catch (error) {
       lastError = error;
@@ -458,7 +460,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
             };
       await emit(projectId, "done", donePayload);
       buildTraceStatus = "ok";
-      incrementOperationalMetric("appforge_builds_total", { status: "completed" });
+      incrementOperationalMetric("appforge_builds_total", {
+        status: "completed",
+      });
       buildMetricRecorded = true;
     } else {
       // The pipeline intentionally returns for paused, failed, cancelled and
@@ -467,7 +471,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
       await refundReservation("Incomplete build");
       await updateProjectCreditsSpent(projectId, 0);
       await recordBuildOutcome(userId, false, 0);
-      incrementOperationalMetric("appforge_builds_total", { status: "incomplete" });
+      incrementOperationalMetric("appforge_builds_total", {
+        status: "incomplete",
+      });
       buildMetricRecorded = true;
     }
   } catch (err: unknown) {
