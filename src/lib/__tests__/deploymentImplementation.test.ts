@@ -190,7 +190,7 @@ describe("Section 22 deployment implementation", () => {
       productType: "website",
       productFamilies: ["frontend", "deployment"],
       dataModels: [],
-      selectedTechnologyStack: "static-site",
+      selectedTechnologyStack: "static-html",
       secondaryCapabilities: ["deployment"],
       canonicalInterpretation: "A static website with a daily scheduled job.",
     });
@@ -201,6 +201,6 @@ describe("Section 22 deployment implementation", () => {
         productContract: c,
         destination: "fly",
       }),
-    ).toContain("stack static-site does not support requested scheduled jobs");
+    ).toContain("stack static-html does not support requested scheduled jobs");
   });
 });
