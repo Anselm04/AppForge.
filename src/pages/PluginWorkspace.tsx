@@ -16,9 +16,7 @@ type ProjectSummary = {
   status: string | null;
 };
 
-function stateTone(
-  state: string,
-): "success" | "cyan" | "gold" | "default" {
+function stateTone(state: string): "success" | "cyan" | "gold" | "default" {
   if (state === "connected") return "success";
   if (state === "needs_attention") return "gold";
   if (state === "configuration_required") return "cyan";
@@ -88,8 +86,8 @@ export function PluginWorkspace() {
 
   const readyProjects = useMemo(
     () =>
-      (projects as ProjectSummary[]).filter(
-        (project) => isProjectArtifactReady(project.status),
+      (projects as ProjectSummary[]).filter((project) =>
+        isProjectArtifactReady(project.status),
       ),
     [projects],
   );
@@ -193,8 +191,8 @@ export function PluginWorkspace() {
             Tools & Plugins
           </h1>
           <p className="text-forge-text-muted mt-2 max-w-3xl">
-            These controls call AppForge&apos;s real authenticated plugin APIs. A
-            service only shows Connected after its non-mutating verification
+            These controls call AppForge&apos;s real authenticated plugin APIs.
+            A service only shows Connected after its non-mutating verification
             succeeds.
           </p>
         </div>
@@ -328,7 +326,9 @@ export function PluginWorkspace() {
             <select
               className="forge-input w-full mt-4"
               value={projectId ?? ""}
-              onChange={(event) => setProjectId(Number(event.target.value) || null)}
+              onChange={(event) =>
+                setProjectId(Number(event.target.value) || null)
+              }
             >
               <option value="">Choose validated project</option>
               {readyProjects.map((project) => (
@@ -346,8 +346,12 @@ export function PluginWorkspace() {
             >
               <option value="document">Document</option>
               <option value="pdf">PDF</option>
-              <option value="spreadsheet">Spreadsheet (tab-separated input)</option>
-              <option value="presentation">Presentation (--- between slides)</option>
+              <option value="spreadsheet">
+                Spreadsheet (tab-separated input)
+              </option>
+              <option value="presentation">
+                Presentation (--- between slides)
+              </option>
             </select>
             <input
               className="forge-input w-full mt-3"
