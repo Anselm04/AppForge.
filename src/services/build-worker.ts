@@ -224,6 +224,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
     metadata: { projectId: job.projectId, userId: job.userId },
   });
   let buildTraceStatus: "ok" | "error" = "error";
+  let buildMetricRecorded = false;
 
   const {
     projectId,
@@ -458,6 +459,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
       await emit(projectId, "done", donePayload);
       buildTraceStatus = "ok";
       incrementOperationalMetric("appforge_builds_total", { status: "completed" });
+      buildMetricRecorded = true;
     } else {
       // The pipeline intentionally returns for paused, failed, cancelled and
       // recoverable states. Those are not completed paid builds. Refund the
@@ -466,6 +468,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
       await updateProjectCreditsSpent(projectId, 0);
       await recordBuildOutcome(userId, false, 0);
       incrementOperationalMetric("appforge_builds_total", { status: "incomplete" });
+      buildMetricRecorded = true;
     }
   } catch (err: unknown) {
     logger.error({ projectId, error: err }, "background_build_failed");
@@ -497,7 +500,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
     }
   } finally {
     buildTrace.end(buildTraceStatus, { projectId });
-    if (buildTraceStatus === "error") {
+    if (buildTraceStatus === "error" && !buildMetricRecorded) {
       incrementOperationalMetric("appforge_builds_total", { status: "error" });
     }
     if (timeout) clearTimeout(timeout);
