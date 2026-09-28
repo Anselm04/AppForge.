@@ -43,6 +43,7 @@ import {
 import { closeDbConnection, getProjectById } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
+import { timingSafeEqual } from "node:crypto";
 import { AppError } from "./utils/errorReporting.js";
 import { validateEnv } from "./utils/env-validator.js";
 import {
@@ -50,6 +51,11 @@ import {
   markStartupDegraded,
   markStartupReady,
 } from "./services/startupState.js";
+import {
+  incrementOperationalMetric,
+  renderPrometheusMetrics,
+  setOperationalGauge,
+} from "./lib/operationsObservability.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -118,6 +124,18 @@ app.use((req, res, next) => {
       },
       "http_request",
     );
+    incrementOperationalMetric("appforge_http_requests_total", {
+      method: req.method,
+      status: res.statusCode,
+    });
+    incrementOperationalMetric(
+      "appforge_http_request_duration_ms_total",
+      { method: req.method },
+      duration,
+    );
+    setOperationalGauge("appforge_http_last_request_duration_ms", duration, {
+      method: req.method,
+    });
   });
   next();
 });
@@ -139,6 +157,31 @@ app.use((req, res, next) => {
   });
   res.setTimeout(REQUEST_TIMEOUT);
   next();
+});
+
+app.get("/metrics", (req, res) => {
+  const configuredToken = process.env.APPFORGE_METRICS_TOKEN?.trim() ?? "";
+  if (ENV.isProduction) {
+    const authorization = req.headers.authorization ?? "";
+    const prefix = "Bearer ";
+    const supplied = authorization.startsWith(prefix)
+      ? authorization.slice(prefix.length)
+      : "";
+    const configuredBuffer = Buffer.from(configuredToken);
+    const suppliedBuffer = Buffer.from(supplied);
+    const authorized =
+      configuredBuffer.length > 0 &&
+      configuredBuffer.length === suppliedBuffer.length &&
+      timingSafeEqual(configuredBuffer, suppliedBuffer);
+    if (!authorized) {
+      incrementOperationalMetric("appforge_metrics_auth_failures_total");
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.type("text/plain; version=0.0.4");
+  return res.send(renderPrometheusMetrics());
 });
 
 app.use(cookieParser(ENV.cookieSecret));

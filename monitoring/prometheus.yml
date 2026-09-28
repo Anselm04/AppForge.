@@ -10,12 +10,18 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:3000']
     metrics_path: '/metrics'
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/appforge_metrics_token
     scrape_interval: 10s
 
   - job_name: 'nodejs'
     static_configs:
       - targets: ['host.docker.internal:3000']
     metrics_path: '/metrics'
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/appforge_metrics_token
 
 alerting:
   alertmanagers:

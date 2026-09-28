@@ -8,6 +8,7 @@ import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
+import { incrementOperationalMetric } from "../lib/operationsObservability.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -499,6 +500,9 @@ export async function handleStripeWebhook(req: Request, res: Response) {
   try {
     event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
   } catch (error) {
+    incrementOperationalMetric("appforge_billing_webhook_total", {
+      status: "invalid_signature",
+    });
     logger.warn({ error }, "stripe_webhook_signature_invalid");
     return res.status(400).json({ error: "Invalid Stripe signature" });
   }
@@ -507,8 +511,16 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     await processStripeEventOnce(event.id, event.type, () =>
       handleStripeEvent(event),
     );
+    incrementOperationalMetric("appforge_billing_webhook_total", {
+      status: "processed",
+      event: event.type,
+    });
     return res.json({ received: true });
   } catch (error) {
+    incrementOperationalMetric("appforge_billing_webhook_total", {
+      status: "error",
+      event: event.type,
+    });
     logger.error(
       { error, eventId: event.id, eventType: event.type },
       "stripe_webhook_processing_failed",

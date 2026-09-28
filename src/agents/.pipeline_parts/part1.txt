@@ -12,6 +12,7 @@
   const designHints = designSystemPrompt({ assetPaths, locale, stack: techStack });
 
   const emit = (agent: AgentRole, type: string, payload: unknown) => {
+    recordPipelineTraceEvent(agent, type, projectId);
     write("agent", { agent, type, payload });
   };
 

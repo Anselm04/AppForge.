@@ -5,6 +5,11 @@ import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import { logger } from "../_core/logger.js";
 import { getStartupReadiness } from "../services/startupState.js";
 import { checkSharedRedis } from "../middleware/rateLimiter.js";
+import {
+  incrementOperationalMetric,
+  setOperationalGauge,
+  startOperationalTrace,
+} from "../lib/operationsObservability.js";
 
 const router = Router();
 
@@ -30,10 +35,21 @@ router.get("/", async (_req: Request, res: Response) => {
     environment: process.env.NODE_ENV ?? "unknown",
   };
 
+  const databaseTrace = startOperationalTrace({
+    component: "database",
+    operation: "health_probe",
+  });
   try {
     await db.execute(sql`SELECT 1`);
     health.database = "connected";
+    databaseTrace.end("ok");
+    setOperationalGauge("appforge_database_connected", 1);
   } catch (error) {
+    databaseTrace.end("error");
+    incrementOperationalMetric("appforge_database_errors_total", {
+      operation: "health_probe",
+    });
+    setOperationalGauge("appforge_database_connected", 0);
     health.status = "degraded";
     health.database = "disconnected";
     logger.error({ error }, "health_database_check_failed");
@@ -42,7 +58,13 @@ router.get("/", async (_req: Request, res: Response) => {
   if (process.env.NODE_ENV === "production") {
     const redisReady = await checkSharedRedis();
     health.redis = redisReady ? "connected" : "disconnected";
-    if (!redisReady) health.status = "degraded";
+    setOperationalGauge("appforge_redis_connected", redisReady ? 1 : 0);
+    if (!redisReady) {
+      incrementOperationalMetric("appforge_redis_errors_total", {
+        operation: "health_probe",
+      });
+      health.status = "degraded";
+    }
   }
 
   const statusCode = health.status === "ok" ? 200 : 503;
@@ -68,7 +90,9 @@ router.get("/ready", async (_req: Request, res: Response) => {
 
   try {
     await db.execute(sql`SELECT 1`);
+    setOperationalGauge("appforge_database_connected", 1);
   } catch (error) {
+    setOperationalGauge("appforge_database_connected", 0);
     logger.error({ error }, "readiness_database_check_failed");
     return res
       .status(503)
@@ -77,6 +101,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
 
   if (process.env.NODE_ENV === "production") {
     const redisReady = await checkSharedRedis();
+    setOperationalGauge("appforge_redis_connected", redisReady ? 1 : 0);
     if (!redisReady) {
       logger.error({}, "readiness_redis_check_failed");
       return res

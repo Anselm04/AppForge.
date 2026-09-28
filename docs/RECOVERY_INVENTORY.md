@@ -392,3 +392,16 @@ Recovery invariant reviewed 28 September 2026:
 - A successful production certification emits a deployment audit record tied to destination, stack, artifact SHA-256, artifact version, verified URL, and verification timestamp. A missing or failed verification must never be converted into a successful deployment record.
 - Recovery uses the previous verified artifact/version as the rollback target. Operators must not mark an unverified artifact current merely because generation, provider upload, or container startup succeeded.
 - These invariants apply to generated customer products independently of the AppForge host deployment. They do not authorize direct execution of generated code on the AppForge host or reuse of AppForge production credentials.
+
+
+## Operations and observability recovery invariants
+
+Section 23 observability is part of production recovery evidence:
+- Structured application logs must remain recursively redacted before console/Sentry emission; production diagnostics must never expose credentials or secret values.
+- `/api/health/live` remains process-only liveness. `/api/health/ready` remains dependency-aware readiness. The full health endpoint may report coarse database/Redis state, while detailed operational diagnostics remain authenticated.
+- `/metrics` is the Prometheus-compatible operational metric surface. It contains aggregate operational labels only and must not contain user prompts, email addresses, access tokens, cookies, API keys, or generated source.
+- Build, deployment, model, and pipeline-agent telemetry must remain tied to actual execution paths. A generated file, queue admission, provider upload, or model response is not a successful build/deployment unless the existing completion and production-verification gates succeed.
+- Queue diagnostics must report the actual active backend (BullMQ, Redis list, or local degraded memory queue), queue depth, worker activity, Redis configuration/connection state, and explicit capacity values.
+- Owner diagnostics remain protected by `ownerOnlyProcedure`; normal authenticated users receive only coarse service diagnostics. Public health routes must not reveal integration secrets or owner-only operational traces.
+- Operational alert rules cover queue backlog, database/Redis availability, repeated build/deployment failures, rate-limit pressure, HTTP error/latency pressure, and process capacity. Recovery is not complete while critical observability alerts remain active without an understood incident explanation.
+- Grafana/Prometheus dashboards are derived from the same metrics emitted by the application. A dashboard panel with no live application metric is documentation only and must not be treated as recovery proof.

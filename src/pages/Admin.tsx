@@ -4,9 +4,9 @@ import { trpc } from "../utils/trpc.js";
 
 export function Admin() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"analytics" | "codes" | "moderation">(
-    "analytics",
-  );
+  const [tab, setTab] = useState<
+    "analytics" | "operations" | "codes" | "moderation"
+  >("analytics");
   const [grantType, setGrantType] = useState<"lifetime" | "limited">("limited");
   const [credits, setCredits] = useState("100");
   const [minted, setMinted] = useState<string | null>(null);
@@ -26,6 +26,17 @@ export function Admin() {
     queryKey: ["admin", "analytics"],
     queryFn: () => trpc.admin.analytics.query(),
     enabled: !!me,
+  });
+
+  const {
+    data: operations,
+    isError: operationsError,
+    isLoading: operationsLoading,
+  } = useQuery({
+    queryKey: ["admin", "operations"],
+    queryFn: () => trpc.admin.operations.query(),
+    enabled: !!me && tab === "operations",
+    refetchInterval: 15_000,
   });
 
   const { data: codes } = useQuery({
@@ -85,24 +96,28 @@ export function Admin() {
       </p>
 
       <div className="flex gap-2 mb-8">
-        {(["analytics", "codes", "moderation"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setTab(item)}
-            className={`px-4 py-2 rounded-lg font-semibold ${
-              tab === item
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-            }`}
-          >
-            {item === "analytics"
-              ? "Analytics"
-              : item === "codes"
-                ? "God codes"
-                : "Moderation"}
-          </button>
-        ))}
+        {(["analytics", "operations", "codes", "moderation"] as const).map(
+          (item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`px-4 py-2 rounded-lg font-semibold ${
+                tab === item
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              }`}
+            >
+              {item === "analytics"
+                ? "Analytics"
+                : item === "operations"
+                  ? "Operations"
+                  : item === "codes"
+                    ? "God codes"
+                    : "Moderation"}
+            </button>
+          ),
+        )}
       </div>
 
       {tab === "analytics" && analytics && (
@@ -202,6 +217,109 @@ export function Admin() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {tab === "operations" && operationsError && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          Operations diagnostics are temporarily unavailable.
+        </div>
+      )}
+
+      {tab === "operations" && operationsLoading && !operations && (
+        <p className="text-slate-500">Loading operations diagnostics…</p>
+      )}
+
+      {tab === "operations" && operations && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Database",
+                value: operations.database.connected
+                  ? `${operations.database.latencyMs} ms`
+                  : "Disconnected",
+              },
+              {
+                label: "Queue",
+                value: `${operations.queue.backend} · ${operations.queue.depth} waiting`,
+              },
+              {
+                label: "Redis",
+                value: operations.redis.connected
+                  ? "Connected"
+                  : "Disconnected",
+              },
+              {
+                label: "Credits spent",
+                value: operations.cost.creditsSpent,
+              },
+              {
+                label: "Model metrics",
+                value: operations.modelUsage.length,
+              },
+              {
+                label: "Pending moderation",
+                value: operations.abuse.pendingModeration,
+              },
+              {
+                label: "Integrations",
+                value: `${operations.integrations.configured}/${operations.integrations.integrations.length}`,
+              },
+              {
+                label: "Recent traces",
+                value: operations.recentTraces.length,
+              },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow"
+              >
+                <div className="text-sm text-slate-500">{card.label}</div>
+                <div className="text-xl font-bold">{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {operations.alerts.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+              <h2 className="text-xl font-semibold mb-3">
+                Active operational alerts
+              </h2>
+              <div className="space-y-2">
+                {operations.alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 p-3"
+                  >
+                    <span className="font-semibold uppercase text-xs">
+                      {alert.severity}
+                    </span>
+                    <p className="text-sm mt-1">{alert.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+            <h2 className="text-xl font-semibold mb-3">
+              Recent operational traces
+            </h2>
+            <div className="space-y-2 text-sm">
+              {operations.recentTraces.slice(0, 20).map((trace) => (
+                <div
+                  key={trace.id}
+                  className="flex flex-wrap gap-x-3 border-b border-slate-200 dark:border-slate-700 pb-2"
+                >
+                  <span className="font-semibold">{trace.component}</span>
+                  <span>{trace.operation}</span>
+                  <span className="capitalize">{trace.status}</span>
+                  <span>{trace.durationMs ?? 0} ms</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

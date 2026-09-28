@@ -22,6 +22,13 @@ import {
   isTwilioConfigured,
   sendSms,
 } from "../lib/twilioSms.js";
+import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
+import { getBuildQueueDiagnostics } from "../services/build-queue.js";
+import { checkSharedRedis } from "../middleware/rateLimiter.js";
+import {
+  evaluateOperationalAlerts,
+  operationalSnapshot,
+} from "../lib/operationsObservability.js";
 
 const REDEEM_FAIL = "Unable to redeem that code.";
 
@@ -140,6 +147,141 @@ export const adminRouter = router({
         subscriptionStatus: u.subStatus ?? null,
         buildsStarted: buildsByUser.get(u.id) ?? 0,
       })),
+    };
+  }),
+
+  operations: ownerOnlyProcedure.query(async () => {
+    const dbStartedAt = Date.now();
+    let database = { connected: false, latencyMs: 0 };
+    try {
+      await db.execute(sql`SELECT 1`);
+      database = { connected: true, latencyMs: Date.now() - dbStartedAt };
+    } catch (error) {
+      database = { connected: false, latencyMs: Date.now() - dbStartedAt };
+      logger.error({ error }, "admin_database_diagnostic_failed");
+    }
+
+    const safe = async <T>(
+      promise: PromiseLike<T>,
+      fallback: T,
+      diagnostic: string,
+    ): Promise<T> => {
+      try {
+        return await promise;
+      } catch (error) {
+        logger.error({ error }, diagnostic);
+        return fallback;
+      }
+    };
+
+    const [
+      queue,
+      redisConnected,
+      buildCosts,
+      creditLedger,
+      billingByStatus,
+      abuse,
+    ] = await Promise.all([
+      safe(
+        getBuildQueueDiagnostics(),
+        {
+          backend: "memory" as const,
+          depth: 0,
+          activeWorkers: 0,
+          redisConfigured: Boolean(process.env.REDIS_URL?.trim()),
+          redisConnected: false,
+          capacity: { bullmqConcurrency: 2, memoryQueueSoftLimit: 50 },
+        },
+        "admin_queue_diagnostic_failed",
+      ),
+      safe(checkSharedRedis(), false, "admin_redis_diagnostic_failed"),
+      safe(
+        db
+          .select({
+            projects: count(),
+            creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
+          })
+          .from(schema.projects),
+        [{ projects: 0, creditsSpent: 0 }],
+        "admin_build_cost_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            transactions: count(),
+            netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
+          })
+          .from(schema.creditTransactions),
+        [{ transactions: 0, netCredits: 0 }],
+        "admin_credit_ledger_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            status: schema.subscriptions.status,
+            count: count(),
+          })
+          .from(schema.subscriptions)
+          .groupBy(schema.subscriptions.status),
+        [],
+        "admin_billing_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            pendingModeration: count(),
+          })
+          .from(schema.moderationFlags)
+          .where(eq(schema.moderationFlags.adminReviewed, false)),
+        [{ pendingModeration: 0 }],
+        "admin_abuse_diagnostic_failed",
+      ),
+    ]);
+
+    const integrations = summarizeTeamIntegrations();
+    const telemetry = operationalSnapshot();
+
+    return {
+      generatedAt: telemetry.generatedAt,
+      service: {
+        uptimeSeconds: telemetry.uptimeSeconds,
+        process: telemetry.process,
+        capacity: telemetry.capacity,
+      },
+      database,
+      queue,
+      redis: {
+        configured: Boolean(process.env.REDIS_URL?.trim()),
+        connected: redisConnected,
+      },
+      modelUsage: telemetry.counters.filter((metric) =>
+        metric.name.startsWith("appforge_model_"),
+      ),
+      performance: telemetry.counters.filter(
+        (metric) =>
+          metric.name.startsWith("appforge_http_") ||
+          metric.name.startsWith("appforge_trace_"),
+      ),
+      cost: {
+        projects: buildCosts[0]?.projects ?? 0,
+        creditsSpent: Number(buildCosts[0]?.creditsSpent ?? 0),
+        creditTransactions: creditLedger[0]?.transactions ?? 0,
+        netCreditLedger: Number(creditLedger[0]?.netCredits ?? 0),
+      },
+      billing: {
+        byStatus: billingByStatus,
+      },
+      integrations,
+      abuse: {
+        pendingModeration: abuse[0]?.pendingModeration ?? 0,
+        metrics: telemetry.counters.filter(
+          (metric) =>
+            metric.name === "appforge_abuse_signals_total" ||
+            metric.name === "appforge_rate_limit_rejections_total",
+        ),
+      },
+      alerts: evaluateOperationalAlerts(),
+      recentTraces: telemetry.recentTraces,
     };
   }),
 

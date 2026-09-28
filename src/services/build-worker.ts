@@ -29,6 +29,10 @@ import {
   type ProductContract,
 } from "../lib/productContract.js";
 import {
+  incrementOperationalMetric,
+  startOperationalTrace,
+} from "../lib/operationsObservability.js";
+import {
   extractBuildJobIdentity,
   parseBuildJob,
   type BuildJob,
@@ -60,9 +64,19 @@ export async function deployValidatedProjectWithRetry(input: {
   };
 }) {
   let lastError: unknown;
+  const deploymentTrace = startOperationalTrace({
+    component: "deployment",
+    operation: "deploy_validated_project",
+    metadata: { projectId: input.projectId },
+  });
   for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await deployValidatedProject(input);
+      const result = await deployValidatedProject(input);
+      deploymentTrace.end("ok", { attempt });
+      incrementOperationalMetric("appforge_deployments_total", {
+        status: "ok",
+      });
+      return result;
     } catch (error) {
       lastError = error;
       logger.warn(
@@ -79,6 +93,8 @@ export async function deployValidatedProjectWithRetry(input: {
       }
     }
   }
+  deploymentTrace.end("error", { attempts: DEPLOY_MAX_ATTEMPTS });
+  incrementOperationalMetric("appforge_deployments_total", { status: "error" });
   throw lastError instanceof Error
     ? lastError
     : new Error("Validated project deployment failed after retries");
@@ -204,6 +220,13 @@ export async function runBuildJob(input: unknown): Promise<void> {
     return;
   }
   activeJobs.add(job.projectId);
+  const buildTrace = startOperationalTrace({
+    component: "build",
+    operation: "run_build_job",
+    metadata: { projectId: job.projectId, userId: job.userId },
+  });
+  let buildTraceStatus: "ok" | "error" = "error";
+  let buildMetricRecorded = false;
 
   const {
     projectId,
@@ -436,6 +459,11 @@ export async function runBuildJob(input: unknown): Promise<void> {
               ...stackDelivery,
             };
       await emit(projectId, "done", donePayload);
+      buildTraceStatus = "ok";
+      incrementOperationalMetric("appforge_builds_total", {
+        status: "completed",
+      });
+      buildMetricRecorded = true;
     } else {
       // The pipeline intentionally returns for paused, failed, cancelled and
       // recoverable states. Those are not completed paid builds. Refund the
@@ -443,6 +471,10 @@ export async function runBuildJob(input: unknown): Promise<void> {
       await refundReservation("Incomplete build");
       await updateProjectCreditsSpent(projectId, 0);
       await recordBuildOutcome(userId, false, 0);
+      incrementOperationalMetric("appforge_builds_total", {
+        status: "incomplete",
+      });
+      buildMetricRecorded = true;
     }
   } catch (err: unknown) {
     logger.error({ projectId, error: err }, "background_build_failed");
@@ -473,6 +505,10 @@ export async function runBuildJob(input: unknown): Promise<void> {
       await updateProjectStatus(projectId, "failed", "build_failed");
     }
   } finally {
+    buildTrace.end(buildTraceStatus, { projectId });
+    if (buildTraceStatus === "error" && !buildMetricRecorded) {
+      incrementOperationalMetric("appforge_builds_total", { status: "error" });
+    }
     if (timeout) clearTimeout(timeout);
     activeJobs.delete(projectId);
     clearRuntimeBuild(projectId);

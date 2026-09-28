@@ -285,5 +285,7 @@
     }
     await updateProjectStatus(projectId, "failed", message);
     write("error", { message });
+  } finally {
+    cleanupPipelineTraces(projectId);
   }
 }

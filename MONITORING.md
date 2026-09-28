@@ -245,3 +245,40 @@ helm install monitoring prometheus-community/kube-prometheus-stack
 2. Use HTTPS for production
 3. Restrict access to monitoring endpoints
 4. Use authentication for Alertmanager
+
+
+## Section 23 live operations
+
+The production application now emits the metrics consumed by this monitoring stack at `GET /metrics`. The endpoint is generated from the running AppForge process rather than a documentation-only middleware example.
+
+Operational coverage includes HTTP throughput/latency, process memory and uptime, build/deployment outcomes, queue depth and active workers, Redis/database availability, agent phase events, model request/token usage, rate-limit and abuse signals, and operational trace duration.
+
+Authenticated users can see coarse live service diagnostics in **Account → System diagnostics**. The owner-only **Admin → Operations** tab adds database latency, queue backend/depth, Redis state, build-credit cost totals, billing status, integration configuration, moderation pressure, active alerts, model usage, and recent operational traces.
+
+Grafana dashboard: `monitoring/grafana/dashboards/appforge-operations.json`.
+
+Prometheus alerts include queue backlog, database/Redis unavailability, repeated build/deployment failures, elevated rate-limit pressure, HTTP errors/latency, and process CPU/memory pressure.
+
+
+## Metrics endpoint authentication
+
+Production `GET /metrics` is intentionally not public. Set a strong
+`APPFORGE_METRICS_TOKEN` on the AppForge service and provide the identical
+token to Prometheus through the file
+`/run/secrets/appforge_metrics_token`. Prometheus sends that value as a
+Bearer credential. Development keeps local scraping available without a token.
+
+Do not expose the metrics token to browsers, generated products, logs, or
+repository files. Rotate it like any other production monitoring credential.
+
+For the local monitoring compose stack, create the ignored credential file before
+starting Prometheus:
+
+```bash
+mkdir -p monitoring/secrets
+printf '%s' "$APPFORGE_METRICS_TOKEN" > monitoring/secrets/appforge_metrics_token
+chmod 600 monitoring/secrets/appforge_metrics_token
+```
+
+The file is mounted read-only into Prometheus at the path configured in
+`monitoring/prometheus.yml`.

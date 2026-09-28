@@ -1,0 +1,72 @@
+{
+  "dashboard": {
+    "title": "AppForge Operations",
+    "tags": ["appforge", "operations", "section-23"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Build Queue Depth",
+        "type": "timeseries",
+        "targets": [{ "expr": "appforge_queue_depth", "legendFormat": "{{backend}}" }],
+        "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 }
+      },
+      {
+        "id": 2,
+        "title": "Database / Redis Availability",
+        "type": "stat",
+        "targets": [
+          { "expr": "appforge_database_connected", "legendFormat": "Database" },
+          { "expr": "appforge_redis_connected", "legendFormat": "Redis" }
+        ],
+        "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 }
+      },
+      {
+        "id": 3,
+        "title": "Rate-limit / Abuse Signals",
+        "type": "timeseries",
+        "targets": [
+          { "expr": "rate(appforge_rate_limit_rejections_total[5m])", "legendFormat": "Rate limit" },
+          { "expr": "rate(appforge_abuse_signals_total[5m])", "legendFormat": "Abuse signals" }
+        ],
+        "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 }
+      },
+      {
+        "id": 4,
+        "title": "Model Token Usage",
+        "type": "timeseries",
+        "targets": [{ "expr": "rate(appforge_model_tokens_total[5m])", "legendFormat": "{{provider}} / {{model}}" }],
+        "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 }
+      },
+      {
+        "id": 5,
+        "title": "Build Outcomes",
+        "type": "timeseries",
+        "targets": [{ "expr": "rate(appforge_builds_total[5m])", "legendFormat": "{{status}}" }],
+        "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 }
+      },
+      {
+        "id": 6,
+        "title": "Deployment Outcomes",
+        "type": "timeseries",
+        "targets": [{ "expr": "rate(appforge_deployments_total[5m])", "legendFormat": "{{status}}" }],
+        "gridPos": { "x": 16, "y": 7, "w": 8, "h": 7 }
+      },
+      {
+        "id": 7,
+        "title": "Agent Events",
+        "type": "timeseries",
+        "targets": [{ "expr": "rate(appforge_agent_events_total[5m])", "legendFormat": "{{agent}} / {{type}}" }],
+        "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 }
+      },
+      {
+        "id": 8,
+        "title": "Process RSS",
+        "type": "timeseries",
+        "targets": [{ "expr": "appforge_process_rss_bytes", "legendFormat": "RSS bytes" }],
+        "gridPos": { "x": 12, "y": 14, "w": 12, "h": 7 }
+      }
+    ]
+  }
+}
