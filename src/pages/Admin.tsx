@@ -264,6 +264,25 @@ export function Admin() {
             ))}
           </div>
 
+          {operations.alerts.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+              <h2 className="text-xl font-semibold mb-3">Active operational alerts</h2>
+              <div className="space-y-2">
+                {operations.alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 p-3"
+                  >
+                    <span className="font-semibold uppercase text-xs">
+                      {alert.severity}
+                    </span>
+                    <p className="text-sm mt-1">{alert.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
             <h2 className="text-xl font-semibold mb-3">Recent operational traces</h2>
             <div className="space-y-2 text-sm">
