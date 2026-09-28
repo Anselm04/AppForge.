@@ -115,21 +115,35 @@ describe("#25 Build Status and User Experience", () => {
     expect(router).toContain("resumeApprovedBuild: protectedProcedure");
     expect(router).toContain("contract.originalPrompt");
     expect(router).toContain("contract.selectedTechnologyStack");
+    expect(router).toContain("const promptIntent = project.promptIntent");
+    expect(router).toContain(
+      "AppForge will not reinterpret the prompt during resume",
+    );
     expect(router).toContain("project.creditsReserved");
     expect(router).toContain(
       'const revisingPlan = project.planStatus === "revision_requested"',
     );
     expect(router).toContain("planRevisionRequest: null");
+    expect(router).toContain(
+      "The requested plan revision must be regenerated before this plan can be approved.",
+    );
   });
 
   it("never substitutes an AppForge shell route for the generated live product", () => {
     const presentation = source("src/lib/stackPresentation.ts");
+    const finalPipeline = source("src/agents/.pipeline_parts/part4.txt");
+    const preview = source("src/routes/livePreview.ts");
     const helper = presentation.slice(
       presentation.indexOf("export function completedBuildUrl"),
     );
     expect(helper).not.toContain("/apps/");
+    expect(helper).toContain("/live/");
     expect(helper).toContain("if (opts.liveUrl) return opts.liveUrl");
-    expect(helper).toContain("return null");
+    expect(finalPipeline).not.toContain('generatedFiles["_hosted/index.html"]');
+    expect(finalPipeline).not.toContain("materializeHostedHtml");
+    expect(preview).toContain(
+      "AppForge will not substitute a shell or source listing for the real product",
+    );
   });
 
   it("shows the customer the exact stage, maturity and unresolved decisions", () => {
