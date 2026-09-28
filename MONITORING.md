@@ -270,3 +270,15 @@ Bearer credential. Development keeps local scraping available without a token.
 
 Do not expose the metrics token to browsers, generated products, logs, or
 repository files. Rotate it like any other production monitoring credential.
+
+For the local monitoring compose stack, create the ignored credential file before
+starting Prometheus:
+
+```bash
+mkdir -p monitoring/secrets
+printf '%s' "$APPFORGE_METRICS_TOKEN" > monitoring/secrets/appforge_metrics_token
+chmod 600 monitoring/secrets/appforge_metrics_token
+```
+
+The file is mounted read-only into Prometheus at the path configured in
+`monitoring/prometheus.yml`.
