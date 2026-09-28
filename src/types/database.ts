@@ -1,45 +1,14 @@
 export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+  string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type ProjectStatus =
-  | "draft"
-  | "planning"
-  | "pending"
-  | "running"
-  | "paused"
-  | "validated"
-  | "production-certified"
-  | "completed"
-  | "failed"
-  | "archived";
+  "draft" | "planning" | "pending" | "running" | "paused" | "validated" | "production-certified" | "completed" | "failed" | "archived";
 export type BuildStatus =
-  | "queued"
-  | "running"
-  | "paused"
-  | "validated"
-  | "production-certified"
-  | "completed"
-  | "failed"
-  | "cancelled";
+  "queued" | "running" | "paused" | "validated" | "production-certified" | "completed" | "failed" | "cancelled";
 export type AgentStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "skipped";
+  "queued" | "running" | "completed" | "failed" | "skipped";
 export type AgentRole =
-  | "architect"
-  | "backend"
-  | "frontend"
-  | "database"
-  | "devops"
-  | "security"
-  | "testing";
+  "architect" | "backend" | "frontend" | "database" | "devops" | "security" | "testing";
 
 export interface Profile {
   id: string;
