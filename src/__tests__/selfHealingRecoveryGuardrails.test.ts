@@ -11,22 +11,40 @@ function expectInOrder(text: string, markers: string[]) {
   for (const marker of markers) {
     const index = text.indexOf(marker);
     expect(index, `Missing recovery marker: ${marker}`).toBeGreaterThan(-1);
-    expect(index, `Recovery marker out of order: ${marker}`).toBeGreaterThan(previous);
+    expect(index, `Recovery marker out of order: ${marker}`).toBeGreaterThan(
+      previous,
+    );
     previous = index;
   }
 }
 
 describe("autonomous self-healing recovery guardrails", () => {
   it("detects whether an autonomous repair actually changed project files", () => {
-    expect(hasEffectiveFileChange({ "a.ts": "one" }, { "a.ts": "one" })).toBe(false);
-    expect(hasEffectiveFileChange({ "a.ts": "one" }, { "a.ts": "two" })).toBe(true);
-    expect(hasEffectiveFileChange({ "a.ts": "one" }, { "a.ts": "one", "b.ts": "two" })).toBe(true);
-    expect(hasEffectiveFileChange({ "a.ts": "one", "b.ts": "two" }, { "a.ts": "one" })).toBe(true);
+    expect(hasEffectiveFileChange({ "a.ts": "one" }, { "a.ts": "one" })).toBe(
+      false,
+    );
+    expect(hasEffectiveFileChange({ "a.ts": "one" }, { "a.ts": "two" })).toBe(
+      true,
+    );
+    expect(
+      hasEffectiveFileChange(
+        { "a.ts": "one" },
+        { "a.ts": "one", "b.ts": "two" },
+      ),
+    ).toBe(true);
+    expect(
+      hasEffectiveFileChange(
+        { "a.ts": "one", "b.ts": "two" },
+        { "a.ts": "one" },
+      ),
+    ).toBe(true);
   });
 
   it("hydrates the watchlist from persisted certified projects on every cycle", () => {
     const healing = source("src/agents/selfHealing.ts");
-    expect(healing).toContain("export async function hydrateSelfHealingWatchlist");
+    expect(healing).toContain(
+      "export async function hydrateSelfHealingWatchlist",
+    );
     expect(healing).toContain('"production-certified"');
     expect(healing).toContain("inArray(schema.projects.status");
     expectInOrder(healing, [
