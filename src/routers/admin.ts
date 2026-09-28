@@ -161,36 +161,42 @@ export const adminRouter = router({
       logger.error({ error }, "admin_database_diagnostic_failed");
     }
 
-    const [queue, redisConnected, buildCosts, creditLedger, billingByStatus, abuse] =
-      await Promise.all([
-        getBuildQueueDiagnostics(),
-        checkSharedRedis(),
-        db
-          .select({
-            projects: count(),
-            creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
-          })
-          .from(schema.projects),
-        db
-          .select({
-            transactions: count(),
-            netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
-          })
-          .from(schema.creditTransactions),
-        db
-          .select({
-            status: schema.subscriptions.status,
-            count: count(),
-          })
-          .from(schema.subscriptions)
-          .groupBy(schema.subscriptions.status),
-        db
-          .select({
-            pendingModeration: count(),
-          })
-          .from(schema.moderationFlags)
-          .where(eq(schema.moderationFlags.adminReviewed, false)),
-      ]);
+    const [
+      queue,
+      redisConnected,
+      buildCosts,
+      creditLedger,
+      billingByStatus,
+      abuse,
+    ] = await Promise.all([
+      getBuildQueueDiagnostics(),
+      checkSharedRedis(),
+      db
+        .select({
+          projects: count(),
+          creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
+        })
+        .from(schema.projects),
+      db
+        .select({
+          transactions: count(),
+          netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
+        })
+        .from(schema.creditTransactions),
+      db
+        .select({
+          status: schema.subscriptions.status,
+          count: count(),
+        })
+        .from(schema.subscriptions)
+        .groupBy(schema.subscriptions.status),
+      db
+        .select({
+          pendingModeration: count(),
+        })
+        .from(schema.moderationFlags)
+        .where(eq(schema.moderationFlags.adminReviewed, false)),
+    ]);
 
     const integrations = summarizeTeamIntegrations();
     const telemetry = operationalSnapshot();
