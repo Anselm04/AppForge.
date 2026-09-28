@@ -148,9 +148,7 @@ async function processMemoryQueue(): Promise<void> {
   memoryWorkerRunning = false;
 }
 
-async function refreshRedisListDepth(
-  redis: RedisClientType,
-): Promise<void> {
+async function refreshRedisListDepth(redis: RedisClientType): Promise<void> {
   const candidate = redis as RedisClientType & {
     lLen?: (key: string) => Promise<number>;
   };
