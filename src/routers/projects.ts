@@ -797,7 +797,9 @@ export const projectsRouter = router({
             outputMaturity:
               stackAdapter.generationMode === "structural"
                 ? "structural"
-                : "runnable",
+                : productionDestination && smoke?.ok
+                  ? "verified"
+                  : "runnable",
             updatedAt: new Date(),
           })
           .where(eq(schema.projects.id, input.id));
