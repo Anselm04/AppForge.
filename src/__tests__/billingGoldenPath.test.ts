@@ -26,6 +26,21 @@ describe("billing golden path scaffold", () => {
     expect(files["database/billing-schema.sql"]).toContain("UNIQUE");
   });
 
+  it("keeps Stripe subscription identity and webhook retries recoverable", () => {
+    const files = billingScaffoldFiles("next-node");
+    const checkout = files["src/app/api/billing/checkout/route.ts"];
+    const subscriptions = files["src/lib/billing/subscriptions.ts"];
+    const audit = files["src/lib/billing/audit.ts"];
+
+    expect(checkout).toContain("subscription_data");
+    expect(checkout).toContain("userId: sessionUserId");
+    expect(subscriptions).toContain("WHERE stripe_customer_id");
+    expect(subscriptions).toContain("stripe_subscription_id");
+    expect(subscriptions).toContain("RETURNING user_id");
+    expect(audit).toContain("billing_events.status = 'processing'");
+    expect(audit).toContain("INTERVAL '5 minutes'");
+  });
+
   it("passes strengthened billing validation", () => {
     const merged = mergeBillingScaffold(
       { "package.json": '{"name":"app","dependencies":{}}' },
