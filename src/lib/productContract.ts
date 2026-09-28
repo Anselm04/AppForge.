@@ -141,7 +141,7 @@ export const productContractSchema = z.object({
   securityRequirements: z.array(z.string().min(1)).min(1),
   deploymentRequirements: z.array(z.string().min(1)).min(1),
   monetizationRequirements: z.array(z.string().min(1)),
-  monetizationRecommendations: z.array(z.string().min(1)).default([]),
+  monetizationRecommendations: z.array(z.string().min(1)).optional(),
   selectedTechnologyStack: z.string().min(1),
   researchRequirements: z.array(z.string().min(1)),
   runtimeRequirements: z.array(z.string().min(1)).min(1),
