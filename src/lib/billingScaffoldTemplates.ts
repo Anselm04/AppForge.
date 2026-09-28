@@ -96,15 +96,31 @@ export async function updateFromStripeSubscription(sub: {
     ? new Date(sub.current_period_end * 1000)
     : null;
 
-  await sql\`
-    INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end)
-    VALUES (\${userId}, \${customerId}, \${sub.id}, \${plan}, \${sub.status}, \${periodEnd})
-    ON CONFLICT (user_id) DO UPDATE SET
-      stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-      plan = EXCLUDED.plan,
-      status = EXCLUDED.status,
-      current_period_end = EXCLUDED.current_period_end
+  const updated = await sql<{ user_id: string }[]>\`
+    UPDATE subscriptions
+    SET stripe_subscription_id = \${sub.id},
+        plan = \${plan},
+        status = \${sub.status},
+        current_period_end = \${periodEnd},
+        updated_at = NOW()
+    WHERE stripe_customer_id = \${customerId}
+       OR stripe_subscription_id = \${sub.id}
+    RETURNING user_id
   \`;
+
+  if (updated.length === 0) {
+    await sql\`
+      INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end)
+      VALUES (\${userId}, \${customerId}, \${sub.id}, \${plan}, \${sub.status}, \${periodEnd})
+      ON CONFLICT (user_id) DO UPDATE SET
+        stripe_customer_id = EXCLUDED.stripe_customer_id,
+        stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+        plan = EXCLUDED.plan,
+        status = EXCLUDED.status,
+        current_period_end = EXCLUDED.current_period_end,
+        updated_at = NOW()
+    \`;
+  }
 }
 
 export async function getSubscriptionByUserId(
@@ -262,6 +278,10 @@ export async function processBillingEventOnce(
     ON CONFLICT (id) DO UPDATE
       SET status = 'processing', updated_at = NOW()
       WHERE billing_events.status = 'failed'
+         OR (
+           billing_events.status = 'processing'
+           AND billing_events.updated_at < NOW() - INTERVAL '5 minutes'
+         )
     RETURNING id
   \`;
   if (!claimed[0]) return { duplicate: true };
