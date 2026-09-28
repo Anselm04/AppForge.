@@ -61,7 +61,9 @@ async function commitProjectFilesSnapshot(input: {
       .update(schema.projects)
       .set({
         generatedFiles: input.files,
-        status: "completed",
+        status: "validated",
+        buildStage: "production-candidate",
+        outputMaturity: "runnable",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, input.projectId));
