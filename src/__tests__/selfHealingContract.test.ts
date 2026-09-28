@@ -89,7 +89,7 @@ describe("self-healing repair keeps the canonical contract", () => {
     state.project = {
       id: 41,
       title: "Platformer",
-      status: "completed",
+      status: "production-certified",
       productContract,
       requirementManifest: { requirements: [] },
     };
@@ -111,7 +111,7 @@ describe("self-healing repair keeps the canonical contract", () => {
     state.project = {
       id: 41,
       title: "Platformer",
-      status: "completed",
+      status: "production-certified",
       productContract,
       requirementManifest: { requirements: [] },
     };
@@ -127,7 +127,7 @@ describe("self-healing repair keeps the canonical contract", () => {
     state.project = {
       id: 41,
       title: "Platformer",
-      status: "completed",
+      status: "production-certified",
       productContract: { productType: "game" },
       requirementManifest: { requirements: [] },
     };
@@ -144,7 +144,7 @@ describe("self-healing repair keeps the canonical contract", () => {
     state.project = {
       id: 41,
       title: "Platformer",
-      status: "completed",
+      status: "production-certified",
       productContract,
       requirementManifest: { requirements: [] },
     };
