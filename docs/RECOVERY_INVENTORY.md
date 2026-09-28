@@ -426,3 +426,26 @@ Verification target:
 - Confirm failed/partial/deployment-error paths leave the prior known-good checkpoint unchanged.
 - Confirm recovery governance requires the Section 24 runbook whenever recovery-critical implementation changes.
 
+
+
+## Section 25 build-status and approval recovery invariants
+
+Recovery invariant reviewed 29 September 2026:
+- Build lifecycle stage is durable state. Recovery must preserve the distinction between researching, planning, architecture, generating, persisting, validating, repairing, previewing, browser verification, deployment, monetization, production candidate, and production certified.
+- A validated artifact is not production-certified. Snapshot persistence or compile/test success may set project status to `validated`, but only verified production deployment may set `production-certified`.
+- Output maturity is independently recorded as structural, runnable, verified, or certified so recovery does not infer maturity from file presence or a generic completed flag.
+- `failure_stage` records the stage active when the project enters a failed state, so incident recovery identifies the failing boundary rather than only a generic failure.
+- Plan, monetization, and external-integration approvals are persisted before generation. Recovery must not silently approve a plan, enable monetization, or request integration credentials.
+- An approval hold preserves the canonical prompt, product contract, selected stack, validated plan, and original paid reservation. Resume reuses that exact persisted context rather than reclassifying the prompt or charging a second reservation.
+- A plan revision request is persisted and fed back to Planner before generation resumes.
+- AppForge workspace/preview routes are not equivalent to a deployed generated product. Recovery must never present an AppForge shell URL as the generated product's production URL.
+- A post-generation file edit invalidates any prior production certification and returns the project to validated production-candidate state until production verification is repeated.
+
+Verification target:
+- Confirm a newly created build exposes durable stage transitions and exact output maturity.
+- Confirm a validated snapshot is `validated` / `production-candidate`, not `completed` or `production-certified`.
+- Confirm production certification occurs only after deployment identity, runtime/HTTP checks, and applicable browser verification succeed.
+- Confirm plan, monetization, and integration approval holds occur before Coder generation and can be resumed from the same canonical contract without a second reservation.
+- Confirm a plan revision is incorporated before generation resumes.
+- Confirm failure state captures the exact failing stage.
+- Confirm no fallback live-product URL points to an AppForge application route when no verified generated-product URL exists.
