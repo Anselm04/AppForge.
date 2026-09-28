@@ -180,7 +180,9 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         return;
       }
       logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
-      incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "bullmq" });
+      incrementOperationalMetric("appforge_queue_enqueued_total", {
+        backend: "bullmq",
+      });
       return;
     } catch (err) {
       logger.error(
@@ -213,7 +215,9 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         throw err;
       }
       logger.info({ projectId: job.projectId }, "build_enqueued_redis");
-      incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "redis_list" });
+      incrementOperationalMetric("appforge_queue_enqueued_total", {
+        backend: "redis_list",
+      });
       return;
     }
   } catch (err) {
@@ -237,13 +241,14 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
     { projectId: job.projectId },
     "build_enqueued_memory_degraded_mode",
   );
-  incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "memory" });
+  incrementOperationalMetric("appforge_queue_enqueued_total", {
+    backend: "memory",
+  });
   setOperationalGauge("appforge_queue_depth", memoryQueue.length, {
     backend: "memory",
   });
   void processMemoryQueue();
 }
-
 
 export async function getBuildQueueDiagnostics() {
   let backend: "bullmq" | "redis_list" | "memory" = "memory";
@@ -254,7 +259,11 @@ export async function getBuildQueueDiagnostics() {
   if (bullQueue) {
     backend = "bullmq";
     try {
-      const counts = await bullQueue.getJobCounts("waiting", "active", "failed");
+      const counts = await bullQueue.getJobCounts(
+        "waiting",
+        "active",
+        "failed",
+      );
       depth = counts.waiting ?? 0;
       activeWorkers = counts.active ?? 0;
       redisConnected = true;
@@ -278,7 +287,9 @@ export async function getBuildQueueDiagnostics() {
   }
 
   setOperationalGauge("appforge_queue_depth", depth, { backend });
-  setOperationalGauge("appforge_queue_active_workers", activeWorkers, { backend });
+  setOperationalGauge("appforge_queue_active_workers", activeWorkers, {
+    backend,
+  });
   setOperationalGauge("appforge_redis_connected", redisConnected ? 1 : 0);
 
   return {
