@@ -455,26 +455,55 @@ export function billingWebhookHandlers(isNext: boolean): {
   nextRoute: string;
   expressRoute: string;
 } {
-  const importPath = isNext
-    ? "../lib/billing/subscriptions.js"
-    : "../../lib/billing/subscriptions.js";
-  const handlerBody = `
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    await upsertFromCheckoutSession(session);
-  }
-  if (
-    event.type === "customer.subscription.updated" ||
-    event.type === "customer.subscription.deleted"
-  ) {
-    await updateFromStripeSubscription(event.data.object);
-  }`;
+  const importBase = isNext ? "../../../../lib/billing" : "../../lib/billing";
+  const handlerBody = \`
+  await processBillingEventOnce(event.id, event.type, async () => {
+    if (event.type === "checkout.session.completed") {
+      await upsertFromCheckoutSession(event.data.object);
+    }
+    if (
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted"
+    ) {
+      await updateFromStripeSubscription(event.data.object);
+    }
+    if (event.type === "invoice.paid") {
+      const invoice = event.data.object;
+      await recordInvoiceState({
+        invoiceId: invoice.id,
+        subscriptionId:
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id ?? null,
+        state: "paid",
+      });
+    }
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object;
+      await recordInvoiceState({
+        invoiceId: invoice.id,
+        subscriptionId:
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id ?? null,
+        state: "payment_failed",
+      });
+    }
+    if (event.type === "charge.refunded") {
+      await auditBillingAction(event.id, "charge.refunded", "processed");
+    }
+  });\`;
 
-  const nextRoute = `import { NextResponse } from "next/server";
+  const nextRoute = \`import { NextResponse } from "next/server";
 import {
   upsertFromCheckoutSession,
   updateFromStripeSubscription,
 } from "../../../../lib/billing/subscriptions.js";
+import {
+  auditBillingAction,
+  processBillingEventOnce,
+} from "../../../../lib/billing/audit.js";
+import { recordInvoiceState } from "../../../../lib/billing/invoices.js";
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -493,16 +522,21 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
-${handlerBody}
+\${handlerBody}
   return NextResponse.json({ received: true });
 }
-`;
+\`;
 
-  const expressRoute = `import type { Request, Response } from "express";
+  const expressRoute = \`import type { Request, Response } from "express";
 import {
   upsertFromCheckoutSession,
   updateFromStripeSubscription,
-} from "${importPath}";
+} from "../../lib/billing/subscriptions.js";
+import {
+  auditBillingAction,
+  processBillingEventOnce,
+} from "../../lib/billing/audit.js";
+import { recordInvoiceState } from "../../lib/billing/invoices.js";
 
 export async function stripeWebhook(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -525,10 +559,10 @@ export async function stripeWebhook(req: Request, res: Response) {
     res.status(400).send("Invalid signature");
     return;
   }
-${handlerBody}
+\${handlerBody}
   res.json({ received: true });
 }
-`;
+\`;
 
   return { nextRoute, expressRoute };
 }
