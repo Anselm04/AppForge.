@@ -35,7 +35,12 @@ describe("#23 Operations and Observability", () => {
     trace.end("ok");
 
     const snapshot = operationalSnapshot();
-    expect(snapshot.recentTraces[0]).toMatchObject({
+    expect(
+      snapshot.recentTraces.find(
+        (trace) =>
+          trace.component === "build" && trace.operation === "test_build",
+      ),
+    ).toMatchObject({
       component: "build",
       operation: "test_build",
       status: "ok",
