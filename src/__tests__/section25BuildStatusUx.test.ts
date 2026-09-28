@@ -23,7 +23,12 @@ describe("#25 Build Status and User Experience", () => {
     ]) {
       expect(status).toContain(`"${stage}"`);
     }
-    for (const maturity of ["structural", "runnable", "verified", "certified"]) {
+    for (const maturity of [
+      "structural",
+      "runnable",
+      "verified",
+      "certified",
+    ]) {
       expect(status).toContain(`"${maturity}"`);
     }
   });
