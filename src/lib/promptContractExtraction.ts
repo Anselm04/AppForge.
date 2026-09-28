@@ -1006,3 +1006,46 @@ export function buildPromptMonetization(facts: PromptFacts): string[] {
       : "Paid functionality is protected by entitlements",
   ];
 }
+
+export function buildPromptMonetizationRecommendations(
+  type: ProductType,
+  facts: PromptFacts,
+): string[] {
+  if (facts.monetization.requested) return [];
+
+  switch (type) {
+    case "saas_application":
+      return [
+        "Optional recommendation: tiered subscription plans with a free trial",
+        "Optional recommendation: usage or credit add-ons for high-cost features",
+      ];
+    case "api":
+    case "developer_tool":
+    case "data_product":
+      return [
+        "Optional recommendation: usage-based billing with access limits",
+        "Optional recommendation: subscription tiers for higher quotas",
+      ];
+    case "mobile_app":
+    case "game":
+      return [
+        "Optional recommendation: in-app purchases or subscriptions",
+        "Optional recommendation: advertising only if it fits the user experience",
+      ];
+    case "ecommerce_product":
+      return [
+        "Optional recommendation: one-time payments for products",
+        "Optional recommendation: subscriptions only for genuinely recurring products",
+      ];
+    case "automation_tool":
+    case "ai_agent":
+      return [
+        "Optional recommendation: subscription tiers with usage or credit limits",
+      ];
+    case "website":
+    case "desktop_app":
+    case "browser_extension":
+    default:
+      return [];
+  }
+}
