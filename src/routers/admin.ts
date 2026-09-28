@@ -22,6 +22,10 @@ import {
   isTwilioConfigured,
   sendSms,
 } from "../lib/twilioSms.js";
+import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
+import { getBuildQueueDiagnostics } from "../services/build-queue.js";
+import { checkSharedRedis } from "../middleware/rateLimiter.js";
+import { operationalSnapshot } from "../lib/operationsObservability.js";
 
 const REDEEM_FAIL = "Unable to redeem that code.";
 
@@ -140,6 +144,94 @@ export const adminRouter = router({
         subscriptionStatus: u.subStatus ?? null,
         buildsStarted: buildsByUser.get(u.id) ?? 0,
       })),
+    };
+  }),
+
+  operations: ownerOnlyProcedure.query(async () => {
+    const dbStartedAt = Date.now();
+    let database = { connected: false, latencyMs: 0 };
+    try {
+      await db.execute(sql`SELECT 1`);
+      database = { connected: true, latencyMs: Date.now() - dbStartedAt };
+    } catch (error) {
+      database = { connected: false, latencyMs: Date.now() - dbStartedAt };
+      logger.error({ error }, "admin_database_diagnostic_failed");
+    }
+
+    const [queue, redisConnected, buildCosts, creditLedger, billingByStatus, abuse] =
+      await Promise.all([
+        getBuildQueueDiagnostics(),
+        checkSharedRedis(),
+        db
+          .select({
+            projects: count(),
+            creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
+          })
+          .from(schema.projects),
+        db
+          .select({
+            transactions: count(),
+            netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
+          })
+          .from(schema.creditTransactions),
+        db
+          .select({
+            status: schema.subscriptions.status,
+            count: count(),
+          })
+          .from(schema.subscriptions)
+          .groupBy(schema.subscriptions.status),
+        db
+          .select({
+            pendingModeration: count(),
+          })
+          .from(schema.moderationFlags)
+          .where(eq(schema.moderationFlags.adminReviewed, false)),
+      ]);
+
+    const integrations = summarizeTeamIntegrations();
+    const telemetry = operationalSnapshot();
+
+    return {
+      generatedAt: telemetry.generatedAt,
+      service: {
+        uptimeSeconds: telemetry.uptimeSeconds,
+        process: telemetry.process,
+        capacity: telemetry.capacity,
+      },
+      database,
+      queue,
+      redis: {
+        configured: Boolean(process.env.REDIS_URL?.trim()),
+        connected: redisConnected,
+      },
+      modelUsage: telemetry.counters.filter((metric) =>
+        metric.name.startsWith("appforge_model_"),
+      ),
+      performance: telemetry.counters.filter(
+        (metric) =>
+          metric.name.startsWith("appforge_http_") ||
+          metric.name.startsWith("appforge_trace_"),
+      ),
+      cost: {
+        projects: buildCosts[0]?.projects ?? 0,
+        creditsSpent: Number(buildCosts[0]?.creditsSpent ?? 0),
+        creditTransactions: creditLedger[0]?.transactions ?? 0,
+        netCreditLedger: Number(creditLedger[0]?.netCredits ?? 0),
+      },
+      billing: {
+        byStatus: billingByStatus,
+      },
+      integrations,
+      abuse: {
+        pendingModeration: abuse[0]?.pendingModeration ?? 0,
+        metrics: telemetry.counters.filter(
+          (metric) =>
+            metric.name === "appforge_abuse_signals_total" ||
+            metric.name === "appforge_rate_limit_rejections_total",
+        ),
+      },
+      recentTraces: telemetry.recentTraces,
     };
   }),
 
