@@ -92,7 +92,18 @@ describe("Stripe revenue fulfillment boundaries", () => {
   });
 
   it("provisions the replay ledger at startup instead of during a webhook", () => {
-    const schema = source("src/db/ensureSchema.ts");
+    const schema = [
+      "src/db/schemaBaselinePart1.ts",
+      "src/db/schemaBaselinePart2.ts",
+      "src/db/schemaBaseline.ts",
+      "src/db/schemaPatchSql.ts",
+      "src/db/schemaSection18Sql.ts",
+      "src/db/schemaSection24Sql.ts",
+      "src/db/schemaPatches.ts",
+      "src/db/ensureSchema.ts",
+    ]
+      .map((p) => source(p))
+      .join("\n");
     const ledger = source("src/services/stripeEventLedger.ts");
 
     expect(schema).toContain(
