@@ -203,9 +203,7 @@ export const githubRouter = router({
           title: input.title ?? input.repo,
           description: `Imported from GitHub ${input.owner}/${input.repo}`,
           techStack: detected.stack,
-          status: "validated",
-          buildStage: "production-candidate",
-          outputMaturity: "runnable",
+          status: "pending",
         });
       } else {
         const project = await getProjectById(projectId);
@@ -221,6 +219,10 @@ export const githubRouter = router({
         }
       }
       await updateProjectFiles(projectId, files);
+      await updateProjectStatus(projectId, "validated");
+      await updateProjectBuildStage(projectId, "production-candidate", {
+        outputMaturity: "runnable",
+      });
       return {
         projectId,
         fileCount: Object.keys(files).length,
