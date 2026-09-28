@@ -37,6 +37,7 @@ import {
   parseBuildJob,
   type BuildJob,
 } from "../lib/buildJob.js";
+import { recordKnownGoodCheckpoint } from "./recovery.js";
 
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
@@ -387,20 +388,32 @@ export async function runBuildJob(input: unknown): Promise<void> {
             };
           }
         | undefined;
+      // A completed pipeline must have an immutable validated snapshot before
+      // AppForge records any customer success or recovery checkpoint.
+      const artifact = await getCurrentArtifact(projectId);
+      if (!artifact) {
+        throw new Error(
+          "Validated build has no current snapshot available for recovery",
+        );
+      }
+      await recordKnownGoodCheckpoint({
+        projectId,
+        snapshotId: artifact.snapshotId,
+        artifactVersion: artifact.version,
+        artifactSha256: artifact.integrity.sha256,
+        source: "validated_artifact",
+      });
+
       // Structural-only stacks finish as source deliverables: no deploy, no
-      // live URL, and the done event says so explicitly.
+      // live URL, and the done event says so explicitly. Deployable stacks are
+      // promoted to a production-verified recovery checkpoint only after all
+      // live deployment verification has passed.
       const deploymentDecision = buildDeploymentDecision(
         techStack,
         process.env.NODE_ENV,
       );
       const stackAdapter = getStackAdapter(techStack);
       if (deploymentDecision.action === "deploy") {
-        const artifact = await getCurrentArtifact(projectId);
-        if (!artifact) {
-          throw new Error(
-            "Validated build has no current snapshot available for production deployment",
-          );
-        }
         const deployed = await deployValidatedProjectWithRetry({
           projectId,
           projectName: updated.title || `appforge-${projectId}`,
@@ -413,8 +426,21 @@ export async function runBuildJob(input: unknown): Promise<void> {
           },
         });
         liveUrl = deployed.liveUrl;
+        await recordKnownGoodCheckpoint({
+          projectId,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          artifactSha256: artifact.integrity.sha256,
+          source: "production_verified",
+          deploymentVersion: deployed.deploymentVersion,
+          deploymentManifestSha256: deployed.deploymentManifestSha256,
+          liveUrl: deployed.liveUrl,
+        });
         productionCertification = {
           artifactSha256: deployed.artifactSha256,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          persistedArtifactSha256: artifact.integrity.sha256,
           httpVerified: deployed.httpVerified,
           assetsVerified: deployed.assetsVerified,
           browserVerified: deployed.browserVerified,

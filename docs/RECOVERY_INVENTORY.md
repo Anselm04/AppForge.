@@ -405,3 +405,24 @@ Section 23 observability is part of production recovery evidence:
 - Owner diagnostics remain protected by `ownerOnlyProcedure`; normal authenticated users receive only coarse service diagnostics. Public health routes must not reveal integration secrets or owner-only operational traces.
 - Operational alert rules cover queue backlog, database/Redis availability, repeated build/deployment failures, rate-limit pressure, HTTP error/latency pressure, and process capacity. Recovery is not complete while critical observability alerts remain active without an understood incident explanation.
 - Grafana/Prometheus dashboards are derived from the same metrics emitted by the application. A dashboard panel with no live application metric is documentation only and must not be treated as recovery proof.
+
+## Section 24 durable generated-product recovery checkpoints
+
+Recovery invariant reviewed 28 September 2026:
+- Every successfully validated final generated-product snapshot is recorded in `recovery_checkpoints` with its project ID, snapshot ID, artifact version, and the immutable snapshot SHA-256.
+- A production-verified recovery point additionally records deployment contract version, deployment-manifest SHA-256, verified live URL, and source `production_verified`.
+- Recovery checkpoint creation revalidates snapshot ownership, artifact version, and persisted artifact SHA-256 before storing or updating a checkpoint.
+- `project_id + artifact_version + source` is unique so retrying checkpoint persistence cannot create ambiguous duplicate recovery points.
+- Failed deployment, failed preview, provider outage, interrupted build, or partial generation must never replace the newest known-good checkpoint.
+- The safe rollback API selects the newest known-good checkpoint and activates its exact snapshot through `markSnapshotAsCurrent`; it never copies working files or toggles snapshot state independently.
+- Source-only structural products may use a `validated_artifact` checkpoint. Production rollback must prefer a `production_verified` checkpoint and rerun production verification after redeployment.
+- Queue interruption, duplicate attempts, failed/incomplete builds, credit refunds, paused builds, database/migration incidents, provider failures, preview failures, and partial generation follow the procedures in `docs/RECOVERY_AND_ROLLBACK.md`.
+
+Verification target:
+- Complete a validated build and confirm a `validated_artifact` checkpoint records the exact snapshot version and SHA-256.
+- Complete a production-certified build and confirm a `production_verified` checkpoint records deployment version, deployment-manifest SHA-256, and verified live URL.
+- Attempt to record a checkpoint with a mismatched snapshot, version, or artifact hash and confirm it fails closed.
+- Restore the newest known-good checkpoint and confirm atomic snapshot activation invalidates preview cache and preserves artifact integrity.
+- Confirm failed/partial/deployment-error paths leave the prior known-good checkpoint unchanged.
+- Confirm recovery governance requires the Section 24 runbook whenever recovery-critical implementation changes.
+
