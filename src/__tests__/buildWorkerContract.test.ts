@@ -11,6 +11,7 @@ const db = vi.hoisted(() => ({
 const pipeline = vi.hoisted(() => ({ runAgentPipeline: vi.fn() }));
 const events = vi.hoisted(() => ({ appendBuildEvent: vi.fn() }));
 const stats = vi.hoisted(() => ({ recordBuildOutcome: vi.fn() }));
+const recovery = vi.hoisted(() => ({ recordKnownGoodCheckpoint: vi.fn() }));
 const classifier = vi.hoisted(() => ({ calls: 0 }));
 
 vi.mock("../db.js", () => db);
@@ -30,6 +31,7 @@ vi.mock("../db/buildStats.js", () => stats);
 vi.mock("../services/productionAutoDeploy.js", () => ({
   deployValidatedProject: vi.fn(),
 }));
+vi.mock("../services/recovery.js", () => recovery);
 // Count classifier calls made while the worker runs: the worker must use the
 // intent resolved at intake and never reclassify the prompt itself.
 vi.mock("../lib/productContract.js", async (importOriginal) => {
@@ -91,6 +93,12 @@ function errorEvents() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  db.getCurrentArtifact.mockResolvedValue({
+    snapshotId: 91,
+    version: 3,
+    files: { "index.html": "<h1>ok</h1>" },
+    integrity: { sha256: "a".repeat(64) },
+  });
   classifier.calls = 0;
 });
 
@@ -116,6 +124,15 @@ describe("build worker typed contract enforcement", () => {
     expect(stack).toBe(job.techStack);
     expect(options.productContract).toEqual(job.productContract);
     expect(classifier.calls).toBe(0);
+    expect(recovery.recordKnownGoodCheckpoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 41,
+        snapshotId: 91,
+        artifactVersion: 3,
+        artifactSha256: "a".repeat(64),
+        source: "validated_artifact",
+      }),
+    );
     expect(errorEvents()).toEqual([]);
   });
 
