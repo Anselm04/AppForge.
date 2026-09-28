@@ -147,6 +147,7 @@
       databasePlannerInstruction(productContract),
       integrationPlannerInstruction(productContract),
       aiAgentPlannerInstruction(productContract),
+      monetizationPlannerInstruction(productContract),
     ]
       .filter(Boolean)
       .join("\n");
