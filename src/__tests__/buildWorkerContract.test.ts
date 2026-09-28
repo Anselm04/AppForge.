@@ -5,6 +5,7 @@ const db = vi.hoisted(() => ({
   getCurrentArtifact: vi.fn(),
   getProjectById: vi.fn(),
   resumeProject: vi.fn(),
+  updateProjectBuildStage: vi.fn(),
   updateProjectCreditsSpent: vi.fn(),
   updateProjectStatus: vi.fn(),
 }));
@@ -109,7 +110,7 @@ describe("build worker typed contract enforcement", () => {
     db.getProjectById.mockResolvedValue(projectFor(job));
     pipeline.runAgentPipeline.mockImplementation(async () => {
       db.getProjectById.mockResolvedValue(
-        projectFor(job, { status: "completed" }),
+        projectFor(job, { status: "validated" }),
       );
     });
     classifier.calls = 0;
