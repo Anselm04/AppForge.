@@ -488,6 +488,7 @@ END $$;
 `;
 
 const SECTION25_BUILD_STATUS_SQL = `
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "prompt_intent" JSONB;
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_stage" VARCHAR(50) DEFAULT 'planning';
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "failure_stage" VARCHAR(50);
 ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "output_maturity" VARCHAR(32) DEFAULT 'structural';
