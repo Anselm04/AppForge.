@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { invokeLLM } from "../_core/llm.js";
 import { getProjectById, getProjectFiles } from "../db.js";
 import { modelForAgent } from "../lib/llmModels.js";
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 import {
   createCsv,
   createDocumentHtml,
@@ -27,10 +28,10 @@ async function requireOwnedProject(projectId: number, userId: number) {
 
 async function requireCompletedProject(projectId: number, userId: number) {
   const project = await requireOwnedProject(projectId, userId);
-  if (project.status !== "completed") {
+  if (!isProjectArtifactReady(project.status)) {
     throw new TRPCError({
       code: "CONFLICT",
-      message: "Artifacts can only be added after the project build is complete",
+      message: "Artifacts can only be added after the project has a validated artifact",
     });
   }
   return project;
