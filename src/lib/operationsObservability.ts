@@ -248,6 +248,66 @@ function renderMetric(metric: MetricCounter): string {
   return `${metric.name}${suffix} ${metric.value}`;
 }
 
+export type OperationalAlert = {
+  id: string;
+  severity: "warning" | "critical";
+  message: string;
+};
+
+export function evaluateOperationalAlerts(): OperationalAlert[] {
+  const alerts: OperationalAlert[] = [];
+  const snapshot = operationalSnapshot();
+  const rssLimit = Math.max(
+    256,
+    Number.parseInt(process.env.APPFORGE_RSS_ALERT_MB ?? "768", 10) || 768,
+  );
+  if (snapshot.process.rssBytes > rssLimit * 1024 * 1024) {
+    alerts.push({
+      id: "memory_capacity",
+      severity: "warning",
+      message: `Process RSS exceeds ${rssLimit} MB.`,
+    });
+  }
+
+  const gaugeValue = (name: string) =>
+    snapshot.gauges.find((metric) => metric.name === name)?.value;
+  const queueDepth = gaugeValue("appforge_queue_depth") ?? 0;
+  if (queueDepth > 100) {
+    alerts.push({
+      id: "queue_backlog",
+      severity: "warning",
+      message: "Build queue depth exceeds 100 jobs.",
+    });
+  }
+  if (gaugeValue("appforge_database_connected") === 0) {
+    alerts.push({
+      id: "database_unavailable",
+      severity: "critical",
+      message: "Database health probe is failing.",
+    });
+  }
+  if (gaugeValue("appforge_redis_connected") === 0 && process.env.NODE_ENV === "production") {
+    alerts.push({
+      id: "redis_unavailable",
+      severity: "critical",
+      message: "Production Redis health probe is failing.",
+    });
+  }
+
+  const rateLimitRejections = snapshot.counters
+    .filter((metric) => metric.name === "appforge_rate_limit_rejections_total")
+    .reduce((sum, metric) => sum + metric.value, 0);
+  if (rateLimitRejections > 100) {
+    alerts.push({
+      id: "rate_limit_pressure",
+      severity: "warning",
+      message: "Rate-limit rejections exceed the operational threshold.",
+    });
+  }
+
+  return alerts;
+}
+
 export function renderPrometheusMetrics(): string {
   const snapshot = operationalSnapshot();
   setOperationalGauge("appforge_process_uptime_seconds", snapshot.uptimeSeconds);
