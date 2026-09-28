@@ -10,12 +10,16 @@ import {
 } from "../productContract.js";
 import { getStackAdapter } from "../stackAdapters.js";
 import { getRuntimeArchitecture } from "../runtimeArchitecture.js";
-import { deployProject, type DeployDestination } from "../../services/deployer.js";
+import {
+  deployProject,
+  type DeployDestination,
+} from "../../services/deployer.js";
 
 function contract(overrides: Partial<ProductContract> = {}): ProductContract {
   return validateProductContract({
     version: 2,
-    originalPrompt: "Build a task tracker dashboard where teams track tasks and complete tasks",
+    originalPrompt:
+      "Build a task tracker dashboard where teams track tasks and complete tasks",
     productType: "saas_application",
     productFamilies: ["frontend", "backend", "deployment"],
     targetUsers: ["Teams"],
@@ -96,9 +100,7 @@ function completeFiles(c = contract()): Record<string, string> {
         validations: [`behavioral test for ${requirement.id}`],
       })),
     }),
-    "appforge.deploy.json": deploymentMetadata(
-      c.selectedTechnologyStack,
-    ),
+    "appforge.deploy.json": deploymentMetadata(c.selectedTechnologyStack),
     "appforge.runtime.json": JSON.stringify(
       getRuntimeArchitecture(c.selectedTechnologyStack),
     ),
@@ -121,9 +123,9 @@ describe("placeholder and incomplete-product protection", () => {
       productContract: c,
     });
     expect(report.complete).toBe(false);
-    expect(report.findings.some((finding) => finding.code === "placeholder_text")).toBe(
-      true,
-    );
+    expect(
+      report.findings.some((finding) => finding.code === "placeholder_text"),
+    ).toBe(true);
   });
 
   it("detects TODO-only files, empty components/pages, fake buttons and fake forms", () => {
@@ -225,9 +227,11 @@ describe("placeholder and incomplete-product protection", () => {
       productContract: c,
     });
 
-    expect(report.findings.some(
-      (finding) => finding.code === "incomplete_deployment_config",
-    )).toBe(true);
+    expect(
+      report.findings.some(
+        (finding) => finding.code === "incomplete_deployment_config",
+      ),
+    ).toBe(true);
   });
 
   it("detects missing must-have requirement implementation evidence", () => {
