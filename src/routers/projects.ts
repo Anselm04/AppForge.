@@ -256,6 +256,7 @@ export const projectsRouter = router({
         locale: input.locale,
         buildCapabilities: input.buildCapabilities ?? [],
         productContract,
+        promptIntent,
       });
 
       if (input.locale) {
