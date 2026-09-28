@@ -79,12 +79,11 @@ export async function POST(req: Request) {
   }
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const body = (await req.json()) as {
-    plan?: string;
-    customerEmail?: string;
-    userId?: string;
-  };
-  const sessionUserId = getUserIdFromRequest(req) ?? body.userId;
+  const body = (await req.json()) as { plan?: string };
+  const sessionUserId = getUserIdFromRequest(req);
+  if (!sessionUserId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
   let selectedPlan;
   try {
     selectedPlan = resolveBillingPlan(body.plan ?? "pro");
@@ -99,8 +98,7 @@ export async function POST(req: Request) {
     line_items: [{ price: selectedPlan.priceId!, quantity: 1 }],
     success_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/pricing\`,
-    customer_email: body.customerEmail,
-    client_reference_id: sessionUserId ?? body.customerEmail,
+    client_reference_id: sessionUserId,
     metadata: sessionUserId
       ? { userId: sessionUserId, plan: selectedPlan.plan }
       : { plan: selectedPlan.plan },
@@ -120,11 +118,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
   }
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const { plan, customerEmail, userId } = req.body as {
-    plan?: string;
-    customerEmail?: string;
-    userId?: string;
-  };
+  const { plan } = req.body as { plan?: string };
   let selectedPlan;
   try {
     selectedPlan = resolveBillingPlan(plan ?? "pro");
@@ -134,15 +128,18 @@ export async function createCheckoutSession(req: Request, res: Response) {
     });
     return;
   }
-  const sessionUserId = getUserIdFromRequest(req) ?? userId;
+  const sessionUserId = getUserIdFromRequest(req);
+  if (!sessionUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: selectedPlan.priceId!, quantity: 1 }],
     success_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
-    customer_email: customerEmail,
-    client_reference_id: sessionUserId ?? customerEmail,
-    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
+    client_reference_id: sessionUserId,
+    metadata: { userId: sessionUserId, plan: selectedPlan.plan },
   });
   res.json({ url: session.url });
 }
@@ -166,6 +163,8 @@ export async function createCheckoutSession(req: Request, res: Response) {
           "customer.subscription.updated",
           "customer.subscription.deleted",
           "invoice.paid",
+          "invoice.payment_failed",
+          "charge.refunded",
         ],
         testCard: "4242 4242 4242 4242",
         migration: "database/billing-schema.sql",
@@ -174,6 +173,15 @@ export async function createCheckoutSession(req: Request, res: Response) {
       2,
     ),
     "billing/SETUP.md": billingSetupReadme(isNext),
+    "docs/BILLING.md": billingSetupReadme(isNext),
+    ".env.example": [
+      "DATABASE_URL=",
+      "STRIPE_SECRET_KEY=",
+      "STRIPE_WEBHOOK_SECRET=",
+      "STRIPE_PRICE_ID=",
+      "STRIPE_ENTERPRISE_PRICE_ID=",
+      "APP_URL=",
+    ].join("\n") + "\n",
     "src/lib/billing/catalog.ts": billingCatalogModule(),
     "src/lib/billing/db.ts": billingDbModule(),
     "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
@@ -207,7 +215,7 @@ export function PricingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function startCheckout(priceId?: string) {
+  async function startCheckout(plan: "pro" | "enterprise" = "pro") {
     setLoading(true);
     setError(null);
     try {
@@ -215,11 +223,8 @@ export function PricingPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: priceId ?? import.meta.env.VITE_STRIPE_PRICE_ID,
-          customerEmail: localStorage.getItem("userEmail") ?? undefined,
-          userId: localStorage.getItem("userId") ?? undefined,
-        }),
+        credentials: "same-origin",
+        body: JSON.stringify({ plan }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Checkout failed");
