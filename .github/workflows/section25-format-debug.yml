@@ -1,0 +1,41 @@
+name: Section 25 Format Diagnostic
+
+on:
+  push:
+    branches:
+      - fix/section-25-build-status-ux
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prettier-diff:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Print exact Prettier diff
+        run: |
+          npx prettier --write \
+            src/__tests__/section25BuildStatusUx.test.ts \
+            src/__tests__/selfHealingRecoveryGuardrails.test.ts \
+            src/db/schema.ts \
+            src/pages/Build.tsx \
+            src/pages/PluginWorkspace.tsx \
+            src/routers/artifacts.ts \
+            src/routers/projects.ts \
+            src/services/build-worker.ts
+          git diff -- \
+            src/__tests__/section25BuildStatusUx.test.ts \
+            src/__tests__/selfHealingRecoveryGuardrails.test.ts \
+            src/db/schema.ts \
+            src/pages/Build.tsx \
+            src/pages/PluginWorkspace.tsx \
+            src/routers/artifacts.ts \
+            src/routers/projects.ts \
+            src/services/build-worker.ts
