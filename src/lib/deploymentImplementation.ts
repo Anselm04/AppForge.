@@ -216,7 +216,11 @@ export function validateDeploymentSource(input: {
       secretsServerSide?: boolean;
       failClosedWhenMissing?: boolean;
     };
-    assets?: { mode?: string; roots?: string[]; outputDirectory?: string | null };
+    assets?: {
+      mode?: string;
+      roots?: string[];
+      outputDirectory?: string | null;
+    };
     persistence?: { mode?: string; isolateFromAppForge?: boolean };
     backgroundWorkers?: string;
     scheduledTasks?: string;
@@ -239,7 +243,9 @@ export function validateDeploymentSource(input: {
       problems.push("deployment start command does not match selected stack");
     }
     if (deployMeta.outputDirectory !== adapter.outputDirectory) {
-      problems.push("deployment output directory does not match selected stack");
+      problems.push(
+        "deployment output directory does not match selected stack",
+      );
     }
     if (deployMeta.generationMode !== adapter.generationMode) {
       problems.push("deployment generation mode does not match selected stack");
@@ -292,16 +298,24 @@ export function validateDeploymentSource(input: {
 
   if (contract.secondaryCapabilities.includes("database")) {
     if (migrationArtifacts(input.files).length === 0) {
-      problems.push("database-backed deployment has no migration/schema artifact");
+      problems.push(
+        "database-backed deployment has no migration/schema artifact",
+      );
     }
   }
 
-  if (requestedWorkers(contract) && runtime.backgroundWorkers === "unsupported") {
+  if (
+    requestedWorkers(contract) &&
+    runtime.backgroundWorkers === "unsupported"
+  ) {
     problems.push(
       `stack ${adapter.id} does not support requested background workers`,
     );
   }
-  if (requestedScheduledJobs(contract) && runtime.scheduledTasks === "unsupported") {
+  if (
+    requestedScheduledJobs(contract) &&
+    runtime.scheduledTasks === "unsupported"
+  ) {
     problems.push(
       `stack ${adapter.id} does not support requested scheduled jobs`,
     );
