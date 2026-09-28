@@ -120,9 +120,16 @@ export const projects = pgTable(
     title: varchar("title", { length: 255 }),
     description: text("description"),
     techStack: varchar("tech_stack", { length: 255 }).default("react-node"),
-    status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'running', 'completed', 'failed', 'paused'
+    status: varchar("status", { length: 50 }).default("pending"), // lifecycle: pending, running, validated, production-certified, failed, paused
+    buildStage: varchar("build_stage", { length: 50 }).default("planning"),
+    failureStage: varchar("failure_stage", { length: 50 }),
+    outputMaturity: varchar("output_maturity", { length: 32 }).default("structural"),
+    planStatus: varchar("plan_status", { length: 32 }).default("planning"),
+    planRevisionRequest: text("plan_revision_request"),
+    monetizationApproved: boolean("monetization_approved").default(false),
+    integrationsApproved: boolean("integrations_approved").default(false),
     errorMessage: text("error_message"),
-    pauseReason: text("pause_reason"), // 'credits_exhausted', 'user_cancelled', etc
+    pauseReason: text("pause_reason"), // 'credits_exhausted', 'approval_required', 'user_cancelled', etc
     generatedFiles: jsonb("generated_files"),
     workingArtifactVersion: integer("working_artifact_version")
       .default(0)
