@@ -5,6 +5,7 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
 import { revealGithubAccessToken } from "../lib/githubTokenCrypto.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import { detectStackFromFiles } from "../lib/stackDetection.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 
@@ -226,7 +227,10 @@ export const githubRouter = router({
       await updateProjectFiles(projectId, files);
       await updateProjectStatus(projectId, "validated");
       await updateProjectBuildStage(projectId, "production-candidate", {
-        outputMaturity: "runnable",
+        outputMaturity:
+          getStackAdapter(detected.stack).generationMode === "structural"
+            ? "structural"
+            : "runnable",
       });
       return {
         projectId,
