@@ -701,10 +701,8 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       }
-      const {
-        getLatestKnownGoodCheckpoint,
-        recoveryGuidance,
-      } = await import("../services/recovery.js");
+      const { getLatestKnownGoodCheckpoint, recoveryGuidance } =
+        await import("../services/recovery.js");
       const [latest, production] = await Promise.all([
         getLatestKnownGoodCheckpoint(input.projectId),
         getLatestKnownGoodCheckpoint(input.projectId, {
@@ -717,9 +715,7 @@ export const projectsRouter = router({
         pauseReason: project.pauseReason ?? null,
         latestKnownGood: latest ?? null,
         latestProductionVerified: production ?? null,
-        guidance: input.failureKind
-          ? recoveryGuidance(input.failureKind)
-          : null,
+        guidance: input.failureKind ? recoveryGuidance(input.failureKind) : null,
       };
     }),
 
