@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 
@@ -67,7 +67,13 @@ export async function getPlatformBuildMetrics() {
   const completed = await db
     .select({ count: count() })
     .from(schema.projects)
-    .where(eq(schema.projects.status, "completed"));
+    .where(
+      inArray(schema.projects.status, [
+        "validated",
+        "production-certified",
+        "completed",
+      ]),
+    );
   const failed = await db
     .select({ count: count() })
     .from(schema.projects)
