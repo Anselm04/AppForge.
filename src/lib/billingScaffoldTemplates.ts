@@ -63,8 +63,16 @@ export async function upsertFromCheckoutSession(session: {
     ON CONFLICT (user_id) DO UPDATE SET
       stripe_customer_id = EXCLUDED.stripe_customer_id,
       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-      plan = EXCLUDED.plan,
-      status = 'pending',
+      plan = CASE
+        WHEN subscriptions.status NOT IN ('inactive', 'pending')
+          THEN subscriptions.plan
+        ELSE EXCLUDED.plan
+      END,
+      status = CASE
+        WHEN subscriptions.status NOT IN ('inactive', 'pending')
+          THEN subscriptions.status
+        ELSE 'pending'
+      END,
       updated_at = NOW()
   \`;
 }
@@ -261,7 +269,11 @@ export async function requirePaidAccess(userId: string, feature = "pro") {
 }
 
 export function billingAuditModule(): string {
-  return `import { getBillingDb } from "./db.js";
+  return `import { randomUUID } from "node:crypto";
+import { getBillingDb } from "./db.js";
+
+const BILLING_EVENT_LEASE_MS = 5 * 60 * 1000;
+const BILLING_EVENT_HEARTBEAT_MS = 60 * 1000;
 
 export async function processBillingEventOnce(
   eventId: string,
@@ -271,36 +283,94 @@ export async function processBillingEventOnce(
   const sql = getBillingDb();
   if (!sql) throw new Error("Billing database is not configured");
 
-  const claimed = await sql<{ id: string }[]>\`
-    INSERT INTO billing_events (id, event_type, status, created_at, updated_at)
-    VALUES (\${eventId}, \${eventType}, 'processing', NOW(), NOW())
+  const claimOwner = randomUUID();
+  const claimed = await sql<{ id: string; claim_owner: string }[]>\`
+    INSERT INTO billing_events (
+      id,
+      event_type,
+      status,
+      claim_owner,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      \${eventId},
+      \${eventType},
+      'processing',
+      \${claimOwner},
+      NOW(),
+      NOW()
+    )
     ON CONFLICT (id) DO UPDATE
-      SET status = 'processing', updated_at = NOW()
+      SET status = 'processing',
+          claim_owner = EXCLUDED.claim_owner,
+          error = NULL,
+          updated_at = NOW()
       WHERE billing_events.status = 'failed'
          OR (
            billing_events.status = 'processing'
-           AND billing_events.updated_at < NOW() - INTERVAL '5 minutes'
+           AND billing_events.updated_at
+             < NOW() - (\${BILLING_EVENT_LEASE_MS} * INTERVAL '1 millisecond')
          )
-    RETURNING id
+    RETURNING id, claim_owner
   \`;
-  if (!claimed[0]) return { duplicate: true };
+  if (!claimed[0] || claimed[0].claim_owner !== claimOwner) {
+    return { duplicate: true };
+  }
+
+  const renewLease = async () => {
+    await sql\`
+      UPDATE billing_events
+      SET updated_at = NOW()
+      WHERE id = \${eventId}
+        AND claim_owner = \${claimOwner}
+        AND status = 'processing'
+    \`;
+  };
+
+  const heartbeat = setInterval(() => {
+    void renewLease().catch((error) => {
+      console.error("[billing] failed to renew billing event lease", error);
+    });
+  }, BILLING_EVENT_HEARTBEAT_MS);
+  heartbeat.unref?.();
 
   try {
     await handler();
-    await sql\`
+    const finalized = await sql<{ id: string }[]>\`
       UPDATE billing_events
-      SET status = 'processed', processed_at = NOW(), updated_at = NOW(), error = NULL
+      SET status = 'processed',
+          processed_at = NOW(),
+          updated_at = NOW(),
+          error = NULL,
+          claim_owner = NULL
       WHERE id = \${eventId}
+        AND claim_owner = \${claimOwner}
+        AND status = 'processing'
+      RETURNING id
     \`;
+    if (!finalized[0]) {
+      throw new Error("Billing event claim was lost before completion");
+    }
     return { duplicate: false };
   } catch (error) {
-    const message = error instanceof Error ? error.message.slice(0, 1000) : "Billing event failed";
+    const message =
+      error instanceof Error
+        ? error.message.slice(0, 1000)
+        : "Billing event failed";
     await sql\`
       UPDATE billing_events
-      SET status = 'failed', error = \${message}, updated_at = NOW()
+      SET status = 'failed',
+          error = \${message},
+          updated_at = NOW(),
+          claim_owner = NULL
       WHERE id = \${eventId}
+        AND claim_owner = \${claimOwner}
+        AND status = 'processing'
     \`;
     throw error;
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 
@@ -617,11 +687,14 @@ CREATE TABLE IF NOT EXISTS billing_events (
   id VARCHAR(255) PRIMARY KEY,
   event_type VARCHAR(255) NOT NULL,
   status VARCHAR(50) NOT NULL,
+  claim_owner VARCHAR(255),
   error TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   processed_at TIMESTAMPTZ
 );
+ALTER TABLE billing_events
+  ADD COLUMN IF NOT EXISTS claim_owner VARCHAR(255);
 CREATE TABLE IF NOT EXISTS billing_audit (
   id BIGSERIAL PRIMARY KEY,
   event_id VARCHAR(255) NOT NULL,
