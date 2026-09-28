@@ -28,7 +28,7 @@ describe("billing golden path scaffold", () => {
 
   it("keeps Stripe subscription identity and webhook retries recoverable", () => {
     const files = billingScaffoldFiles("next-node");
-    const checkout = files["src/app/api/billing/checkout/route.ts"];
+    const checkout = files["src/app/api/checkout/route.ts"];
     const subscriptions = files["src/lib/billing/subscriptions.ts"];
     const audit = files["src/lib/billing/audit.ts"];
 
