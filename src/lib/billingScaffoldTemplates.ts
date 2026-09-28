@@ -568,19 +568,44 @@ export async function stripeWebhook(req: Request, res: Response) {
 }
 
 export function billingSchemaSql(): string {
-  return `-- Run once against production: psql "$DATABASE_URL" -f database/billing-schema.sql
+  return \`-- Run once against production: psql "$DATABASE_URL" -f database/billing-schema.sql
 CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL UNIQUE,
-  stripe_customer_id VARCHAR(255),
-  stripe_subscription_id VARCHAR(255),
-  plan VARCHAR(50) DEFAULT 'free',
-  status VARCHAR(50) DEFAULT 'inactive',
+  stripe_customer_id VARCHAR(255) UNIQUE,
+  stripe_subscription_id VARCHAR(255) UNIQUE,
+  plan VARCHAR(50) NOT NULL DEFAULT 'free',
+  status VARCHAR(50) NOT NULL DEFAULT 'inactive',
   current_period_end TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS billing_events (
+  id VARCHAR(255) PRIMARY KEY,
+  event_type VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS billing_audit (
+  id BIGSERIAL PRIMARY KEY,
+  event_id VARCHAR(255) NOT NULL,
+  event_type VARCHAR(255) NOT NULL,
+  outcome VARCHAR(50) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS billing_invoices (
+  invoice_id VARCHAR(255) PRIMARY KEY,
+  subscription_id VARCHAR(255),
+  state VARCHAR(50) NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
-`;
+CREATE INDEX IF NOT EXISTS idx_billing_events_status ON billing_events(status);
+CREATE INDEX IF NOT EXISTS idx_billing_audit_event ON billing_audit(event_id);
+\`;
 }
 
 export function billingSetupReadme(isNext: boolean): string {
@@ -649,39 +674,61 @@ export async function getBillingMe(req: Request, res: Response) {
 }
 
 export function requireProComponent(): string {
-  return `import { useEffect, useState, type ReactNode } from "react";
-import { getEntitlements, type UserEntitlements } from "../lib/billing/entitlements.js";
+  return \`import { useEffect, useState, type ReactNode } from "react";
+
+type Entitlements = {
+  plan: "free" | "pro" | "enterprise";
+  status?: string;
+};
 
 type Props = {
-  userId: string;
   feature?: string;
   children: ReactNode;
   fallback?: ReactNode;
 };
 
-/** Gate premium UI by entitlements from DB (via /api/billing/me in real apps). */
-export function RequirePro({ userId, feature = "pro", children, fallback }: Props) {
-  const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
+export function RequirePro({ feature = "pro", children, fallback }: Props) {
+  const [entitlements, setEntitlements] = useState<Entitlements | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void getEntitlements(userId).then(setEntitlements);
-  }, [userId]);
+    let cancelled = false;
+    void fetch("/api/billing/me", { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load billing entitlements");
+        return response.json();
+      })
+      .then((data) => {
+        if (!cancelled) setEntitlements(data.entitlements);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Billing unavailable");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
+  if (error) return <p>{error}</p>;
   if (!entitlements) return <p>Loading…</p>;
+
+  const paid =
+    entitlements.status === "active" || entitlements.status === "trialing";
   const allowed =
-    entitlements.plan === "pro" ||
-    entitlements.plan === "enterprise" ||
-    feature === "free";
+    paid &&
+    (entitlements.plan === "enterprise" ||
+      (entitlements.plan === "pro" && feature !== "enterprise_only"));
+
   if (!allowed) {
     return (
       fallback ?? (
         <p>
-          Pro subscription required. <a href="/pricing">Upgrade</a>
+          Paid subscription required. <a href="/pricing">Upgrade</a>
         </p>
       )
     );
   }
   return <>{children}</>;
 }
-`;
+\`;
 }
