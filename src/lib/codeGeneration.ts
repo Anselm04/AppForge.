@@ -298,7 +298,6 @@ export function validateCoderTaskOutput(input: {
       );
     }
   }
-}
 
   if (input.task.agent === "ai") {
     const aiProblems = validateAiAgentArtifact({
