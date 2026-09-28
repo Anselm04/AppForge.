@@ -90,7 +90,9 @@ router.get("/ready", async (_req: Request, res: Response) => {
 
   try {
     await db.execute(sql`SELECT 1`);
+    setOperationalGauge("appforge_database_connected", 1);
   } catch (error) {
+    setOperationalGauge("appforge_database_connected", 0);
     logger.error({ error }, "readiness_database_check_failed");
     return res
       .status(503)
@@ -99,6 +101,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
 
   if (process.env.NODE_ENV === "production") {
     const redisReady = await checkSharedRedis();
+    setOperationalGauge("appforge_redis_connected", redisReady ? 1 : 0);
     if (!redisReady) {
       logger.error({}, "readiness_redis_check_failed");
       return res
