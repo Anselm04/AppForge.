@@ -25,7 +25,10 @@ import {
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import { getBuildQueueDiagnostics } from "../services/build-queue.js";
 import { checkSharedRedis } from "../middleware/rateLimiter.js";
-import { operationalSnapshot } from "../lib/operationsObservability.js";
+import {
+  evaluateOperationalAlerts,
+  operationalSnapshot,
+} from "../lib/operationsObservability.js";
 
 const REDEEM_FAIL = "Unable to redeem that code.";
 
@@ -231,6 +234,7 @@ export const adminRouter = router({
             metric.name === "appforge_rate_limit_rejections_total",
         ),
       },
+      alerts: evaluateOperationalAlerts(),
       recentTraces: telemetry.recentTraces,
     };
   }),
