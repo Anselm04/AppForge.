@@ -28,7 +28,11 @@ export function Admin() {
     enabled: !!me,
   });
 
-  const { data: operations } = useQuery({
+  const {
+    data: operations,
+    isError: operationsError,
+    isLoading: operationsLoading,
+  } = useQuery({
     queryKey: ["admin", "operations"],
     queryFn: () => trpc.admin.operations.query(),
     enabled: !!me && tab === "operations",
@@ -215,6 +219,16 @@ export function Admin() {
             </table>
           </div>
         </div>
+      )}
+
+      {tab === "operations" && operationsError && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          Operations diagnostics are temporarily unavailable.
+        </div>
+      )}
+
+      {tab === "operations" && operationsLoading && !operations && (
+        <p className="text-slate-500">Loading operations diagnostics…</p>
       )}
 
       {tab === "operations" && operations && (
