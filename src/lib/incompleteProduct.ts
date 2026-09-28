@@ -4,6 +4,7 @@ import {
   type ProductContract,
 } from "./productContract.js";
 import type { ProductPlan } from "./productPlan.js";
+import { validateDeploymentSource } from "./deploymentImplementation.js";
 
 export type IncompleteProductFindingCode =
   | "placeholder_text"
@@ -504,74 +505,13 @@ function inspectDeploymentConfig(
   contract: ProductContract,
 ): IncompleteProductFinding[] {
   if (contract.deploymentRequirements.length === 0) return [];
-  const adapter = getStackAdapter(contract.selectedTechnologyStack);
-  const findings: IncompleteProductFinding[] = [];
-
-  const raw = files["appforge.deploy.json"];
-  if (!raw) {
-    findings.push({
-      code: "incomplete_deployment_config",
-      message: "Missing appforge.deploy.json deployment metadata.",
-    });
-    return findings;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      stack?: string;
-      targets?: string[];
-      buildCommand?: string | null;
-      startCommand?: string | null;
-      outputDirectory?: string | null;
-      generationMode?: string;
-    };
-    if (parsed.stack !== adapter.id) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment metadata stack does not match the canonical selected stack.",
-      });
-    }
-    if (
-      JSON.stringify(parsed.targets ?? []) !==
-      JSON.stringify(adapter.deploymentTargets)
-    ) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment targets do not match the selected stack adapter.",
-      });
-    }
-    if (parsed.buildCommand !== adapter.buildCommand) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment build command is missing or does not match the selected stack.",
-      });
-    }
-    if (parsed.startCommand !== adapter.startCommand) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment start command is missing or does not match the selected stack.",
-      });
-    }
-    if (parsed.outputDirectory !== adapter.outputDirectory) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment output directory does not match the selected stack.",
-      });
-    }
-    if (parsed.generationMode !== adapter.generationMode) {
-      findings.push({
-        code: "incomplete_deployment_config",
-        message: "Deployment generation mode does not match the selected stack.",
-      });
-    }
-  } catch {
-    findings.push({
-      code: "incomplete_deployment_config",
-      message: "appforge.deploy.json is invalid JSON.",
-    });
-  }
-
-  return findings;
+  return validateDeploymentSource({
+    files,
+    productContract: contract,
+  }).map((message) => ({
+    code: "incomplete_deployment_config" as const,
+    message,
+  }));
 }
 
 export function inspectIncompleteProduct(input: {
