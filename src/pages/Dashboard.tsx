@@ -10,12 +10,20 @@ import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
 import { Badge } from "../design-system/Badge.js";
 import { stackPresentation } from "../lib/stackPresentation.js";
+import {
+  buildStageLabel,
+  isProjectArtifactReady,
+  outputMaturityLabel,
+} from "../lib/buildStatus.js";
 
 interface Project {
   id: number;
   title: string | null;
   description: string | null;
   status: string | null;
+  buildStage?: string | null;
+  failureStage?: string | null;
+  outputMaturity?: string | null;
   techStack?: string | null;
   createdAt: string | null;
 }
@@ -295,6 +303,8 @@ function ProjectCard({ project }: { project: Project }) {
   const [marketingMessage, setMarketingMessage] = useState("");
 
   const statusTone: Record<string, "success" | "cyan" | "gold" | "default"> = {
+    "production-certified": "success",
+    validated: "cyan",
     completed: "success",
     failed: "default",
     running: "cyan",
@@ -303,7 +313,7 @@ function ProjectCard({ project }: { project: Project }) {
   };
 
   const canImprove =
-    project.status === "completed" || project.status === "paused";
+    isProjectArtifactReady(project.status) || project.status === "paused";
   const stack = stackPresentation(project.techStack);
 
   const sendToMarketing = async () => {
@@ -335,15 +345,22 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
-            {project.status}
+            {project.status === "running" || project.status === "paused"
+              ? buildStageLabel(project.buildStage)
+              : project.status}
           </Badge>
           {stack?.structuralOnly && <Badge tone="gold">{stack.badge}</Badge>}
         </div>
+        <div className="text-right">
+          <p className="text-xs text-forge-text-muted">
+            ${outputMaturityLabel(project.outputMaturity)}
+          </p>
         <p className="text-xs text-forge-text-muted">
           {project.createdAt
             ? new Date(project.createdAt).toLocaleDateString()
             : "—"}
         </p>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button
@@ -365,7 +382,7 @@ function ProjectCard({ project }: { project: Project }) {
             {t("dashboard.improve")}
           </Button>
         )}
-        {project.status === "completed" && (
+        {isProjectArtifactReady(project.status) && (
           <Button
             variant="secondary"
             size="sm"
