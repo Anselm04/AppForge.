@@ -132,11 +132,6 @@ export async function deployValidatedProject(opts: {
     });
   }
   const stackAdapter = getStackAdapter(contract.selectedTechnologyStack);
-  assertDeploymentSourceReady({
-    files: opts.files,
-    productContract: contract,
-    destination: "fly",
-  });
   const securityScan = scanProjectFiles(opts.files);
   const securityPosture = validateGeneratedSecurityPosture(
     opts.files,
@@ -161,6 +156,12 @@ export async function deployValidatedProject(opts: {
           .join(", "),
     );
   }
+
+  assertDeploymentSourceReady({
+    files: opts.files,
+    productContract: contract,
+    destination: "fly",
+  });
 
   if (stackAdapter.generationMode === "structural") {
     throw new Error(
