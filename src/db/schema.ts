@@ -11,7 +11,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import type { ProductContract } from "../lib/productContract.js";
+import type {
+  ProductContract,
+  PromptIntent,
+} from "../lib/productContract.js";
 import type { ResearchRecord } from "../lib/researchRecord.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { AgentCoordinationRecord } from "../lib/agentCoordination.js";
@@ -146,6 +149,7 @@ export const projects = pgTable(
       .$type<string[]>()
       .default([]),
     productContract: jsonb("product_contract").$type<ProductContract>(),
+    promptIntent: jsonb("prompt_intent").$type<PromptIntent>(),
     researchRecord: jsonb("research_record").$type<ResearchRecord>(),
     productPlan: jsonb("product_plan").$type<ProductPlan>(),
     agentCoordination:
