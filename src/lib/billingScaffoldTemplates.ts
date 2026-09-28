@@ -162,6 +162,295 @@ export function canAccessFeature(
 `;
 }
 
+
+export function billingCatalogModule(): string {
+  return \`export type BillingPlan = "free" | "pro" | "enterprise";
+
+export type BillingCatalogEntry = {
+  plan: BillingPlan;
+  product: string;
+  priceId: string | null;
+  interval: "month" | "year" | null;
+};
+
+export function getBillingCatalog(): BillingCatalogEntry[] {
+  return [
+    { plan: "free", product: "Free", priceId: null, interval: null },
+    {
+      plan: "pro",
+      product: "Pro",
+      priceId: process.env.STRIPE_PRICE_ID ?? null,
+      interval: "month",
+    },
+    {
+      plan: "enterprise",
+      product: "Enterprise",
+      priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null,
+      interval: "month",
+    },
+  ];
+}
+
+export function resolveBillingPlan(plan: string): BillingCatalogEntry {
+  const entry = getBillingCatalog().find((candidate) => candidate.plan === plan);
+  if (!entry || entry.plan === "free" || !entry.priceId) {
+    throw new Error("Requested paid billing plan is not configured");
+  }
+  return entry;
+}
+
+export function planFromPriceId(priceId?: string | null): BillingPlan {
+  if (!priceId) return "free";
+  return getBillingCatalog().find((entry) => entry.priceId === priceId)?.plan ?? "free";
+}
+\`;
+}
+
+export function billingLimitsModule(): string {
+  return \`import { getEntitlements } from "./entitlements.js";
+
+export const PLAN_LIMITS = {
+  free: { monthlyActions: 10 },
+  pro: { monthlyActions: 1000 },
+  enterprise: { monthlyActions: 100000 },
+} as const;
+
+export async function requirePaidAccess(userId: string, feature = "pro") {
+  const entitlements = await getEntitlements(userId);
+  const allowed =
+    entitlements.plan === "enterprise" ||
+    (entitlements.plan === "pro" && feature !== "enterprise_only");
+  if (!allowed) {
+    const error = new Error("Paid entitlement required") as Error & { statusCode?: number };
+    error.statusCode = 402;
+    throw error;
+  }
+  return {
+    entitlements,
+    limits: PLAN_LIMITS[entitlements.plan],
+  };
+}
+\`;
+}
+
+export function billingAuditModule(): string {
+  return \`import { getBillingDb } from "./db.js";
+
+export async function processBillingEventOnce(
+  eventId: string,
+  eventType: string,
+  handler: () => Promise<void>,
+): Promise<{ duplicate: boolean }> {
+  const sql = getBillingDb();
+  if (!sql) throw new Error("Billing database is not configured");
+
+  const claimed = await sql<{ id: string }[]>\`
+    INSERT INTO billing_events (id, event_type, status, created_at, updated_at)
+    VALUES (\${eventId}, \${eventType}, 'processing', NOW(), NOW())
+    ON CONFLICT (id) DO UPDATE
+      SET status = 'processing', updated_at = NOW()
+      WHERE billing_events.status = 'failed'
+    RETURNING id
+  \`;
+  if (!claimed[0]) return { duplicate: true };
+
+  try {
+    await handler();
+    await sql\`
+      UPDATE billing_events
+      SET status = 'processed', processed_at = NOW(), updated_at = NOW(), error = NULL
+      WHERE id = \${eventId}
+    \`;
+    return { duplicate: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 1000) : "Billing event failed";
+    await sql\`
+      UPDATE billing_events
+      SET status = 'failed', error = \${message}, updated_at = NOW()
+      WHERE id = \${eventId}
+    \`;
+    throw error;
+  }
+}
+
+export async function auditBillingAction(
+  eventId: string,
+  eventType: string,
+  outcome: "processed" | "failed",
+): Promise<void> {
+  const sql = getBillingDb();
+  if (!sql) return;
+  await sql\`
+    INSERT INTO billing_audit (event_id, event_type, outcome, created_at)
+    VALUES (\${eventId}, \${eventType}, \${outcome}, NOW())
+  \`;
+}
+\`;
+}
+
+export function billingInvoicesModule(): string {
+  return \`import { getBillingDb } from "./db.js";
+
+export async function recordInvoiceState(input: {
+  invoiceId: string;
+  subscriptionId?: string | null;
+  state: "paid" | "payment_failed";
+}): Promise<void> {
+  const sql = getBillingDb();
+  if (!sql) throw new Error("Billing database is not configured");
+  await sql\`
+    INSERT INTO billing_invoices (invoice_id, subscription_id, state, updated_at)
+    VALUES (\${input.invoiceId}, \${input.subscriptionId ?? null}, \${input.state}, NOW())
+    ON CONFLICT (invoice_id) DO UPDATE SET
+      subscription_id = EXCLUDED.subscription_id,
+      state = EXCLUDED.state,
+      updated_at = NOW()
+  \`;
+  if (input.subscriptionId && input.state === "payment_failed") {
+    await sql\`
+      UPDATE subscriptions
+      SET status = 'past_due'
+      WHERE stripe_subscription_id = \${input.subscriptionId}
+    \`;
+  }
+}
+\`;
+}
+
+export function billingRefundsModule(): string {
+  return \`import { auditBillingAction } from "./audit.js";
+
+export async function refundPayment(input: {
+  paymentIntentId: string;
+  amount?: number;
+  reason?: "duplicate" | "fraudulent" | "requested_by_customer";
+}) {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) throw new Error("Stripe billing is unconfigured");
+  const { default: Stripe } = await import("stripe");
+  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: input.paymentIntentId,
+      amount: input.amount,
+      reason: input.reason,
+    },
+    { idempotencyKey: \`refund:\${input.paymentIntentId}:\${input.amount ?? "full"}\` },
+  );
+  await auditBillingAction(refund.id, "refund.created", "processed");
+  return refund;
+}
+\`;
+}
+
+export function billingHealthModule(): string {
+  return \`import { resolveBillingPlan } from "./catalog.js";
+
+export type BillingHealth = {
+  configured: boolean;
+  verified: boolean;
+  state: "unconfigured" | "needs_attention" | "connected";
+  message: string;
+};
+
+export async function verifyBillingHealth(): Promise<BillingHealth> {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!stripeKey || !webhookSecret || !databaseUrl) {
+    return {
+      configured: false,
+      verified: false,
+      state: "unconfigured",
+      message: "Billing configuration is incomplete",
+    };
+  }
+  try {
+    const plan = resolveBillingPlan("pro");
+    const { default: Stripe } = await import("stripe");
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    await stripe.prices.retrieve(plan.priceId!);
+    return {
+      configured: true,
+      verified: true,
+      state: "connected",
+      message: "Billing provider and configured price verified",
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      verified: false,
+      state: "needs_attention",
+      message: error instanceof Error ? error.message : "Billing verification failed",
+    };
+  }
+}
+\`;
+}
+
+export function billingPortalRoutes(isNext: boolean): {
+  nextRoute: string;
+  expressRoute: string;
+} {
+  const nextRoute = \`import { NextResponse } from "next/server";
+import { getUserIdFromRequest } from "../../../../lib/auth/session.js";
+import { getSubscriptionByUserId } from "../../../../lib/billing/subscriptions.js";
+
+export async function POST(req: Request) {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const appUrl = process.env.APP_URL;
+  if (!stripeKey || !appUrl) {
+    return NextResponse.json({ error: "Billing portal is unconfigured" }, { status: 503 });
+  }
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const subscription = await getSubscriptionByUserId(userId);
+  if (!subscription?.stripe_customer_id) {
+    return NextResponse.json({ error: "No billing customer" }, { status: 409 });
+  }
+  const { default: Stripe } = await import("stripe");
+  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+  const session = await stripe.billingPortal.sessions.create({
+    customer: subscription.stripe_customer_id,
+    return_url: appUrl + "/account",
+  });
+  return NextResponse.json({ url: session.url });
+}
+\`;
+
+  const expressRoute = \`import type { Request, Response } from "express";
+import { getUserIdFromRequest } from "../../lib/auth/session.js";
+import { getSubscriptionByUserId } from "../../lib/billing/subscriptions.js";
+
+export async function createBillingPortal(req: Request, res: Response) {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const appUrl = process.env.APP_URL;
+  if (!stripeKey || !appUrl) {
+    res.status(503).json({ error: "Billing portal is unconfigured" });
+    return;
+  }
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const subscription = await getSubscriptionByUserId(userId);
+  if (!subscription?.stripe_customer_id) {
+    res.status(409).json({ error: "No billing customer" });
+    return;
+  }
+  const Stripe = (await import("stripe")).default;
+  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+  const session = await stripe.billingPortal.sessions.create({
+    customer: subscription.stripe_customer_id,
+    return_url: appUrl + "/account",
+  });
+  res.json({ url: session.url });
+}
+\`;
+  return { nextRoute, expressRoute };
+}
+
 export function billingWebhookHandlers(isNext: boolean): {
   nextRoute: string;
   expressRoute: string;
