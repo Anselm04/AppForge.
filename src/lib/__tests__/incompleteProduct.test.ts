@@ -9,12 +9,17 @@ import {
   type ProductContract,
 } from "../productContract.js";
 import { getStackAdapter } from "../stackAdapters.js";
-import { deployProject, type DeployDestination } from "../../services/deployer.js";
+import { getRuntimeArchitecture } from "../runtimeArchitecture.js";
+import {
+  deployProject,
+  type DeployDestination,
+} from "../../services/deployer.js";
 
 function contract(overrides: Partial<ProductContract> = {}): ProductContract {
   return validateProductContract({
     version: 2,
-    originalPrompt: "Build a task tracker dashboard where teams track tasks and complete tasks",
+    originalPrompt:
+      "Build a task tracker dashboard where teams track tasks and complete tasks",
     productType: "saas_application",
     productFamilies: ["frontend", "backend", "deployment"],
     targetUsers: ["Teams"],
@@ -95,9 +100,11 @@ function completeFiles(c = contract()): Record<string, string> {
         validations: [`behavioral test for ${requirement.id}`],
       })),
     }),
-    "appforge.deploy.json": deploymentMetadata(
-      c.selectedTechnologyStack,
+    "appforge.deploy.json": deploymentMetadata(c.selectedTechnologyStack),
+    "appforge.runtime.json": JSON.stringify(
+      getRuntimeArchitecture(c.selectedTechnologyStack),
     ),
+    ".env.example": "PORT=3000\nAPI_BASE_URL=\n",
   };
 }
 
@@ -110,15 +117,16 @@ describe("placeholder and incomplete-product protection", () => {
   ])("detects forbidden placeholder text: %s", (text) => {
     const c = contract();
     const files = completeFiles(c);
-    files["src/App.tsx"] += `\nexport const placeholderMessage = ${JSON.stringify(text)};`;
+    files["src/App.tsx"] +=
+      `\nexport const placeholderMessage = ${JSON.stringify(text)};`;
     const report = inspectIncompleteProduct({
       files,
       productContract: c,
     });
     expect(report.complete).toBe(false);
-    expect(report.findings.some((finding) => finding.code === "placeholder_text")).toBe(
-      true,
-    );
+    expect(
+      report.findings.some((finding) => finding.code === "placeholder_text"),
+    ).toBe(true);
   });
 
   it("detects TODO-only files, empty components/pages, fake buttons and fake forms", () => {
@@ -144,7 +152,7 @@ describe("placeholder and incomplete-product protection", () => {
     const c = contract();
     const files = completeFiles(c);
     files["src/api/tasks.ts"] =
-      'export function handler(_req:any,res:any){ res.json({ success: true }); }';
+      "export function handler(_req:any,res:any){ res.json({ success: true }); }";
     files["src/TaskService.ts"] = "export class TaskService {}";
     files["src/db/schema.ts"] = "export const schema = {};";
 
@@ -220,9 +228,11 @@ describe("placeholder and incomplete-product protection", () => {
       productContract: c,
     });
 
-    expect(report.findings.some(
-      (finding) => finding.code === "incomplete_deployment_config",
-    )).toBe(true);
+    expect(
+      report.findings.some(
+        (finding) => finding.code === "incomplete_deployment_config",
+      ),
+    ).toBe(true);
   });
 
   it("detects missing must-have requirement implementation evidence", () => {
@@ -258,9 +268,9 @@ describe("placeholder and incomplete-product protection", () => {
       files,
       productContract: c,
     });
-    expect(JSON.parse(withEvidence["appforge.completeness.json"]).complete).toBe(
-      true,
-    );
+    expect(
+      JSON.parse(withEvidence["appforge.completeness.json"]).complete,
+    ).toBe(true);
   });
 
   it("blocks production deployment before contacting a provider when product is incomplete", async () => {
