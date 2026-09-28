@@ -92,26 +92,28 @@ export function Admin() {
       </p>
 
       <div className="flex gap-2 mb-8">
-        {(["analytics", "operations", "codes", "moderation"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setTab(item)}
-            className={`px-4 py-2 rounded-lg font-semibold ${
-              tab === item
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-            }`}
-          >
-            {item === "analytics"
-              ? "Analytics"
-              : item === "operations"
-                ? "Operations"
-                : item === "codes"
-                  ? "God codes"
-                  : "Moderation"}
-          </button>
-        ))}
+        {(["analytics", "operations", "codes", "moderation"] as const).map(
+          (item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`px-4 py-2 rounded-lg font-semibold ${
+                tab === item
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              }`}
+            >
+              {item === "analytics"
+                ? "Analytics"
+                : item === "operations"
+                  ? "Operations"
+                  : item === "codes"
+                    ? "God codes"
+                    : "Moderation"}
+            </button>
+          ),
+        )}
       </div>
 
       {tab === "analytics" && analytics && (
@@ -231,7 +233,9 @@ export function Admin() {
               },
               {
                 label: "Redis",
-                value: operations.redis.connected ? "Connected" : "Disconnected",
+                value: operations.redis.connected
+                  ? "Connected"
+                  : "Disconnected",
               },
               {
                 label: "Credits spent",
@@ -266,7 +270,9 @@ export function Admin() {
 
           {operations.alerts.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
-              <h2 className="text-xl font-semibold mb-3">Active operational alerts</h2>
+              <h2 className="text-xl font-semibold mb-3">
+                Active operational alerts
+              </h2>
               <div className="space-y-2">
                 {operations.alerts.map((alert) => (
                   <div
@@ -284,7 +290,9 @@ export function Admin() {
           )}
 
           <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
-            <h2 className="text-xl font-semibold mb-3">Recent operational traces</h2>
+            <h2 className="text-xl font-semibold mb-3">
+              Recent operational traces
+            </h2>
             <div className="space-y-2 text-sm">
               {operations.recentTraces.slice(0, 20).map((trace) => (
                 <div
