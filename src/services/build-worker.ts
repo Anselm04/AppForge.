@@ -432,10 +432,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
             integrity: artifact.integrity,
           },
           onStage: async (stage) => {
-            await updateProjectBuildStage(projectId, stage, {
-              outputMaturity:
-                stage === "browser-verification" ? "verified" : undefined,
-            });
+            await updateProjectBuildStage(projectId, stage);
           },
         });
         liveUrl = deployed.liveUrl;
