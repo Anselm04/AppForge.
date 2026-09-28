@@ -305,7 +305,7 @@ function ProjectCard({ project }: { project: Project }) {
   const statusTone: Record<string, "success" | "cyan" | "gold" | "default"> = {
     "production-certified": "success",
     validated: "cyan",
-    completed: "success",
+    completed: "cyan",
     failed: "default",
     running: "cyan",
     pending: "gold",
@@ -347,7 +347,9 @@ function ProjectCard({ project }: { project: Project }) {
           <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
             {project.status === "running" || project.status === "paused"
               ? buildStageLabel(project.buildStage)
-              : project.status}
+              : project.status === "completed"
+                ? "validated"
+                : project.status}
           </Badge>
           {stack?.structuralOnly && <Badge tone="gold">{stack.badge}</Badge>}
         </div>
