@@ -208,7 +208,7 @@ describe("critical customer flow contract", () => {
 
     expectInOrder(worker, [
       "await runAgentPipeline(",
-      'const passed = updated?.status === "completed";',
+      'updated?.status === "validated"',
       "const deployed = await deployValidatedProjectWithRetry({",
       'await emit(projectId, "done", donePayload);',
     ]);
@@ -220,7 +220,7 @@ describe("critical customer flow contract", () => {
     );
   });
 
-  it("keeps validation in the agent pipeline before a build can complete", () => {
+  it("keeps validation in the agent pipeline before a build can become a production candidate", () => {
     const pipeline = source("../agents/pipeline.generated.ts");
 
     expectInOrder(pipeline, [
