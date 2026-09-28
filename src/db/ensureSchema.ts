@@ -487,6 +487,19 @@ EXCEPTION
 END $$;
 `;
 
+const SECTION25_BUILD_STATUS_SQL = `
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "build_stage" VARCHAR(50) DEFAULT 'planning';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "failure_stage" VARCHAR(50);
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "output_maturity" VARCHAR(32) DEFAULT 'structural';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "plan_status" VARCHAR(32) DEFAULT 'planning';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "plan_revision_request" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "monetization_approved" BOOLEAN DEFAULT FALSE;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "integrations_approved" BOOLEAN DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS "projects_build_stage_idx" ON "projects" ("build_stage");
+CREATE INDEX IF NOT EXISTS "projects_failure_stage_idx" ON "projects" ("failure_stage");
+`;
+
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
@@ -508,6 +521,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20260927_003",
     name: "section18_integrity_constraints",
     sql: SECTION18_INTEGRITY_SQL,
+  },
+  {
+    version: "20260929_004",
+    name: "section25_build_status_and_approvals",
+    sql: SECTION25_BUILD_STATUS_SQL,
   },
 ];
 
