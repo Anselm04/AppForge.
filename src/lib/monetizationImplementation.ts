@@ -45,9 +45,7 @@ export function monetizationPolicy(contract: ProductContract): MonetizationPolic
   if (/credit|token pack|build credit/.test(text)) models.push("credits");
   if (/in[- ]app purchase/.test(text)) models.push("in_app_purchase");
   if (/advertis|\bads?\b|ad-supported/.test(text)) models.push("advertising");
-  const required =
-    contract.monetizationRequirements.length > 0 ||
-    contract.secondaryCapabilities.includes("billing");
+  const required = contract.monetizationRequirements.length > 0;
   if (required && models.length===0) models.push("subscription");
   const provider =
     contract.integrations.find((x)=>/stripe|paypal|paddle|lemon|app store|google play/i.test(x)) ?? null;
