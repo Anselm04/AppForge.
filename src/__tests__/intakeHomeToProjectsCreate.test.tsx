@@ -40,6 +40,7 @@ vi.mock("../db.js", () => ({
   getTierBuildLimit: vi.fn(() => null),
   deductCredits: vi.fn(async () => undefined),
   addCredits: vi.fn(async () => undefined),
+  updateProjectCreditsReserved: vi.fn(async () => undefined),
   db: {
     update: () => ({ set: () => ({ where: async () => undefined }) }),
   },

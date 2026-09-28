@@ -550,7 +550,7 @@ describe("section 4: structural-only stacks are never presented as deployed", ()
     });
     expect(
       completedBuildUrl({ liveUrl: null, projectId: 7, structuralOnly: false }),
-    ).toBe("/apps/7");
+    ).toBeNull();
   });
 
   it("marks structural builds in the build worker done event and the UI", () => {

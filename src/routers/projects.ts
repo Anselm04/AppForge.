@@ -12,6 +12,7 @@ import {
   getTierBuildLimit,
   updateProjectStatus,
   updateProjectFiles,
+  updateProjectCreditsReserved,
   ensureUserCredits,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
@@ -23,6 +24,7 @@ import {
 import {
   PRODUCT_TYPES,
   resolveIntakeContract,
+  validateProductContract,
 } from "../lib/productContract.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
@@ -254,6 +256,7 @@ export const projectsRouter = router({
         locale: input.locale,
         buildCapabilities: input.buildCapabilities ?? [],
         productContract,
+        promptIntent,
       });
 
       if (input.locale) {
@@ -290,6 +293,7 @@ export const projectsRouter = router({
             id,
             "Build reservation",
           );
+          await updateProjectCreditsReserved(id, BUILD_CREDIT_COST);
           charged = true;
         }
 
@@ -314,6 +318,7 @@ export const projectsRouter = router({
             `Build start refund for project ${id}`,
             `projects-create-refund-${id}-${createdAt}`,
           ).catch(() => undefined);
+          await updateProjectCreditsReserved(id, 0).catch(() => undefined);
         }
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
         const message =
@@ -331,6 +336,270 @@ export const projectsRouter = router({
           canonicalInterpretation: promptIntent.canonicalInterpretation,
         },
         productType: productContract.productType,
+      };
+    }),
+
+  revisePlan: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        revision: z.string().trim().min(3).max(4000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      if (
+        project.status !== "paused" ||
+        project.pauseReason !== "approval_required" ||
+        !["planning", "architecture"].includes(project.buildStage ?? "")
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The plan can only be revised while generation is paused for approval.",
+        });
+      }
+      await db
+        .update(schema.projects)
+        .set({
+          planRevisionRequest: input.revision,
+          planStatus: "revision_requested",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.projects.id, input.projectId));
+      return { success: true, planStatus: "revision_requested" as const };
+    }),
+
+  approvePlan: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      if (!project.productPlan) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "There is no validated plan to approve yet.",
+        });
+      }
+      if (
+        project.planStatus === "revision_requested" ||
+        project.planRevisionRequest
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The requested plan revision must be regenerated before this plan can be approved.",
+        });
+      }
+      await db
+        .update(schema.projects)
+        .set({
+          planStatus: "approved",
+          planRevisionRequest: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.projects.id, input.projectId));
+      return { success: true, planStatus: "approved" as const };
+    }),
+
+  approveMonetization: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const contract = validateProductContract(project.productContract);
+      if (contract.monetizationRequirements.length === 0) {
+        return { success: true, required: false, approved: true };
+      }
+      await db
+        .update(schema.projects)
+        .set({ monetizationApproved: true, updatedAt: new Date() })
+        .where(eq(schema.projects.id, input.projectId));
+      return { success: true, required: true, approved: true };
+    }),
+
+  approveIntegrations: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const contract = validateProductContract(project.productContract);
+      if (contract.integrations.length === 0) {
+        return { success: true, required: false, approved: true };
+      }
+      await db
+        .update(schema.projects)
+        .set({ integrationsApproved: true, updatedAt: new Date() })
+        .where(eq(schema.projects.id, input.projectId));
+      return { success: true, required: true, approved: true };
+    }),
+
+  resumeApprovedBuild: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      if (
+        project.status !== "paused" ||
+        project.pauseReason !== "approval_required"
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This build is not waiting for approval.",
+        });
+      }
+
+      const contract = validateProductContract(project.productContract);
+      const revisingPlan = project.planStatus === "revision_requested";
+      if (!revisingPlan && project.planStatus !== "approved") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Approve the plan before generation resumes.",
+        });
+      }
+      if (
+        !revisingPlan &&
+        contract.monetizationRequirements.length > 0 &&
+        project.monetizationApproved !== true
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Approve monetization behavior before billing is generated.",
+        });
+      }
+      if (
+        !revisingPlan &&
+        contract.integrations.length > 0 &&
+        project.integrationsApproved !== true
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Approve external integrations before integration credentials are requested.",
+        });
+      }
+
+      const credits = await ensureUserCredits(ctx.user.id);
+      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      let reservationCharged =
+        (project.creditsReserved ?? 0) >= BUILD_CREDIT_COST;
+      let newlyCharged = false;
+      if (!unlimited && !reservationCharged) {
+        if (credits.balance < BUILD_CREDIT_COST) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}).`,
+          });
+        }
+        const { deductCredits } = await import("../db.js");
+        await deductCredits(
+          ctx.user.id,
+          BUILD_CREDIT_COST,
+          input.projectId,
+          "Build reservation",
+        );
+        await updateProjectCreditsReserved(input.projectId, BUILD_CREDIT_COST);
+        reservationCharged = true;
+        newlyCharged = true;
+      }
+
+      const { claimProjectBuildStart, releaseProjectBuildClaim } =
+        await import("../services/build-claim.js");
+      const claimed = await claimProjectBuildStart(
+        input.projectId,
+        ctx.user.id,
+      );
+      if (!claimed) {
+        if (newlyCharged) {
+          const { addCredits } = await import("../db.js");
+          await addCredits(
+            ctx.user.id,
+            BUILD_CREDIT_COST,
+            "build_refund",
+            `Approval resume claim refund for project ${input.projectId}`,
+            `approval-resume-claim-refund-${input.projectId}-${Date.now()}`,
+          );
+          await updateProjectCreditsReserved(input.projectId, 0);
+        }
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The build is already resuming or no longer awaiting approval.",
+        });
+      }
+
+      const createdAt = new Date().toISOString();
+      const promptIntent = project.promptIntent;
+      if (!promptIntent) {
+        await releaseProjectBuildClaim(
+          input.projectId,
+          ctx.user.id,
+          "paused",
+          "approval_required",
+        );
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The original resolved build intent is unavailable, so AppForge will not reinterpret the prompt during resume.",
+        });
+      }
+
+      try {
+        const { enqueueBuild } = await import("../services/build-queue.js");
+        await enqueueBuild({
+          projectId: input.projectId,
+          userId: ctx.user.id,
+          description: contract.originalPrompt,
+          techStack: contract.selectedTechnologyStack,
+          locale: project.locale || "en",
+          buildCapabilities:
+            (project.buildCapabilities as BuildCapabilityId[] | null) ?? [],
+          promptIntent,
+          productContract: contract,
+          createdAt,
+          reservationCharged,
+        });
+      } catch (error) {
+        await releaseProjectBuildClaim(
+          input.projectId,
+          ctx.user.id,
+          "paused",
+          "approval_required",
+        );
+        if (newlyCharged) {
+          const { addCredits } = await import("../db.js");
+          await addCredits(
+            ctx.user.id,
+            BUILD_CREDIT_COST,
+            "build_refund",
+            `Approval resume enqueue refund for project ${input.projectId}`,
+            `approval-resume-enqueue-refund-${input.projectId}-${createdAt}`,
+          ).catch(() => undefined);
+          await updateProjectCreditsReserved(input.projectId, 0).catch(
+            () => undefined,
+          );
+        }
+        const message =
+          error instanceof Error ? error.message : "Unable to resume build";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      }
+
+      return {
+        success: true,
+        status: "running" as const,
+        buildStage: "researching" as const,
+        revisingPlan,
       };
     }),
 
@@ -373,7 +642,13 @@ export const projectsRouter = router({
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
-      const deployableStatuses = new Set(["completed", "paused", "failed"]);
+      const deployableStatuses = new Set([
+        "validated",
+        "production-certified",
+        "completed",
+        "paused",
+        "failed",
+      ]);
       if (!project.status || !deployableStatuses.has(project.status)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -523,7 +798,28 @@ export const projectsRouter = router({
 
         await db
           .update(schema.projects)
-          .set({ status: "completed", updatedAt: new Date() })
+          .set(
+            project.status === "production-certified" &&
+              input.destination === "preview"
+              ? {
+                  buildStage: "previewing",
+                  updatedAt: new Date(),
+                }
+              : {
+                  status: "validated",
+                  buildStage:
+                    input.destination === "preview"
+                      ? "previewing"
+                      : "production-candidate",
+                  outputMaturity:
+                    stackAdapter.generationMode === "structural"
+                      ? "structural"
+                      : productionDestination && smoke?.ok
+                        ? "verified"
+                        : "runnable",
+                  updatedAt: new Date(),
+                },
+          )
           .where(eq(schema.projects.id, input.id));
 
         const { recordDeploy } = await import("../db/buildStats.js");

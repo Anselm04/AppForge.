@@ -1,3 +1,4 @@
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc.js";
@@ -79,10 +80,10 @@ async function requireCompletedOwnedProject(projectId: number, userId: number) {
       message: "Project not found",
     });
   }
-  if (project.status !== "completed") {
+  if (!isProjectArtifactReady(project.status)) {
     throw new TRPCError({
       code: "CONFLICT",
-      message: "Only completed projects can become templates",
+      message: "Only validated projects can become templates",
     });
   }
   return project;

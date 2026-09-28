@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db, getProjectFiles, type getProjectById } from "../db.js";
 import * as schema from "../db/schema.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import { validateSingleFile } from "../lib/validateSingleFile.js";
 
 export type EditableProject = NonNullable<
@@ -61,7 +62,12 @@ async function commitProjectFilesSnapshot(input: {
       .update(schema.projects)
       .set({
         generatedFiles: input.files,
-        status: "completed",
+        status: "validated",
+        buildStage: "production-candidate",
+        outputMaturity:
+          getStackAdapter(input.techStack).generationMode === "structural"
+            ? "structural"
+            : "runnable",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, input.projectId));

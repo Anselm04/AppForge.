@@ -37,6 +37,9 @@
 
   try {
     await updateProjectStatus(projectId, "running");
+    await updateProjectBuildStage(projectId, "researching", {
+      clearFailure: true,
+    });
 
     if (creditCheck && !(await creditCheck())) {
       write("pause", { reason: "credits_exhausted", agent: "Research", message: "Build paused: insufficient credits." });
@@ -110,6 +113,8 @@
     const selectedStackAdapter = getStackAdapter(techStack);
     const runtimeContract = runtimeArchitectureInstruction(techStack);
 
+    await updateProjectBuildStage(projectId, "planning");
+
     emit("Planner", "start", {
       message:
         outerAttempt > 1
@@ -148,6 +153,10 @@
         : "",
       localeHint,
       contractContext,
+      projectRow?.planRevisionRequest
+        ? "USER PLAN REVISION REQUEST — incorporate this before generation:\n" +
+          projectRow.planRevisionRequest
+        : "",
       databasePlannerInstruction(productContract),
       integrationPlannerInstruction(productContract),
       aiAgentPlannerInstruction(productContract),
@@ -156,11 +165,29 @@
       .filter(Boolean)
       .join("\n");
 
-    let productPlan: ProductPlan | null = null;
-    let plannerOutput = "";
+    let productPlan: ProductPlan | null =
+      projectRow?.planStatus === "approved" &&
+      projectRow.productPlan &&
+      !projectRow.planRevisionRequest
+        ? validateProductPlan(projectRow.productPlan, productContract)
+        : null;
+    let plannerOutput = productPlan
+      ? JSON.stringify(productPlan, null, 2)
+      : "";
     let plannerValidationError = "";
 
-    for (let plannerAttempt = 1; plannerAttempt <= 3; plannerAttempt++) {
+    if (productPlan) {
+      emit("Planner", "resume_approved_plan", {
+        message:
+          "Reusing the exact user-approved plan; no silent re-planning is allowed.",
+      });
+    }
+
+    for (
+      let plannerAttempt = 1;
+      !productPlan && plannerAttempt <= 3;
+      plannerAttempt++
+    ) {
       plannerOutput = "";
       if (plannerAttempt > 1) {
         emit("Planner", "retry", {
@@ -248,9 +275,21 @@
         updatedAt: new Date(),
       })
       .where(eq(schema.agentLogs.id, plannerLogId));
+    const consumedPlanRevision =
+      projectRow?.planStatus === "revision_requested" &&
+      Boolean(projectRow?.planRevisionRequest);
     await db
       .update(schema.projects)
-      .set({ productPlan, updatedAt: new Date() })
+      .set({
+        productPlan,
+        ...(consumedPlanRevision
+          ? {
+              planRevisionRequest: null,
+              planStatus: "awaiting_approval",
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(schema.projects.id, projectId));
     await markAgentLogComplete(plannerLogId);
 
@@ -357,6 +396,61 @@
       requirementManifestRevision: requirementManifest.revision,
       unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
     });
+
+    await updateProjectBuildStage(projectId, "architecture");
+    const approvalState = await db.query.projects.findFirst({
+      where: eq(schema.projects.id, projectId),
+      columns: {
+        planStatus: true,
+        monetizationApproved: true,
+        integrationsApproved: true,
+      },
+    });
+    const monetizationApprovalRequired =
+      productContract.monetizationRequirements.length > 0;
+    const integrationApprovalRequired = productContract.integrations.length > 0;
+    const planApproved = approvalState?.planStatus === "approved";
+    const monetizationApproved =
+      !monetizationApprovalRequired ||
+      approvalState?.monetizationApproved === true;
+    const integrationsApproved =
+      !integrationApprovalRequired ||
+      approvalState?.integrationsApproved === true;
+
+    if (!planApproved || !monetizationApproved || !integrationsApproved) {
+      await db
+        .update(schema.projects)
+        .set({
+          planStatus:
+            approvalState?.planStatus === "revision_requested"
+              ? "revision_requested"
+              : "awaiting_approval",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.projects.id, projectId));
+      await updateProjectStatus(projectId, "paused", "approval_required");
+      write("pause", {
+        reason: "approval_required",
+        message:
+          "Review the plan and required monetization/integration decisions before generation starts.",
+        approvals: {
+          plan: planApproved,
+          monetization: monetizationApproved,
+          integrations: integrationsApproved,
+        },
+        requires: {
+          monetization: monetizationApprovalRequired,
+          integrations: integrationApprovalRequired,
+        },
+        productPlan,
+      });
+      return;
+    }
+
+    if (monetizationApprovalRequired) {
+      await updateProjectBuildStage(projectId, "monetization");
+    }
+    await updateProjectBuildStage(projectId, "generating");
 
     tasks = productPlan.tasks;
     appTitle = productPlan.title;

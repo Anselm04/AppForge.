@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../design-system/Button.js";
@@ -15,9 +16,7 @@ type ProjectSummary = {
   status: string | null;
 };
 
-function stateTone(
-  state: string,
-): "success" | "cyan" | "gold" | "default" {
+function stateTone(state: string): "success" | "cyan" | "gold" | "default" {
   if (state === "connected") return "success";
   if (state === "needs_attention") return "gold";
   if (state === "configuration_required") return "cyan";
@@ -85,18 +84,18 @@ export function PluginWorkspace() {
     staleTime: 30_000,
   });
 
-  const completedProjects = useMemo(
+  const readyProjects = useMemo(
     () =>
-      (projects as ProjectSummary[]).filter(
-        (project) => project.status === "completed",
+      (projects as ProjectSummary[]).filter((project) =>
+        isProjectArtifactReady(project.status),
       ),
     [projects],
   );
 
   useEffect(() => {
-    if (projectId || completedProjects.length === 0) return;
-    setProjectId(completedProjects[0].id);
-  }, [completedProjects, projectId]);
+    if (projectId || readyProjects.length === 0) return;
+    setProjectId(readyProjects[0].id);
+  }, [readyProjects, projectId]);
 
   const research = useMutation({
     mutationFn: () =>
@@ -135,7 +134,7 @@ export function PluginWorkspace() {
 
   const createArtifact = useMutation({
     mutationFn: async () => {
-      if (!projectId) throw new Error("Choose a completed project first");
+      if (!projectId) throw new Error("Choose a validated project first");
 
       if (artifactKind === "document") {
         return trpc.artifacts.createDocument.mutate({
@@ -192,8 +191,8 @@ export function PluginWorkspace() {
             Tools & Plugins
           </h1>
           <p className="text-forge-text-muted mt-2 max-w-3xl">
-            These controls call AppForge&apos;s real authenticated plugin APIs. A
-            service only shows Connected after its non-mutating verification
+            These controls call AppForge&apos;s real authenticated plugin APIs.
+            A service only shows Connected after its non-mutating verification
             succeeds.
           </p>
         </div>
@@ -327,10 +326,12 @@ export function PluginWorkspace() {
             <select
               className="forge-input w-full mt-4"
               value={projectId ?? ""}
-              onChange={(event) => setProjectId(Number(event.target.value) || null)}
+              onChange={(event) =>
+                setProjectId(Number(event.target.value) || null)
+              }
             >
-              <option value="">Choose completed project</option>
-              {completedProjects.map((project) => (
+              <option value="">Choose validated project</option>
+              {readyProjects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title || `Project ${project.id}`}
                 </option>
@@ -345,8 +346,12 @@ export function PluginWorkspace() {
             >
               <option value="document">Document</option>
               <option value="pdf">PDF</option>
-              <option value="spreadsheet">Spreadsheet (tab-separated input)</option>
-              <option value="presentation">Presentation (--- between slides)</option>
+              <option value="spreadsheet">
+                Spreadsheet (tab-separated input)
+              </option>
+              <option value="presentation">
+                Presentation (--- between slides)
+              </option>
             </select>
             <input
               className="forge-input w-full mt-3"

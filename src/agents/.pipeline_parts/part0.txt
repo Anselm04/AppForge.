@@ -1,6 +1,7 @@
 import {
   appendAgentLog,
   markAgentLogComplete,
+  updateProjectBuildStage,
   updateProjectFiles,
   updateProjectRequirementManifest,
   updateProjectStatus,
@@ -94,6 +95,7 @@ import {
   formatPlannerValidationError,
   parseAndValidateProductPlan,
   plannerJsonSchemaInstruction,
+  validateProductPlan,
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
@@ -259,6 +261,10 @@ export async function runAgentPipeline(
       productContract: true,
       researchRecord: true,
       productPlan: true,
+      planStatus: true,
+      planRevisionRequest: true,
+      monetizationApproved: true,
+      integrationsApproved: true,
       agentCoordination: true,
       requirementManifest: true,
     },

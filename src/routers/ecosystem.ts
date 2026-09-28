@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { getProjectById } from "../db.js";
@@ -287,10 +288,10 @@ export const ecosystemRouter = router({
         });
       }
 
-      if (project.status !== "completed") {
+      if (!isProjectArtifactReady(project.status)) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Only completed AppForge projects can be sent to marketing",
+          message: "Only validated AppForge projects can be sent to marketing",
         });
       }
 

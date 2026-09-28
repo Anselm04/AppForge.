@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
 import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
+import type { BuildStage } from "../lib/buildStatus.js";
 import {
   validateProductContract,
   type ProductContract,
@@ -120,6 +121,7 @@ export async function deployValidatedProject(opts: {
     version: number;
     integrity: ArtifactIntegrity;
   };
+  onStage?: (stage: BuildStage) => Promise<void> | void;
 }): Promise<ProductionCertification> {
   const contract = validateProductContract(opts.productContract);
   if (opts.snapshot) {
@@ -197,6 +199,7 @@ export async function deployValidatedProject(opts: {
   const deploymentManifestSha256 = createHash("sha256")
     .update(files["appforge.production.json"] ?? "")
     .digest("hex");
+  await opts.onStage?.("deployment");
   const deployed = await deployProject({
     destination: "fly",
     projectName: opts.projectName,
@@ -211,6 +214,7 @@ export async function deployValidatedProject(opts: {
   }
 
   const liveUrl = requireVerifiedLiveUrl(deployed.url);
+  await opts.onStage?.("previewing");
   const identity = await probeDeployUrl(
     new URL(plan.identityPath, liveUrl).toString(),
     15_000,
@@ -277,6 +281,7 @@ export async function deployValidatedProject(opts: {
     );
   }
 
+  await opts.onStage?.("browser-verification");
   const browser = await verifyGeneratedAppInBrowser(liveUrl);
   if (!browser.ok) {
     const runtimeDetail = browser.runtimeErrors[0]

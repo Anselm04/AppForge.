@@ -9,6 +9,7 @@ import {
   validateProductContract,
   withSelectedTechnologyStack,
   type ProductContract,
+  type PromptIntent,
 } from "./lib/productContract.js";
 import {
   assertArtifactIntegrity,
@@ -16,6 +17,7 @@ import {
   validateArtifactFiles,
   type ArtifactIntegrity,
 } from "./lib/artifactIntegrity.js";
+import type { BuildStage, OutputMaturity } from "./lib/buildStatus.js";
 import {
   assertMustHaveRequirementsResolved,
   validateRequirementManifest,
@@ -247,6 +249,7 @@ export async function createProject(data: {
   locale?: string;
   buildCapabilities?: string[];
   productContract?: ProductContract;
+  promptIntent?: PromptIntent;
 }) {
   let productContract = data.productContract;
   if (!productContract) {
@@ -280,6 +283,9 @@ export async function createProject(data: {
       locale: data.locale,
       buildCapabilities: data.buildCapabilities ?? [],
       productContract,
+      promptIntent: data.promptIntent,
+      buildStage: "planning",
+      planStatus: "planning",
     })
     .returning({ id: schema.projects.id });
   return result[0].id;
@@ -303,7 +309,34 @@ export async function updateProjectStatus(
 ) {
   await db
     .update(schema.projects)
-    .set({ status, errorMessage, updatedAt: new Date() })
+    .set({
+      status,
+      errorMessage,
+      failureStage:
+        status === "failed" ? sql`${schema.projects.buildStage}` : undefined,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.projects.id, id));
+}
+
+export async function updateProjectBuildStage(
+  id: number,
+  buildStage: BuildStage,
+  options: {
+    outputMaturity?: OutputMaturity;
+    clearFailure?: boolean;
+  } = {},
+) {
+  await db
+    .update(schema.projects)
+    .set({
+      buildStage,
+      ...(options.outputMaturity
+        ? { outputMaturity: options.outputMaturity }
+        : {}),
+      ...(options.clearFailure ? { failureStage: null, errorMessage: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(schema.projects.id, id));
 }
 
@@ -806,7 +839,21 @@ export async function updateProjectCreditsSpent(
 ) {
   await db
     .update(schema.projects)
-    .set({ creditsSpent: spent, updatedAt: new Date() })
+    .set({
+      creditsSpent: spent,
+      creditsReserved: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.projects.id, projectId));
+}
+
+export async function updateProjectCreditsReserved(
+  projectId: number,
+  reserved: number,
+) {
+  await db
+    .update(schema.projects)
+    .set({ creditsReserved: Math.max(0, reserved), updatedAt: new Date() })
     .where(eq(schema.projects.id, projectId));
 }
 
@@ -1061,7 +1108,7 @@ export async function createAndActivateBuildSnapshot(data: {
       .update(schema.projects)
       .set({
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, data.projectId));
@@ -1307,7 +1354,7 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .update(schema.projects)
       .set({
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
@@ -1455,7 +1502,7 @@ export async function appendArtifactToCurrentSnapshot(input: {
         workingArtifactVersion,
         workingArtifactIntegrity,
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, input.projectId));

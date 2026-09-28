@@ -5,6 +5,7 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
 import { revealGithubAccessToken } from "../lib/githubTokenCrypto.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 import { detectStackFromFiles } from "../lib/stackDetection.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 
@@ -195,7 +196,12 @@ export const githubRouter = router({
         });
       }
 
-      const { createProject, updateProjectFiles } = await import("../db.js");
+      const {
+        createProject,
+        updateProjectBuildStage,
+        updateProjectFiles,
+        updateProjectStatus,
+      } = await import("../db.js");
       let projectId = input.projectId;
       if (!projectId) {
         projectId = await createProject({
@@ -203,7 +209,7 @@ export const githubRouter = router({
           title: input.title ?? input.repo,
           description: `Imported from GitHub ${input.owner}/${input.repo}`,
           techStack: detected.stack,
-          status: "completed",
+          status: "pending",
         });
       } else {
         const project = await getProjectById(projectId);
@@ -219,6 +225,13 @@ export const githubRouter = router({
         }
       }
       await updateProjectFiles(projectId, files);
+      await updateProjectStatus(projectId, "validated");
+      await updateProjectBuildStage(projectId, "production-candidate", {
+        outputMaturity:
+          getStackAdapter(detected.stack).generationMode === "structural"
+            ? "structural"
+            : "runnable",
+      });
       return {
         projectId,
         fileCount: Object.keys(files).length,

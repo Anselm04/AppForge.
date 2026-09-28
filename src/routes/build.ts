@@ -123,14 +123,21 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 
   const existingFiles =
     (project.generatedFiles as Record<string, string> | null) ?? {};
-  if (project.status === "completed" && Object.keys(existingFiles).length > 0) {
+  if (
+    ["validated", "production-certified", "completed"].includes(
+      project.status ?? "",
+    ) &&
+    Object.keys(existingFiles).length > 0
+  ) {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
     res.write(
       `event: done\ndata: ${JSON.stringify({
-        status: "completed",
+        status: project.status,
+        buildStage: project.buildStage,
+        outputMaturity: project.outputMaturity,
         projectId,
         fileCount: Object.keys(existingFiles).length,
         reused: true,
