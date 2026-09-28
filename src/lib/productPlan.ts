@@ -17,6 +17,18 @@ import {
   isIntegrationHealthPath,
   isIntegrationWebhookPath,
 } from "./integrationImplementation.js";
+import {
+  aiAgentPolicy,
+  isAiAuditPath,
+  isAiDocsPath,
+  isAiEnvPath,
+  isAiMemoryPath,
+  isAiPolicyPath,
+  isAiProviderPath,
+  isAiRouterPath,
+  isAiStatusPath,
+  isAiToolsPath,
+} from "./aiAgentImplementation.js";
 
 const nonEmptyString = z.string().trim().min(1);
 const stringArray = z.array(nonEmptyString);
@@ -186,6 +198,73 @@ export function validateProductPlan(
     plan.architecture.aiModules.length === 0
   ) {
     throw new Error("Planner must include AI modules for this product");
+  }
+
+
+  const aiPolicy = aiAgentPolicy(contract);
+  if (aiPolicy.required) {
+    const aiTasks = plan.tasks.filter((task) => task.agent === "ai");
+    if (aiTasks.length === 0) {
+      throw new Error(
+        "Planner must include an AI-owned task for AI-agent products",
+      );
+    }
+
+    const aiFiles = aiTasks.flatMap((task) => task.files);
+    if (!aiFiles.some(isAiProviderPath)) {
+      throw new Error(
+        "Planner AI task must include model-provider configuration",
+      );
+    }
+    if (!aiFiles.some(isAiRouterPath)) {
+      throw new Error(
+        "Planner AI task must include model routing/fallback implementation",
+      );
+    }
+    if (aiPolicy.toolUseExpected && !aiFiles.some(isAiToolsPath)) {
+      throw new Error("Planner AI task must include typed tool definitions");
+    }
+    if (!aiFiles.some(isAiPolicyPath)) {
+      throw new Error(
+        "Planner AI task must include AI safety/permission policy code",
+      );
+    }
+    if (!aiFiles.some(isAiMemoryPath)) {
+      throw new Error(
+        "Planner AI task must include memory/context boundary code",
+      );
+    }
+    if (!aiFiles.some(isAiAuditPath)) {
+      throw new Error("Planner AI task must include AI audit logging");
+    }
+    if (!aiFiles.some(isAiStatusPath)) {
+      throw new Error(
+        "Planner AI task must include user-visible AI status handling",
+      );
+    }
+    if (!aiFiles.some(isAiEnvPath)) {
+      throw new Error(
+        "Planner AI task must include environment example/configuration",
+      );
+    }
+    if (!aiFiles.some(isAiDocsPath)) {
+      throw new Error(
+        "Planner AI task must include AI-agent setup/safety documentation",
+      );
+    }
+
+    const aiValidationText = aiTasks
+      .flatMap((task) => task.validations)
+      .join(" ");
+    if (
+      !/provider|model|tool|permission|approval|injection|memory|context|cost|audit|status|refusal|timeout|retry/i.test(
+        aiValidationText,
+      )
+    ) {
+      throw new Error(
+        "Planner AI task must include AI-agent safety and runtime validation",
+      );
+    }
   }
 
   const databasePolicy = databasePersistencePolicy(contract);
