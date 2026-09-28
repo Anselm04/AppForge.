@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../design-system/Button.js";
@@ -85,18 +86,18 @@ export function PluginWorkspace() {
     staleTime: 30_000,
   });
 
-  const completedProjects = useMemo(
+  const readyProjects = useMemo(
     () =>
       (projects as ProjectSummary[]).filter(
-        (project) => project.status === "completed",
+        (project) => isProjectArtifactReady(project.status),
       ),
     [projects],
   );
 
   useEffect(() => {
-    if (projectId || completedProjects.length === 0) return;
-    setProjectId(completedProjects[0].id);
-  }, [completedProjects, projectId]);
+    if (projectId || readyProjects.length === 0) return;
+    setProjectId(readyProjects[0].id);
+  }, [readyProjects, projectId]);
 
   const research = useMutation({
     mutationFn: () =>
@@ -135,7 +136,7 @@ export function PluginWorkspace() {
 
   const createArtifact = useMutation({
     mutationFn: async () => {
-      if (!projectId) throw new Error("Choose a completed project first");
+      if (!projectId) throw new Error("Choose a validated project first");
 
       if (artifactKind === "document") {
         return trpc.artifacts.createDocument.mutate({
@@ -329,8 +330,8 @@ export function PluginWorkspace() {
               value={projectId ?? ""}
               onChange={(event) => setProjectId(Number(event.target.value) || null)}
             >
-              <option value="">Choose completed project</option>
-              {completedProjects.map((project) => (
+              <option value="">Choose validated project</option>
+              {readyProjects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title || `Project ${project.id}`}
                 </option>
