@@ -17,14 +17,21 @@ export const systemRouter = t.router({
   diagnostics: protectedProcedure.query(() => {
     const snapshot = operationalSnapshot();
     const startup = getStartupReadiness();
+    const alerts = evaluateOperationalAlerts();
+    const connectivityDegraded = alerts.some(
+      (alert) =>
+        alert.severity === "critical" &&
+        (alert.id === "database_unavailable" ||
+          alert.id === "redis_unavailable"),
+    );
     return {
       generatedAt: snapshot.generatedAt,
-      status: startup.ready ? "ok" : "degraded",
+      status: startup.ready && !connectivityDegraded ? "ok" : "degraded",
       startup: startup.phase,
       uptimeSeconds: snapshot.uptimeSeconds,
       process: snapshot.process,
       capacity: snapshot.capacity,
-      alerts: evaluateOperationalAlerts().map((alert) => ({
+      alerts: alerts.map((alert) => ({
         severity: alert.severity,
         message: alert.message,
       })),
