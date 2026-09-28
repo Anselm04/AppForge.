@@ -530,16 +530,20 @@ export const projectsRouter = router({
       }
 
       const createdAt = new Date().toISOString();
-      const promptIntent = {
-        originalPrompt: contract.originalPrompt,
-        primaryProductType: contract.productType,
-        secondaryCapabilities: contract.secondaryCapabilities,
-        confidence: contract.intentConfidence,
-        alternatives: [],
-        ambiguous: false,
-        clarificationQuestions: [],
-        canonicalInterpretation: contract.canonicalInterpretation,
-      };
+      const promptIntent = project.promptIntent;
+      if (!promptIntent) {
+        await releaseProjectBuildClaim(
+          input.projectId,
+          ctx.user.id,
+          "paused",
+          "approval_required",
+        );
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The original resolved build intent is unavailable, so AppForge will not reinterpret the prompt during resume.",
+        });
+      }
 
       try {
         const { enqueueBuild } = await import("../services/build-queue.js");
