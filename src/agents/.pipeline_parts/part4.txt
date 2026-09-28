@@ -132,17 +132,10 @@
       detail:
         "Final incomplete-product protection gate passed immediately before snapshot/current/completed state.",
     });
-    const { materializeHostedHtml, publicAppUrl } = await import(
-      "../lib/hostedRuntime.js"
-    );
-    const liveUrl = publicAppUrl(projectId);
-    generatedFiles["_hosted/index.html"] = materializeHostedHtml({
-      projectId,
-      title: appTitle,
-      description,
-      techStack,
-      files: generatedFiles,
-    });
+    // A validated source artifact is not a live product. Do not synthesize
+    // an AppForge-owned fallback shell or assign a public product URL here.
+    // The worker adds a live URL only after real deployment verification.
+    const liveUrl: string | undefined = undefined;
     await updateProjectBuildStage(projectId, "persisting");
     await updateProjectFiles(projectId, generatedFiles);
 
