@@ -16,6 +16,10 @@ import {
   completedBuildUrl,
   stackPresentation,
 } from "../lib/stackPresentation.js";
+import {
+  buildStageLabel,
+  outputMaturityLabel,
+} from "../lib/buildStatus.js";
 
 interface BuildLog {
   agent: string;
@@ -60,11 +64,21 @@ export function Build() {
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
   const [hasPartialFiles, setHasPartialFiles] = useState(false);
+  const [planRevision, setPlanRevision] = useState("");
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
-  const { data: project } = useQuery({
+  const { data: project, refetch: refetchProject } = useQuery({
     queryKey: ["projects", projectId],
     queryFn: () => trpc.projects.get.query({ id: pid }),
     enabled: pid > 0,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "production-certified" ||
+        status === "validated" ||
+        status === "failed"
+        ? false
+        : 2000;
+    },
   });
 
   const { data: tierStatus } = useQuery({
@@ -337,6 +351,84 @@ export function Build() {
     }
   };
 
+  const refreshApprovalState = async () => {
+    await refetchProject();
+  };
+
+  const handleRevisePlan = async () => {
+    if (!planRevision.trim()) return;
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      await trpc.projects.revisePlan.mutate({
+        projectId: pid,
+        revision: planRevision.trim(),
+      });
+      await refreshApprovalState();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Plan revision failed");
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      await trpc.projects.approvePlan.mutate({ projectId: pid });
+      await refreshApprovalState();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Plan approval failed");
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleApproveMonetization = async () => {
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      await trpc.projects.approveMonetization.mutate({ projectId: pid });
+      await refreshApprovalState();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Monetization approval failed",
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleApproveIntegrations = async () => {
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      await trpc.projects.approveIntegrations.mutate({ projectId: pid });
+      await refreshApprovalState();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Integration approval failed",
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleResumeApprovedBuild = async () => {
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      await trpc.projects.resumeApprovedBuild.mutate({ projectId: pid });
+      setIsPaused(false);
+      await refreshApprovalState();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Build resume failed");
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
   const handleGitHubExport = async () => {
     if (!projectId || !project?.title) return;
     try {
@@ -377,11 +469,32 @@ export function Build() {
     return opt ? !opt.configured : false;
   };
 
+  const productContract = project?.productContract;
+  const monetizationRequired =
+    (productContract?.monetizationRequirements?.length ?? 0) > 0;
+  const integrationsRequired =
+    (productContract?.integrations?.length ?? 0) > 0;
+  const unresolvedRequirements =
+    project?.requirementManifest?.unresolvedMustHaveIds ?? [];
+  const awaitingApproval =
+    project?.status === "paused" &&
+    project?.pauseReason === "approval_required";
+  const approvalsReady =
+    project?.planStatus === "approved" &&
+    (!monetizationRequired || project?.monetizationApproved === true) &&
+    (!integrationsRequired || project?.integrationsApproved === true);
+
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {isComplete ? "Build complete" : "Building your app…"}
+          {project?.status === "production-certified"
+            ? "Production certified"
+            : project?.status === "validated"
+              ? "Validated production candidate"
+              : awaitingApproval
+                ? "Review build plan"
+                : "Building your app…"}
         </h1>
         {project && (
           <p className="text-slate-400 mb-4">
@@ -394,12 +507,136 @@ export function Build() {
                 {stack.badge}
               </span>
             )}
-            {project.status === "running" && (
+            {["running", "paused"].includes(project.status ?? "") && (
               <span className="ml-2 text-amber-400 text-sm">
                 (runs in background — safe to refresh)
               </span>
             )}
           </p>
+        )}
+
+        {project && (
+          <section
+            className="mb-6 rounded-xl border border-slate-700 bg-slate-800/70 p-4"
+            data-testid="build-status-panel"
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+              <StatusFact
+                label="Detected product"
+                value={productContract?.productType ?? "Detecting"}
+              />
+              <StatusFact
+                label="Selected stack"
+                value={stack?.label ?? project.techStack ?? "Selecting"}
+              />
+              <StatusFact
+                label="Build stage"
+                value={buildStageLabel(project.buildStage)}
+              />
+              <StatusFact
+                label="Output"
+                value={outputMaturityLabel(project.outputMaturity)}
+              />
+              <StatusFact
+                label="Research"
+                value={
+                  project.researchRecord
+                    ? "Complete"
+                    : project.buildStage === "researching"
+                      ? "In progress"
+                      : "Waiting"
+                }
+              />
+              <StatusFact
+                label="Plan"
+                value={project.planStatus ?? "planning"}
+              />
+              <StatusFact
+                label="Incomplete requirements"
+                value={
+                  unresolvedRequirements.length > 0
+                    ? unresolvedRequirements.join(", ")
+                    : "None"
+                }
+              />
+              <StatusFact
+                label="Failure stage"
+                value={project.failureStage ?? "None"}
+              />
+            </div>
+          </section>
+        )}
+
+        {project && awaitingApproval && (
+          <section
+            className="mb-6 rounded-xl border border-amber-600/60 bg-amber-950/30 p-5 text-amber-100"
+            data-testid="build-approval-panel"
+          >
+            <h2 className="text-lg font-semibold">Review before generation</h2>
+            <p className="mt-1 text-sm text-amber-200/80">
+              Generation is paused. Review the architecture and approve only the
+              decisions you want AppForge to implement.
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <ApprovalItem
+                title="Plan"
+                approved={project.planStatus === "approved"}
+                detail="Approve the validated architecture, or request a revision first."
+                onApprove={handleApprovePlan}
+                disabled={approvalBusy}
+              />
+              {monetizationRequired && (
+                <ApprovalItem
+                  title="Monetization"
+                  approved={project.monetizationApproved === true}
+                  detail="Billing code is not generated until you explicitly approve it."
+                  onApprove={handleApproveMonetization}
+                  disabled={approvalBusy}
+                />
+              )}
+              {integrationsRequired && (
+                <ApprovalItem
+                  title="External integrations"
+                  approved={project.integrationsApproved === true}
+                  detail="Integration credentials are not requested until you approve the integrations."
+                  onApprove={handleApproveIntegrations}
+                  disabled={approvalBusy}
+                />
+              )}
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium">
+                Revise the plan before generation
+              </label>
+              <textarea
+                value={planRevision}
+                onChange={(event) => setPlanRevision(event.target.value)}
+                maxLength={4000}
+                placeholder="Describe what you want changed in the plan."
+                className="mt-2 min-h-24 w-full rounded-lg border border-amber-700/50 bg-slate-950 p-3 text-white"
+              />
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleRevisePlan}
+                  disabled={approvalBusy || planRevision.trim().length < 3}
+                  className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Request plan revision
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResumeApprovedBuild}
+                  disabled={approvalBusy || !approvalsReady}
+                  className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Resume generation
+                </button>
+              </div>
+            </div>
+          </section>
         )}
 
         <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
@@ -473,7 +710,7 @@ export function Build() {
           </div>
         )}
 
-        {isComplete && !error && !isPaused && (
+        {isComplete && !error && !isPaused && !awaitingApproval && (
           <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
             <p className="font-semibold text-lg">
               {structuralOnly
@@ -565,6 +802,51 @@ export function Build() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatusFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function ApprovalItem({
+  title,
+  approved,
+  detail,
+  onApprove,
+  disabled,
+}: {
+  title: string;
+  approved: boolean;
+  detail: string;
+  onApprove: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-amber-800/60 bg-slate-900/70 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium">{title}</p>
+        <span className={approved ? "text-green-300" : "text-amber-300"}>
+          {approved ? "Approved" : "Approval required"}
+        </span>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">{detail}</p>
+      {!approved && (
+        <button
+          type="button"
+          onClick={onApprove}
+          disabled={disabled}
+          className="mt-3 rounded bg-amber-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+        >
+          Approve
+        </button>
+      )}
     </div>
   );
 }
