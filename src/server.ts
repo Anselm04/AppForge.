@@ -50,6 +50,11 @@ import {
   markStartupDegraded,
   markStartupReady,
 } from "./services/startupState.js";
+import {
+  incrementOperationalMetric,
+  renderPrometheusMetrics,
+  setOperationalGauge,
+} from "./lib/operationsObservability.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -118,6 +123,18 @@ app.use((req, res, next) => {
       },
       "http_request",
     );
+    incrementOperationalMetric("appforge_http_requests_total", {
+      method: req.method,
+      status: res.statusCode,
+    });
+    incrementOperationalMetric(
+      "appforge_http_request_duration_ms_total",
+      { method: req.method },
+      duration,
+    );
+    setOperationalGauge("appforge_http_last_request_duration_ms", duration, {
+      method: req.method,
+    });
   });
   next();
 });
@@ -139,6 +156,12 @@ app.use((req, res, next) => {
   });
   res.setTimeout(REQUEST_TIMEOUT);
   next();
+});
+
+app.get("/metrics", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.type("text/plain; version=0.0.4");
+  res.send(renderPrometheusMetrics());
 });
 
 app.use(cookieParser(ENV.cookieSecret));
