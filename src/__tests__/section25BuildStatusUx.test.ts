@@ -137,8 +137,8 @@ describe("#25 Build Status and User Experience", () => {
       presentation.indexOf("export function completedBuildUrl"),
     );
     expect(helper).not.toContain("/apps/");
-    expect(helper).toContain("/live/");
     expect(helper).toContain("if (opts.liveUrl) return opts.liveUrl");
+    expect(helper).toContain("return null");
     expect(finalPipeline).not.toContain('generatedFiles["_hosted/index.html"]');
     expect(finalPipeline).not.toContain("materializeHostedHtml");
     expect(preview).toContain(
