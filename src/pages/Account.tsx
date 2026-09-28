@@ -20,7 +20,11 @@ export function Account() {
     queryFn: () => trpc.auth.me.query(),
     staleTime: 0,
   });
-  const { data: diagnostics } = useQuery({
+  const {
+    data: diagnostics,
+    isError: diagnosticsError,
+    isLoading: diagnosticsLoading,
+  } = useQuery({
     queryKey: ["system", "diagnostics"],
     queryFn: () => trpc.system.diagnostics.query(),
     staleTime: 15_000,
@@ -169,13 +173,19 @@ export function Account() {
               <div>
                 <span className="text-forge-text-muted">Status</span>
                 <div className="font-semibold capitalize">
-                  {diagnostics?.status ?? "checking"}
+                  {diagnosticsError
+                    ? "unavailable"
+                    : diagnostics?.status ??
+                      (diagnosticsLoading ? "checking" : "unavailable")}
                 </div>
               </div>
               <div>
                 <span className="text-forge-text-muted">Startup</span>
                 <div className="font-semibold">
-                  {diagnostics?.startup ?? "checking"}
+                  {diagnosticsError
+                    ? "unavailable"
+                    : diagnostics?.startup ??
+                      (diagnosticsLoading ? "checking" : "unavailable")}
                 </div>
               </div>
               <div>
