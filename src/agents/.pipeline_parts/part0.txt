@@ -95,6 +95,7 @@ import {
 } from "../lib/productPlan.js";
 import { databasePlannerInstruction } from "../lib/databasePersistence.js";
 import { integrationPlannerInstruction } from "../lib/integrationImplementation.js";
+import { aiAgentPlannerInstruction } from "../lib/aiAgentImplementation.js";
 import {
   assertProductComplete,
   attachCompletenessEvidence,

@@ -146,6 +146,7 @@
       contractContext,
       databasePlannerInstruction(productContract),
       integrationPlannerInstruction(productContract),
+      aiAgentPlannerInstruction(productContract),
     ]
       .filter(Boolean)
       .join("\n");

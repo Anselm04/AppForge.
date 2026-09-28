@@ -18,6 +18,10 @@ import {
   integrationCoderInstruction,
   validateIntegrationArtifact,
 } from "./integrationImplementation.js";
+import {
+  aiAgentCoderInstruction,
+  validateAiAgentArtifact,
+} from "./aiAgentImplementation.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/i, "TODO marker"],
@@ -155,6 +159,8 @@ export function coderTaskInstruction(input: {
     task.agent === "database" ? databaseCoderInstruction(contract) : "";
   const integrationInstruction =
     task.agent === "integration" ? integrationCoderInstruction(contract) : "";
+  const aiAgentInstruction =
+    task.agent === "ai" ? aiAgentCoderInstruction(contract) : "";
 
   return [
     "CODE GENERATION CONTRACT — authoritative:",
@@ -193,6 +199,7 @@ export function coderTaskInstruction(input: {
     ...capabilityRules.map((rule) => `- ${rule}`),
     ...(databaseInstruction ? [databaseInstruction] : []),
     ...(integrationInstruction ? [integrationInstruction] : []),
+    ...(aiAgentInstruction ? [aiAgentInstruction] : []),
   ].join("\n");
 }
 
@@ -288,6 +295,18 @@ export function validateCoderTaskOutput(input: {
     if (integrationProblems.length > 0) {
       throw new Error(
         `Task ${input.task.id} failed integration contract: ${integrationProblems.join("; ")}`,
+      );
+    }
+  }
+
+  if (input.task.agent === "ai") {
+    const aiProblems = validateAiAgentArtifact({
+      files: input.files,
+      contract: input.contract,
+    });
+    if (aiProblems.length > 0) {
+      throw new Error(
+        `Task ${input.task.id} failed AI-agent contract: ${aiProblems.join("; ")}`,
       );
     }
   }
@@ -489,6 +508,12 @@ export function validateGeneratedCodeArtifact(input: {
   );
   problems.push(
     ...validateIntegrationArtifact({
+      files: input.files,
+      contract: input.contract,
+    }),
+  );
+  problems.push(
+    ...validateAiAgentArtifact({
       files: input.files,
       contract: input.contract,
     }),
