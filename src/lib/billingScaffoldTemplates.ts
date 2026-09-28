@@ -469,7 +469,6 @@ export function billingWebhookHandlers(isNext: boolean): {
   nextRoute: string;
   expressRoute: string;
 } {
-  const importBase = isNext ? "../../../../lib/billing" : "../../lib/billing";
   const handlerBody = `
   await processBillingEventOnce(event.id, event.type, async () => {
     if (event.type === "checkout.session.completed") {
@@ -507,7 +506,7 @@ export function billingWebhookHandlers(isNext: boolean): {
     if (event.type === "charge.refunded") {
       await auditBillingAction(event.id, "charge.refunded", "processed");
     }
-  });\`;
+  });`;
 
   const nextRoute = `import { NextResponse } from "next/server";
 import {
@@ -537,7 +536,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
-\${handlerBody}
+${handlerBody}
   return NextResponse.json({ received: true });
 }
 `;
@@ -574,7 +573,7 @@ export async function stripeWebhook(req: Request, res: Response) {
     res.status(400).send("Invalid signature");
     return;
   }
-\${handlerBody}
+${handlerBody}
   res.json({ received: true });
 }
 `;
