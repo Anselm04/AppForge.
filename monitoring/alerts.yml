@@ -94,7 +94,7 @@ groups:
           description: "Production deployment verification has failed repeatedly."
 
       - alert: RateLimitPressure
-        expr: increase(appforge_rate_limit_rejections_total[10m]) > 100
+        expr: sum(increase(appforge_rate_limit_rejections_total[10m])) > 100
         for: 5m
         labels:
           severity: warning
