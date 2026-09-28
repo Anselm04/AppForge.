@@ -380,3 +380,15 @@ Verification target:
 - Require the Chromium customer-shell step to pass against the public Fly production URL.
 - Treat missing prompt interaction, broken compact navigation, fewer than 100 language choices, failed French locale application, or non-functional theme toggles as a production regression requiring correction before the release is considered customer-ready.
 
+
+
+## Generated-product deployment contract
+
+Recovery invariant reviewed 28 September 2026:
+- Production deployment must pass the canonical generated-product deployment contract before any provider action. The selected stack, runtime metadata, deployment metadata, required environment/config artifacts, database migration/schema evidence when required, and requested worker/scheduled-job support must agree with the canonical product contract.
+- Production destinations are fail-closed: only the trusted production destinations implemented by AppForge may be used, and the selected stack adapter must explicitly support the requested destination.
+- Every packaged production artifact carries `appforge.production.json` with the deployment version, startup and health contract, domain/TLS policy, asset handling, database requirements, worker/scheduled-job policy, scaling/resource limits, bounded deploy and health timeouts, and rollback policy.
+- Production identity remains SHA-256 based. The deployed build identity must match the exact validated artifact before AppForge may report success; the deployment manifest is also hashed and returned with the verified deployment result.
+- A successful production certification emits a deployment audit record tied to destination, stack, artifact SHA-256, artifact version, verified URL, and verification timestamp. A missing or failed verification must never be converted into a successful deployment record.
+- Recovery uses the previous verified artifact/version as the rollback target. Operators must not mark an unverified artifact current merely because generation, provider upload, or container startup succeeded.
+- These invariants apply to generated customer products independently of the AppForge host deployment. They do not authorize direct execution of generated code on the AppForge host or reuse of AppForge production credentials.
