@@ -64,7 +64,9 @@ export async function deployValidatedProjectWithRetry(input: {
     version: number;
     integrity: ArtifactIntegrity;
   };
-  onStage?: (stage: import("../lib/buildStatus.js").BuildStage) => Promise<void> | void;
+  onStage?: (
+    stage: import("../lib/buildStatus.js").BuildStage,
+  ) => Promise<void> | void;
 }) {
   let lastError: unknown;
   const deploymentTrace = startOperationalTrace({
