@@ -7,6 +7,7 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+      - ./monitoring/secrets/appforge_metrics_token:/run/secrets/appforge_metrics_token:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
