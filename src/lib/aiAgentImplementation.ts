@@ -55,8 +55,11 @@ function isClientExposedPath(
   }
   if (/["']use client["']/.test(source)) return true;
   if (/^(?:src\/server|server|api|app\/api)\//i.test(path)) return false;
-  if (adapter.id === "react-node") {
-    return /\.(?:tsx|jsx)$/i.test(path) || /^src\/(?:components|pages|hooks)\//i.test(path);
+  if (
+    /\.(?:tsx|jsx)$/i.test(path) ||
+    /^src\/(?:components|pages|hooks|client|ui)\//i.test(path)
+  ) {
+    return true;
   }
   return false;
 }
@@ -129,7 +132,7 @@ export function aiAgentPlannerInstruction(contract: ProductContract): string {
     "- Plan a typed tool registry with per-tool permissions and least-privilege scopes.",
     "- Plan policy/guardrail code covering human approval boundaries, prompt-injection defense, refusal behavior, output validation, and truthful action-result reporting.",
     "- Plan memory/context boundaries with retention/scope rules and hard context/token limits.",
-    "- Plan cost/budget limits plus bounded retries, timeouts, and fallback behavior.",
+    "- Plan cost/budget limits plus bounded retry logic, timeout handling, and fallback behavior.",
     "- Plan durable audit logging for model calls, tool requests, approvals, refusals, and tool outcomes without logging secrets.",
     "- Plan user-visible AI status/progress that distinguishes thinking, waiting for approval, tool running, succeeded, failed, refused, and unconfigured states.",
     "- Include .env.example and docs/AI_AGENT.md setup/safety documentation.",
@@ -294,7 +297,7 @@ export function validateAiAgentArtifact(input: {
   if (
     policy.approvalExpected &&
     !/approval|approve|human.?in.?the.?loop|confirmation|confirmedByUser/i.test(
-      policySource + "\n" + toolSource,
+      policySource,
     )
   ) {
     problems.push("ai-agent contract: high-impact actions have no human approval gate");
