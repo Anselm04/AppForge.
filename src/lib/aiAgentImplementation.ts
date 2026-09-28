@@ -22,10 +22,8 @@ const AUDIT_PATH =
   /(?:^|\/)(?:src\/|app\/)?(?:ai|agent)\/(?:audit|auditLog|audit_log|telemetry)(?:\.|\/|$)/i;
 const STATUS_PATH =
   /(?:^|\/)(?:src\/|app\/)?(?:ai|agent)\/(?:status|health|progress)(?:\.|\/|$)/i;
-const DOC_PATH =
-  /(?:^|\/)docs\/(?:AI_AGENT|AI-AGENT|ai-agent|agent)\.md$/i;
-const ENV_PATH =
-  /(?:^|\/)\.env(?:\.example|\.sample|\.template)$/i;
+const DOC_PATH = /(?:^|\/)docs\/(?:AI_AGENT|AI-AGENT|ai-agent|agent)\.md$/i;
+const ENV_PATH = /(?:^|\/)\.env(?:\.example|\.sample|\.template)$/i;
 
 const SECRET_PATTERN =
   /\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY|GROQ_API_KEY|DEEPSEEK_API_KEY|MISTRAL_API_KEY|TOGETHER_API_KEY|FIREWORKS_API_KEY|OPENROUTER_API_KEY|HF_TOKEN|HUGGINGFACE_API_KEY|API_SECRET|PRIVATE_KEY|ACCESS_TOKEN|AUTH_TOKEN|SERVICE_ROLE_KEY)\b/i;
@@ -40,7 +38,9 @@ function textEntries(files: Record<string, string>): Array<[string, string]> {
 }
 
 function combined(entries: Array<[string, string]>): string {
-  return entries.map(([path, source]) => "// " + path + "\n" + source).join("\n");
+  return entries
+    .map(([path, source]) => "// " + path + "\n" + source)
+    .join("\n");
 }
 
 function isClientExposedPath(
@@ -206,39 +206,57 @@ export function validateAiAgentArtifact(input: {
   if (providerEntries.length === 0)
     problems.push("ai-agent contract: missing model-provider configuration");
   if (routerEntries.length === 0)
-    problems.push("ai-agent contract: missing model routing/fallback implementation");
+    problems.push(
+      "ai-agent contract: missing model routing/fallback implementation",
+    );
   if (policy.toolUseExpected && toolEntries.length === 0)
     problems.push("ai-agent contract: missing typed tool registry");
   if (policyEntries.length === 0)
-    problems.push("ai-agent contract: missing AI safety/permission policy implementation");
+    problems.push(
+      "ai-agent contract: missing AI safety/permission policy implementation",
+    );
   if (memoryEntries.length === 0)
-    problems.push("ai-agent contract: missing memory/context boundary implementation");
+    problems.push(
+      "ai-agent contract: missing memory/context boundary implementation",
+    );
   if (auditEntries.length === 0)
     problems.push("ai-agent contract: missing AI audit logging implementation");
   if (statusEntries.length === 0)
-    problems.push("ai-agent contract: missing user-visible AI status implementation");
+    problems.push(
+      "ai-agent contract: missing user-visible AI status implementation",
+    );
   if (docsEntries.length === 0)
-    problems.push("ai-agent contract: missing AI-agent setup/safety documentation");
+    problems.push(
+      "ai-agent contract: missing AI-agent setup/safety documentation",
+    );
   if (envEntries.length === 0)
-    problems.push("ai-agent contract: missing environment example/configuration");
+    problems.push(
+      "ai-agent contract: missing environment example/configuration",
+    );
 
   if (
     providerEntries.length > 0 &&
     !/process\.env|os\.environ|getenv|environment/i.test(providerSource)
   ) {
-    problems.push("ai-agent contract: provider configuration is not environment-backed");
+    problems.push(
+      "ai-agent contract: provider configuration is not environment-backed",
+    );
   }
   if (
     routerEntries.length > 0 &&
     !/fallback|failover|provider|model/i.test(routerSource)
   ) {
-    problems.push("ai-agent contract: model router has no provider/model fallback evidence");
+    problems.push(
+      "ai-agent contract: model router has no provider/model fallback evidence",
+    );
   }
   if (
     routerEntries.length > 0 &&
     !/retry|maxAttempts|maxRetries|attempt/i.test(routerSource)
   ) {
-    problems.push("ai-agent contract: model router has no bounded retry evidence");
+    problems.push(
+      "ai-agent contract: model router has no bounded retry evidence",
+    );
   }
   if (
     routerEntries.length > 0 &&
@@ -263,14 +281,27 @@ export function validateAiAgentArtifact(input: {
   }
 
   if (policy.toolUseExpected && toolEntries.length > 0) {
-    if (!/schema|zod|z\.object|jsonSchema|inputSchema|parameters/i.test(toolSource)) {
+    if (
+      !/schema|zod|z\.object|jsonSchema|inputSchema|parameters/i.test(
+        toolSource,
+      )
+    ) {
       problems.push("ai-agent contract: tool inputs are not schema-validated");
     }
-    if (!/permission|scope|allowlist|allowedTools|allowed_tools/i.test(toolSource)) {
-      problems.push("ai-agent contract: tool registry has no explicit permission boundary");
+    if (
+      !/permission|scope|allowlist|allowedTools|allowed_tools/i.test(toolSource)
+    ) {
+      problems.push(
+        "ai-agent contract: tool registry has no explicit permission boundary",
+      );
     }
-    if (/\b(?:shell|command|exec)\b/i.test(toolSource) && COMMAND_PATTERN.test(toolSource)) {
-      problems.push("ai-agent contract: tool registry contains unrestricted command execution");
+    if (
+      /\b(?:shell|command|exec)\b/i.test(toolSource) &&
+      COMMAND_PATTERN.test(toolSource)
+    ) {
+      problems.push(
+        "ai-agent contract: tool registry contains unrestricted command execution",
+      );
     }
   }
 
@@ -284,7 +315,9 @@ export function validateAiAgentArtifact(input: {
   }
   if (
     policyEntries.length > 0 &&
-    !/refus|deny|disallow|forbidden|not authorized|unauthorized/i.test(policySource)
+    !/refus|deny|disallow|forbidden|not authorized|unauthorized/i.test(
+      policySource,
+    )
   ) {
     problems.push("ai-agent contract: no refusal/deny behavior evidence");
   }
@@ -292,7 +325,9 @@ export function validateAiAgentArtifact(input: {
     policyEntries.length > 0 &&
     !/validate|schema|safeParse|parse\s*\(|guard/i.test(policySource)
   ) {
-    problems.push("ai-agent contract: no output/tool-argument validation evidence");
+    problems.push(
+      "ai-agent contract: no output/tool-argument validation evidence",
+    );
   }
   if (
     policy.approvalExpected &&
@@ -300,14 +335,18 @@ export function validateAiAgentArtifact(input: {
       policySource,
     )
   ) {
-    problems.push("ai-agent contract: high-impact actions have no human approval gate");
+    problems.push(
+      "ai-agent contract: high-impact actions have no human approval gate",
+    );
   }
 
   if (
     memoryEntries.length > 0 &&
     !/tenant|userId|user_id|owner|scope/i.test(memorySource)
   ) {
-    problems.push("ai-agent contract: memory has no authorized user/tenant scope");
+    problems.push(
+      "ai-agent contract: memory has no authorized user/tenant scope",
+    );
   }
   if (
     memoryEntries.length > 0 &&
@@ -315,25 +354,42 @@ export function validateAiAgentArtifact(input: {
       memorySource,
     )
   ) {
-    problems.push("ai-agent contract: memory/context has no retention or size boundary");
+    problems.push(
+      "ai-agent contract: memory/context has no retention or size boundary",
+    );
   }
 
   if (
     auditEntries.length > 0 &&
     !/tool|model|approval|refusal|result|outcome/i.test(auditSource)
   ) {
-    problems.push("ai-agent contract: audit log does not cover model/tool decision events");
+    problems.push(
+      "ai-agent contract: audit log does not cover model/tool decision events",
+    );
   }
   if (
     auditEntries.length > 0 &&
     !/redact|sanitize|secret|credential/i.test(auditSource)
   ) {
-    problems.push("ai-agent contract: audit logging has no secret-redaction evidence");
+    problems.push(
+      "ai-agent contract: audit logging has no secret-redaction evidence",
+    );
   }
 
-  for (const state of ["approval", "running", "succeeded", "failed", "refused"]) {
-    if (statusEntries.length > 0 && !new RegExp(state, "i").test(statusSource)) {
-      problems.push("ai-agent contract: user-visible status is missing " + state + " state");
+  for (const state of [
+    "approval",
+    "running",
+    "succeeded",
+    "failed",
+    "refused",
+  ]) {
+    if (
+      statusEntries.length > 0 &&
+      !new RegExp(state, "i").test(statusSource)
+    ) {
+      problems.push(
+        "ai-agent contract: user-visible status is missing " + state + " state",
+      );
     }
   }
 
@@ -342,9 +398,13 @@ export function validateAiAgentArtifact(input: {
     /(?:completed|succeeded|sent|deployed|updated)\s*[:=]\s*(?:true|["'](?:done|success|completed)["'])/i.test(
       statusSource,
     ) &&
-    !/toolResult|tool_result|providerResult|provider_result|verified/i.test(statusSource)
+    !/toolResult|tool_result|providerResult|provider_result|verified/i.test(
+      statusSource,
+    )
   ) {
-    problems.push("ai-agent contract: status can claim action success without verified tool/provider result");
+    problems.push(
+      "ai-agent contract: status can claim action success without verified tool/provider result",
+    );
   }
 
   if (docsEntries.length > 0) {
@@ -362,13 +422,18 @@ export function validateAiAgentArtifact(input: {
       "status",
     ]) {
       if (!new RegExp(term, "i").test(docsSource)) {
-        problems.push("ai-agent contract: documentation does not cover " + term);
+        problems.push(
+          "ai-agent contract: documentation does not cover " + term,
+        );
       }
     }
   }
 
   for (const [path, source] of entries) {
-    if (isClientExposedPath(path, source, input.contract) && SECRET_PATTERN.test(source)) {
+    if (
+      isClientExposedPath(path, source, input.contract) &&
+      SECRET_PATTERN.test(source)
+    ) {
       problems.push(
         "ai-agent contract: client-exposed file references model/provider secret material: " +
           path,
@@ -381,7 +446,9 @@ export function validateAiAgentArtifact(input: {
       allSource,
     )
   ) {
-    problems.push("ai-agent contract: hard-coded model/provider credential detected");
+    problems.push(
+      "ai-agent contract: hard-coded model/provider credential detected",
+    );
   }
 
   return [...new Set(problems)];
