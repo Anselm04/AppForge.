@@ -483,6 +483,15 @@ export function Build() {
     project?.planStatus === "approved" &&
     (!monetizationRequired || project?.monetizationApproved === true) &&
     (!integrationsRequired || project?.integrationsApproved === true);
+  const unresolvedDecisions = [
+    project?.planStatus !== "approved" ? "Plan approval" : null,
+    monetizationRequired && project?.monetizationApproved !== true
+      ? "Monetization approval"
+      : null,
+    integrationsRequired && project?.integrationsApproved !== true
+      ? "Integration approval"
+      : null,
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8">
@@ -552,6 +561,14 @@ export function Build() {
                 value={project.planStatus ?? "planning"}
               />
               <StatusFact
+                label="Unresolved decisions"
+                value={
+                  unresolvedDecisions.length > 0
+                    ? unresolvedDecisions.join(", ")
+                    : "None"
+                }
+              />
+              <StatusFact
                 label="Incomplete requirements"
                 value={
                   unresolvedRequirements.length > 0
@@ -577,6 +594,31 @@ export function Build() {
               Generation is paused. Review the architecture and approve only the
               decisions you want AppForge to implement.
             </p>
+
+            {project.productPlan && (
+              <details className="mt-4 rounded-lg border border-amber-800/50 bg-slate-950/60 p-3">
+                <summary className="cursor-pointer font-medium">
+                  Review validated plan
+                </summary>
+                <div className="mt-3 space-y-2 text-sm text-slate-300">
+                  <p className="font-medium text-white">
+                    {project.productPlan.title}
+                  </p>
+                  <p>{project.productPlan.overview}</p>
+                  <p>
+                    <span className="text-slate-500">Architecture:</span>{" "}
+                    {project.productPlan.architecture.summary}
+                  </p>
+                  <ol className="list-decimal space-y-1 pl-5">
+                    {project.productPlan.implementationSequence.map(
+                      (step: string) => (
+                        <li key={step}>{step}</li>
+                      ),
+                    )}
+                  </ol>
+                </div>
+              </details>
+            )}
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <ApprovalItem
@@ -715,13 +757,17 @@ export function Build() {
             <p className="font-semibold text-lg">
               {structuralOnly
                 ? "Source generation complete (not deployed)"
-                : "App generation complete!"}
+                : project?.status === "production-certified"
+                  ? "Production certification complete!"
+                  : "Validated production candidate"}
             </p>
             <p className="mt-2">
               {structuralOnly
                 ? (stack?.notice ??
                   "This stack is structural-only: download or export the source; it has not been deployed.")
-                : "Edit files in the Code tab, iterate in Chat, then deploy."}
+                : project?.status === "production-certified"
+                  ? "The deployed product passed the configured production verification gates."
+                  : "The artifact is validated but is not production-certified. You can edit, export, preview, or deploy it."}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {!structuralOnly && (
