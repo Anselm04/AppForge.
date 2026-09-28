@@ -43,6 +43,7 @@ import {
 import { closeDbConnection, getProjectById } from "./db.js";
 import { ensureAppSchema } from "./db/ensureSchema.js";
 import { logger } from "./_core/logger.js";
+import { timingSafeEqual } from "node:crypto";
 import { AppError } from "./utils/errorReporting.js";
 import { validateEnv } from "./utils/env-validator.js";
 import {
@@ -158,10 +159,29 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/metrics", (_req, res) => {
+app.get("/metrics", (req, res) => {
+  const configuredToken = process.env.APPFORGE_METRICS_TOKEN?.trim() ?? "";
+  if (ENV.isProduction) {
+    const authorization = req.headers.authorization ?? "";
+    const prefix = "Bearer ";
+    const supplied = authorization.startsWith(prefix)
+      ? authorization.slice(prefix.length)
+      : "";
+    const configuredBuffer = Buffer.from(configuredToken);
+    const suppliedBuffer = Buffer.from(supplied);
+    const authorized =
+      configuredBuffer.length > 0 &&
+      configuredBuffer.length === suppliedBuffer.length &&
+      timingSafeEqual(configuredBuffer, suppliedBuffer);
+    if (!authorized) {
+      incrementOperationalMetric("appforge_metrics_auth_failures_total");
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  }
   res.setHeader("Cache-Control", "no-store");
   res.type("text/plain; version=0.0.4");
-  res.send(renderPrometheusMetrics());
+  return res.send(renderPrometheusMetrics());
 });
 
 app.use(cookieParser(ENV.cookieSecret));
