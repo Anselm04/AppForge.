@@ -200,7 +200,6 @@ export function validateProductPlan(
     throw new Error("Planner must include AI modules for this product");
   }
 
-
   const aiPolicy = aiAgentPolicy(contract);
   if (aiPolicy.required) {
     const aiTasks = plan.tasks.filter((task) => task.agent === "ai");
