@@ -176,7 +176,7 @@ export function canAccessFeature(
 
 
 export function billingCatalogModule(): string {
-  return \`export type BillingPlan = "free" | "pro" | "enterprise";
+  return `export type BillingPlan = "free" | "pro" | "enterprise";
 
 export type BillingCatalogEntry = {
   plan: BillingPlan;
@@ -215,11 +215,11 @@ export function planFromPriceId(priceId?: string | null): BillingPlan {
   if (!priceId) return "free";
   return getBillingCatalog().find((entry) => entry.priceId === priceId)?.plan ?? "free";
 }
-\`;
+`;
 }
 
 export function billingLimitsModule(): string {
-  return \`import { getEntitlements } from "./entitlements.js";
+  return `import { getEntitlements } from "./entitlements.js";
 
 export const PLAN_LIMITS = {
   free: { monthlyActions: 10 },
@@ -242,11 +242,11 @@ export async function requirePaidAccess(userId: string, feature = "pro") {
     limits: PLAN_LIMITS[entitlements.plan],
   };
 }
-\`;
+`;
 }
 
 export function billingAuditModule(): string {
-  return \`import { getBillingDb } from "./db.js";
+  return `import { getBillingDb } from "./db.js";
 
 export async function processBillingEventOnce(
   eventId: string,
@@ -297,11 +297,11 @@ export async function auditBillingAction(
     VALUES (\${eventId}, \${eventType}, \${outcome}, NOW())
   \`;
 }
-\`;
+`;
 }
 
 export function billingInvoicesModule(): string {
-  return \`import { getBillingDb } from "./db.js";
+  return `import { getBillingDb } from "./db.js";
 
 export async function recordInvoiceState(input: {
   invoiceId: string;
@@ -328,11 +328,11 @@ export async function recordInvoiceState(input: {
     \`;
   }
 }
-\`;
+`;
 }
 
 export function billingRefundsModule(): string {
-  return \`import { auditBillingAction } from "./audit.js";
+  return `import { auditBillingAction } from "./audit.js";
 
 export async function refundPayment(input: {
   paymentIntentId: string;
@@ -354,11 +354,11 @@ export async function refundPayment(input: {
   await auditBillingAction(refund.id, "refund.created", "processed");
   return refund;
 }
-\`;
+`;
 }
 
 export function billingHealthModule(): string {
-  return \`import { resolveBillingPlan } from "./catalog.js";
+  return `import { resolveBillingPlan } from "./catalog.js";
 
 export type BillingHealth = {
   configured: boolean;
@@ -399,14 +399,14 @@ export async function verifyBillingHealth(): Promise<BillingHealth> {
     };
   }
 }
-\`;
+`;
 }
 
 export function billingPortalRoutes(isNext: boolean): {
   nextRoute: string;
   expressRoute: string;
 } {
-  const nextRoute = \`import { NextResponse } from "next/server";
+  const nextRoute = `import { NextResponse } from "next/server";
 import { getUserIdFromRequest } from "../../../../lib/auth/session.js";
 import { getSubscriptionByUserId } from "../../../../lib/billing/subscriptions.js";
 
@@ -430,9 +430,9 @@ export async function POST(req: Request) {
   });
   return NextResponse.json({ url: session.url });
 }
-\`;
+`;
 
-  const expressRoute = \`import type { Request, Response } from "express";
+  const expressRoute = `import type { Request, Response } from "express";
 import { getUserIdFromRequest } from "../../lib/auth/session.js";
 import { getSubscriptionByUserId } from "../../lib/billing/subscriptions.js";
 
@@ -461,7 +461,7 @@ export async function createBillingPortal(req: Request, res: Response) {
   });
   res.json({ url: session.url });
 }
-\`;
+`;
   return { nextRoute, expressRoute };
 }
 
@@ -470,7 +470,7 @@ export function billingWebhookHandlers(isNext: boolean): {
   expressRoute: string;
 } {
   const importBase = isNext ? "../../../../lib/billing" : "../../lib/billing";
-  const handlerBody = \`
+  const handlerBody = `
   await processBillingEventOnce(event.id, event.type, async () => {
     if (event.type === "checkout.session.completed") {
       await upsertFromCheckoutSession(event.data.object);
@@ -509,7 +509,7 @@ export function billingWebhookHandlers(isNext: boolean): {
     }
   });\`;
 
-  const nextRoute = \`import { NextResponse } from "next/server";
+  const nextRoute = `import { NextResponse } from "next/server";
 import {
   upsertFromCheckoutSession,
   updateFromStripeSubscription,
@@ -540,9 +540,9 @@ export async function POST(req: Request) {
 \${handlerBody}
   return NextResponse.json({ received: true });
 }
-\`;
+`;
 
-  const expressRoute = \`import type { Request, Response } from "express";
+  const expressRoute = `import type { Request, Response } from "express";
 import {
   upsertFromCheckoutSession,
   updateFromStripeSubscription,
@@ -577,13 +577,13 @@ export async function stripeWebhook(req: Request, res: Response) {
 \${handlerBody}
   res.json({ received: true });
 }
-\`;
+`;
 
   return { nextRoute, expressRoute };
 }
 
 export function billingSchemaSql(): string {
-  return \`-- Run once against production: psql "$DATABASE_URL" -f database/billing-schema.sql
+  return `-- Run once against production: psql "$DATABASE_URL" -f database/billing-schema.sql
 CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL UNIQUE,
@@ -620,11 +620,11 @@ CREATE TABLE IF NOT EXISTS billing_invoices (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_billing_events_status ON billing_events(status);
 CREATE INDEX IF NOT EXISTS idx_billing_audit_event ON billing_audit(event_id);
-\`;
+`;
 }
 
 export function billingSetupReadme(isNext: boolean): string {
-  return \`# Billing setup (generated by AppForge)
+  return `# Billing setup (generated by AppForge)
 
 This product requested monetization. Billing stays **unconfigured** until all server configuration below exists and the billing health check verifies the configured Stripe price.
 
@@ -662,7 +662,7 @@ The browser may display billing state returned by \`/api/billing/me\`, but it ne
 Billing webhooks are idempotent. Failed events are recorded as failed and may be retried; do not manually mark an event processed without reconciling the corresponding Stripe object and local ledger.
 
 \${isNext ? "Next.js: the webhook route reads the raw request body." : "Express: mount stripeWebhook with express.raw({ type: 'application/json' }) before express.json()."}
-\`;
+`;
 }
 
 export function billingSessionModule(): string {
@@ -717,7 +717,7 @@ export async function getBillingMe(req: Request, res: Response) {
 }
 
 export function requireProComponent(): string {
-  return \`import { useEffect, useState, type ReactNode } from "react";
+  return `import { useEffect, useState, type ReactNode } from "react";
 
 type Entitlements = {
   plan: "free" | "pro" | "enterprise";
@@ -773,5 +773,5 @@ export function RequirePro({ feature = "pro", children, fallback }: Props) {
   }
   return <>{children}</>;
 }
-\`;
+`;
 }
