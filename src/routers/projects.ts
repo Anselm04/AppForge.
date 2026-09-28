@@ -35,6 +35,22 @@ import {
 
 const FREE_TIER_LIMIT = 3;
 
+const recoveryFailureKindEnum = z.enum([
+  "application_failure",
+  "artifact_failure",
+  "database_failure",
+  "migration_failure",
+  "queue_interruption",
+  "build_interrupted",
+  "provider_failure",
+  "deployment_failure",
+  "preview_failure",
+  "credit_refund_failure",
+  "duplicate_build",
+  "partial_generation",
+  "paused_build",
+]);
+
 // ── Validated tech stack options ──
 const techStackEnum = z.enum([
   // Web apps
@@ -670,6 +686,80 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
       }
       return getSnapshotsByProject(input.projectId);
+    }),
+
+  /** Recovery status and safe action for a project failure mode. */
+  recoveryStatus: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        failureKind: recoveryFailureKindEnum.optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      }
+      const {
+        getLatestKnownGoodCheckpoint,
+        recoveryGuidance,
+      } = await import("../services/recovery.js");
+      const [latest, production] = await Promise.all([
+        getLatestKnownGoodCheckpoint(input.projectId),
+        getLatestKnownGoodCheckpoint(input.projectId, {
+          productionOnly: true,
+        }),
+      ]);
+      return {
+        projectId: input.projectId,
+        projectStatus: project.status,
+        pauseReason: project.pauseReason ?? null,
+        latestKnownGood: latest ?? null,
+        latestProductionVerified: production ?? null,
+        guidance: input.failureKind
+          ? recoveryGuidance(input.failureKind)
+          : null,
+      };
+    }),
+
+  /** Restore the newest known-good checkpoint through atomic snapshot activation. */
+  rollbackLatestKnownGood: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        productionOnly: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      }
+      const { getLatestKnownGoodCheckpoint } =
+        await import("../services/recovery.js");
+      const { markSnapshotAsCurrent } = await import("../db.js");
+      const checkpoint = await getLatestKnownGoodCheckpoint(input.projectId, {
+        productionOnly: input.productionOnly,
+      });
+      if (!checkpoint) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: input.productionOnly
+            ? "No production-verified recovery checkpoint is available"
+            : "No known-good recovery checkpoint is available",
+        });
+      }
+      await markSnapshotAsCurrent(checkpoint.snapshotId, input.projectId);
+      return {
+        success: true,
+        snapshotId: checkpoint.snapshotId,
+        artifactVersion: checkpoint.artifactVersion,
+        artifactSha256: checkpoint.artifactSha256,
+        deploymentVersion: checkpoint.deploymentVersion,
+        liveUrl: checkpoint.liveUrl,
+        source: checkpoint.source,
+      };
     }),
 
   /** Rollback to a specific snapshot version */
