@@ -8,6 +8,7 @@
 
     do {
       if (fixAttempt > 0) {
+        await updateProjectBuildStage(projectId, "repairing");
         emit("Coder", "fix_start", {
           message: `Surgical auto-fix attempt ${fixAttempt}/${maxFixRetries}`,
           errors: validationResult?.errors ?? [],
@@ -82,7 +83,17 @@
           })
           .where(eq(schema.agentLogs.id, coderLogId));
         await markAgentLogComplete(coderLogId);
-        await updateProjectFiles(projectId, { ...generatedFiles });
+        await updateProjectBuildStage(projectId, "persisting");
+        await updateProjectBuildStage(projectId, "persisting");
+      await updateProjectFiles(projectId, { ...generatedFiles });
+      await updateProjectBuildStage(
+        projectId,
+        fixAttempt > 0 ? "repairing" : "generating",
+      );
+        await updateProjectBuildStage(
+          projectId,
+          fixAttempt > 0 ? "repairing" : "generating",
+        );
         resumedGeneratedFiles = { ...generatedFiles };
         await recordCoordinationEvent({
           agent: "Coder",
@@ -308,7 +319,17 @@
                 ownerAgent: task.agent,
                 status: coordinationStatusSummary(coordinationRecord),
               });
-              await updateProjectFiles(projectId, { ...generatedFiles });
+              await updateProjectBuildStage(projectId, "persisting");
+        await updateProjectBuildStage(projectId, "persisting");
+      await updateProjectFiles(projectId, { ...generatedFiles });
+      await updateProjectBuildStage(
+        projectId,
+        fixAttempt > 0 ? "repairing" : "generating",
+      );
+        await updateProjectBuildStage(
+          projectId,
+          fixAttempt > 0 ? "repairing" : "generating",
+        );
               write("files_partial", {
                 fileCount: Object.keys(generatedFiles).length,
                 taskId: task.id,
@@ -468,7 +489,12 @@
       generatedFiles["appforge.requirements.json"] =
         serializeRequirementManifest(requirementManifest);
       await updateProjectRequirementManifest(projectId, requirementManifest);
+      await updateProjectBuildStage(projectId, "persisting");
       await updateProjectFiles(projectId, { ...generatedFiles });
+      await updateProjectBuildStage(
+        projectId,
+        fixAttempt > 0 ? "repairing" : "generating",
+      );
       emit("System", "requirements_updated", {
         revision: requirementManifest.revision,
         unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
