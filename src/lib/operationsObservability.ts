@@ -40,6 +40,10 @@ const MAX_TRACES = 250;
 const counters = new Map<string, MetricCounter>();
 const gauges = new Map<string, MetricCounter>();
 const traces: OperationalTrace[] = [];
+const activePipelineTraces = new Map<
+  string,
+  ReturnType<typeof startOperationalTrace>
+>();
 
 const safeLabel = (value: string | number | boolean) =>
   String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
@@ -150,6 +154,47 @@ export function recordPipelineTraceEvent(
   setOperationalGauge("appforge_last_agent_project_id", projectId, {
     component,
   });
+
+  const key = `${projectId}:${agent}`;
+  const startsPhase =
+    type === "start" ||
+    type === "fix_start" ||
+    type === "redesign_required";
+  const completesPhase =
+    type === "complete" ||
+    type === "skipped" ||
+    type === "failure" ||
+    type === "failed" ||
+    type === "requirements_fail";
+
+  if (startsPhase) {
+    const existing = activePipelineTraces.get(key);
+    if (existing) existing.end("error", { replacedByNewPhase: true });
+    activePipelineTraces.set(
+      key,
+      startOperationalTrace({
+        component,
+        operation: `${normalized}_phase`,
+        metadata: { projectId, agent, startEvent: type },
+      }),
+    );
+  } else if (completesPhase) {
+    const existing = activePipelineTraces.get(key);
+    if (existing) {
+      existing.end(
+        type === "complete" || type === "skipped" ? "ok" : "error",
+        { endEvent: type },
+      );
+      activePipelineTraces.delete(key);
+    } else {
+      const instant = startOperationalTrace({
+        component,
+        operation: `${normalized}_phase`,
+        metadata: { projectId, agent, endEvent: type },
+      });
+      instant.end(type === "complete" || type === "skipped" ? "ok" : "error");
+    }
+  }
 }
 
 export function recordModelUsage(input: {
@@ -328,4 +373,5 @@ export function resetOperationalObservabilityForTests(): void {
   counters.clear();
   gauges.clear();
   traces.splice(0, traces.length);
+  activePipelineTraces.clear();
 }
