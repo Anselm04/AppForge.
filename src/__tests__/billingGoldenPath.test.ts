@@ -37,8 +37,15 @@ describe("billing golden path scaffold", () => {
     expect(subscriptions).toContain("WHERE stripe_customer_id");
     expect(subscriptions).toContain("stripe_subscription_id");
     expect(subscriptions).toContain("RETURNING user_id");
-    expect(audit).toContain("billing_events.status = 'processing'");
-    expect(audit).toContain("INTERVAL '5 minutes'");
+    expect(subscriptions).toContain(
+      "subscriptions.status NOT IN ('inactive', 'pending')",
+    );
+    expect(audit).toContain("BILLING_EVENT_LEASE_MS");
+    expect(audit).toContain("claim_owner");
+    expect(audit).toContain("randomUUID");
+    expect(audit).toContain("BILLING_EVENT_HEARTBEAT_MS");
+    expect(audit).toContain("claim_owner = \${claimOwner}");
+    expect(audit).toContain("Billing event claim was lost before completion");
   });
 
   it("passes strengthened billing validation", () => {
