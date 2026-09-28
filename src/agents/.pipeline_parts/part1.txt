@@ -165,11 +165,29 @@
       .filter(Boolean)
       .join("\n");
 
-    let productPlan: ProductPlan | null = null;
-    let plannerOutput = "";
+    let productPlan: ProductPlan | null =
+      projectRow?.planStatus === "approved" &&
+      projectRow.productPlan &&
+      !projectRow.planRevisionRequest
+        ? validateProductPlan(projectRow.productPlan, productContract)
+        : null;
+    let plannerOutput = productPlan
+      ? JSON.stringify(productPlan, null, 2)
+      : "";
     let plannerValidationError = "";
 
-    for (let plannerAttempt = 1; plannerAttempt <= 3; plannerAttempt++) {
+    if (productPlan) {
+      emit("Planner", "resume_approved_plan", {
+        message:
+          "Reusing the exact user-approved plan; no silent re-planning is allowed.",
+      });
+    }
+
+    for (
+      let plannerAttempt = 1;
+      !productPlan && plannerAttempt <= 3;
+      plannerAttempt++
+    ) {
       plannerOutput = "";
       if (plannerAttempt > 1) {
         emit("Planner", "retry", {
