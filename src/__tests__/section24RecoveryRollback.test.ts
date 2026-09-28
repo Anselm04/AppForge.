@@ -12,7 +12,9 @@ describe("#24 Recovery and Rollback", () => {
     expect(schema).toContain('export const recoveryCheckpoints = pgTable(');
     expect(schema).toContain('"recovery_checkpoints"');
     expect(schema).toContain('artifactSha256: varchar("artifact_sha256"');
-    expect(schema).toContain('deploymentVersion: integer("deployment_version")');
+    expect(schema).toContain(
+      'deploymentVersion: integer("deployment_version")',
+    );
     expect(schema).toContain('deploymentManifestSha256: varchar(');
     expect(migration).toContain(
       '"recovery_checkpoint_project_artifact_source_unique"',
@@ -26,7 +28,9 @@ describe("#24 Recovery and Rollback", () => {
     expect(recovery).toContain('source === "production_verified"');
   });
 
-  it("records validated and production-verified recovery points only after success", () => {
+  it(
+    "records validated and production-verified recovery points only after success",
+    () => {
     const worker = source("src/services/build-worker.ts");
     const validated = worker.indexOf('source: "validated_artifact"');
     const deploy = worker.indexOf("await deployValidatedProjectWithRetry({");
@@ -38,13 +42,18 @@ describe("#24 Recovery and Rollback", () => {
     expect(worker).toContain(
       "deploymentManifestSha256: deployed.deploymentManifestSha256",
     );
-    expect(worker).toContain("liveUrl: deployed.liveUrl");
-  });
+      expect(worker).toContain("liveUrl: deployed.liveUrl");
+    },
+  );
 
-  it("restores the latest known-good snapshot through atomic activation", () => {
+  it(
+    "restores the latest known-good snapshot through atomic activation",
+    () => {
     const router = source("src/routers/projects.ts");
     const start = router.indexOf("rollbackLatestKnownGood: protectedProcedure");
-    const end = router.indexOf("/** Rollback to a specific snapshot version */");
+      const end = router.indexOf(
+        "/** Rollback to a specific snapshot version */",
+      );
     const rollback = router.slice(start, end);
 
     expect(start).toBeGreaterThan(-1);
@@ -53,10 +62,13 @@ describe("#24 Recovery and Rollback", () => {
       "await markSnapshotAsCurrent(checkpoint.snapshotId, input.projectId)",
     );
     expect(rollback).not.toContain("updateProjectFiles");
-    expect(rollback).not.toContain("generatedFiles");
-  });
+      expect(rollback).not.toContain("generatedFiles");
+    },
+  );
 
-  it("covers every required recovery failure class without promoting partial state", () => {
+  it(
+    "covers every required recovery failure class without promoting partial state",
+    () => {
     const recovery = source("src/services/recovery.ts");
     const runbook = source("docs/RECOVERY_AND_ROLLBACK.md");
     const kinds = [
@@ -85,8 +97,9 @@ describe("#24 Recovery and Rollback", () => {
     expect(runbook).toContain(
       "Credit refunds use attempt-specific idempotency keys",
     );
-    expect(runbook).toContain("Data-recovery verification checklist");
-  });
+      expect(runbook).toContain("Data-recovery verification checklist");
+    },
+  );
 
   it("keeps Section 24 procedures inside recovery governance", () => {
     const workflow = source(".github/workflows/recovery-readiness.yml");
