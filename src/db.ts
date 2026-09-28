@@ -9,6 +9,7 @@ import {
   validateProductContract,
   withSelectedTechnologyStack,
   type ProductContract,
+  type PromptIntent,
 } from "./lib/productContract.js";
 import {
   assertArtifactIntegrity,
@@ -248,6 +249,7 @@ export async function createProject(data: {
   locale?: string;
   buildCapabilities?: string[];
   productContract?: ProductContract;
+  promptIntent?: PromptIntent;
 }) {
   let productContract = data.productContract;
   if (!productContract) {
@@ -281,6 +283,9 @@ export async function createProject(data: {
       locale: data.locale,
       buildCapabilities: data.buildCapabilities ?? [],
       productContract,
+      promptIntent: data.promptIntent,
+      buildStage: "planning",
+      planStatus: "planning",
     })
     .returning({ id: schema.projects.id });
   return result[0].id;
