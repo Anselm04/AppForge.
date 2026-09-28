@@ -481,7 +481,8 @@ export const projectsRouter = router({
 
       const credits = await ensureUserCredits(ctx.user.id);
       const unlimited = !!credits.unlimited || credits.tier === "lifetime";
-      let reservationCharged = (project.creditsReserved ?? 0) >= BUILD_CREDIT_COST;
+      let reservationCharged =
+        (project.creditsReserved ?? 0) >= BUILD_CREDIT_COST;
       let newlyCharged = false;
       if (!unlimited && !reservationCharged) {
         if (credits.balance < BUILD_CREDIT_COST) {
@@ -504,7 +505,10 @@ export const projectsRouter = router({
 
       const { claimProjectBuildStart, releaseProjectBuildClaim } =
         await import("../services/build-claim.js");
-      const claimed = await claimProjectBuildStart(input.projectId, ctx.user.id);
+      const claimed = await claimProjectBuildStart(
+        input.projectId,
+        ctx.user.id,
+      );
       if (!claimed) {
         if (newlyCharged) {
           const { addCredits } = await import("../db.js");
@@ -519,7 +523,8 @@ export const projectsRouter = router({
         }
         throw new TRPCError({
           code: "CONFLICT",
-          message: "The build is already resuming or no longer awaiting approval.",
+          message:
+            "The build is already resuming or no longer awaiting approval.",
         });
       }
 
