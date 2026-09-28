@@ -53,6 +53,63 @@ export function validateBillingGoldenPath(files: Files): BillingE2eReport {
       passed: Boolean(files["database/billing-schema.sql"]),
       hint: "Run database/billing-schema.sql on Postgres",
     },
+    {
+      id: "catalog",
+      label: "Server-side product and price catalog",
+      passed: text.includes("resolvebillingplan") && text.includes("priceid"),
+      hint: "Generate server-side billing catalog",
+    },
+    {
+      id: "portal",
+      label: "Customer portal for plan changes",
+      passed: text.includes("billingportal.sessions.create"),
+      hint: "Generate authenticated billing portal route",
+    },
+    {
+      id: "invoice_failure",
+      label: "Invoice paid and failed-payment handling",
+      passed:
+        text.includes("invoice.paid") &&
+        text.includes("invoice.payment_failed") &&
+        text.includes("past_due"),
+      hint: "Handle invoice lifecycle server-side",
+    },
+    {
+      id: "refunds",
+      label: "Refund and reconciliation handling",
+      passed: text.includes("refundpayment") && text.includes("stripe.refunds.create"),
+      hint: "Generate server-side refund path",
+    },
+    {
+      id: "idempotency",
+      label: "Duplicate webhook protection",
+      passed:
+        text.includes("processbillingeventonce") &&
+        text.includes("billing_events"),
+      hint: "Persist and deduplicate provider event IDs",
+    },
+    {
+      id: "audit",
+      label: "Billing event audit trail",
+      passed: text.includes("auditbillingaction") && text.includes("billing_audit"),
+      hint: "Persist billing event outcomes",
+    },
+    {
+      id: "limits",
+      label: "Server-side access limits",
+      passed: text.includes("requirepaidaccess") && text.includes("plan_limits"),
+      hint: "Enforce paid limits on the server",
+    },
+    {
+      id: "verified_config",
+      label: "Verified billing configuration state",
+      passed:
+        text.includes("verifybillinghealth") &&
+        text.includes("configured") &&
+        text.includes("verified") &&
+        text.includes("unconfigured"),
+      hint: "Do not claim billing active until provider config is verified",
+    },
   ];
 
   return {
