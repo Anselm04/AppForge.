@@ -117,7 +117,8 @@ describe("placeholder and incomplete-product protection", () => {
   ])("detects forbidden placeholder text: %s", (text) => {
     const c = contract();
     const files = completeFiles(c);
-    files["src/App.tsx"] += `\nexport const placeholderMessage = ${JSON.stringify(text)};`;
+    files["src/App.tsx"] +=
+      `\nexport const placeholderMessage = ${JSON.stringify(text)};`;
     const report = inspectIncompleteProduct({
       files,
       productContract: c,
@@ -151,7 +152,7 @@ describe("placeholder and incomplete-product protection", () => {
     const c = contract();
     const files = completeFiles(c);
     files["src/api/tasks.ts"] =
-      'export function handler(_req:any,res:any){ res.json({ success: true }); }';
+      "export function handler(_req:any,res:any){ res.json({ success: true }); }";
     files["src/TaskService.ts"] = "export class TaskService {}";
     files["src/db/schema.ts"] = "export const schema = {};";
 
@@ -267,9 +268,9 @@ describe("placeholder and incomplete-product protection", () => {
       files,
       productContract: c,
     });
-    expect(JSON.parse(withEvidence["appforge.completeness.json"]).complete).toBe(
-      true,
-    );
+    expect(
+      JSON.parse(withEvidence["appforge.completeness.json"]).complete,
+    ).toBe(true);
   });
 
   it("blocks production deployment before contacting a provider when product is incomplete", async () => {
