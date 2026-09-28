@@ -268,8 +268,8 @@ describe("Section 20 AI-agent product contract", () => {
     expect(() => validateProductPlan(completePlan(), contract())).not.toThrow();
 
     const broken = completePlan();
-    broken.tasks = [] as any;
-    broken.implementationSequence = [] as any;
+    broken.tasks[0].agent = "backend";
+    broken.taskToAgent["AI-001"] = "backend";
     expect(() => validateProductPlan(broken, contract())).toThrow(
       /AI-owned task/i,
     );
