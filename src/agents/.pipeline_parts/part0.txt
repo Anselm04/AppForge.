@@ -1,6 +1,7 @@
 import {
   appendAgentLog,
   markAgentLogComplete,
+  updateProjectBuildStage,
   updateProjectFiles,
   updateProjectRequirementManifest,
   updateProjectStatus,
@@ -259,6 +260,10 @@ export async function runAgentPipeline(
       productContract: true,
       researchRecord: true,
       productPlan: true,
+      planStatus: true,
+      planRevisionRequest: true,
+      monetizationApproved: true,
+      integrationsApproved: true,
       agentCoordination: true,
       requirementManifest: true,
     },
