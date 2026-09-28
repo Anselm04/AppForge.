@@ -46,13 +46,20 @@ const activePipelineTraces = new Map<
 >();
 
 const safeLabel = (value: string | number | boolean) =>
-  String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n");
 
 function metricKey(name: string, labels: MetricLabels): string {
-  return name + "|" + Object.entries(labels)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join(",");
+  return (
+    name +
+    "|" +
+    Object.entries(labels)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(",")
+  );
 }
 
 export function incrementOperationalMetric(
@@ -157,9 +164,7 @@ export function recordPipelineTraceEvent(
 
   const key = `${projectId}:${agent}`;
   const startsPhase =
-    type === "start" ||
-    type === "fix_start" ||
-    type === "redesign_required";
+    type === "start" || type === "fix_start" || type === "redesign_required";
   const completesPhase =
     type === "complete" ||
     type === "skipped" ||
@@ -181,10 +186,9 @@ export function recordPipelineTraceEvent(
   } else if (completesPhase) {
     const existing = activePipelineTraces.get(key);
     if (existing) {
-      existing.end(
-        type === "complete" || type === "skipped" ? "ok" : "error",
-        { endEvent: type },
-      );
+      existing.end(type === "complete" || type === "skipped" ? "ok" : "error", {
+        endEvent: type,
+      });
       activePipelineTraces.delete(key);
     } else {
       const instant = startOperationalTrace({
@@ -275,10 +279,13 @@ export function operationalSnapshot() {
       ...item,
       labels: { ...item.labels },
     })),
-    recentTraces: traces.slice(-50).reverse().map((trace) => ({
-      ...trace,
-      metadata: trace.metadata ? { ...trace.metadata } : undefined,
-    })),
+    recentTraces: traces
+      .slice(-50)
+      .reverse()
+      .map((trace) => ({
+        ...trace,
+        metadata: trace.metadata ? { ...trace.metadata } : undefined,
+      })),
   };
 }
 
@@ -331,7 +338,10 @@ export function evaluateOperationalAlerts(): OperationalAlert[] {
       message: "Database health probe is failing.",
     });
   }
-  if (gaugeValue("appforge_redis_connected") === 0 && process.env.NODE_ENV === "production") {
+  if (
+    gaugeValue("appforge_redis_connected") === 0 &&
+    process.env.NODE_ENV === "production"
+  ) {
     alerts.push({
       id: "redis_unavailable",
       severity: "critical",
@@ -355,7 +365,10 @@ export function evaluateOperationalAlerts(): OperationalAlert[] {
 
 export function renderPrometheusMetrics(): string {
   const snapshot = operationalSnapshot();
-  setOperationalGauge("appforge_process_uptime_seconds", snapshot.uptimeSeconds);
+  setOperationalGauge(
+    "appforge_process_uptime_seconds",
+    snapshot.uptimeSeconds,
+  );
   setOperationalGauge("appforge_process_rss_bytes", snapshot.process.rssBytes);
   setOperationalGauge(
     "appforge_process_heap_used_bytes",
