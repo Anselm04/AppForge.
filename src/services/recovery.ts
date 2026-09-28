@@ -3,8 +3,7 @@ import { db } from "../db.js";
 import * as schema from "../db/schema.js";
 
 export type RecoveryCheckpointSource =
-  | "validated_artifact"
-  | "production_verified";
+  "validated_artifact" | "production_verified";
 
 export type RecoveryFailureKind =
   | "application_failure"
