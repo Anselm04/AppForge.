@@ -16,10 +16,7 @@ import {
   completedBuildUrl,
   stackPresentation,
 } from "../lib/stackPresentation.js";
-import {
-  buildStageLabel,
-  outputMaturityLabel,
-} from "../lib/buildStatus.js";
+import { buildStageLabel, outputMaturityLabel } from "../lib/buildStatus.js";
 
 interface BuildLog {
   agent: string;
@@ -472,8 +469,7 @@ export function Build() {
   const productContract = project?.productContract;
   const monetizationRequired =
     (productContract?.monetizationRequirements?.length ?? 0) > 0;
-  const integrationsRequired =
-    (productContract?.integrations?.length ?? 0) > 0;
+  const integrationsRequired = (productContract?.integrations?.length ?? 0) > 0;
   const unresolvedRequirements =
     project?.requirementManifest?.unresolvedMustHaveIds ?? [];
   const awaitingApproval =
