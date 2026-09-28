@@ -58,3 +58,23 @@ export function outputMaturityLabel(
       return "Not yet classified";
   }
 }
+
+export const READY_PROJECT_STATUSES = [
+  "validated",
+  "production-certified",
+  "completed",
+] as const;
+
+export function isProjectArtifactReady(
+  status: string | null | undefined,
+): boolean {
+  return READY_PROJECT_STATUSES.includes(
+    status as (typeof READY_PROJECT_STATUSES)[number],
+  );
+}
+
+export function isProductionCertified(
+  status: string | null | undefined,
+): boolean {
+  return status === "production-certified";
+}
