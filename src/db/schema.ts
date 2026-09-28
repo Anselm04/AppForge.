@@ -123,7 +123,9 @@ export const projects = pgTable(
     status: varchar("status", { length: 50 }).default("pending"), // lifecycle: pending, running, validated, production-certified, failed, paused
     buildStage: varchar("build_stage", { length: 50 }).default("planning"),
     failureStage: varchar("failure_stage", { length: 50 }),
-    outputMaturity: varchar("output_maturity", { length: 32 }).default("structural"),
+    outputMaturity: varchar("output_maturity", { length: 32 }).default(
+      "structural",
+    ),
     planStatus: varchar("plan_status", { length: 32 }).default("planning"),
     planRevisionRequest: text("plan_revision_request"),
     monetizationApproved: boolean("monetization_approved").default(false),
