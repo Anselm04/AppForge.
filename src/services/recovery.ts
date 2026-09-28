@@ -134,7 +134,9 @@ export async function recordKnownGoodCheckpoint(input: {
     input.deploymentManifestSha256 &&
     !SHA256.test(input.deploymentManifestSha256)
   ) {
-    throw new Error("Recovery checkpoint deployment manifest SHA-256 is invalid");
+    throw new Error(
+      "Recovery checkpoint deployment manifest SHA-256 is invalid",
+    );
   }
   if (
     input.source === "production_verified" &&
@@ -165,10 +167,7 @@ export async function recordKnownGoodCheckpoint(input: {
     const existing = await tx.query.recoveryCheckpoints.findFirst({
       where: and(
         eq(schema.recoveryCheckpoints.projectId, input.projectId),
-        eq(
-          schema.recoveryCheckpoints.artifactVersion,
-          input.artifactVersion,
-        ),
+        eq(schema.recoveryCheckpoints.artifactVersion, input.artifactVersion),
         eq(schema.recoveryCheckpoints.source, input.source),
       ),
     });
