@@ -44,7 +44,7 @@ describe("billing golden path scaffold", () => {
     expect(audit).toContain("claim_owner");
     expect(audit).toContain("randomUUID");
     expect(audit).toContain("BILLING_EVENT_HEARTBEAT_MS");
-    expect(audit).toContain("claim_owner = \${claimOwner}");
+    expect(audit).toContain("claim_owner = ${claimOwner}");
     expect(audit).toContain("Billing event claim was lost before completion");
   });
 
