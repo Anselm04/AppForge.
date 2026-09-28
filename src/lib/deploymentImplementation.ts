@@ -190,7 +190,9 @@ export function validateDeploymentSource(input: {
     contract.deploymentRequirements.length === 0 ||
     contract.runtimeRequirements.length === 0
   ) {
-    problems.push("canonical contract is missing deployment/runtime requirements");
+    problems.push(
+      "canonical contract is missing deployment/runtime requirements",
+    );
   }
 
   const deployMeta = parseJsonFile<{
@@ -273,7 +275,9 @@ export function validateDeploymentSource(input: {
       problems.push("runtime environment files do not match selected stack");
     }
     if (runtimeMeta.environment?.failClosedWhenMissing !== true) {
-      problems.push("runtime environment must fail closed when configuration is missing");
+      problems.push(
+        "runtime environment must fail closed when configuration is missing",
+      );
     }
     if (runtimeMeta.persistence?.isolateFromAppForge !== true) {
       problems.push("generated persistence must remain isolated from AppForge");
@@ -293,10 +297,14 @@ export function validateDeploymentSource(input: {
   }
 
   if (requestedWorkers(contract) && runtime.backgroundWorkers === "unsupported") {
-    problems.push(`stack ${adapter.id} does not support requested background workers`);
+    problems.push(
+      `stack ${adapter.id} does not support requested background workers`,
+    );
   }
   if (requestedScheduledJobs(contract) && runtime.scheduledTasks === "unsupported") {
-    problems.push(`stack ${adapter.id} does not support requested scheduled jobs`);
+    problems.push(
+      `stack ${adapter.id} does not support requested scheduled jobs`,
+    );
   }
 
   if (input.destination) {
@@ -323,7 +331,9 @@ export function assertDeploymentSourceReady(input: {
 }): void {
   const problems = validateDeploymentSource(input);
   if (problems.length > 0) {
-    throw new Error(`Deployment contract validation failed: ${problems.join("; ")}`);
+    throw new Error(
+      `Deployment contract validation failed: ${problems.join("; ")}`,
+    );
   }
 }
 
@@ -357,7 +367,10 @@ export function createProductionDeploymentManifest(input: {
     },
     environment: {
       requiredFiles: adapter.environmentFiles,
-      requiredVariables: envVariablesFromFiles(input.files, adapter.environmentFiles),
+      requiredVariables: envVariablesFromFiles(
+        input.files,
+        adapter.environmentFiles,
+      ),
       failClosedWhenMissing: true,
       secretsServerSide: runtime.environment.secretsServerSide,
     },
