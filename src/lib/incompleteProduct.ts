@@ -43,7 +43,10 @@ export type IncompleteProductReport = {
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/Scaffold is ready/i, '"Scaffold is ready"'],
-  [/Your generated UI will replace this screen/i, '"Your generated UI will replace this screen"'],
+  [
+    /Your generated UI will replace this screen/i,
+    '"Your generated UI will replace this screen"',
+  ],
   [/Generated product/i, '"Generated product"'],
   [/Coming soon/i, '"Coming soon"'],
   [/\bTODO\b/i, "TODO"],
@@ -52,39 +55,37 @@ const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bstub implementation\b/i, "stub implementation"],
 ];
 
-const STOP_WORDS = new Set(
-  [
-    "a",
-    "an",
-    "and",
-    "app",
-    "application",
-    "build",
-    "create",
-    "for",
-    "from",
-    "in",
-    "into",
-    "of",
-    "on",
-    "or",
-    "product",
-    "the",
-    "to",
-    "tool",
-    "use",
-    "using",
-    "with",
-    "website",
-    "web",
-    "mobile",
-    "desktop",
-    "system",
-    "platform",
-    "user",
-    "users",
-  ],
-);
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "app",
+  "application",
+  "build",
+  "create",
+  "for",
+  "from",
+  "in",
+  "into",
+  "of",
+  "on",
+  "or",
+  "product",
+  "the",
+  "to",
+  "tool",
+  "use",
+  "using",
+  "with",
+  "website",
+  "web",
+  "mobile",
+  "desktop",
+  "system",
+  "platform",
+  "user",
+  "users",
+]);
 
 function isTextSource(path: string): boolean {
   return /\.(?:[cm]?[jt]sx?|py|dart|rs|go|java|kt|swift|html|css|sql|prisma|md|json|ya?ml)$/i.test(
@@ -154,9 +155,7 @@ function codeBlob(files: Record<string, string>): string {
     .toLowerCase();
 }
 
-function findImplementationEvidence(
-  files: Record<string, string>,
-): {
+function findImplementationEvidence(files: Record<string, string>): {
   requirements?: Array<{
     id?: string;
     files?: string[];
@@ -188,10 +187,7 @@ function inspectPlaceholderAndEmptyFiles(
   for (const [path, source] of Object.entries(files)) {
     if (!isProductSource(path)) continue;
 
-    if (
-      !/\.(?:md|json|ya?ml)$/i.test(path) &&
-      !/^appforge\./i.test(path)
-    ) {
+    if (!/\.(?:md|json|ya?ml)$/i.test(path) && !/^appforge\./i.test(path)) {
       for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
         if (pattern.test(source)) {
           findings.push({
@@ -213,7 +209,8 @@ function inspectPlaceholderAndEmptyFiles(
       findings.push({
         code: "todo_only_file",
         path,
-        message: "File contains only TODO/FIXME scaffolding and no substantive implementation.",
+        message:
+          "File contains only TODO/FIXME scaffolding and no substantive implementation.",
       });
     }
 
@@ -233,16 +230,21 @@ function inspectPlaceholderAndEmptyFiles(
         });
       }
 
-      for (const match of source.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)) {
+      for (const match of source.matchAll(
+        /<button\b([^>]*)>([\s\S]*?)<\/button>/gi,
+      )) {
         const attrs = match[1] ?? "";
         if (
-          !/onClick\s*=|formAction\s*=|type\s*=\s*["']submit["']/i.test(attrs) &&
+          !/onClick\s*=|formAction\s*=|type\s*=\s*["']submit["']/i.test(
+            attrs,
+          ) &&
           !/<form\b[^>]*(?:onSubmit|action)\s*=/i.test(source)
         ) {
           findings.push({
             code: "fake_button",
             path,
-            message: "Button has no click handler, form action, or submit behavior.",
+            message:
+              "Button has no click handler, form action, or submit behavior.",
           });
           break;
         }
@@ -279,7 +281,8 @@ function inspectPlaceholderAndEmptyFiles(
         findings.push({
           code: "fake_api_response",
           path,
-          message: "API handler returns hard-coded success without performing real work.",
+          message:
+            "API handler returns hard-coded success without performing real work.",
         });
       }
     }
@@ -308,7 +311,8 @@ function inspectPlaceholderAndEmptyFiles(
         findings.push({
           code: "empty_database_schema",
           path,
-          message: "Database schema/model file has no substantive model or table definitions.",
+          message:
+            "Database schema/model file has no substantive model or table definitions.",
         });
       }
     }
@@ -410,10 +414,7 @@ function inspectContractCoverage(
 
   for (const integration of contract.integrations) {
     const tokens = normalizedTokens(integration);
-    if (
-      tokens.length > 0 &&
-      !tokens.some((token) => allText.includes(token))
-    ) {
+    if (tokens.length > 0 && !tokens.some((token) => allText.includes(token))) {
       findings.push({
         code: "missing_integration",
         message: `Required integration is not implemented/configured in generated source: ${integration}`,
