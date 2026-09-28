@@ -89,7 +89,9 @@ describe("Section 22 deployment implementation", () => {
         files,
         productContract: c,
         destination: "github-pages",
-      }).some((problem) => /does not support deployment destination/.test(problem)),
+      }).some((problem) =>
+        /does not support deployment destination/.test(problem),
+      ),
     ).toBe(true);
   });
 
