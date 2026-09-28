@@ -386,6 +386,16 @@ export const projectsRouter = router({
           message: "There is no validated plan to approve yet.",
         });
       }
+      if (
+        project.planStatus === "revision_requested" ||
+        project.planRevisionRequest
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The requested plan revision must be regenerated before this plan can be approved.",
+        });
+      }
       await db
         .update(schema.projects)
         .set({
@@ -788,20 +798,28 @@ export const projectsRouter = router({
 
         await db
           .update(schema.projects)
-          .set({
-            status: "validated",
-            buildStage:
+          .set(
+            project.status === "production-certified" &&
               input.destination === "preview"
-                ? "previewing"
-                : "production-candidate",
-            outputMaturity:
-              stackAdapter.generationMode === "structural"
-                ? "structural"
-                : productionDestination && smoke?.ok
-                  ? "verified"
-                  : "runnable",
-            updatedAt: new Date(),
-          })
+              ? {
+                  buildStage: "previewing",
+                  updatedAt: new Date(),
+                }
+              : {
+                  status: "validated",
+                  buildStage:
+                    input.destination === "preview"
+                      ? "previewing"
+                      : "production-candidate",
+                  outputMaturity:
+                    stackAdapter.generationMode === "structural"
+                      ? "structural"
+                      : productionDestination && smoke?.ok
+                        ? "verified"
+                        : "runnable",
+                  updatedAt: new Date(),
+                },
+          )
           .where(eq(schema.projects.id, input.id));
 
         const { recordDeploy } = await import("../db/buildStats.js");
