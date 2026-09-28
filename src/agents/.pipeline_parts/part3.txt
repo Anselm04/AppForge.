@@ -52,6 +52,7 @@
         return;
       }
 
+      await updateProjectBuildStage(projectId, "validating");
       emit("Validator", "start", { message: "Compiling and testing generated code in sandbox…" });
       validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
         testsBlocking,
