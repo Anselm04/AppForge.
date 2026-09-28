@@ -203,7 +203,9 @@ export const githubRouter = router({
           title: input.title ?? input.repo,
           description: `Imported from GitHub ${input.owner}/${input.repo}`,
           techStack: detected.stack,
-          status: "completed",
+          status: "validated",
+          buildStage: "production-candidate",
+          outputMaturity: "runnable",
         });
       } else {
         const project = await getProjectById(projectId);
