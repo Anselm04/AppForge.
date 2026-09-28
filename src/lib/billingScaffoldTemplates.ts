@@ -17,6 +17,7 @@ export function getBillingDb() {
 
 export function billingSubscriptionsModule(): string {
   return `import { getBillingDb } from "./db.js";
+import { planFromPriceId } from "./catalog.js";
 
 export type SubscriptionRow = {
   user_id: string;
@@ -54,15 +55,17 @@ export async function upsertFromCheckoutSession(session: {
       ? session.subscription
       : session.subscription?.id ?? null;
 
+  const requestedPlan =
+    session.metadata?.plan === "enterprise" ? "enterprise" : "pro";
   await sql\`
     INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, plan, status)
-    VALUES (\${userId}, \${customerId}, \${subscriptionId}, 'pro', 'active')
+    VALUES (\${userId}, \${customerId}, \${subscriptionId}, \${requestedPlan}, 'pending')
     ON CONFLICT (user_id) DO UPDATE SET
       stripe_customer_id = EXCLUDED.stripe_customer_id,
       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-      plan = 'pro',
-      status = 'active',
-      current_period_end = NOW() + INTERVAL '30 days'
+      plan = EXCLUDED.plan,
+      status = 'pending',
+      updated_at = NOW()
   \`;
 }
 
@@ -72,13 +75,23 @@ export async function updateFromStripeSubscription(sub: {
   status: string;
   current_period_end?: number;
   metadata?: Record<string, string>;
+  items?: { data?: Array<{ price?: { id?: string } }> };
 }): Promise<void> {
   const sql = getBillingDb();
   if (!sql) return;
   const customerId =
     typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   const userId = sub.metadata?.userId ?? customerId ?? sub.id;
-  const plan = sub.status === "active" || sub.status === "trialing" ? "pro" : "free";
+  const priceId = sub.items?.data?.[0]?.price?.id ?? null;
+  const configuredPlan = planFromPriceId(priceId);
+  const plan =
+    sub.status === "active" || sub.status === "trialing"
+      ? configuredPlan === "free"
+        ? sub.metadata?.plan === "enterprise"
+          ? "enterprise"
+          : "pro"
+        : configuredPlan
+      : "free";
   const periodEnd = sub.current_period_end
     ? new Date(sub.current_period_end * 1000)
     : null;
@@ -127,8 +140,7 @@ export type UserEntitlements = {
 function rowToEntitlements(row: SubscriptionRow): UserEntitlements {
   const active =
     row.status === "active" ||
-    row.status === "trialing" ||
-    (row.current_period_end && row.current_period_end > new Date());
+    row.status === "trialing";
   const plan: Plan =
     active && row.plan === "enterprise"
       ? "enterprise"
