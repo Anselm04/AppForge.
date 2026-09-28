@@ -53,8 +53,8 @@ export function stackPresentation(
 
 /**
  * The URL the Build page may show after a completed build: a verified HTTPS
- * live URL, else the hosted preview for runnable stacks, never anything for
- * structural-only builds.
+ * verified live URL only. AppForge workspace/preview routes are never treated
+ * as the generated customer's deployed product.
  */
 export function completedBuildUrl(opts: {
   liveUrl: string | null;
