@@ -353,13 +353,13 @@ function ProjectCard({ project }: { project: Project }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-forge-text-muted">
-            ${outputMaturityLabel(project.outputMaturity)}
+            {outputMaturityLabel(project.outputMaturity)}
           </p>
-        <p className="text-xs text-forge-text-muted">
-          {project.createdAt
-            ? new Date(project.createdAt).toLocaleDateString()
-            : "—"}
-        </p>
+          <p className="text-xs text-forge-text-muted">
+            {project.createdAt
+              ? new Date(project.createdAt).toLocaleDateString()
+              : "—"}
+          </p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
