@@ -715,7 +715,9 @@ export const projectsRouter = router({
         pauseReason: project.pauseReason ?? null,
         latestKnownGood: latest ?? null,
         latestProductionVerified: production ?? null,
-        guidance: input.failureKind ? recoveryGuidance(input.failureKind) : null,
+        guidance: input.failureKind
+          ? recoveryGuidance(input.failureKind)
+          : null,
       };
     }),
 
