@@ -20,6 +20,12 @@ export function Account() {
     queryFn: () => trpc.auth.me.query(),
     staleTime: 0,
   });
+  const { data: diagnostics } = useQuery({
+    queryKey: ["system", "diagnostics"],
+    queryFn: () => trpc.system.diagnostics.query(),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -150,6 +156,47 @@ export function Account() {
             Forgot your password? Send a reset email
           </a>
         </GlassCard>
+
+        <div className="mt-6">
+          <GlassCard hover={false} padding="lg">
+            <h2 className="text-xl font-semibold text-forge-text-primary mb-2">
+              System diagnostics
+            </h2>
+            <p className="text-sm text-forge-text-muted mb-4">
+              Live AppForge service status for troubleshooting.
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-forge-text-muted">Status</span>
+                <div className="font-semibold capitalize">
+                  {diagnostics?.status ?? "checking"}
+                </div>
+              </div>
+              <div>
+                <span className="text-forge-text-muted">Startup</span>
+                <div className="font-semibold">
+                  {diagnostics?.startup ?? "checking"}
+                </div>
+              </div>
+              <div>
+                <span className="text-forge-text-muted">Uptime</span>
+                <div className="font-semibold">
+                  {diagnostics
+                    ? `${Math.floor(diagnostics.uptimeSeconds / 60)} min`
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <span className="text-forge-text-muted">Memory</span>
+                <div className="font-semibold">
+                  {diagnostics
+                    ? `${Math.round(diagnostics.process.rssBytes / 1024 / 1024)} MB`
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
 
         <div className="mt-6">
           <GlassCard hover={false} padding="lg">
