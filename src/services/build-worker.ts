@@ -524,12 +524,17 @@ export async function runBuildJob(input: unknown): Promise<void> {
       if (!pausedForApproval) {
         await refundReservation("Incomplete build");
         await updateProjectCreditsSpent(projectId, 0);
+        await recordBuildOutcome(userId, false, 0);
+        incrementOperationalMetric("appforge_builds_total", {
+          status: "incomplete",
+        });
+        buildMetricRecorded = true;
+      } else {
+        incrementOperationalMetric("appforge_builds_total", {
+          status: "awaiting_approval",
+        });
+        buildMetricRecorded = true;
       }
-      await recordBuildOutcome(userId, false, 0);
-      incrementOperationalMetric("appforge_builds_total", {
-        status: "incomplete",
-      });
-      buildMetricRecorded = true;
     }
   } catch (err: unknown) {
     logger.error({ projectId, error: err }, "background_build_failed");
