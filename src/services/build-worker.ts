@@ -5,6 +5,7 @@ import {
   getCurrentArtifact,
   getProjectById,
   resumeProject,
+  updateProjectBuildStage,
   updateProjectCreditsSpent,
   updateProjectStatus,
 } from "../db.js";
@@ -63,6 +64,7 @@ export async function deployValidatedProjectWithRetry(input: {
     version: number;
     integrity: ArtifactIntegrity;
   };
+  onStage?: (stage: import("../lib/buildStatus.js").BuildStage) => Promise<void> | void;
 }) {
   let lastError: unknown;
   const deploymentTrace = startOperationalTrace({
@@ -359,7 +361,10 @@ export async function runBuildJob(input: unknown): Promise<void> {
         "Project disappeared or changed ownership during build execution",
       );
     }
-    const passed = updated?.status === "completed";
+    const passed =
+      updated?.status === "validated" ||
+      updated?.status === "production-certified" ||
+      updated?.status === "completed";
 
     if (passed) {
       let liveUrl: string | undefined;
@@ -424,6 +429,12 @@ export async function runBuildJob(input: unknown): Promise<void> {
             version: artifact.version,
             integrity: artifact.integrity,
           },
+          onStage: async (stage) => {
+            await updateProjectBuildStage(projectId, stage, {
+              outputMaturity:
+                stage === "browser-verification" ? "verified" : undefined,
+            });
+          },
         });
         liveUrl = deployed.liveUrl;
         await recordKnownGoodCheckpoint({
@@ -435,6 +446,10 @@ export async function runBuildJob(input: unknown): Promise<void> {
           deploymentVersion: deployed.deploymentVersion,
           deploymentManifestSha256: deployed.deploymentManifestSha256,
           liveUrl: deployed.liveUrl,
+        });
+        await updateProjectStatus(projectId, "production-certified");
+        await updateProjectBuildStage(projectId, "production-certified", {
+          outputMaturity: "certified",
         });
         productionCertification = {
           artifactSha256: deployed.artifactSha256,
@@ -451,6 +466,16 @@ export async function runBuildJob(input: unknown): Promise<void> {
           deploymentAudit: deployed.deploymentAudit,
         };
       }
+      if (deploymentDecision.action !== "deploy") {
+        await updateProjectStatus(projectId, "validated");
+        await updateProjectBuildStage(projectId, "production-candidate", {
+          outputMaturity:
+            stackAdapter.generationMode === "structural"
+              ? "structural"
+              : "runnable",
+        });
+      }
+
       const stackDelivery = {
         stack: stackAdapter.id,
         structuralOnly: stackAdapter.generationMode === "structural",
@@ -491,11 +516,15 @@ export async function runBuildJob(input: unknown): Promise<void> {
       });
       buildMetricRecorded = true;
     } else {
-      // The pipeline intentionally returns for paused, failed, cancelled and
-      // recoverable states. Those are not completed paid builds. Refund the
-      // reservation now so a later resume/retry cannot double-charge it.
-      await refundReservation("Incomplete build");
-      await updateProjectCreditsSpent(projectId, 0);
+      // Approval pauses are an intentional handoff after planning. Keep the
+      // existing reservation so resuming after approval does not charge twice.
+      const pausedForApproval =
+        updated?.status === "paused" &&
+        updated?.pauseReason === "approval_required";
+      if (!pausedForApproval) {
+        await refundReservation("Incomplete build");
+        await updateProjectCreditsSpent(projectId, 0);
+      }
       await recordBuildOutcome(userId, false, 0);
       incrementOperationalMetric("appforge_builds_total", {
         status: "incomplete",
