@@ -682,7 +682,7 @@ describe("section 4: generated tests and billing never add React to other stacks
     );
     const part3 = readFileSync("src/agents/.pipeline_parts/part3.txt", "utf8");
     expect(part3).toContain(
-      "validateBilling: mergeBilling && billingScaffoldSupported(techStack),",
+      "validateBilling: mergeSubscriptionScaffold && billingScaffoldSupported(techStack),",
     );
   });
 });
