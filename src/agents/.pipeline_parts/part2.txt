@@ -84,16 +84,8 @@
           .where(eq(schema.agentLogs.id, coderLogId));
         await markAgentLogComplete(coderLogId);
         await updateProjectBuildStage(projectId, "persisting");
-        await updateProjectBuildStage(projectId, "persisting");
-      await updateProjectFiles(projectId, { ...generatedFiles });
-      await updateProjectBuildStage(
-        projectId,
-        fixAttempt > 0 ? "repairing" : "generating",
-      );
-        await updateProjectBuildStage(
-          projectId,
-          fixAttempt > 0 ? "repairing" : "generating",
-        );
+        await updateProjectFiles(projectId, { ...generatedFiles });
+        await updateProjectBuildStage(projectId, "repairing");
         resumedGeneratedFiles = { ...generatedFiles };
         await recordCoordinationEvent({
           agent: "Coder",
@@ -320,16 +312,8 @@
                 status: coordinationStatusSummary(coordinationRecord),
               });
               await updateProjectBuildStage(projectId, "persisting");
-        await updateProjectBuildStage(projectId, "persisting");
-      await updateProjectFiles(projectId, { ...generatedFiles });
-      await updateProjectBuildStage(
-        projectId,
-        fixAttempt > 0 ? "repairing" : "generating",
-      );
-        await updateProjectBuildStage(
-          projectId,
-          fixAttempt > 0 ? "repairing" : "generating",
-        );
+              await updateProjectFiles(projectId, { ...generatedFiles });
+              await updateProjectBuildStage(projectId, "generating");
               write("files_partial", {
                 fileCount: Object.keys(generatedFiles).length,
                 taskId: task.id,
