@@ -297,7 +297,7 @@ describe("contract-aware planner schema", () => {
     delete (plan.taskToValidation as Record<string, string[]>)["TASK-004"];
 
     expect(() => validateProductPlan(plan, contract)).toThrow(
-      /integration-owned task/i,
+      /integration-owned task|backend\/integration monetization task/i,
     );
   });
 
