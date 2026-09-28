@@ -47,3 +47,57 @@ groups:
           summary: "High CPU usage detected"
           description: "CPU usage is {{ $value }}%"
 
+
+      - alert: BuildQueueBacklog
+        expr: appforge_queue_depth > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AppForge build queue backlog"
+          description: "Build queue depth has exceeded 100 jobs for 5 minutes."
+
+      - alert: RedisUnavailable
+        expr: appforge_redis_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AppForge Redis unavailable"
+          description: "Shared Redis is unavailable; distributed queue and rate-limit coordination may be degraded."
+
+      - alert: DatabaseUnavailable
+        expr: appforge_database_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AppForge database unavailable"
+          description: "Database health probes are failing."
+
+      - alert: BuildFailures
+        expr: increase(appforge_builds_total{status="error"}[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Repeated AppForge build failures"
+          description: "More than five build failures were observed in the last 15 minutes."
+
+      - alert: DeploymentFailures
+        expr: increase(appforge_deployments_total{status="error"}[15m]) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Repeated AppForge deployment failures"
+          description: "Production deployment verification has failed repeatedly."
+
+      - alert: RateLimitPressure
+        expr: increase(appforge_rate_limit_rejections_total[10m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated rate-limit pressure"
+          description: "AppForge is rejecting a high volume of requests at abuse-control boundaries."
