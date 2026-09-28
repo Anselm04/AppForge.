@@ -66,7 +66,7 @@ export async function upsertFromCheckoutSession(session: {
       plan = EXCLUDED.plan,
       status = 'pending',
       updated_at = NOW()
-  `;
+  \`;
 }
 
 export async function updateFromStripeSubscription(sub: {
@@ -104,7 +104,7 @@ export async function updateFromStripeSubscription(sub: {
       plan = EXCLUDED.plan,
       status = EXCLUDED.status,
       current_period_end = EXCLUDED.current_period_end
-  `;
+  \`;
 }
 
 export async function getSubscriptionByUserId(
@@ -115,7 +115,7 @@ export async function getSubscriptionByUserId(
   const rows = await sql<SubscriptionRow[]>\`
     SELECT user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end
     FROM subscriptions WHERE user_id = \${userId} LIMIT 1
-  `;
+  \`;
   return rows[0] ?? null;
 }
 `;
@@ -263,7 +263,7 @@ export async function processBillingEventOnce(
       SET status = 'processing', updated_at = NOW()
       WHERE billing_events.status = 'failed'
     RETURNING id
-  `;
+  \`;
   if (!claimed[0]) return { duplicate: true };
 
   try {
@@ -272,7 +272,7 @@ export async function processBillingEventOnce(
       UPDATE billing_events
       SET status = 'processed', processed_at = NOW(), updated_at = NOW(), error = NULL
       WHERE id = \${eventId}
-    `;
+    \`;
     return { duplicate: false };
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 1000) : "Billing event failed";
@@ -280,7 +280,7 @@ export async function processBillingEventOnce(
       UPDATE billing_events
       SET status = 'failed', error = \${message}, updated_at = NOW()
       WHERE id = \${eventId}
-    `;
+    \`;
     throw error;
   }
 }
@@ -295,7 +295,7 @@ export async function auditBillingAction(
   await sql\`
     INSERT INTO billing_audit (event_id, event_type, outcome, created_at)
     VALUES (\${eventId}, \${eventType}, \${outcome}, NOW())
-  `;
+  \`;
 }
 `;
 }
@@ -317,7 +317,7 @@ export async function recordInvoiceState(input: {
       subscription_id = EXCLUDED.subscription_id,
       state = EXCLUDED.state,
       updated_at = NOW()
-  `;
+  \`;
   if (input.subscriptionId) {
     await sql\`
       UPDATE subscriptions
@@ -325,7 +325,7 @@ export async function recordInvoiceState(input: {
         status = \${input.state === "paid" ? "active" : "past_due"},
         updated_at = NOW()
       WHERE stripe_subscription_id = \${input.subscriptionId}
-    `;
+    \`;
   }
 }
 `;
