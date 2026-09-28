@@ -102,6 +102,11 @@ export async function POST(req: Request) {
     metadata: sessionUserId
       ? { userId: sessionUserId, plan: selectedPlan.plan }
       : { plan: selectedPlan.plan },
+    subscription_data: {
+      metadata: sessionUserId
+        ? { userId: sessionUserId, plan: selectedPlan.plan }
+        : { plan: selectedPlan.plan },
+    },
   });
   return NextResponse.json({ url: session.url });
 }
@@ -140,6 +145,9 @@ export async function createCheckoutSession(req: Request, res: Response) {
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
     client_reference_id: sessionUserId,
     metadata: { userId: sessionUserId, plan: selectedPlan.plan },
+    subscription_data: {
+      metadata: { userId: sessionUserId, plan: selectedPlan.plan },
+    },
   });
   res.json({ url: session.url });
 }
