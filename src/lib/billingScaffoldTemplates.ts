@@ -190,7 +190,6 @@ export function canAccessFeature(
 `;
 }
 
-
 export function billingCatalogModule(): string {
   return `export type BillingPlan = "free" | "pro" | "enterprise";
 

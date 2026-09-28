@@ -342,7 +342,6 @@ export function validateProductPlan(
     );
   }
 
-
   const integrationPolicy = integrationImplementationPolicy(contract);
   if (integrationPolicy.required) {
     const compatibilityProblems = integrationCompatibilityProblems(contract);

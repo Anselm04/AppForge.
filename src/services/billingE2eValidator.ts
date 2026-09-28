@@ -77,7 +77,9 @@ export function validateBillingGoldenPath(files: Files): BillingE2eReport {
     {
       id: "refunds",
       label: "Refund and reconciliation handling",
-      passed: text.includes("refundpayment") && text.includes("stripe.refunds.create"),
+      passed:
+        text.includes("refundpayment") &&
+        text.includes("stripe.refunds.create"),
       hint: "Generate server-side refund path",
     },
     {
@@ -91,13 +93,15 @@ export function validateBillingGoldenPath(files: Files): BillingE2eReport {
     {
       id: "audit",
       label: "Billing event audit trail",
-      passed: text.includes("auditbillingaction") && text.includes("billing_audit"),
+      passed:
+        text.includes("auditbillingaction") && text.includes("billing_audit"),
       hint: "Persist billing event outcomes",
     },
     {
       id: "limits",
       label: "Server-side access limits",
-      passed: text.includes("requirepaidaccess") && text.includes("plan_limits"),
+      passed:
+        text.includes("requirepaidaccess") && text.includes("plan_limits"),
       hint: "Enforce paid limits on the server",
     },
     {

@@ -182,14 +182,15 @@ export async function createCheckoutSession(req: Request, res: Response) {
     ),
     "billing/SETUP.md": billingSetupReadme(isNext),
     "docs/BILLING.md": billingSetupReadme(isNext),
-    ".env.example": [
-      "DATABASE_URL=",
-      "STRIPE_SECRET_KEY=",
-      "STRIPE_WEBHOOK_SECRET=",
-      "STRIPE_PRICE_ID=",
-      "STRIPE_ENTERPRISE_PRICE_ID=",
-      "APP_URL=",
-    ].join("\n") + "\n",
+    ".env.example":
+      [
+        "DATABASE_URL=",
+        "STRIPE_SECRET_KEY=",
+        "STRIPE_WEBHOOK_SECRET=",
+        "STRIPE_PRICE_ID=",
+        "STRIPE_ENTERPRISE_PRICE_ID=",
+        "APP_URL=",
+      ].join("\n") + "\n",
     "src/lib/billing/catalog.ts": billingCatalogModule(),
     "src/lib/billing/db.ts": billingDbModule(),
     "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
@@ -406,7 +407,7 @@ export function validateBillingScaffold(files: Files): {
   ] as const) {
     if (!content.includes(needle)) missing.push(label);
   }
-  if (content.includes("localstorage.getitem(\"userid\")")) {
+  if (content.includes('localstorage.getitem("userid")')) {
     missing.push("checkout must not trust client user identity");
   }
   if (content.includes("vite_stripe_price_id")) {
