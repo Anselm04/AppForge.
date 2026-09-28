@@ -16,6 +16,7 @@ import {
   validateArtifactFiles,
   type ArtifactIntegrity,
 } from "./lib/artifactIntegrity.js";
+import type { BuildStage, OutputMaturity } from "./lib/buildStatus.js";
 import {
   assertMustHaveRequirementsResolved,
   validateRequirementManifest,
@@ -303,7 +304,34 @@ export async function updateProjectStatus(
 ) {
   await db
     .update(schema.projects)
-    .set({ status, errorMessage, updatedAt: new Date() })
+    .set({
+      status,
+      errorMessage,
+      failureStage:
+        status === "failed" ? sql`${schema.projects.buildStage}` : undefined,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.projects.id, id));
+}
+
+export async function updateProjectBuildStage(
+  id: number,
+  buildStage: BuildStage,
+  options: {
+    outputMaturity?: OutputMaturity;
+    clearFailure?: boolean;
+  } = {},
+) {
+  await db
+    .update(schema.projects)
+    .set({
+      buildStage,
+      ...(options.outputMaturity
+        ? { outputMaturity: options.outputMaturity }
+        : {}),
+      ...(options.clearFailure ? { failureStage: null, errorMessage: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(schema.projects.id, id));
 }
 
@@ -1061,7 +1089,7 @@ export async function createAndActivateBuildSnapshot(data: {
       .update(schema.projects)
       .set({
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, data.projectId));
@@ -1307,7 +1335,7 @@ export async function markSnapshotAsCurrent(id: number, projectId: number) {
       .update(schema.projects)
       .set({
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
@@ -1455,7 +1483,7 @@ export async function appendArtifactToCurrentSnapshot(input: {
         workingArtifactVersion,
         workingArtifactIntegrity,
         requirementManifest,
-        status: "completed",
+        status: "validated",
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, input.projectId));
