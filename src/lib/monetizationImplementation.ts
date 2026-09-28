@@ -138,6 +138,9 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
 
   const has=(fn:(p:string)=>boolean)=>entries.some(([path])=>fn(path));
   if(!has(isMonetizationCatalogPath)) problems.push("monetization contract: missing product/price catalog");
+  const catalogSource=entries.filter(([path])=>isMonetizationCatalogPath(path)).map(([,src])=>src).join("\n");
+  if(!/product/i.test(catalogSource)) problems.push("monetization contract: billing catalog does not define products");
+  if(!/price/i.test(catalogSource)) problems.push("monetization contract: billing catalog does not define prices");
   if(!has(isMonetizationCheckoutPath)) problems.push("monetization contract: missing payment/checkout implementation");
   if(!has(isMonetizationEntitlementPath)) problems.push("monetization contract: missing entitlement implementation");
   if(!has(isMonetizationLimitPath)) problems.push("monetization contract: missing access-limit/quota implementation");
@@ -145,6 +148,8 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
   if(!has(isMonetizationAuditPath)) problems.push("monetization contract: missing billing event audit ledger");
   if(!has(isMonetizationEnvPath)) problems.push("monetization contract: missing billing environment example");
   if(!has(isMonetizationDocsPath)) problems.push("monetization contract: missing billing setup documentation");
+  if(!has(isMonetizationInvoicePath)) problems.push("monetization contract: missing invoice/receipt handling");
+  if(!has(isMonetizationRefundPath)) problems.push("monetization contract: missing refund/reconciliation handling");
 
   if(p.models.includes("subscription")){
     if(!/subscription|plan/i.test(text)) problems.push("monetization contract: missing subscription plan implementation");
@@ -162,9 +167,6 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
     problems.push("monetization contract: missing trial lifecycle");
   if(p.models.includes("credits") && !has(isMonetizationCreditPath))
     problems.push("monetization contract: missing credit ledger");
-  if((p.models.includes("one_time")||p.models.includes("credits")) && !has(isMonetizationRefundPath))
-    problems.push("monetization contract: missing refund/reconciliation handling");
-
   if(!/constructEvent|verifySignature|signature.*verify|webhook.*signature/i.test(text))
     problems.push("monetization contract: billing webhook has no signature verification");
   if(!/idempot|event.?id|processed.?event|duplicate/i.test(text))
@@ -182,6 +184,10 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
   if(/active\s*[:=]\s*true|state\s*[:=]\s*["']active["']/i.test(text) &&
      !/verified|webhook|provider|health/i.test(text))
     problems.push("monetization contract: monetization can be claimed active without verified configuration");
+  if(!/configured|unconfigured|configuration_required/i.test(text))
+    problems.push("monetization contract: billing configuration state is not explicit");
+  if(!/verified|provider.?health|billing.?health|webhook.?verified/i.test(text))
+    problems.push("monetization contract: billing activation has no verification evidence");
   if(/(?:STRIPE_SECRET_KEY|PAYPAL_CLIENT_SECRET|PADDLE_API_KEY)\s*=\s*["'][^"']{8,}["']/i.test(text))
     problems.push("monetization contract: hard-coded billing credential detected");
 
