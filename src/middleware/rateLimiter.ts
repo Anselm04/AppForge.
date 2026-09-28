@@ -14,6 +14,7 @@ import rateLimit, {
 } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { createClient, type RedisClientType } from "redis";
+import { recordRateLimitRejection } from "../lib/operationsObservability.js";
 
 export interface RateLimitConfig {
   windowMs: number;
@@ -126,6 +127,7 @@ function createOptions(config: RateLimitConfig): Partial<RateLimitOptions> {
     validate: { xForwardedForHeader: true },
     handler: (_req: any, res: any, _next: any, opts: any) => {
       const retryAfter = Math.ceil(opts.windowMs / 1000);
+      recordRateLimitRejection(`${config.windowMs}:${config.max}`);
       res.status(429).json({
         error: config.message,
         retryAfter,
