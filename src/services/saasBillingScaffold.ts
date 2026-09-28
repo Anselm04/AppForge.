@@ -1,10 +1,17 @@
 /** Stripe billing scaffold merged into income-oriented builds (Fintech capability). */
 
 import {
+  billingAuditModule,
+  billingCatalogModule,
   billingDbModule,
   billingEntitlementsModule,
   billingExpressMeRoute,
+  billingHealthModule,
+  billingInvoicesModule,
+  billingLimitsModule,
   billingMeRoute,
+  billingPortalRoutes,
+  billingRefundsModule,
   billingSchemaSql,
   billingSessionModule,
   billingSetupReadme,
@@ -21,9 +28,15 @@ type Files = Record<string, string>;
 
 export const BILLING_REQUIRED_PATHS = [
   "billing/stripe-manifest.json",
+  "src/lib/billing/catalog.ts",
   "src/lib/billing/db.ts",
   "src/lib/billing/subscriptions.ts",
   "src/lib/billing/entitlements.ts",
+  "src/lib/billing/limits.ts",
+  "src/lib/billing/audit.ts",
+  "src/lib/billing/invoices.ts",
+  "src/lib/billing/refunds.ts",
+  "src/lib/billing/health.ts",
   "database/billing-schema.sql",
 ] as const;
 
@@ -52,10 +65,12 @@ export function billingScaffoldFiles(techStack: string): Files {
   }
   const isNext = techStack.includes("next");
   const webhooks = billingWebhookHandlers(isNext);
+  const portals = billingPortalRoutes(isNext);
 
   const checkoutRoute = isNext
     ? `import { NextResponse } from "next/server";
 import { getUserIdFromRequest } from "../../../lib/auth/session.js";
+import { resolveBillingPlan } from "../../../lib/billing/catalog.js";
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -65,29 +80,37 @@ export async function POST(req: Request) {
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
   const body = (await req.json()) as {
-    priceId?: string;
+    plan?: string;
     customerEmail?: string;
     userId?: string;
   };
   const sessionUserId = getUserIdFromRequest(req) ?? body.userId;
-  const priceId = body.priceId ?? process.env.STRIPE_PRICE_ID;
-  if (!priceId) {
-    return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
+  let selectedPlan;
+  try {
+    selectedPlan = resolveBillingPlan(body.plan ?? "pro");
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Billing plan unavailable" },
+      { status: 503 },
+    );
   }
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{ price: selectedPlan.priceId!, quantity: 1 }],
     success_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:3000"}/pricing\`,
     customer_email: body.customerEmail,
     client_reference_id: sessionUserId ?? body.customerEmail,
-    metadata: sessionUserId ? { userId: sessionUserId } : undefined,
+    metadata: sessionUserId
+      ? { userId: sessionUserId, plan: selectedPlan.plan }
+      : { plan: selectedPlan.plan },
   });
   return NextResponse.json({ url: session.url });
 }
 `
     : `import type { Request, Response } from "express";
 import { getUserIdFromRequest } from "../../lib/auth/session.js";
+import { resolveBillingPlan } from "../../lib/billing/catalog.js";
 
 export async function createCheckoutSession(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -97,20 +120,24 @@ export async function createCheckoutSession(req: Request, res: Response) {
   }
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-  const { priceId, customerEmail, userId } = req.body as {
-    priceId?: string;
+  const { plan, customerEmail, userId } = req.body as {
+    plan?: string;
     customerEmail?: string;
     userId?: string;
   };
-  const resolvedPrice = priceId ?? process.env.STRIPE_PRICE_ID;
-  if (!resolvedPrice) {
-    res.status(400).json({ error: "Missing priceId" });
+  let selectedPlan;
+  try {
+    selectedPlan = resolveBillingPlan(plan ?? "pro");
+  } catch (error) {
+    res.status(503).json({
+      error: error instanceof Error ? error.message : "Billing plan unavailable",
+    });
     return;
   }
   const sessionUserId = getUserIdFromRequest(req) ?? userId;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: resolvedPrice, quantity: 1 }],
+    line_items: [{ price: selectedPlan.priceId!, quantity: 1 }],
     success_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/billing/success?session_id={CHECKOUT_SESSION_ID}\`,
     cancel_url: \`\${process.env.APP_URL ?? "http://localhost:5173"}/pricing\`,
     customer_email: customerEmail,
@@ -147,9 +174,15 @@ export async function createCheckoutSession(req: Request, res: Response) {
       2,
     ),
     "billing/SETUP.md": billingSetupReadme(isNext),
+    "src/lib/billing/catalog.ts": billingCatalogModule(),
     "src/lib/billing/db.ts": billingDbModule(),
     "src/lib/billing/subscriptions.ts": billingSubscriptionsModule(),
     "src/lib/billing/entitlements.ts": billingEntitlementsModule(),
+    "src/lib/billing/limits.ts": billingLimitsModule(),
+    "src/lib/billing/audit.ts": billingAuditModule(),
+    "src/lib/billing/invoices.ts": billingInvoicesModule(),
+    "src/lib/billing/refunds.ts": billingRefundsModule(),
+    "src/lib/billing/health.ts": billingHealthModule(),
     "src/lib/auth/session.ts": billingSessionModule(),
     "src/components/RequirePro.tsx": requireProComponent(),
     "database/billing-schema.sql": billingSchemaSql(),
@@ -157,6 +190,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
       ? {
           "src/app/api/checkout/route.ts": checkoutRoute,
           "src/app/api/webhooks/stripe/route.ts": webhooks.nextRoute,
+          "src/app/api/billing/portal/route.ts": portals.nextRoute,
           ...(billingMeRoute(isNext)
             ? { "src/app/api/billing/me/route.ts": billingMeRoute(isNext)! }
             : {}),
@@ -165,6 +199,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
           "src/server/routes/billing/checkout.ts": checkoutRoute,
           "src/server/routes/billing/webhook.ts": webhooks.expressRoute,
           "src/server/routes/billing/me.ts": billingExpressMeRoute(),
+          "src/server/routes/billing/portal.ts": portals.expressRoute,
         }),
     "src/pages/PricingPage.tsx": `import { useState } from "react";
 
