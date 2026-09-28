@@ -60,7 +60,9 @@ describe("#23 Operations and Observability", () => {
       ok: true,
     });
     recordRateLimitRejection("global");
-    incrementOperationalMetric("appforge_builds_total", { status: "completed" });
+    incrementOperationalMetric("appforge_builds_total", {
+      status: "completed",
+    });
     setOperationalGauge("appforge_database_connected", 1);
 
     const metrics = renderPrometheusMetrics();
