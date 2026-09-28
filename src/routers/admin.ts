@@ -162,7 +162,7 @@ export const adminRouter = router({
     }
 
     const safe = async <T>(
-      promise: Promise<T>,
+      promise: PromiseLike<T>,
       fallback: T,
       diagnostic: string,
     ): Promise<T> => {
