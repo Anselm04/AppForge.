@@ -614,7 +614,13 @@ export const projectsRouter = router({
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
-      const deployableStatuses = new Set(["completed", "paused", "failed"]);
+      const deployableStatuses = new Set([
+        "validated",
+        "production-certified",
+        "completed",
+        "paused",
+        "failed",
+      ]);
       if (!project.status || !deployableStatuses.has(project.status)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -764,7 +770,18 @@ export const projectsRouter = router({
 
         await db
           .update(schema.projects)
-          .set({ status: "completed", updatedAt: new Date() })
+          .set({
+            status: "validated",
+            buildStage:
+              input.destination === "preview"
+                ? "previewing"
+                : "production-candidate",
+            outputMaturity:
+              stackAdapter.generationMode === "structural"
+                ? "structural"
+                : "runnable",
+            updatedAt: new Date(),
+          })
           .where(eq(schema.projects.id, input.id));
 
         const { recordDeploy } = await import("../db/buildStats.js");
