@@ -277,7 +277,8 @@ starting Prometheus:
 ```bash
 mkdir -p monitoring/secrets
 printf '%s' "$APPFORGE_METRICS_TOKEN" > monitoring/secrets/appforge_metrics_token
-chmod 600 monitoring/secrets/appforge_metrics_token
+sudo chown 65534:65534 monitoring/secrets/appforge_metrics_token
+chmod 400 monitoring/secrets/appforge_metrics_token
 ```
 
 The file is mounted read-only into Prometheus at the path configured in
