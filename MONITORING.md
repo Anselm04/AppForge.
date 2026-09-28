@@ -245,3 +245,16 @@ helm install monitoring prometheus-community/kube-prometheus-stack
 2. Use HTTPS for production
 3. Restrict access to monitoring endpoints
 4. Use authentication for Alertmanager
+
+
+## Section 23 live operations
+
+The production application now emits the metrics consumed by this monitoring stack at `GET /metrics`. The endpoint is generated from the running AppForge process rather than a documentation-only middleware example.
+
+Operational coverage includes HTTP throughput/latency, process memory and uptime, build/deployment outcomes, queue depth and active workers, Redis/database availability, agent phase events, model request/token usage, rate-limit and abuse signals, and operational trace duration.
+
+Authenticated users can see coarse live service diagnostics in **Account → System diagnostics**. The owner-only **Admin → Operations** tab adds database latency, queue backend/depth, Redis state, build-credit cost totals, billing status, integration configuration, moderation pressure, active alerts, model usage, and recent operational traces.
+
+Grafana dashboard: `monitoring/grafana/dashboards/appforge-operations.json`.
+
+Prometheus alerts include queue backlog, database/Redis unavailability, repeated build/deployment failures, elevated rate-limit pressure, HTTP errors/latency, and process CPU/memory pressure.
