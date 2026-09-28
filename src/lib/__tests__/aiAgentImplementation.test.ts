@@ -201,7 +201,8 @@ function completePlan() {
       aiModules: ["Model router", "Tool runtime", "Safety policy"],
       integrationModules: [],
       authenticationDesign: "User identity is required before agent execution.",
-      authorizationDesign: "Tool permissions are scoped to the authenticated user.",
+      authorizationDesign:
+        "Tool permissions are scoped to the authenticated user.",
       billingDesign: "No billing.",
       deploymentDesign: "Validated Node service deployment.",
       operationsDesign: "AI audit and status telemetry.",
@@ -213,7 +214,8 @@ function completePlan() {
       {
         id: "AI-001",
         module: "AI agent runtime",
-        description: "Implement bounded model, tool, memory and safety runtime.",
+        description:
+          "Implement bounded model, tool, memory and safety runtime.",
         sequence: 1,
         dependencies: [],
         acceptanceCriteria: [
