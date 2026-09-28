@@ -22,6 +22,11 @@ import {
   aiAgentCoderInstruction,
   validateAiAgentArtifact,
 } from "./aiAgentImplementation.js";
+import {
+  monetizationCoderInstruction,
+  monetizationPolicy,
+  validateMonetizationArtifact,
+} from "./monetizationImplementation.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/i, "TODO marker"],
@@ -161,6 +166,12 @@ export function coderTaskInstruction(input: {
     task.agent === "integration" ? integrationCoderInstruction(contract) : "";
   const aiAgentInstruction =
     task.agent === "ai" ? aiAgentCoderInstruction(contract) : "";
+  const moneyPolicy = monetizationPolicy(contract);
+  const monetizationInstruction =
+    moneyPolicy.required &&
+    (task.agent === "backend" || task.agent === "integration")
+      ? monetizationCoderInstruction(contract)
+      : "";
 
   return [
     "CODE GENERATION CONTRACT — authoritative:",
@@ -200,6 +211,7 @@ export function coderTaskInstruction(input: {
     ...(databaseInstruction ? [databaseInstruction] : []),
     ...(integrationInstruction ? [integrationInstruction] : []),
     ...(aiAgentInstruction ? [aiAgentInstruction] : []),
+    ...(monetizationInstruction ? [monetizationInstruction] : []),
   ].join("\n");
 }
 
@@ -514,6 +526,12 @@ export function validateGeneratedCodeArtifact(input: {
   );
   problems.push(
     ...validateAiAgentArtifact({
+      files: input.files,
+      contract: input.contract,
+    }),
+  );
+  problems.push(
+    ...validateMonetizationArtifact({
       files: input.files,
       contract: input.contract,
     }),
