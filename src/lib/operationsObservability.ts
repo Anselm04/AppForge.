@@ -255,7 +255,10 @@ export function recordModelUsage(input: {
 
 function recentRateLimitRejections(now = Date.now()): number {
   const cutoff = now - RATE_LIMIT_WINDOW_MS;
-  while (rateLimitRejectionTimes.length > 0 && rateLimitRejectionTimes[0] < cutoff) {
+  while (
+    rateLimitRejectionTimes.length > 0 &&
+    rateLimitRejectionTimes[0] < cutoff
+  ) {
     rateLimitRejectionTimes.shift();
   }
   return rateLimitRejectionTimes.length;
