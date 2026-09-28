@@ -24,10 +24,11 @@ describe("autonomous self-healing recovery guardrails", () => {
     expect(hasEffectiveFileChange({ "a.ts": "one", "b.ts": "two" }, { "a.ts": "one" })).toBe(true);
   });
 
-  it("hydrates the watchlist from persisted completed projects on every cycle", () => {
+  it("hydrates the watchlist from persisted certified projects on every cycle", () => {
     const healing = source("src/agents/selfHealing.ts");
     expect(healing).toContain("export async function hydrateSelfHealingWatchlist");
-    expect(healing).toContain('eq(schema.projects.status, "completed")');
+    expect(healing).toContain('"production-certified"');
+    expect(healing).toContain("inArray(schema.projects.status");
     expectInOrder(healing, [
       "export async function runSelfHealingCycle",
       "await hydrateSelfHealingWatchlist();",
@@ -71,7 +72,7 @@ describe("autonomous self-healing recovery guardrails", () => {
       "await getSnapshotArtifact(",
       "await deployValidatedProject({",
       "await markSnapshotAsCurrent(newSnapshotId, projectId)",
-      'status: "completed"',
+      'status: "production-certified"',
     ]);
   });
 
