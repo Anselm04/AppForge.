@@ -387,7 +387,11 @@ export const projectsRouter = router({
       }
       await db
         .update(schema.projects)
-        .set({ planStatus: "approved", updatedAt: new Date() })
+        .set({
+          planStatus: "approved",
+          planRevisionRequest: null,
+          updatedAt: new Date(),
+        })
         .where(eq(schema.projects.id, input.projectId));
       return { success: true, planStatus: "approved" as const };
     }),
@@ -446,13 +450,15 @@ export const projectsRouter = router({
       }
 
       const contract = validateProductContract(project.productContract);
-      if (project.planStatus !== "approved") {
+      const revisingPlan = project.planStatus === "revision_requested";
+      if (!revisingPlan && project.planStatus !== "approved") {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Approve the plan before generation resumes.",
         });
       }
       if (
+        !revisingPlan &&
         contract.monetizationRequirements.length > 0 &&
         project.monetizationApproved !== true
       ) {
@@ -462,6 +468,7 @@ export const projectsRouter = router({
         });
       }
       if (
+        !revisingPlan &&
         contract.integrations.length > 0 &&
         project.integrationsApproved !== true
       ) {
@@ -572,6 +579,7 @@ export const projectsRouter = router({
         success: true,
         status: "running" as const,
         buildStage: "researching" as const,
+        revisingPlan,
       };
     }),
 
