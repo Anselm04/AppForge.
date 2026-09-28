@@ -834,7 +834,21 @@ export async function updateProjectCreditsSpent(
 ) {
   await db
     .update(schema.projects)
-    .set({ creditsSpent: spent, updatedAt: new Date() })
+    .set({
+      creditsSpent: spent,
+      creditsReserved: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.projects.id, projectId));
+}
+
+export async function updateProjectCreditsReserved(
+  projectId: number,
+  reserved: number,
+) {
+  await db
+    .update(schema.projects)
+    .set({ creditsReserved: Math.max(0, reserved), updatedAt: new Date() })
     .where(eq(schema.projects.id, projectId));
 }
 
