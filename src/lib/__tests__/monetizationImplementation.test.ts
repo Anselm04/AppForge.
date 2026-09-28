@@ -88,8 +88,8 @@ describe("Section 21 monetization implementation",()=>{
 
     const optional=buildProductContract("Build a SaaS project management app for teams");
     expect(optional.monetizationRequirements).toEqual([]);
-    expect(optional.monetizationRecommendations.length).toBeGreaterThan(0);
-    expect(optional.monetizationRecommendations[0]).toMatch(/Optional recommendation/i);
+    expect((optional.monetizationRecommendations ?? []).length).toBeGreaterThan(0);
+    expect((optional.monetizationRecommendations ?? [])[0]).toMatch(/Optional recommendation/i);
     expect(monetizationPolicy(optional).required).toBe(false);
   });
 
@@ -97,7 +97,7 @@ describe("Section 21 monetization implementation",()=>{
     const optional=buildProductContract("Build a SaaS scheduling app for small teams");
     expect(validateMonetizationArtifact({
       contract:optional,
-      files:{"docs/README.md":optional.monetizationRecommendations.join("\n")},
+      files:{"docs/README.md":(optional.monetizationRecommendations ?? []).join("\n")},
     })).toEqual([]);
 
     const problems=validateMonetizationArtifact({
