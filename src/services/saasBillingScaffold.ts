@@ -257,9 +257,44 @@ export function PricingPage() {
     "src/pages/BillingSuccessPage.tsx": `export function BillingSuccessPage() {
   return (
     <main style={{ fontFamily: "system-ui", padding: 24 }}>
-      <h1>Subscription active</h1>
-      <p>Your payment succeeded. Pro features unlock after the webhook updates your account.</p>
+      <h1>Payment received</h1>
+      <p>Billing confirmation is still being verified. Paid features unlock only after the signed provider webhook updates your server-side entitlement.</p>
     </main>
+  );
+}
+`,
+    "src/components/ManageBillingButton.tsx": `import { useState } from "react";
+
+export function ManageBillingButton() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function openPortal() {
+    setLoading(true);
+    setError(null);
+    try {
+      const endpoint = ${isNext ? '"/api/billing/portal"' : '"/api/billing/portal"'};
+      const response = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) throw new Error(data.error ?? "Billing portal unavailable");
+      window.location.href = data.url;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Billing portal unavailable");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button type="button" disabled={loading} onClick={() => void openPortal()}>
+        {loading ? "Opening billing…" : "Manage billing"}
+      </button>
+      {error && <p>{error}</p>}
+    </div>
   );
 }
 `,
@@ -350,6 +385,24 @@ export function validateBillingScaffold(files: Files): {
     !content.includes("canaccessfeature")
   ) {
     missing.push("premium feature gate");
+  }
+  for (const [label, needle] of [
+    ["billing catalog", "resolvebillingplan"],
+    ["billing event idempotency ledger", "processbillingeventonce"],
+    ["invoice paid/failed handling", "invoice.payment_failed"],
+    ["customer portal", "billingportal.sessions.create"],
+    ["refund handling", "refundpayment"],
+    ["verified billing health", "verifybillinghealth"],
+    ["billing audit", "auditbillingaction"],
+    ["server access limits", "requirepaidaccess"],
+  ] as const) {
+    if (!content.includes(needle)) missing.push(label);
+  }
+  if (content.includes("localstorage.getitem(\"userid\")")) {
+    missing.push("checkout must not trust client user identity");
+  }
+  if (content.includes("vite_stripe_price_id")) {
+    missing.push("checkout must not trust client price identifiers");
   }
 
   return { passed: missing.length === 0, missing };
