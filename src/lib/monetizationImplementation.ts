@@ -139,6 +139,8 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
   const has=(fn:(p:string)=>boolean)=>entries.some(([path])=>fn(path));
   if(!has(isMonetizationCatalogPath)) problems.push("monetization contract: missing product/price catalog");
   const catalogSource=entries.filter(([path])=>isMonetizationCatalogPath(path)).map(([,src])=>src).join("\n");
+  const webhookSource=entries.filter(([path])=>isMonetizationWebhookPath(path)).map(([,src])=>src).join("\n");
+  const auditSource=entries.filter(([path])=>isMonetizationAuditPath(path)).map(([,src])=>src).join("\n");
   if(!/product/i.test(catalogSource)) problems.push("monetization contract: billing catalog does not define products");
   if(!/price/i.test(catalogSource)) problems.push("monetization contract: billing catalog does not define prices");
   if(!has(isMonetizationCheckoutPath)) problems.push("monetization contract: missing payment/checkout implementation");
@@ -167,11 +169,11 @@ export function validateMonetizationArtifact(input:{files:Record<string,string>;
     problems.push("monetization contract: missing trial lifecycle");
   if(p.models.includes("credits") && !has(isMonetizationCreditPath))
     problems.push("monetization contract: missing credit ledger");
-  if(!/constructEvent|verifySignature|signature.*verify|webhook.*signature/i.test(text))
+  if(!/constructEvent|verifySignature|signature.*verify|webhook.*signature/i.test(webhookSource))
     problems.push("monetization contract: billing webhook has no signature verification");
-  if(!/idempot|event.?id|processed.?event|duplicate/i.test(text))
+  if(!/idempot|event.?id|processed.?event|duplicate/i.test(webhookSource))
     problems.push("monetization contract: billing webhook has no duplicate-event protection");
-  if(!/audit|ledger|billing.?event/i.test(text))
+  if(!/audit|ledger|billing.?event/i.test(auditSource))
     problems.push("monetization contract: billing event auditing is not evident");
   if(!/server.?authoritative|server-side|server side/i.test(text))
     problems.push("monetization contract: billing state is not explicitly server-authoritative");
