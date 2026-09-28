@@ -671,10 +671,16 @@ export function Build() {
                 <button
                   type="button"
                   onClick={handleResumeApprovedBuild}
-                  disabled={approvalBusy || !approvalsReady}
+                  disabled={
+                    approvalBusy ||
+                    (!approvalsReady &&
+                      project.planStatus !== "revision_requested")
+                  }
                   className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  Resume generation
+                  {project.planStatus === "revision_requested"
+                    ? "Regenerate revised plan"
+                    : "Resume generation"}
                 </button>
               </div>
             </div>
