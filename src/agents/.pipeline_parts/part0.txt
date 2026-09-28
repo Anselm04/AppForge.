@@ -95,6 +95,7 @@ import {
   formatPlannerValidationError,
   parseAndValidateProductPlan,
   plannerJsonSchemaInstruction,
+  validateProductPlan,
   type ProductPlan,
   type ProductPlanTask,
 } from "../lib/productPlan.js";
