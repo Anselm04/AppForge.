@@ -82,7 +82,9 @@ describe("#24 Recovery and Rollback", () => {
     expect(runbook).toContain("Working or partial files are");
     expect(runbook).toContain("Database and migration restore");
     expect(runbook).toContain("Queue and interrupted-build recovery");
-    expect(runbook).toContain("Credit refunds use attempt-specific idempotency keys");
+    expect(runbook).toContain(
+      "Credit refunds use attempt-specific idempotency keys",
+    );
     expect(runbook).toContain("Data-recovery verification checklist");
   });
 
