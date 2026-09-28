@@ -148,11 +148,25 @@ async function processMemoryQueue(): Promise<void> {
   memoryWorkerRunning = false;
 }
 
+async function refreshRedisListDepth(
+  redis: RedisClientType,
+): Promise<void> {
+  const candidate = redis as RedisClientType & {
+    lLen?: (key: string) => Promise<number>;
+  };
+  if (typeof candidate.lLen !== "function") return;
+  try {
+    setActiveQueueDepth("redis_list", await candidate.lLen(QUEUE_KEY));
+  } catch (error) {
+    logger.warn({ error }, "redis_queue_depth_refresh_failed");
+  }
+}
+
 async function processRedisQueue(): Promise<void> {
   const redis = await getRedis();
   if (!redis) return;
   const raw = await redis.rPop(QUEUE_KEY);
-  setActiveQueueDepth("redis_list", await redis.lLen(QUEUE_KEY));
+  await refreshRedisListDepth(redis);
   if (!raw) return;
   let payload: unknown;
   try {
