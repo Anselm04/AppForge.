@@ -50,10 +50,7 @@ jobs:
           fi
 
           printf '%s\n' "$FILES"
-          # Temporary Section 25 formatter diagnostic: print Prettier's exact patch.
-          printf '%s\n' "$FILES" | xargs npx prettier --write --ignore-unknown
-          git diff -- src/types/database.ts
-          exit 1
+          printf '%s\n' "$FILES" | xargs npx prettier --check --ignore-unknown
 
   typecheck:
     name: Type Check
