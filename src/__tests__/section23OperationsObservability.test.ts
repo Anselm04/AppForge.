@@ -70,8 +70,7 @@ describe("#23 Operations and Observability", () => {
     expect(
       snapshot.recentTraces.find(
         (trace) =>
-          trace.component === "planner" &&
-          trace.operation === "planner_phase",
+          trace.component === "planner" && trace.operation === "planner_phase",
       ),
     ).toMatchObject({ status: "error" });
   });
