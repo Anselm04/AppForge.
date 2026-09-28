@@ -10,9 +10,7 @@ import {
   type ProductContract,
 } from "../productContract.js";
 
-function contract(
-  overrides: Partial<ProductContract> = {},
-): ProductContract {
+function contract(overrides: Partial<ProductContract> = {}): ProductContract {
   return validateProductContract({
     version: 2,
     originalPrompt:
@@ -41,11 +39,7 @@ function contract(
     selectedTechnologyStack: "react-node",
     researchRequirements: [],
     runtimeRequirements: ["Browser and Node runtime"],
-    secondaryCapabilities: [
-      "authentication",
-      "database",
-      "deployment",
-    ],
+    secondaryCapabilities: ["authentication", "database", "deployment"],
     intentConfidence: 0.99,
     canonicalInterpretation: "A production team task-tracking SaaS.",
     ...overrides,
@@ -207,8 +201,6 @@ describe("Section 22 deployment implementation", () => {
         productContract: c,
         destination: "fly",
       }),
-    ).toContain(
-      "stack static-site does not support requested scheduled jobs",
-    );
+    ).toContain("stack static-site does not support requested scheduled jobs");
   });
 });
