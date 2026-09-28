@@ -38,3 +38,6 @@ yarn-error.log*
 
 # Build artifacts
 *.tsbuildinfo
+
+# Local monitoring credentials
+monitoring/secrets/
