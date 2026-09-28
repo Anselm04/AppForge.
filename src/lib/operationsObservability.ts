@@ -40,6 +40,9 @@ const MAX_TRACES = 250;
 const counters = new Map<string, MetricCounter>();
 const gauges = new Map<string, MetricCounter>();
 const traces: OperationalTrace[] = [];
+const rateLimitRejectionTimes: number[] = [];
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_EVENT_CAP = 5_000;
 const activePipelineTraces = new Map<
   string,
   ReturnType<typeof startOperationalTrace>
@@ -158,9 +161,6 @@ export function recordPipelineTraceEvent(
     component,
     type,
   });
-  setOperationalGauge("appforge_last_agent_project_id", projectId, {
-    component,
-  });
 
   const key = `${projectId}:${agent}`;
   const startsPhase =
@@ -198,6 +198,15 @@ export function recordPipelineTraceEvent(
       });
       instant.end(type === "complete" || type === "skipped" ? "ok" : "error");
     }
+  }
+}
+
+export function cleanupPipelineTraces(projectId: number): void {
+  const prefix = `${projectId}:`;
+  for (const [key, active] of activePipelineTraces.entries()) {
+    if (!key.startsWith(prefix)) continue;
+    active.end("error", { pipelineEndedWithoutTerminalPhaseEvent: true });
+    activePipelineTraces.delete(key);
   }
 }
 
@@ -244,11 +253,31 @@ export function recordModelUsage(input: {
   }
 }
 
+function recentRateLimitRejections(now = Date.now()): number {
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  while (rateLimitRejectionTimes.length > 0 && rateLimitRejectionTimes[0] < cutoff) {
+    rateLimitRejectionTimes.shift();
+  }
+  return rateLimitRejectionTimes.length;
+}
+
 export function recordRateLimitRejection(tier: string): void {
+  const now = Date.now();
+  rateLimitRejectionTimes.push(now);
+  if (rateLimitRejectionTimes.length > RATE_LIMIT_EVENT_CAP) {
+    rateLimitRejectionTimes.splice(
+      0,
+      rateLimitRejectionTimes.length - RATE_LIMIT_EVENT_CAP,
+    );
+  }
   incrementOperationalMetric("appforge_rate_limit_rejections_total", { tier });
   incrementOperationalMetric("appforge_abuse_signals_total", {
     signal: "rate_limit",
   });
+  setOperationalGauge(
+    "appforge_rate_limit_rejections_10m",
+    recentRateLimitRejections(now),
+  );
 }
 
 export function recordAbuseSignal(signal: string): void {
@@ -323,7 +352,16 @@ export function evaluateOperationalAlerts(): OperationalAlert[] {
 
   const gaugeValue = (name: string) =>
     snapshot.gauges.find((metric) => metric.name === name)?.value;
-  const queueDepth = gaugeValue("appforge_queue_depth") ?? 0;
+  const activeBackend = snapshot.gauges.find(
+    (metric) =>
+      metric.name === "appforge_queue_backend_active" && metric.value === 1,
+  )?.labels.backend;
+  const queueDepth =
+    snapshot.gauges.find(
+      (metric) =>
+        metric.name === "appforge_queue_depth" &&
+        (!activeBackend || metric.labels.backend === activeBackend),
+    )?.value ?? 0;
   if (queueDepth > 100) {
     alerts.push({
       id: "queue_backlog",
@@ -349,9 +387,11 @@ export function evaluateOperationalAlerts(): OperationalAlert[] {
     });
   }
 
-  const rateLimitRejections = snapshot.counters
-    .filter((metric) => metric.name === "appforge_rate_limit_rejections_total")
-    .reduce((sum, metric) => sum + metric.value, 0);
+  const rateLimitRejections = recentRateLimitRejections();
+  setOperationalGauge(
+    "appforge_rate_limit_rejections_10m",
+    rateLimitRejections,
+  );
   if (rateLimitRejections > 100) {
     alerts.push({
       id: "rate_limit_pressure",
@@ -387,4 +427,5 @@ export function resetOperationalObservabilityForTests(): void {
   gauges.clear();
   traces.splice(0, traces.length);
   activePipelineTraces.clear();
+  rateLimitRejectionTimes.splice(0, rateLimitRejectionTimes.length);
 }
