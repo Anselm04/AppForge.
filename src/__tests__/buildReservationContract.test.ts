@@ -49,13 +49,15 @@ describe("build reservation contract", () => {
     );
   });
 
-  it("keeps the charge only for completed builds and refunds every other return state", () => {
-    expect(worker).toContain('const passed = updated?.status === "completed"');
+  it("keeps the charge for validated/certified builds and preserves approval holds", () => {
+    expect(worker).toContain('updated?.status === "validated"');
+    expect(worker).toContain('updated?.status === "production-certified"');
     expect(worker).toContain(
       "await recordBuildOutcome(userId, true, BUILD_CREDIT_COST)",
     );
     expect(worker).toContain('await refundReservation("Incomplete build")');
     expect(worker).toContain("await recordBuildOutcome(userId, false, 0)");
+    expect(worker).toContain('updated?.pauseReason === "approval_required"');
   });
 
   it("refunds only attempts that actually deducted a reservation", () => {
