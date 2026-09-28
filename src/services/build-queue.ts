@@ -13,6 +13,10 @@ import {
 import { addCredits } from "../db.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { getLatestTerminalBuildEvent } from "./build-event-store.js";
+import {
+  incrementOperationalMetric,
+  setOperationalGauge,
+} from "../lib/operationsObservability.js";
 
 let redisClient: RedisClientType | null = null;
 const memoryQueue: BuildJob[] = [];
@@ -176,6 +180,7 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         return;
       }
       logger.info({ projectId: job.projectId }, "build_enqueued_bullmq");
+      incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "bullmq" });
       return;
     } catch (err) {
       logger.error(
@@ -208,6 +213,7 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         throw err;
       }
       logger.info({ projectId: job.projectId }, "build_enqueued_redis");
+      incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "redis_list" });
       return;
     }
   } catch (err) {
@@ -231,7 +237,61 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
     { projectId: job.projectId },
     "build_enqueued_memory_degraded_mode",
   );
+  incrementOperationalMetric("appforge_queue_enqueued_total", { backend: "memory" });
+  setOperationalGauge("appforge_queue_depth", memoryQueue.length, {
+    backend: "memory",
+  });
   void processMemoryQueue();
+}
+
+
+export async function getBuildQueueDiagnostics() {
+  let backend: "bullmq" | "redis_list" | "memory" = "memory";
+  let depth = memoryQueue.length;
+  let activeWorkers = memoryWorkerRunning ? 1 : 0;
+  let redisConnected = false;
+
+  if (bullQueue) {
+    backend = "bullmq";
+    try {
+      const counts = await bullQueue.getJobCounts("waiting", "active", "failed");
+      depth = counts.waiting ?? 0;
+      activeWorkers = counts.active ?? 0;
+      redisConnected = true;
+      setOperationalGauge("appforge_queue_failed_jobs", counts.failed ?? 0, {
+        backend,
+      });
+    } catch (error) {
+      logger.warn({ error }, "bullmq_diagnostics_failed");
+    }
+  } else if (ENV.redisUrl) {
+    backend = "redis_list";
+    try {
+      const redis = await getRedis();
+      if (redis) {
+        redisConnected = true;
+        depth = await redis.lLen(QUEUE_KEY);
+      }
+    } catch (error) {
+      logger.warn({ error }, "redis_queue_diagnostics_failed");
+    }
+  }
+
+  setOperationalGauge("appforge_queue_depth", depth, { backend });
+  setOperationalGauge("appforge_queue_active_workers", activeWorkers, { backend });
+  setOperationalGauge("appforge_redis_connected", redisConnected ? 1 : 0);
+
+  return {
+    backend,
+    depth,
+    activeWorkers,
+    redisConfigured: Boolean(ENV.redisUrl),
+    redisConnected,
+    capacity: {
+      bullmqConcurrency: 2,
+      memoryQueueSoftLimit: 50,
+    },
+  };
 }
 
 export async function publishBuildEvent(
