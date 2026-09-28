@@ -1,4 +1,5 @@
 import { ENV } from "./env.js";
+import { recordModelUsage } from "../lib/operationsObservability.js";
 import {
   assertAnyLlmProviderConfigured,
   chatCompletionsUrl,
@@ -498,6 +499,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       model: explicitModel || provider.defaultModel || DEFAULT_CHAT_MODEL,
     };
     const url = chatCompletionsUrl(provider.baseUrl);
+    const requestStartedAt = Date.now();
     try {
       const response = await fetchWithBackoff(url, {
         method: "POST",
@@ -514,10 +516,26 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         if (i > 0) {
           console.warn(`LLM failover succeeded with provider=${provider.id}`);
         }
-        return (await response.json()) as InvokeResult;
+        const result = (await response.json()) as InvokeResult;
+        recordModelUsage({
+          provider: provider.id,
+          model: result.model || String(payload.model),
+          promptTokens: result.usage?.prompt_tokens,
+          completionTokens: result.usage?.completion_tokens,
+          totalTokens: result.usage?.total_tokens,
+          durationMs: Date.now() - requestStartedAt,
+          ok: true,
+        });
+        return result;
       }
 
       const errorText = await response.text();
+      recordModelUsage({
+        provider: provider.id,
+        model: String(payload.model),
+        durationMs: Date.now() - requestStartedAt,
+        ok: false,
+      });
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
       errors.push(detail);
 
