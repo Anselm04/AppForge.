@@ -6,6 +6,7 @@ import {
   updateProjectStatus,
 } from "../db.js";
 import { invokeLLM } from "../_core/llm.js";
+import { recordPipelineTraceEvent } from "../lib/operationsObservability.js";
 import { injectComplianceScaffolding } from "../services/compliance-template.js";
 import {
   parseGeneratedFiles,
