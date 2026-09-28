@@ -9,6 +9,7 @@ import {
   type ProductContract,
 } from "../productContract.js";
 import { getStackAdapter } from "../stackAdapters.js";
+import { getRuntimeArchitecture } from "../runtimeArchitecture.js";
 import { deployProject, type DeployDestination } from "../../services/deployer.js";
 
 function contract(overrides: Partial<ProductContract> = {}): ProductContract {
@@ -98,6 +99,10 @@ function completeFiles(c = contract()): Record<string, string> {
     "appforge.deploy.json": deploymentMetadata(
       c.selectedTechnologyStack,
     ),
+    "appforge.runtime.json": JSON.stringify(
+      getRuntimeArchitecture(c.selectedTechnologyStack),
+    ),
+    ".env.example": "PORT=3000\nAPI_BASE_URL=\n",
   };
 }
 
