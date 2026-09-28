@@ -194,11 +194,11 @@ function inspectPlaceholderAndEmptyFiles(
     ) {
       for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
         if (pattern.test(source)) {
-        findings.push({
-          code: "placeholder_text",
-          path,
-          message: `${label} content detected in generated product source.`,
-        });
+          findings.push({
+            code: "placeholder_text",
+            path,
+            message: `${label} content detected in generated product source.`,
+          });
           break;
         }
       }
