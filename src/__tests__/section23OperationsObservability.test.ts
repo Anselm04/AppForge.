@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  cleanupPipelineTraces,
   evaluateOperationalAlerts,
   incrementOperationalMetric,
   operationalSnapshot,
@@ -20,6 +21,10 @@ const source = (path: string) =>
 describe("#23 Operations and Observability", () => {
   beforeEach(() => {
     resetOperationalObservabilityForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("records bounded operational traces and pipeline-agent events", () => {
@@ -52,6 +57,43 @@ describe("#23 Operations and Observability", () => {
           metric.labels.agent === "Planner",
       ),
     ).toBe(true);
+  });
+
+  it("does not export project identifiers and closes abandoned project traces", () => {
+    recordPipelineTraceEvent("Planner", "start", 42);
+    cleanupPipelineTraces(42);
+
+    const metrics = renderPrometheusMetrics();
+    const snapshot = operationalSnapshot();
+
+    expect(metrics).not.toContain("appforge_last_agent_project_id");
+    expect(
+      snapshot.recentTraces.find(
+        (trace) =>
+          trace.component === "planner" &&
+          trace.operation === "planner_phase",
+      ),
+    ).toMatchObject({ status: "error" });
+  });
+
+  it("expires internal rate-limit pressure after the ten-minute window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-28T06:00:00.000Z"));
+    for (let i = 0; i < 101; i += 1) {
+      recordRateLimitRejection("global");
+    }
+    expect(
+      evaluateOperationalAlerts().some(
+        (alert) => alert.id === "rate_limit_pressure",
+      ),
+    ).toBe(true);
+
+    vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+    expect(
+      evaluateOperationalAlerts().some(
+        (alert) => alert.id === "rate_limit_pressure",
+      ),
+    ).toBe(false);
   });
 
   it("monitors model usage, rate-limit abuse signals and Prometheus output", () => {
@@ -108,6 +150,8 @@ describe("#23 Operations and Observability", () => {
     expect(logger).toContain("[REDACTED]");
     expect(server).toContain("Sentry.init({");
     expect(server).toContain('app.get("/metrics"');
+    expect(server).toContain("APPFORGE_METRICS_TOKEN");
+    expect(server).toContain("timingSafeEqual");
     expect(server).toContain("appforge_http_requests_total");
     expect(health).toContain('router.get("/live"');
     expect(health).toContain('router.get("/ready"');
@@ -136,6 +180,8 @@ describe("#23 Operations and Observability", () => {
 
     expect(queue).toContain("getBuildQueueDiagnostics");
     expect(queue).toContain("appforge_queue_depth");
+    expect(queue).toContain("appforge_queue_backend_active");
+    expect(queue).toContain("setActiveQueueDepth");
     expect(queue).toContain("appforge_redis_connected");
     expect(admin).toContain("operations: ownerOnlyProcedure.query");
     expect(admin).toContain("creditsSpent");
@@ -162,6 +208,9 @@ describe("#23 Operations and Observability", () => {
     expect(alerts).toContain("RedisUnavailable");
     expect(alerts).toContain("DatabaseUnavailable");
     expect(alerts).toContain("RateLimitPressure");
+    expect(alerts).toContain(
+      "sum(increase(appforge_rate_limit_rejections_total[10m])) > 100",
+    );
     expect(dashboard.dashboard.title).toBe("AppForge Operations");
     expect(dashboard.dashboard.panels.length).toBeGreaterThanOrEqual(8);
   });
