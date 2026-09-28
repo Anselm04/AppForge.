@@ -63,5 +63,8 @@ export function completedBuildUrl(opts: {
 }): string | null {
   if (opts.structuralOnly) return null;
   if (opts.liveUrl) return opts.liveUrl;
-  return opts.projectId ? `/apps/${opts.projectId}` : null;
+  // A local AppForge route is a preview/workspace surface, not proof that the
+  // generated customer product is deployed. Never present the AppForge shell
+  // as the user's live product.
+  return null;
 }
