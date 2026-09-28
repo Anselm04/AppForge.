@@ -161,6 +161,19 @@ export const adminRouter = router({
       logger.error({ error }, "admin_database_diagnostic_failed");
     }
 
+    const safe = async <T>(
+      promise: Promise<T>,
+      fallback: T,
+      diagnostic: string,
+    ): Promise<T> => {
+      try {
+        return await promise;
+      } catch (error) {
+        logger.error({ error }, diagnostic);
+        return fallback;
+      }
+    };
+
     const [
       queue,
       redisConnected,
@@ -169,33 +182,60 @@ export const adminRouter = router({
       billingByStatus,
       abuse,
     ] = await Promise.all([
-      getBuildQueueDiagnostics(),
-      checkSharedRedis(),
-      db
-        .select({
-          projects: count(),
-          creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
-        })
-        .from(schema.projects),
-      db
-        .select({
-          transactions: count(),
-          netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
-        })
-        .from(schema.creditTransactions),
-      db
-        .select({
-          status: schema.subscriptions.status,
-          count: count(),
-        })
-        .from(schema.subscriptions)
-        .groupBy(schema.subscriptions.status),
-      db
-        .select({
-          pendingModeration: count(),
-        })
-        .from(schema.moderationFlags)
-        .where(eq(schema.moderationFlags.adminReviewed, false)),
+      safe(
+        getBuildQueueDiagnostics(),
+        {
+          backend: "memory" as const,
+          depth: 0,
+          activeWorkers: 0,
+          redisConfigured: Boolean(process.env.REDIS_URL?.trim()),
+          redisConnected: false,
+          capacity: { bullmqConcurrency: 2, memoryQueueSoftLimit: 50 },
+        },
+        "admin_queue_diagnostic_failed",
+      ),
+      safe(checkSharedRedis(), false, "admin_redis_diagnostic_failed"),
+      safe(
+        db
+          .select({
+            projects: count(),
+            creditsSpent: sql<number>`COALESCE(SUM(${schema.projects.creditsSpent}), 0)`,
+          })
+          .from(schema.projects),
+        [{ projects: 0, creditsSpent: 0 }],
+        "admin_build_cost_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            transactions: count(),
+            netCredits: sql<number>`COALESCE(SUM(${schema.creditTransactions.amount}), 0)`,
+          })
+          .from(schema.creditTransactions),
+        [{ transactions: 0, netCredits: 0 }],
+        "admin_credit_ledger_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            status: schema.subscriptions.status,
+            count: count(),
+          })
+          .from(schema.subscriptions)
+          .groupBy(schema.subscriptions.status),
+        [],
+        "admin_billing_diagnostic_failed",
+      ),
+      safe(
+        db
+          .select({
+            pendingModeration: count(),
+          })
+          .from(schema.moderationFlags)
+          .where(eq(schema.moderationFlags.adminReviewed, false)),
+        [{ pendingModeration: 0 }],
+        "admin_abuse_diagnostic_failed",
+      ),
     ]);
 
     const integrations = summarizeTeamIntegrations();
