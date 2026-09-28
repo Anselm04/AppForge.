@@ -31,7 +31,8 @@ async function requireCompletedProject(projectId: number, userId: number) {
   if (!isProjectArtifactReady(project.status)) {
     throw new TRPCError({
       code: "CONFLICT",
-      message: "Artifacts can only be added after the project has a validated artifact",
+      message:
+        "Artifacts can only be added after the project has a validated artifact",
     });
   }
   return project;
