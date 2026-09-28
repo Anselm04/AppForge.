@@ -555,6 +555,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         throw err;
       }
       const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.startsWith("LLM invoke failed:")) {
+        recordModelUsage({
+          provider: provider.id,
+          model: String(payload.model),
+          durationMs: Date.now() - requestStartedAt,
+          ok: false,
+        });
+      }
       if (msg.startsWith("LLM invoke failed:")) throw err;
       errors.push(`${provider.id} network: ${msg}`);
       if (i < providers.length - 1) {
