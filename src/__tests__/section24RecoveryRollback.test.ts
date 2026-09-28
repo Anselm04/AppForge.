@@ -5,19 +5,29 @@ const source = (path: string) => readFileSync(path, "utf8");
 
 describe("#24 Recovery and Rollback", () => {
   it("registers recovery checkpoints as a new checksummed migration", () => {
+    const baseline =
+      source("src/db/schemaBaselinePart1.ts") +
+      source("src/db/schemaBaselinePart2.ts");
+    const patches =
+      source("src/db/schemaPatchSql.ts") +
+      source("src/db/schemaSection18Sql.ts") +
+      source("src/db/schemaSection24Sql.ts");
     const ensure = source("src/db/ensureSchema.ts");
+    const combined = [baseline, patches, ensure].join("\n");
     const baselineStart = ensure.indexOf('version: "20260703_001"');
     const recoveryMigration = ensure.indexOf('version: "20260928_004"');
-    const recoverySql = ensure.indexOf("SECTION24_RECOVERY_CHECKPOINTS_SQL");
-    const schemaSqlEnd = ensure.indexOf("const SCHEMA_PATCH_SQL");
+    const recoverySql = patches.indexOf("SECTION24_RECOVERY_CHECKPOINTS_SQL");
 
     expect(recoverySql).toBeGreaterThan(-1);
     expect(recoveryMigration).toBeGreaterThan(baselineStart);
     expect(ensure).toContain("section24_recovery_checkpoints");
-    expect(ensure.slice(0, schemaSqlEnd)).not.toContain(
+    expect(baseline).not.toContain(
       'CREATE TABLE IF NOT EXISTS "recovery_checkpoints"',
     );
-    expect(ensure).toContain(
+    expect(patches).toContain(
+      'CREATE TABLE IF NOT EXISTS "recovery_checkpoints"',
+    );
+    expect(combined).toContain(
       "checksum changed; create a new migration instead of editing history",
     );
   });
