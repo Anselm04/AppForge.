@@ -2,7 +2,7 @@ import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { runSeniorDevAgent } from "./seniorDevAgent.js";
 import type { SeniorDevTask } from "./seniorDevAgent.js";
 import { claimSeniorDevStart } from "../services/senior-dev-claim.js";
@@ -81,13 +81,16 @@ export function unwatchProject(projectId: number) {
 }
 
 /**
- * Rebuild the in-memory watchlist from persisted completed projects.
+ * Rebuild the in-memory watchlist from persisted production-certified projects.
  * This makes autonomous recovery survive Fly machine restarts even when no
  * deployment-time watchProject() call occurred on the current machine.
  */
 export async function hydrateSelfHealingWatchlist(): Promise<number> {
   const completed = await db.query.projects.findMany({
-    where: eq(schema.projects.status, "completed"),
+    where: inArray(schema.projects.status, [
+      "production-certified",
+      "completed",
+    ]),
     columns: { id: true, userId: true },
   });
   const activeIds = new Set<number>();
@@ -219,8 +222,11 @@ async function createAutonomousFixTask(
       requirementManifest: true,
     },
   });
-  if (!project || project.status !== "completed") {
-    logger.info({ projectId }, "self_healing_project_not_completed");
+  if (
+    !project ||
+    !["production-certified", "completed"].includes(project.status ?? "")
+  ) {
+    logger.info({ projectId }, "self_healing_project_not_certified");
     return false;
   }
   if (!project.productContract) {
@@ -390,7 +396,10 @@ async function createAutonomousFixTask(
     await db
       .update(schema.projects)
       .set({
-        status: "completed",
+        status: "production-certified",
+        buildStage: "production-certified",
+        outputMaturity: "certified",
+        failureStage: null,
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
