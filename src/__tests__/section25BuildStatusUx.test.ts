@@ -111,6 +111,10 @@ describe("#25 Build Status and User Experience", () => {
     expect(router).toContain("contract.originalPrompt");
     expect(router).toContain("contract.selectedTechnologyStack");
     expect(router).toContain("project.creditsReserved");
+    expect(router).toContain(
+      'const revisingPlan = project.planStatus === "revision_requested"',
+    );
+    expect(router).toContain("planRevisionRequest: null");
   });
 
   it("never substitutes an AppForge shell route for the generated live product", () => {
@@ -138,6 +142,17 @@ describe("#25 Build Status and User Experience", () => {
     expect(build).toContain("Review validated plan");
     expect(build).toContain("Request plan revision");
     expect(build).toContain("Resume generation");
+    expect(build).toContain("Regenerate revised plan");
+  });
+
+  it("reuses the exact approved plan unless the user requested a revision", () => {
+    const pipeline = source("src/agents/.pipeline_parts/part1.txt");
+    expect(pipeline).toContain('projectRow?.planStatus === "approved"');
+    expect(pipeline).toContain("!projectRow.planRevisionRequest");
+    expect(pipeline).toContain(
+      "validateProductPlan(projectRow.productPlan, productContract)",
+    );
+    expect(pipeline).toContain("no silent re-planning is allowed");
   });
 
   it("records failure stage from the active build stage", () => {
