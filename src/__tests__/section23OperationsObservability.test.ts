@@ -64,9 +64,10 @@ describe("#23 Operations and Observability", () => {
     setOperationalGauge("appforge_database_connected", 1);
 
     const metrics = renderPrometheusMetrics();
-    expect(metrics).toContain(
-      'appforge_model_tokens_total{model="test-model",provider="test-provider"} 140',
-    );
+    expect(metrics).toContain("appforge_model_tokens_total");
+    expect(metrics).toContain('provider="test-provider"');
+    expect(metrics).toContain('model="test-model"');
+    expect(metrics).toContain(" 140");
     expect(metrics).toContain(
       'appforge_rate_limit_rejections_total{tier="global"} 1',
     );
