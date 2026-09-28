@@ -32,6 +32,24 @@ const queueClaimKey = (projectId: number) =>
 const isTerminalEvent = (event: string) =>
   event === "done" || event === "error";
 
+const QUEUE_BACKENDS = ["bullmq", "redis_list", "memory"] as const;
+type QueueBackend = (typeof QUEUE_BACKENDS)[number];
+
+function setActiveQueueDepth(backend: QueueBackend, depth: number): void {
+  for (const candidate of QUEUE_BACKENDS) {
+    setOperationalGauge(
+      "appforge_queue_backend_active",
+      candidate === backend ? 1 : 0,
+      { backend: candidate },
+    );
+    setOperationalGauge(
+      "appforge_queue_depth",
+      candidate === backend ? Math.max(0, depth) : 0,
+      { backend: candidate },
+    );
+  }
+}
+
 async function refundDuplicateReservation(job: BuildJob): Promise<void> {
   if (!job.reservationCharged) return;
   try {
@@ -79,6 +97,16 @@ async function initBullMQ(): Promise<boolean> {
       },
       { connection, concurrency: 2 },
     );
+    const refreshBullQueueDepth = () => {
+      void bullQueue
+        ?.getWaitingCount()
+        .then((depth) => setActiveQueueDepth("bullmq", depth))
+        .catch((error) =>
+          logger.warn({ error }, "bullmq_queue_depth_refresh_failed"),
+        );
+    };
+    bullWorker.on("active", refreshBullQueueDepth);
+    bullWorker.on("completed", refreshBullQueueDepth);
     bullWorker.on(
       "failed",
       (job: { data?: BuildJob } | undefined, err: Error) => {
@@ -86,8 +114,10 @@ async function initBullMQ(): Promise<boolean> {
           { err, projectId: (job?.data as BuildJob)?.projectId },
           "bullmq_job_failed",
         );
+        refreshBullQueueDepth();
       },
     );
+    refreshBullQueueDepth();
     logger.info("BullMQ build worker started");
     return true;
   } catch (err) {
@@ -101,6 +131,7 @@ async function processMemoryQueue(): Promise<void> {
   memoryWorkerRunning = true;
   while (memoryQueue.length > 0) {
     const job = memoryQueue.shift();
+    setActiveQueueDepth("memory", memoryQueue.length);
     if (job) {
       try {
         await runBuildJob(job);
@@ -121,6 +152,7 @@ async function processRedisQueue(): Promise<void> {
   const redis = await getRedis();
   if (!redis) return;
   const raw = await redis.rPop(QUEUE_KEY);
+  setActiveQueueDepth("redis_list", await redis.lLen(QUEUE_KEY));
   if (!raw) return;
   let payload: unknown;
   try {
@@ -183,6 +215,7 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
       incrementOperationalMetric("appforge_queue_enqueued_total", {
         backend: "bullmq",
       });
+      setActiveQueueDepth("bullmq", await bullQueue.getWaitingCount());
       return;
     } catch (err) {
       logger.error(
@@ -209,7 +242,8 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         return;
       }
       try {
-        await redis.lPush(QUEUE_KEY, serializeBuildJob(job));
+        const depth = await redis.lPush(QUEUE_KEY, serializeBuildJob(job));
+        setActiveQueueDepth("redis_list", depth);
       } catch (err) {
         await redis.del(queueClaimKey(job.projectId));
         throw err;
@@ -244,9 +278,7 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
   incrementOperationalMetric("appforge_queue_enqueued_total", {
     backend: "memory",
   });
-  setOperationalGauge("appforge_queue_depth", memoryQueue.length, {
-    backend: "memory",
-  });
+  setActiveQueueDepth("memory", memoryQueue.length);
   void processMemoryQueue();
 }
 
@@ -286,7 +318,7 @@ export async function getBuildQueueDiagnostics() {
     }
   }
 
-  setOperationalGauge("appforge_queue_depth", depth, { backend });
+  setActiveQueueDepth(backend, depth);
   setOperationalGauge("appforge_queue_active_workers", activeWorkers, {
     backend,
   });
