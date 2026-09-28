@@ -206,6 +206,7 @@ export function Build() {
             structuralOnly?: boolean;
           };
           setIsComplete(true);
+          void refetchProject();
           const spent = data.payload?.creditsSpent ?? data.creditsSpent;
           if (spent) setCreditsSpent(spent);
           const structuralOnly =
