@@ -143,6 +143,7 @@
       techStack,
       files: generatedFiles,
     });
+    await updateProjectBuildStage(projectId, "persisting");
     await updateProjectFiles(projectId, generatedFiles);
 
     const { logger } = await import("../_core/logger.js");
@@ -176,6 +177,13 @@
       requirementManifest,
     });
     const snapshotId = finalizedSnapshot.id;
+    const finalStackAdapter = getStackAdapter(techStack);
+    await updateProjectBuildStage(projectId, "production-candidate", {
+      outputMaturity:
+        finalStackAdapter.generationMode === "structural"
+          ? "structural"
+          : "runnable",
+    });
     logger.info(
       {
         projectId,
