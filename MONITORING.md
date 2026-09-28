@@ -258,3 +258,15 @@ Authenticated users can see coarse live service diagnostics in **Account → Sys
 Grafana dashboard: `monitoring/grafana/dashboards/appforge-operations.json`.
 
 Prometheus alerts include queue backlog, database/Redis unavailability, repeated build/deployment failures, elevated rate-limit pressure, HTTP errors/latency, and process CPU/memory pressure.
+
+
+## Metrics endpoint authentication
+
+Production `GET /metrics` is intentionally not public. Set a strong
+`APPFORGE_METRICS_TOKEN` on the AppForge service and provide the identical
+token to Prometheus through the file
+`/run/secrets/appforge_metrics_token`. Prometheus sends that value as a
+Bearer credential. Development keeps local scraping available without a token.
+
+Do not expose the metrics token to browsers, generated products, logs, or
+repository files. Rotate it like any other production monitoring credential.
