@@ -318,10 +318,12 @@ export async function recordInvoiceState(input: {
       state = EXCLUDED.state,
       updated_at = NOW()
   \`;
-  if (input.subscriptionId && input.state === "payment_failed") {
+  if (input.subscriptionId) {
     await sql\`
       UPDATE subscriptions
-      SET status = 'past_due'
+      SET
+        status = \${input.state === "paid" ? "active" : "past_due"},
+        updated_at = NOW()
       WHERE stripe_subscription_id = \${input.subscriptionId}
     \`;
   }
@@ -474,6 +476,7 @@ export function billingWebhookHandlers(isNext: boolean): {
       await upsertFromCheckoutSession(event.data.object);
     }
     if (
+      event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
