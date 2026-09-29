@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { logger } from "../_core/logger.js";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
 import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
