@@ -1,5 +1,10 @@
 import { searchWeb, type WebSearchResponse } from "../services/webSearch.js";
-import { appendAgentLog, markAgentLogComplete, db } from "../db.js";
+import {
+  appendAgentLog,
+  markAgentLogComplete,
+  recordProjectEvidence,
+  db,
+} from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import {
@@ -316,6 +321,21 @@ export async function runResearchAgent(
       .update(schema.projects)
       .set({ researchRecord, updatedAt: new Date() })
       .where(eq(schema.projects.id, projectId));
+    await recordProjectEvidence({
+      projectId,
+      kind: "research",
+      payload: {
+        queries: researchRecord.queries,
+        sources: researchRecord.sources,
+        rejectedSources: researchRecord.rejectedSources,
+        decisions: researchRecord.decisions,
+        uncertainty: researchRecord.uncertainty,
+        conflicts: researchRecord.conflicts,
+        providerFailures: researchRecord.providerFailures,
+        searchedAt: researchRecord.searchedAt,
+        redesign: Boolean(options?.redesignBrief),
+      },
+    });
   }
   await markAgentLogComplete(logId);
   return brief;
