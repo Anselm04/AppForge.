@@ -5,12 +5,13 @@ import { trpc } from "../utils/trpc.js";
 export function Admin() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<
-    "analytics" | "operations" | "codes" | "moderation"
+    "analytics" | "operations" | "evidence" | "codes" | "moderation"
   >("analytics");
   const [grantType, setGrantType] = useState<"lifetime" | "limited">("limited");
   const [credits, setCredits] = useState("100");
   const [minted, setMinted] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [evidenceProjectId, setEvidenceProjectId] = useState("");
 
   const {
     data: me,
@@ -37,6 +38,22 @@ export function Admin() {
     queryFn: () => trpc.admin.operations.query(),
     enabled: !!me && tab === "operations",
     refetchInterval: 15_000,
+  });
+
+  const parsedEvidenceProjectId = Number.parseInt(evidenceProjectId, 10);
+  const {
+    data: projectEvidence,
+    isLoading: evidenceLoading,
+    isError: evidenceError,
+  } = useQuery({
+    queryKey: ["admin", "projectEvidence", parsedEvidenceProjectId],
+    queryFn: () =>
+      trpc.admin.projectEvidence.query({ projectId: parsedEvidenceProjectId }),
+    enabled:
+      !!me &&
+      tab === "evidence" &&
+      Number.isInteger(parsedEvidenceProjectId) &&
+      parsedEvidenceProjectId > 0,
   });
 
   const { data: codes } = useQuery({
@@ -96,8 +113,9 @@ export function Admin() {
       </p>
 
       <div className="flex gap-2 mb-8">
-        {(["analytics", "operations", "codes", "moderation"] as const).map(
-          (item) => (
+        {(
+          ["analytics", "operations", "evidence", "codes", "moderation"] as const
+        ).map((item) => (
             <button
               key={item}
               type="button"
@@ -112,9 +130,11 @@ export function Admin() {
                 ? "Analytics"
                 : item === "operations"
                   ? "Operations"
-                  : item === "codes"
-                    ? "God codes"
-                    : "Moderation"}
+                  : item === "evidence"
+                    ? "Evidence"
+                    : item === "codes"
+                      ? "God codes"
+                      : "Moderation"}
             </button>
           ),
         )}
@@ -321,6 +341,82 @@ export function Admin() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "evidence" && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+            <h2 className="text-xl font-semibold mb-2">
+              Project evidence & audit trail
+            </h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Owner-only view of the durable evidence preserved for a project.
+            </p>
+            <label className="block max-w-sm text-sm font-semibold">
+              Project ID
+              <input
+                type="number"
+                min={1}
+                value={evidenceProjectId}
+                onChange={(event) => setEvidenceProjectId(event.target.value)}
+                className="mt-1 w-full rounded border border-slate-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-700"
+                placeholder="Enter project ID"
+              />
+            </label>
+          </div>
+
+          {evidenceLoading && (
+            <p className="text-slate-500">Loading project evidence…</p>
+          )}
+          {evidenceError && (
+            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              Project evidence could not be loaded.
+            </div>
+          )}
+          {projectEvidence && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  {
+                    label: "Project",
+                    value: projectEvidence.projectId,
+                  },
+                  {
+                    label: "Snapshots",
+                    value: projectEvidence.snapshots.length,
+                  },
+                  {
+                    label: "Evidence events",
+                    value: projectEvidence.events.length,
+                  },
+                  {
+                    label: "Certification",
+                    value: projectEvidence.certification.status ?? "unknown",
+                  },
+                ].map((card) => (
+                  <div
+                    key={card.label}
+                    className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow"
+                  >
+                    <div className="text-sm text-slate-500">{card.label}</div>
+                    <div className="text-xl font-bold break-all">
+                      {card.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <details className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+                <summary className="cursor-pointer font-semibold">
+                  Full canonical evidence
+                </summary>
+                <pre className="mt-4 max-h-[32rem] overflow-auto whitespace-pre-wrap text-xs">
+                  {JSON.stringify(projectEvidence, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
         </div>
       )}
 
