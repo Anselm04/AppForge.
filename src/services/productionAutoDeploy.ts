@@ -161,7 +161,6 @@ export async function deployValidatedProject(opts: {
       snapshotId: opts.snapshot?.id ?? null,
       artifactSha256: opts.snapshot?.integrity.sha256 ?? null,
     },
-  }
   }).catch((error) => {
     logger.warn(
       { error, projectId: opts.projectId },
