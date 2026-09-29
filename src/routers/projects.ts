@@ -7,6 +7,8 @@ import {
   getAgentLogsByProject,
   getProjectById,
   getProjectsByUserId,
+  getProjectEvidenceBundle,
+  recordProjectEvidence,
   isUserPro,
   getUserTier,
   getTierBuildLimit,
@@ -370,6 +372,15 @@ export const projectsRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(schema.projects.id, input.projectId));
+      await recordProjectEvidence({
+        projectId: input.projectId,
+        kind: "plan",
+        payload: {
+          action: "revision_requested",
+          revision: input.revision,
+          priorPlan: project.productPlan ?? null,
+        },
+      });
       return { success: true, planStatus: "revision_requested" as const };
     }),
 
@@ -404,6 +415,15 @@ export const projectsRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(schema.projects.id, input.projectId));
+      await recordProjectEvidence({
+        projectId: input.projectId,
+        kind: "plan",
+        payload: {
+          action: "approved",
+          architecture: (project.productPlan as any)?.architecture ?? null,
+          implementationTasks: (project.productPlan as any)?.tasks ?? [],
+        },
+      });
       return { success: true, planStatus: "approved" as const };
     }),
 
@@ -422,6 +442,14 @@ export const projectsRouter = router({
         .update(schema.projects)
         .set({ monetizationApproved: true, updatedAt: new Date() })
         .where(eq(schema.projects.id, input.projectId));
+      await recordProjectEvidence({
+        projectId: input.projectId,
+        kind: "monetization",
+        payload: {
+          approved: true,
+          requirements: contract.monetizationRequirements,
+        },
+      });
       return { success: true, required: true, approved: true };
     }),
 
@@ -440,6 +468,14 @@ export const projectsRouter = router({
         .update(schema.projects)
         .set({ integrationsApproved: true, updatedAt: new Date() })
         .where(eq(schema.projects.id, input.projectId));
+      await recordProjectEvidence({
+        projectId: input.projectId,
+        kind: "integration",
+        payload: {
+          approved: true,
+          integrations: contract.integrations,
+        },
+      });
       return { success: true, required: true, approved: true };
     }),
 
@@ -601,6 +637,19 @@ export const projectsRouter = router({
         buildStage: "researching" as const,
         revisingPlan,
       };
+    }),
+
+  evidence: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const evidence = await getProjectEvidenceBundle(input.id);
+      if (!evidence) throw new TRPCError({ code: "NOT_FOUND" });
+      return evidence;
     }),
 
   tierStatus: protectedProcedure.query(async ({ ctx }) => {
@@ -824,6 +873,22 @@ export const projectsRouter = router({
 
         const { recordDeploy } = await import("../db/buildStats.js");
         await recordDeploy(ctx.user.id);
+        await recordProjectEvidence({
+          projectId: input.id,
+          kind: "deployment",
+          artifactVersion: artifact.version,
+          payload: {
+            success: true,
+            destination: result.destination,
+            liveUrl: result.url ?? null,
+            snapshotId: artifact.snapshotId,
+            artifactSha256: artifact.integrity.sha256,
+            smokeTest: smoke,
+            billingSmokeTest: billingSmoke,
+            requirementManifest,
+            note: result.note ?? null,
+          },
+        });
 
         const deployGuide = [
           "Set environment variables on your host (DATABASE_URL, API keys).",
@@ -869,6 +934,18 @@ export const projectsRouter = router({
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Deploy failed";
+        await recordProjectEvidence({
+          projectId: input.id,
+          kind: "deployment",
+          artifactVersion: artifact.version,
+          payload: {
+            success: false,
+            destination: input.destination,
+            snapshotId: artifact.snapshotId,
+            artifactSha256: artifact.integrity.sha256,
+            error: message,
+          },
+        }).catch(() => undefined);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
     }),
