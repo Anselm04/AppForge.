@@ -170,6 +170,21 @@
       requirementManifest,
     });
     const snapshotId = finalizedSnapshot.id;
+    await recordProjectEvidence({
+      projectId,
+      kind: "artifact_working",
+      attempt: outerAttempt,
+      artifactVersion: nextVersion,
+      payload: {
+        snapshotId,
+        artifactVersion: nextVersion,
+        artifactIntegrity: finalizedSnapshot.integrity,
+        fileCount: Object.keys(generatedFiles).length,
+        files: Object.keys(generatedFiles).sort(),
+        validationResult,
+        requirementManifestRevision: requirementManifest.revision,
+      },
+    });
     const finalStackAdapter = getStackAdapter(techStack);
     await updateProjectBuildStage(projectId, "production-candidate", {
       outputMaturity:
