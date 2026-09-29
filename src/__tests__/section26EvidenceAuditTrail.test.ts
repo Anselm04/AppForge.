@@ -12,7 +12,7 @@ describe("Section 26 evidence and audit trail", () => {
     const db = source("src/db.ts");
 
     for (const marker of [
-      'export const projectEvidence = pgTable(',
+      "export const projectEvidence = pgTable(",
       '"project_evidence"',
       'kind: varchar("kind"',
       'buildStage: varchar("build_stage"',
@@ -82,7 +82,9 @@ describe("Section 26 evidence and audit trail", () => {
     expect(db).toContain("artifactIntegrity: snapshot.artifactIntegrity");
     expect(pipeline).toContain('kind: "artifact_working"');
     expect(pipeline).toContain("snapshotId");
-    expect(pipeline).toContain("artifactIntegrity: finalizedSnapshot.integrity");
+    expect(pipeline).toContain(
+      "artifactIntegrity: finalizedSnapshot.integrity",
+    );
   });
 
   it("persists validation, repair and security results for every attempt", () => {
@@ -109,7 +111,9 @@ describe("Section 26 evidence and audit trail", () => {
     const production = source("src/services/productionAutoDeploy.ts");
 
     expect(projects).toContain('kind: "monetization"');
-    expect(projects).toContain("requirements: contract.monetizationRequirements");
+    expect(projects).toContain(
+      "requirements: contract.monetizationRequirements",
+    );
     expect(projects).toContain('kind: "integration"');
     expect(projects).toContain("integrations: contract.integrations");
     expect(projects).toContain('kind: "deployment"');
@@ -164,6 +168,8 @@ describe("Section 26 evidence and audit trail", () => {
     expect(healing).toContain('source: "self_healing"');
     expect(healing).toContain('kind: "repair"');
     expect(healing).toContain('kind: "certification"');
-    expect(healing).toContain("artifactSha256: persistedArtifact.integrity.sha256");
+    expect(healing).toContain(
+      "artifactSha256: persistedArtifact.integrity.sha256",
+    );
   });
 });
