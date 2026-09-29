@@ -1,6 +1,7 @@
 import {
   appendAgentLog,
   markAgentLogComplete,
+  recordProjectEvidence,
   updateProjectBuildStage,
   updateProjectFiles,
   updateProjectRequirementManifest,
