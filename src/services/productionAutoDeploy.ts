@@ -147,6 +147,21 @@ export async function deployValidatedProject(opts: {
     ),
     ...securityPosture,
   ];
+  const { recordProjectEvidence } = await import("../db.js");
+  await recordProjectEvidence({
+    projectId: opts.projectId,
+    kind: "security",
+    artifactVersion: opts.snapshot?.version ?? null,
+    payload: {
+      phase: "pre_deploy",
+      passed: blockingSecurityFindings.length === 0,
+      scanFindings: securityScan.findings,
+      postureFindings: securityPosture,
+      blockingFindings: blockingSecurityFindings,
+      snapshotId: opts.snapshot?.id ?? null,
+      artifactSha256: opts.snapshot?.integrity.sha256 ?? null,
+    },
+  });
   if (blockingSecurityFindings.length > 0) {
     throw new Error(
       "Production deployment blocked by generated-project security findings: " +
@@ -257,7 +272,7 @@ export async function deployValidatedProject(opts: {
       manifest: deploymentManifest,
       liveUrl,
     });
-    return {
+    const certification: ProductionCertification = {
       liveUrl,
       snapshotId: opts.snapshot?.id,
       artifactVersion: opts.snapshot?.version,
@@ -272,6 +287,13 @@ export async function deployValidatedProject(opts: {
       deploymentManifestSha256,
       deploymentAudit,
     };
+    await recordProjectEvidence({
+      projectId: opts.projectId,
+      kind: "deployment",
+      artifactVersion: opts.snapshot?.version ?? null,
+      payload: { success: true, destination: "fly", ...certification },
+    });
+    return certification;
   }
 
   const smoke = await runPostDeploySmokeTest(liveUrl);
@@ -297,7 +319,7 @@ export async function deployValidatedProject(opts: {
     manifest: deploymentManifest,
     liveUrl,
   });
-  return {
+  const certification: ProductionCertification = {
     liveUrl,
     snapshotId: opts.snapshot?.id,
     artifactVersion: opts.snapshot?.version,
@@ -312,4 +334,11 @@ export async function deployValidatedProject(opts: {
     deploymentManifestSha256,
     deploymentAudit,
   };
+  await recordProjectEvidence({
+    projectId: opts.projectId,
+    kind: "deployment",
+    artifactVersion: opts.snapshot?.version ?? null,
+    payload: { success: true, destination: "fly", ...certification },
+  });
+  return certification;
 }
