@@ -299,6 +299,30 @@
       previous: requirementManifest,
     });
     await updateProjectRequirementManifest(projectId, requirementManifest);
+    await recordProjectEvidence({
+      projectId,
+      kind: "plan",
+      attempt: outerAttempt,
+      payload: {
+        architecture: productPlan.architecture,
+        implementationTasks: productPlan.tasks,
+        implementationSequence: productPlan.implementationSequence,
+        requirementToTasks: productPlan.requirementToTasks,
+        researchDecisionIds: productPlan.researchDecisionIds,
+        planStatus:
+          consumedPlanRevision ? "awaiting_approval" : projectRow?.planStatus ?? "planning",
+        revisionConsumed: consumedPlanRevision,
+      },
+    });
+    await recordProjectEvidence({
+      projectId,
+      kind: "requirements",
+      attempt: outerAttempt,
+      payload: {
+        requirementManifest,
+        unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
+      },
+    });
 
     const coordinationRow = await db.query.projects.findFirst({
       where: eq(schema.projects.id, projectId),
