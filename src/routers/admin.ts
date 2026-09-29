@@ -5,11 +5,7 @@ import {
   ownerOnlyProcedure,
   protectedProcedure,
 } from "../_core/trpc.js";
-import {
-  applyGodCodeGrant,
-  db,
-  getProjectEvidenceBundle,
-} from "../db.js";
+import { applyGodCodeGrant, db, getProjectEvidenceBundle } from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq, desc, and, gte, count, sql, isNull } from "drizzle-orm";
 import { ENV } from "../_core/env.js";
@@ -159,7 +155,10 @@ export const adminRouter = router({
     .query(async ({ input }) => {
       const evidence = await getProjectEvidenceBundle(input.projectId);
       if (!evidence) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
       }
       return evidence;
     }),
