@@ -778,8 +778,10 @@ export function Build() {
                     label="Artifact hash"
                     value={
                       evidence.certification.currentArtifactSha256
-                        ? evidence.certification.currentArtifactSha256.slice(0, 16) +
-                          "…"
+                        ? evidence.certification.currentArtifactSha256.slice(
+                            0,
+                            16,
+                          ) + "…"
                         : "Not available"
                     }
                   />
