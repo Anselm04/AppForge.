@@ -452,6 +452,16 @@ async function createAutonomousFixTask(
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const { recordProjectEvidence } = await import("../db.js");
+    await recordProjectEvidence({
+      projectId,
+      kind: "failure",
+      payload: {
+        source: "self_healing",
+        taskId,
+        error: msg,
+      },
+    }).catch(() => undefined);
     logger.error({ projectId, taskId, error: msg }, "self_healing_failed");
     await db
       .update(schema.seniorDevTasks)
