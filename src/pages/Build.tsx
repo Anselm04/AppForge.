@@ -33,13 +33,7 @@ interface BuildLog {
 type DeployDestination =
   "vercel" | "netlify" | "fly" | "preview" | "github-pages";
 
-type BuildTab =
-  | "logs"
-  | "evidence"
-  | "code"
-  | "chat"
-  | "preview"
-  | "terminal";
+type BuildTab = "logs" | "evidence" | "code" | "chat" | "preview" | "terminal";
 
 export function normalizeLiveProductUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value) return null;
@@ -702,22 +696,28 @@ export function Build() {
 
         <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
           {(
-            ["logs", "evidence", "preview", "code", "chat", "terminal"] as BuildTab[]
+            [
+              "logs",
+              "evidence",
+              "preview",
+              "code",
+              "chat",
+              "terminal",
+            ] as BuildTab[]
           ).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
-                  tab === t
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {t}
-              </button>
-            ),
-          )}
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
+                tab === t
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
         {tab === "logs" && (
