@@ -342,6 +342,7 @@ async function createAutonomousFixTask(
       getSnapshotArtifact,
       markSnapshotAsCurrent,
       persistRequirementDeploymentEvidence,
+      recordProjectEvidence,
     } = await import("../db.js");
     const newVersion = await getNextVersion(projectId);
     const newSnapshotId = await createBuildSnapshot({
@@ -364,6 +365,19 @@ async function createAutonomousFixTask(
     if (!persistedArtifact) {
       throw new Error("Persisted self-healing artifact could not be reloaded");
     }
+    await recordProjectEvidence({
+      projectId,
+      kind: "repair",
+      artifactVersion: persistedArtifact.version,
+      payload: {
+        source: "self_healing",
+        taskId,
+        snapshotId: persistedArtifact.snapshotId,
+        artifactIntegrity: persistedArtifact.integrity,
+        validations: result.validations,
+        changes: result.changes,
+      },
+    });
 
     // Deploy the exact immutable snapshot bytes that may become current.
     const deployment = await deployValidatedProject({
@@ -403,6 +417,20 @@ async function createAutonomousFixTask(
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, projectId));
+    await recordProjectEvidence({
+      projectId,
+      kind: "certification",
+      artifactVersion: persistedArtifact.version,
+      payload: {
+        source: "self_healing",
+        status: "production-certified",
+        snapshotId: persistedArtifact.snapshotId,
+        artifactSha256: persistedArtifact.integrity.sha256,
+        liveUrl: deployment.liveUrl,
+        deploymentManifestSha256: deployment.deploymentManifestSha256,
+        deploymentAudit: deployment.deploymentAudit,
+      },
+    });
     await db
       .update(schema.seniorDevTasks)
       .set({
@@ -424,6 +452,16 @@ async function createAutonomousFixTask(
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const { recordProjectEvidence } = await import("../db.js");
+    await recordProjectEvidence({
+      projectId,
+      kind: "failure",
+      payload: {
+        source: "self_healing",
+        taskId,
+        error: msg,
+      },
+    }).catch(() => undefined);
     logger.error({ projectId, taskId, error: msg }, "self_healing_failed");
     await db
       .update(schema.seniorDevTasks)

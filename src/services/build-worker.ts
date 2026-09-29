@@ -4,6 +4,7 @@ import {
   addCredits,
   getCurrentArtifact,
   getProjectById,
+  recordProjectEvidence,
   resumeProject,
   updateProjectBuildStage,
   updateProjectCreditsSpent,
@@ -84,6 +85,22 @@ export async function deployValidatedProjectWithRetry(input: {
       return result;
     } catch (error) {
       lastError = error;
+      const message =
+        error instanceof Error ? error.message : "Unknown deployment error";
+      await recordProjectEvidence({
+        projectId: input.projectId,
+        kind: "deployment",
+        attempt,
+        artifactVersion: input.snapshot?.version ?? null,
+        payload: {
+          success: false,
+          destination: "fly",
+          snapshotId: input.snapshot?.id ?? null,
+          artifactSha256: input.snapshot?.integrity.sha256 ?? null,
+          error: message,
+          retryable: attempt < DEPLOY_MAX_ATTEMPTS,
+        },
+      }).catch(() => undefined);
       logger.warn(
         {
           error,
@@ -450,6 +467,23 @@ export async function runBuildJob(input: unknown): Promise<void> {
         await updateProjectBuildStage(projectId, "production-certified", {
           outputMaturity: "certified",
         });
+        await recordProjectEvidence({
+          projectId,
+          kind: "certification",
+          artifactVersion: artifact.version,
+          payload: {
+            status: "production-certified",
+            snapshotId: artifact.snapshotId,
+            artifactSha256: artifact.integrity.sha256,
+            liveUrl: deployed.liveUrl,
+            verification: deployed.verification,
+            httpVerified: deployed.httpVerified,
+            browserVerified: deployed.browserVerified,
+            assetsVerified: deployed.assetsVerified,
+            deploymentManifestSha256: deployed.deploymentManifestSha256,
+            deploymentAudit: deployed.deploymentAudit,
+          },
+        });
         productionCertification = {
           artifactSha256: deployed.artifactSha256,
           snapshotId: artifact.snapshotId,
@@ -472,6 +506,18 @@ export async function runBuildJob(input: unknown): Promise<void> {
             stackAdapter.generationMode === "structural"
               ? "structural"
               : "runnable",
+        });
+        await recordProjectEvidence({
+          projectId,
+          kind: "certification",
+          artifactVersion: artifact.version,
+          payload: {
+            status: "production-candidate",
+            snapshotId: artifact.snapshotId,
+            artifactSha256: artifact.integrity.sha256,
+            productionCertified: false,
+            reason: deploymentDecision.deployment,
+          },
         });
       }
 

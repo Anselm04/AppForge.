@@ -33,7 +33,7 @@ interface BuildLog {
 type DeployDestination =
   "vercel" | "netlify" | "fly" | "preview" | "github-pages";
 
-type BuildTab = "logs" | "code" | "chat" | "preview" | "terminal";
+type BuildTab = "logs" | "evidence" | "code" | "chat" | "preview" | "terminal";
 
 export function normalizeLiveProductUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value) return null;
@@ -91,6 +91,16 @@ export function Build() {
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
+  });
+
+  const {
+    data: evidence,
+    isLoading: evidenceLoading,
+    isError: evidenceError,
+  } = useQuery({
+    queryKey: ["projects", pid, "evidence"],
+    queryFn: () => trpc.projects.evidence.query({ id: pid }),
+    enabled: pid > 0 && tab === "evidence",
   });
 
   const creditBalance = tierStatus?.credits ?? 0;
@@ -685,22 +695,29 @@ export function Build() {
         )}
 
         <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
-          {(["logs", "preview", "code", "chat", "terminal"] as BuildTab[]).map(
-            (t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
-                  tab === t
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {t}
-              </button>
-            ),
-          )}
+          {(
+            [
+              "logs",
+              "evidence",
+              "preview",
+              "code",
+              "chat",
+              "terminal",
+            ] as BuildTab[]
+          ).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-t-lg text-sm font-medium capitalize ${
+                tab === t
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
         {tab === "logs" && (
@@ -714,6 +731,124 @@ export function Build() {
               </p>
             )}
           </div>
+        )}
+
+        {tab === "evidence" && (
+          <section
+            className="mb-8 space-y-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4"
+            data-testid="project-evidence-panel"
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                Evidence & audit trail
+              </h2>
+              <p className="text-sm text-slate-400">
+                Durable evidence from intake through validation, repair,
+                deployment, and certification.
+              </p>
+            </div>
+            {evidenceLoading && (
+              <p className="text-sm text-slate-400">Loading evidence…</p>
+            )}
+            {evidenceError && (
+              <p className="text-sm text-red-300">
+                Evidence is temporarily unavailable.
+              </p>
+            )}
+            {evidence && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                  <StatusFact
+                    label="Artifact version"
+                    value={String(evidence.workingArtifact.version)}
+                  />
+                  <StatusFact
+                    label="Snapshots"
+                    value={String(evidence.snapshots.length)}
+                  />
+                  <StatusFact
+                    label="Evidence events"
+                    value={String(evidence.events.length)}
+                  />
+                  <StatusFact
+                    label="Certification"
+                    value={evidence.certification.status ?? "unknown"}
+                  />
+                  <StatusFact
+                    label="Artifact hash"
+                    value={
+                      evidence.certification.currentArtifactSha256
+                        ? evidence.certification.currentArtifactSha256.slice(
+                            0,
+                            16,
+                          ) + "…"
+                        : "Not available"
+                    }
+                  />
+                  <StatusFact
+                    label="Unresolved risks"
+                    value={String(evidence.unresolvedRisks.length)}
+                  />
+                </div>
+
+                <details className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                  <summary className="cursor-pointer font-medium text-white">
+                    Canonical build evidence
+                  </summary>
+                  <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs text-slate-300">
+                    {JSON.stringify(
+                      {
+                        originalPrompt: evidence.originalPrompt,
+                        productContract: evidence.productContract,
+                        selectedStack: evidence.selectedStack,
+                        research: evidence.research,
+                        architecture: evidence.architecture,
+                        implementationTasks: evidence.implementationTasks,
+                        requirementManifest: evidence.requirementManifest,
+                        approvals: evidence.approvals,
+                        certification: evidence.certification,
+                        unresolvedRisks: evidence.unresolvedRisks,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </details>
+
+                <details className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                  <summary className="cursor-pointer font-medium text-white">
+                    Versioned generated files
+                  </summary>
+                  <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs text-slate-300">
+                    {JSON.stringify(evidence.snapshots, null, 2)}
+                  </pre>
+                </details>
+
+                <div className="space-y-2">
+                  {evidence.events
+                    .slice()
+                    .reverse()
+                    .map((event) => (
+                      <details
+                        key={event.id}
+                        className="rounded-lg border border-slate-700 bg-slate-950/50 p-3"
+                      >
+                        <summary className="cursor-pointer text-sm font-medium text-white">
+                          #{event.id} · {event.kind} ·{" "}
+                          {event.buildStage ?? "unknown stage"}
+                          {event.artifactVersion !== null
+                            ? " · artifact v" + event.artifactVersion
+                            : ""}
+                        </summary>
+                        <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs text-slate-300">
+                          {JSON.stringify(event.payload, null, 2)}
+                        </pre>
+                      </details>
+                    ))}
+                </div>
+              </>
+            )}
+          </section>
         )}
 
         {tab === "preview" && pid > 0 && (

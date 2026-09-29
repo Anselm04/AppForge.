@@ -84,7 +84,21 @@
           .where(eq(schema.agentLogs.id, coderLogId));
         await markAgentLogComplete(coderLogId);
         await updateProjectBuildStage(projectId, "persisting");
-        await updateProjectFiles(projectId, { ...generatedFiles });
+        const repairArtifact = await updateProjectFiles(projectId, {
+          ...generatedFiles,
+        });
+        await recordProjectEvidence({
+          projectId,
+          kind: "repair",
+          attempt: fixAttempt,
+          artifactVersion: repairArtifact.artifactVersion,
+          payload: {
+            errorsBeforeRepair: validationResult?.errors ?? [],
+            deterministicFixes: det.applied,
+            patchedFiles: Object.keys(patches),
+            artifactIntegrity: repairArtifact,
+          },
+        });
         await updateProjectBuildStage(projectId, "repairing");
         resumedGeneratedFiles = { ...generatedFiles };
         await recordCoordinationEvent({

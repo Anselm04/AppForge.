@@ -449,3 +449,27 @@ Verification target:
 - Confirm a plan revision is incorporated before generation resumes.
 - Confirm failure state captures the exact failing stage.
 - Confirm no fallback live-product URL points to an AppForge application route when no verified generated-product URL exists.
+
+
+## Section 26 evidence and audit-trail recovery invariants
+
+Recovery invariant reviewed 29 September 2026:
+- Project evidence is append-only. Recovery must restore prior evidence rows; retries, repairs, redeployments, and self-healing add new evidence and never overwrite earlier events.
+- Intake evidence preserves the original prompt, canonical product contract, resolved product intent, and selected technology stack.
+- Research evidence preserves the actual queries, accepted and rejected sources, decisions, uncertainty, conflicts, and provider failures used by planning.
+- Planning evidence preserves architecture, implementation tasks, requirement mappings, implementation sequence, plan revisions, and approval state.
+- Generated source remains authoritative in the versioned working/final artifact stores. Evidence binds those files to project artifact versions, snapshot IDs, integrity metadata, and SHA-256 hashes rather than duplicating mutable source copies.
+- Validation, repair, security, integration, monetization, deployment, and certification results are durable project evidence. Failed attempts are evidence and must survive a later successful retry.
+- Production certification evidence must identify the exact verified snapshot/version/hash and the deployment verification record. A production candidate is not production-certified evidence.
+- User evidence access remains scoped to the owning project user. Cross-project owner audit access remains protected by server-side `ownerOnlyProcedure`.
+- Recovery is incomplete if project evidence, versioned snapshots, recovery checkpoints, or their artifact identities disagree.
+
+Verification target:
+- Create a project and confirm intake evidence contains the unchanged prompt, contract, product intent, and selected stack.
+- Complete research/planning and confirm queries, sources, decisions, architecture, tasks, and requirement manifest are visible through the evidence bundle.
+- Force a validation/repair retry and confirm both the failed validation and repair attempt remain after the later successful validation.
+- Confirm versioned generated files remain recoverable from snapshots and match the artifact version/integrity/hash exposed by evidence.
+- Exercise monetization/integration approval and deployment paths and confirm their outcomes append evidence without deleting earlier events.
+- Confirm a failed deployment retry remains in the trail and a later verified deployment adds separate certification evidence for the exact artifact.
+- Confirm project users can read only their own audit trail and the admin project-evidence endpoint remains owner-only.
+- Exercise self-healing/redeployment and confirm repair, failure, deployment, and certification evidence remains additive across recovery cycles.

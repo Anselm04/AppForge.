@@ -4,6 +4,7 @@ const db = vi.hoisted(() => ({
   addCredits: vi.fn(),
   getCurrentArtifact: vi.fn(),
   getProjectById: vi.fn(),
+  recordProjectEvidence: vi.fn(),
   resumeProject: vi.fn(),
   updateProjectBuildStage: vi.fn(),
   updateProjectCreditsSpent: vi.fn(),

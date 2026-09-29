@@ -23,6 +23,11 @@ import {
   validateRequirementManifest,
   type RequirementManifest,
 } from "./lib/requirementManifest.js";
+import {
+  evidencePayload,
+  type ProjectEvidenceKind,
+  type ProjectEvidencePayload,
+} from "./lib/projectEvidence.js";
 
 // Connection pooling: max 10 connections, 30s idle timeout
 const client = postgres(ENV.databaseUrl, {
@@ -272,23 +277,42 @@ export async function createProject(data: {
     }
   }
 
-  const result = await db
-    .insert(schema.projects)
-    .values({
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .insert(schema.projects)
+      .values({
+        userId: data.userId,
+        title: data.title,
+        description: data.description,
+        techStack: data.techStack,
+        status: data.status,
+        locale: data.locale,
+        buildCapabilities: data.buildCapabilities ?? [],
+        productContract,
+        promptIntent: data.promptIntent,
+        buildStage: "planning",
+        planStatus: "planning",
+      })
+      .returning({ id: schema.projects.id });
+    const id = result[0]?.id;
+    if (!id) throw new Error("Failed to create project");
+
+    await tx.insert(schema.projectEvidence).values({
+      projectId: id,
       userId: data.userId,
-      title: data.title,
-      description: data.description,
-      techStack: data.techStack,
-      status: data.status,
-      locale: data.locale,
-      buildCapabilities: data.buildCapabilities ?? [],
-      productContract,
-      promptIntent: data.promptIntent,
+      kind: "intake",
       buildStage: "planning",
-      planStatus: "planning",
-    })
-    .returning({ id: schema.projects.id });
-  return result[0].id;
+      artifactVersion: 0,
+      payload: evidencePayload({
+        originalPrompt: productContract?.originalPrompt ?? data.description,
+        productContract: productContract ?? null,
+        selectedStack: data.techStack,
+        promptIntent: data.promptIntent ?? null,
+      }),
+    });
+
+    return id;
+  });
 }
 
 export async function getProjectById(id: number) {
@@ -300,6 +324,164 @@ export async function getProjectsByUserId(userId: number) {
     where: eq(schema.projects.userId, userId),
     orderBy: desc(schema.projects.createdAt),
   });
+}
+
+export async function recordProjectEvidence(input: {
+  projectId: number;
+  kind: ProjectEvidenceKind;
+  payload: ProjectEvidencePayload | Record<string, unknown>;
+  buildStage?: string | null;
+  attempt?: number | null;
+  artifactVersion?: number | null;
+}) {
+  return db.transaction(async (tx) => {
+    const project = await tx.query.projects.findFirst({
+      where: eq(schema.projects.id, input.projectId),
+      columns: {
+        userId: true,
+        buildStage: true,
+        workingArtifactVersion: true,
+      },
+    });
+    if (!project) throw new Error("Project not found for evidence record");
+
+    const inserted = await tx
+      .insert(schema.projectEvidence)
+      .values({
+        projectId: input.projectId,
+        userId: project.userId,
+        kind: input.kind,
+        buildStage: input.buildStage ?? project.buildStage ?? null,
+        attempt: input.attempt ?? null,
+        artifactVersion:
+          input.artifactVersion ?? project.workingArtifactVersion ?? null,
+        payload: evidencePayload(input.payload),
+      })
+      .returning({ id: schema.projectEvidence.id });
+    return inserted[0]?.id ?? null;
+  });
+}
+
+export async function getProjectEvidence(projectId: number) {
+  return db.query.projectEvidence.findMany({
+    where: eq(schema.projectEvidence.projectId, projectId),
+    orderBy: [schema.projectEvidence.id],
+  });
+}
+
+export async function getProjectEvidenceBundle(projectId: number) {
+  const project = await getProjectById(projectId);
+  if (!project) return null;
+
+  const [events, snapshots, checkpoints] = await Promise.all([
+    getProjectEvidence(projectId),
+    db.query.buildSnapshots.findMany({
+      where: eq(schema.buildSnapshots.projectId, projectId),
+      orderBy: [schema.buildSnapshots.version],
+    }),
+    db.query.recoveryCheckpoints.findMany({
+      where: eq(schema.recoveryCheckpoints.projectId, projectId),
+      orderBy: [schema.recoveryCheckpoints.id],
+    }),
+  ]);
+
+  const contract =
+    project.productContract && typeof project.productContract === "object"
+      ? project.productContract
+      : null;
+  const plan =
+    project.productPlan && typeof project.productPlan === "object"
+      ? project.productPlan
+      : null;
+  const manifest =
+    project.requirementManifest && typeof project.requirementManifest === "object"
+      ? project.requirementManifest
+      : null;
+  const latestSnapshot = snapshots.at(-1) ?? null;
+  const currentSnapshot = snapshots.find((snapshot) => snapshot.isCurrent) ?? null;
+  const validationErrors =
+    Array.isArray((latestSnapshot?.validationResult as any)?.errors)
+      ? ((latestSnapshot?.validationResult as any).errors as unknown[])
+      : [];
+  const auditFindings = [
+    ...((((latestSnapshot?.auditScores as any)?.findings as unknown[]) ?? [])),
+  ];
+  const unresolvedRequirementIds =
+    Array.isArray((manifest as any)?.unresolvedMustHaveIds)
+      ? ((manifest as any).unresolvedMustHaveIds as unknown[])
+      : [];
+
+  const unresolvedRisks = [
+    ...unresolvedRequirementIds.map((id) => ({
+      source: "requirement",
+      detail: String(id),
+    })),
+    ...validationErrors.map((error) => ({
+      source: "validation",
+      detail: String(error),
+    })),
+    ...auditFindings.map((finding) => ({
+      source: "security_quality",
+      detail:
+        typeof finding === "string"
+          ? finding
+          : JSON.stringify(finding),
+    })),
+    ...(project.errorMessage
+      ? [{ source: "build", detail: project.errorMessage }]
+      : []),
+  ];
+
+  return {
+    projectId: project.id,
+    userId: project.userId,
+    originalPrompt:
+      (contract as any)?.originalPrompt ?? project.description ?? "",
+    productContract: project.productContract ?? null,
+    selectedStack:
+      (contract as any)?.selectedTechnologyStack ?? project.techStack ?? null,
+    research: project.researchRecord ?? null,
+    architecture: (plan as any)?.architecture ?? null,
+    implementationTasks: (plan as any)?.tasks ?? [],
+    requirementManifest: project.requirementManifest ?? null,
+    workingArtifact: {
+      version: project.workingArtifactVersion ?? 0,
+      integrity: project.workingArtifactIntegrity ?? null,
+      files: project.generatedFiles ?? {},
+    },
+    snapshots: snapshots.map((snapshot) => ({
+      id: snapshot.id,
+      version: snapshot.version,
+      label: snapshot.label,
+      files: snapshot.files,
+      fileCount: snapshot.fileCount,
+      validationResult: snapshot.validationResult,
+      securityAndQualityResult: snapshot.auditScores,
+      requirementManifest: snapshot.requirementManifest,
+      artifactIntegrity: snapshot.artifactIntegrity,
+      isCurrent: snapshot.isCurrent,
+      createdAt: snapshot.createdAt,
+    })),
+    approvals: {
+      planStatus: project.planStatus,
+      monetizationApproved: project.monetizationApproved === true,
+      integrationsApproved: project.integrationsApproved === true,
+    },
+    deploymentEvidence: checkpoints,
+    unresolvedRisks,
+    certification: {
+      status: project.status,
+      buildStage: project.buildStage,
+      outputMaturity: project.outputMaturity,
+      failureStage: project.failureStage,
+      currentArtifactVersion: currentSnapshot?.version ?? null,
+      currentArtifactSha256:
+        (currentSnapshot?.artifactIntegrity as any)?.sha256 ?? null,
+      productionVerified:
+        checkpoints.some((checkpoint) => checkpoint.source === "production_verified"),
+    },
+    events,
+  };
 }
 
 export async function updateProjectStatus(

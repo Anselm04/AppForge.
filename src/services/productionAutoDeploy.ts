@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { logger } from "../_core/logger.js";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
 import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
@@ -147,6 +148,26 @@ export async function deployValidatedProject(opts: {
     ),
     ...securityPosture,
   ];
+  const { recordProjectEvidence } = await import("../db.js");
+  await recordProjectEvidence({
+    projectId: opts.projectId,
+    kind: "security",
+    artifactVersion: opts.snapshot?.version ?? null,
+    payload: {
+      phase: "pre_deploy",
+      passed: blockingSecurityFindings.length === 0,
+      scanFindings: securityScan.findings,
+      postureFindings: securityPosture,
+      blockingFindings: blockingSecurityFindings,
+      snapshotId: opts.snapshot?.id ?? null,
+      artifactSha256: opts.snapshot?.integrity.sha256 ?? null,
+    },
+  }).catch((error) => {
+    logger.warn(
+      { error, projectId: opts.projectId },
+      "project_security_evidence_persist_failed",
+    );
+  });
   if (blockingSecurityFindings.length > 0) {
     throw new Error(
       "Production deployment blocked by generated-project security findings: " +
@@ -257,7 +278,7 @@ export async function deployValidatedProject(opts: {
       manifest: deploymentManifest,
       liveUrl,
     });
-    return {
+    const certification: ProductionCertification = {
       liveUrl,
       snapshotId: opts.snapshot?.id,
       artifactVersion: opts.snapshot?.version,
@@ -272,6 +293,13 @@ export async function deployValidatedProject(opts: {
       deploymentManifestSha256,
       deploymentAudit,
     };
+    await recordProjectEvidence({
+      projectId: opts.projectId,
+      kind: "deployment",
+      artifactVersion: opts.snapshot?.version ?? null,
+      payload: { success: true, destination: "fly", ...certification },
+    });
+    return certification;
   }
 
   const smoke = await runPostDeploySmokeTest(liveUrl);
@@ -297,7 +325,7 @@ export async function deployValidatedProject(opts: {
     manifest: deploymentManifest,
     liveUrl,
   });
-  return {
+  const certification: ProductionCertification = {
     liveUrl,
     snapshotId: opts.snapshot?.id,
     artifactVersion: opts.snapshot?.version,
@@ -312,4 +340,11 @@ export async function deployValidatedProject(opts: {
     deploymentManifestSha256,
     deploymentAudit,
   };
+  await recordProjectEvidence({
+    projectId: opts.projectId,
+    kind: "deployment",
+    artifactVersion: opts.snapshot?.version ?? null,
+    payload: { success: true, destination: "fly", ...certification },
+  });
+  return certification;
 }

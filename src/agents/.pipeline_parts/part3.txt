@@ -200,6 +200,30 @@
           JSON.stringify(validationResult, null, 2),
         isComplete: true,
       });
+      await recordProjectEvidence({
+        projectId,
+        kind: "validation",
+        attempt: fixAttempt,
+        payload: {
+          outerAttempt,
+          repairAttempt: fixAttempt,
+          validationResult,
+          requirementManifest,
+          unresolvedMustHaveIds: requirementManifest.unresolvedMustHaveIds,
+        },
+      });
+      await recordProjectEvidence({
+        projectId,
+        kind: "security",
+        attempt: fixAttempt,
+        payload: {
+          passed: lastAuditResult?.passed ?? false,
+          overallScore: lastAuditResult?.overallScore ?? null,
+          accessibility: lastAuditResult?.a11y ?? null,
+          security: lastAuditResult?.security ?? null,
+          performance: lastAuditResult?.perf ?? null,
+        },
+      });
       await recordCoordinationEvent({
         agent: "Validator",
         type: validationResult.passed ? "complete" : "failure",

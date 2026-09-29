@@ -677,6 +677,47 @@ export const buildEvents = pgTable(
   ],
 );
 
+export const projectEvidence = pgTable(
+  "project_evidence",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    kind: varchar("kind", { length: 64 }).notNull(),
+    buildStage: varchar("build_stage", { length: 50 }),
+    attempt: integer("attempt"),
+    artifactVersion: integer("artifact_version"),
+    payload: jsonb("payload").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("project_evidence_project_id_idx").on(table.projectId, table.id),
+    index("project_evidence_project_kind_idx").on(table.projectId, table.kind),
+    index("project_evidence_project_artifact_idx").on(
+      table.projectId,
+      table.artifactVersion,
+    ),
+  ],
+);
+
+export const projectEvidenceRelations = relations(
+  projectEvidence,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [projectEvidence.projectId],
+      references: [projects.id],
+    }),
+    user: one(users, {
+      fields: [projectEvidence.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
 export const projectAssets = pgTable(
   "project_assets",
   {
