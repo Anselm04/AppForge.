@@ -4,6 +4,7 @@ import {
   addCredits,
   getCurrentArtifact,
   getProjectById,
+  getProjectEvidence,
   recordProjectEvidence,
   resumeProject,
   updateProjectBuildStage,
@@ -40,10 +41,60 @@ import {
   type BuildJob,
 } from "../lib/buildJob.js";
 import { recordKnownGoodCheckpoint } from "./recovery.js";
+import {
+  evaluateCertification,
+  requirementBehaviorVerified,
+  type CertificationDecision,
+} from "../lib/certificationLogic.js";
 
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_BASE_MS = 1_000;
+
+
+function validationPassed(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as { passed?: unknown }).passed === true
+  );
+}
+
+function requirementsResolved(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Array.isArray(
+      (value as { unresolvedMustHaveIds?: unknown }).unresolvedMustHaveIds,
+    ) &&
+    (
+      (value as { unresolvedMustHaveIds: unknown[] }).unresolvedMustHaveIds
+    ).length === 0
+  );
+}
+
+async function verifiedMonetizationEvidence(
+  projectId: number,
+  artifactVersion: number,
+): Promise<boolean> {
+  const events = await getProjectEvidence(projectId);
+  return events.some((event) => {
+    if (
+      event.kind !== "monetization" ||
+      event.artifactVersion !== artifactVersion ||
+      !event.payload ||
+      typeof event.payload !== "object"
+    ) {
+      return false;
+    }
+    const payload = event.payload as Record<string, unknown>;
+    return (
+      payload.verified === true ||
+      payload.status === "verified" ||
+      payload.state === "verified"
+    );
+  });
+}
 
 async function emit(projectId: number, event: string, data: unknown) {
   await appendBuildEvent(projectId, event, data);
