@@ -1,415 +1,638 @@
 # AppForge
 
-> **Describe a digital product. AppForge plans it, builds it, validates it, deploys it, verifies the result, and keeps improving it.**
+> **Describe a digital product. AppForge turns the request into a validated contract, researches it, plans it, builds it with specialist agents, validates the generated artifact, previews it, deploys supported runnable stacks, verifies the live result, and reports an evidence-backed certification state.**
 
-AppForge is the autonomous AI product-building platform being developed by **TrillionAi Tech**. Its purpose is to turn a plain-language product idea into a real, testable, deployable software product through one coordinated system of specialist AI agents, build infrastructure, validation, deployment, security, billing, observability, and operational tooling.
+AppForge is the autonomous AI product-building platform developed by **TrillionAi Tech**. The engineering standard is not “AI generated some code.” The standard is that the requested product is preserved through planning and implementation, real source files are produced, placeholders are rejected, the artifact is validated in isolation, and production readiness is not claimed without the required evidence.
 
-AppForge is not intended to be a prompt-to-code demo. The engineering target is a **production-grade product factory** that can create, test, repair, deploy, verify, and iteratively improve software while preserving source code, project history, customer entitlements, operational evidence, and deployment state.
+## Fresh production audit — 1 October 2026
 
-The long-term objective is simple:
+**Audited production baseline:** `34d19ac5fddc9d10aecbf9e1e9dc814c32898174`
 
-> **Idea → plan → build → test → repair → deploy → verify → improve → operate.**
+The complete GitHub Copilot implementation list **#1 through #30** is present in the current codebase and is covered by dedicated regression/contract tests. On the audited baseline:
 
----
+- CI Pipeline passed.
+- Test & Coverage passed, including the production golden-path contract.
+- Product Factory Validation passed.
+- Lint & Format passed.
+- Type Check passed.
+- Production Build passed and the built server passed liveness.
+- Security Gate passed.
+- NPM Audit passed.
+- Secret Scanning passed.
+- CodeQL passed.
+- Workflow Supply-Chain Gate passed.
+- Disaster Recovery Backup passed.
+- Repository Backup & Restore Drill passed.
+- Repository Metadata Backup passed.
+- Production deployment passed.
+- The production release converged to exactly two started application machines.
+- `/api/health/live` and `/api/health/ready` passed.
+- Anonymous execution, billing, build, preview and application boundaries failed closed as required.
+- Customer entry routes passed.
+- Production was verified to be serving the exact audited commit.
+- Chromium production-shell interaction verification passed.
 
-## Production-readiness mission
+### Production-readiness incident fixed during this audit
 
-AppForge is being hardened toward **100% production readiness**, meaning success is not defined by whether AI produced files or whether a build command happened to exit successfully.
+The prior production release failed because `/api/health/ready` remained HTTP 503 with:
 
-A production-ready AppForge journey must prove, end to end, that:
+```text
+reason: database_schema
+```
 
-1. authentication and account flows work;
-2. customer entitlements, subscriptions, credits, and approved access work;
-3. a user can create a real project from a plain-language request;
-4. the agent pipeline plans and generates the project;
-5. generated source files are persisted correctly;
-6. the appropriate validation mode runs for the selected stack;
-7. full-validation projects execute a **blocking generated-test gate**;
-8. failed validation blocks production certification;
-9. production builds can boot and answer health checks;
-10. deployment produces a reachable product;
-11. required customer-visible behaviour exists in the deployed artifact;
-12. authenticated edits persist and can be redeployed;
-13. CI, security, preview, and release gates fail closed when evidence is missing;
-14. recovery, rollback, monitoring, and operational diagnostics are available;
-15. no production secret is exposed to generated projects, browsers, logs, or repositories.
+The root cause was an **immutable migration-history checksum mismatch**. A recovery change had added the `recovery_checkpoints` table to the already-applied baseline migration `20260703_001`, changing its SHA-256 checksum. AppForge correctly refused to mark startup ready.
 
-A green build alone is not enough. AppForge is being engineered to require **evidence of working customer behaviour** before a release or generated product is treated as successfully certified.
+The repair:
 
----
+1. restored the original baseline migration byte-for-byte;
+2. moved recovery checkpoints into a new forward migration, `20261001_007`;
+3. preserved fail-closed checksum verification;
+4. redeployed the exact repaired commit; and
+5. passed readiness, customer-route, exact-SHA and browser verification.
 
-## What AppForge is designed to build
-
-AppForge is intended to support multiple product families rather than one fixed website template.
-
-### Web and SaaS
-
-- React/Vite applications
-- Next.js and Astro-oriented projects
-- dashboards and admin portals
-- subscription SaaS products
-- e-commerce and business applications
-- APIs and backend services
-- data-driven products
-- browser extensions and web tooling
-
-### Mobile and cross-platform
-
-- Flutter-oriented projects
-- React Native / Expo projects
-- hybrid Capacitor/Ionic-style applications
-
-Native mobile release still requires the relevant Apple/Google SDKs, signing, store credentials, and platform verification. Structural generation is not treated as equivalent to a verified native-store build.
-
-### Production certification chain
-
-For a supported production web build, completion is fail-closed across four linked gates:
-
-1. **Capable generation** — the agent pipeline creates a complete runnable project from the plan rather than a placeholder response.
-2. **Requirement-linked behavioral tests** — AppForge persists numbered acceptance requirements and refuses full validation unless executable tests are linked to every requirement and pass.
-3. **Isolated production build** — generated code is installed, tested, built and booted in a disposable Sprites or Docker environment without AppForge host credentials. Production never falls back to executing generated code directly on the AppForge host.
-4. **Live deployment verification** — Fly must serve the exact SHA-256-identified artifact that passed validation. AppForge then checks the root response, referenced assets and a real Chromium-rendered page before emitting the final completion event.
-
-Passing repository tests alone is not a production deployment certificate. Live certification requires configured Sprites/Fly credentials and successful evidence from the actual remote build and deployment.
-
-### Desktop
-
-- Electron-oriented products
-- Tauri-oriented products
-
-### Games and interactive software
-
-- Phaser
-- Three.js
-- Babylon.js
-- game-oriented scaffolding and export paths for additional engines/toolchains
-
-### AI, agents, bots, and automation
-
-- AI applications
-- autonomous and semi-autonomous agents
-- multi-agent products
-- workflow automation
-- API integrations
-- browser automation
-- Discord, Telegram, Slack, and specialist bot-oriented products
-
-Different stacks require different validation and deployment evidence. AppForge must report those differences honestly rather than pretending every technology can be certified by the same checks.
+This incident is an example of the intended production rule: **never rewrite an applied migration; add a new forward migration instead.**
 
 ---
 
-## Customer journey
+# Copilot implementation audit: #1–#30
 
-A customer should be able to:
+| # | Area | Audited implementation state |
+|---:|---|---|
+| 1 | Prompt Understanding | Implemented and tested: product-type classification, secondary capabilities, ambiguity detection and clarification. |
+| 2 | Canonical Product Contract | Implemented and tested: one schema-validated contract preserves the original prompt, requirements, stack, security, runtime, deployment and monetization intent. |
+| 3 | Queue and Build Context | Implemented and tested: typed contract/intent survives queue transport and invalid queue payloads fail closed. |
+| 4 | Technology-Stack Selection | Implemented and tested: explicit adapters, compatibility enforcement, no silent fallback to generic React. |
+| 5 | Research System | Implemented and tested: contract-driven live research, source/evidence recording, conflict handling and safety boundaries. |
+| 6 | Planner | Implemented and tested: structured architecture/tasks, requirement mapping, dependencies, file ownership and stack preservation. |
+| 7 | Agent Coordination | Implemented and tested: specialist tasks, dependencies, ownership boundaries, resumability and persisted coordination state. |
+| 8 | Code Generation | Implemented and tested: real task-owned source files, requirement-linked evidence, no placeholder/fake-success acceptance. |
+| 9 | Scaffold System | Implemented and tested: stack-specific infrastructure floors that cannot replace missing product implementation. |
+| 10 | Placeholder / Incomplete Product Protection | Implemented and tested: detects TODOs, fake handlers/forms/APIs, empty services/schemas, missing workflows and incomplete required capabilities. |
+| 11 | Requirements System | Implemented and tested: stable requirement IDs link prompt → tasks → files → tests → validation → deployment evidence. |
+| 12 | Generated Project Structure | Implemented and tested: safe paths, imports, entrypoints, manifests, dependencies, lockfiles and scripts. |
+| 13 | Artifact Persistence | Implemented and tested: versioned artifacts, per-file/aggregate SHA-256 integrity, current snapshot invariants and tamper detection. |
+| 14 | Preview System | Implemented and tested: exact artifact identity, isolated preview boundary, no generic AppForge shell substituted for runnable products. |
+| 15 | Runtime Architecture | Implemented and tested: stack-specific runtime/startup/health/shutdown policy. |
+| 16 | Security Implementation | Implemented and tested: secret leakage, injection, SSRF, path traversal, unsafe process execution, auth/tenant boundaries, upload/AI-tool controls and dependency security. |
+| 17 | Authentication / Authorization | Implemented and tested: Supabase identity, project ownership, organization roles, protected execution/billing/admin operations and generated-product privilege isolation. |
+| 18 | Database / Persistence | Implemented and tested: locked transactional checksummed migration chain, ownership/billing integrity constraints, backup/restore proof and generated-product DB isolation. |
+| 19 | Integrations | Implemented and tested: named provider requirements, connection/retry/webhook/secret policy and artifact validation. |
+| 20 | AI-Agent Products | Implemented and tested: bounded tools, approvals, memory policy, prompt-injection/refusal boundaries and truthful tool-result handling. |
+| 21 | Monetization | Implemented and tested: subscriptions, one-time/usage/credits policy, server-authoritative access, signed/idempotent webhooks and entitlement checks. |
+| 22 | Deployment | Implemented and tested: trusted destinations, exact artifact identity, environment/runtime/database policy and deployment audit records. |
+| 23 | Operations / Observability | Implemented and tested: health, readiness, liveness, metrics, logs, traces, queue/Redis/DB/provider/cost signals and authenticated diagnostics. |
+| 24 | Recovery / Rollback | Implemented and tested: immutable known-good checkpoints, exact artifact identity, rollback and failure-class guidance. |
+| 25 | Build Status / UX | Implemented and tested: durable stages, approvals, maturity, failure stage, structural-only truthfulness and no false completion. |
+| 26 | Evidence / Audit Trail | Implemented and tested: append-only project evidence for intake, research, plan, files, validation, repairs, security, monetization, deployment, limitations and certification. |
+| 27 | Certification Logic | Implemented and tested: structured → generated → runnable → behaviorally verified → deployment verified → monetization verified where applicable → production certified. |
+| 28 | Regression Coverage | Implemented: 25 explicit scenarios across product families, ambiguity/short/long prompts, capabilities, recovery, preview isolation and no-placeholder artifacts. |
+| 29 | CI / Release Infrastructure | Implemented and live-proven: lint, format, types, tests, product-factory validation, security, build, SHA-256 artifacts, exact-SHA release evidence, preview and production fail-closed gates. |
+| 30 | Final Product-Factory Flow | Implemented and tested: the final evidence-driven verdict is authoritative; no project can claim production readiness while an applicable final-flow step remains incomplete. |
 
-1. create an account and sign in securely;
-2. describe the product they want in normal language;
-3. choose or accept a recommended technology stack;
-4. select capabilities such as authentication, database, billing, AI, analytics, administration, and integrations;
-5. let AppForge convert the request into architecture and development tasks;
-6. generate the required source files and project structure;
-7. run automated tests, compilation, security checks, build validation, and repair cycles;
-8. watch build progress through the application rather than waiting behind a silent generation screen;
-9. inspect the generated files and preview the product;
-10. deploy through an approved deployment target;
-11. open and verify the deployed result;
-12. apply authenticated edits through the Senior Dev workflow;
-13. revalidate and redeploy the changed project;
-14. export or push source code to GitHub;
-15. return later and continue improving the same project.
-
-The desired experience is one continuous product-development lifecycle instead of a collection of disconnected AI prompts.
-
----
-
-## Multi-agent development system
-
-AppForge coordinates specialist responsibilities instead of relying on one undifferentiated generation request.
-
-| Responsibility | Role |
-| --- | --- |
-| Planning | Convert customer intent into architecture and executable development tasks |
-| Coding | Generate and modify project source files |
-| Testing | Generate tests appropriate to the project and stack |
-| Validation | Install, compile, type-check, test, and build where the stack permits |
-| Auto-repair | Feed concrete failures back into controlled corrective cycles |
-| Review | Inspect implementation quality and integration consistency |
-| Security | Detect unsafe patterns and enforce platform boundaries |
-| Accessibility | Identify relevant accessibility issues |
-| Performance | Detect avoidable performance problems |
-| Senior development | Improve and repair existing generated projects |
-| Deployment | Deliver validated projects to configured destinations |
-| Production verification | Prove the deployed result is actually reachable and behaves as required |
-| Monitoring | Surface operational failures with actionable evidence |
-
-The design goal is increasing autonomy without surrendering control of credentials, billing, privileged administration, production releases, or destructive actions.
+Passing these 30 sections means the implementation checklist is complete. It does **not** mean every external provider, native SDK, app store, optional studio or third-party account is automatically configured for every customer.
 
 ---
 
-## Generated-app validation
+# What AppForge can actually do from the current code
 
-AppForge uses stack-aware validation rather than one universal success check.
+## 1. Understand a plain-language product request
 
-For supported full-validation projects, the intended invariant is:
+AppForge can:
 
-> **generate → attach tests → install declared dependencies → run blocking tests → compile/build → deploy → verify live behaviour**
+- preserve the original prompt;
+- classify the primary product type;
+- detect requested secondary capabilities;
+- detect ambiguous intent instead of silently guessing;
+- produce clarification questions;
+- create one canonical interpretation;
+- create stable functional requirements;
+- record non-functional, security, runtime, deployment, integration and monetization requirements;
+- select and preserve a compatible technology stack.
 
-Full-validation builds must not be certified when their generated tests cannot load, cannot run, or fail.
+### Canonical product types
 
-The generated Vitest harness explicitly declares its required test tooling, including Vite, the React Vite plugin, Vitest, jsdom, and Testing Library dependencies. Generated manifests are normalized before those dependencies are written so malformed dependency containers cannot silently omit required packages.
+The code currently recognizes 12 product types:
 
-Structural-only stacks must be reported as structural validation. They must not be presented as though native/runtime verification occurred when the required external toolchain was unavailable.
+1. Website
+2. SaaS application
+3. Mobile app
+4. Desktop app
+5. Game
+6. AI agent
+7. Developer tool
+8. API
+9. E-commerce product
+10. Browser extension
+11. Automation tool
+12. Data product
 
----
+### Secondary capabilities AppForge can model
 
-## Production certification
-
-AppForge's production proof path is designed to fail closed.
-
-A production canary verifies evidence such as:
-
-- authenticated access;
-- valid customer entitlement;
-- real project creation;
-- automatic build start;
-- agent completion;
-- generated files persisted to the project;
-- validation passed;
-- blocking generated tests were required where applicable;
-- generated test files exist;
-- the deployed product responds successfully;
-- required customer-visible content exists in the deployed artifact;
-- an authenticated edit changes the generated project;
-- the edited files remain persisted;
-- redeployment succeeds;
-- the edited customer-visible result is present after redeployment.
-
-Production CI also verifies that the compiled AppForge server can boot and answer its liveness endpoint before that SHA is considered release-ready.
-
----
-
-## Senior Dev workflow
-
-The Senior Dev workflow exists to continue development of an already-created project.
-
-A user can request a repair, feature, design change, or improvement. AppForge should analyse the existing project and make a targeted change instead of unnecessarily regenerating the entire product.
-
-The expected cycle is:
-
-> **inspect existing project → plan change → modify relevant files → validate → test → persist → redeploy when requested**
+- authentication
+- database
+- billing
+- AI
+- analytics
+- administration
+- teams
+- notifications
+- search
+- file uploads
+- external integrations
+- deployment
 
 ---
 
-## Authentication, authorization, and identity
+## 2. Research before building
 
-AppForge uses **Supabase Auth** as a core identity provider.
+The product-factory pipeline can create contract-driven research requirements and record:
 
-The production identity boundary includes:
+- queries;
+- sources;
+- decisions;
+- uncertainty/conflicts;
+- product/stack-specific documentation research;
+- integration research;
+- deployment research;
+- monetization/security research.
 
-- sign-up and sign-in;
-- email/password authentication;
-- session refresh and persistence;
-- account recovery;
-- logout/revocation;
-- authenticated API requests;
+Research is treated as evidence, not as permission to override the user’s requirements or platform authorization boundaries.
+
+---
+
+## 3. Build an architecture and implementation plan
+
+The planner can produce and validate:
+
+- architecture summary/modules;
+- implementation tasks;
+- task sequence;
+- dependencies;
+- acceptance criteria;
+- requirement-to-task mappings;
+- task-to-file mappings;
+- specialist ownership;
+- per-task validation requirements.
+
+The planner is blocked from silently changing the canonical product type or selected stack.
+
+---
+
+## 4. Coordinate specialist agents
+
+AppForge has coordinated responsibilities for areas including:
+
+- frontend
+- backend
+- database
+- AI
+- integrations
+- security
+- deployment
+- operations
+- general implementation/review
+
+The coordination layer enforces task dependencies and file ownership and can reconcile/resume persisted task state.
+
+---
+
+## 5. Generate and validate real source code
+
+The code-generation path:
+
+- requires the planned files;
+- requires real implementation rather than fake success;
+- links implementation to requirement IDs;
+- rejects TODO-only files and common placeholder patterns;
+- rejects empty handlers/components/services and fake API success;
+- verifies generated project structure;
+- validates dependencies and lockfiles;
+- applies contract-aware security scanning;
+- can run repair cycles when validation fails.
+
+Scaffolds provide stack infrastructure only. They are not accepted as substitutes for the requested product implementation.
+
+---
+
+# Supported technology stacks
+
+AppForge currently has **17 canonical stack adapters**.
+
+## Runnable stacks
+
+These have runnable validation paths in the current product factory:
+
+| Stack | Typical products |
+|---|---|
+| `react-node` | web apps, SaaS, e-commerce, developer tools |
+| `static-html` | websites |
+| `next-node` | websites, SaaS, e-commerce, developer tools |
+| `phaser-html5` | browser games |
+| `three-js-3d` | 3D games/sites/data products |
+| `api-service` | Node APIs/developer services |
+| `node-service` | APIs, automation and developer services |
+| `ai-agent-node` | Node AI agents |
+| `browser-automation` | browser automation |
+| `data-visualization` | data/analytics products |
+
+A runnable stack is still only production-certified when its individual artifact passes all applicable validation, preview, deployment and live-verification evidence.
+
+## Structural-only stacks
+
+These generate source/project structure but are **not automatically production-certified** because the required native/runtime toolchain is outside the currently certified AppForge build boundary:
+
+| Stack | Current truth |
+|---|---|
+| `react-native-expo` | mobile source deliverable; native release verification required |
+| `flutter-firebase` | Flutter source deliverable; native SDK/signing/store verification required |
+| `electron-react` | desktop source deliverable; native packaging verification required |
+| `tauri-rust` | desktop source deliverable; Rust/Tauri native packaging verification required |
+| `python-service` | generated Python service source; currently structural-only in certification |
+| `ai-agent-python` | generated Python agent source; currently structural-only in certification |
+| `chrome-extension` | extension source deliverable; browser-store/runtime verification required |
+
+AppForge deliberately reports these as structural output instead of pretending that source generation equals a verified native release.
+
+---
+
+# Artifact, preview and certification
+
+AppForge can:
+
+- persist generated files;
+- create versioned snapshots;
+- compute per-file and aggregate SHA-256 integrity;
+- prevent working/partial artifacts from masquerading as final artifacts;
+- serve static validated artifacts directly where appropriate;
+- use an isolated runtime for runnable previews;
+- bind preview evidence to snapshot ID, artifact version and SHA-256;
+- refuse to substitute a generic AppForge shell when the real runtime is unavailable;
+- deploy supported validated artifacts;
+- verify the live response and exact artifact identity;
+- perform browser verification where required;
+- persist requirement-linked deployment evidence;
+- record known-good recovery checkpoints;
+- assign an evidence-backed certification level;
+- expose unresolved final-flow limitations.
+
+---
+
+# Deployment and source-delivery capabilities
+
+## Implemented deployment paths
+
+The current code contains real implementations for:
+
+- **Fly.io** deployment
+- **Vercel** deployment
+- **Netlify** deployment
+- AppForge isolated/live preview
+- ZIP source export
+
+The current AppForge platform release itself is live-verified on Fly.io at the audited baseline.
+
+## GitHub
+
+AppForge includes authenticated GitHub workflows for:
+
+- connection status;
+- OAuth/connect flow;
+- push/export source to a repository;
+- import source from a repository.
+
+## GitHub Pages limitation
+
+A `github-pages` destination exists in stack metadata, but **one-click GitHub Pages deployment is not currently implemented by the deployment service**. The deployer intentionally refuses that path and directs the project through authenticated GitHub export instead.
+
+Therefore README/marketing should not describe GitHub Pages as a complete one-click deployment target until that implementation is added and verified.
+
+---
+
+# Authentication, accounts and authorization
+
+The current platform code includes:
+
+- Supabase authentication;
+- sign-up and login;
+- session persistence/refresh;
+- logout/session revocation paths;
+- forgotten-password/password-reset flows;
+- authenticated API boundaries;
 - project ownership enforcement;
-- protected build and deployment actions;
-- protected administrator operations;
-- linkage between authenticated users and AppForge project/billing records.
+- organization membership/role checks;
+- administrator/owner boundaries;
+- SSO organization configuration/discovery surfaces;
+- owner-scoped and role-scoped server checks;
+- CSRF protection for cookie-authenticated mutations;
+- rate limiting and slowdown controls.
 
-Authentication is not considered complete unless the same identity is recognized consistently across customer UI, APIs, project operations, billing, and administrative controls.
+Generated products do not inherit AppForge’s production identity or database credentials.
 
 ---
 
-## Billing, credits, and controlled access
+# Billing, credits and controlled access
 
-AppForge supports Stripe-backed commercial access together with owner-authorized access mechanisms.
+AppForge contains Stripe-backed commercial access code for:
 
-The platform is designed to support:
-
-- subscription tiers;
-- build credits;
-- one-time credit purchases;
+- subscription status;
 - Stripe Checkout;
-- Stripe Customer Portal;
-- verified Stripe webhooks;
-- approved unlimited/lifetime access;
-- time-limited tester or partner access;
-- owner-issued access codes;
-- entitlement visibility in administration tooling.
+- credit purchases;
+- Customer Portal;
+- webhook processing;
+- plan credit grants;
+- refund/recovery accounting;
+- duplicate-event/idempotency protection;
+- effective-tier and entitlement checks.
 
-Entitlement checks must be enforced consistently so valid customers and approved testers are neither blocked incorrectly nor allowed to bypass required access controls.
+The platform also contains:
 
----
+- build-credit accounting;
+- credit reservation/refund behavior;
+- monthly refill logic;
+- owner unlimited-access handling;
+- lifetime/unlimited access handling;
+- god-code access records;
+- OTP/SMS verification support for controlled code redemption.
 
-## Administrator command centre
-
-The private administrator surface is intended to provide operational visibility and controlled actions for:
-
-- users;
-- subscriptions;
-- entitlements;
-- credit balances and grants;
-- approved access codes;
-- projects;
-- builds;
-- agent activity;
-- deployments;
-- failed or paused work;
-- revenue and product analytics;
-- security/moderation signals;
-- platform health;
-- critical integration health.
-
-Administrative functionality must remain separate from normal customer permissions.
+A customer product requesting monetization cannot reach production certification merely because billing code exists; the exact artifact needs verified monetization/entitlement evidence.
 
 ---
 
-## Core production services
+# Project lifecycle and continuing development
 
-| Layer | Current architecture / responsibility |
-| --- | --- |
-| Customer UI | React 18, Vite, Tailwind CSS, TanStack Query, React Router |
-| API | Express 4, tRPC v11, Zod |
-| Authentication | Supabase Auth |
-| Data | PostgreSQL + Drizzle ORM |
-| Billing | Stripe |
-| AI generation | OpenAI-compatible model infrastructure |
-| Agent pipeline | Planner, coding, testing, validation, review, repair, and improvement responsibilities |
-| Build transport | Server-Sent Events with scalable fan-out support |
-| Validation | Stack-aware compile/test/build and structural validation |
-| Source control | GitHub integration |
-| Deployment | Preview/export paths plus Vercel, Netlify, Fly.io, GitHub-oriented deployment paths |
-| Analytics | PostHog-compatible product analytics |
-| Observability | Health checks, structured diagnostics, Sentry/Datadog-compatible monitoring |
-| Automation | Make-compatible workflow integration |
-| Support | BubblaV/customer-support integration architecture |
-| CI/CD | GitHub Actions |
+The project APIs include real operations for:
 
-The complete AppForge production service requires its API, build pipeline, persistence, streaming runtime, authentication, and deployment infrastructure. A static frontend alone is not AppForge.
+- create/list/open projects;
+- project build logs;
+- plan revision and approval;
+- monetization approval;
+- integration approval;
+- resume after approval;
+- evidence viewing;
+- deployment choices;
+- ZIP download;
+- Senior Dev changes;
+- Senior Dev approval/status;
+- snapshots;
+- recovery status;
+- rollback to a known-good snapshot;
+- file read/update/validation;
+- required environment variables;
+- revenue-readiness checks;
+- database setup guidance;
+- deploy-health inspection.
 
----
-
-## Security invariants
-
-The following rules are non-negotiable:
-
-- production secrets remain server-side;
-- Supabase service-role credentials are never exposed to the browser;
-- Stripe secret keys and webhook secrets remain protected;
-- deployment credentials remain protected;
-- model-provider credentials remain protected;
-- privileged operations require authorization;
-- users may access only projects they are authorized to access;
-- generated products do not inherit AppForge production secrets;
-- access codes and administrative grants are auditable;
-- failed security checks block the relevant release path;
-- generated or third-party content is never automatically trusted as executable instruction.
+Senior Dev is designed for targeted improvements to an existing project rather than unnecessary full regeneration.
 
 ---
 
-## Reliability, recovery, and observability
+# Editing, collaboration and project tooling
 
-AppForge is intended to be operated as a real production system.
+The codebase includes application surfaces and APIs for:
 
-Production reliability work covers:
+- project chat;
+- project asset attachment;
+- versioned file writes;
+- visual HTML editing;
+- collaboration rooms;
+- collaborator invites/removal;
+- join/heartbeat/leave;
+- collaborative versions;
+- template creation/cloning;
+- template marketplace surfaces;
+- deep research;
+- GitHub import/export;
+- architecture and other specialist studio surfaces.
 
-- application availability;
-- production server boot/liveness;
-- Supabase/database connectivity;
-- authentication flows;
-- billing/webhook health;
-- project creation;
-- agent and model failures;
-- generated-app validation;
-- deployment failures;
-- customer-flow verification;
-- security scanning;
-- CI/release health;
-- capacity and infrastructure drift;
-- recovery evidence and known-good SHAs.
-
-Recovery documentation and production proof are treated as part of the product, not an afterthought.
+These platform modules exist in code, but their presence is not by itself the same as an end-to-end production certification for every optional workflow.
 
 ---
 
-## External review and AI tooling policy
+# Artifact/document tooling
 
-AppForge may use external tools such as CodeRabbit to provide **independent review signals**.
+The AppForge router contains artifact operations for:
 
-For this repository, external AI review should be treated as **advisory evidence**, not authority to rewrite architecture blindly.
+- listing and reading artifacts;
+- creating document artifacts;
+- creating spreadsheet artifacts;
+- creating presentation artifacts;
+- creating PDFs;
+- importing/extracting PDFs;
+- artifact analysis.
 
-The working rule is:
-
-> **Review broadly. Verify findings against the complete repository. Make minimal fixes. Preserve current production behaviour. Re-run CI and production proof.**
-
-A pull-request review covers the pull-request diff and whatever repository context the reviewer loads. It is not automatically equivalent to a full repository audit.
-
-Any repository-wide audit must inspect the complete codebase, configuration, workflows, tests, security boundaries, deployment paths, generated code, database/auth/billing behaviour, recovery documentation, and production customer journey.
-
----
-
-## Definition of 100% production ready
-
-For AppForge, **100% production ready** means there are no known unresolved release-blocking defects in the customer-critical path and that the current production candidate has objective evidence for:
-
-- authentication and authorization;
-- billing and entitlements;
-- project creation;
-- autonomous agent execution;
-- generated source persistence;
-- blocking validation/tests for supported full-validation stacks;
-- secure build execution;
-- deployment;
-- live product verification;
-- authenticated edits and redeployment;
-- security scanning;
-- secrets handling;
-- CI/release gates;
-- production health checks;
-- observability;
-- disaster recovery;
-- data integrity;
-- integration failure handling;
-- documented rollback/recovery behaviour.
-
-It does **not** mean every possible future feature has been built. It means the functionality AppForge currently claims as production functionality is verified, secure, observable, recoverable, and safe to operate for real customers.
+These are platform utility capabilities and are separate from the core generated-product certification chain.
 
 ---
 
-## CI and release discipline
+# Language and localization support
 
-A change should not be merged simply because GitHub says the branch is technically mergeable.
+The AppForge language menu currently defines **130 locale choices**, including Māori and RTL languages.
 
-Release decisions must consider the relevant evidence, including:
+However, only **11 locales currently have complete reviewed AppForge UI catalogs**:
 
-- lint;
+- English
+- Māori
+- Chinese
+- Spanish
+- Hindi
+- Arabic
+- French
+- Portuguese
+- Japanese
+- Korean
+- German
+
+The remaining menu choices intentionally fall back to English rather than shipping fabricated translations.
+
+Generated products can also receive locale/i18n instructions through the localization capability, but that does not mean AppForge itself has a reviewed full translation catalog for all 130 menu entries.
+
+---
+
+# Optional build/studio capabilities present in code
+
+The build-capability system contains extension/studio definitions for:
+
+- live web search;
+- video editing/rendering;
+- graphics design;
+- music/lyrics;
+- AI marketing;
+- interactive AR;
+- education/courses/AR classrooms;
+- invention/patent workflows;
+- architecture/BIM;
+- game development;
+- 3D product/CAD;
+- legal/contracts;
+- finance/fintech;
+- healthcare/HIPAA-oriented generation;
+- native mobile packaging;
+- voice/podcast;
+- data/BI;
+- localization;
+- realtime team collaboration.
+
+These should be described as **available code/studio capabilities**, not automatically as production-certified end-to-end products. Each external provider, specialist toolchain and generated artifact still has to satisfy its applicable validation and runtime evidence.
+
+---
+
+# Operations, monitoring and security
+
+The platform code includes:
+
+- structured application logging;
+- recursive secret redaction;
+- Sentry integration;
+- PostHog integration;
+- Prometheus-compatible operational metrics;
+- protected production metrics access;
+- process liveness;
+- dependency-aware readiness;
+- database health checks;
+- shared Redis health checks;
+- build/deployment/model/pipeline metrics;
+- capacity/abuse/rate-limit signals;
+- distributed production rate limiting;
+- queue diagnostics;
+- security scans for generated projects;
+- GitHub CodeQL, dependency audit and secret scanning;
+- immutable GitHub Action references;
+- exact-SHA release gating.
+
+### Sentry audit limitation
+
+The code and repository tests include Sentry integration and redaction, but the production CI source-map upload step is skipped when the required Sentry release credentials are not configured. A live Sentry issue/API query was not part of this audited proof. Do not treat “Sentry code exists” as proof that every Sentry operational workflow is currently configured.
+
+---
+
+# Recovery and data integrity
+
+The production data/recovery model includes:
+
+- one locked, transactional, checksummed AppForge migration chain;
+- migration checksum verification;
+- fail-closed ownership/billing integrity migrations;
+- database backup scripts;
+- backup checksums;
+- restore drills;
+- recovery-readiness CI;
+- versioned build artifacts;
+- known-good recovery checkpoints;
+- exact artifact/deployment hashes;
+- rollback to previous verified state;
+- self-healing that must revalidate and re-run the final product-factory verdict.
+
+**Applied migrations are immutable.** New schema work must be a new forward migration.
+
+---
+
+# Known limitations and cleanup items
+
+The fresh audit identified the following items that should remain visible instead of being hidden by broad “production-ready” language:
+
+1. **Structural stacks are source deliverables, not native production certifications.** Mobile, desktop, Chrome extension and the currently structural Python adapters require external/native runtime verification.
+2. **GitHub Pages one-click deployment is not implemented.** GitHub repository export is implemented.
+3. **Only 11 of 130 AppForge UI locale choices have reviewed translation catalogs.** The rest fall back to English.
+4. **Legacy hosted-runtime fallback code remains in `src/lib/hostedRuntime.ts`.** The active hosted-product route is explicitly tested not to use it for runnable products. This is legacy/dead-code cleanup, not the certified preview path.
+5. **Legacy `completed` status compatibility still appears in some non-readiness types/statistics/UI code.** The #30 production-readiness paths no longer treat `completed` as production-certified, but the compatibility remnants can be cleaned up later.
+6. **Sentry source-map upload depends on release credentials** and was skipped in the audited release validation.
+7. **GitHub classic branch-protection settings could not be independently read through the connected GitHub App.** Repository rulesets returned no configured rulesets; the release workflows themselves still enforce exact-main/exact-SHA CI and security evidence.
+8. **A provider implementation is not the same as a live provider proof.** Vercel, Netlify, Stripe, SSO and optional integrations have implementation/tests, but this audit’s fresh live production proof was the AppForge/Fly release path, not a real charge or deployment through every provider.
+
+---
+
+# Production certification model
+
+Certification is deliberately graduated:
+
+```text
+structured
+  → generated
+  → runnable
+  → behaviorally-verified
+  → deployment-verified
+  → monetization-verified (when required)
+  → production-certified
+```
+
+A production candidate is not promoted when required evidence is missing.
+
+For #30, the final product-factory report independently checks applicable steps including:
+
+- canonical contract;
+- ambiguity resolution;
+- stack selection;
+- live research;
+- architecture;
+- implementation plan;
+- specialist-agent completion;
+- real source files;
+- artifact persistence;
+- prompt/stack/requirement preservation;
+- placeholder protection;
+- requirement-linked behavior evidence;
+- isolated build;
+- runtime;
+- preview;
+- exact validated artifact deployment;
+- live verification;
+- billing/entitlement verification when requested;
+- monitoring;
+- recovery;
+- honest certification;
+- exposed limitations.
+
+`productionReady` is true only when the certification decision is production-certified **and** no applicable final-flow step remains incomplete.
+
+---
+
+# CI and release discipline
+
+The current release chain is designed to fail closed.
+
+A release requires relevant evidence including:
+
+- lint and formatting;
 - TypeScript checks;
-- automated tests;
-- generated-app validation contracts;
+- complete automated tests and coverage thresholds;
+- product-factory validation;
+- production golden path;
+- generated-project/security/isolation/recovery checks;
+- dependency vulnerability audit;
+- CodeQL;
+- secret scanning;
+- immutable workflow-action references;
 - production build;
-- production server liveness;
-- security scanning;
-- deployment preview;
-- customer-flow contracts;
-- production canary where required;
-- branch/review requirements.
+- built-server liveness;
+- SHA-256 artifact integrity;
+- exact current `main` SHA;
+- successful exact-SHA CI and security runs;
+- production environment requirements;
+- two-machine production convergence;
+- live/readiness checks;
+- auth-boundary checks;
+- customer route checks;
+- exact released commit verification;
+- Chromium live-shell verification.
 
-Merge conflicts must be reconciled deliberately so newer production hardening is not silently discarded.
+A stale queued release is intentionally refused rather than being allowed to roll production backwards.
 
 ---
 
-## Developer setup
+# Developer setup
 
-### Requirements
+## Requirements
 
-- **Node.js 22 or newer**
+- Node.js 22+
 - npm 10.x
-- PostgreSQL/Supabase configuration
-- an OpenAI-compatible model credential for AI build functionality
-- the appropriate credentials for any billing/deployment integrations being exercised
+- PostgreSQL/database configuration
+- Supabase configuration for authentication
+- Redis for certified multi-machine production coordination
+- at least one configured supported AI/model provider
+- Stripe credentials when exercising billing
+- deployment credentials for the selected provider
 
-### Install
+## Install
 
 ```bash
 git clone https://github.com/Anselm04/AppForge..git
@@ -418,59 +641,33 @@ npm install
 cp .env.example .env
 ```
 
-Validate environment and build:
+## Core verification commands
 
 ```bash
 npm run validate-env -- --strict
+npm run lint
 npm run typecheck
-npm run test
+npm run test -- --run
+npm run test:e2e
 npm run build
 npm start
 ```
 
-Primary quality commands:
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run test:e2e
-npm run build
-```
-
-Production secrets must never be committed to the repository, documentation, generated applications, or test fixtures.
+Production secrets must never be committed to the repository, generated applications, documentation, logs or browser bundles.
 
 ---
 
-## Current engineering priority
+# Current engineering rule
 
-The immediate priority is not adding random features. It is to complete and verify the customer-critical production path, close remaining reliability/security gaps, and make AppForge safe for real users.
+AppForge should not add features by weakening verification.
 
-Work should therefore prioritize, in order:
+The operating rule is:
 
-1. release-blocking correctness and security;
-2. authentication, billing, entitlements, and data integrity;
-3. generated build → test → deploy → verify reliability;
-4. production CI and recovery proof;
-5. autonomous agent correctness and generated-product quality;
-6. live customer-flow verification;
-7. observability and operational recovery;
-8. integrations and enterprise controls;
-9. visual editing, collaboration, mobile/game depth, and ecosystem expansion.
+> **Preserve what already works. Fix what is actually broken. Do not call a generated product production-ready until the exact artifact has the evidence required for its stack and requested capabilities.**
 
-This ordering exists to prevent feature expansion from hiding unresolved production risk.
+For customers, AppForge’s purpose is to remove unnecessary technical barriers without hiding the difference between generated source, a validated artifact, a deployed product and a genuinely production-certified product.
 
----
-
-## AppForge vision
-
-AppForge is intended to become the core autonomous product-building engine for **TrillionAi Tech**: a system capable of coordinating the technical work required to turn an idea into a serious digital product and continue operating and improving that product after launch.
-
-For customers, the goal is to remove unnecessary technical barriers without hiding the truth about validation, deployment, or platform-specific requirements.
-
-For developers and businesses, AppForge is intended to become an AI development workforce and orchestration layer that can repeatedly plan, build, test, repair, deploy, verify, and maintain software with strong operational controls.
-
-For TrillionAi Tech, AppForge is the foundation for building and operating future products at scale with centralized administration, billing, security, analytics, observability, integrations, and recovery.
+For TrillionAi Tech, AppForge is the product-factory foundation for repeatedly planning, generating, validating, deploying, verifying, repairing and operating software with centralized security, billing, evidence, observability and recovery.
 
 > **The standard is not “AI generated code.” The standard is “the product actually works.”**
 
