@@ -258,7 +258,8 @@ describe("Section 27 certification logic", () => {
 
     expect(worker).toContain("evaluateCertification({");
     expect(worker).toContain("verifiedMonetizationEvidence");
-    expect(worker).toContain("certificationDecision.productionCertified");
+    expect(worker).toContain("evaluateFinalProductFactoryFlow({");
+    expect(worker).toContain("finalProductFactoryFlow.productionReady");
     expect(healing).toContain("evaluateCertification({");
     expect(healing).toContain("recordKnownGoodCheckpoint({");
     expect(healing).toContain("hasVerifiedMonetizationEvidence");

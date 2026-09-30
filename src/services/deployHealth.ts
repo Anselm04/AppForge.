@@ -1,3 +1,91 @@
+export type PreviewVerificationResult = {
+  ok: boolean;
+  statusCode?: number;
+  snapshotId?: number;
+  artifactVersion?: number;
+  artifactSha256?: string;
+  message?: string;
+};
+
+export async function verifyGeneratedPreview(input: {
+  url: string;
+  snapshotId: number;
+  artifactVersion: number;
+  artifactSha256: string;
+}): Promise<PreviewVerificationResult> {
+  try {
+    const boundary = await fetch(input.url, {
+      method: "GET",
+      redirect: "manual",
+      headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const snapshotId = Number(boundary.headers.get("x-appforge-snapshot-id"));
+    const artifactVersion = Number(
+      boundary.headers.get("x-appforge-artifact-version"),
+    );
+    const artifactSha256 =
+      boundary.headers.get("x-appforge-artifact-sha256") ?? undefined;
+    const identityMatches =
+      snapshotId === input.snapshotId &&
+      artifactVersion === input.artifactVersion &&
+      artifactSha256 === input.artifactSha256;
+
+    if (!identityMatches) {
+      return {
+        ok: false,
+        statusCode: boundary.status,
+        snapshotId,
+        artifactVersion,
+        artifactSha256,
+        message:
+          "Preview boundary did not serve the exact persisted artifact identity.",
+      };
+    }
+
+    let runtimeResponse = boundary;
+    if (boundary.status >= 300 && boundary.status < 400) {
+      const location = boundary.headers.get("location");
+      if (!location) {
+        return {
+          ok: false,
+          statusCode: boundary.status,
+          snapshotId,
+          artifactVersion,
+          artifactSha256,
+          message: "Preview redirected without a runtime location.",
+        };
+      }
+      runtimeResponse = await fetch(new URL(location, input.url), {
+        method: "GET",
+        redirect: "follow",
+        headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
+        signal: AbortSignal.timeout(15_000),
+      });
+    }
+
+    const body = await runtimeResponse.text();
+    const ok = runtimeResponse.ok && body.trim().length > 0 && identityMatches;
+
+    return {
+      ok,
+      statusCode: runtimeResponse.status,
+      snapshotId,
+      artifactVersion,
+      artifactSha256,
+      message: ok
+        ? undefined
+        : "Preview runtime did not return a successful non-empty product response.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Preview verification failed",
+    };
+  }
+}
+
 export type HealthCheckResult = {
   ok: boolean;
   statusCode?: number;

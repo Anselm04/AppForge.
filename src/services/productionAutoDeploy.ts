@@ -6,6 +6,7 @@ import {
   probeDeployUrl,
   runPostDeploySmokeTest,
   verifyDeployedBilling,
+  verifyGeneratedPreview,
 } from "./deployHealth.js";
 import type { BuildStage } from "../lib/buildStatus.js";
 import {
@@ -35,6 +36,8 @@ import {
 } from "../lib/deploymentImplementation.js";
 
 export type ProductionCertification = {
+  previewUrl: string;
+  previewVerified: true;
   liveUrl: string;
   snapshotId?: number;
   artifactVersion?: number;
@@ -226,6 +229,44 @@ export async function deployValidatedProject(opts: {
   const deploymentManifestSha256 = createHash("sha256")
     .update(files["appforge.production.json"] ?? "")
     .digest("hex");
+  await opts.onStage?.("previewing");
+  const preview = await deployProject({
+    destination: "preview",
+    projectName: opts.projectName,
+    files,
+    projectId: opts.projectId,
+    techStack: stackAdapter.id,
+    productContract: contract,
+  });
+  if (!opts.snapshot) {
+    throw new Error("Preview verification requires a persisted snapshot.");
+  }
+  const previewEvidence = await verifyGeneratedPreview({
+    url: preview.url,
+    snapshotId: opts.snapshot.id,
+    artifactVersion: opts.snapshot.version,
+    artifactSha256: opts.snapshot.integrity.sha256,
+  });
+  if (!previewEvidence.ok) {
+    throw new Error(
+      `Generated-product preview verification failed: ${previewEvidence.message ?? "identity mismatch"}`,
+    );
+  }
+  await recordProjectEvidence({
+    projectId: opts.projectId,
+    kind: "deployment",
+    artifactVersion: opts.snapshot.version,
+    payload: {
+      success: true,
+      destination: "preview",
+      previewVerified: true,
+      previewUrl: preview.url,
+      snapshotId: opts.snapshot.id,
+      artifactVersion: opts.snapshot.version,
+      artifactSha256: opts.snapshot.integrity.sha256,
+    },
+  });
+
   await opts.onStage?.("deployment");
   const deployed = await deployProject({
     destination: "fly",
@@ -310,6 +351,8 @@ export async function deployValidatedProject(opts: {
       liveUrl,
     });
     const certification: ProductionCertification = {
+      previewUrl: preview.url,
+      previewVerified: true,
       liveUrl,
       snapshotId: opts.snapshot?.id,
       artifactVersion: opts.snapshot?.version,
@@ -360,6 +403,8 @@ export async function deployValidatedProject(opts: {
     liveUrl,
   });
   const certification: ProductionCertification = {
+    previewUrl: preview.url,
+    previewVerified: true,
     liveUrl,
     snapshotId: opts.snapshot?.id,
     artifactVersion: opts.snapshot?.version,

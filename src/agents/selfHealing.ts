@@ -2,8 +2,9 @@ import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { runSeniorDevAgent } from "./seniorDevAgent.js";
+import { validateGeneratedBuild } from "./buildValidator.js";
 import type { SeniorDevTask } from "./seniorDevAgent.js";
 import { claimSeniorDevStart } from "../services/senior-dev-claim.js";
 import {
@@ -18,9 +19,10 @@ import {
   requirementBehaviorVerified,
 } from "../lib/certificationLogic.js";
 import { recordKnownGoodCheckpoint } from "../services/recovery.js";
+import { evaluateFinalProductFactoryFlow } from "../lib/finalProductFactoryFlow.js";
 
 // ── Self-Healing Production Monitor ──
-// Watches Sentry for error spikes on deployed/completed projects.
+// Watches Sentry for error spikes on production-certified projects.
 // Auto-creates Senior Dev autonomous fix tasks, validates them, redeploys the
 // verified repair, then records a new current snapshot.
 
@@ -93,10 +95,7 @@ export function unwatchProject(projectId: number) {
  */
 export async function hydrateSelfHealingWatchlist(): Promise<number> {
   const completed = await db.query.projects.findMany({
-    where: inArray(schema.projects.status, [
-      "production-certified",
-      "completed",
-    ]),
+    where: eq(schema.projects.status, "production-certified"),
     columns: { id: true, userId: true },
   });
   const activeIds = new Set<number>();
@@ -223,15 +222,18 @@ async function createAutonomousFixTask(
     columns: {
       id: true,
       title: true,
+      description: true,
+      techStack: true,
       status: true,
       productContract: true,
+      promptIntent: true,
+      researchRecord: true,
+      productPlan: true,
+      agentCoordination: true,
       requirementManifest: true,
     },
   });
-  if (
-    !project ||
-    !["production-certified", "completed"].includes(project.status ?? "")
-  ) {
+  if (!project || project.status !== "production-certified") {
     logger.info({ projectId }, "self_healing_project_not_certified");
     return false;
   }
@@ -342,6 +344,25 @@ async function createAutonomousFixTask(
     result.files["appforge.requirements.json"] =
       serializeRequirementManifest(requirementManifest);
 
+    const repairValidation = await validateGeneratedBuild(
+      result.files,
+      techStack,
+      {
+        testsBlocking: true,
+        validateBilling:
+          productContract.monetizationRequirements.length > 0 ||
+          productContract.secondaryCapabilities.includes("billing"),
+        productContract,
+        productPlan: project.productPlan ?? undefined,
+        researchDecisions: project.researchRecord?.decisions ?? [],
+      },
+    );
+    if (!repairValidation.passed) {
+      throw new Error(
+        `Self-healing isolated production validation failed: ${repairValidation.errors.join("; ") || repairValidation.stage}`,
+      );
+    }
+
     const {
       createBuildSnapshot,
       getNextVersion,
@@ -360,7 +381,7 @@ async function createAutonomousFixTask(
       files: result.files,
       fileCount: Object.keys(result.files).length,
       techStack,
-      validationResult: result.validations,
+      validationResult: repairValidation,
       auditScores: null,
       costEstimate: null,
       requirementManifest,
@@ -433,6 +454,10 @@ async function createAutonomousFixTask(
     await updateProjectFiles(projectId, result.files);
     await updateProjectRequirementManifest(projectId, requirementManifest);
     const evidenceEvents = await getProjectEvidence(projectId);
+    const monetizationVerified = hasVerifiedMonetizationEvidence(
+      evidenceEvents,
+      persistedArtifact.version,
+    );
     const certificationDecision = evaluateCertification({
       productContract,
       evidence: {
@@ -442,7 +467,7 @@ async function createAutonomousFixTask(
           requirementManifest.unresolvedMustHaveIds.length === 0,
         behavioralTestsVerified:
           requirementBehaviorVerified(requirementManifest),
-        runtimeVerified: true,
+        runtimeVerified: repairValidation.passed,
         securityVerified: deployment.securityVerified,
         deploymentVerified: deployment.httpVerified,
         browserVerified: deployment.browserVerified,
@@ -450,23 +475,36 @@ async function createAutonomousFixTask(
           deployment.verification === "http_health"
             ? deployment.healthPathsVerified.length > 0
             : undefined,
-        monetizationVerified: hasVerifiedMonetizationEvidence(
-          evidenceEvents,
-          persistedArtifact.version,
-        ),
+        monetizationVerified,
         operationalVerified: deployment.operationalVerified,
         recoveryVerified: true,
       },
+    });
+    const finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
+      project,
+      artifact: {
+        version: persistedArtifact.version,
+        integrity: persistedArtifact.integrity,
+        files: persistedArtifact.files,
+        validationResult: repairValidation,
+        requirementManifest,
+      },
+      certificationDecision,
+      deployment,
+      monetizationVerified,
+      recoveryVerified: true,
     });
 
     await db
       .update(schema.projects)
       .set({
-        status: certificationDecision.productionCertified
+        status: finalProductFactoryFlow.productionReady
           ? "production-certified"
           : "validated",
-        buildStage: certificationDecision.status,
-        outputMaturity: certificationDecision.productionCertified
+        buildStage: finalProductFactoryFlow.productionReady
+          ? "production-certified"
+          : "production-candidate",
+        outputMaturity: finalProductFactoryFlow.productionReady
           ? "certified"
           : "verified",
         failureStage: null,
@@ -480,6 +518,9 @@ async function createAutonomousFixTask(
       payload: {
         source: "self_healing",
         ...certificationDecision,
+        productionReady: finalProductFactoryFlow.productionReady,
+        finalProductFactoryFlow,
+        limitations: finalProductFactoryFlow.limitations,
         snapshotId: persistedArtifact.snapshotId,
         artifactSha256: persistedArtifact.integrity.sha256,
         liveUrl: deployment.liveUrl,

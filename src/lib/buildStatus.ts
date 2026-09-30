@@ -68,7 +68,6 @@ export function outputMaturityLabel(
 export const READY_PROJECT_STATUSES = [
   "validated",
   "production-certified",
-  "completed",
 ] as const;
 
 export function isProjectArtifactReady(

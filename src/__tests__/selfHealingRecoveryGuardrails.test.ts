@@ -46,7 +46,9 @@ describe("autonomous self-healing recovery guardrails", () => {
       "export async function hydrateSelfHealingWatchlist",
     );
     expect(healing).toContain('"production-certified"');
-    expect(healing).toContain("inArray(schema.projects.status");
+    expect(healing).toContain(
+      'eq(schema.projects.status, "production-certified")',
+    );
     expectInOrder(healing, [
       "export async function runSelfHealingCycle",
       "await hydrateSelfHealingWatchlist();",
@@ -91,7 +93,8 @@ describe("autonomous self-healing recovery guardrails", () => {
       "await deployValidatedProject({",
       "await markSnapshotAsCurrent(newSnapshotId, projectId)",
       "const certificationDecision = evaluateCertification({",
-      "certificationDecision.productionCertified",
+      "const finalProductFactoryFlow = evaluateFinalProductFactoryFlow({",
+      "finalProductFactoryFlow.productionReady",
     ]);
   });
 
