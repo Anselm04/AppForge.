@@ -212,7 +212,10 @@ describe("Section 27 certification logic", () => {
   it("wires the certification engine into normal builds and self-healing", () => {
     const worker = readFileSync("src/services/build-worker.ts", "utf8");
     const healing = readFileSync("src/agents/selfHealing.ts", "utf8");
-    const pipeline = readFileSync("src/agents/.pipeline_parts/part4.txt", "utf8");
+    const pipeline = readFileSync(
+      "src/agents/.pipeline_parts/part4.txt",
+      "utf8",
+    );
 
     expect(worker).toContain("evaluateCertification({");
     expect(worker).toContain("verifiedMonetizationEvidence");
@@ -226,5 +229,4 @@ describe("Section 27 certification logic", () => {
       'updateProjectBuildStage(projectId, "production-candidate"',
     );
   });
-
 });
