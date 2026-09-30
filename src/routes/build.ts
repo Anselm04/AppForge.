@@ -124,9 +124,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   const existingFiles =
     (project.generatedFiles as Record<string, string> | null) ?? {};
   if (
-    ["validated", "production-certified", "completed"].includes(
-      project.status ?? "",
-    ) &&
+    ["validated", "production-certified"].includes(project.status ?? "") &&
     Object.keys(existingFiles).length > 0
   ) {
     res.setHeader("Content-Type", "text/event-stream");
