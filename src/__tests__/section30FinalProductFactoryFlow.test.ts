@@ -131,7 +131,7 @@ describe("#30 Final Product-Factory Flow", () => {
     const flow = readFileSync("src/lib/finalProductFactoryFlow.ts", "utf8");
 
     const preview = deploy.indexOf('destination: "preview"');
-    const production = deploy.indexOf('destination: "fly"');
+    const production = deploy.indexOf('destination: "fly"', preview);
     expect(preview).toBeGreaterThan(-1);
     expect(production).toBeGreaterThan(preview);
     expect(deploy).toContain("verifyGeneratedPreview");
