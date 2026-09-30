@@ -22,9 +22,7 @@ describe("#29 CI and Release Infrastructure", () => {
     expect(ci).toContain("src/__tests__/productionIsolation.test.ts");
     expect(ci).toContain("src/__tests__/generatedSecurity.test.ts");
     expect(ci).toContain("src/__tests__/section24RecoveryRollback.test.ts");
-    expect(ci).toContain(
-      "src/__tests__/selfHealingRecoveryGuardrails.test.ts",
-    );
+    expect(ci).toContain("src/__tests__/selfHealingRecoveryGuardrails.test.ts");
     expect(ci).toContain(
       "needs: [lint, typecheck, test, security, product_factory_validation]",
     );
@@ -57,9 +55,7 @@ describe("#29 CI and Release Infrastructure", () => {
       "Boot exact PR preview deployment and require liveness",
     );
     expect(preview).toContain("node dist/server.js");
-    expect(preview).toContain(
-      "http://127.0.0.1:3200/api/health/live",
-    );
+    expect(preview).toContain("http://127.0.0.1:3200/api/health/live");
     expect(preview).not.toContain(
       "Vercel GitHub app handles preview URLs for this PR",
     );
@@ -78,9 +74,7 @@ describe("#29 CI and Release Infrastructure", () => {
     expect(production).toContain(
       'require_workflow_success "security.yml" "Security Scanning"',
     );
-    expect(production).toContain(
-      'select(.head_sha == $sha)',
-    );
+    expect(production).toContain("select(.head_sha == $sha)");
     expect(production).toContain(
       '[ "$status" = "completed" ] && [ "$conclusion" = "success" ]',
     );
