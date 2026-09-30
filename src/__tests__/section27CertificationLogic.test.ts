@@ -208,7 +208,46 @@ describe("Section 27 certification logic", () => {
     ];
     expect(hasVerifiedMonetizationEvidence(events, 4)).toBe(true);
     expect(hasVerifiedMonetizationEvidence(events, 5)).toBe(false);
+    expect(
+      hasVerifiedMonetizationEvidence(
+        [
+          {
+            kind: "monetization",
+            artifactVersion: 4,
+            payload: { approved: true },
+          },
+        ],
+        4,
+      ),
+    ).toBe(false);
   });
+  it("creates and persists real deployed monetization verification evidence", () => {
+    const billingScaffold = readFileSync(
+      "src/services/saasBillingScaffold.ts",
+      "utf8",
+    );
+    const deployHealth = readFileSync("src/services/deployHealth.ts", "utf8");
+    const production = readFileSync(
+      "src/services/productionAutoDeploy.ts",
+      "utf8",
+    );
+
+    expect(billingScaffold).toContain('"src/app/api/billing/health/route.ts"');
+    expect(billingScaffold).toContain('"src/server/routes/billing/health.ts"');
+    expect(deployHealth).toContain("verifyDeployedBilling");
+    expect(deployHealth).toContain("/api/billing/health");
+    expect(deployHealth).toContain('state === "connected"');
+    expect(production).toContain("recordMonetizationVerification");
+    expect(production).toContain('kind: "monetization"');
+    expect(production).toContain("verified: billing.ok");
+    expect(production).toContain(
+      "artifactVersion: opts.snapshot?.version ?? null",
+    );
+    expect(production).toContain(
+      "artifactSha256: opts.snapshot?.integrity.sha256 ?? artifactSha256",
+    );
+  });
+
   it("wires the certification engine into normal builds and self-healing", () => {
     const worker = readFileSync("src/services/build-worker.ts", "utf8");
     const healing = readFileSync("src/agents/selfHealing.ts", "utf8");
