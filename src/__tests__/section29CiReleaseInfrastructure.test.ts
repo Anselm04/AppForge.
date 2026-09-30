@@ -87,20 +87,23 @@ describe("#29 CI and Release Infrastructure", () => {
     expect(production).not.toContain("continue-on-error: true");
   });
 
-  it("waits for dependency-aware production readiness and exposes the failure reason", () => {
-    const production = workflow(".github/workflows/deploy-production.yml");
+  it(
+    "waits for dependency-aware production readiness and exposes the failure reason",
+    () => {
+      const production = workflow(".github/workflows/deploy-production.yml");
 
-    expect(production).toContain("Waiting for production readiness");
-    expect(production).toContain('"$URL/api/health/ready"');
-    expect(production).toContain('if [ "$readiness_status" = "200" ]');
-    expect(production).toContain("cat \"$readiness_body\" || true");
-    expect(production).toContain(
-      "Production readiness check failed after deploy",
-    );
-    expect(production).not.toContain(
-      'curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/ready" >/dev/null',
-    );
-  });
+      expect(production).toContain("Waiting for production readiness");
+      expect(production).toContain('"$URL/api/health/ready"');
+      expect(production).toContain('if [ "$readiness_status" = "200" ]');
+      expect(production).toContain('cat "$readiness_body" || true');
+      expect(production).toContain(
+        "Production readiness check failed after deploy",
+      );
+      expect(production).not.toContain(
+        'curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/ready" >/dev/null',
+      );
+    },
+  );
 
   it("keeps the real AppForge preview deployment path deterministic", async () => {
     await expect(
