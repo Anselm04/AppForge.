@@ -93,10 +93,7 @@ export function unwatchProject(projectId: number) {
  */
 export async function hydrateSelfHealingWatchlist(): Promise<number> {
   const completed = await db.query.projects.findMany({
-    where: inArray(schema.projects.status, [
-      "production-certified",
-      "completed",
-    ]),
+    where: eq(schema.projects.status, "production-certified"),
     columns: { id: true, userId: true },
   });
   const activeIds = new Set<number>();
@@ -230,7 +227,7 @@ async function createAutonomousFixTask(
   });
   if (
     !project ||
-    !["production-certified", "completed"].includes(project.status ?? "")
+    project.status !== "production-certified"
   ) {
     logger.info({ projectId }, "self_healing_project_not_certified");
     return false;
