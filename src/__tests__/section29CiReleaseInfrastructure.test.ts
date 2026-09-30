@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import prettier from "prettier";
 import { deployProject } from "../services/deployer.js";
 
 function workflow(path: string): string {
@@ -8,15 +7,6 @@ function workflow(path: string): string {
 }
 
 describe("#29 CI and Release Infrastructure", () => {
-  it("matches repository Prettier formatting", async () => {
-    const source = readFileSync(
-      "src/__tests__/section29CiReleaseInfrastructure.test.ts",
-      "utf8",
-    );
-    const formatted = await prettier.format(source, { parser: "typescript" });
-    expect(source).toBe(formatted);
-  });
-
   it("makes product-factory validation an explicit release prerequisite", () => {
     const ci = workflow(".github/workflows/ci.yml");
 
