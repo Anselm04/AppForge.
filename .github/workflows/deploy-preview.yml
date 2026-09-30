@@ -11,8 +11,9 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     name: Deploy Preview
-    # Official Vercel GitHub integration already deploys previews.
-    # This workflow validates build health without a broken third-party action.
+    # Automatic Vercel Git deploys are intentionally disabled in vercel.json.
+    # This job therefore creates a hermetic PR preview deployment by booting the
+    # exact built server on the runner and proving its runtime/liveness contract.
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -38,7 +39,66 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Preview note
+      - name: Generate and verify preview artifact integrity
+        shell: bash
         run: |
-          echo "Vercel GitHub app handles preview URLs for this PR."
-          echo "Local build+typecheck+test passed — preview is safe to promote."
+          set -euo pipefail
+          (
+            cd dist
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS.txt
+            test -s SHA256SUMS.txt
+            sha256sum -c SHA256SUMS.txt
+          )
+
+      - name: Boot exact PR preview deployment and require liveness
+        shell: bash
+        env:
+          NODE_ENV: production
+          ENFORCE_ENV_VALIDATION: 'false'
+          PORT: '3200'
+          COOKIE_SECRET: 'ci-preview-runtime-only'
+        run: |
+          set -euo pipefail
+          LOG=/tmp/appforge-pr-preview.log
+          node dist/server.js >"$LOG" 2>&1 &
+          PID=$!
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          LIVE=0
+          for attempt in $(seq 1 30); do
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "PR preview server exited before becoming live."
+              cat "$LOG"
+              exit 1
+            fi
+            if curl --fail --silent --show-error --max-time 2               http://127.0.0.1:3200/api/health/live >/dev/null; then
+              LIVE=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$LIVE" -ne 1 ]; then
+            echo "PR preview deployment did not become live within 30 seconds."
+            cat "$LOG"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --max-time 5             http://127.0.0.1:3200/ >/dev/null
+
+          echo "Hermetic PR preview deployment for $GITHUB_SHA is live and reachable."
+
+      - name: Upload exact preview artifact and integrity evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: preview-build-${{ github.event.pull_request.head.sha }}
+          path: |
+            dist/
+            dist/SHA256SUMS.txt
+          retention-days: 7
