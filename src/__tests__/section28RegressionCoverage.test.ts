@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import prettier from "prettier";
 import {
   buildProductContract,
   classifyProductIntent,
@@ -86,6 +87,17 @@ const PRODUCT_GENERATION_CASES: ProductRegressionCase[] = [
 ];
 
 describe("#28 Regression Coverage", () => {
+  it("matches repository Prettier formatting", async () => {
+    const source = readFileSync(
+      "src/__tests__/section28RegressionCoverage.test.ts",
+      "utf8",
+    );
+    const formatted = await prettier.format(source, {
+      parser: "typescript",
+    });
+    expect(source).toBe(formatted);
+  });
+
   it.each(PRODUCT_GENERATION_CASES)(
     "keeps the $label generation path contract and stack-valid",
     ({ prompt, productType }) => {
