@@ -239,8 +239,7 @@ export async function verifyDeployedBilling(
 
     const configured = payload.configured === true;
     const verified = payload.verified === true;
-    const state =
-      typeof payload.state === "string" ? payload.state : undefined;
+    const state = typeof payload.state === "string" ? payload.state : undefined;
     const ok = res.ok && configured && verified && state === "connected";
 
     return {
