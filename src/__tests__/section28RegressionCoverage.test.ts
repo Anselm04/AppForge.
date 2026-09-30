@@ -74,7 +74,8 @@ const PRODUCT_GENERATION_CASES: ProductRegressionCase[] = [
   },
   {
     label: "desktop-app",
-    prompt:\n      "Build a desktop app with Electron for offline inventory management",
+    prompt:
+      "Build a desktop app with Electron for offline inventory management",
     productType: "desktop_app",
   },
   {
@@ -130,7 +131,9 @@ describe("#28 Regression Coverage", () => {
     expect(contract.monetizationRequirements.length).toBeGreaterThan(0);
   });
 
-  it(\n    "covers a multi-capability product without dropping requested capabilities",\n    () => {
+  it(
+    "covers a multi-capability product without dropping requested capabilities",
+    () => {
     const prompt =
       "Build a SaaS application with login, PostgreSQL database, Stripe billing, AI assistant, analytics, admin console, teams, notifications, search, file uploads, Slack integration, and production deployment";
     expect(detectSecondaryCapabilities(prompt)).toEqual([
@@ -180,7 +183,9 @@ describe("#28 Regression Coverage", () => {
     expect(contract.originalPrompt.length).toBeGreaterThan(5_000);
   });
 
-  it(\n    "creates explicit research requirements including integration documentation",\n    () => {
+  it(
+    "creates explicit research requirements including integration documentation",
+    () => {
     const contract = buildProductContract(
       "Build a SaaS application with Slack integration and production deployment",
     );
