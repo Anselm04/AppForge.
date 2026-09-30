@@ -261,20 +261,14 @@ export function scanRequestTaintFlows(
       addMatch(
         "web.python-open-redirect-alias",
         "Python redirect targets must not come from request-controlled aliases without allowlisting.",
-        new RegExp(
-          "\\b(?:RedirectResponse|redirect)\\s*\\(\\s*" + id,
-          "i",
-        ),
+        new RegExp("\\b(?:RedirectResponse|redirect)\\s*\\(\\s*" + id, "i"),
         identifier + " -> redirect",
         detail.index,
       );
       addMatch(
         "sql.python-tainted-alias",
         "Python SQL execution must not use request-controlled SQL text.",
-        new RegExp(
-          "\\b(?:execute|executemany)\\s*\\(\\s*" + id,
-          "i",
-        ),
+        new RegExp("\\b(?:execute|executemany)\\s*\\(\\s*" + id, "i"),
         identifier + " -> SQL execution",
         detail.index,
       );
@@ -282,8 +276,7 @@ export function scanRequestTaintFlows(
         "web.python-xss-tainted-alias",
         "Request-controlled aliases must not be rendered as trusted HTML.",
         new RegExp(
-          "\\b(?:Markup|mark_safe|render_template_string)\\s*\\(\\s*" +
-            id,
+          "\\b(?:Markup|mark_safe|render_template_string)\\s*\\(\\s*" + id,
           "i",
         ),
         identifier + " -> trusted HTML sink",
