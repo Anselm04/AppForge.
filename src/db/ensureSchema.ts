@@ -216,7 +216,6 @@ CREATE TABLE IF NOT EXISTS "build_snapshots" (
   "created_at" TIMESTAMP DEFAULT NOW()
 );
 
-
 CREATE INDEX IF NOT EXISTS "user_credits_balance_idx" ON "user_credits" ("balance");
 CREATE INDEX IF NOT EXISTS "credit_tx_user_idx" ON "credit_transactions" ("user_id");
 CREATE INDEX IF NOT EXISTS "credit_tx_type_idx" ON "credit_transactions" ("type");
