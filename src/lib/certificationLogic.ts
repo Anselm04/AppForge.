@@ -229,3 +229,30 @@ export function requirementBehaviorVerified(input: unknown): boolean {
         requirement.validationEvidence.some((item) => item.passed === true),
     );
 }
+
+
+export function hasVerifiedMonetizationEvidence(
+  events: readonly {
+    kind?: string | null;
+    artifactVersion?: number | null;
+    payload?: unknown;
+  }[],
+  artifactVersion: number,
+): boolean {
+  return events.some((event) => {
+    if (
+      event.kind !== "monetization" ||
+      event.artifactVersion !== artifactVersion ||
+      !event.payload ||
+      typeof event.payload !== "object"
+    ) {
+      return false;
+    }
+    const payload = event.payload as Record<string, unknown>;
+    return (
+      payload.verified === true ||
+      payload.status === "verified" ||
+      payload.state === "verified"
+    );
+  });
+}
