@@ -558,3 +558,20 @@ Verification target:
 - The final build event must carry `productionReady`, the full final-flow report, and explicit limitations.
 - Project evidence must expose the same report and limitations for customer/admin audit.
 - No final-flow code path may restore `completed` as a shortcut to production readiness.
+
+
+## Production readiness convergence recovery review
+
+Recovery invariant reviewed 1 October 2026:
+- AppForge intentionally binds HTTP liveness before database/schema/Redis initialization completes so a dependency outage does not create a process restart loop.
+- `/api/health/live` proves only that the HTTP process is alive. It must never be treated as production readiness.
+- `/api/health/ready` remains the dependency-aware release gate and may legitimately return HTTP 503 while schema migrations, the application database, or shared Redis are still converging after a blue/green rollout.
+- Production verification must therefore poll readiness for a bounded startup window instead of treating the first transient 503 as a permanent release failure.
+- Every non-200 readiness response is surfaced in release logs so a persistent failure identifies whether startup, database, or Redis remains unhealthy.
+- The gate remains fail-closed: if readiness never reaches HTTP 200 within the bounded window, customer-flow verification, exact-SHA confirmation, and browser verification must not proceed.
+
+Verification target:
+- A newly started release may return transient readiness 503 responses without being falsely failed before its dependencies finish initialization.
+- A persistent startup/database/Redis failure still fails the deployment.
+- Readiness response bodies remain visible in deployment evidence for diagnosis.
+- Liveness success alone can never promote a release.
