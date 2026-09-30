@@ -94,7 +94,9 @@ describe("#29 CI and Release Infrastructure", () => {
     expect(production).toContain('"$URL/api/health/ready"');
     expect(production).toContain('if [ "$readiness_status" = "200" ]');
     expect(production).toContain("cat \"$readiness_body\" || true");
-    expect(production).toContain("Production readiness check failed after deploy");
+    expect(production).toContain(
+      "Production readiness check failed after deploy",
+    );
     expect(production).not.toContain(
       'curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/ready" >/dev/null',
     );
