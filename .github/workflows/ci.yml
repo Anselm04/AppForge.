@@ -153,7 +153,8 @@ jobs:
             src/__tests__/generatedSecurity.test.ts \
             src/__tests__/section24RecoveryRollback.test.ts \
             src/__tests__/selfHealingRecoveryGuardrails.test.ts \
-            src/__tests__/section29CiReleaseInfrastructure.test.ts
+            src/__tests__/section29CiReleaseInfrastructure.test.ts \
+            src/__tests__/section30FinalProductFactoryFlow.test.ts
 
   build:
     name: Production Build
