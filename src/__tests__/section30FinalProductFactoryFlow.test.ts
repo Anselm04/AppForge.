@@ -126,6 +126,34 @@ describe("#30 Final Product-Factory Flow", () => {
     expect(canary).toContain("done.productionReady !== true");
   });
 
+  it("requires a separately verified exact-artifact preview before production deploy", () => {
+    const deploy = readFileSync("src/services/productionAutoDeploy.ts", "utf8");
+    const flow = readFileSync("src/lib/finalProductFactoryFlow.ts", "utf8");
+
+    const preview = deploy.indexOf('destination: "preview"');
+    const production = deploy.indexOf('destination: "fly"');
+    expect(preview).toBeGreaterThan(-1);
+    expect(production).toBeGreaterThan(preview);
+    expect(deploy).toContain("verifyGeneratedPreview");
+    expect(deploy).toContain("previewVerified: true");
+    expect(flow).toContain("deployment?.previewVerified === true");
+    expect(flow).not.toContain(
+      "deploymentVerified &&\n    nonEmpty(deployment?.liveUrl)",
+    );
+  });
+
+  it("reruns the final product-factory verdict after self-healing", () => {
+    const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
+
+    expect(selfHealing).toContain("validateGeneratedBuild");
+    expect(selfHealing).toContain("repairValidation.passed");
+    expect(selfHealing).toContain("evaluateFinalProductFactoryFlow");
+    expect(selfHealing).toContain("finalProductFactoryFlow.productionReady");
+    expect(selfHealing).toContain(
+      "limitations: finalProductFactoryFlow.limitations",
+    );
+  });
+
   it("keeps Section 30 in the mandatory product-factory CI gate", () => {
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(ci).toContain(
