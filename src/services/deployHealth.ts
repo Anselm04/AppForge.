@@ -196,3 +196,66 @@ export async function runBillingRouteSmokeTest(
   const ok = routes.every((r) => r.ok);
   return { ok, routes };
 }
+
+
+export type BillingVerificationResult = {
+  ok: boolean;
+  configured: boolean;
+  verified: boolean;
+  state?: string;
+  statusCode?: number;
+  message?: string;
+};
+
+/**
+ * Verify the deployed generated app is connected to its billing provider.
+ * This is stronger than route-existence smoke testing: the generated health
+ * endpoint must report configured=true, verified=true and state=connected.
+ */
+export async function verifyDeployedBilling(
+  deployUrl: string,
+): Promise<BillingVerificationResult> {
+  const base = deployUrl.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/billing/health`, {
+      method: "GET",
+      headers: { "User-Agent": "AppForge-Billing-Verification/1.0" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = (await res.json()) as Record<string, unknown>;
+    } catch {
+      return {
+        ok: false,
+        configured: false,
+        verified: false,
+        statusCode: res.status,
+        message: "Billing health endpoint returned invalid JSON",
+      };
+    }
+
+    const configured = payload.configured === true;
+    const verified = payload.verified === true;
+    const state =
+      typeof payload.state === "string" ? payload.state : undefined;
+    const ok = res.ok && configured && verified && state === "connected";
+
+    return {
+      ok,
+      configured,
+      verified,
+      state,
+      statusCode: res.status,
+      message:
+        typeof payload.message === "string" ? payload.message : undefined,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      configured: false,
+      verified: false,
+      message: err instanceof Error ? err.message : "Billing probe failed",
+    };
+  }
+}
