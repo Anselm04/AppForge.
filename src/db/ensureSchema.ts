@@ -567,7 +567,6 @@ FOR EACH ROW
 EXECUTE FUNCTION "appforge_reject_project_evidence_mutation"();
 `;
 
-
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
