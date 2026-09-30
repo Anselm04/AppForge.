@@ -476,3 +476,27 @@ Verification target:
 - Confirm direct UPDATE/DELETE attempts against `project_evidence` are rejected while owning-project deletion can still cascade its evidence rows.
 - Confirm project users can read only their own audit trail and the admin project-evidence endpoint remains owner-only.
 - Exercise self-healing/redeployment and confirm repair, failure, deployment, and certification evidence remains additive across recovery cycles.
+
+
+## Section 27 certification-logic recovery invariants
+
+Recovery invariant reviewed 30 September 2026:
+- Certification is a fail-closed evidence decision, not a synonym for build completion or successful deployment.
+- The canonical certification ladder is: structured, generated, runnable, behaviorally verified, deployment verified, monetization verified, production candidate, production certified.
+- Structural-only or compile-only stacks may be preserved and recovered as source artifacts, but recovery must never upgrade them to runnable, production candidate, deployed, or production certified without a verified native runtime/toolchain.
+- Production certification is product/stack specific. Browser products require verified live HTTP identity plus real browser rendering; service products require verified runtime health endpoints; structural/native outputs require their own native verification before becoming deployable.
+- Production certification requires applicable requirement resolution, linked passing behavioral tests, runtime evidence, security evidence, deployment evidence, operational evidence, and recovery evidence for the exact current artifact.
+- If monetization was requested, production certification additionally requires same-artifact verified monetization/provider/entitlement evidence. Approval to generate billing code is not monetization verification.
+- Missing or stale evidence must keep the project below production certified and record the missing evidence in the certification audit trail.
+- Self-healing follows the same certification rules as a normal build. A repaired artifact receives fresh validated and production-verified recovery checkpoints and must be re-certified from its own evidence rather than inheriting the prior artifact's certification.
+- Recovery must preserve the exact artifact version and SHA-256 associated with certification evidence. A rollback or repair invalidates certification until the restored/repaired artifact satisfies the certification decision again.
+
+Verification target:
+- Confirm a structural-only stack stops at generated/source maturity and cannot become production candidate or production certified.
+- Confirm a runnable product with resolved requirements and passing linked behavioral tests can become a production candidate before live deployment evidence exists.
+- Confirm browser products fail certification when browser verification is missing even if HTTP deployment succeeds.
+- Confirm service products fail certification when required health verification is missing.
+- Confirm a monetized product remains production candidate when billing/provider/entitlement verification is absent, even after successful application deployment.
+- Confirm verified monetization evidence applies only to the same artifact version.
+- Confirm a non-monetized runnable product reaches production certified only when all applicable requirement, behavioral, runtime, security, deployment, operational, and recovery evidence is present.
+- Confirm self-healing cannot restore production certified status unless the repaired artifact independently satisfies the same certification rules.
