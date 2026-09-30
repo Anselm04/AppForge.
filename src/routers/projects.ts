@@ -694,7 +694,6 @@ export const projectsRouter = router({
       const deployableStatuses = new Set([
         "validated",
         "production-certified",
-        "completed",
         "paused",
         "failed",
       ]);
