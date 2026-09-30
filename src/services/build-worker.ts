@@ -46,6 +46,10 @@ import {
   requirementBehaviorVerified,
   type CertificationDecision,
 } from "../lib/certificationLogic.js";
+import {
+  evaluateFinalProductFactoryFlow,
+  type FinalProductFactoryFlowReport,
+} from "../lib/finalProductFactoryFlow.js";
 
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
@@ -441,8 +445,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
     }
     const passed =
       updated?.status === "validated" ||
-      updated?.status === "production-certified" ||
-      updated?.status === "completed";
+      updated?.status === "production-certified";
 
     if (passed) {
       let liveUrl: string | undefined;
@@ -512,6 +515,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
         artifact.auditScores,
       );
       let certificationDecision: CertificationDecision;
+      let finalProductFactoryFlow: FinalProductFactoryFlowReport;
 
       if (deploymentDecision.action === "deploy") {
         const deployed = await deployValidatedProjectWithRetry({
@@ -564,21 +568,31 @@ export async function runBuildJob(input: unknown): Promise<void> {
             recoveryVerified: true,
           },
         });
+        finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
+          project: updated,
+          artifact: {
+            version: artifact.version,
+            integrity: artifact.integrity,
+            files: artifact.files,
+            validationResult: artifact.validationResult,
+            requirementManifest: artifact.requirementManifest,
+          },
+          certificationDecision,
+          deployment: deployed,
+          monetizationVerified,
+          recoveryVerified: true,
+        });
 
-        if (certificationDecision.productionCertified) {
+        if (finalProductFactoryFlow.productionReady) {
           await updateProjectStatus(projectId, "production-certified");
           await updateProjectBuildStage(projectId, "production-certified", {
             outputMaturity: "certified",
           });
         } else {
           await updateProjectStatus(projectId, "validated");
-          await updateProjectBuildStage(
-            projectId,
-            certificationDecision.status,
-            {
-              outputMaturity: "verified",
-            },
-          );
+          await updateProjectBuildStage(projectId, "production-candidate", {
+            outputMaturity: "verified",
+          });
         }
 
         await recordProjectEvidence({
@@ -599,6 +613,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
             healthPathsVerified: deployed.healthPathsVerified,
             deploymentManifestSha256: deployed.deploymentManifestSha256,
             deploymentAudit: deployed.deploymentAudit,
+            productionReady: finalProductFactoryFlow.productionReady,
+            finalProductFactoryFlow,
+            limitations: finalProductFactoryFlow.limitations,
           },
         });
         productionCertification = {
@@ -634,6 +651,20 @@ export async function runBuildJob(input: unknown): Promise<void> {
             recoveryVerified: true,
           },
         });
+        finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
+          project: updated,
+          artifact: {
+            version: artifact.version,
+            integrity: artifact.integrity,
+            files: artifact.files,
+            validationResult: artifact.validationResult,
+            requirementManifest: artifact.requirementManifest,
+          },
+          certificationDecision,
+          deployment: null,
+          monetizationVerified: false,
+          recoveryVerified: true,
+        });
         await updateProjectStatus(projectId, "validated");
         await updateProjectBuildStage(projectId, certificationDecision.status, {
           outputMaturity:
@@ -652,6 +683,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
             snapshotId: artifact.snapshotId,
             artifactSha256: artifact.integrity.sha256,
             reason: deploymentDecision.deployment,
+            productionReady: false,
+            finalProductFactoryFlow,
+            limitations: finalProductFactoryFlow.limitations,
           },
         });
       }
@@ -680,6 +714,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
               ...(pendingDone as Record<string, unknown>),
               liveUrl,
               productionCertification,
+              productionReady: finalProductFactoryFlow.productionReady,
+              finalProductFactoryFlow,
+              limitations: finalProductFactoryFlow.limitations,
               ...stackDelivery,
             }
           : {
@@ -687,6 +724,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
               creditsSpent: BUILD_CREDIT_COST,
               liveUrl,
               productionCertification,
+              productionReady: finalProductFactoryFlow.productionReady,
+              finalProductFactoryFlow,
+              limitations: finalProductFactoryFlow.limitations,
               ...stackDelivery,
             };
       await emit(projectId, "done", donePayload);
