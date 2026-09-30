@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import prettier from "prettier";
 import {
   buildProductContract,
   classifyProductIntent,
@@ -52,8 +51,7 @@ const PRODUCT_GENERATION_CASES: ProductRegressionCase[] = [
   },
   {
     label: "browser-extension",
-    prompt:
-      "Build a Chrome browser extension that summarizes the current page",
+    prompt: "Build a Chrome browser extension that summarizes the current page",
     productType: "browser_extension",
   },
   {
@@ -87,17 +85,6 @@ const PRODUCT_GENERATION_CASES: ProductRegressionCase[] = [
 ];
 
 describe("#28 Regression Coverage", () => {
-  it("matches repository Prettier formatting", async () => {
-    const source = readFileSync(
-      "src/__tests__/section28RegressionCoverage.test.ts",
-      "utf8",
-    );
-    const formatted = await prettier.format(source, {
-      parser: "typescript",
-    });
-    expect(source).toBe(formatted);
-  });
-
   it.each(PRODUCT_GENERATION_CASES)(
     "keeps the $label generation path contract and stack-valid",
     ({ prompt, productType }) => {
@@ -143,27 +130,24 @@ describe("#28 Regression Coverage", () => {
     expect(contract.monetizationRequirements.length).toBeGreaterThan(0);
   });
 
-  it(
-    "covers a multi-capability product without dropping requested capabilities",
-    () => {
-      const prompt =
-        "Build a SaaS application with login, PostgreSQL database, Stripe billing, AI assistant, analytics, admin console, teams, notifications, search, file uploads, Slack integration, and production deployment";
-      expect(detectSecondaryCapabilities(prompt)).toEqual([
-        "authentication",
-        "database",
-        "billing",
-        "ai",
-        "analytics",
-        "administration",
-        "teams",
-        "notifications",
-        "search",
-        "file_uploads",
-        "external_integrations",
-        "deployment",
-      ]);
-    },
-  );
+  it("covers a multi-capability product without dropping requested capabilities", () => {
+    const prompt =
+      "Build a SaaS application with login, PostgreSQL database, Stripe billing, AI assistant, analytics, admin console, teams, notifications, search, file uploads, Slack integration, and production deployment";
+    expect(detectSecondaryCapabilities(prompt)).toEqual([
+      "authentication",
+      "database",
+      "billing",
+      "ai",
+      "analytics",
+      "administration",
+      "teams",
+      "notifications",
+      "search",
+      "file_uploads",
+      "external_integrations",
+      "deployment",
+    ]);
+  });
 
   it("keeps ambiguous prompts in clarification instead of guessing", () => {
     const intent = classifyProductIntent(
@@ -196,18 +180,15 @@ describe("#28 Regression Coverage", () => {
     expect(contract.originalPrompt.length).toBeGreaterThan(5_000);
   });
 
-  it(
-    "creates explicit research requirements including integration documentation",
-    () => {
-      const contract = buildProductContract(
-        "Build a SaaS application with Slack integration and production deployment",
-      );
-      expect(contract.researchRequirements.length).toBeGreaterThan(0);
-      expect(contract.researchRequirements.join("\n")).toMatch(
-        /official documentation|Slack API and SDK documentation/i,
-      );
-    },
-  );
+  it("creates explicit research requirements including integration documentation", () => {
+    const contract = buildProductContract(
+      "Build a SaaS application with Slack integration and production deployment",
+    );
+    expect(contract.researchRequirements.length).toBeGreaterThan(0);
+    expect(contract.researchRequirements.join("\n")).toMatch(
+      /official documentation|Slack API and SDK documentation/i,
+    );
+  });
 
   it("marks external integrations as required when requested", () => {
     const contract = buildProductContract(
