@@ -136,7 +136,10 @@ export async function runPostDeploySmokeTest(deployUrl: string): Promise<{
       : healthProbe;
 
   return {
-    ok: root.ok && assets.every((asset) => asset.result.ok) && (health ? health.ok : true),
+    ok:
+      root.ok &&
+      assets.every((asset) => asset.result.ok) &&
+      (health ? health.ok : true),
     root,
     assets,
     health,
@@ -196,7 +199,6 @@ export async function runBillingRouteSmokeTest(
   const ok = routes.every((r) => r.ok);
   return { ok, routes };
 }
-
 
 export type BillingVerificationResult = {
   ok: boolean;
