@@ -425,6 +425,31 @@ export async function getProjectEvidenceBundle(projectId: number) {
     Array.isArray((manifest as any)?.unresolvedMustHaveIds)
       ? ((manifest as any).unresolvedMustHaveIds as unknown[])
       : [];
+  const currentCertificationEvent = [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.kind === "certification" &&
+        (currentSnapshot === null ||
+          event.artifactVersion === currentSnapshot.version),
+    );
+  const certificationPayload =
+    currentCertificationEvent?.payload &&
+    typeof currentCertificationEvent.payload === "object"
+      ? (currentCertificationEvent.payload as Record<string, unknown>)
+      : null;
+  const finalProductFactoryFlow =
+    certificationPayload?.finalProductFactoryFlow &&
+    typeof certificationPayload.finalProductFactoryFlow === "object"
+      ? certificationPayload.finalProductFactoryFlow
+      : null;
+  const finalFlowLimitations = Array.isArray(
+    (finalProductFactoryFlow as { limitations?: unknown } | null)?.limitations,
+  )
+    ? ((
+        finalProductFactoryFlow as { limitations: unknown[] }
+      ).limitations.map(String))
+    : [];
 
   const unresolvedRisks = [
     ...unresolvedRequirementIds.map((id) => ({
@@ -445,6 +470,10 @@ export async function getProjectEvidenceBundle(projectId: number) {
     ...(project.errorMessage
       ? [{ source: "build", detail: project.errorMessage }]
       : []),
+    ...finalFlowLimitations.map((detail) => ({
+      source: "final_product_factory_flow",
+      detail,
+    })),
   ];
 
   return {
@@ -493,7 +522,13 @@ export async function getProjectEvidenceBundle(projectId: number) {
       currentArtifactSha256:
         (currentSnapshot?.artifactIntegrity as any)?.sha256 ?? null,
       productionVerified: productionVerificationCheckpoint !== null,
+      productionReady:
+        project.status === "production-certified" &&
+        (finalProductFactoryFlow as { productionReady?: unknown } | null)
+          ?.productionReady === true,
       productionVerificationCheckpoint,
+      finalProductFactoryFlow,
+      limitations: finalFlowLimitations,
     },
     events,
   };
