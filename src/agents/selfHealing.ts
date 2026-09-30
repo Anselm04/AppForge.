@@ -438,8 +438,10 @@ async function createAutonomousFixTask(
       evidence: {
         artifactPresent: true,
         generatedFileCount: Object.keys(persistedArtifact.files).length,
-        requirementsResolved: requirementManifest.unresolvedMustHaveIds.length === 0,
-        behavioralTestsVerified: requirementBehaviorVerified(requirementManifest),
+        requirementsResolved:
+          requirementManifest.unresolvedMustHaveIds.length === 0,
+        behavioralTestsVerified:
+          requirementBehaviorVerified(requirementManifest),
         runtimeVerified: true,
         securityVerified: deployment.securityVerified,
         deploymentVerified: deployment.httpVerified,
