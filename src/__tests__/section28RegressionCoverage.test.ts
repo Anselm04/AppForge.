@@ -110,7 +110,13 @@ describe("#28 Regression Coverage", () => {
 
     expect(contract.productType).toBe("saas_application");
     expect(contract.productFamilies).toEqual(
-      expect.arrayContaining(["frontend", "backend", "auth", "database", "billing"]),
+      expect.arrayContaining([
+        "frontend",
+        "backend",
+        "auth",
+        "database",
+        "billing",
+      ]),
     );
     expect(contract.secondaryCapabilities).toEqual(
       expect.arrayContaining([
@@ -144,7 +150,9 @@ describe("#28 Regression Coverage", () => {
   });
 
   it("keeps ambiguous prompts in clarification instead of guessing", () => {
-    const intent = classifyProductIntent(\n      "Build something useful for my business",\n    );
+    const intent = classifyProductIntent(
+      "Build something useful for my business",
+    );
     expect(intent.ambiguous).toBe(true);
     expect(intent.primaryProductType).toBeNull();
     expect(intent.clarificationQuestions.length).toBeGreaterThan(0);
