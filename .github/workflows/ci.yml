@@ -126,11 +126,40 @@ jobs:
       - name: Block moderate-or-higher production dependency vulnerabilities
         run: npm audit --omit=dev --audit-level=moderate
 
+  product-factory-validation:
+    name: Product Factory Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate contract, planner, research, generated-project, isolation, and recovery gates
+        run: |
+          set -euo pipefail
+          npx vitest run \
+            src/lib/__tests__/productContract.test.ts \
+            src/lib/__tests__/productPlan.test.ts \
+            src/__tests__/researchSystem.test.ts \
+            src/__tests__/researchEvidence.test.ts \
+            src/lib/__tests__/agentCoordination.test.ts \
+            src/lib/__tests__/generatedProjectStructure.test.ts \
+            src/lib/__tests__/codeGeneration.test.ts \
+            src/lib/__tests__/incompleteProduct.test.ts \
+            src/__tests__/productionIsolation.test.ts \
+            src/__tests__/generatedSecurity.test.ts \
+            src/__tests__/section24RecoveryRollback.test.ts \
+            src/__tests__/selfHealingRecoveryGuardrails.test.ts \
+            src/__tests__/section29CiReleaseInfrastructure.test.ts
+
   build:
     name: Production Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test, security]
+    needs: [lint, typecheck, test, security, product-factory-validation]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -208,16 +237,31 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Generate and verify release artifact integrity manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            find . -type f -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS.txt
+            test -s SHA256SUMS.txt
+            sha256sum -c SHA256SUMS.txt
+          )
+          echo "Release artifact SHA-256 manifest verified for commit $GITHUB_SHA."
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: build-output
-          path: dist/
+          name: build-output-${{ github.sha }}
+          path: |
+            dist/
+            dist/SHA256SUMS.txt
           retention-days: 7
 
   summary:
     name: CI Release Gate
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, security, build]
+    needs: [lint, typecheck, test, security, product-factory-validation, build]
     if: always()
     steps:
       - name: Enforce release gate
@@ -227,9 +271,11 @@ jobs:
           echo "Typecheck: ${{ needs.typecheck.result }}"
           echo "Tests: ${{ needs.test.result }}"
           echo "Security: ${{ needs.security.result }}"
+          echo "Product factory validation: ${{ needs.product-factory-validation.result }}"
           echo "Build: ${{ needs.build.result }}"
           test "${{ needs.lint.result }}" = success
           test "${{ needs.typecheck.result }}" = success
           test "${{ needs.test.result }}" = success
           test "${{ needs.security.result }}" = success
+          test "${{ needs.product-factory-validation.result }}" = success
           test "${{ needs.build.result }}" = success
