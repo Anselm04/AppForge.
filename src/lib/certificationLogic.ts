@@ -68,7 +68,9 @@ function monetizationRequested(contract: ProductContract): boolean {
   );
 }
 
-function verificationModeFor(contract: ProductContract): "browser" | "health" | "native" {
+function verificationModeFor(
+  contract: ProductContract,
+): "browser" | "health" | "native" {
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   if (adapter.generationMode === "structural") return "native";
   if (adapter.previewMode === "service") return "health";
@@ -96,7 +98,10 @@ function missingForProduction(
   if (verificationMode === "health" && evidence.healthVerified !== true) {
     missing.push("health");
   }
-  if (monetizationRequested(contract) && evidence.monetizationVerified !== true) {
+  if (
+    monetizationRequested(contract) &&
+    evidence.monetizationVerified !== true
+  ) {
     missing.push("monetization");
   }
   if (!evidence.operationalVerified) missing.push("operations");
@@ -125,10 +130,7 @@ export function evaluateCertification(input: {
     status = "generated";
   }
 
-  if (
-    adapter.generationMode === "runnable" &&
-    evidence.runtimeVerified
-  ) {
+  if (adapter.generationMode === "runnable" && evidence.runtimeVerified) {
     status = "runnable";
   }
 
@@ -168,8 +170,7 @@ export function evaluateCertification(input: {
     evidence.recoveryVerified;
 
   const productionCertified =
-    productionCandidate &&
-    missingEvidence.length === 0;
+    productionCandidate && missingEvidence.length === 0;
 
   if (productionCertified) {
     status = "production-certified";
@@ -222,14 +223,14 @@ export function requirementBehaviorVerified(input: unknown): boolean {
     .filter((requirement) => requirement.priority === "must")
     .every(
       (requirement) =>
-        (requirement.status === "validated" || requirement.status === "deployed") &&
+        (requirement.status === "validated" ||
+          requirement.status === "deployed") &&
         Array.isArray(requirement.tests) &&
         requirement.tests.length > 0 &&
         Array.isArray(requirement.validationEvidence) &&
         requirement.validationEvidence.some((item) => item.passed === true),
     );
 }
-
 
 export function hasVerifiedMonetizationEvidence(
   events: readonly {
