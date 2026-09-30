@@ -491,6 +491,31 @@ export async function verifyBillingHealth(): Promise<BillingHealth> {
 `;
 }
 
+export function billingHealthRoutes(): {
+  nextRoute: string;
+  expressRoute: string;
+} {
+  const nextRoute = `import { NextResponse } from "next/server";
+import { verifyBillingHealth } from "../../../../lib/billing/health.js";
+
+export async function GET() {
+  const health = await verifyBillingHealth();
+  return NextResponse.json(health, { status: health.verified ? 200 : 503 });
+}
+`;
+
+  const expressRoute = `import type { Request, Response } from "express";
+import { verifyBillingHealth } from "../../../lib/billing/health.js";
+
+export async function getBillingHealth(_req: Request, res: Response) {
+  const health = await verifyBillingHealth();
+  res.status(health.verified ? 200 : 503).json(health);
+}
+`;
+
+  return { nextRoute, expressRoute };
+}
+
 export function billingPortalRoutes(isNext: boolean): {
   nextRoute: string;
   expressRoute: string;
