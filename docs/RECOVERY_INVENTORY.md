@@ -453,16 +453,17 @@ Verification target:
 
 ## Section 26 evidence and audit-trail recovery invariants
 
-Recovery invariant reviewed 29 September 2026:
-- Project evidence is append-only. Recovery must restore prior evidence rows; retries, repairs, redeployments, and self-healing add new evidence and never overwrite earlier events.
+Recovery invariant reviewed 30 September 2026:
+- Project evidence is append-only at both application and database layers. Direct UPDATE/DELETE of evidence rows is rejected; FK cascade cleanup is permitted only as part of deleting the owning project. Recovery must restore prior evidence rows; retries, repairs, redeployments, and self-healing add new evidence and never overwrite earlier events.
 - Intake evidence preserves the original prompt, canonical product contract, resolved product intent, and selected technology stack.
 - Research evidence preserves the actual queries, accepted and rejected sources, decisions, uncertainty, conflicts, and provider failures used by planning.
 - Planning evidence preserves architecture, implementation tasks, requirement mappings, implementation sequence, plan revisions, and approval state.
 - Generated source remains authoritative in the versioned working/final artifact stores. Evidence binds those files to project artifact versions, snapshot IDs, integrity metadata, and SHA-256 hashes rather than duplicating mutable source copies.
 - Validation, repair, security, integration, monetization, deployment, and certification results are durable project evidence. Failed attempts are evidence and must survive a later successful retry.
-- Production certification evidence must identify the exact verified snapshot/version/hash and the deployment verification record. A production candidate is not production-certified evidence.
+- Production certification evidence must identify the exact verified snapshot/version/hash and the deployment verification record. A prior production checkpoint must never certify a different current snapshot after regeneration, repair, or rollback. A production candidate is not production-certified evidence.
 - User evidence access remains scoped to the owning project user. Cross-project owner audit access remains protected by server-side `ownerOnlyProcedure`.
 - Recovery is incomplete if project evidence, versioned snapshots, recovery checkpoints, or their artifact identities disagree.
+- Unresolved validation/security risks shown as current evidence must come from the active current snapshot, not merely the highest-version snapshot. This matters after rollback, when a newer failed snapshot may remain preserved for audit.
 
 Verification target:
 - Create a project and confirm intake evidence contains the unchanged prompt, contract, product intent, and selected stack.
@@ -471,5 +472,7 @@ Verification target:
 - Confirm versioned generated files remain recoverable from snapshots and match the artifact version/integrity/hash exposed by evidence.
 - Exercise monetization/integration approval and deployment paths and confirm their outcomes append evidence without deleting earlier events.
 - Confirm a failed deployment retry remains in the trail and a later verified deployment adds separate certification evidence for the exact artifact.
+- Confirm an older production-verified checkpoint does not set `productionVerified` for a newer or rolled-back current snapshot unless snapshot ID, artifact version, and SHA-256 all match exactly.
+- Confirm direct UPDATE/DELETE attempts against `project_evidence` are rejected while owning-project deletion can still cascade its evidence rows.
 - Confirm project users can read only their own audit trail and the admin project-evidence endpoint remains owner-only.
 - Exercise self-healing/redeployment and confirm repair, failure, deployment, and certification evidence remains additive across recovery cycles.
