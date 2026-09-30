@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import prettier from "prettier";
 import {
   evaluateFinalProductFactoryFlow,
   FINAL_PRODUCT_FACTORY_STEPS,
@@ -17,6 +18,17 @@ const certifiedDecision: CertificationDecision = {
 };
 
 describe("#30 Final Product-Factory Flow", () => {
+  it("matches repository Prettier formatting", async () => {
+    for (const path of [
+      "src/__tests__/section30FinalProductFactoryFlow.test.ts",
+      "src/lib/finalProductFactoryFlow.ts",
+    ]) {
+      const source = readFileSync(path, "utf8");
+      const formatted = await prettier.format(source, { parser: "typescript" });
+      expect(source, path).toBe(formatted);
+    }
+  });
+
   it("defines every required final-flow gate explicitly", () => {
     expect(FINAL_PRODUCT_FACTORY_STEPS).toEqual([
       "contract_validated",
