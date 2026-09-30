@@ -64,7 +64,7 @@ const RULES: SecurityRule[] = [
     message:
       "Server/service credentials must never be exposed in generated browser code.",
     pattern:
-      /(?:process\.env(?:\.|\[["'])(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*)(?:["']\])?|import\.meta\.env(?:\.|\[["'])(?:VITE_)?(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*)(?:["']\])?)/i,
+      /(?:process\.env(?:\.|\[["'])(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GOOGLE_API_KEY|GROQ_API_KEY|DEEPSEEK_API_KEY|OPENROUTER_API_KEY|CEREBRAS_API_KEY|MISTRAL_API_KEY|TOGETHER_API_KEY|FIREWORKS_API_KEY|COHERE_API_KEY|AZURE_OPENAI_API_KEY|HF_TOKEN|HUGGINGFACE_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|CLOUDFLARE_API_TOKEN|TWILIO_AUTH_TOKEN|RESEND_API_KEY|SENDGRID_API_KEY|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*)(?:["']\])?|import\.meta\.env(?:\.|\[["'])(?:VITE_)?(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)|DATABASE_URL|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|GOOGLE_(?:AI|GENERATIVE_AI)_API_KEY|GOOGLE_API_KEY|GROQ_API_KEY|DEEPSEEK_API_KEY|OPENROUTER_API_KEY|CEREBRAS_API_KEY|MISTRAL_API_KEY|TOGETHER_API_KEY|FIREWORKS_API_KEY|COHERE_API_KEY|AZURE_OPENAI_API_KEY|HF_TOKEN|HUGGINGFACE_API_KEY|GITHUB_TOKEN|FLY_API_TOKEN|VERCEL_TOKEN|NETLIFY_AUTH_TOKEN|CLOUDFLARE_API_TOKEN|TWILIO_AUTH_TOKEN|RESEND_API_KEY|SENDGRID_API_KEY|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|[A-Z0-9_]*(?:SERVICE_ROLE|PRIVATE_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|WEBHOOK_SECRET)[A-Z0-9_]*)(?:["']\])?)/i,
     paths:
       /(?:^|\/)(?:public|components|pages|client|frontend|ui|src\/lib)\/.*\.(?:js|jsx|ts|tsx|html)$|(?:^|\/)(?:src\/)?(?:App|main)\.(?:js|jsx|ts|tsx)$/i,
   },
@@ -81,6 +81,14 @@ const RULES: SecurityRule[] = [
     message: "Dynamic Function construction can enable code injection.",
     pattern: /\bnew\s+Function\s*\(/,
     paths: /\.(?:js|jsx|ts|tsx|mjs|cjs)$/i,
+  },
+  {
+    id: "command.untrusted-exec",
+    severity: "high",
+    message: "Shell/process execution appears to use request-controlled input.",
+    pattern:
+      /\b(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
     id: "code.shell-exec-interpolation",
@@ -887,7 +895,7 @@ export function validateGeneratedSecurityPosture(
       securityText,
     );
   const tenantEvidence =
-    /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|membership|requireRole|hasRole|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
+    /(?:req\.user\.(?:tenantId|organizationId|orgId|workspaceId|id)|current_user\.(?:tenant_id|organization_id|org_id|workspace_id|id)|request\.state\.user|requireMembership|assertMembership|requireRole|hasRole|row level security|\bRLS\b|auth\.uid\(\)|owner_id\s*=\s*auth\.uid\(\))/i.test(
       serverBoundarySource,
     );
   if (tenantRequired && !tenantEvidence) {

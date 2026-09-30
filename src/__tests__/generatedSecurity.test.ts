@@ -47,6 +47,111 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("blocks direct request-controlled process execution", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "exec(req.body.command);",
+        "spawnSync(req.query.binary);",
+      ].join("\n"),
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toContain(
+      "command.untrusted-exec",
+    );
+    expect(scan.passed).toBe(false);
+  });
+
+  it("blocks additional provider, messaging, deployment, and cloud secrets in browser code", () => {
+    const scan = scanProjectFiles({
+      "src/App.tsx": [
+        "process.env.MISTRAL_API_KEY",
+        "process.env.COHERE_API_KEY",
+        "process.env.TWILIO_AUTH_TOKEN",
+        "process.env.CLOUDFLARE_API_TOKEN",
+        "process.env.AWS_SECRET_ACCESS_KEY",
+        "import.meta.env.VITE_SENDGRID_API_KEY",
+      ].join("\n"),
+    });
+
+    expect(
+      scan.findings.filter(
+        (finding) => finding.ruleId === "secret.client-service-role",
+      ),
+    ).toHaveLength(6);
+    expect(scan.passed).toBe(false);
+  });
+
+  it("does not report alias sinks that occur before request taint is assigned", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "fetch(target);",
+        "exec(command);",
+        "readFile(filePath);",
+        "res.redirect(nextUrl);",
+        'db.query("SELECT * FROM users WHERE id=" + unsafeId);',
+        "const target = req.query.url;",
+        "const command = req.body.command;",
+        "const filePath = req.params.file;",
+        "const nextUrl = req.query.next;",
+        "const unsafeId = req.query.id;",
+      ].join("\n"),
+    });
+
+    const ids = scan.findings.map((finding) => finding.ruleId);
+    for (const id of [
+      "ssrf.tainted-alias",
+      "command.tainted-alias",
+      "path.tainted-alias",
+      "web.open-redirect-alias",
+      "sql.tainted-alias",
+    ]) {
+      expect(ids).not.toContain(id);
+    }
+  });
+
+  it("skips an earlier safe occurrence but still catches a later tainted sink", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "fetch(target);",
+        "const target = req.query.url;",
+        "fetch(target);",
+      ].join("\n"),
+    });
+
+    const finding = scan.findings.find(
+      (item) => item.ruleId === "ssrf.tainted-alias",
+    );
+    expect(finding).toEqual(expect.objectContaining({ line: 3 }));
+  });
+
+  it("detects dollar-sign identifiers and SQL concatenation in tainted aliases", () => {
+    const scan = scanProjectFiles({
+      "src/server.ts": [
+        "const $url = req.query.url;",
+        "const $cmd = req.body.command;",
+        "const $path = req.params.file;",
+        "const $next = req.query.next;",
+        "const $id = req.query.id;",
+        "const command = $cmd;",
+        "fetch($url);",
+        "exec(command);",
+        "readFile($path);",
+        "res.redirect($next);",
+        'db.query("SELECT * FROM users WHERE id=" + $id);',
+      ].join("\n"),
+    });
+
+    expect(scan.findings.map((finding) => finding.ruleId)).toEqual(
+      expect.arrayContaining([
+        "ssrf.tainted-alias",
+        "command.tainted-alias",
+        "path.tainted-alias",
+        "web.open-redirect-alias",
+        "sql.tainted-alias",
+      ]),
+    );
+  });
+
   it("blocks request-controlled aliases across high-risk sinks", () => {
     const javascript = scanProjectFiles({
       "src/server.ts": [
@@ -595,6 +700,8 @@ describe("#16 generated security", () => {
           "app.use(helmet());",
           "app.use(rateLimit({windowMs:1000,limit:10}));",
           'app.use(express.json({limit:"1mb"}));',
+          'const membership = { tenantId: req.headers["x-tenant"] };',
+          "console.log(membership.tenantId);",
         ].join("\n"),
       },
       "react-node",
