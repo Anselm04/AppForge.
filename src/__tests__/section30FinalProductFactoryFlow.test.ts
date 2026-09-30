@@ -104,6 +104,27 @@ describe("#30 Final Product-Factory Flow", () => {
     expect(db).toContain("?.productionReady === true");
   });
 
+  it("removes the legacy completed status from every readiness shortcut", () => {
+    const buildStatus = readFileSync("src/lib/buildStatus.ts", "utf8");
+    const buildRoute = readFileSync("src/routes/build.ts", "utf8");
+    const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
+    const projects = readFileSync("src/routers/projects.ts", "utf8");
+    const canary = readFileSync("scripts/production-customer-canary.mjs", "utf8");
+
+    expect(buildStatus).not.toContain('"completed",\n] as const;');
+    expect(buildRoute).not.toContain(
+      '["validated", "production-certified", "completed"]',
+    );
+    expect(selfHealing).not.toContain(
+      '["production-certified", "completed"]',
+    );
+    expect(projects).not.toContain(
+      '"production-certified",\n        "completed",',
+    );
+    expect(canary).toContain('project?.status !== "production-certified"');
+    expect(canary).toContain("done.productionReady !== true");
+  });
+
   it("keeps Section 30 in the mandatory product-factory CI gate", () => {
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(ci).toContain(
