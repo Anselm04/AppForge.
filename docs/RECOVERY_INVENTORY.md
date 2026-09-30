@@ -518,3 +518,24 @@ Verification target:
 - Confirm a deployed monetized artifact can satisfy the monetization gate only when its billing health reports configured, verified, and connected.
 - Confirm a new artifact version cannot reuse the prior version's monetization evidence.
 - Confirm self-healing and rollback re-enter the same fail-closed monetization verification path before production certification.
+
+
+## Section 29 CI and release infrastructure recovery review
+
+Recovery invariant reviewed 1 October 2026:
+- Production release evidence is commit-specific. A release may proceed only when the exact current `main` SHA has a successful CI Pipeline run and a successful Security Scanning run.
+- Manual production dispatch is not a bypass. It must resolve to current `main`, prove exact-SHA CI/security evidence, and then rerun release validation before deployment.
+- Failed, cancelled, missing, stale, or still-running required evidence is not success. The deployment gate must fail closed rather than infer success from branch state or an earlier commit.
+- Contract, planner, research, generated-project structure, generated-code completeness/security, isolated-build behavior, and recovery guardrails are explicit CI prerequisites instead of relying only on incidental inclusion in the broad test suite.
+- CI and PR-preview artifacts carry a SHA-256 manifest that is verified before the artifact is retained. Missing or mismatched hashes block the gate.
+- The PR preview workflow must boot the exact built server and prove runtime liveness. It must not claim a Vercel preview deployment because automatic Vercel Git deployment is disabled in this repository.
+- Production deployment must continue to verify that every started production Machine serves the exact release SHA after deployment.
+
+Verification target:
+- A failed exact-SHA Security Scanning run blocks both automatic and manual production release.
+- A missing exact-SHA CI run blocks manual production release.
+- A stale SHA cannot deploy after `main` advances.
+- Product-factory validation failure blocks Production Build and the CI Release Gate.
+- Artifact-integrity mismatch fails before upload/promotion.
+- Preview build/runtime failure fails the preview deployment gate.
+- Recovery checks remain mandatory and cannot be skipped by successful unrelated jobs.
