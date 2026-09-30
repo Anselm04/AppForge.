@@ -126,7 +126,7 @@ jobs:
       - name: Block moderate-or-higher production dependency vulnerabilities
         run: npm audit --omit=dev --audit-level=moderate
 
-  product-factory-validation:
+  product_factory_validation:
     name: Product Factory Validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -159,7 +159,7 @@ jobs:
     name: Production Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test, security, product-factory-validation]
+    needs: [lint, typecheck, test, security, product_factory_validation]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -261,7 +261,7 @@ jobs:
   summary:
     name: CI Release Gate
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, security, product-factory-validation, build]
+    needs: [lint, typecheck, test, security, product_factory_validation, build]
     if: always()
     steps:
       - name: Enforce release gate
@@ -271,11 +271,11 @@ jobs:
           echo "Typecheck: ${{ needs.typecheck.result }}"
           echo "Tests: ${{ needs.test.result }}"
           echo "Security: ${{ needs.security.result }}"
-          echo "Product factory validation: ${{ needs.product-factory-validation.result }}"
+          echo "Product factory validation: ${{ needs.product_factory_validation.result }}"
           echo "Build: ${{ needs.build.result }}"
           test "${{ needs.lint.result }}" = success
           test "${{ needs.typecheck.result }}" = success
           test "${{ needs.test.result }}" = success
           test "${{ needs.security.result }}" = success
-          test "${{ needs.product-factory-validation.result }}" = success
+          test "${{ needs.product_factory_validation.result }}" = success
           test "${{ needs.build.result }}" = success
