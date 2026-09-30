@@ -4,6 +4,7 @@ import {
   addCredits,
   getCurrentArtifact,
   getProjectById,
+  getProjectEvidence,
   recordProjectEvidence,
   resumeProject,
   updateProjectBuildStage,
@@ -40,10 +41,68 @@ import {
   type BuildJob,
 } from "../lib/buildJob.js";
 import { recordKnownGoodCheckpoint } from "./recovery.js";
+import {
+  evaluateCertification,
+  requirementBehaviorVerified,
+  type CertificationDecision,
+} from "../lib/certificationLogic.js";
 
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_BASE_MS = 1_000;
+
+function validationPassed(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as { passed?: unknown }).passed === true
+  );
+}
+
+function requirementsResolved(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Array.isArray(
+      (value as { unresolvedMustHaveIds?: unknown }).unresolvedMustHaveIds,
+    ) &&
+    (value as { unresolvedMustHaveIds: unknown[] }).unresolvedMustHaveIds
+      .length === 0
+  );
+}
+
+function securityAuditPassed(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const audit = value as { passed?: unknown; security?: unknown };
+  return (
+    audit.passed === true &&
+    typeof audit.security === "number" &&
+    audit.security >= 80
+  );
+}
+
+async function verifiedMonetizationEvidence(
+  projectId: number,
+  artifactVersion: number,
+): Promise<boolean> {
+  const events = await getProjectEvidence(projectId);
+  return events.some((event) => {
+    if (
+      event.kind !== "monetization" ||
+      event.artifactVersion !== artifactVersion ||
+      !event.payload ||
+      typeof event.payload !== "object"
+    ) {
+      return false;
+    }
+    const payload = event.payload as Record<string, unknown>;
+    return (
+      payload.verified === true ||
+      payload.status === "verified" ||
+      payload.state === "verified"
+    );
+  });
+}
 
 async function emit(projectId: number, event: string, data: unknown) {
   await appendBuildEvent(projectId, event, data);
@@ -394,12 +453,15 @@ export async function runBuildJob(input: unknown): Promise<void> {
             artifactVersion?: number;
             persistedArtifactSha256?: string;
             httpVerified: true;
+            securityVerified: true;
+            operationalVerified: true;
             assetsVerified: number;
             browserVerified: boolean;
             verification: string;
             healthPathsVerified: string[];
             deploymentVersion: 2;
             deploymentManifestSha256: string;
+            certificationDecision: CertificationDecision;
             deploymentAudit: {
               id: string;
               event: "production_deployment_verified";
@@ -437,6 +499,20 @@ export async function runBuildJob(input: unknown): Promise<void> {
         process.env.NODE_ENV,
       );
       const stackAdapter = getStackAdapter(techStack);
+      const currentRequirementsResolved = requirementsResolved(
+        artifact.requirementManifest,
+      );
+      const behavioralTestsVerified = requirementBehaviorVerified(
+        artifact.requirementManifest,
+      );
+      const runtimeVerified =
+        stackAdapter.generationMode === "runnable" &&
+        validationPassed(artifact.validationResult);
+      const snapshotSecurityVerified = securityAuditPassed(
+        artifact.auditScores,
+      );
+      let certificationDecision: CertificationDecision;
+
       if (deploymentDecision.action === "deploy") {
         const deployed = await deployValidatedProjectWithRetry({
           projectId,
@@ -463,23 +539,64 @@ export async function runBuildJob(input: unknown): Promise<void> {
           deploymentManifestSha256: deployed.deploymentManifestSha256,
           liveUrl: deployed.liveUrl,
         });
-        await updateProjectStatus(projectId, "production-certified");
-        await updateProjectBuildStage(projectId, "production-certified", {
-          outputMaturity: "certified",
+
+        const monetizationVerified = await verifiedMonetizationEvidence(
+          projectId,
+          artifact.version,
+        );
+        certificationDecision = evaluateCertification({
+          productContract: queuedContract,
+          evidence: {
+            artifactPresent: true,
+            generatedFileCount: Object.keys(artifact.files).length,
+            requirementsResolved: currentRequirementsResolved,
+            behavioralTestsVerified,
+            runtimeVerified,
+            securityVerified: deployed.securityVerified,
+            deploymentVerified: deployed.httpVerified,
+            browserVerified: deployed.browserVerified,
+            healthVerified:
+              deployed.verification === "http_health"
+                ? deployed.healthPathsVerified.length > 0
+                : undefined,
+            monetizationVerified,
+            operationalVerified: deployed.operationalVerified,
+            recoveryVerified: true,
+          },
         });
+
+        if (certificationDecision.productionCertified) {
+          await updateProjectStatus(projectId, "production-certified");
+          await updateProjectBuildStage(projectId, "production-certified", {
+            outputMaturity: "certified",
+          });
+        } else {
+          await updateProjectStatus(projectId, "validated");
+          await updateProjectBuildStage(
+            projectId,
+            certificationDecision.status,
+            {
+              outputMaturity: "verified",
+            },
+          );
+        }
+
         await recordProjectEvidence({
           projectId,
           kind: "certification",
           artifactVersion: artifact.version,
           payload: {
-            status: "production-certified",
+            ...certificationDecision,
             snapshotId: artifact.snapshotId,
             artifactSha256: artifact.integrity.sha256,
             liveUrl: deployed.liveUrl,
             verification: deployed.verification,
             httpVerified: deployed.httpVerified,
+            securityVerified: deployed.securityVerified,
+            operationalVerified: deployed.operationalVerified,
             browserVerified: deployed.browserVerified,
             assetsVerified: deployed.assetsVerified,
+            healthPathsVerified: deployed.healthPathsVerified,
             deploymentManifestSha256: deployed.deploymentManifestSha256,
             deploymentAudit: deployed.deploymentAudit,
           },
@@ -490,32 +607,50 @@ export async function runBuildJob(input: unknown): Promise<void> {
           artifactVersion: artifact.version,
           persistedArtifactSha256: artifact.integrity.sha256,
           httpVerified: deployed.httpVerified,
+          securityVerified: deployed.securityVerified,
+          operationalVerified: deployed.operationalVerified,
           assetsVerified: deployed.assetsVerified,
           browserVerified: deployed.browserVerified,
           verification: deployed.verification,
           healthPathsVerified: deployed.healthPathsVerified,
           deploymentVersion: deployed.deploymentVersion,
           deploymentManifestSha256: deployed.deploymentManifestSha256,
+          certificationDecision,
           deploymentAudit: deployed.deploymentAudit,
         };
-      }
-      if (deploymentDecision.action !== "deploy") {
+      } else {
+        certificationDecision = evaluateCertification({
+          productContract: queuedContract,
+          evidence: {
+            artifactPresent: true,
+            generatedFileCount: Object.keys(artifact.files).length,
+            requirementsResolved: currentRequirementsResolved,
+            behavioralTestsVerified,
+            runtimeVerified,
+            securityVerified: snapshotSecurityVerified,
+            deploymentVerified: false,
+            monetizationVerified: false,
+            operationalVerified: false,
+            recoveryVerified: true,
+          },
+        });
         await updateProjectStatus(projectId, "validated");
-        await updateProjectBuildStage(projectId, "production-candidate", {
+        await updateProjectBuildStage(projectId, certificationDecision.status, {
           outputMaturity:
             stackAdapter.generationMode === "structural"
               ? "structural"
-              : "runnable",
+              : runtimeVerified
+                ? "runnable"
+                : "structural",
         });
         await recordProjectEvidence({
           projectId,
           kind: "certification",
           artifactVersion: artifact.version,
           payload: {
-            status: "production-candidate",
+            ...certificationDecision,
             snapshotId: artifact.snapshotId,
             artifactSha256: artifact.integrity.sha256,
-            productionCertified: false,
             reason: deploymentDecision.deployment,
           },
         });

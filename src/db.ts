@@ -1401,6 +1401,9 @@ export async function getCurrentArtifact(projectId: number): Promise<{
   version: number;
   files: Record<string, string>;
   integrity: ArtifactIntegrity;
+  validationResult: unknown;
+  auditScores: unknown;
+  requirementManifest: RequirementManifest | null;
 } | null> {
   const snapshot = await getCurrentSnapshot(projectId);
   if (!snapshot) return null;
@@ -1438,6 +1441,11 @@ export async function getCurrentArtifact(projectId: number): Promise<{
     version: snapshot.version,
     files,
     integrity,
+    validationResult: snapshot.validationResult ?? null,
+    auditScores: snapshot.auditScores ?? null,
+    requirementManifest: snapshot.requirementManifest
+      ? validateRequirementManifest(snapshot.requirementManifest)
+      : null,
   };
 }
 

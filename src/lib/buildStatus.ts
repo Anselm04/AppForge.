@@ -10,6 +10,12 @@ export const BUILD_STAGES = [
   "browser-verification",
   "deployment",
   "monetization",
+  "structured",
+  "generated",
+  "runnable",
+  "behaviorally-verified",
+  "deployment-verified",
+  "monetization-verified",
   "production-candidate",
   "production-certified",
 ] as const;

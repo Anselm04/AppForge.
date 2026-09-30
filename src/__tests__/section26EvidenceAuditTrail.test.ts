@@ -153,8 +153,9 @@ describe("Section 26 evidence and audit trail", () => {
       "(latestSnapshot?.validationResult as any)?.errors",
     );
     expect(worker).toContain('kind: "certification"');
-    expect(worker).toContain('status: "production-certified"');
-    expect(worker).toContain('status: "production-candidate"');
+    expect(worker).toContain("...certificationDecision");
+    expect(worker).toContain("certificationDecision.productionCertified");
+    expect(worker).toContain("certificationDecision.status");
   });
 
   it("makes the evidence visible to project users and owner administrators", () => {

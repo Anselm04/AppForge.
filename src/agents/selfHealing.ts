@@ -12,6 +12,12 @@ import {
 } from "../services/self-healing-lock.js";
 import { deployValidatedProject } from "../services/productionAutoDeploy.js";
 import { productContractSchema } from "../lib/productContract.js";
+import {
+  evaluateCertification,
+  hasVerifiedMonetizationEvidence,
+  requirementBehaviorVerified,
+} from "../lib/certificationLogic.js";
+import { recordKnownGoodCheckpoint } from "../services/recovery.js";
 
 // ── Self-Healing Production Monitor ──
 // Watches Sentry for error spikes on deployed/completed projects.
@@ -339,6 +345,7 @@ async function createAutonomousFixTask(
     const {
       createBuildSnapshot,
       getNextVersion,
+      getProjectEvidence,
       getSnapshotArtifact,
       markSnapshotAsCurrent,
       persistRequirementDeploymentEvidence,
@@ -365,6 +372,13 @@ async function createAutonomousFixTask(
     if (!persistedArtifact) {
       throw new Error("Persisted self-healing artifact could not be reloaded");
     }
+    await recordKnownGoodCheckpoint({
+      projectId,
+      snapshotId: persistedArtifact.snapshotId,
+      artifactVersion: persistedArtifact.version,
+      artifactSha256: persistedArtifact.integrity.sha256,
+      source: "validated_artifact",
+    });
     await recordProjectEvidence({
       projectId,
       kind: "repair",
@@ -392,6 +406,17 @@ async function createAutonomousFixTask(
       },
     });
 
+    await recordKnownGoodCheckpoint({
+      projectId,
+      snapshotId: persistedArtifact.snapshotId,
+      artifactVersion: persistedArtifact.version,
+      artifactSha256: persistedArtifact.integrity.sha256,
+      source: "production_verified",
+      deploymentVersion: deployment.deploymentVersion,
+      deploymentManifestSha256: deployment.deploymentManifestSha256,
+      liveUrl: deployment.liveUrl,
+    });
+
     await markSnapshotAsCurrent(newSnapshotId, projectId);
     requirementManifest = markRequirementDeployment(requirementManifest, {
       destination: "fly",
@@ -407,12 +432,43 @@ async function createAutonomousFixTask(
       await import("../db.js");
     await updateProjectFiles(projectId, result.files);
     await updateProjectRequirementManifest(projectId, requirementManifest);
+    const evidenceEvents = await getProjectEvidence(projectId);
+    const certificationDecision = evaluateCertification({
+      productContract,
+      evidence: {
+        artifactPresent: true,
+        generatedFileCount: Object.keys(persistedArtifact.files).length,
+        requirementsResolved:
+          requirementManifest.unresolvedMustHaveIds.length === 0,
+        behavioralTestsVerified:
+          requirementBehaviorVerified(requirementManifest),
+        runtimeVerified: true,
+        securityVerified: deployment.securityVerified,
+        deploymentVerified: deployment.httpVerified,
+        browserVerified: deployment.browserVerified,
+        healthVerified:
+          deployment.verification === "http_health"
+            ? deployment.healthPathsVerified.length > 0
+            : undefined,
+        monetizationVerified: hasVerifiedMonetizationEvidence(
+          evidenceEvents,
+          persistedArtifact.version,
+        ),
+        operationalVerified: deployment.operationalVerified,
+        recoveryVerified: true,
+      },
+    });
+
     await db
       .update(schema.projects)
       .set({
-        status: "production-certified",
-        buildStage: "production-certified",
-        outputMaturity: "certified",
+        status: certificationDecision.productionCertified
+          ? "production-certified"
+          : "validated",
+        buildStage: certificationDecision.status,
+        outputMaturity: certificationDecision.productionCertified
+          ? "certified"
+          : "verified",
         failureStage: null,
         updatedAt: new Date(),
       })
@@ -423,10 +479,12 @@ async function createAutonomousFixTask(
       artifactVersion: persistedArtifact.version,
       payload: {
         source: "self_healing",
-        status: "production-certified",
+        ...certificationDecision,
         snapshotId: persistedArtifact.snapshotId,
         artifactSha256: persistedArtifact.integrity.sha256,
         liveUrl: deployment.liveUrl,
+        securityVerified: deployment.securityVerified,
+        operationalVerified: deployment.operationalVerified,
         deploymentManifestSha256: deployment.deploymentManifestSha256,
         deploymentAudit: deployment.deploymentAudit,
       },
