@@ -304,8 +304,7 @@ export async function deployValidatedProject(opts: {
       }
     }
     await recordMonetizationVerification();
-    await recordMonetizationVerification();
-  const deploymentAudit = createDeploymentAuditRecord({
+    const deploymentAudit = createDeploymentAuditRecord({
       projectId: opts.projectId,
       manifest: deploymentManifest,
       liveUrl,
@@ -354,6 +353,7 @@ export async function deployValidatedProject(opts: {
     );
   }
 
+  await recordMonetizationVerification();
   const deploymentAudit = createDeploymentAuditRecord({
     projectId: opts.projectId,
     manifest: deploymentManifest,
