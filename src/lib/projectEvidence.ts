@@ -37,7 +37,6 @@ export function evidencePayload(value: unknown): ProjectEvidencePayload {
   return JSON.parse(JSON.stringify(value)) as ProjectEvidencePayload;
 }
 
-
 export type EvidenceSnapshotIdentity = {
   id: number;
   version: number;
