@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { logger } from "../_core/logger.js";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
 import { deployProject } from "./deployer.js";
-import { probeDeployUrl, runPostDeploySmokeTest } from "./deployHealth.js";
+import {
+  probeDeployUrl,
+  runPostDeploySmokeTest,
+  verifyDeployedBilling,
+} from "./deployHealth.js";
 import type { BuildStage } from "../lib/buildStatus.js";
 import {
   validateProductContract,
@@ -256,6 +260,30 @@ export async function deployValidatedProject(opts: {
       `Production deployment artifact identity verification failed at ${liveUrl}`,
     );
   }
+  const monetizationRequired =
+    contract.monetizationRequirements.length > 0 ||
+    contract.secondaryCapabilities.includes("billing");
+  const recordMonetizationVerification = async (): Promise<void> => {
+    if (!monetizationRequired) return;
+    await opts.onStage?.("monetization");
+    const billing = await verifyDeployedBilling(liveUrl);
+    await recordProjectEvidence({
+      projectId: opts.projectId,
+      kind: "monetization",
+      artifactVersion: opts.snapshot?.version ?? null,
+      payload: {
+        verified: billing.ok,
+        configured: billing.configured,
+        providerVerified: billing.verified,
+        state: billing.state ?? "unknown",
+        statusCode: billing.statusCode ?? null,
+        message: billing.message ?? null,
+        snapshotId: opts.snapshot?.id ?? null,
+        artifactSha256: opts.snapshot?.integrity.sha256 ?? artifactSha256,
+        liveUrl,
+      },
+    });
+  };
   if (plan.verification === "http_health") {
     // HTTP services have no UI to render; they are certified by their
     // runtime-contract liveness/readiness endpoints instead.
@@ -275,7 +303,9 @@ export async function deployValidatedProject(opts: {
         );
       }
     }
-    const deploymentAudit = createDeploymentAuditRecord({
+    await recordMonetizationVerification();
+    await recordMonetizationVerification();
+  const deploymentAudit = createDeploymentAuditRecord({
       projectId: opts.projectId,
       manifest: deploymentManifest,
       liveUrl,
