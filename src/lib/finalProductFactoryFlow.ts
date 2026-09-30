@@ -77,6 +77,8 @@ type ArtifactFlowState = {
 };
 
 type DeploymentFlowState = {
+  previewUrl?: string;
+  previewVerified?: boolean;
   liveUrl?: string;
   artifactVersion?: number;
   persistedArtifactSha256?: string;
@@ -261,9 +263,11 @@ export function evaluateFinalProductFactoryFlow(input: {
         ? (deployment?.healthPathsVerified?.length ?? 0) > 0
         : runtimeVerified);
   const previewVerified =
-    deploymentVerified &&
-    nonEmpty(deployment?.liveUrl) &&
-    nonEmpty(deployment?.artifactSha256);
+    deployment?.previewVerified === true &&
+    nonEmpty(deployment.previewUrl) &&
+    input.artifact !== null &&
+    deployment.artifactVersion === input.artifact.version &&
+    deployment.persistedArtifactSha256 === input.artifact.integrity?.sha256;
 
   const steps: FinalProductFactoryStep[] = [
     {
