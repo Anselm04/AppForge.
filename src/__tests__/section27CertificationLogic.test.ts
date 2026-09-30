@@ -232,12 +232,8 @@ describe("Section 27 certification logic", () => {
       "utf8",
     );
 
-    expect(billingScaffold).toContain(
-      '"src/app/api/billing/health/route.ts"',
-    );
-    expect(billingScaffold).toContain(
-      '"src/server/routes/billing/health.ts"',
-    );
+    expect(billingScaffold).toContain('"src/app/api/billing/health/route.ts"');
+    expect(billingScaffold).toContain('"src/server/routes/billing/health.ts"');
     expect(deployHealth).toContain("verifyDeployedBilling");
     expect(deployHealth).toContain("/api/billing/health");
     expect(deployHealth).toContain('state === "connected"');
