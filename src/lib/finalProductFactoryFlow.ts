@@ -117,8 +117,7 @@ function codeFileCount(files: Record<string, string>): number {
     ([path, source]) =>
       /\.(?:[cm]?[jt]sx?|py|dart|rs|go|java|kt|swift|html|css|sql|prisma)$/i.test(
         path,
-      ) &&
-      source.trim().length > 0,
+      ) && source.trim().length > 0,
   ).length;
 }
 
