@@ -94,7 +94,7 @@ describe("Section 27 certification logic", () => {
       }),
     });
     expect(decision.productionCertified).toBe(false);
-    expect(decision.status).toBe("production-candidate");
+    expect(decision.status).toBe("deployment-verified");
     expect(decision.missingEvidence).toEqual(
       expect.arrayContaining(["security", "recovery"]),
     );
