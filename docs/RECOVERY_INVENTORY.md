@@ -500,3 +500,21 @@ Verification target:
 - Confirm verified monetization evidence applies only to the same artifact version.
 - Confirm a non-monetized runnable product reaches production certified only when all applicable requirement, behavioral, runtime, security, deployment, operational, and recovery evidence is present.
 - Confirm self-healing cannot restore production certified status unless the repaired artifact independently satisfies the same certification rules.
+
+
+## Section 27 monetization-certification recovery review
+
+Recovery invariant reviewed 30 September 2026:
+- A monetized generated product is not production certified from billing-code generation or user approval alone.
+- Production monetization verification is tied to the exact current artifact version, snapshot identity, SHA-256, and verified live URL.
+- The deployed product must expose its server-side billing health endpoint and report `configured=true`, `verified=true`, and `state=connected` before monetization evidence can satisfy production certification.
+- A missing, unreachable, malformed, unconfigured, or provider-failing billing-health response records unverified monetization evidence and leaves the artifact below `production-certified`.
+- Recovery, rollback, and self-healing must rerun the same deployed billing verification for the restored or repaired artifact; monetization evidence from an older artifact version must not be inherited.
+- Billing-health verification must never accept client-side state, configuration presence alone, route existence alone, or monetization approval as proof that the provider and configured price are working.
+
+Verification target:
+- Confirm approval-only monetization evidence cannot certify an artifact.
+- Confirm a monetized deployment with failed or unconfigured billing health remains a production candidate and records the failed evidence against that artifact version.
+- Confirm a deployed monetized artifact can satisfy the monetization gate only when its billing health reports configured, verified, and connected.
+- Confirm a new artifact version cannot reuse the prior version's monetization evidence.
+- Confirm self-healing and rollback re-enter the same fail-closed monetization verification path before production certification.
