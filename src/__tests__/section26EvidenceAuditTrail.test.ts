@@ -156,7 +156,9 @@ describe("Section 26 evidence and audit trail", () => {
     expect(worker).toContain("...certificationDecision");
     expect(worker).toContain("finalProductFactoryFlow.productionReady");
     expect(worker).toContain("certificationDecision.status");
-    expect(worker).toContain("limitations: finalProductFactoryFlow.limitations");
+    expect(worker).toContain(
+      "limitations: finalProductFactoryFlow.limitations",
+    );
   });
 
   it("makes the evidence visible to project users and owner administrators", () => {
