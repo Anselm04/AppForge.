@@ -51,7 +51,6 @@ const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_BASE_MS = 1_000;
 
-
 function validationPassed(value: unknown): boolean {
   return (
     !!value &&
@@ -67,12 +66,10 @@ function requirementsResolved(value: unknown): boolean {
     Array.isArray(
       (value as { unresolvedMustHaveIds?: unknown }).unresolvedMustHaveIds,
     ) &&
-    (
-      (value as { unresolvedMustHaveIds: unknown[] }).unresolvedMustHaveIds
-    ).length === 0
+    (value as { unresolvedMustHaveIds: unknown[] }).unresolvedMustHaveIds
+      .length === 0
   );
 }
-
 
 function securityAuditPassed(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
@@ -511,7 +508,9 @@ export async function runBuildJob(input: unknown): Promise<void> {
       const runtimeVerified =
         stackAdapter.generationMode === "runnable" &&
         validationPassed(artifact.validationResult);
-      const snapshotSecurityVerified = securityAuditPassed(artifact.auditScores);
+      const snapshotSecurityVerified = securityAuditPassed(
+        artifact.auditScores,
+      );
       let certificationDecision: CertificationDecision;
 
       if (deploymentDecision.action === "deploy") {
@@ -573,9 +572,13 @@ export async function runBuildJob(input: unknown): Promise<void> {
           });
         } else {
           await updateProjectStatus(projectId, "validated");
-          await updateProjectBuildStage(projectId, certificationDecision.status, {
-            outputMaturity: "verified",
-          });
+          await updateProjectBuildStage(
+            projectId,
+            certificationDecision.status,
+            {
+              outputMaturity: "verified",
+            },
+          );
         }
 
         await recordProjectEvidence({
