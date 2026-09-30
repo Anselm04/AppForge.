@@ -456,12 +456,15 @@ export async function runBuildJob(input: unknown): Promise<void> {
             artifactVersion?: number;
             persistedArtifactSha256?: string;
             httpVerified: true;
+            securityVerified: true;
+            operationalVerified: true;
             assetsVerified: number;
             browserVerified: boolean;
             verification: string;
             healthPathsVerified: string[];
             deploymentVersion: 2;
             deploymentManifestSha256: string;
+            certificationDecision: CertificationDecision;
             deploymentAudit: {
               id: string;
               event: "production_deployment_verified";
