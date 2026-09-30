@@ -144,7 +144,7 @@ describe("#28 Regression Coverage", () => {
   });
 
   it("keeps ambiguous prompts in clarification instead of guessing", () => {
-    const intent = classifyProductIntent("Build something useful for my business");
+    const intent = classifyProductIntent(\n      "Build something useful for my business",\n    );
     expect(intent.ambiguous).toBe(true);
     expect(intent.primaryProductType).toBeNull();
     expect(intent.clarificationQuestions.length).toBeGreaterThan(0);
