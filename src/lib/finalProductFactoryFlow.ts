@@ -122,10 +122,7 @@ function codeFileCount(files: Record<string, string>): number {
   ).length;
 }
 
-function researchComplete(
-  value: unknown,
-  contract: ProductContract,
-): boolean {
+function researchComplete(value: unknown, contract: ProductContract): boolean {
   if (!value || typeof value !== "object") return false;
   const research = value as {
     originalPrompt?: unknown;
@@ -434,10 +431,9 @@ export function evaluateFinalProductFactoryFlow(input: {
     },
     {
       id: "honest_certification",
-      complete:
-        input.certificationDecision.productionCertified
-          ? input.certificationDecision.missingEvidence.length === 0
-          : input.certificationDecision.missingEvidence.length > 0,
+      complete: input.certificationDecision.productionCertified
+        ? input.certificationDecision.missingEvidence.length === 0
+        : input.certificationDecision.missingEvidence.length > 0,
       applicable: true,
       detail:
         "Certification must reflect the evidence without upgrading missing proof.",
