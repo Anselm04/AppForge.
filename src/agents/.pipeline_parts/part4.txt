@@ -186,12 +186,18 @@
       },
     });
     const finalStackAdapter = getStackAdapter(techStack);
-    await updateProjectBuildStage(projectId, "production-candidate", {
-      outputMaturity:
-        finalStackAdapter.generationMode === "structural"
-          ? "structural"
-          : "runnable",
-    });
+    await updateProjectBuildStage(
+      projectId,
+      finalStackAdapter.generationMode === "structural"
+        ? "generated"
+        : "behaviorally-verified",
+      {
+        outputMaturity:
+          finalStackAdapter.generationMode === "structural"
+            ? "structural"
+            : "runnable",
+      },
+    );
     logger.info(
       {
         projectId,
