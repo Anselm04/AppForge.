@@ -134,23 +134,24 @@ describe("#28 Regression Coverage", () => {
   it(
     "covers a multi-capability product without dropping requested capabilities",
     () => {
-    const prompt =
-      "Build a SaaS application with login, PostgreSQL database, Stripe billing, AI assistant, analytics, admin console, teams, notifications, search, file uploads, Slack integration, and production deployment";
-    expect(detectSecondaryCapabilities(prompt)).toEqual([
-      "authentication",
-      "database",
-      "billing",
-      "ai",
-      "analytics",
-      "administration",
-      "teams",
-      "notifications",
-      "search",
-      "file_uploads",
-      "external_integrations",
-      "deployment",
-    ]);
-  });
+      const prompt =
+        "Build a SaaS application with login, PostgreSQL database, Stripe billing, AI assistant, analytics, admin console, teams, notifications, search, file uploads, Slack integration, and production deployment";
+      expect(detectSecondaryCapabilities(prompt)).toEqual([
+        "authentication",
+        "database",
+        "billing",
+        "ai",
+        "analytics",
+        "administration",
+        "teams",
+        "notifications",
+        "search",
+        "file_uploads",
+        "external_integrations",
+        "deployment",
+      ]);
+    },
+  );
 
   it("keeps ambiguous prompts in clarification instead of guessing", () => {
     const intent = classifyProductIntent(
@@ -186,14 +187,15 @@ describe("#28 Regression Coverage", () => {
   it(
     "creates explicit research requirements including integration documentation",
     () => {
-    const contract = buildProductContract(
-      "Build a SaaS application with Slack integration and production deployment",
-    );
-    expect(contract.researchRequirements.length).toBeGreaterThan(0);
-    expect(contract.researchRequirements.join("\n")).toMatch(
-      /official documentation|Slack API and SDK documentation/i,
-    );
-  });
+      const contract = buildProductContract(
+        "Build a SaaS application with Slack integration and production deployment",
+      );
+      expect(contract.researchRequirements.length).toBeGreaterThan(0);
+      expect(contract.researchRequirements.join("\n")).toMatch(
+        /official documentation|Slack API and SDK documentation/i,
+      );
+    },
+  );
 
   it("marks external integrations as required when requested", () => {
     const contract = buildProductContract(
