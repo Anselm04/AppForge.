@@ -20,7 +20,7 @@ import {
 import { recordKnownGoodCheckpoint } from "../services/recovery.js";
 
 // ── Self-Healing Production Monitor ──
-// Watches Sentry for error spikes on deployed/completed projects.
+// Watches Sentry for error spikes on production-certified projects.
 // Auto-creates Senior Dev autonomous fix tasks, validates them, redeploys the
 // verified repair, then records a new current snapshot.
 
@@ -225,10 +225,7 @@ async function createAutonomousFixTask(
       requirementManifest: true,
     },
   });
-  if (
-    !project ||
-    project.status !== "production-certified"
-  ) {
+  if (!project || project.status !== "production-certified") {
     logger.info({ projectId }, "self_healing_project_not_certified");
     return false;
   }
