@@ -117,7 +117,8 @@ function codeFileCount(files: Record<string, string>): number {
     ([path, source]) =>
       /\.(?:[cm]?[jt]sx?|py|dart|rs|go|java|kt|swift|html|css|sql|prisma)$/i.test(
         path,
-      ) && source.trim().length > 0,
+      ) &&
+      source.trim().length > 0,
   ).length;
 }
 
@@ -175,7 +176,8 @@ function coordinationComplete(
       state.status === "completed" &&
       state.outputFiles.length > 0 &&
       state.outputFiles.every(
-        (path) => typeof files[path] === "string" && files[path].trim().length > 0,
+        (path) =>
+          typeof files[path] === "string" && files[path].trim().length > 0,
       ),
   );
 }
@@ -295,9 +297,12 @@ export function evaluateFinalProductFactoryFlow(input: {
     },
     {
       id: "live_research",
-      complete: contract !== null && researchComplete(input.project.researchRecord, contract),
+      complete:
+        contract !== null &&
+        researchComplete(input.project.researchRecord, contract),
       applicable: true,
-      detail: "Live research must be persisted and bound to this prompt/product/stack.",
+      detail:
+        "Live research must be persisted and bound to this prompt/product/stack.",
     },
     {
       id: "architecture_defined",
@@ -317,7 +322,8 @@ export function evaluateFinalProductFactoryFlow(input: {
         plan !== null &&
         coordinationComplete(input.project.agentCoordination, plan, files),
       applicable: true,
-      detail: "Every planned specialist task must complete with persisted output files.",
+      detail:
+        "Every planned specialist task must complete with persisted output files.",
     },
     {
       id: "real_source_files_generated",
@@ -348,19 +354,22 @@ export function evaluateFinalProductFactoryFlow(input: {
           manifest,
         }),
       applicable: true,
-      detail: "Prompt, stack, product type, and requirement IDs must remain unchanged end-to-end.",
+      detail:
+        "Prompt, stack, product type, and requirement IDs must remain unchanged end-to-end.",
     },
     {
       id: "placeholders_blocked",
       complete: placeholdersBlocked,
       applicable: true,
-      detail: "Final generated artifact must pass incomplete-product/placeholder protection.",
+      detail:
+        "Final generated artifact must pass incomplete-product/placeholder protection.",
     },
     {
       id: "requirement_linked_evidence",
       complete: manifest !== null && requirementBehaviorVerified(manifest),
       applicable: true,
-      detail: "Every must-have requirement needs linked implementation, tests, and passing validation evidence.",
+      detail:
+        "Every must-have requirement needs linked implementation, tests, and passing validation evidence.",
     },
     {
       id: "isolated_build_verified",
@@ -380,7 +389,8 @@ export function evaluateFinalProductFactoryFlow(input: {
       id: "preview_verified",
       complete: previewVerified,
       applicable: true,
-      detail: "The exact generated artifact must be reachable before final live certification.",
+      detail:
+        "The exact generated artifact must be reachable before final live certification.",
     },
     {
       id: "validated_artifact_deployed",
@@ -388,15 +398,18 @@ export function evaluateFinalProductFactoryFlow(input: {
         deploymentVerified &&
         input.artifact !== null &&
         deployment?.artifactVersion === input.artifact.version &&
-        deployment?.persistedArtifactSha256 === input.artifact.integrity?.sha256,
+        deployment?.persistedArtifactSha256 ===
+          input.artifact.integrity?.sha256,
       applicable: true,
-      detail: "Deployment must be bound to the current validated artifact version and SHA-256.",
+      detail:
+        "Deployment must be bound to the current validated artifact version and SHA-256.",
     },
     {
       id: "live_product_verified",
       complete: liveVerified,
       applicable: true,
-      detail: "Live HTTP plus browser/health verification must pass for the selected product type.",
+      detail:
+        "Live HTTP plus browser/health verification must pass for the selected product type.",
     },
     {
       id: "monetization_and_entitlements_verified",
@@ -416,7 +429,8 @@ export function evaluateFinalProductFactoryFlow(input: {
       id: "recovery_verified",
       complete: input.recoveryVerified,
       applicable: true,
-      detail: "Known-good recovery checkpoint must be recorded for the exact artifact.",
+      detail:
+        "Known-good recovery checkpoint must be recorded for the exact artifact.",
     },
     {
       id: "honest_certification",
@@ -425,13 +439,15 @@ export function evaluateFinalProductFactoryFlow(input: {
           ? input.certificationDecision.missingEvidence.length === 0
           : input.certificationDecision.missingEvidence.length > 0,
       applicable: true,
-      detail: "Certification must reflect the evidence without upgrading missing proof.",
+      detail:
+        "Certification must reflect the evidence without upgrading missing proof.",
     },
     {
       id: "limitations_exposed",
       complete: true,
       applicable: true,
-      detail: "This report explicitly exposes every incomplete applicable step.",
+      detail:
+        "This report explicitly exposes every incomplete applicable step.",
     },
   ];
 
