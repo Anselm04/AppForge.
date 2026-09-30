@@ -75,17 +75,20 @@ describe("#25 Build Status and User Experience", () => {
     const deploy = worker.indexOf("await deployValidatedProjectWithRetry({");
     const checkpoint = worker.indexOf('source: "production_verified"');
     const certification = worker.indexOf("evaluateCertification({");
+    const finalFlow = worker.indexOf("evaluateFinalProductFactoryFlow({");
     const certifiedGate = worker.indexOf(
-      "if (certificationDecision.productionCertified)",
+      "if (finalProductFactoryFlow.productionReady)",
     );
     expect(deploy).toBeGreaterThan(-1);
     expect(checkpoint).toBeGreaterThan(deploy);
     expect(certification).toBeGreaterThan(checkpoint);
-    expect(certifiedGate).toBeGreaterThan(certification);
+    expect(finalFlow).toBeGreaterThan(certification);
+    expect(certifiedGate).toBeGreaterThan(finalFlow);
     expect(worker).toContain(
       'updateProjectStatus(projectId, "production-certified")',
     );
     expect(worker).toContain("certificationDecision.status");
+    expect(worker).toContain("finalProductFactoryFlow.productionReady");
   });
 
   it("holds generation for plan, monetization and integration approval", () => {
