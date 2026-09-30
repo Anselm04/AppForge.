@@ -1,3 +1,57 @@
+export type PreviewVerificationResult = {
+  ok: boolean;
+  statusCode?: number;
+  snapshotId?: number;
+  artifactVersion?: number;
+  artifactSha256?: string;
+  message?: string;
+};
+
+export async function verifyGeneratedPreview(input: {
+  url: string;
+  snapshotId: number;
+  artifactVersion: number;
+  artifactSha256: string;
+}): Promise<PreviewVerificationResult> {
+  try {
+    const res = await fetch(input.url, {
+      method: "GET",
+      redirect: "follow",
+      headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const snapshotId = Number(res.headers.get("x-appforge-snapshot-id"));
+    const artifactVersion = Number(
+      res.headers.get("x-appforge-artifact-version"),
+    );
+    const artifactSha256 =
+      res.headers.get("x-appforge-artifact-sha256") ?? undefined;
+    const body = await res.text();
+    const ok =
+      res.ok &&
+      body.trim().length > 0 &&
+      snapshotId === input.snapshotId &&
+      artifactVersion === input.artifactVersion &&
+      artifactSha256 === input.artifactSha256;
+
+    return {
+      ok,
+      statusCode: res.status,
+      snapshotId,
+      artifactVersion,
+      artifactSha256,
+      message: ok
+        ? undefined
+        : "Preview did not serve the exact persisted artifact identity.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Preview verification failed",
+    };
+  }
+}
+
 export type HealthCheckResult = {
   ok: boolean;
   statusCode?: number;
