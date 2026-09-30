@@ -40,7 +40,8 @@ export async function verifyGeneratedPreview(input: {
         snapshotId,
         artifactVersion,
         artifactSha256,
-        message: "Preview boundary did not serve the exact persisted artifact identity.",
+        message:
+          "Preview boundary did not serve the exact persisted artifact identity.",
       };
     }
 
@@ -84,7 +85,8 @@ export async function verifyGeneratedPreview(input: {
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Preview verification failed",
+      message:
+        err instanceof Error ? err.message : "Preview verification failed",
     };
   }
 }
