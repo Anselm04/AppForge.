@@ -109,15 +109,16 @@ describe("#30 Final Product-Factory Flow", () => {
     const buildRoute = readFileSync("src/routes/build.ts", "utf8");
     const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
     const projects = readFileSync("src/routers/projects.ts", "utf8");
-    const canary = readFileSync("scripts/production-customer-canary.mjs", "utf8");
+    const canary = readFileSync(
+      "scripts/production-customer-canary.mjs",
+      "utf8",
+    );
 
     expect(buildStatus).not.toContain('"completed",\n] as const;');
     expect(buildRoute).not.toContain(
       '["validated", "production-certified", "completed"]',
     );
-    expect(selfHealing).not.toContain(
-      '["production-certified", "completed"]',
-    );
+    expect(selfHealing).not.toContain('["production-certified", "completed"]');
     expect(projects).not.toContain(
       '"production-certified",\n        "completed",',
     );
