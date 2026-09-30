@@ -403,6 +403,8 @@ export async function deployValidatedProject(opts: {
     liveUrl,
   });
   const certification: ProductionCertification = {
+    previewUrl: preview.url,
+    previewVerified: true,
     liveUrl,
     snapshotId: opts.snapshot?.id,
     artifactVersion: opts.snapshot?.version,
