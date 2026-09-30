@@ -216,18 +216,6 @@ CREATE TABLE IF NOT EXISTS "build_snapshots" (
   "created_at" TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS "recovery_checkpoints" (
-  "id" SERIAL PRIMARY KEY,
-  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
-  "snapshot_id" INTEGER NOT NULL REFERENCES "build_snapshots"("id") ON DELETE CASCADE,
-  "artifact_version" INTEGER NOT NULL,
-  "artifact_sha256" VARCHAR(64) NOT NULL,
-  "deployment_version" INTEGER,
-  "deployment_manifest_sha256" VARCHAR(64),
-  "live_url" TEXT,
-  "source" VARCHAR(32) NOT NULL,
-  "created_at" TIMESTAMP NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS "user_credits_balance_idx" ON "user_credits" ("balance");
 CREATE INDEX IF NOT EXISTS "credit_tx_user_idx" ON "credit_transactions" ("user_id");
@@ -269,9 +257,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "snapshots_project_version_unique" ON "build_s
 CREATE INDEX IF NOT EXISTS "snapshots_project_version_idx" ON "build_snapshots" ("project_id", "version");
 CREATE INDEX IF NOT EXISTS "snapshots_current_idx" ON "build_snapshots" ("is_current");
 CREATE INDEX IF NOT EXISTS "snapshots_project_idx" ON "build_snapshots" ("project_id");
-CREATE UNIQUE INDEX IF NOT EXISTS "recovery_checkpoint_project_artifact_source_unique" ON "recovery_checkpoints" ("project_id", "artifact_version", "source");
-CREATE INDEX IF NOT EXISTS "recovery_checkpoint_project_idx" ON "recovery_checkpoints" ("project_id", "created_at");
-CREATE INDEX IF NOT EXISTS "recovery_checkpoint_snapshot_idx" ON "recovery_checkpoints" ("snapshot_id");
 CREATE INDEX IF NOT EXISTS "subscriptions_user_id_idx" ON "subscriptions" ("user_id");
 CREATE INDEX IF NOT EXISTS "github_connections_user_id_idx" ON "github_connections" ("user_id");
 CREATE INDEX IF NOT EXISTS "cosine_connections_user_id_idx" ON "cosine_connections" ("user_id");
@@ -400,6 +385,28 @@ CREATE TABLE IF NOT EXISTS "organization_domains" (
   "created_at" TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS "org_domains_org_idx" ON "organization_domains" ("organization_id");
+`;
+
+const RECOVERY_CHECKPOINTS_SQL = `
+CREATE TABLE IF NOT EXISTS "recovery_checkpoints" (
+  "id" SERIAL PRIMARY KEY,
+  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "snapshot_id" INTEGER NOT NULL REFERENCES "build_snapshots"("id") ON DELETE CASCADE,
+  "artifact_version" INTEGER NOT NULL,
+  "artifact_sha256" VARCHAR(64) NOT NULL,
+  "deployment_version" INTEGER,
+  "deployment_manifest_sha256" VARCHAR(64),
+  "live_url" TEXT,
+  "source" VARCHAR(32) NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "recovery_checkpoint_project_artifact_source_unique"
+  ON "recovery_checkpoints" ("project_id", "artifact_version", "source");
+CREATE INDEX IF NOT EXISTS "recovery_checkpoint_project_idx"
+  ON "recovery_checkpoints" ("project_id", "created_at");
+CREATE INDEX IF NOT EXISTS "recovery_checkpoint_snapshot_idx"
+  ON "recovery_checkpoints" ("snapshot_id");
 `;
 
 const SECTION18_INTEGRITY_SQL = `
@@ -603,6 +610,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20260930_006",
     name: "section26_evidence_integrity_hardening",
     sql: SECTION26_EVIDENCE_INTEGRITY_SQL,
+  },
+  {
+    version: "20261001_007",
+    name: "recovery_checkpoints",
+    sql: RECOVERY_CHECKPOINTS_SQL,
   },
 ];
 
