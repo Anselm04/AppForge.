@@ -37,6 +37,8 @@ export type ProductionCertification = {
   persistedArtifactSha256?: string;
   artifactSha256: string;
   httpVerified: true;
+  securityVerified: true;
+  operationalVerified: true;
   assetsVerified: number;
   /** true for UI stacks (Chromium render); false for HTTP services. */
   browserVerified: boolean;
@@ -285,6 +287,8 @@ export async function deployValidatedProject(opts: {
       persistedArtifactSha256: opts.snapshot?.integrity.sha256,
       artifactSha256,
       httpVerified: true,
+      securityVerified: true,
+      operationalVerified: true,
       assetsVerified: 0,
       browserVerified: false,
       verification: plan.verification,
@@ -332,6 +336,8 @@ export async function deployValidatedProject(opts: {
     persistedArtifactSha256: opts.snapshot?.integrity.sha256,
     artifactSha256,
     httpVerified: true,
+    securityVerified: true,
+    operationalVerified: true,
     assetsVerified: smoke.assets.length,
     browserVerified: true,
     verification: plan.verification,
