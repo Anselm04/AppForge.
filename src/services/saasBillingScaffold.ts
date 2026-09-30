@@ -7,6 +7,7 @@ import {
   billingEntitlementsModule,
   billingExpressMeRoute,
   billingHealthModule,
+  billingHealthRoutes,
   billingInvoicesModule,
   billingLimitsModule,
   billingMeRoute,
@@ -66,6 +67,7 @@ export function billingScaffoldFiles(techStack: string): Files {
   const isNext = techStack.includes("next");
   const webhooks = billingWebhookHandlers(isNext);
   const portals = billingPortalRoutes(isNext);
+  const healthRoutes = billingHealthRoutes();
 
   const checkoutRoute = isNext
     ? `import { NextResponse } from "next/server";
@@ -208,6 +210,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
           "src/app/api/checkout/route.ts": checkoutRoute,
           "src/app/api/webhooks/stripe/route.ts": webhooks.nextRoute,
           "src/app/api/billing/portal/route.ts": portals.nextRoute,
+          "src/app/api/billing/health/route.ts": healthRoutes.nextRoute,
           ...(billingMeRoute(isNext)
             ? { "src/app/api/billing/me/route.ts": billingMeRoute(isNext)! }
             : {}),
@@ -217,6 +220,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
           "src/server/routes/billing/webhook.ts": webhooks.expressRoute,
           "src/server/routes/billing/me.ts": billingExpressMeRoute(),
           "src/server/routes/billing/portal.ts": portals.expressRoute,
+          "src/server/routes/billing/health.ts": healthRoutes.expressRoute,
         }),
     "src/pages/PricingPage.tsx": `import { useState } from "react";
 
