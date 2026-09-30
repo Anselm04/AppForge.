@@ -20,9 +20,7 @@ export async function verifyGeneratedPreview(input: {
       headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
       signal: AbortSignal.timeout(15_000),
     });
-    const snapshotId = Number(
-      boundary.headers.get("x-appforge-snapshot-id"),
-    );
+    const snapshotId = Number(boundary.headers.get("x-appforge-snapshot-id"));
     const artifactVersion = Number(
       boundary.headers.get("x-appforge-artifact-version"),
     );
@@ -67,10 +65,7 @@ export async function verifyGeneratedPreview(input: {
     }
 
     const body = await runtimeResponse.text();
-    const ok =
-      runtimeResponse.ok &&
-      body.trim().length > 0 &&
-      identityMatches;
+    const ok = runtimeResponse.ok && body.trim().length > 0 && identityMatches;
 
     return {
       ok,
