@@ -9,6 +9,10 @@ describe("Section 26 evidence and audit trail", () => {
   it("persists append-only project evidence with ownership and artifact identity", () => {
     const schema = source("src/db/schema.ts");
     const migration = source("drizzle/0005_section26_evidence_audit_trail.sql");
+    const hardening = source(
+      "drizzle/0006_section26_evidence_integrity_hardening.sql",
+    );
+    const ensureSchema = source("src/db/ensureSchema.ts");
     const db = source("src/db.ts");
 
     for (const marker of [
@@ -33,6 +37,11 @@ describe("Section 26 evidence and audit trail", () => {
     expect(db).toContain(".insert(schema.projectEvidence)");
     expect(db).not.toContain(".update(schema.projectEvidence)");
     expect(db).not.toContain(".delete(schema.projectEvidence)");
+    expect(hardening).toContain('"project_evidence_append_only"');
+    expect(hardening).toContain("BEFORE UPDATE OR DELETE");
+    expect(hardening).toContain("pg_trigger_depth() > 1");
+    expect(ensureSchema).toContain("SECTION26_EVIDENCE_INTEGRITY_SQL");
+    expect(ensureSchema).toContain('"20260930_006"');
   });
 
   it("persists original prompt, product contract and selected stack at intake", () => {
@@ -133,7 +142,16 @@ describe("Section 26 evidence and audit trail", () => {
     expect(db).toContain('source: "validation"');
     expect(db).toContain("certification: {");
     expect(db).toContain("currentArtifactSha256");
-    expect(db).toContain("productionVerified:");
+    expect(db).toContain("findProductionVerificationForCurrentArtifact");
+    expect(db).toContain(
+      "productionVerified: productionVerificationCheckpoint !== null",
+    );
+    expect(db).toContain("productionVerificationCheckpoint,");
+    expect(db).toContain("(currentSnapshot?.validationResult as any)?.errors");
+    expect(db).toContain("(currentSnapshot?.auditScores as any)?.findings");
+    expect(db).not.toContain(
+      "(latestSnapshot?.validationResult as any)?.errors",
+    );
     expect(worker).toContain('kind: "certification"');
     expect(worker).toContain('status: "production-certified"');
     expect(worker).toContain('status: "production-candidate"');

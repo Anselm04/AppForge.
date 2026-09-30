@@ -36,3 +36,34 @@ export function evidencePayload(value: unknown): ProjectEvidencePayload {
   }
   return JSON.parse(JSON.stringify(value)) as ProjectEvidencePayload;
 }
+
+export type EvidenceSnapshotIdentity = {
+  id: number;
+  version: number;
+  artifactIntegrity?: { sha256?: string | null } | null;
+};
+
+export type ProductionVerificationCheckpoint = {
+  source: string | null;
+  snapshotId: number;
+  artifactVersion: number;
+  artifactSha256: string;
+};
+
+export function findProductionVerificationForCurrentArtifact(
+  checkpoints: readonly ProductionVerificationCheckpoint[],
+  currentSnapshot: EvidenceSnapshotIdentity | null | undefined,
+): ProductionVerificationCheckpoint | null {
+  const currentSha256 = currentSnapshot?.artifactIntegrity?.sha256;
+  if (!currentSnapshot || !currentSha256) return null;
+
+  return (
+    checkpoints.find(
+      (checkpoint) =>
+        checkpoint.source === "production_verified" &&
+        checkpoint.snapshotId === currentSnapshot.id &&
+        checkpoint.artifactVersion === currentSnapshot.version &&
+        checkpoint.artifactSha256 === currentSha256,
+    ) ?? null
+  );
+}

@@ -25,6 +25,7 @@ import {
 } from "./lib/requirementManifest.js";
 import {
   evidencePayload,
+  findProductionVerificationForCurrentArtifact,
   type ProjectEvidenceKind,
   type ProjectEvidencePayload,
 } from "./lib/projectEvidence.js";
@@ -397,15 +398,29 @@ export async function getProjectEvidenceBundle(projectId: number) {
     project.requirementManifest && typeof project.requirementManifest === "object"
       ? project.requirementManifest
       : null;
-  const latestSnapshot = snapshots.at(-1) ?? null;
-  const currentSnapshot = snapshots.find((snapshot) => snapshot.isCurrent) ?? null;
-  const validationErrors =
-    Array.isArray((latestSnapshot?.validationResult as any)?.errors)
-      ? ((latestSnapshot?.validationResult as any).errors as unknown[])
-      : [];
+  const currentSnapshot =
+    snapshots.find((snapshot) => snapshot.isCurrent) ?? null;
+  const validationErrors = Array.isArray(
+    (currentSnapshot?.validationResult as any)?.errors,
+  )
+    ? ((currentSnapshot?.validationResult as any).errors as unknown[])
+    : [];
   const auditFindings = [
-    ...((((latestSnapshot?.auditScores as any)?.findings as unknown[]) ?? [])),
+    ...((((currentSnapshot?.auditScores as any)?.findings as unknown[]) ?? [])),
   ];
+  const productionVerificationCheckpoint =
+    findProductionVerificationForCurrentArtifact(
+      checkpoints,
+      currentSnapshot
+        ? {
+            id: currentSnapshot.id,
+            version: currentSnapshot.version,
+            artifactIntegrity: currentSnapshot.artifactIntegrity as
+              | { sha256?: string | null }
+              | null,
+          }
+        : null,
+    );
   const unresolvedRequirementIds =
     Array.isArray((manifest as any)?.unresolvedMustHaveIds)
       ? ((manifest as any).unresolvedMustHaveIds as unknown[])
@@ -477,8 +492,8 @@ export async function getProjectEvidenceBundle(projectId: number) {
       currentArtifactVersion: currentSnapshot?.version ?? null,
       currentArtifactSha256:
         (currentSnapshot?.artifactIntegrity as any)?.sha256 ?? null,
-      productionVerified:
-        checkpoints.some((checkpoint) => checkpoint.source === "production_verified"),
+      productionVerified: productionVerificationCheckpoint !== null,
+      productionVerificationCheckpoint,
     },
     events,
   };
