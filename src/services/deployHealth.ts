@@ -14,35 +14,72 @@ export async function verifyGeneratedPreview(input: {
   artifactSha256: string;
 }): Promise<PreviewVerificationResult> {
   try {
-    const res = await fetch(input.url, {
+    const boundary = await fetch(input.url, {
       method: "GET",
-      redirect: "follow",
+      redirect: "manual",
       headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
       signal: AbortSignal.timeout(15_000),
     });
-    const snapshotId = Number(res.headers.get("x-appforge-snapshot-id"));
+    const snapshotId = Number(
+      boundary.headers.get("x-appforge-snapshot-id"),
+    );
     const artifactVersion = Number(
-      res.headers.get("x-appforge-artifact-version"),
+      boundary.headers.get("x-appforge-artifact-version"),
     );
     const artifactSha256 =
-      res.headers.get("x-appforge-artifact-sha256") ?? undefined;
-    const body = await res.text();
-    const ok =
-      res.ok &&
-      body.trim().length > 0 &&
+      boundary.headers.get("x-appforge-artifact-sha256") ?? undefined;
+    const identityMatches =
       snapshotId === input.snapshotId &&
       artifactVersion === input.artifactVersion &&
       artifactSha256 === input.artifactSha256;
 
+    if (!identityMatches) {
+      return {
+        ok: false,
+        statusCode: boundary.status,
+        snapshotId,
+        artifactVersion,
+        artifactSha256,
+        message: "Preview boundary did not serve the exact persisted artifact identity.",
+      };
+    }
+
+    let runtimeResponse = boundary;
+    if (boundary.status >= 300 && boundary.status < 400) {
+      const location = boundary.headers.get("location");
+      if (!location) {
+        return {
+          ok: false,
+          statusCode: boundary.status,
+          snapshotId,
+          artifactVersion,
+          artifactSha256,
+          message: "Preview redirected without a runtime location.",
+        };
+      }
+      runtimeResponse = await fetch(new URL(location, input.url), {
+        method: "GET",
+        redirect: "follow",
+        headers: { "User-Agent": "AppForge-Preview-Verification/1.0" },
+        signal: AbortSignal.timeout(15_000),
+      });
+    }
+
+    const body = await runtimeResponse.text();
+    const ok =
+      runtimeResponse.ok &&
+      body.trim().length > 0 &&
+      identityMatches;
+
     return {
       ok,
-      statusCode: res.status,
+      statusCode: runtimeResponse.status,
       snapshotId,
       artifactVersion,
       artifactSha256,
       message: ok
         ? undefined
-        : "Preview did not serve the exact persisted artifact identity.",
+        : "Preview runtime did not return a successful non-empty product response.",
     };
   } catch (err) {
     return {
