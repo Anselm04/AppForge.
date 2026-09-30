@@ -90,7 +90,8 @@ describe("autonomous self-healing recovery guardrails", () => {
       "await getSnapshotArtifact(",
       "await deployValidatedProject({",
       "await markSnapshotAsCurrent(newSnapshotId, projectId)",
-      'status: "production-certified"',
+      "const certificationDecision = evaluateCertification({",
+      "certificationDecision.productionCertified",
     ]);
   });
 
