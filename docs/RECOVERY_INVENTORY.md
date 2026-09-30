@@ -539,3 +539,22 @@ Verification target:
 - Artifact-integrity mismatch fails before upload/promotion.
 - Preview build/runtime failure fails the preview deployment gate.
 - Recovery checks remain mandatory and cannot be skipped by successful unrelated jobs.
+
+
+## Section 30 Final Product-Factory Flow recovery review
+
+Recovery invariant reviewed 1 October 2026:
+- The final customer handoff is governed by one authoritative product-factory verdict, not by a legacy generic `completed` status or a deployment-only success.
+- Production readiness requires the validated contract, resolved intent, selected stack, live research, architecture/plan, completed specialist-agent outputs, real persisted source, requirement preservation, placeholder protection, requirement-linked evidence, isolated build/runtime verification, exact-artifact preview/deployment/live verification, requested monetization/entitlement proof, operational monitoring, and recovery evidence.
+- The final verdict is fail-closed: a lower-level certification decision cannot make `productionReady` true when an earlier product-factory stage is missing.
+- Legacy project status `completed` is not accepted by the build worker as proof that the current attempt reached the validated/certified final flow.
+- Any incomplete applicable final-flow step is emitted as an explicit limitation and is included in the project evidence bundle.
+- The project may be marked `production-certified` only when the authoritative Section 30 report has `productionReady: true`; otherwise it remains validated/production-candidate.
+- Structural-only outputs remain honest source deliverables and expose runtime/deployment limitations instead of being presented as production-ready.
+- The final-flow report is bound to the current persisted artifact and exact deployment evidence, so stale artifacts cannot inherit readiness.
+
+Verification target:
+- Missing contract, research, plan, coordination, artifact, isolation, deployment, monitoring, monetization, or recovery evidence must keep `productionReady` false.
+- The final build event must carry `productionReady`, the full final-flow report, and explicit limitations.
+- Project evidence must expose the same report and limitations for customer/admin audit.
+- No final-flow code path may restore `completed` as a shortcut to production readiness.
