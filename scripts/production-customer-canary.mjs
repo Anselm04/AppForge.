@@ -374,11 +374,16 @@ async function main() {
     );
   }
 
-  console.log("[canary] verifying persisted project completion");
+  console.log("[canary] verifying persisted production certification");
   const project = await trpc.query("projects.get", { id: projectId });
-  if (project?.status !== "completed") {
+  if (project?.status !== "production-certified") {
     throw new Error(
-      `Project status is not completed after done event: ${JSON.stringify(project)}`,
+      `Project status is not production-certified after done event: ${JSON.stringify(project)}`,
+    );
+  }
+  if (done.productionReady !== true) {
+    throw new Error(
+      `Production canary done event did not prove final product-factory readiness: ${JSON.stringify(done)}`,
     );
   }
   if (
@@ -386,7 +391,7 @@ async function main() {
     Object.keys(project.generatedFiles).length === 0
   ) {
     throw new Error(
-      "Completed canary project has no persisted generated files",
+      "Production-certified canary project has no persisted generated files",
     );
   }
 
