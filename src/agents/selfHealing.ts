@@ -2,7 +2,7 @@ import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { runSeniorDevAgent } from "./seniorDevAgent.js";
 import type { SeniorDevTask } from "./seniorDevAgent.js";
 import { claimSeniorDevStart } from "../services/senior-dev-claim.js";
