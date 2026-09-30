@@ -73,6 +73,17 @@ function requirementsResolved(value: unknown): boolean {
   );
 }
 
+
+function securityAuditPassed(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const audit = value as { passed?: unknown; security?: unknown };
+  return (
+    audit.passed === true &&
+    typeof audit.security === "number" &&
+    audit.security >= 80
+  );
+}
+
 async function verifiedMonetizationEvidence(
   projectId: number,
   artifactVersion: number,
