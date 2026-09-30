@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   CERTIFICATION_STATUSES,
@@ -208,4 +209,22 @@ describe("Section 27 certification logic", () => {
     expect(hasVerifiedMonetizationEvidence(events, 4)).toBe(true);
     expect(hasVerifiedMonetizationEvidence(events, 5)).toBe(false);
   });
+  it("wires the certification engine into normal builds and self-healing", () => {
+    const worker = readFileSync("src/services/build-worker.ts", "utf8");
+    const healing = readFileSync("src/agents/selfHealing.ts", "utf8");
+    const pipeline = readFileSync("src/agents/.pipeline_parts/part4.txt", "utf8");
+
+    expect(worker).toContain("evaluateCertification({");
+    expect(worker).toContain("verifiedMonetizationEvidence");
+    expect(worker).toContain("certificationDecision.productionCertified");
+    expect(healing).toContain("evaluateCertification({");
+    expect(healing).toContain("recordKnownGoodCheckpoint({");
+    expect(healing).toContain("hasVerifiedMonetizationEvidence");
+    expect(pipeline).toContain('"behaviorally-verified"');
+    expect(pipeline).toContain('"generated"');
+    expect(pipeline).not.toContain(
+      'updateProjectBuildStage(projectId, "production-candidate"',
+    );
+  });
+
 });
