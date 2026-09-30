@@ -50,7 +50,11 @@ jobs:
           fi
 
           printf '%s\n' "$FILES"
-          printf '%s\n' "$FILES" | xargs npx prettier --check --ignore-unknown
+          printf '%s\n' "$FILES" | xargs npx prettier --write --ignore-unknown
+          echo "=== SECTION16_PRETTIER_DIFF_START ==="
+          git diff -- src/services/requestTaintScanner.ts
+          echo "=== SECTION16_PRETTIER_DIFF_END ==="
+          exit 1
 
   typecheck:
     name: Type Check
