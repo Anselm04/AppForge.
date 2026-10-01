@@ -256,3 +256,63 @@ export async function probePythonRuntime(
         await writeFile(
           join(pkgRoot, "appforge_python_probe_pkg", "__init__.py"),
           LOCAL_PKG_INIT,
+          "utf8",
+        );
+        await writeFile(join(pkgRoot, "pyproject.toml"), LOCAL_PYPROJECT, "utf8");
+        const pipInstall = await runCommand(
+          venvPython,
+          ["-m", "pip", "install", "--disable-pip-version-check", "."],
+          { cwd: pkgRoot, timeoutMs: 120_000 },
+        );
+        const importCheck = await runCommand(
+          venvPython,
+          ["-c", "import appforge_python_probe_pkg as p; print(p.VERSION)"],
+          { timeoutMs: 15_000 },
+        );
+        checks.pipInstallVerified =
+          pipInstall.exitCode === 0 &&
+          importCheck.exitCode === 0 &&
+          importCheck.stdout.includes("0.0.1");
+        await recordArtifact("pip_install", "pip_install.json", "venv pip install", {
+          exitCode: pipInstall.exitCode,
+          stdout: pipInstall.stdout.slice(0, 4_000),
+          stderr: pipInstall.stderr.slice(0, 4_000),
+          timedOut: pipInstall.timedOut,
+          importExitCode: importCheck.exitCode,
+          importStdout: importCheck.stdout.trim(),
+        });
+        if (!checks.pipInstallVerified) {
+          errors.push(
+            `pip install into venv failed: ${(pipInstall.stderr || pipInstall.stdout || importCheck.stderr).slice(0, 400)}`,
+          );
+        }
+
+        const fixtureRoot = join(workspaceDir, "fixture");
+        await mkdir(join(fixtureRoot, "app"), { recursive: true });
+        await mkdir(join(fixtureRoot, "tests"), { recursive: true });
+        await writeFile(join(fixtureRoot, "app", "__init__.py"), "", "utf8");
+        await writeFile(join(fixtureRoot, "app", "main.py"), FIXTURE_MAIN, "utf8");
+        await writeFile(join(fixtureRoot, "tests", "__init__.py"), "", "utf8");
+        await writeFile(
+          join(fixtureRoot, "tests", "test_main.py"),
+          FIXTURE_TEST,
+          "utf8",
+        );
+
+        const compile = await runCommand(
+          venvPython,
+          ["-m", "compileall", "-q", "app"],
+          { cwd: fixtureRoot, timeoutMs: 30_000 },
+        );
+        checks.fixtureCompiled = compile.exitCode === 0;
+        await recordArtifact("compile", "compile.json", "compileall fixture", {
+          exitCode: compile.exitCode,
+          stdout: compile.stdout.slice(0, 2_000),
+          stderr: compile.stderr.slice(0, 2_000),
+          timedOut: compile.timedOut,
+        });
+        if (!checks.fixtureCompiled) {
+          errors.push(
+            `compileall failed: ${(compile.stderr || compile.stdout).slice(0, 400)}`,
+          );
+        }
