@@ -34,7 +34,7 @@ describe("unlimited credit entitlement gates", () => {
   it("approval resume does not require or charge raw credits for unlimited accounts", () => {
     const projects = source("src/routers/projects.ts");
     const resumeRoute = projects.slice(
-      projects.indexOf("resumeAfterApproval:"),
+      projects.indexOf("resumeApprovedBuild:"),
     );
 
     expect(resumeRoute).toContain(
