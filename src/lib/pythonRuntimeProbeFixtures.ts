@@ -122,4 +122,3 @@ version = "0.0.1"
 [tool.setuptools.packages.find]
 include = ["appforge_python_probe_pkg*"]
 `;
-
