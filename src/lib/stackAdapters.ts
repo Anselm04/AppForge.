@@ -38,7 +38,8 @@ export type StackAdapter = {
     | "game"
     | "extension"
     | "automation"
-    | "data";
+    | "data"
+    | "infrastructure";
 };
 
 const A = (adapter: StackAdapter): StackAdapter => adapter;
@@ -375,6 +376,42 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     deploymentTargets: ["vercel", "netlify", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "data",
+  }),
+  A({
+    id: "docker-compose-infra",
+    label: "Docker Compose Infrastructure",
+    aliases: ["docker compose", "docker infra", "container stack"],
+    productTypes: ["infrastructure"],
+    generationMode: "structural",
+    runtime: "node",
+    entrypoints: ["docker-compose.yml"],
+    dependencyManifest: "docker-compose.yml",
+    environmentFiles: [".env.example"],
+    projectStructure: ["services/", "scripts/"],
+    buildCommand: "docker compose build",
+    startCommand: "docker compose up -d",
+    previewMode: "service",
+    deploymentTargets: ["fly", "vps"],
+    outputDirectory: null,
+    artifactKind: "infrastructure",
+  }),
+  A({
+    id: "kubernetes-helm-infra",
+    label: "Kubernetes + Helm Infrastructure",
+    aliases: ["kubernetes", "k8s", "helm chart", "helm"],
+    productTypes: ["infrastructure"],
+    generationMode: "structural",
+    runtime: "node",
+    entrypoints: ["helm/Chart.yaml"],
+    dependencyManifest: "helm/Chart.yaml",
+    environmentFiles: [".env.example"],
+    projectStructure: ["helm/templates/", "manifests/"],
+    buildCommand: "helm lint helm/",
+    startCommand: "helm upgrade --install app helm/",
+    previewMode: "service",
+    deploymentTargets: ["kubernetes"],
+    outputDirectory: null,
+    artifactKind: "infrastructure",
   }),
 ];
 

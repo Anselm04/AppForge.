@@ -231,6 +231,36 @@ export const STACK_RESEARCH_TARGETS: Record<string, StackResearchTarget> = {
       doc("https://recharts.org/en-US/api", "Recharts API"),
     ],
   },
+  "docker-compose-infra": {
+    framework: "Docker Compose infrastructure stack",
+    packages: [],
+    repositories: ["docker/compose"],
+    docs: [
+      doc(
+        "https://docs.docker.com/compose/compose-file/",
+        "Docker Compose file reference",
+      ),
+      doc(
+        "https://docs.docker.com/engine/security/",
+        "Docker engine security",
+        "security",
+      ),
+    ],
+  },
+  "kubernetes-helm-infra": {
+    framework: "Kubernetes with Helm charts",
+    packages: [],
+    repositories: ["kubernetes/kubernetes", "helm/helm"],
+    docs: [
+      doc("https://kubernetes.io/docs/home/", "Kubernetes documentation"),
+      doc("https://helm.sh/docs/", "Helm documentation"),
+      doc(
+        "https://kubernetes.io/docs/concepts/security/",
+        "Kubernetes security concepts",
+        "security",
+      ),
+    ],
+  },
 };
 
 export const DEPLOYMENT_TARGET_DOCS: Record<string, OfficialDocTarget[]> = {
@@ -582,6 +612,14 @@ export const PRODUCT_TYPE_QUESTIONS: Record<
         "How should large datasets be visualized accessibly and efficiently?",
       query:
         "data visualization accessibility large dataset rendering performance",
+    },
+  ],
+  infrastructure: [
+    {
+      question:
+        "What are current best practices for container orchestration security and secrets management?",
+      query:
+        "Docker Kubernetes Terraform infrastructure as code security best practices secrets management",
     },
   ],
 };

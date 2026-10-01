@@ -6,7 +6,7 @@ export type GeneratedProjectStructurePolicy = {
   version: 1;
   stack: string;
   runtime: string;
-  packageManager: "npm" | "flutter" | "pip" | "cargo";
+  packageManager: "npm" | "flutter" | "pip" | "cargo" | "none";
   lockfile: string | null;
   lockfileRequiredAfterInstall: boolean;
   routingBoundary: string;
@@ -65,6 +65,7 @@ function packageManagerFor(
   if (adapter.dependencyManifest === "pubspec.yaml") return "flutter";
   if (adapter.dependencyManifest === "requirements.txt") return "pip";
   if (adapter.dependencyManifest.endsWith("Cargo.toml")) return "cargo";
+  if (adapter.artifactKind === "infrastructure") return "none";
   return "npm";
 }
 

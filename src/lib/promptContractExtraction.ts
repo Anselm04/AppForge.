@@ -212,6 +212,7 @@ const TYPE_DEFAULT_ENTITIES: Record<ProductType, string[]> = {
   browser_extension: ["ExtensionSettings"],
   automation_tool: ["AutomationRun"],
   data_product: ["Dataset"],
+  infrastructure: ["DeploymentTarget", "InfrastructureChangeLog"],
 };
 
 export function extractEntities(prompt: string, type: ProductType): string[] {
@@ -272,6 +273,7 @@ const TYPE_DEFAULT_ROLES: Record<ProductType, string[]> = {
   browser_extension: ["user"],
   automation_tool: ["operator"],
   data_product: ["viewer", "data_admin"],
+  infrastructure: ["platform_engineer", "sre"],
 };
 
 function singularRole(audience: string): string | null {
@@ -851,6 +853,8 @@ export function buildPromptWorkflows(input: {
       "Trigger fires, the automation performs its actions, and the run is recorded",
     data_product:
       "User imports data, explores charts and filters, and reads the insights",
+    infrastructure:
+      "Engineer defines the infrastructure stack, runs the pipeline, and verifies the deployed environment is healthy",
   };
   const workflows = [`${facts.subject}: ${primaryByType[type]}`];
   for (const feature of facts.features) {

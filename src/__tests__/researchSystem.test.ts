@@ -31,9 +31,14 @@ describe("section 5 research system", () => {
   it("keeps a research target for every stack adapter", () => {
     for (const adapter of STACK_ADAPTERS) {
       expect(STACK_RESEARCH_TARGETS[adapter.id], adapter.id).toBeTruthy();
-      expect(
-        STACK_RESEARCH_TARGETS[adapter.id].packages.length,
-      ).toBeGreaterThan(0);
+      // Infrastructure stacks (Docker Compose, Kubernetes/Helm) orchestrate
+      // services rather than depend on a single language package registry,
+      // so they are not required to list npm/PyPI/crates/Pub packages.
+      if (adapter.artifactKind !== "infrastructure") {
+        expect(
+          STACK_RESEARCH_TARGETS[adapter.id].packages.length,
+        ).toBeGreaterThan(0);
+      }
       expect(STACK_RESEARCH_TARGETS[adapter.id].docs.length).toBeGreaterThan(0);
     }
   });

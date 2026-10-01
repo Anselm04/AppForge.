@@ -653,6 +653,112 @@ function extensionShell(): ScaffoldFiles {
   };
 }
 
+function dockerComposeInfraShell(): ScaffoldFiles {
+  return {
+    "docker-compose.yml": [
+      "services:",
+      "  app:",
+      "    build: ./services/app",
+      "    ports:",
+      '      - "3000:3000"',
+      "    env_file: .env.example",
+      "    restart: unless-stopped",
+      "    depends_on:",
+      "      - db",
+      "  db:",
+      "    image: postgres:16-alpine",
+      "    environment:",
+      "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}",
+      "    volumes:",
+      "      - db-data:/var/lib/postgresql/data",
+      "    restart: unless-stopped",
+      "volumes:",
+      "  db-data:",
+      "",
+    ].join("\n"),
+    "services/app/Dockerfile": [
+      "FROM node:20-alpine",
+      "WORKDIR /app",
+      "COPY . .",
+      "RUN npm ci --omit=dev",
+      'CMD ["node", "index.js"]',
+      "",
+    ].join("\n"),
+    "scripts/deploy.sh":
+      "#!/usr/bin/env bash\nset -euo pipefail\ndocker compose pull\ndocker compose up -d --build\n",
+    ".env.example": "POSTGRES_PASSWORD=\nAPP_PORT=3000\nLOG_LEVEL=info\n",
+  };
+}
+
+function kubernetesHelmInfraShell(): ScaffoldFiles {
+  return {
+    "helm/Chart.yaml": [
+      "apiVersion: v2",
+      "name: appforge-app",
+      "description: Kubernetes deployment for the application",
+      "type: application",
+      "version: 0.1.0",
+      'appVersion: "1.0.0"',
+      "",
+    ].join("\n"),
+    "helm/values.yaml": [
+      "replicaCount: 2",
+      "image:",
+      "  repository: app",
+      "  tag: latest",
+      "service:",
+      "  type: ClusterIP",
+      "  port: 80",
+      "resources: {}",
+      "",
+    ].join("\n"),
+    "helm/templates/deployment.yaml": [
+      "apiVersion: apps/v1",
+      "kind: Deployment",
+      "metadata:",
+      "  name: {{ .Release.Name }}",
+      "spec:",
+      "  replicas: {{ .Values.replicaCount }}",
+      "  selector:",
+      "    matchLabels:",
+      "      app: {{ .Release.Name }}",
+      "  template:",
+      "    metadata:",
+      "      labels:",
+      "        app: {{ .Release.Name }}",
+      "    spec:",
+      "      containers:",
+      "        - name: app",
+      '          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"',
+      "          ports:",
+      "            - containerPort: 3000",
+      "",
+    ].join("\n"),
+    "helm/templates/service.yaml": [
+      "apiVersion: v1",
+      "kind: Service",
+      "metadata:",
+      "  name: {{ .Release.Name }}",
+      "spec:",
+      "  type: {{ .Values.service.type }}",
+      "  ports:",
+      "    - port: {{ .Values.service.port }}",
+      "      targetPort: 3000",
+      "  selector:",
+      "    app: {{ .Release.Name }}",
+      "",
+    ].join("\n"),
+    "manifests/namespace.yaml": [
+      "apiVersion: v1",
+      "kind: Namespace",
+      "metadata:",
+      "  name: appforge-app",
+      "",
+    ].join("\n"),
+    ".env.example": "KUBE_CONTEXT=\nHELM_RELEASE_NAME=appforge-app\n",
+  };
+}
+
 export function getStackScaffold(
   techStack: string,
   productType?: ProductType,
@@ -754,6 +860,12 @@ export function getStackScaffold(
       break;
     case "chrome-extension":
       files = extensionShell();
+      break;
+    case "docker-compose-infra":
+      files = dockerComposeInfraShell();
+      break;
+    case "kubernetes-helm-infra":
+      files = kubernetesHelmInfraShell();
       break;
     default:
       throw new Error(

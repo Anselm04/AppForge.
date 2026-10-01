@@ -26,7 +26,8 @@ export type ProductType =
   | "ecommerce_product"
   | "browser_extension"
   | "automation_tool"
-  | "data_product";
+  | "data_product"
+  | "infrastructure";
 
 export type SecondaryCapability =
   | "authentication"
@@ -92,6 +93,7 @@ export const PRODUCT_TYPES = [
   "browser_extension",
   "automation_tool",
   "data_product",
+  "infrastructure",
 ] as const satisfies readonly ProductType[];
 
 export const productContractSchema = z.object({
@@ -406,6 +408,22 @@ const PRODUCT_INTENTS: ProductIntentDefinition[] = [
       },
     ],
   },
+  {
+    type: "infrastructure",
+    label: "Infrastructure",
+    signals: [
+      {
+        pattern:
+          /\b(infrastructure as code|iac|docker compose stack|kubernetes cluster|k8s cluster|helm chart|terraform module|deployment pipeline|ci\/cd pipeline)\b/i,
+        weight: 10,
+      },
+      {
+        pattern:
+          /\b(docker|kubernetes|k8s|helm|terraform|ansible|pulumi|github actions workflow)\b/i,
+        weight: 7,
+      },
+    ],
+  },
 ];
 
 const PRODUCT_LABELS: Record<ProductType, string> = Object.fromEntries(
@@ -572,6 +590,8 @@ const PRODUCT_CHOICE_DESCRIPTIONS: Record<ProductType, string> = {
   browser_extension: "Chrome / Firefox / Edge extension",
   automation_tool: "Bot, scheduled job or workflow automation",
   data_product: "Dashboard or data visualization",
+  infrastructure:
+    "Docker/Kubernetes/Terraform infrastructure and deployment pipeline",
 };
 
 export type ClarificationChoice = {
@@ -613,7 +633,7 @@ function buildClarificationQuestions(
 ): string[] {
   if (noEvidence || !primary) {
     return [
-      "What kind of product should AppForge build: a website, SaaS application, mobile app, desktop app, game, AI agent, developer tool, API, e-commerce product, browser extension, automation tool, or data product?",
+      "What kind of product should AppForge build: a website, SaaS application, mobile app, desktop app, game, AI agent, developer tool, API, e-commerce product, browser extension, automation tool, data product, or infrastructure project?",
     ];
   }
   if (secondary) {
@@ -837,6 +857,7 @@ export function inferProductFamilies(
   if (productType === "game") families.add("interactive");
   if (productType === "ai_agent" || capabilities.includes("ai"))
     families.add("ai");
+  if (productType === "infrastructure") families.add("backend");
   if (capabilities.includes("database")) families.add("database");
   if (capabilities.includes("billing")) families.add("billing");
   if (capabilities.includes("authentication")) families.add("auth");
@@ -914,6 +935,11 @@ export function selectProductStack(
     return "react-node";
   }
 
+  if (productType === "infrastructure")
+    return /\b(kubernetes|k8s|helm)\b/.test(text)
+      ? "kubernetes-helm-infra"
+      : "docker-compose-infra";
+
   throw new Error(
     `No stack adapter is configured for product type ${productType}`,
   );
@@ -948,6 +974,7 @@ function defaultTargetUsers(type: ProductType): string[] {
     browser_extension: ["Browser users", "Extension administrators"],
     automation_tool: ["Automation operators", "Workspace administrators"],
     data_product: ["Data consumers", "Data administrators"],
+    infrastructure: ["Platform engineers", "Site reliability engineers"],
   };
   return map[type];
 }

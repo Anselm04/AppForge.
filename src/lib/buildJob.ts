@@ -1,28 +1,14 @@
 import { z } from "zod";
 import {
   productContractSchema,
+  PRODUCT_TYPES,
   type ProductContract,
   type PromptIntent,
 } from "./productContract.js";
 
 const promptIntentSchema = z.object({
   originalPrompt: z.string(),
-  primaryProductType: z
-    .enum([
-      "website",
-      "saas_application",
-      "mobile_app",
-      "desktop_app",
-      "game",
-      "ai_agent",
-      "developer_tool",
-      "api",
-      "ecommerce_product",
-      "browser_extension",
-      "automation_tool",
-      "data_product",
-    ])
-    .nullable(),
+  primaryProductType: z.enum(PRODUCT_TYPES).nullable(),
   secondaryCapabilities: z.array(
     z.enum([
       "authentication",
@@ -42,20 +28,7 @@ const promptIntentSchema = z.object({
   confidence: z.number().min(0).max(1),
   alternatives: z.array(
     z.object({
-      productType: z.enum([
-        "website",
-        "saas_application",
-        "mobile_app",
-        "desktop_app",
-        "game",
-        "ai_agent",
-        "developer_tool",
-        "api",
-        "ecommerce_product",
-        "browser_extension",
-        "automation_tool",
-        "data_product",
-      ]),
+      productType: z.enum(PRODUCT_TYPES),
       confidence: z.number().min(0).max(1),
     }),
   ),
