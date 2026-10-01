@@ -144,9 +144,9 @@ describe("Section 26 evidence and audit trail", () => {
     expect(db).toContain("currentArtifactSha256");
     expect(db).toContain("findProductionVerificationForCurrentArtifact");
     expect(db).toContain(
-      "productionVerified: productionVerificationCheckpoint !== null",
+      "!structuralOnly && productionVerificationCheckpoint !== null",
     );
-    expect(db).toContain("productionVerificationCheckpoint,");
+    expect(db).toContain("productionVerificationCheckpoint: structuralOnly");
     expect(db).toContain("(currentSnapshot?.validationResult as any)?.errors");
     expect(db).toContain("(currentSnapshot?.auditScores as any)?.findings");
     expect(db).not.toContain(

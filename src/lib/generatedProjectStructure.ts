@@ -186,7 +186,8 @@ export function getGeneratedProjectStructurePolicy(
     requiredDocumentation: ["README.md", "SECURITY.md", "LICENSE"],
     buildCommand: adapter.buildCommand,
     startCommand: adapter.startCommand,
-    deploymentTargets: adapter.deploymentTargets,
+    deploymentTargets:
+      adapter.generationMode === "structural" ? [] : adapter.deploymentTargets,
   };
 }
 

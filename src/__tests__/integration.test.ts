@@ -53,7 +53,6 @@ vi.mock("../services/deployer.js", () => ({
     vercel: { configured: true, label: "Vercel" },
     netlify: { configured: false, label: "Netlify" },
     fly: { configured: false, label: "Fly.io" },
-    "github-pages": { configured: false, label: "GitHub Pages" },
     zip: { configured: true, label: "ZIP download" },
     preview: { configured: true, label: "AppForge live preview" },
   }),

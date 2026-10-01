@@ -9,6 +9,7 @@ export type StackMeta = {
   tier: StackTier;
   validationMode: ValidationMode;
   dockerCapable: boolean;
+  sourceDeliverable: boolean;
   description: string;
   generationMode: "runnable" | "structural";
   previewMode: string;
@@ -26,7 +27,8 @@ export function getStackMeta(stackId: string): StackMeta {
   const tier: StackTier =
     adapter.generationMode === "runnable" ? "full" : "scaffold";
   const dockerCapable =
-    adapter.runtime === "node" || adapter.runtime === "python";
+    adapter.generationMode === "runnable" &&
+    (adapter.runtime === "node" || adapter.runtime === "python");
 
   return {
     id: adapter.id,
@@ -34,6 +36,7 @@ export function getStackMeta(stackId: string): StackMeta {
     tier,
     validationMode,
     dockerCapable,
+    sourceDeliverable: adapter.generationMode === "structural",
     generationMode: adapter.generationMode,
     previewMode: adapter.previewMode,
     runtime: adapter.runtime,
@@ -41,7 +44,8 @@ export function getStackMeta(stackId: string): StackMeta {
     startCommand: adapter.startCommand,
     outputDirectory: adapter.outputDirectory,
     artifactKind: adapter.artifactKind,
-    deploymentTargets: adapter.deploymentTargets,
+    deploymentTargets:
+      adapter.generationMode === "structural" ? [] : adapter.deploymentTargets,
     description:
       adapter.generationMode === "runnable"
         ? "Runnable stack adapter with stack-specific build, preview, runtime, deployment, and artifact metadata."

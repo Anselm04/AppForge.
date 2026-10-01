@@ -280,7 +280,7 @@ describe("placeholder and incomplete-product protection", () => {
 
     const adapter = getStackAdapter(c.selectedTechnologyStack);
     const destination = adapter.deploymentTargets.find((target) =>
-      ["vercel", "netlify", "fly", "github-pages"].includes(target),
+      ["vercel", "netlify", "fly"].includes(target),
     ) as DeployDestination | undefined;
     expect(destination).toBeTruthy();
 

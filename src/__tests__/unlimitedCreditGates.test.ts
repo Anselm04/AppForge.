@@ -30,4 +30,17 @@ describe("unlimited credit entitlement gates", () => {
       "if (!seniorUnlimited && credits.balance < SENIOR_DEV_BASE_COST)",
     );
   });
+
+  it("approval resume does not require or charge raw credits for unlimited accounts", () => {
+    const projects = source("src/routers/projects.ts");
+    const resumeRoute = projects.slice(
+      projects.indexOf("resumeApprovedBuild:"),
+    );
+
+    expect(resumeRoute).toContain(
+      'const unlimited = !!credits.unlimited || credits.tier === "lifetime";',
+    );
+    expect(resumeRoute).toContain("if (!unlimited && !reservationCharged)");
+    expect(resumeRoute).toContain("reservationCharged,");
+  });
 });

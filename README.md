@@ -56,38 +56,38 @@ This incident is an example of the intended production rule: **never rewrite an 
 
 # Copilot implementation audit: #1–#30
 
-| # | Area | Audited implementation state |
-|---:|---|---|
-| 1 | Prompt Understanding | Implemented and tested: product-type classification, secondary capabilities, ambiguity detection and clarification. |
-| 2 | Canonical Product Contract | Implemented and tested: one schema-validated contract preserves the original prompt, requirements, stack, security, runtime, deployment and monetization intent. |
-| 3 | Queue and Build Context | Implemented and tested: typed contract/intent survives queue transport and invalid queue payloads fail closed. |
-| 4 | Technology-Stack Selection | Implemented and tested: explicit adapters, compatibility enforcement, no silent fallback to generic React. |
-| 5 | Research System | Implemented and tested: contract-driven live research, source/evidence recording, conflict handling and safety boundaries. |
-| 6 | Planner | Implemented and tested: structured architecture/tasks, requirement mapping, dependencies, file ownership and stack preservation. |
-| 7 | Agent Coordination | Implemented and tested: specialist tasks, dependencies, ownership boundaries, resumability and persisted coordination state. |
-| 8 | Code Generation | Implemented and tested: real task-owned source files, requirement-linked evidence, no placeholder/fake-success acceptance. |
-| 9 | Scaffold System | Implemented and tested: stack-specific infrastructure floors that cannot replace missing product implementation. |
-| 10 | Placeholder / Incomplete Product Protection | Implemented and tested: detects TODOs, fake handlers/forms/APIs, empty services/schemas, missing workflows and incomplete required capabilities. |
-| 11 | Requirements System | Implemented and tested: stable requirement IDs link prompt → tasks → files → tests → validation → deployment evidence. |
-| 12 | Generated Project Structure | Implemented and tested: safe paths, imports, entrypoints, manifests, dependencies, lockfiles and scripts. |
-| 13 | Artifact Persistence | Implemented and tested: versioned artifacts, per-file/aggregate SHA-256 integrity, current snapshot invariants and tamper detection. |
-| 14 | Preview System | Implemented and tested: exact artifact identity, isolated preview boundary, no generic AppForge shell substituted for runnable products. |
-| 15 | Runtime Architecture | Implemented and tested: stack-specific runtime/startup/health/shutdown policy. |
-| 16 | Security Implementation | Implemented and tested: secret leakage, injection, SSRF, path traversal, unsafe process execution, auth/tenant boundaries, upload/AI-tool controls and dependency security. |
-| 17 | Authentication / Authorization | Implemented and tested: Supabase identity, project ownership, organization roles, protected execution/billing/admin operations and generated-product privilege isolation. |
-| 18 | Database / Persistence | Implemented and tested: locked transactional checksummed migration chain, ownership/billing integrity constraints, backup/restore proof and generated-product DB isolation. |
-| 19 | Integrations | Implemented and tested: named provider requirements, connection/retry/webhook/secret policy and artifact validation. |
-| 20 | AI-Agent Products | Implemented and tested: bounded tools, approvals, memory policy, prompt-injection/refusal boundaries and truthful tool-result handling. |
-| 21 | Monetization | Implemented and tested: subscriptions, one-time/usage/credits policy, server-authoritative access, signed/idempotent webhooks and entitlement checks. |
-| 22 | Deployment | Implemented and tested: trusted destinations, exact artifact identity, environment/runtime/database policy and deployment audit records. |
-| 23 | Operations / Observability | Implemented and tested: health, readiness, liveness, metrics, logs, traces, queue/Redis/DB/provider/cost signals and authenticated diagnostics. |
-| 24 | Recovery / Rollback | Implemented and tested: immutable known-good checkpoints, exact artifact identity, rollback and failure-class guidance. |
-| 25 | Build Status / UX | Implemented and tested: durable stages, approvals, maturity, failure stage, structural-only truthfulness and no false completion. |
-| 26 | Evidence / Audit Trail | Implemented and tested: append-only project evidence for intake, research, plan, files, validation, repairs, security, monetization, deployment, limitations and certification. |
-| 27 | Certification Logic | Implemented and tested: structured → generated → runnable → behaviorally verified → deployment verified → monetization verified where applicable → production certified. |
-| 28 | Regression Coverage | Implemented: 25 explicit scenarios across product families, ambiguity/short/long prompts, capabilities, recovery, preview isolation and no-placeholder artifacts. |
-| 29 | CI / Release Infrastructure | Implemented and live-proven: lint, format, types, tests, product-factory validation, security, build, SHA-256 artifacts, exact-SHA release evidence, preview and production fail-closed gates. |
-| 30 | Final Product-Factory Flow | Implemented and tested: the final evidence-driven verdict is authoritative; no project can claim production readiness while an applicable final-flow step remains incomplete. |
+|   # | Area                                        | Audited implementation state                                                                                                                                                                   |
+| --: | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   1 | Prompt Understanding                        | Implemented and tested: product-type classification, secondary capabilities, ambiguity detection and clarification.                                                                            |
+|   2 | Canonical Product Contract                  | Implemented and tested: one schema-validated contract preserves the original prompt, requirements, stack, security, runtime, deployment and monetization intent.                               |
+|   3 | Queue and Build Context                     | Implemented and tested: typed contract/intent survives queue transport and invalid queue payloads fail closed.                                                                                 |
+|   4 | Technology-Stack Selection                  | Implemented and tested: explicit adapters, compatibility enforcement, no silent fallback to generic React.                                                                                     |
+|   5 | Research System                             | Implemented and tested: contract-driven live research, source/evidence recording, conflict handling and safety boundaries.                                                                     |
+|   6 | Planner                                     | Implemented and tested: structured architecture/tasks, requirement mapping, dependencies, file ownership and stack preservation.                                                               |
+|   7 | Agent Coordination                          | Implemented and tested: specialist tasks, dependencies, ownership boundaries, resumability and persisted coordination state.                                                                   |
+|   8 | Code Generation                             | Implemented and tested: real task-owned source files, requirement-linked evidence, no placeholder/fake-success acceptance.                                                                     |
+|   9 | Scaffold System                             | Implemented and tested: stack-specific infrastructure floors that cannot replace missing product implementation.                                                                               |
+|  10 | Placeholder / Incomplete Product Protection | Implemented and tested: detects TODOs, fake handlers/forms/APIs, empty services/schemas, missing workflows and incomplete required capabilities.                                               |
+|  11 | Requirements System                         | Implemented and tested: stable requirement IDs link prompt → tasks → files → tests → validation → deployment evidence.                                                                         |
+|  12 | Generated Project Structure                 | Implemented and tested: safe paths, imports, entrypoints, manifests, dependencies, lockfiles and scripts.                                                                                      |
+|  13 | Artifact Persistence                        | Implemented and tested: versioned artifacts, per-file/aggregate SHA-256 integrity, current snapshot invariants and tamper detection.                                                           |
+|  14 | Preview System                              | Implemented and tested: exact artifact identity, isolated preview boundary, no generic AppForge shell substituted for runnable products.                                                       |
+|  15 | Runtime Architecture                        | Implemented and tested: stack-specific runtime/startup/health/shutdown policy.                                                                                                                 |
+|  16 | Security Implementation                     | Implemented and tested: secret leakage, injection, SSRF, path traversal, unsafe process execution, auth/tenant boundaries, upload/AI-tool controls and dependency security.                    |
+|  17 | Authentication / Authorization              | Implemented and tested: Supabase identity, project ownership, organization roles, protected execution/billing/admin operations and generated-product privilege isolation.                      |
+|  18 | Database / Persistence                      | Implemented and tested: locked transactional checksummed migration chain, ownership/billing integrity constraints, backup/restore proof and generated-product DB isolation.                    |
+|  19 | Integrations                                | Implemented and tested: named provider requirements, connection/retry/webhook/secret policy and artifact validation.                                                                           |
+|  20 | AI-Agent Products                           | Implemented and tested: bounded tools, approvals, memory policy, prompt-injection/refusal boundaries and truthful tool-result handling.                                                        |
+|  21 | Monetization                                | Implemented and tested: subscriptions, one-time/usage/credits policy, server-authoritative access, signed/idempotent webhooks and entitlement checks.                                          |
+|  22 | Deployment                                  | Implemented and tested: trusted destinations, exact artifact identity, environment/runtime/database policy and deployment audit records.                                                       |
+|  23 | Operations / Observability                  | Implemented and tested: health, readiness, liveness, metrics, logs, traces, queue/Redis/DB/provider/cost signals and authenticated diagnostics.                                                |
+|  24 | Recovery / Rollback                         | Implemented and tested: immutable known-good checkpoints, exact artifact identity, rollback and failure-class guidance.                                                                        |
+|  25 | Build Status / UX                           | Implemented and tested: durable stages, approvals, maturity, failure stage, structural-only truthfulness and no false completion.                                                              |
+|  26 | Evidence / Audit Trail                      | Implemented and tested: append-only project evidence for intake, research, plan, files, validation, repairs, security, monetization, deployment, limitations and certification.                |
+|  27 | Certification Logic                         | Implemented and tested: structured → generated → runnable → behaviorally verified → deployment verified → monetization verified where applicable → production certified.                       |
+|  28 | Regression Coverage                         | Implemented: 25 explicit scenarios across product families, ambiguity/short/long prompts, capabilities, recovery, preview isolation and no-placeholder artifacts.                              |
+|  29 | CI / Release Infrastructure                 | Implemented and live-proven: lint, format, types, tests, product-factory validation, security, build, SHA-256 artifacts, exact-SHA release evidence, preview and production fail-closed gates. |
+|  30 | Final Product-Factory Flow                  | Implemented and tested: the final evidence-driven verdict is authoritative; no project can claim production readiness while an applicable final-flow step remains incomplete.                  |
 
 Passing these 30 sections means the implementation checklist is complete. It does **not** mean every external provider, native SDK, app store, optional studio or third-party account is automatically configured for every customer.
 
@@ -222,18 +222,18 @@ AppForge currently has **17 canonical stack adapters**.
 
 These have runnable validation paths in the current product factory:
 
-| Stack | Typical products |
-|---|---|
-| `react-node` | web apps, SaaS, e-commerce, developer tools |
-| `static-html` | websites |
-| `next-node` | websites, SaaS, e-commerce, developer tools |
-| `phaser-html5` | browser games |
-| `three-js-3d` | 3D games/sites/data products |
-| `api-service` | Node APIs/developer services |
-| `node-service` | APIs, automation and developer services |
-| `ai-agent-node` | Node AI agents |
-| `browser-automation` | browser automation |
-| `data-visualization` | data/analytics products |
+| Stack                | Typical products                            |
+| -------------------- | ------------------------------------------- |
+| `react-node`         | web apps, SaaS, e-commerce, developer tools |
+| `static-html`        | websites                                    |
+| `next-node`          | websites, SaaS, e-commerce, developer tools |
+| `phaser-html5`       | browser games                               |
+| `three-js-3d`        | 3D games/sites/data products                |
+| `api-service`        | Node APIs/developer services                |
+| `node-service`       | APIs, automation and developer services     |
+| `ai-agent-node`      | Node AI agents                              |
+| `browser-automation` | browser automation                          |
+| `data-visualization` | data/analytics products                     |
 
 A runnable stack is still only production-certified when its individual artifact passes all applicable validation, preview, deployment and live-verification evidence.
 
@@ -241,15 +241,15 @@ A runnable stack is still only production-certified when its individual artifact
 
 These generate source/project structure but are **not automatically production-certified** because the required native/runtime toolchain is outside the currently certified AppForge build boundary:
 
-| Stack | Current truth |
-|---|---|
-| `react-native-expo` | mobile source deliverable; native release verification required |
-| `flutter-firebase` | Flutter source deliverable; native SDK/signing/store verification required |
-| `electron-react` | desktop source deliverable; native packaging verification required |
-| `tauri-rust` | desktop source deliverable; Rust/Tauri native packaging verification required |
-| `python-service` | generated Python service source; currently structural-only in certification |
-| `ai-agent-python` | generated Python agent source; currently structural-only in certification |
-| `chrome-extension` | extension source deliverable; browser-store/runtime verification required |
+| Stack               | Current truth                                                                 |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `react-native-expo` | mobile source deliverable; native release verification required               |
+| `flutter-firebase`  | Flutter source deliverable; native SDK/signing/store verification required    |
+| `electron-react`    | desktop source deliverable; native packaging verification required            |
+| `tauri-rust`        | desktop source deliverable; Rust/Tauri native packaging verification required |
+| `python-service`    | generated Python service source; currently structural-only in certification   |
+| `ai-agent-python`   | generated Python agent source; currently structural-only in certification     |
+| `chrome-extension`  | extension source deliverable; browser-store/runtime verification required     |
 
 AppForge deliberately reports these as structural output instead of pretending that source generation equals a verified native release.
 
@@ -300,11 +300,12 @@ AppForge includes authenticated GitHub workflows for:
 - push/export source to a repository;
 - import source from a repository.
 
-## GitHub Pages limitation
+## GitHub Pages and source export
 
-A `github-pages` destination exists in stack metadata, but **one-click GitHub Pages deployment is not currently implemented by the deployment service**. The deployer intentionally refuses that path and directs the project through authenticated GitHub export instead.
-
-Therefore README/marketing should not describe GitHub Pages as a complete one-click deployment target until that implementation is added and verified.
+GitHub Pages is not a supported production deployment destination and is not
+offered in deployment metadata or the UI. Authenticated GitHub source export
+remains available; exporting a repository does not claim that it has been
+published or verified on GitHub Pages.
 
 ---
 
@@ -442,7 +443,9 @@ However, only **11 locales currently have complete reviewed AppForge UI catalogs
 - Korean
 - German
 
-The remaining menu choices intentionally fall back to English rather than shipping fabricated translations.
+Every other menu choice is explicitly labeled **English fallback**. Selecting
+one keeps the English interface and document language/direction rather than
+implying that an unreviewed catalog is translated.
 
 Generated products can also receive locale/i18n instructions through the localization capability, but that does not mean AppForge itself has a reviewed full translation catalog for all 130 menu entries.
 
@@ -499,9 +502,15 @@ The platform code includes:
 - immutable GitHub Action references;
 - exact-SHA release gating.
 
-### Sentry audit limitation
+### Sentry production release gate
 
-The code and repository tests include Sentry integration and redaction, but the production CI source-map upload step is skipped when the required Sentry release credentials are not configured. A live Sentry issue/API query was not part of this audited proof. Do not treat “Sentry code exists” as proof that every Sentry operational workflow is currently configured.
+The production release gate now requires `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+`SENTRY_PROJECT`, and the deterministic `appforge@<release-commit-sha>`
+identifier. It creates that release and uploads the build's source maps against
+the same identifier; missing configuration blocks production release. Local and
+non-production CI builds remain usable without Sentry credentials. This code
+gate does not claim a Sentry upload has succeeded until the real release workflow
+completes with valid credentials.
 
 ---
 
@@ -526,18 +535,42 @@ The production data/recovery model includes:
 
 ---
 
-# Known limitations and cleanup items
+# Launch safeguards and external verification
 
-The fresh audit identified the following items that should remain visible instead of being hidden by broad “production-ready” language:
+The following code safeguards are enforced. They do not replace the external
+account configuration and live verification required for a paid-customer
+release:
 
-1. **Structural stacks are source deliverables, not native production certifications.** Mobile, desktop, Chrome extension and the currently structural Python adapters require external/native runtime verification.
-2. **GitHub Pages one-click deployment is not implemented.** GitHub repository export is implemented.
-3. **Only 11 of 130 AppForge UI locale choices have reviewed translation catalogs.** The rest fall back to English.
-4. **Legacy hosted-runtime fallback code remains in `src/lib/hostedRuntime.ts`.** The active hosted-product route is explicitly tested not to use it for runnable products. This is legacy/dead-code cleanup, not the certified preview path.
-5. **Legacy `completed` status compatibility still appears in some non-readiness types/statistics/UI code.** The #30 production-readiness paths no longer treat `completed` as production-certified, but the compatibility remnants can be cleaned up later.
-6. **Sentry source-map upload depends on release credentials** and was skipped in the audited release validation.
-7. **GitHub classic branch-protection settings could not be independently read through the connected GitHub App.** Repository rulesets returned no configured rulesets; the release workflows themselves still enforce exact-main/exact-SHA CI and security evidence.
-8. **A provider implementation is not the same as a live provider proof.** Vercel, Netlify, Stripe, SSO and optional integrations have implementation/tests, but this audit’s fresh live production proof was the AppForge/Fly release path, not a real charge or deployment through every provider.
+1. Mobile, desktop, Chrome extension, and Python adapters are structural-only
+   source deliverables. UI, preview, deployment, and certification paths refuse
+   to represent them as deployed or production-certified.
+2. GitHub Pages has been removed as a production deployment destination.
+   Authenticated GitHub source export remains supported.
+3. Only 11 of 130 locale choices have reviewed catalogs. Every unsupported
+   choice is visibly labeled and uses the English interface.
+4. The legacy recipe-generated `src/lib/hostedRuntime.ts` fallback has been
+   removed. Hosted runnable apps use validated artifacts and the isolated
+   preview path.
+5. Project/build status types, metrics, and UI no longer treat a generic
+   `completed` value as a validated or production-certified state. Agent/task
+   completion states remain unchanged.
+6. Production releases fail closed unless Sentry credentials and the exact
+   deterministic release identifier are configured and source maps upload
+   against that release.
+7. The production release gate queries GitHub branch protection/rulesets and
+   refuses release if suitable main-branch protections cannot be verified.
+8. The production release gate performs read-only live checks for mandatory
+   Stripe and any enabled/configured Vercel, Netlify, or Supabase SSO provider.
+   It records sanitized provider, timestamp, release/artifact identity, and
+   result evidence. Dry runs are restricted to non-production.
+
+**External release evidence is still required.** The gate must run successfully
+against the exact release commit with repository metadata read permission,
+Sentry credentials, and credentials for each mandatory or enabled provider.
+These safeguards and unit tests are not proof that any external account,
+deployment, charge/webhook flow, SSO login, or Sentry upload has been
+successfully verified. Review [the production gate guide](docs/PRODUCTION_GATE_93_TO_100.md)
+for required configuration and live-evidence expectations.
 
 ---
 

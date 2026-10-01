@@ -32,6 +32,10 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
 import {
+  filterDeployOptionsForStack,
+  projectReadinessForApi,
+} from "../lib/stackPresentation.js";
+import {
   createSeniorDevTask,
   getSeniorDevTaskById,
   updateSeniorDevTask,
@@ -141,7 +145,7 @@ const projectCreateSchema = z.object({
 
 export const projectsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    return getProjectsByUserId(ctx.user.id);
+    return (await getProjectsByUserId(ctx.user.id)).map(projectReadinessForApi);
   }),
 
   get: protectedProcedure
@@ -155,7 +159,7 @@ export const projectsRouter = router({
         });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-      return project;
+      return projectReadinessForApi(project);
     }),
 
   getLogs: protectedProcedure
@@ -682,7 +686,7 @@ export const projectsRouter = router({
       z.object({
         id: z.number().int().positive(),
         destination: z
-          .enum(["vercel", "netlify", "fly", "preview", "zip", "github-pages"])
+          .enum(["vercel", "netlify", "fly", "preview", "zip"])
           .default("preview"),
       }),
     )
@@ -745,8 +749,7 @@ export const projectsRouter = router({
       const productionDestination =
         input.destination === "vercel" ||
         input.destination === "netlify" ||
-        input.destination === "fly" ||
-        input.destination === "github-pages";
+        input.destination === "fly";
 
       let requirementManifest = project.requirementManifest ?? null;
       if (productionDestination) {
@@ -755,13 +758,10 @@ export const projectsRouter = router({
         requirementManifest =
           assertMustHaveRequirementsResolved(requirementManifest);
       }
-      if (
-        stackAdapter.generationMode === "structural" &&
-        productionDestination
-      ) {
+      if (stackAdapter.generationMode === "structural") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `This project uses structural-only stack ${stackAdapter.id}. Export or preview the source until its native runtime is verified.`,
+          message: `This project uses structural-only stack ${stackAdapter.id}. Export the source until its native runtime is verified.`,
         });
       }
 
@@ -860,11 +860,9 @@ export const projectsRouter = router({
                       ? "previewing"
                       : "production-candidate",
                   outputMaturity:
-                    stackAdapter.generationMode === "structural"
-                      ? "structural"
-                      : productionDestination && smoke?.ok
-                        ? "verified"
-                        : "runnable",
+                    productionDestination && smoke?.ok
+                      ? "verified"
+                      : "runnable",
                   updatedAt: new Date(),
                 },
           )
@@ -949,10 +947,26 @@ export const projectsRouter = router({
       }
     }),
 
-  deployOptions: protectedProcedure.query(async () => {
-    const { listDeployDestinations } = await import("../services/deployer.js");
-    return listDeployDestinations();
-  }),
+  deployOptions: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const project = await getProjectById(input.id);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN" });
+      if (!project.techStack)
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Project stack is not configured; deployment options are unavailable.",
+        });
+      const { listDeployDestinations } =
+        await import("../services/deployer.js");
+      return filterDeployOptionsForStack(
+        project.techStack,
+        listDeployDestinations(),
+      );
+    }),
 
   download: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))

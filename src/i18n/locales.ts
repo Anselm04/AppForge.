@@ -137,11 +137,37 @@ export type LocaleCode = (typeof LOCALES)[number]["code"];
 export type TextDir = (typeof LOCALES)[number]["dir"];
 
 export const DEFAULT_LOCALE: LocaleCode = "en";
+export const REVIEWED_LOCALE_CODES = [
+  "en",
+  "mi",
+  "zh",
+  "es",
+  "hi",
+  "ar",
+  "fr",
+  "pt",
+  "ja",
+  "ko",
+  "de",
+] as const satisfies readonly LocaleCode[];
 
 const LOCALE_CODES: readonly LocaleCode[] = LOCALES.map((l) => l.code);
 
 export function isLocaleCode(value: string): value is LocaleCode {
   return (LOCALE_CODES as readonly string[]).includes(value);
+}
+
+export function isReviewedLocale(
+  code: string,
+): code is (typeof REVIEWED_LOCALE_CODES)[number] {
+  return (REVIEWED_LOCALE_CODES as readonly string[]).includes(code);
+}
+
+export function localeLabel(code: LocaleCode): string {
+  const locale = getLocaleMeta(code);
+  return isReviewedLocale(code)
+    ? locale.nativeName
+    : `${locale.nativeName} · English fallback`;
 }
 
 export function getLocaleMeta(code: LocaleCode) {
@@ -179,8 +205,12 @@ export function applyDocumentLocale(code: LocaleCode) {
   if (typeof document === "undefined") return;
   try {
     const meta = getLocaleMeta(code);
-    document.documentElement.lang = code;
-    document.documentElement.dir = meta.dir;
+    document.documentElement.lang = isReviewedLocale(code)
+      ? code
+      : DEFAULT_LOCALE;
+    document.documentElement.dir = isReviewedLocale(code)
+      ? meta.dir
+      : getLocaleMeta(DEFAULT_LOCALE).dir;
     document.documentElement.setAttribute("data-locale", code);
   } catch {
     /* some WebKit builds reject html dir/lang writes during render */

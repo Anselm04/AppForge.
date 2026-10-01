@@ -22,6 +22,8 @@ function withStackMetadata(
   files: ScaffoldFiles,
 ): ScaffoldFiles {
   const adapter = getStackAdapter(techStack);
+  const deploymentTargets =
+    adapter.generationMode === "structural" ? [] : adapter.deploymentTargets;
   return {
     ...files,
     "appforge.stack.json": json({
@@ -35,7 +37,8 @@ function withStackMetadata(
       buildCommand: adapter.buildCommand,
       startCommand: adapter.startCommand,
       previewMode: adapter.previewMode,
-      deploymentTargets: adapter.deploymentTargets,
+      deploymentTargets,
+      sourceDeliverable: adapter.generationMode === "structural",
       outputDirectory: adapter.outputDirectory,
       artifactKind: adapter.artifactKind,
       generationMode: adapter.generationMode,
@@ -48,7 +51,8 @@ function withStackMetadata(
     }),
     "appforge.deploy.json": json({
       stack: adapter.id,
-      targets: adapter.deploymentTargets,
+      targets: deploymentTargets,
+      sourceDeliverable: adapter.generationMode === "structural",
       buildCommand: adapter.buildCommand,
       startCommand: adapter.startCommand,
       outputDirectory: adapter.outputDirectory,
@@ -828,7 +832,11 @@ export function validateStackScaffold(
       };
       if (
         JSON.stringify(parsed.targets) !==
-        JSON.stringify(adapter.deploymentTargets)
+        JSON.stringify(
+          adapter.generationMode === "structural"
+            ? []
+            : adapter.deploymentTargets,
+        )
       ) {
         problems.push("deployment metadata targets mismatch");
       }

@@ -64,15 +64,11 @@ export async function getPlatformBuildMetrics() {
       totalBuilds: count(schema.projects.id),
     })
     .from(schema.projects);
-  const completed = await db
+  const validated = await db
     .select({ count: count() })
     .from(schema.projects)
     .where(
-      inArray(schema.projects.status, [
-        "validated",
-        "production-certified",
-        "completed",
-      ]),
+      inArray(schema.projects.status, ["validated", "production-certified"]),
     );
   const failed = await db
     .select({ count: count() })
@@ -84,7 +80,7 @@ export async function getPlatformBuildMetrics() {
     .where(eq(schema.projects.status, "running"));
   return {
     totalBuilds: totals[0]?.totalBuilds ?? 0,
-    completed: completed[0]?.count ?? 0,
+    validated: validated[0]?.count ?? 0,
     failed: failed[0]?.count ?? 0,
     running: running[0]?.count ?? 0,
   };

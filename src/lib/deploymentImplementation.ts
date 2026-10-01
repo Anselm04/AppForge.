@@ -11,7 +11,6 @@ export const TRUSTED_PRODUCTION_DESTINATIONS = [
   "vercel",
   "netlify",
   "fly",
-  "github-pages",
 ] as const;
 
 export type TrustedProductionDestination =
@@ -185,6 +184,14 @@ export function validateDeploymentSource(input: {
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const runtime = getRuntimeArchitecture(adapter.id);
   const problems: string[] = [];
+  const supportedDeploymentTargets =
+    adapter.generationMode === "structural" ? [] : adapter.deploymentTargets;
+
+  if (input.destination && adapter.generationMode === "structural") {
+    problems.push(
+      `structural-only stack ${adapter.id} is a source deliverable and cannot be production deployed`,
+    );
+  }
 
   if (
     contract.deploymentRequirements.length === 0 ||
@@ -232,7 +239,7 @@ export function validateDeploymentSource(input: {
     }
     if (
       JSON.stringify(deployMeta.targets ?? []) !==
-      JSON.stringify(adapter.deploymentTargets)
+      JSON.stringify(supportedDeploymentTargets)
     ) {
       problems.push("deployment targets do not match selected stack adapter");
     }
@@ -327,8 +334,8 @@ export function validateDeploymentSource(input: {
         input.destination as TrustedProductionDestination,
       )
     ) {
-      problems.push(`untrusted production destination ${input.destination}`);
-    } else if (!adapter.deploymentTargets.includes(input.destination)) {
+      problems.push(`unsupported production destination ${input.destination}`);
+    } else if (!supportedDeploymentTargets.includes(input.destination)) {
       problems.push(
         `stack ${adapter.id} does not support deployment destination ${input.destination}`,
       );
@@ -359,15 +366,19 @@ export function createProductionDeploymentManifest(input: {
   artifactVersion?: number;
 }): ProductionDeploymentManifest {
   const contract = validateProductContract(input.productContract);
+  const adapter = getStackAdapter(contract.selectedTechnologyStack);
+  if (adapter.generationMode === "structural") {
+    throw new Error(
+      `Structural-only stack ${adapter.id} is a source deliverable and cannot receive a production deployment manifest`,
+    );
+  }
   assertDeploymentSourceReady({
     files: input.files,
     productContract: contract,
     destination: input.destination,
   });
 
-  const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const runtime = getRuntimeArchitecture(adapter.id);
-  const deployable = adapter.generationMode !== "structural";
   const databaseRequired = contract.secondaryCapabilities.includes("database");
 
   return {
@@ -394,12 +405,12 @@ export function createProductionDeploymentManifest(input: {
       timeoutMs: 15_000,
     },
     domain: {
-      customDomainSupported: deployable,
-      canonicalHostRequired: deployable,
+      customDomainSupported: true,
+      canonicalHostRequired: true,
     },
     tls: {
-      required: deployable,
-      forceHttps: deployable,
+      required: true,
+      forceHttps: true,
     },
     assets: {
       ...runtime.assets,
@@ -422,9 +433,9 @@ export function createProductionDeploymentManifest(input: {
       requireSingleWriterOrIdempotency: true,
     },
     scaling: {
-      minInstances: deployable ? 1 : 0,
-      maxInstances: deployable ? 3 : 0,
-      autoscale: deployable,
+      minInstances: 1,
+      maxInstances: 3,
+      autoscale: true,
     },
     resources: {
       cpuCount: 1,

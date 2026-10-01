@@ -303,7 +303,7 @@ export const PLATFORM_FEATURE_MATRIX: FeatureRow[] = [
   {
     id: "deploy_wizard",
     category: "Ship",
-    feature: "Multi-destination deploy (Fly, Vercel, Netlify, GitHub Pages)",
+    feature: "Multi-destination deploy (Fly, Vercel, Netlify)",
     appforge: true,
     bolt: true,
     replit: true,

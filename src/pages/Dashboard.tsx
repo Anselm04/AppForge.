@@ -305,7 +305,6 @@ function ProjectCard({ project }: { project: Project }) {
   const statusTone: Record<string, "success" | "cyan" | "gold" | "default"> = {
     "production-certified": "success",
     validated: "cyan",
-    completed: "cyan",
     failed: "default",
     running: "cyan",
     pending: "gold",
@@ -315,6 +314,20 @@ function ProjectCard({ project }: { project: Project }) {
   const canImprove =
     isProjectArtifactReady(project.status) || project.status === "paused";
   const stack = stackPresentation(project.techStack);
+  const visibleStatus = [
+    "production-certified",
+    "validated",
+    "failed",
+    "running",
+    "pending",
+    "paused",
+  ].includes(project.status ?? "")
+    ? stack?.structuralOnly
+      ? "Structural only · source deliverable"
+      : project.status
+    : stack?.structuralOnly
+      ? "Structural only · source deliverable"
+      : "Needs revalidation";
 
   const sendToMarketing = async () => {
     setMarketingState("sending");
@@ -347,9 +360,7 @@ function ProjectCard({ project }: { project: Project }) {
           <Badge tone={statusTone[project.status ?? "pending"] ?? "default"}>
             {project.status === "running" || project.status === "paused"
               ? buildStageLabel(project.buildStage)
-              : project.status === "completed"
-                ? "validated"
-                : project.status}
+              : visibleStatus}
           </Badge>
           {stack?.structuralOnly && <Badge tone="gold">{stack.badge}</Badge>}
         </div>
