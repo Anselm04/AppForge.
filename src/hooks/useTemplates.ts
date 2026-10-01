@@ -1,23 +1,16 @@
-import { useState, useEffect } from 'react';
-import { templates } from '../data/templates.js';
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../utils/trpc.js";
 
 export function useTemplates() {
-  const [templatesList, setTemplatesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setTemplatesList(templates);
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  const query = useQuery({
+    queryKey: ["templates"],
+    queryFn: () => trpc.templates.list.query(),
+  });
 
   return {
-    templates: templatesList,
-    isLoading,
+    templates: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
   };
 }
 

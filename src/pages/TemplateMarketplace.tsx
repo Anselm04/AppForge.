@@ -2,20 +2,29 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
+import { HcaptchaWidget } from "../components/HcaptchaWidget.js";
 import { TemplateCard } from "../components/TemplateCard.js";
 import { TemplateFilters } from "../components/TemplateFilters.js";
 import { TemplatePreview } from "../components/TemplatePreview.js";
 import { useTemplates } from "../hooks/useTemplates.js";
-import { Template } from "../services/template-service.js";
+import type { Template } from "../data/templates.js";
 
 export function TemplateMarketplace() {
   const navigate = useNavigate();
+  const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
   const cloneTemplate = useMutation({
-    mutationFn: (templateId: string) =>
-      trpc.templates.createProjectFromTemplate.mutate({ templateId }),
+    mutationFn: (templateId: string) => {
+      if (!hcaptchaToken) {
+        throw new Error("Complete the security check before starting a build.");
+      }
+      return trpc.templates.createProjectFromTemplate.mutate({
+        templateId,
+        hcaptchaToken,
+      });
+    },
     onSuccess: (data) => navigate(`/build/${data.projectId}`),
   });
-  const { templates, isLoading } = useTemplates();
+  const { templates, isLoading, isError } = useTemplates();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedUseCase, setSelectedUseCase] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,6 +70,10 @@ export function TemplateMarketplace() {
           onSearchChange={setSearchQuery}
         />
 
+        <div className="mb-6">
+          <HcaptchaWidget onToken={setHcaptchaToken} />
+        </div>
+
         {cloneTemplate.isError && (
           <div
             role="alert"
@@ -72,7 +85,11 @@ export function TemplateMarketplace() {
         )}
 
         {/* Templates Grid */}
-        {isLoading ? (
+        {isError ? (
+          <p role="alert" className="py-10 text-center text-red-700">
+            Templates could not be loaded. Please try again.
+          </p>
+        ) : isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
@@ -136,6 +153,7 @@ export function TemplateMarketplace() {
         <TemplatePreview
           template={selectedTemplate}
           onClose={() => setShowPreview(false)}
+          onUse={() => cloneTemplate.mutate(selectedTemplate.id)}
         />
       )}
     </div>

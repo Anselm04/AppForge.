@@ -56,7 +56,7 @@ const recoveryFailureKindEnum = z.enum([
 ]);
 
 // ── Validated tech stack options ──
-const techStackEnum = z.enum([
+export const projectTechStackSchema = z.enum([
   // Web apps
   "react-node",
   "react-python",
@@ -122,7 +122,7 @@ const projectCreateSchema = z.object({
     ),
   // Optional: when omitted, the canonical product contract selects the stack
   // from the classified product intent (never a hard-coded web default).
-  techStack: techStackEnum.optional(),
+  techStack: projectTechStackSchema.optional(),
   // Set when the user answers a clarification question (or otherwise picks
   // the product type explicitly). The prompt itself is never rewritten.
   productType: z.enum(PRODUCT_TYPES).optional(),

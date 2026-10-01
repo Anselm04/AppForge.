@@ -3,15 +3,19 @@ interface TemplatePreviewProps {
     id: string;
     name: string;
     description: string;
+    category: string;
     features: string[];
     techStack: string[];
-    previewUrl: string;
-    deployUrl: string;
   };
   onClose: () => void;
+  onUse: () => void;
 }
 
-export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
+export function TemplatePreview({
+  template,
+  onClose,
+  onUse,
+}: TemplatePreviewProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -28,18 +32,18 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
 
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
-          {/* Preview */}
-          <div className="h-96 bg-gray-100">
-            <iframe
-              src={template.previewUrl}
-              className="w-full h-full"
-              title="Template Preview"
-            />
+          <div className="border-b border-gray-200 bg-gray-50 p-6">
+            <p className="text-sm text-gray-700">{template.description}</p>
           </div>
 
           {/* Details */}
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Features</h3>
+            <p className="mb-4 text-sm font-medium text-gray-500">
+              {template.category}
+            </p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Features
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
               {template.features.map((feature, index) => (
                 <div key={index} className="flex items-start gap-2">
@@ -51,7 +55,9 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
               ))}
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Tech Stack</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Tech Stack
+            </h3>
             <div className="flex flex-wrap gap-2 mb-6">
               {template.techStack.map((tech, index) => (
                 <span
@@ -74,14 +80,12 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
             >
               Cancel
             </button>
-            <a
-              href={template.deployUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={onUse}
               className="flex-1 px-6 py-3 bg-blue-600 text-white text-center rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              🚀 Use This Template
-            </a>
+              🚀 Start Build
+            </button>
           </div>
         </div>
       </div>

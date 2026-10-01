@@ -413,6 +413,18 @@ describe("section 4: existing projects keep their stack", () => {
     const broken = { ...templates[0], stackId: "cobol" };
     expect(templateIntake(broken)).toMatchObject({ ok: false });
   });
+
+  it("routes template builds through the guarded project creation flow", () => {
+    const route = readFileSync("src/routers/templates.ts", "utf8");
+    const projectRouter = readFileSync("src/routers/projects.ts", "utf8");
+
+    expect(route).toContain("projectsRouter.createCaller(ctx).create");
+    expect(route).toContain("hcaptchaToken: input.hcaptchaToken");
+    expect(route).toContain('"Include these features:"');
+    expect(route).not.toContain("createProject({");
+    expect(route).not.toContain("enqueueBuild(");
+    expect(projectRouter).toContain("await enqueueBuild({");
+  });
 });
 
 describe("section 4: stack adapters are real per stack", () => {

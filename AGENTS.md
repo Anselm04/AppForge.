@@ -21,9 +21,14 @@ The core types live in `src/agents/types.ts`:
 - `AgentTask` and `AgentResult` — metadata and outputs for each agent.
 - `BuildPlan` — aggregated build plan for the entire app.
 
-## Orchestration
+## Planning helper
 
-`src/services/agent-orchestrator.ts` runs all agents in sequence:
+`src/services/agent-orchestrator.ts` is a standalone build-planning helper. It is
+not wired to the production build endpoint. The production build path uses the
+guarded `projects.create` procedure, the build queue, and the authenticated SSE
+route described below.
+
+The helper runs its planning agents in sequence:
 
 ```ts
 const orchestrator = new AgentOrchestrator();
@@ -37,48 +42,22 @@ The orchestrator:
 3. Stores key decisions (architecture, schema, endpoints, etc.) in `context.decisions`.
 4. Returns a `BuildPlan` that summarizes the app.
 
-## API route
+## Production build route
 
-`src/routes/agents.ts` exposes a single endpoint:
+`src/routes/agents.ts` retains the legacy endpoint only to reject it clearly:
 
-- `POST /api/agents/build` — accepts `{ prompt: string }`, returns `{ success, data: BuildPlan }`.
+- `POST /api/agents/build` returns HTTP 410 and directs callers to the current build flow.
 
-Example request:
+The production flow is:
 
-```http
-POST /api/agents/build
-Content-Type: application/json
-
-{
-  "prompt": "Build a task management app with auth, boards, and analytics."
-}
-```
-
-Example response (simplified):
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "build_...",
-    "prompt": "Build a task management app...",
-    "createdAt": "2026-08-07T08:00:00.000Z",
-    "requirements": {},
-    "architecture": { "frontend": { "framework": "React" }, "backend": { "framework": "Express" } },
-    "agents": [
-      { "role": "architect", "summary": "Designed high-level architecture..." },
-      { "role": "backend", "summary": "Outlined API endpoints..." },
-      { "role": "frontend", "summary": "Mapped pages and components..." }
-    ]
-  }
-}
-```
+1. Call authenticated tRPC `projects.create`; it validates intake, CAPTCHA, moderation, tier and credits, then claims and enqueues the build.
+2. Connect to authenticated `GET /api/build/:projectId` for build events.
 
 ## Lifecycle: From Prompt to App
 
 1. **Prompt** — the user describes their app idea.
-2. **Agent build** — `/api/agents/build` runs all agents and returns a `BuildPlan`.
-3. **AI Interface** — the Phase 1 AI interface displays the plan and uses it to drive code generation.
+2. **Project creation** — `projects.create` validates the request, creates the project, and starts the production build queue.
+3. **AI build** — the production agent pipeline researches, plans, generates, validates, and reports evidence through the build event stream.
 4. **Templates** — Phase 2 templates can seed the plan with proven structures.
 5. **Visual Builder** — Phase 3 lets the user refine layout, content, and styling.
 6. **Deployment** — Phase 5 (deployment automation) will turn the plan into a live app.
@@ -93,6 +72,6 @@ To add a new agent:
 
 ## Safety
 
-Agents produce *plans*, not runtime code. Code generation still passes through the safety measures you've already implemented: input validation, rate limiting, security headers, and testing.
+Agents produce _plans_, not runtime code. Code generation still passes through the safety measures you've already implemented: input validation, rate limiting, security headers, and testing.
 
 Use monitoring from Phase 2/3/5 to track agent performance, errors, and user experience.

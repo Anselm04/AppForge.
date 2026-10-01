@@ -43,13 +43,6 @@ export const templates = [
       "SaaS starter with auth, dashboard, and Stripe billing scaffold — configure keys and DB before live payments",
     category: "saas",
     useCases: ["project-management", "development"],
-    image:
-      "https://via.placeholder.com/600x400/2563eb/ffffff?text=SaaS+Starter",
-    previewUrl: "https://demo-saas.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/saas-starter",
-    rating: 4.8,
-    reviews: 127,
     features: [
       "User Authentication",
       "Subscription Billing",
@@ -75,12 +68,6 @@ export const templates = [
       "Full-featured online store with product catalog, cart, and payments",
     category: "ecommerce",
     useCases: ["ecommerce", "sales"],
-    image: "https://via.placeholder.com/600x400/059669/ffffff?text=E-commerce",
-    previewUrl: "https://demo-ecommerce.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/ecommerce-store",
-    rating: 4.7,
-    reviews: 94,
     features: [
       "Product Catalog",
       "Shopping Cart",
@@ -106,12 +93,6 @@ export const templates = [
       "Customer relationship management with pipeline tracking and analytics",
     category: "crm",
     useCases: ["sales", "marketing"],
-    image: "https://via.placeholder.com/600x400/7c3aed/ffffff?text=CRM",
-    previewUrl: "https://demo-crm.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/crm-system",
-    rating: 4.9,
-    reviews: 156,
     features: [
       "Contact Management",
       "Sales Pipeline",
@@ -130,13 +111,6 @@ export const templates = [
       "Task and project tracking with boards, timelines, and team collaboration",
     category: "project-management",
     useCases: ["project-management", "operations"],
-    image:
-      "https://via.placeholder.com/600x400/dc2626/ffffff?text=Project+Mgmt",
-    previewUrl: "https://demo-pm.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/project-management",
-    rating: 4.6,
-    reviews: 203,
     features: [
       "Task Boards",
       "Gantt Charts",
@@ -155,12 +129,6 @@ export const templates = [
       "Data visualization and analytics with charts, metrics, and reports",
     category: "analytics",
     useCases: ["finance", "marketing", "operations"],
-    image: "https://via.placeholder.com/600x400/0891b2/ffffff?text=Analytics",
-    previewUrl: "https://demo-analytics.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/analytics-dashboard",
-    rating: 4.8,
-    reviews: 89,
     features: [
       "Data Visualization",
       "Custom Dashboards",
@@ -186,12 +154,6 @@ export const templates = [
       "Social platform with feeds, profiles, messaging, and notifications",
     category: "social",
     useCases: ["social", "content"],
-    image: "https://via.placeholder.com/600x400/db2777/ffffff?text=Social",
-    previewUrl: "https://demo-social.appforge.dev",
-    deployUrl:
-      "https://vercel.com/new/clone?repository-url=https://github.com/appforge/social-network",
-    rating: 4.5,
-    reviews: 178,
     features: [
       "User Profiles",
       "Activity Feed",
@@ -210,5 +172,7 @@ export const templates = [
     ],
   },
 ];
+
+export type Template = (typeof templates)[number];
 
 export default { categories, useCases, templates };

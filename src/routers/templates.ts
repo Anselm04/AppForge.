@@ -1,16 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import {
-  createProject,
-  getProjectById,
-  getProjectFiles,
-  updateProjectFiles,
-} from "../db.js";
-import { protectedProcedure, router } from "../_core/trpc.js";
-import { getStackScaffold } from "../services/stackScaffolds.js";
+import { projectsRouter, projectTechStackSchema } from "./projects.js";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
 import { templates } from "../data/templates.js";
-import { BUILD_CREDIT_COST } from "../lib/credits.js";
-import { ensureUserCredits } from "../db.js";
 import {
   resolveIntakeContract,
   type ProductContract,
@@ -45,25 +37,21 @@ export function templateIntake(
 }
 
 export const templatesRouter = router({
-  list: protectedProcedure.query(() => templates),
+  list: publicProcedure.query(() => templates),
 
   createProjectFromTemplate: protectedProcedure
-    .input(z.object({ templateId: z.string().min(1) }))
+    .input(
+      z.object({
+        templateId: z.string().min(1),
+        hcaptchaToken: z.string().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const template = templates.find((t) => t.id === input.templateId);
       if (!template) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Template not found",
-        });
-      }
-
-      const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
-      if (!unlimited && credits.balance < BUILD_CREDIT_COST) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `Need ${BUILD_CREDIT_COST} credits to start a build from this template.`,
         });
       }
 
@@ -74,26 +62,38 @@ export const templatesRouter = router({
           message: intake.message,
         });
       }
-      const { productContract } = intake;
-      const techStack = productContract.selectedTechnologyStack;
-      const scaffold = getStackScaffold(techStack, productContract.productType);
-      const starterFiles: Record<string, string> = {
-        ...scaffold,
-        "README.md": `# ${template.name}\n\n${template.description}\n\nStarted from AppForge template **${template.id}**.\n`,
-        "TEMPLATE.md": `# Template: ${template.name}\n\nFeatures:\n${template.features.map((f) => `- ${f}`).join("\n")}\n`,
-      };
+      const stack = projectTechStackSchema.safeParse(template.stackId);
+      if (!stack.success) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `Template ${template.id} does not use a supported project stack`,
+        });
+      }
 
-      const projectId = await createProject({
-        userId: ctx.user.id,
+      const description = [
+        `Build a ${template.name}: ${template.description}`,
+        "Include these features:",
+        ...template.features.map((feature) => `- ${feature}`),
+      ].join("\n");
+      const result = await projectsRouter.createCaller(ctx).create({
         title: template.name,
-        description: productContract.originalPrompt,
-        techStack,
-        status: "pending",
-        productContract,
+        description,
+        techStack: stack.data,
+        productType: intake.productContract.productType,
+        hcaptchaToken: input.hcaptchaToken,
       });
 
-      await updateProjectFiles(projectId, starterFiles);
+      if (result.status === "clarification_required") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "This template needs clarification before it can be built.",
+        });
+      }
 
-      return { projectId, techStack, templateName: template.name };
+      return {
+        projectId: result.id,
+        techStack: stack.data,
+        templateName: template.name,
+      };
     }),
 });

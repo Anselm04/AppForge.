@@ -79,10 +79,13 @@
   },
   "overrides": {
     "qs": "6.16.0",
-    "dompurify": "3.4.15"
+    "dompurify": "3.4.16",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
   },
   "devDependencies": {
-    "@sentry/webpack-plugin": "^2.14.0",
+    "@sentry/cli": "2.39.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
     "@types/cors": "^2.8.17",
@@ -96,7 +99,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.0",
+    "drizzle-kit": "0.31.11",
     "eslint": "^8.56.0",
     "husky": "^9.0.0",
     "jsdom": "^24.0.0",
