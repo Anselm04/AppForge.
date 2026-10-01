@@ -86,7 +86,7 @@ export const STACK_ADAPTERS: readonly StackAdapter[] = [
     buildCommand: "npm run build",
     startCommand: null,
     previewMode: "static",
-    deploymentTargets: ["vercel", "netlify", "github-pages", "fly", "preview"],
+    deploymentTargets: ["vercel", "netlify", "fly", "preview"],
     outputDirectory: "dist",
     artifactKind: "static",
   }),

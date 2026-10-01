@@ -252,13 +252,6 @@ export const DEPLOYMENT_TARGET_DOCS: Record<string, OfficialDocTarget[]> = {
   netlify: [
     doc("https://docs.netlify.com/", "Netlify documentation", "deployment"),
   ],
-  "github-pages": [
-    doc(
-      "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits",
-      "GitHub Pages limits",
-      "platform_limits",
-    ),
-  ],
   "expo-eas": [
     doc("https://docs.expo.dev/build/introduction/", "EAS Build", "deployment"),
   ],

@@ -10,6 +10,7 @@ import {
   requirementBehaviorVerified,
   type CertificationDecision,
 } from "./certificationLogic.js";
+import { getStackAdapter } from "./stackAdapters.js";
 
 export const FINAL_PRODUCT_FACTORY_STEPS = [
   "contract_validated",
@@ -230,6 +231,21 @@ export function evaluateFinalProductFactoryFlow(input: {
   const manifest = parsedManifest.success ? parsedManifest.data : null;
   const files = input.artifact?.files ?? {};
   const deployment = input.deployment ?? null;
+  let runnableStack = false;
+  let structuralOnly = false;
+  if (contract) {
+    try {
+      const adapter = getStackAdapter(contract.selectedTechnologyStack);
+      runnableStack = adapter.generationMode === "runnable";
+      structuralOnly = adapter.generationMode === "structural";
+    } catch {
+      runnableStack = false;
+    }
+  }
+  const certificationMatchesContract =
+    contract === null ||
+    (input.certificationDecision.stack === contract.selectedTechnologyStack &&
+      input.certificationDecision.productType === contract.productType);
   const monetizationRequired =
     contract !== null &&
     (contract.monetizationRequirements.length > 0 ||
@@ -434,9 +450,14 @@ export function evaluateFinalProductFactoryFlow(input: {
     },
     {
       id: "honest_certification",
-      complete: input.certificationDecision.productionCertified
-        ? input.certificationDecision.missingEvidence.length === 0
-        : input.certificationDecision.missingEvidence.length > 0,
+      complete:
+        certificationMatchesContract &&
+        (structuralOnly
+          ? !input.certificationDecision.productionCertified &&
+            input.certificationDecision.status !== "production-certified"
+          : input.certificationDecision.productionCertified
+            ? input.certificationDecision.missingEvidence.length === 0
+            : input.certificationDecision.missingEvidence.length > 0),
       applicable: true,
       detail:
         "Certification must reflect the evidence without upgrading missing proof.",
@@ -458,13 +479,17 @@ export function evaluateFinalProductFactoryFlow(input: {
     .map((step) => step.detail);
 
   const productionReady =
+    runnableStack &&
+    certificationMatchesContract &&
     input.certificationDecision.productionCertified &&
     incompleteSteps.length === 0;
 
   return {
     version: 1,
     productionReady,
-    certificationStatus: input.certificationDecision.status,
+    certificationStatus: structuralOnly
+      ? "structural-source-only"
+      : input.certificationDecision.status,
     productType: contract?.productType ?? null,
     selectedTechnologyStack: contract?.selectedTechnologyStack ?? null,
     steps,

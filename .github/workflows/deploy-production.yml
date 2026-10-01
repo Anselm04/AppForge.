@@ -15,13 +15,14 @@ on:
 permissions:
   contents: read
   actions: read
+  administration: read
 
 concurrency:
   group: deploy-production-main
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: "22"
   RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
@@ -102,6 +103,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      - name: Verify main branch governance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run branch-protection:verify
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test -- --run
@@ -111,9 +116,71 @@ jobs:
           CI: true
       - name: Block vulnerable production dependencies
         run: npm audit --omit=dev --audit-level=moderate
-      - run: npm run build
+      - name: Require deterministic production Sentry release configuration
+        run: npm run sentry:release-gate -- --production
+        env:
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          SENTRY_RELEASE: appforge@${{ env.RELEASE_SHA }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Build production client and server
+        run: npm run build
+        env:
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          SENTRY_RELEASE: appforge@${{ env.RELEASE_SHA }}
+          VITE_SENTRY_RELEASE: appforge@${{ env.RELEASE_SHA }}
+      - name: Create and upload Sentry release source maps
+        run: |
+          npm run sentry:release
+          npm run sentry:sourcemaps
+        env:
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          SENTRY_RELEASE: appforge@${{ env.RELEASE_SHA }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Generate and verify release artifact integrity manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS.txt
+            test -s SHA256SUMS.txt
+            sha256sum -c SHA256SUMS.txt
+          )
+          echo "Release artifact SHA-256 manifest verified for commit $RELEASE_SHA."
+      - name: Verify live provider integrations for this release
+        env:
+          NODE_ENV: production
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          APP_URL: https://appforge-unfurling-moon-9058.fly.dev
+          ARTIFACT_ID: ${{ hashFiles('dist/SHA256SUMS.txt') }}
+          APPFORGE_PROVIDER_EVIDENCE_PATH: ${{ runner.temp }}/provider-live-evidence.json
+          APPFORGE_REQUIRED_LIVE_PROVIDERS: ${{ vars.APPFORGE_REQUIRED_LIVE_PROVIDERS }}
+          APPFORGE_OPTIONAL_LIVE_PROVIDERS: ${{ vars.APPFORGE_OPTIONAL_LIVE_PROVIDERS }}
+          SUPABASE_SSO_ENABLED: ${{ vars.SUPABASE_SSO_ENABLED }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run provider:verify -- --production
+      - name: Preserve sanitized live provider evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: provider-live-evidence-${{ env.RELEASE_SHA }}
+          path: ${{ runner.temp }}/provider-live-evidence.json
+          retention-days: 90
+          if-no-files-found: ignore
       - name: Verify production Docker builder matches release
-        run: docker build --target builder --pull --no-cache -t "appforge-release-builder:${RELEASE_SHA}" .
+        run: docker build --build-arg "SENTRY_RELEASE=appforge@${RELEASE_SHA}" --target builder --pull --no-cache -t "appforge-release-builder:${RELEASE_SHA}" .
       - name: Require pinned production public configuration
         run: |
           set -euo pipefail
@@ -261,7 +328,7 @@ jobs:
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+        run: flyctl deploy --remote-only --build-arg "SENTRY_RELEASE=appforge@${RELEASE_SHA}" --config fly.toml --app appforge-unfurling-moon-9058
       - name: Reconcile and require exactly two started Fly app machines after deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

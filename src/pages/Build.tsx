@@ -30,8 +30,7 @@ interface BuildLog {
   };
 }
 
-type DeployDestination =
-  "vercel" | "netlify" | "fly" | "preview" | "github-pages";
+type DeployDestination = "vercel" | "netlify" | "fly" | "preview";
 
 type BuildTab = "logs" | "evidence" | "code" | "chat" | "preview" | "terminal";
 
@@ -84,8 +83,9 @@ export function Build() {
   });
 
   const { data: deployOptions } = useQuery({
-    queryKey: ["projects", "deployOptions"],
-    queryFn: () => trpc.projects.deployOptions.query(),
+    queryKey: ["projects", projectId, "deployOptions"],
+    queryFn: () => trpc.projects.deployOptions.query({ id: pid }),
+    enabled: pid > 0,
   });
 
   const { data: me } = useQuery({
@@ -933,12 +933,6 @@ export function Build() {
                     </option>
                     <option value="fly" disabled={destinationDisabled("fly")}>
                       Fly.io
-                    </option>
-                    <option
-                      value="github-pages"
-                      disabled={destinationDisabled("github-pages")}
-                    >
-                      GitHub Pages
                     </option>
                   </select>
                 </label>

@@ -42,7 +42,11 @@ describe("scaffold system", () => {
       expect(stackMeta.runtime).toBe(adapter.runtime);
       expect(stackMeta.outputDirectory).toBe(adapter.outputDirectory);
       expect(previewMeta.mode).toBe(adapter.previewMode);
-      expect(deployMeta.targets).toEqual(adapter.deploymentTargets);
+      expect(deployMeta.targets).toEqual(
+        adapter.generationMode === "structural"
+          ? []
+          : adapter.deploymentTargets,
+      );
       expect(deployMeta.buildCommand).toBe(adapter.buildCommand);
       expect(deployMeta.startCommand).toBe(adapter.startCommand);
     }

@@ -5,6 +5,7 @@ import {
   FINAL_PRODUCT_FACTORY_STEPS,
 } from "../lib/finalProductFactoryFlow.js";
 import type { CertificationDecision } from "../lib/certificationLogic.js";
+import { buildProductContract } from "../lib/productContract.js";
 
 const certifiedDecision: CertificationDecision = {
   status: "production-certified",
@@ -80,6 +81,35 @@ describe("#30 Final Product-Factory Flow", () => {
     expect(report.limitations.length).toBeGreaterThan(0);
   });
 
+  it("never echoes or accepts a production certification for a structural stack", () => {
+    const productContract = buildProductContract(
+      "Build an iPhone and Android mobile app for field inspections",
+    );
+    const report = evaluateFinalProductFactoryFlow({
+      project: {
+        description: productContract.originalPrompt,
+        techStack: productContract.selectedTechnologyStack,
+        productContract,
+        promptIntent: null,
+        researchRecord: null,
+        productPlan: null,
+        agentCoordination: null,
+        requirementManifest: null,
+      },
+      artifact: null,
+      certificationDecision: certifiedDecision,
+      deployment: null,
+      monetizationVerified: false,
+      recoveryVerified: false,
+    });
+
+    expect(report.productionReady).toBe(false);
+    expect(report.certificationStatus).toBe("structural-source-only");
+    expect(
+      report.steps.find((step) => step.id === "honest_certification")?.complete,
+    ).toBe(false);
+  });
+
   it("makes the Section 30 verdict authoritative in the final worker handoff", () => {
     const worker = readFileSync("src/services/build-worker.ts", "utf8");
 
@@ -99,7 +129,9 @@ describe("#30 Final Product-Factory Flow", () => {
 
     expect(db).toContain("finalProductFactoryFlow");
     expect(db).toContain('source: "final_product_factory_flow"');
-    expect(db).toContain("limitations: finalFlowLimitations");
+    expect(db).toContain("limitations: safeFinalFlowLimitations");
+    expect(db).toContain("productionReady: false");
+    expect(db).toContain('certificationStatus: "structural-source-only"');
     expect(db).toContain('project.status === "production-certified"');
     expect(db).toContain("?.productionReady === true");
   });
@@ -109,6 +141,9 @@ describe("#30 Final Product-Factory Flow", () => {
     const buildRoute = readFileSync("src/routes/build.ts", "utf8");
     const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
     const projects = readFileSync("src/routers/projects.ts", "utf8");
+    const databaseTypes = readFileSync("src/types/database.ts", "utf8");
+    const dashboard = readFileSync("src/pages/Dashboard.tsx", "utf8");
+    const metrics = readFileSync("src/db/buildStats.ts", "utf8");
     const canary = readFileSync(
       "scripts/production-customer-canary.mjs",
       "utf8",
@@ -122,6 +157,10 @@ describe("#30 Final Product-Factory Flow", () => {
     expect(projects).not.toContain(
       '"production-certified",\n        "completed",',
     );
+    expect(databaseTypes).not.toContain('  | "completed"');
+    expect(dashboard).not.toContain('project.status === "completed"');
+    expect(metrics).not.toContain('"completed"');
+    expect(metrics).toContain("validated:");
     expect(canary).toContain('project?.status !== "production-certified"');
     expect(canary).toContain("done.productionReady !== true");
   });

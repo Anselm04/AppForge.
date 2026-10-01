@@ -7,6 +7,7 @@ import {
 } from "../deploymentImplementation.js";
 import {
   validateProductContract,
+  buildProductContract,
   type ProductContract,
 } from "../productContract.js";
 
@@ -76,16 +77,14 @@ describe("Section 22 deployment implementation", () => {
         productContract: c,
         destination: "attacker-host",
       }),
-    ).toContain("untrusted production destination attacker-host");
+    ).toContain("unsupported production destination attacker-host");
 
     expect(
       validateDeploymentSource({
         files,
         productContract: c,
         destination: "github-pages",
-      }).some((problem) =>
-        /does not support deployment destination/.test(problem),
-      ),
+      }).some((problem) => /unsupported production destination/.test(problem)),
     ).toBe(true);
   });
 
@@ -154,6 +153,20 @@ describe("Section 22 deployment implementation", () => {
       artifactVersion: 7,
       auditRequired: true,
     });
+  });
+
+  it("refuses production manifests for structural-only source deliverables", () => {
+    const mobileContract = buildProductContract(
+      "Build an iPhone and Android mobile app for field inspections",
+    );
+    expect(() =>
+      createProductionDeploymentManifest({
+        files: {},
+        productContract: mobileContract,
+        destination: "fly",
+        artifactSha256: "c".repeat(64),
+      }),
+    ).toThrow(/source deliverable/);
   });
 
   it("creates a versioned deployment audit record after verification", () => {

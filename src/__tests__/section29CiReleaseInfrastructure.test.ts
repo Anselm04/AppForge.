@@ -65,6 +65,14 @@ describe("#29 CI and Release Infrastructure", () => {
     const production = workflow(".github/workflows/deploy-production.yml");
 
     expect(production).toContain("actions: read");
+    expect(production).toContain("administration: read");
+    expect(production).toContain("npm run branch-protection:verify");
+    expect(production).toContain("npm run sentry:release-gate -- --production");
+    expect(production).toContain("npm run sentry:sourcemaps");
+    expect(production).toContain("npm run provider:verify -- --production");
+    expect(production).toContain(
+      "provider-live-evidence-${{ env.RELEASE_SHA }}",
+    );
     expect(production).toContain(
       "Require successful exact-SHA CI and security evidence",
     );

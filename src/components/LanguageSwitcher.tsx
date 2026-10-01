@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { LOCALES } from "../i18n/locales.js";
+import {
+  LOCALES,
+  getLocaleMeta,
+  isReviewedLocale,
+  localeLabel,
+} from "../i18n/locales.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 
 type LanguageSwitcherProps = {
@@ -7,7 +12,9 @@ type LanguageSwitcherProps = {
   variant?: "dropdown" | "panel";
 };
 
-export function LanguageSwitcher({ variant = "dropdown" }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  variant = "dropdown",
+}: LanguageSwitcherProps) {
   const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -91,11 +98,17 @@ export function LanguageSwitcher({ variant = "dropdown" }: LanguageSwitcherProps
                     : "text-slate-700 dark:text-slate-200"
                 }`}
               >
-                {item.nativeName}
+                {localeLabel(item.code)}
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {!isReviewedLocale(locale) && (
+        <p role="status" className="mt-2 text-xs text-slate-500">
+          {getLocaleMeta(locale).nativeName} is not fully translated. The
+          interface is shown in English.
+        </p>
       )}
     </div>
   );

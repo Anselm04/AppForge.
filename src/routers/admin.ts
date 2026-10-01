@@ -131,7 +131,7 @@ export const adminRouter = router({
         activeSubscriptions: activeSubs[0]?.count ?? 0,
         creditBalanceSum: Number(creditSum[0]?.total ?? 0),
         buildsRunning: platformBuilds.running,
-        buildsCompleted: platformBuilds.completed,
+        buildsValidated: platformBuilds.validated,
         buildsFailed: platformBuilds.failed,
       },
       subscriptionsByTier: subsByTier,

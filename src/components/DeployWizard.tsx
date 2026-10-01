@@ -23,19 +23,19 @@ export function DeployWizard({
   const { data: envVars } = useQuery({
     queryKey: ["projects", projectId, "envVars"],
     queryFn: () => trpc.projects.requiredEnvVars.query({ id: projectId! }),
-    enabled: !!projectId && projectId > 0,
+    enabled: !!projectId && projectId > 0 && !structuralNotice,
   });
 
   const { data: revenue } = useQuery({
     queryKey: ["projects", projectId, "revenueReadiness"],
     queryFn: () => trpc.projects.revenueReadiness.query({ id: projectId! }),
-    enabled: !!projectId && projectId > 0,
+    enabled: !!projectId && projectId > 0 && !structuralNotice,
   });
 
   const { data: dbSetup } = useQuery({
     queryKey: ["projects", projectId, "databaseSetup"],
     queryFn: () => trpc.projects.databaseSetup.query({ id: projectId! }),
-    enabled: !!projectId && projectId > 0,
+    enabled: !!projectId && projectId > 0 && !structuralNotice,
   });
 
   const healthCheck = useMutation({
@@ -45,6 +45,25 @@ export function DeployWizard({
 
   if (!deployUrl && (!deployGuide || deployGuide.length === 0) && !projectId) {
     return null;
+  }
+
+  if (structuralNotice) {
+    return (
+      <div className="mt-4 bg-slate-800/80 border border-slate-600 rounded-lg p-4 text-slate-200">
+        <h3 className="font-semibold text-lg mb-2">Source export next steps</h3>
+        <p
+          data-testid="structural-deploy-notice"
+          className="text-sm mb-3 rounded border border-amber-700 bg-amber-900/30 px-3 py-2 text-amber-200"
+        >
+          {structuralNotice}
+        </p>
+        <p className="text-sm text-slate-300">
+          This source has not been built, deployed, or production-certified.
+          Download the ZIP or export it to GitHub, then build and verify it with
+          the stack&apos;s native toolchain.
+        </p>
+      </div>
+    );
   }
 
   const copyEnv = async (key: string) => {

@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: "22"
 
 jobs:
   lint:
@@ -153,6 +153,9 @@ jobs:
             src/__tests__/generatedSecurity.test.ts \
             src/__tests__/section24RecoveryRollback.test.ts \
             src/__tests__/selfHealingRecoveryGuardrails.test.ts \
+            src/__tests__/productionReleaseGates.test.ts \
+            src/i18n/locales.test.ts \
+            src/lib/__tests__/launchLimitations.test.ts \
             src/__tests__/section29CiReleaseInfrastructure.test.ts \
             src/__tests__/section30FinalProductFactoryFlow.test.ts
 
@@ -185,9 +188,9 @@ jobs:
         shell: bash
         env:
           NODE_ENV: production
-          ENFORCE_ENV_VALIDATION: 'false'
-          PORT: '3100'
-          COOKIE_SECRET: 'ci-production-boot-smoke-only'
+          ENFORCE_ENV_VALIDATION: "false"
+          PORT: "3100"
+          COOKIE_SECRET: "ci-production-boot-smoke-only"
         run: |
           set -euo pipefail
           LOG=/tmp/appforge-production-boot.log
@@ -231,13 +234,6 @@ jobs:
             echo "Production build modified tracked repository files."
             exit 1
           fi
-      - name: Upload Sentry source maps
-        if: env.SENTRY_AUTH_TOKEN != ''
-        run: npm run sentry:sourcemaps
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
       - name: Generate and verify release artifact integrity manifest
         shell: bash
         run: |

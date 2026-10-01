@@ -14,7 +14,6 @@ export type ProjectStatus =
   | "paused"
   | "validated"
   | "production-certified"
-  | "completed"
   | "failed"
   | "archived";
 export type BuildStatus =
@@ -23,7 +22,6 @@ export type BuildStatus =
   | "paused"
   | "validated"
   | "production-certified"
-  | "completed"
   | "failed"
   | "cancelled";
 export type AgentStatus =

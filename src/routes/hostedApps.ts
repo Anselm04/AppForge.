@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { extname } from "path";
 import { getCurrentArtifact, getProjectById } from "../db.js";
-import { HOSTED_MIME } from "../lib/hostedRuntime.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
 import { injectVisualPreviewBridge } from "../lib/visualPreviewBridge.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
@@ -10,6 +9,18 @@ import { ensureIsolatedPreview } from "../services/previewRuntime.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 
 export const hostedAppsRouter = Router();
+
+const HOSTED_MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".txt": "text/plain; charset=utf-8",
+  ".md": "text/plain; charset=utf-8",
+};
 
 function mimeFor(filePath: string): string {
   return (

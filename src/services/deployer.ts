@@ -19,7 +19,7 @@ interface VercelDeployResponse {
 const VERCEL_POLL_INTERVAL = 5000;
 const VERCEL_POLL_MAX = 24;
 export type DeployDestination =
-  "vercel" | "netlify" | "fly" | "github-pages" | "zip" | "preview";
+  "vercel" | "netlify" | "fly" | "zip" | "preview";
 export type DeployDestinationStatus = Record<
   DeployDestination,
   { configured: boolean; label: string }
@@ -349,28 +349,6 @@ async function deployToFly(
   }
 }
 
-async function deployToGitHubPages(
-  projectName: string,
-  files: Record<string, string>,
-): Promise<{ url: string; note?: string }> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new Error(
-      "GITHUB_TOKEN not configured. Connect GitHub OAuth or set GITHUB_TOKEN, then retry.",
-    );
-  }
-  const owner =
-    process.env.GITHUB_PAGES_OWNER || process.env.GITHUB_OWNER || "";
-  if (!owner) {
-    throw new Error(
-      "Set GITHUB_PAGES_OWNER (or GITHUB_OWNER) to enable one-click GitHub Pages deploy.",
-    );
-  }
-  throw new Error(
-    `GitHub Pages deployment for ${projectName} must use the authenticated GitHub project export workflow (${Object.keys(files).length} files).`,
-  );
-}
-
 export async function zipFiles(
   projectName: string,
   files: Record<string, string>,
@@ -398,10 +376,6 @@ export function listDeployDestinations(): DeployDestinationStatus {
       label: "Netlify",
     },
     fly: { configured: !!process.env.FLY_API_TOKEN, label: "Fly.io" },
-    "github-pages": {
-      configured: false,
-      label: "GitHub Pages",
-    },
     zip: { configured: true, label: "ZIP download" },
     preview: { configured: true, label: "AppForge live preview" },
   };
@@ -431,8 +405,7 @@ export async function deployProject(opts: {
   const productionDestination =
     destination === "vercel" ||
     destination === "netlify" ||
-    destination === "fly" ||
-    destination === "github-pages";
+    destination === "fly";
 
   if (productionDestination && !techStack) {
     throw new Error(
@@ -447,9 +420,9 @@ export async function deployProject(opts: {
 
   if (techStack) {
     const adapter = getStackAdapter(techStack);
-    if (adapter.generationMode === "structural" && productionDestination) {
+    if (adapter.generationMode === "structural" && destination !== "zip") {
       throw new Error(
-        `Structural-only stack ${adapter.id} cannot be deployed to ${destination} before native runtime verification`,
+        `Structural-only stack ${adapter.id} is a source deliverable and cannot be previewed or deployed`,
       );
     }
     if (
@@ -483,10 +456,6 @@ export async function deployProject(opts: {
       );
       return { url: r.url, destination, note: r.note };
     }
-    case "github-pages": {
-      const r = await deployToGitHubPages(projectName, files);
-      return { url: r.url, destination, note: r.note };
-    }
     case "zip":
       return {
         url: "zip://download",
@@ -504,7 +473,9 @@ export async function deployProject(opts: {
       return { url: `${base}/apps/${projectId}`, destination };
     }
     default:
-      throw new Error(`Unknown destination: ${destination as string}`);
+      throw new Error(
+        `Unsupported deployment destination: ${destination as string}`,
+      );
   }
 }
 

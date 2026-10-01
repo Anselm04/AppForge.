@@ -160,13 +160,36 @@ See [DOCKER.md](DOCKER.md).
 
 **GitHub repository secrets**
 
-| Secret                                               | Required for                 | Notes                                                                                      |
-| ---------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `FLY_API_TOKEN`                                      | Auto deploy to Fly on `main` | Create at [fly.io/user/personal_access_tokens](https://fly.io/user/personal_access_tokens) |
-| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Manual Vercel deploy only    | Optional static CDN client                                                                 |
-| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`  | Source map upload in CI      | Optional                                                                                   |
+| Secret                                               | Required for                         | Notes                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `FLY_API_TOKEN`                                      | Auto deploy to Fly on `main`         | Create at [fly.io/user/personal_access_tokens](https://fly.io/user/personal_access_tokens)             |
+| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Manual Vercel deploy only            | Optional static CDN client                                                                             |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`  | Production release source-map upload | Required in the `production` GitHub environment; CI sets `SENTRY_RELEASE=appforge@<exact RELEASE_SHA>` |
+| `STRIPE_SECRET_KEY`                                  | Paid-customer provider gate          | Required live key; read-only account and webhook verification                                          |
+| `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`                  | Vercel provider gate                 | Required together when Vercel is enabled                                                               |
+| `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`              | Netlify provider gate                | Required together when Netlify is enabled                                                              |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`          | Supabase SSO provider gate           | Required when `SUPABASE_SSO_ENABLED=true`                                                              |
+| `APPFORGE_REQUIRED_LIVE_PROVIDERS`                   | Provider gate policy                 | Optional comma-separated additional mandatory provider IDs                                             |
+| `APPFORGE_OPTIONAL_LIVE_PROVIDERS`                   | Provider gate policy                 | Optional comma-separated enabled provider IDs to verify                                                |
 
 Vercel **automatic Git deploys are disabled** in `vercel.json` (`git.deploymentEnabled: false`) to avoid the >100/day rate limit. Production hosting is **Fly.io** (`appforge-unfurling-moon-9058`).
+
+The paid-customer release gate performs the provider checks with these
+credentials and retains a sanitized evidence artifact. The GitHub Actions
+`production` environment must expose the relevant credentials to the validate
+job; provider tokens are never included in the evidence. Stripe verification
+checks the live account and enabled production webhook without creating a
+charge. This is not a substitute for the separately required real checkout,
+webhook-delivery, or SSO login flows. Non-production verification can use
+`npm run provider:verify -- --dry-run`; the script refuses dry-run in production.
+
+The same release gate calls GitHub's branch-protection and rulesets APIs. Its
+`GITHUB_TOKEN` is granted only `contents: read`, `actions: read`, and
+`administration: read` in the production workflow. Configure active `main`
+protection with required status checks, at least one approving pull-request
+review, and no force-push or deletion path. If GitHub cannot read the policy,
+the release fails closed. `npm run branch-protection:verify` runs the same
+check locally when `GH_TOKEN` has repository administration read access.
 
 ---
 

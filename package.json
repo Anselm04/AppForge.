@@ -23,8 +23,11 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "sentry:release": "sentry-cli releases new",
-    "sentry:sourcemaps": "sentry-cli sourcemaps upload",
+    "sentry:release-gate": "node scripts/validate-sentry-release.mjs",
+    "sentry:release": "sentry-cli releases new \"$SENTRY_RELEASE\" --org \"$SENTRY_ORG\" --project \"$SENTRY_PROJECT\"",
+    "sentry:sourcemaps": "sentry-cli sourcemaps upload --release \"$SENTRY_RELEASE\" --org \"$SENTRY_ORG\" --project \"$SENTRY_PROJECT\" dist",
+    "branch-protection:verify": "node scripts/verify-branch-protection.mjs",
+    "provider:verify": "node scripts/provider-live-verification.mjs",
     "prepare": "node scripts/assemble-pipeline.mjs && (husky || true)",
     "assemble:pipeline": "node scripts/assemble-pipeline.mjs"
   },
