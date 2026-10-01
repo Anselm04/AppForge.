@@ -1,6 +1,5 @@
 /**
- * Python runtime probe public surface. Implementation lives in
- * pythonRuntimeProbeSupport.ts (shared spawn helpers + orchestration).
+ * Python runtime probe public surface.
  */
 
 export type { CommandResult } from "./pythonRuntimeProbeSupport.js";
@@ -13,4 +12,4 @@ export {
   type PythonRuntimeProbeArtifact,
   type PythonRuntimeProbeResult,
   type ProbePythonRuntimeOptions,
-} from "./pythonRuntimeProbeSupport.js";
+} from "./pythonRuntimeProbeOrchestration.js";
