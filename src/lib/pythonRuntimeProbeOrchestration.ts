@@ -316,3 +316,67 @@ export async function probePythonRuntime(
             `compileall failed: ${(compile.stderr || compile.stdout).slice(0, 400)}`,
           );
         }
+
+        const fixtureRun = await runCommand(venvPython, ["-m", "app.main"], {
+          cwd: fixtureRoot,
+          timeoutMs: 15_000,
+        });
+        checks.fixtureExecuted =
+          fixtureRun.exitCode === 0 && fixtureRun.stdout.includes("hello-probe");
+        checks.fixtureOutput = fixtureRun.stdout.trim().slice(0, 500) || null;
+        await recordArtifact("fixture_run", "fixture_run.json", "fixture execution", {
+          exitCode: fixtureRun.exitCode,
+          stdout: fixtureRun.stdout.slice(0, 2_000),
+          stderr: fixtureRun.stderr.slice(0, 2_000),
+          timedOut: fixtureRun.timedOut,
+        });
+        if (!checks.fixtureExecuted) {
+          errors.push(
+            `fixture execution failed: ${(fixtureRun.stderr || fixtureRun.stdout).slice(0, 400)}`,
+          );
+        }
+
+        const unittestRun = await runCommand(
+          venvPython,
+          ["-m", "unittest", "discover", "-s", "tests", "-v"],
+          { cwd: fixtureRoot, timeoutMs: 30_000 },
+        );
+        checks.testsVerified =
+          unittestRun.exitCode === 0 &&
+          /OK\s*$/m.test(unittestRun.stderr + unittestRun.stdout);
+        checks.testRunner = checks.testsVerified ? "unittest" : null;
+        checks.testOutput = `${unittestRun.stdout}\n${unittestRun.stderr}`
+          .trim()
+          .slice(0, 2_000);
+        await recordArtifact("unittest", "unittest.json", "unittest fixture", {
+          exitCode: unittestRun.exitCode,
+          stdout: unittestRun.stdout.slice(0, 4_000),
+          stderr: unittestRun.stderr.slice(0, 4_000),
+          timedOut: unittestRun.timedOut,
+          runner: checks.testRunner,
+        });
+        if (!checks.testsVerified) {
+          errors.push(
+            `unittest failed: ${(unittestRun.stderr || unittestRun.stdout).slice(0, 400)}`,
+          );
+        }
+
+        await writeFile(
+          join(fixtureRoot, "health_check.py"),
+          HEALTH_CHECK_SCRIPT,
+          "utf8",
+        );
+        const healthRun = await runCommand(venvPython, ["health_check.py"], {
+          cwd: fixtureRoot,
+          timeoutMs: 20_000,
+        });
+        let healthStatus: number | null = null;
+        let healthBody: string | null = null;
+        let healthPayload: Record<string, unknown> | null = null;
+        try {
+          healthPayload = JSON.parse(healthRun.stdout.trim()) as Record<
+            string,
+            unknown
+          >;
+          healthStatus =
+            typeof healthPayload.status === "number"
