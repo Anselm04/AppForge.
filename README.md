@@ -1,678 +1,3232 @@
-# AppForge
+# AppForge Universal Builder Master Completion Specification
 
-> **Describe a digital product. AppForge turns the request into a validated contract, researches it, plans it, builds it with specialist agents, validates the generated artifact, previews it, deploys supported runnable stacks, verifies the live result, and reports an evidence-backed certification state.**
+## Governing Standard
 
-AppForge is the autonomous AI product-building platform developed by **TrillionAi Tech**. The engineering standard is not “AI generated some code.” The standard is that the requested product is preserved through planning and implementation, real source files are produced, placeholders are rejected, the artifact is validated in isolation, and production readiness is not claimed without the required evidence.
+AppForge is not finished until it can take a valid request for a software-based product and carry it through the complete engineering lifecycle:
 
-## Fresh production audit — 1 October 2026
+**Understand → research → design → architect → plan → generate → compile/build → security-check → test → run → behaviorally verify → package → preview → deploy/release where authorized → verify the released product → collect evidence → certify.**
 
-**Audited production baseline:** `34d19ac5fddc9d10aecbf9e1e9dc814c32898174`
+Generating source code alone does **not** count as support.
 
-The complete GitHub Copilot implementation list **#1 through #30** is present in the current codebase and is covered by dedicated regression/contract tests. On the audited baseline:
+A target is only considered genuinely supported when AppForge has evidence proving the requested product works on its intended platform, operating system, architecture, runtime and package format.
 
-- CI Pipeline passed.
-- Test & Coverage passed, including the production golden-path contract.
-- Product Factory Validation passed.
-- Lint & Format passed.
-- Type Check passed.
-- Production Build passed and the built server passed liveness.
-- Security Gate passed.
-- NPM Audit passed.
-- Secret Scanning passed.
-- CodeQL passed.
-- Workflow Supply-Chain Gate passed.
-- Disaster Recovery Backup passed.
-- Repository Backup & Restore Drill passed.
-- Repository Metadata Backup passed.
-- Production deployment passed.
-- The production release converged to exactly two started application machines.
-- `/api/health/live` and `/api/health/ready` passed.
-- Anonymous execution, billing, build, preview and application boundaries failed closed as required.
-- Customer entry routes passed.
-- Production was verified to be serving the exact audited commit.
-- Chromium production-shell interaction verification passed.
+AppForge must become a:
 
-### Production-readiness incident fixed during this audit
+# Universal Autonomous Software Engineering Factory
 
-The prior production release failed because `/api/health/ready` remained HTTP 503 with:
-
-```text
-reason: database_schema
-```
-
-The root cause was an **immutable migration-history checksum mismatch**. A recovery change had added the `recovery_checkpoints` table to the already-applied baseline migration `20260703_001`, changing its SHA-256 checksum. AppForge correctly refused to mark startup ready.
-
-The repair:
-
-1. restored the original baseline migration byte-for-byte;
-2. moved recovery checkpoints into a new forward migration, `20261001_007`;
-3. preserved fail-closed checksum verification;
-4. redeployed the exact repaired commit; and
-5. passed readiness, customer-route, exact-SHA and browser verification.
-
-This incident is an example of the intended production rule: **never rewrite an applied migration; add a new forward migration instead.**
+It must not remain a fixed-stack web/app generator.
 
 ---
 
-# Copilot implementation audit: #1–#30
+## 1. Current AppForge Foundation to Keep
 
-| # | Area | Audited implementation state |
-|---:|---|---|
-| 1 | Prompt Understanding | Implemented and tested: product-type classification, secondary capabilities, ambiguity detection and clarification. |
-| 2 | Canonical Product Contract | Implemented and tested: one schema-validated contract preserves the original prompt, requirements, stack, security, runtime, deployment and monetization intent. |
-| 3 | Queue and Build Context | Implemented and tested: typed contract/intent survives queue transport and invalid queue payloads fail closed. |
-| 4 | Technology-Stack Selection | Implemented and tested: explicit adapters, compatibility enforcement, no silent fallback to generic React. |
-| 5 | Research System | Implemented and tested: contract-driven live research, source/evidence recording, conflict handling and safety boundaries. |
-| 6 | Planner | Implemented and tested: structured architecture/tasks, requirement mapping, dependencies, file ownership and stack preservation. |
-| 7 | Agent Coordination | Implemented and tested: specialist tasks, dependencies, ownership boundaries, resumability and persisted coordination state. |
-| 8 | Code Generation | Implemented and tested: real task-owned source files, requirement-linked evidence, no placeholder/fake-success acceptance. |
-| 9 | Scaffold System | Implemented and tested: stack-specific infrastructure floors that cannot replace missing product implementation. |
-| 10 | Placeholder / Incomplete Product Protection | Implemented and tested: detects TODOs, fake handlers/forms/APIs, empty services/schemas, missing workflows and incomplete required capabilities. |
-| 11 | Requirements System | Implemented and tested: stable requirement IDs link prompt → tasks → files → tests → validation → deployment evidence. |
-| 12 | Generated Project Structure | Implemented and tested: safe paths, imports, entrypoints, manifests, dependencies, lockfiles and scripts. |
-| 13 | Artifact Persistence | Implemented and tested: versioned artifacts, per-file/aggregate SHA-256 integrity, current snapshot invariants and tamper detection. |
-| 14 | Preview System | Implemented and tested: exact artifact identity, isolated preview boundary, no generic AppForge shell substituted for runnable products. |
-| 15 | Runtime Architecture | Implemented and tested: stack-specific runtime/startup/health/shutdown policy. |
-| 16 | Security Implementation | Implemented and tested: secret leakage, injection, SSRF, path traversal, unsafe process execution, auth/tenant boundaries, upload/AI-tool controls and dependency security. |
-| 17 | Authentication / Authorization | Implemented and tested: Supabase identity, project ownership, organization roles, protected execution/billing/admin operations and generated-product privilege isolation. |
-| 18 | Database / Persistence | Implemented and tested: locked transactional checksummed migration chain, ownership/billing integrity constraints, backup/restore proof and generated-product DB isolation. |
-| 19 | Integrations | Implemented and tested: named provider requirements, connection/retry/webhook/secret policy and artifact validation. |
-| 20 | AI-Agent Products | Implemented and tested: bounded tools, approvals, memory policy, prompt-injection/refusal boundaries and truthful tool-result handling. |
-| 21 | Monetization | Implemented and tested: subscriptions, one-time/usage/credits policy, server-authoritative access, signed/idempotent webhooks and entitlement checks. |
-| 22 | Deployment | Implemented and tested: trusted destinations, exact artifact identity, environment/runtime/database policy and deployment audit records. |
-| 23 | Operations / Observability | Implemented and tested: health, readiness, liveness, metrics, logs, traces, queue/Redis/DB/provider/cost signals and authenticated diagnostics. |
-| 24 | Recovery / Rollback | Implemented and tested: immutable known-good checkpoints, exact artifact identity, rollback and failure-class guidance. |
-| 25 | Build Status / UX | Implemented and tested: durable stages, approvals, maturity, failure stage, structural-only truthfulness and no false completion. |
-| 26 | Evidence / Audit Trail | Implemented and tested: append-only project evidence for intake, research, plan, files, validation, repairs, security, monetization, deployment, limitations and certification. |
-| 27 | Certification Logic | Implemented and tested: structured → generated → runnable → behaviorally verified → deployment verified → monetization verified where applicable → production certified. |
-| 28 | Regression Coverage | Implemented: 25 explicit scenarios across product families, ambiguity/short/long prompts, capabilities, recovery, preview isolation and no-placeholder artifacts. |
-| 29 | CI / Release Infrastructure | Implemented and live-proven: lint, format, types, tests, product-factory validation, security, build, SHA-256 artifacts, exact-SHA release evidence, preview and production fail-closed gates. |
-| 30 | Final Product-Factory Flow | Implemented and tested: the final evidence-driven verdict is authoritative; no project can claim production readiness while an applicable final-flow step remains incomplete. |
+AppForge already has useful foundations that should be extended rather than discarded:
 
-Passing these 30 sections means the implementation checklist is complete. It does **not** mean every external provider, native SDK, app store, optional studio or third-party account is automatically configured for every customer.
+1. Prompt understanding
+2. Canonical requirements
+3. Product planning
+4. Research
+5. Specialist agents
+6. Code generation
+7. Anti-placeholder checks
+8. Incomplete-product detection
+9. Security validation
+10. Artifact persistence
+11. Evidence collection
+12. Recovery
+13. Deployment logic
+14. Certification
+15. Final product-factory flow
+16. Build status tracking
+17. Requirement-to-test/evidence mapping
+18. Self-repair architecture
+19. Operations/readiness concepts
+20. Monetization architecture
+
+The problem is not that this foundation is useless.
+
+The problem is that the current product-type and stack boundaries are far too narrow.
 
 ---
 
-# What AppForge can actually do from the current code
+## 2. Universal Product Contract
 
-## 1. Understand a plain-language product request
+Replace the fixed twelve-product-type mindset with an extensible product-definition system.
 
-AppForge can:
+The contract must support:
 
-- preserve the original prompt;
-- classify the primary product type;
-- detect requested secondary capabilities;
-- detect ambiguous intent instead of silently guessing;
-- produce clarification questions;
-- create one canonical interpretation;
-- create stable functional requirements;
-- record non-functional, security, runtime, deployment, integration and monetization requirements;
-- select and preserve a compatible technology stack.
+1. Known product types
+2. Composite products
+3. Multi-platform products
+4. New product types
+5. Unknown technologies
+6. Hardware-linked products
+7. Mixed software/hardware systems
+8. Distributed products
+9. Games
+10. AI systems
+11. Infrastructure
+12. Robotics
+13. Embedded systems
+14. XR/spatial products
+15. Future categories not yet invented
 
-### Canonical product types
+A product request should be able to contain multiple deliverables.
 
-The code currently recognizes 12 product types:
+Example:
 
-1. Website
-2. SaaS application
-3. Mobile app
-4. Desktop app
-5. Game
-6. AI agent
-7. Developer tool
-8. API
-9. E-commerce product
-10. Browser extension
-11. Automation tool
-12. Data product
+**Mobile app + web dashboard + backend + AI agent + hardware device + cloud infrastructure**
 
-### Secondary capabilities AppForge can model
+must be one valid AppForge project.
 
-- authentication
-- database
-- billing
-- AI
+---
+
+## 3. Universal Technology Registry
+
+Replace the fixed-stack architecture with an extensible technology registry.
+
+Every technology adapter must describe:
+
+- technology name
+- language
+- framework
+- compiler/interpreter
+- runtime
+- SDK
+- package manager
+- dependency manager
+- supported operating systems
+- supported CPU architectures
+- supported hardware
+- required build environment
+- install commands
+- build commands
+- test commands
+- security tools
+- runtime commands
+- emulator/simulator
+- preview method
+- package formats
+- signing requirements
+- deployment targets
+- store/release targets
+- hardware requirements
+- credential requirements
+- health verification
+- behavioral verification
+- certification requirements
+
+Adapters must be versioned.
+
+---
+
+## 4. Dynamic Technology Adapter Creation
+
+AppForge must support three technology states.
+
+### Known target
+
+Verified adapter already exists.
+
+AppForge builds immediately.
+
+### Supported but unavailable target
+
+Adapter exists but infrastructure is missing.
+
+AppForge provisions the required environment and then builds.
+
+### Unknown/new target
+
+AppForge must:
+
+**discover → research official documentation → understand toolchain → create adapter → provision isolated environment → test adapter → verify compiler/runtime → register adapter → build requested product.**
+
+This is essential.
+
+It prevents AppForge becoming obsolete when new technologies appear.
+
+---
+
+## 5. Universal Language Support
+
+AppForge must support established and future programming languages through language/toolchain adapters.
+
+Major languages include:
+
+- JavaScript
+- TypeScript
+- Python
+- Dart
+- Swift
+- Objective-C
+- Kotlin
+- Java
+- C
+- C++
+- C#
+- Rust
+- Go
+- PHP
+- Ruby
+- Scala
+- Lua
+- R
+- Julia
+- Perl
+- Elixir
+- Erlang
+- Haskell
+- F#
+- OCaml
+- Clojure
+- Groovy
+- Bash
+- PowerShell
+- Assembly
+- Solidity
+- Move
+- SQL
+- HTML
+- CSS
+- WebAssembly
+- Zig
+- Nim
+- Fortran
+- COBOL
+- Ada
+
+The architecture must not depend on this list remaining complete.
+
+Unknown languages must be addable through the dynamic adapter system.
+
+---
+
+## 6. Web Product Factory
+
+AppForge must build:
+
+- static websites
+- dynamic websites
+- web applications
+- PWAs
+- SaaS
+- marketplaces
+- social networks
+- streaming platforms
+- e-commerce systems
+- CMS systems
+- forums
+- portals
+- dashboards
+- search products
+- collaborative applications
+- communications platforms
+- education software
+- healthcare applications
+- enterprise systems
+- CRM
+- ERP
+- booking platforms
+- media platforms
+- financial applications
+- analytics platforms
+- admin systems
+
+Support should include:
+
+- React
+- Next.js
+- Vue
+- Nuxt
+- Angular
+- Svelte
+- SvelteKit
+- Solid
+- Astro
+- Remix
+- vanilla web
+- Web Components
+- server-side rendered systems
+- static generation
+- edge-rendered systems
+
+---
+
+## 7. Backend and API Factory
+
+AppForge must build:
+
+- REST APIs
+- GraphQL
+- gRPC
+- WebSockets
+- real-time APIs
+- microservices
+- monoliths
+- modular monoliths
+- serverless applications
+- event-driven systems
+- background workers
+- queues
+- schedulers
+- distributed systems
+- authentication services
+- billing services
+- file-processing services
+- AI services
+- media services
+- notification systems
+- search services
+
+Languages should include:
+
+- Node.js
+- Python
+- Go
+- Rust
+- Java
+- Kotlin
+- C#
+- C++
+- PHP
+- Ruby
+- Elixir
+- other verified server runtimes
+
+---
+
+## 8. Mobile Factory
+
+### Apple
+
+Support:
+
+- iPhone
+- iPad
+- Apple Watch
+- Apple TV
+- visionOS
+
+Technology support:
+
+- Swift
+- SwiftUI
+- Objective-C
+- UIKit
+- AppKit where applicable
+- WatchKit
+- RealityKit
+- ARKit
+
+Build infrastructure:
+
+- macOS workers
+- Xcode
+- XCTest
+- simulators
+- signing
+- provisioning profiles
+- IPA
+- TestFlight
+- App Store submission
+- StoreKit
+- push notifications
+
+### Android
+
+Support:
+
+- phones
+- tablets
+- Wear OS
+- Android TV
+- Android Automotive where appropriate
+
+Technology support:
+
+- Kotlin
+- Java
+- Jetpack Compose
+- Android SDK
+- Gradle
+
+Build infrastructure:
+
+- Android SDK
+- emulator
+- APK
+- AAB
+- signing
+- Play Console integration
+- Play Store submission
+- testing across API levels
+
+### Cross-platform
+
+Support:
+
+- Flutter
+- React Native
+- Expo
+- Kotlin Multiplatform
+- .NET MAUI
+- Ionic
+- Capacitor
+- Unity mobile
+- other verified frameworks
+
+---
+
+## 9. Desktop Factory
+
+### Windows
+
+Support:
+
+- WinUI
+- WPF
+- Win32
+- .NET
+- C#
+- C++
+- Electron
+- Tauri
+- Qt
+- Flutter
+- Avalonia
+- .NET MAUI
+
+Artifacts:
+
+- EXE
+- MSI
+- MSIX
+- portable packages
+
+### macOS
+
+Support:
+
+- Swift
+- SwiftUI
+- Objective-C
+- AppKit
+- Electron
+- Tauri
+- Qt
+- Flutter
+
+Artifacts:
+
+- .app
+- .dmg
+- .pkg
+
+Support:
+
+- signing
+- notarization
+
+### Linux
+
+Support:
+
+- native Linux applications
+- GTK
+- Qt
+- Electron
+- Tauri
+- Flutter
+
+Artifacts:
+
+- AppImage
+- Flatpak
+- Snap
+- Debian packages
+- RPM
+
+---
+
+## 10. Game Factory
+
+Games require their own first-class production system.
+
+Supported engines must include:
+
+- Unreal Engine
+- Unity
+- Godot
+- custom C++ engines
+- custom Rust engines
+- custom C engines
+- WebGPU
+- WebGL
+- Three.js
+- Babylon.js
+- Phaser
+- OpenGL
+- Vulkan
+- DirectX
+- Metal
+
+Game categories include:
+
+- 2D
+- 3D
+- platformers
+- racing
+- BMX/skate
+- shooters
+- battle royale
+- RPG
+- MMORPG
+- sports
+- simulation
+- strategy
+- survival
+- sandbox
+- open-world
+- multiplayer
+- VR
+- AR
+- mobile
+- desktop
+- console
+- browser
+
+The Game Factory needs specialist systems for:
+
+- gameplay
+- physics
+- animation
+- characters
+- environments
+- terrain
+- procedural worlds
+- materials
+- textures
+- shaders
+- lighting
+- cinematics
+- UI
+- UX
+- audio
+- music
+- dialogue
+- NPC AI
+- navigation
+- pathfinding
+- networking
+- matchmaking
+- dedicated servers
+- anti-cheat
+- persistence
+- economy
+- inventory
+- quests
+- vehicles
+- weapons
+- controllers
+- input systems
+- accessibility
+- localization
+- telemetry
+- profiling
+- optimization
+- LOD
+- asset streaming
+- save systems
+- multiplayer replication
+- automated playtesting
+- crash testing
+- console certification workflows
+
+---
+
+## 11. Game Asset Factory
+
+AppForge must be capable of coordinating or integrating:
+
+- 3D modelling
+- rigging
+- animation
+- motion systems
+- procedural assets
+- textures
+- materials
+- shaders
+- sound effects
+- music
+- dialogue
+- voices
+- cinematics
+- terrain
+- environment generation
+- character generation
+- UI assets
+- icons
+- particles
+- VFX
+- optimization
+- asset conversion
+
+---
+
+## 12. AI Product Factory
+
+AppForge must build:
+
+- AI applications
+- chatbots
+- autonomous agents
+- multi-agent systems
+- coding agents
+- research agents
+- voice agents
+- multimodal agents
+- computer-use agents
+- workflow agents
+- robotics agents
+- RAG systems
+- vector-search systems
+- recommendation systems
+- evaluation systems
+- guardrail systems
+- model routers
+- MCP servers
+- MCP clients
+- model gateways
+- local-AI systems
+- private AI
+- enterprise AI
+
+Support must include:
+
+- text
+- reasoning
+- coding
+- image
+- vision
+- video
+- speech
+- realtime voice
+- audio
+- embeddings
+- reranking
+- moderation
+- multimodal
+- tool use
+- computer use
+- agentic workflows
+- robotics/embodied AI
+
+---
+
+## 13. Universal AI Model Gateway
+
+AI must never depend on one hard-coded provider or model.
+
+AppForge must route by **capability**, not fixed model names.
+
+Support provider classes including:
+
+- OpenAI
+- Anthropic
+- Google Gemini
+- xAI
+- Mistral
+- Meta/Llama providers
+- Microsoft Azure AI
+- AWS Bedrock
+- Google Vertex AI
+- Groq
+- Together AI
+- Fireworks
+- DeepSeek-compatible providers
+- Cohere
+- Hugging Face
+- Replicate
+- Ollama
+- LM Studio
+- OpenAI-compatible providers
+- enterprise-hosted models
+- private/self-hosted models
+- future providers
+
+---
+
+## 14. AI Model Capability Registry
+
+Each model should record:
+
+- provider
+- model ID
+- aliases
+- capabilities
+- modalities
+- context window
+- maximum output
+- structured output support
+- tool calling
+- function calling
+- streaming
+- reasoning
+- vision
+- image generation
+- image editing
+- audio
+- video
+- embeddings
+- reranking
+- computer use
+- realtime
+- fine-tuning
+- latency
+- cost
+- rate limits
+- regional availability
+- privacy constraints
+- safety capabilities
+- provider status
+- release version
+- deprecation status
+- retirement date
+- recommended replacement
+
+---
+
+## 15. AI Routing Policies
+
+Users must be able to choose:
+
+- best quality
+- lowest cost
+- fastest
+- balanced
+- privacy-first
+- local-only
+- specific provider
+- specific model
+- automatic
+- custom routing rules
+
+Different AppForge agents must be able to use different models.
+
+Example:
+
+- planning → reasoning model
+- coding → coding model
+- architecture → reasoning/coding model
+- visual review → vision model
+- images → image model
+- audio → speech model
+- repository analysis → long-context model
+- documentation → lower-cost model
+- independent verification → separate review model
+
+---
+
+## 16. BYOK and Customer AI Accounts
+
+Support:
+
+- Bring Your Own Key
+- Bring Your Own API account
+- enterprise endpoints
+- Azure deployments
+- AWS accounts
+- Vertex AI
+- private model endpoints
+- self-hosted models
+
+AppForge must verify that the connected service actually provides API access.
+
+Consumer subscriptions must not automatically be assumed to include API access.
+
+Secrets must be isolated from generated customer builds.
+
+---
+
+## 17. AI Provider Failover
+
+Routing:
+
+**preferred model → equivalent backup → alternate provider → approved local model → fail closed**
+
+AppForge must never silently downgrade to a model incapable of performing the requested task.
+
+---
+
+## 18. AI Model Lifecycle Management
+
+AppForge must automatically monitor model lifecycle.
+
+It must:
+
+- discover new models
+- discover provider changes
+- track deprecations
+- track shutdown dates
+- flag retiring models
+- find replacements
+- test replacements
+- benchmark replacements
+- validate compatibility
+- migrate routing safely
+
+No retired model should silently break AppForge.
+
+---
+
+## 19. Unknown AI Model Discovery
+
+When a new model/provider appears:
+
+**discover → research official documentation → identify capabilities → create adapter → run capability tests → benchmark → approve → register → route tasks to it.**
+
+Core AppForge must not require rewriting merely because a new model appears.
+
+---
+
+## 20. Bot Factory
+
+Dedicated support for:
+
+- Discord bots
+- Telegram bots
+- Slack apps/bots
+- Microsoft Teams bots
+- WhatsApp integrations
+- Messenger systems
+- support bots
+- workflow bots
+- moderation bots
+- monitoring bots
+- voice bots
+- game NPC/bot systems
+- automation bots
+- data/trading automation where appropriate
+
+---
+
+## 21. Browser and Extension Factory
+
+Support:
+
+- Chrome
+- Chromium
+- Edge
+- Firefox
+- Safari
+- browser DevTools extensions
+- VS Code extensions
+- JetBrains plugins
+- Figma plugins
+- WordPress plugins
+- Shopify apps
+- Shopify themes
+- GitHub Apps
+- GitHub Actions
+- CI/CD extensions
+
+Extensions must be:
+
+- built
+- packaged
+- loaded into real runtime
+- behaviorally tested
+- permission-checked
+- security-tested
+- certified only after runtime evidence exists
+
+---
+
+## 22. Developer Tool Factory
+
+Build:
+
+- CLI tools
+- compilers
+- interpreters
+- SDKs
+- libraries
+- packages
+- frameworks
+- build systems
+- testing tools
+- debuggers
+- linters
+- formatters
+- IDE extensions
+- code generators
+- package managers
+- database clients
+- deployment tools
+- observability tools
+- developer APIs
+
+---
+
+## 23. Infrastructure Factory
+
+Support:
+
+- Docker
+- OCI
+- Docker Compose
+- Kubernetes
+- Helm
+- Terraform
+- OpenTofu
+- Pulumi
+- Ansible
+- GitHub Actions
+- GitLab CI
+- Jenkins
+- Azure DevOps
+- AWS
+- Azure
+- Google Cloud
+- Cloudflare
+- Vercel
+- Fly.io
+- VPS
+- bare metal
+- private cloud
+- hybrid cloud
+- multi-cloud
+
+---
+
+## 24. Database and Data Factory
+
+Support:
+
+- PostgreSQL
+- MySQL
+- MariaDB
+- SQLite
+- SQL Server
+- Oracle where licensing allows
+- MongoDB
+- Redis
+- DynamoDB
+- Firestore
+- Supabase
+- Cassandra
+- Elasticsearch
+- OpenSearch
+- graph databases
+- vector databases
+- time-series databases
+- warehouses
+- lakes
+- ETL
+- ELT
 - analytics
-- administration
-- teams
-- notifications
+- Kafka
+- streaming
+- queues
+- event buses
+- replication
+- backups
+- migration systems
+
+---
+
+## 25. Embedded and IoT Factory
+
+Support:
+
+- Arduino
+- ESP32
+- STM32
+- Raspberry Pi
+- microcontrollers
+- IoT hardware
+- sensors
+- smart-home systems
+- industrial controllers
+- embedded Linux
+- FreeRTOS
+- Zephyr
+- custom boards
+- automotive systems
+- drones
+- CNC controllers
+- 3D printers
+- wearables
+- kiosks
+- POS hardware
+
+Languages/toolchains:
+
+- C
+- C++
+- Rust
+- MicroPython
+- Assembly
+- vendor SDKs
+- embedded Linux
+- RTOS toolchains
+
+---
+
+## 26. Hardware-in-the-Loop Testing
+
+Where software simulation is insufficient, AppForge needs remote physical test infrastructure.
+
+Examples:
+
+- phones
+- tablets
+- microcontrollers
+- GPUs
+- sensors
+- robotics hardware
+- embedded boards
+- cameras
+- audio equipment
+- custom devices
+
+No hardware-specific certification without hardware evidence where hardware testing is genuinely required.
+
+---
+
+## 27. Robotics Factory
+
+Support:
+
+- ROS
+- ROS 2
+- robot perception
+- SLAM
+- navigation
+- motion planning
+- manipulation
+- computer vision
+- sensor fusion
+- motor control
+- drones
+- autonomous vehicles
+- industrial robotics
+- robotics simulation
+
+Simulation and hardware tests should both be supported.
+
+---
+
+## 28. AR / VR / Spatial Factory
+
+Support:
+
+- visionOS
+- ARKit
+- RealityKit
+- ARCore
+- OpenXR
+- Meta Quest
+- SteamVR
+- Unity XR
+- Unreal XR
+- WebXR
+- mixed reality
+- spatial interfaces
+
+---
+
+## 29. Media Factory
+
+Support software such as:
+
+- DAWs
+- audio editors
+- video editors
+- image editors
+- media players
+- streaming systems
+- live broadcasting systems
+- camera software
+- audio processors
+- graphics applications
+- 3D modelling tools
+- rendering tools
+
+---
+
+## 30. System Software Factory
+
+Support where infrastructure permits:
+
+- daemons
+- system services
+- shells
+- filesystem tools
+- networking tools
+- low-level utilities
+- bootable environments
+- drivers where toolchain/hardware support exists
+- kernel modules
+- experimental operating-system components
+
+These require stronger isolation than ordinary application builds.
+
+---
+
+## 31. Blockchain/Web3 Factory
+
+Where requested and appropriate:
+
+- smart contracts
+- blockchain clients
+- wallets
+- dApps
+- blockchain indexers
+- infrastructure
+- tokenized systems
+
+Support ecosystems including:
+
+- Solidity
+- Rust
+- Move
+- Web3 libraries
+- chain-specific verified adapters
+
+---
+
+## 32. Scientific and Engineering Factory
+
+Support:
+
+- simulations
+- CAD-related tooling
+- numerical models
+- scientific computing
+- machine-learning research
+- GIS
+- signal processing
+- image processing
+- computational chemistry
+- physics systems
+- aerospace software
+- engineering applications
+- mathematical software
+
+---
+
+## 33. Disposable Build Runners
+
+Every customer build should run in isolated infrastructure.
+
+Runners must support:
+
+- Linux
+- Windows
+- macOS
+- containers
+- VMs
+- GPU workers
+- CPU workers
+- ARM
+- x86-64
+- specialized hardware
+
+Builds should not execute directly on sensitive AppForge hosts.
+
+---
+
+## 34. Credential Isolation
+
+Generated products must not inherit AppForge host credentials.
+
+Use:
+
+- short-lived credentials
+- scoped tokens
+- secret brokers
+- vault-backed access
+- per-job credentials
+- disposable runners
+
+Destroy temporary credentials after the build.
+
+---
+
+## 35. Toolchain Installer
+
+AppForge must reproducibly install:
+
+- compilers
+- interpreters
+- SDKs
+- build tools
+- package managers
+- dependencies
+- emulators
+- simulators
+- platform CLIs
+
+Toolchain versions must be pinned and recorded in evidence.
+
+---
+
+## 36. Toolchain Discovery
+
+If the required toolchain is unknown:
+
+- research authoritative documentation
+- determine installation procedure
+- determine supported OS/architecture
+- determine compiler/runtime
+- determine testing method
+- determine packaging
+- determine security implications
+- create adapter
+- test adapter
+- register only after validation
+
+---
+
+## 37. Architecture Runners
+
+Support target architectures including:
+
+- x86-64
+- ARM64
+- ARM
+- WebAssembly
+- architecture-specific embedded targets
+- future architectures through adapters
+
+---
+
+## 38. Mobile Build Farm
+
+Dedicated workers for:
+
+- Android
+- iOS
+- watchOS
+- tvOS
+- visionOS
+
+Including emulators/simulators and real devices where needed.
+
+---
+
+## 39. Desktop Build Farm
+
+Dedicated:
+
+- Windows workers
+- macOS workers
+- Linux workers
+
+Never certify one OS based solely on another OS successfully building.
+
+---
+
+## 40. Game Build Farm
+
+Workers for:
+
+- Unreal
+- Unity
+- Godot
+- custom engines
+
+Support:
+
+- GPU builds
+- rendering
+- playtests
+- server builds
+- client builds
+- platform builds
+
+---
+
+## 41. GPU Worker Pool
+
+For:
+
+- AI
+- games
+- rendering
+- simulations
+- computer vision
+- video
+- image processing
+- model workloads
+
+---
+
+## 42. Python Runtime Factory
+
+Immediately upgrade:
+
+- python-service
+- ai-agent-python
+
+Support:
+
+- isolated Python versions
+- virtual environments
+- uv/pip/Poetry/other managers
+- pinned dependencies
+- vulnerability scans
+- tests
+- runtime launch
+- health checks
+- container builds
+- deployment
+- behavioral verification
+
+Python must no longer remain structural-only.
+
+---
+
+## 43. Browser Runtime Workers
+
+Support:
+
+- Chromium
+- Chrome
+- Edge
+- Firefox
+- Safari where platform infrastructure permits
+
+Use for:
+
+- web testing
+- extensions
+- screenshots
+- behavioral tests
+- accessibility
+- performance
+- browser compatibility
+
+---
+
+## 44. Package and Release Factory
+
+Produce verified artifacts including:
+
+- ZIP
+- TAR
+- Docker/OCI images
+- APK
+- AAB
+- IPA
+- APP
+- DMG
+- PKG
+- EXE
+- MSI
+- MSIX
+- AppImage
+- Flatpak
+- Snap
+- DEB
+- RPM
+- browser extensions
+- firmware binaries
+- game builds
+- package-manager artifacts
+- SDK releases
+
+---
+
+## 45. Signing Service
+
+Support controlled signing for:
+
+- Apple
+- Android
+- Windows
+- macOS
+- packages
+- firmware
+- extensions
+- containers where appropriate
+
+Signing keys remain isolated.
+
+---
+
+## 46. Universal Preview System
+
+Preview types:
+
+- browser
+- PWA
+- mobile simulator
+- real mobile device
+- desktop VM
+- API runtime
+- AI agent
+- game runtime
+- extension runtime
+- embedded emulator
+- robotics simulator
+- XR simulator
+
+Fail closed if required preview infrastructure is unavailable.
+
+---
+
+## 47. Universal Deployment
+
+Support release to:
+
+- AppForge preview
+- cloud providers
+- container platforms
+- Kubernetes
+- serverless
+- edge
+- VPS
+- bare metal
+- app stores
+- package registries
+- game distribution services
+- browser-extension stores
+- repositories
+- devices
+- embedded targets
+
+---
+
+## 48. Store Submission
+
+Support authorized submission workflows for:
+
+- Apple App Store
+- Google Play
+- Microsoft Store
+- browser stores
+- extension marketplaces
+- software repositories
+- game stores/platforms where APIs and agreements permit
+
+Publishing requires appropriate customer authorization and accounts.
+
+---
+
+## 49. Multi-Platform Matrix Testing
+
+Test combinations of:
+
+- operating system
+- device
+- architecture
+- runtime version
+- framework version
+- browser
+- screen size
+- locale
+- network condition
+
+Do not infer compatibility.
+
+Prove it.
+
+---
+
+## 50. Behavioral Testing
+
+AppForge must actually use the generated product.
+
+Examples:
+
+- create account
+- log in
+- purchase
+- upload
 - search
-- file uploads
-- external integrations
+- submit form
+- complete workflow
+- play game
+- invoke agent
+- call API
+- install extension
+- start desktop application
+
+---
+
+## 51. Visual Testing
+
+Support:
+
+- screenshots
+- visual regression
+- layout checks
+- responsive checks
+- rendering checks
+- game rendering checks
+- UI-state checks
+
+---
+
+## 52. Performance Testing
+
+Measure:
+
+- startup
+- CPU
+- RAM
+- GPU
+- storage
+- latency
+- network
+- battery
+- frame rate
+- server throughput
+- concurrency
+- database performance
+- cold starts
+- load testing
+- stress testing
+
+---
+
+## 53. Accessibility Testing
+
+Where applicable:
+
+- web accessibility
+- mobile accessibility
+- desktop accessibility
+- keyboard access
+- screen readers
+- contrast
+- focus behavior
+- captions
+- platform accessibility APIs
+
+---
+
+## 54. Security Testing
+
+Include:
+
+- SAST
+- DAST
+- dependency scanning
+- secret scanning
+- SBOM
+- supply-chain checks
+- permission analysis
+- injection testing
+- SSRF
+- XSS
+- CSRF
+- authentication
+- authorization
+- tenant isolation
+- filesystem security
+- process execution
+- network security
+- AI prompt-injection testing
+- tool authorization
+- extension permission review
+- container scanning
+- infrastructure scanning
+
+---
+
+## 55. Software Supply Chain
+
+Record:
+
+- dependency versions
+- checksums
+- lockfiles
+- build environment
+- compiler versions
+- SBOM
+- provenance
+- artifact hashes
+- signing evidence
+
+---
+
+## 56. Dependency Intelligence
+
+AppForge must detect:
+
+- vulnerable packages
+- abandoned packages
+- incompatible versions
+- malicious dependencies
+- license conflicts
+- architecture incompatibility
+- deprecated frameworks
+- unsupported runtimes
+
+---
+
+## 57. License Intelligence
+
+Track:
+
+- open-source licenses
+- commercial licenses
+- engine licenses
+- SDK restrictions
+- model licenses
+- asset licenses
+- distribution restrictions
+
+Do not introduce incompatible dependencies silently.
+
+---
+
+## 58. Self-Repair Loop
+
+When something fails:
+
+**detect → diagnose → identify root cause → repair → rebuild → retest → rerun → verify.**
+
+Do not mark green based on partial success.
+
+---
+
+## 59. Evidence Ledger
+
+Every meaningful success claim should be backed by evidence.
+
+Evidence includes:
+
+- source hash
+- build logs
+- tests
+- security results
+- runtime results
+- package hash
+- screenshots
+- performance results
+- device results
+- deployment URL
+- release identity
+- platform
+- OS
+- architecture
+- toolchain version
+
+---
+
+## 60. Platform-Specific Certification
+
+Certification must be granular.
+
+Example:
+
+`Flutter / Android / ARM64 = verified`
+
+does **not** imply:
+
+`Flutter / iOS = verified`
+
+Likewise:
+
+`Electron / Linux = verified`
+
+does not prove:
+
+`Electron / Windows`
+
+or:
+
+`Electron / macOS`.
+
+---
+
+## 61. Certification Levels
+
+Recommended progression:
+
+1. Understood
+2. Planned
+3. Generated
+4. Structurally valid
+5. Build verified
+6. Runtime verified
+7. Behavior verified
+8. Package verified
+9. Deployment/release verified
+10. Production certified
+
+No skipping required stages.
+
+---
+
+## 62. Current Structural-Only Stack Upgrade
+
+Immediately upgrade:
+
+### React Native + Expo
+
+Require:
+
+- install
+- security
+- tests
+- Android build
+- iOS build
+- emulator/simulator
+- package output
+- Expo/EAS integration
+- submission hooks
+- behavioral evidence
+
+### Flutter
+
+Require:
+
+- Flutter SDK
+- Android build
+- iOS build
+- desktop builds where requested
+- emulator/simulator
+- tests
+- packages
+- submission hooks
+
+### Electron
+
+Require:
+
+- Windows build
+- macOS build
+- Linux build
+- installers
+- execution
+- behavioral testing
+- signing support
+
+### Tauri
+
+Require:
+
+- Rust
+- native dependencies
+- Windows
+- macOS
+- Linux
+- installers
+- execution
+- behavioral testing
+
+### Python Service
+
+Require:
+
+- isolated Python
+- dependency installation
+- tests
+- runtime
+- health verification
+- container
 - deployment
 
----
+### Python AI Agent
 
-## 2. Research before building
+Require all Python service requirements plus:
 
-The product-factory pipeline can create contract-driven research requirements and record:
+- AI connectivity
+- tool execution tests
+- safety boundaries
+- agent workflow tests
+- behavioral verification
 
-- queries;
-- sources;
-- decisions;
-- uncertainty/conflicts;
-- product/stack-specific documentation research;
-- integration research;
-- deployment research;
-- monetization/security research.
+### Chrome Extension
 
-Research is treated as evidence, not as permission to override the user’s requirements or platform authorization boundaries.
+Require:
 
----
+- deterministic package
+- MV3 validation
+- permission validation
+- Chromium launch
+- extension loading
+- service-worker/background validation
+- behavioral tests
+- verified ZIP
 
-## 3. Build an architecture and implementation plan
+Only then move these from:
 
-The planner can produce and validate:
+`structural`
 
-- architecture summary/modules;
-- implementation tasks;
-- task sequence;
-- dependencies;
-- acceptance criteria;
-- requirement-to-task mappings;
-- task-to-file mappings;
-- specialist ownership;
-- per-task validation requirements.
+to:
 
-The planner is blocked from silently changing the canonical product type or selected stack.
+`runnable`.
 
 ---
 
-## 4. Coordinate specialist agents
+## 63. Large Project Orchestration
 
-AppForge has coordinated responsibilities for areas including:
+AppForge must support projects containing:
 
+- thousands of files
+- millions of lines where necessary
+- multiple repositories
+- multiple services
+- multiple applications
+- infrastructure
+- assets
+- mobile
+- web
+- desktop
+- games
+- AI
+- hardware
+
+Do not rely on a single giant model prompt.
+
+---
+
+## 64. Persistent Engineering Teams
+
+Maintain specialist agents for:
+
+- product management
+- architecture
 - frontend
+- backend
+- mobile
+- desktop
+- game engineering
+- graphics
+- physics
+- AI
+- data
+- database
+- embedded
+- robotics
+- XR
+- security
+- QA
+- accessibility
+- DevOps
+- SRE
+- release engineering
+- compliance
+- documentation
+- performance
+
+---
+
+## 65. Persistent Project Memory
+
+Long projects need durable memory for:
+
+- architectural decisions
+- requirements
+- design decisions
+- failed attempts
+- working implementations
+- dependencies
+- toolchain versions
+- test history
+- release history
+- user approvals
+
+---
+
+## 66. Massive Repository Support
+
+Support:
+
+- monorepos
+- multi-repos
+- large binaries
+- game assets
+- generated files
+- LFS
+- submodules where necessary
+- branch management
+- release branches
+- migrations
+
+---
+
+## 67. Repository Intelligence
+
+AppForge should understand:
+
+- code ownership
+- dependency graph
+- architecture
+- services
+- modules
+- APIs
+- databases
+- migrations
+- test coverage
+- release history
+
+---
+
+## 68. Cost-Aware Execution
+
+Every operation should choose the least expensive environment that can actually prove the requirement.
+
+Examples:
+
+- don't use expensive GPU worker for lint
+- don't use macOS worker for Node web build
+- don't use Fly/Sprites just to inspect source
+- use native runner only when native proof is required
+
+Cost must never override correctness.
+
+---
+
+## 69. Resource Budgeting
+
+Per-build controls for:
+
+- AI spend
+- compute
+- GPU
+- storage
+- network
+- provider costs
+- deployment spend
+- testing spend
+
+Users should be able to set hard caps.
+
+---
+
+## 70. Human Approval Boundaries
+
+Require user approval where appropriate for:
+
+- spending real money
+- production deployment
+- app-store submission
+- domain changes
+- signing
+- publishing
+- sending external communications
+- destructive infrastructure actions
+- sensitive privileged actions
+
+---
+
+## 71. Anti-Placeholder Protection
+
+Keep and strengthen:
+
+- TODO detection
+- mock data detection
+- fake APIs
+- fake success responses
+- empty handlers
+- stub services
+- fake payment flows
+- placeholder UI
+- incomplete authentication
+- incomplete databases
+- generated-only skeletons
+
+Source that looks convincing but does not work must fail certification.
+
+---
+
+## 72. No Fake Green Lights
+
+A successful pipeline status must correspond to real evidence.
+
+Examples:
+
+- source generated ≠ application works
+- build passed ≠ runtime works
+- runtime started ≠ workflows work
+- web works ≠ mobile works
+- Android works ≠ iOS works
+- Linux works ≠ Windows works
+- package exists ≠ package installs
+- deployment succeeded ≠ product is usable
+
+---
+
+## 73. Universal Runtime Evidence
+
+Every runtime must provide appropriate proof.
+
+Examples:
+
+Web:
+- URL
+- browser behavior
+
+API:
+- health
+- endpoints
+
+Mobile:
+- simulator/device execution
+
+Desktop:
+- installed app launch
+
+Game:
+- play session
+
+AI:
+- task execution
+
+Extension:
+- loaded extension behavior
+
+Embedded:
+- emulator or hardware
+
+Robotics:
+- simulator/hardware behavior
+
+---
+
+## 74. Observability
+
+Generated products should support appropriate:
+
+- logs
+- metrics
+- traces
+- health endpoints
+- crash reporting
+- error monitoring
+- cost telemetry
+- performance telemetry
+- audit logs
+
+---
+
+## 75. Recovery
+
+Support:
+
+- known-good builds
+- rollback
+- restore
+- migration recovery
+- dependency rollback
+- configuration rollback
+- deployment rollback
+
+---
+
+## 76. Disaster Recovery
+
+For AppForge itself:
+
+- repository backups
+- database backups
+- artifact backups
+- secrets recovery
+- configuration recovery
+- model-provider outage handling
+- build-runner recovery
+
+---
+
+## 77. Reproducible Builds
+
+Where practical, preserve:
+
+- source SHA
+- dependency lock
+- environment
+- compiler
+- SDK
+- toolchain
+- operating system
+- architecture
+
+The same release should be reproducible.
+
+---
+
+## 78. Artifact Provenance
+
+Every release should know:
+
+**prompt → contract → plan → source → tests → build → package → deployment.**
+
+---
+
+## 79. Version Management
+
+Track:
+
+- applications
+- APIs
+- schemas
+- databases
+- models
+- toolchains
+- SDKs
+- packages
+- infrastructure
+- adapters
+
+---
+
+## 80. Automatic Technology Lifecycle Management
+
+AppForge should detect:
+
+- runtime EOL
+- SDK EOL
+- framework EOL
+- compiler changes
+- API deprecations
+- app-store requirement changes
+- browser changes
+- cloud changes
+
+Then recommend or perform safe migration with validation.
+
+---
+
+## 81. Automatic AI Lifecycle Management
+
+Same principle for AI providers.
+
+When models are:
+
+- deprecated
+- replaced
+- removed
+- renamed
+- rate-limited
+- changed
+
+AppForge must adapt without breaking customer applications.
+
+---
+
+## 82. Unknown Technology Mode
+
+Critical permanent feature:
+
+> “I do not know this technology yet.”
+
+must trigger:
+
+**research → understand → create adapter → install toolchain → test toolchain → certify adapter → build product.**
+
+Not:
+
+**unsupported.**
+
+---
+
+## 83. Unknown Platform Mode
+
+Same for a new operating system/device/platform.
+
+Discover:
+
+- SDK
+- toolchain
+- packaging
+- deployment
+- runtime
+- emulator
+- certification requirements
+
+Then add support dynamically.
+
+---
+
+## 84. Unknown AI Provider Mode
+
+New provider/model:
+
+**discover → document → adapter → capability test → benchmark → approve → register.**
+
+---
+
+## 85. New Product-Type Discovery
+
+AppForge must not reject something merely because its current product enum does not know what to call it.
+
+It should analyze its characteristics and create a composite/new product definition.
+
+---
+
+## 86. Future-Proof Adapter SDK
+
+AppForge needs an internal adapter SDK so new support can be added declaratively.
+
+Examples:
+
+- LanguageAdapter
+- FrameworkAdapter
+- RuntimeAdapter
+- PlatformAdapter
+- BuildAdapter
+- PackageAdapter
+- DeployAdapter
+- ModelProviderAdapter
+- HardwareAdapter
+- TestAdapter
+
+---
+
+## 87. Adapter Validation
+
+An adapter cannot become trusted just because AI generated it.
+
+Require:
+
+- schema validation
+- security checks
+- real install
+- hello-world compile
+- tests
+- runtime
+- package
+- reproducibility
+- isolation
+
+Then mark verified.
+
+---
+
+## 88. AppForge Capability Registry
+
+AppForge should expose truthful live capability states such as:
+
+- unsupported
+- discovered
+- experimental
+- structural
+- buildable
+- runnable
+- packageable
+- deployable
+- verified
+- production-certified
+
+---
+
+## 89. Capability Discovery UI
+
+Users should be able to ask:
+
+**“Can AppForge build X?”**
+
+and receive actual live capability evidence, not marketing text.
+
+---
+
+## 90. Model/Toolchain Marketplace
+
+Future extension point for:
+
+- verified adapters
+- model connectors
+- deployment connectors
+- engines
+- SDKs
+- hardware targets
+- plugins
+
+All third-party adapters require validation and trust boundaries.
+
+---
+
+## 91. Autonomous Research
+
+AppForge should retrieve current authoritative documentation before using unfamiliar or changing technology.
+
+Especially for:
+
+- SDK versions
+- APIs
+- store rules
+- provider models
+- language versions
+- security advisories
+- platform requirements
+
+---
+
+## 92. Current Documentation over Stale Training Knowledge
+
+When implementation depends on changing external technology, AppForge must prefer current official documentation and verified runtime evidence.
+
+---
+
+## 93. Build Rehearsal Before Production
+
+Before production:
+
+- build
+- test
+- package
+- simulate release
+- check credentials
+- validate configuration
+- validate migrations
+- verify target platform
+
+---
+
+## 94. Release Gates
+
+Production release requires:
+
+- valid artifact
+- security pass
+- tests
+- runtime proof
+- packaging proof
+- migration readiness
+- required approvals
+- release evidence
+
+---
+
+## 95. Post-Deployment Verification
+
+After release:
+
+- verify correct artifact
+- verify runtime
+- verify routes/endpoints
+- verify key user workflows
+- verify health
+- verify logs
+- verify version/hash
+
+---
+
+## 96. Continuous Maintenance
+
+AppForge should maintain products after deployment:
+
+- dependency updates
+- security patches
+- model migrations
+- SDK migrations
+- platform changes
+- store policy changes
+- database migrations
+- infrastructure updates
+
+All changes must pass the same validation gates.
+
+---
+
+## 97. Customer-Owned Infrastructure Support
+
+Users should be able to connect:
+
+- cloud accounts
+- repositories
+- AI providers
+- databases
+- domains
+- app stores
+- registries
+- build infrastructure
+- private environments
+
+Connections must be permission-scoped.
+
+---
+
+## 98. Enterprise Support
+
+Include:
+
+- SSO
+- RBAC
+- audit logs
+- organization policies
+- private networks
+- enterprise models
+- private package registries
+- private repositories
+- private build runners
+- data residency
+- compliance controls
+
+---
+
+## 99. Multi-Tenant Isolation
+
+Customer builds must remain isolated from:
+
+- other customers
+- AppForge credentials
+- AppForge source
+- unrelated projects
+- other customer artifacts
+
+---
+
+## 100. Data Privacy
+
+Users should control:
+
+- model providers
+- data retention
+- training permissions
+- regions
+- storage
+- logs
+- project deletion
+- local/private model routing
+
+---
+
+## 101. Test Generation
+
+Tests should be derived from:
+
+- original prompt
+- requirements
+- workflows
+- security expectations
+- platform expectations
+- performance requirements
+
+Tests should not merely test generated implementation details.
+
+---
+
+## 102. Requirement Traceability
+
+Every requirement should map to:
+
+**requirement → task → implementation → test → runtime evidence → release evidence.**
+
+---
+
+## 103. Composite Product Orchestration
+
+One product can contain:
+
+- web
+- iOS
+- Android
+- Windows
+- macOS
+- Linux
 - backend
 - database
 - AI
-- integrations
+- infrastructure
+- games
+- hardware
+
+AppForge must coordinate all components as one project.
+
+---
+
+## 104. Cross-Platform Shared Logic
+
+AppForge should intelligently reuse code where appropriate while preserving native platform requirements.
+
+Reuse must never become forced lowest-common-denominator architecture.
+
+---
+
+## 105. Architecture Selection
+
+AppForge chooses architecture based on:
+
+- requirements
+- performance
+- scale
+- cost
+- team constraints
+- deployment targets
+- platform
+- latency
+- offline requirements
 - security
+- maintainability
+
+Not based on whichever template is easiest.
+
+---
+
+## 106. Technology Selection
+
+AppForge should choose the best suitable language/framework/toolchain rather than defaulting to React.
+
+Users can override selections.
+
+---
+
+## 107. Scalability Engineering
+
+Support:
+
+- horizontal scaling
+- vertical scaling
+- caching
+- queues
+- load balancing
+- sharding
+- replication
+- CDN
+- autoscaling
+- distributed systems
+- fault tolerance
+
+---
+
+## 108. Reliability Engineering
+
+Support:
+
+- retries
+- timeouts
+- circuit breakers
+- graceful shutdown
+- failover
+- idempotency
+- transactional correctness
+- recovery
+
+---
+
+## 109. Offline Capability
+
+Where appropriate support:
+
+- offline-first apps
+- sync
+- conflict resolution
+- local databases
+- queued operations
+
+---
+
+## 110. Localization
+
+Products should support:
+
+- multiple languages
+- locale-aware formatting
+- RTL layouts
+- translation
+- pluralization
+- timezone support
+
+---
+
+## 111. Accessibility by Design
+
+Accessibility should be a planning requirement, not just a final test.
+
+---
+
+## 112. Monetization Factory
+
+Support:
+
+- subscriptions
+- one-time purchases
+- usage-based billing
+- credits
+- IAP
+- marketplaces
+- commissions
+- advertising
+- affiliate
+- licensing
+- enterprise billing
+
+With server-authoritative entitlement verification.
+
+---
+
+## 113. Payment Providers
+
+Support via adapters:
+
+- Stripe
+- PayPal
+- Apple IAP
+- Google Play Billing
+- regional providers
+- future payment providers
+
+---
+
+## 114. Commerce Factory
+
+Support:
+
+- product catalogs
+- checkout
+- inventory
+- orders
+- shipping
+- tax
+- refunds
+- subscriptions
+- marketplaces
+- multi-vendor platforms
+
+---
+
+## 115. Search Factory
+
+Support:
+
+- relational search
+- full-text search
+- semantic search
+- vector search
+- hybrid search
+- relevance ranking
+
+---
+
+## 116. Notification Factory
+
+Support:
+
+- email
+- SMS
+- mobile push
+- web push
+- in-app
+- chat platforms
+- webhook notifications
+
+---
+
+## 117. Communication Factory
+
+Support:
+
+- realtime chat
+- voice
+- video
+- conferencing
+- messaging
+- presence
+- collaboration
+
+---
+
+## 118. File and Media Storage
+
+Support:
+
+- local
+- object storage
+- cloud storage
+- CDN
+- upload validation
+- streaming
+- media processing
+
+---
+
+## 119. Identity Factory
+
+Support:
+
+- password
+- magic link
+- OAuth
+- OIDC
+- SAML
+- passkeys
+- MFA
+- social login
+- enterprise identity
+
+---
+
+## 120. Authorization
+
+Support:
+
+- RBAC
+- ABAC
+- ownership
+- organization permissions
+- policy engines
+- fine-grained permissions
+
+---
+
+## 121. Compliance-Aware Architecture
+
+Where applicable support technical controls for:
+
+- privacy
+- auditability
+- retention
+- encryption
+- access controls
+- region requirements
+- regulated-industry requirements
+
+AppForge should not pretend software alone guarantees legal compliance.
+
+---
+
+## 122. Encryption
+
+Support:
+
+- TLS
+- encryption at rest
+- key management
+- application encryption
+- platform keystores
+- secure secrets storage
+
+---
+
+## 123. Secret Management
+
+Integrate:
+
+- vault systems
+- cloud secrets
+- environment secrets
+- encrypted stores
+- customer-controlled keys
+
+No secret should appear in generated public source.
+
+---
+
+## 124. Network Isolation
+
+Build environments should use appropriate:
+
+- egress controls
+- private networking
+- firewalling
+- network policies
+- temporary access
+
+---
+
+## 125. Sandboxed Untrusted Code
+
+Customer-generated code must run in restrictive execution environments.
+
+---
+
+## 126. Malicious Output Protection
+
+Generated projects should be scanned for:
+
+- malware-like behavior
+- credential theft
+- unwanted persistence
+- unsafe shell behavior
+- unexpected exfiltration
+
+---
+
+## 127. Build Cache
+
+Use safe deterministic caching for:
+
+- dependencies
+- SDKs
+- containers
+- game assets
+- compilers
+
+Caches must not leak customer data.
+
+---
+
+## 128. Distributed Build Scheduling
+
+Choose workers based on:
+
+- OS
+- architecture
+- GPU
+- memory
+- SDK
+- hardware
+- cost
+- queue priority
+
+---
+
+## 129. Build Farm Autoscaling
+
+Infrastructure should scale from:
+
+- single build
+
+to
+
+- thousands of concurrent builds.
+
+---
+
+## 130. Build Queue Priorities
+
+Support:
+
+- interactive previews
+- production
+- CI
+- background maintenance
+- massive game builds
+- hardware tests
+
+---
+
+## 131. Remote Development
+
+Users should be able to inspect:
+
+- build state
+- logs
+- agents
+- previews
+- failures
+- evidence
+
+from supported devices.
+
+---
+
+## 132. Artifact Storage
+
+Store:
+
+- source
+- builds
+- installers
+- binaries
+- images
+- packages
+- logs
+- evidence
+- test outputs
+
+with retention policies.
+
+---
+
+## 133. Binary and Asset Management
+
+Support large:
+
+- game assets
+- models
+- video
+- audio
+- datasets
+- firmware
+- installers
+
+---
+
+## 134. Model Asset Management
+
+For AI products manage:
+
+- prompts
+- embeddings
+- datasets
+- evaluation sets
+- adapters
+- fine-tuning artifacts
+- model configurations
+
+---
+
+## 135. AI Evaluation
+
+AppForge should evaluate AI products for:
+
+- task success
+- hallucination
+- tool correctness
+- prompt injection
+- refusal behavior
+- cost
+- latency
+- robustness
+
+---
+
+## 136. Independent Review
+
+Critical builds should allow separate agents/models to review:
+
+- architecture
+- code
+- security
+- requirements
+- tests
+- certification
+
+---
+
+## 137. Multi-Model Consensus Where Useful
+
+High-risk engineering decisions can be reviewed by different models/providers before acceptance.
+
+---
+
+## 138. Model Cost Tracking
+
+Track AI cost by:
+
+- project
+- build
+- agent
+- provider
+- model
+- task
+
+---
+
+## 139. Compute Cost Tracking
+
+Track:
+
+- CPU
+- GPU
+- native runners
+- storage
+- bandwidth
+- build minutes
+
+---
+
+## 140. Product Cost Forecasting
+
+Before expensive operations AppForge should estimate expected infrastructure/build cost where possible.
+
+---
+
+## 141. Customer Spending Controls
+
+Users can set:
+
+- build budget
+- AI budget
+- advertising budget
+- deployment budget
+- cloud budget
+- model budget
+
+Hard limits should stop uncontrolled spending.
+
+---
+
+## 142. Build Audit Trail
+
+Record:
+
+- who requested build
+- agents involved
+- models used
+- toolchains
+- commands
+- approvals
+- outputs
 - deployment
-- operations
-- general implementation/review
-
-The coordination layer enforces task dependencies and file ownership and can reconcile/resume persisted task state.
+- certification
 
 ---
 
-## 5. Generate and validate real source code
+## 143. Rebuild From Evidence
 
-The code-generation path:
-
-- requires the planned files;
-- requires real implementation rather than fake success;
-- links implementation to requirement IDs;
-- rejects TODO-only files and common placeholder patterns;
-- rejects empty handlers/components/services and fake API success;
-- verifies generated project structure;
-- validates dependencies and lockfiles;
-- applies contract-aware security scanning;
-- can run repair cycles when validation fails.
-
-Scaffolds provide stack infrastructure only. They are not accepted as substitutes for the requested product implementation.
+AppForge should be able to reconstruct a known version from stored specifications and immutable sources.
 
 ---
 
-# Supported technology stacks
+## 144. Template Support Without Template Dependence
 
-AppForge currently has **17 canonical stack adapters**.
-
-## Runnable stacks
-
-These have runnable validation paths in the current product factory:
-
-| Stack | Typical products |
-|---|---|
-| `react-node` | web apps, SaaS, e-commerce, developer tools |
-| `static-html` | websites |
-| `next-node` | websites, SaaS, e-commerce, developer tools |
-| `phaser-html5` | browser games |
-| `three-js-3d` | 3D games/sites/data products |
-| `api-service` | Node APIs/developer services |
-| `node-service` | APIs, automation and developer services |
-| `ai-agent-node` | Node AI agents |
-| `browser-automation` | browser automation |
-| `data-visualization` | data/analytics products |
-
-A runnable stack is still only production-certified when its individual artifact passes all applicable validation, preview, deployment and live-verification evidence.
-
-## Structural-only stacks
-
-These generate source/project structure but are **not automatically production-certified** because the required native/runtime toolchain is outside the currently certified AppForge build boundary:
-
-| Stack | Current truth |
-|---|---|
-| `react-native-expo` | mobile source deliverable; native release verification required |
-| `flutter-firebase` | Flutter source deliverable; native SDK/signing/store verification required |
-| `electron-react` | desktop source deliverable; native packaging verification required |
-| `tauri-rust` | desktop source deliverable; Rust/Tauri native packaging verification required |
-| `python-service` | generated Python service source; currently structural-only in certification |
-| `ai-agent-python` | generated Python agent source; currently structural-only in certification |
-| `chrome-extension` | extension source deliverable; browser-store/runtime verification required |
-
-AppForge deliberately reports these as structural output instead of pretending that source generation equals a verified native release.
+Templates can accelerate builds but must never limit what AppForge can create.
 
 ---
 
-# Artifact, preview and certification
+## 145. Greenfield and Existing Projects
 
-AppForge can:
+AppForge must handle:
 
-- persist generated files;
-- create versioned snapshots;
-- compute per-file and aggregate SHA-256 integrity;
-- prevent working/partial artifacts from masquerading as final artifacts;
-- serve static validated artifacts directly where appropriate;
-- use an isolated runtime for runnable previews;
-- bind preview evidence to snapshot ID, artifact version and SHA-256;
-- refuse to substitute a generic AppForge shell when the real runtime is unavailable;
-- deploy supported validated artifacts;
-- verify the live response and exact artifact identity;
-- perform browser verification where required;
-- persist requirement-linked deployment evidence;
-- record known-good recovery checkpoints;
-- assign an evidence-backed certification level;
-- expose unresolved final-flow limitations.
+- new products
+- existing repositories
+- legacy modernization
+- migrations
+- bug fixes
+- partial products
+- large enterprise codebases
 
 ---
 
-# Deployment and source-delivery capabilities
+## 146. Legacy Languages and Systems
 
-## Implemented deployment paths
+Do not assume all customers use modern stacks.
 
-The current code contains real implementations for:
+Support older/enterprise systems through adapters, including:
 
-- **Fly.io** deployment
-- **Vercel** deployment
-- **Netlify** deployment
-- AppForge isolated/live preview
-- ZIP source export
-
-The current AppForge platform release itself is live-verified on Fly.io at the audited baseline.
-
-## GitHub
-
-AppForge includes authenticated GitHub workflows for:
-
-- connection status;
-- OAuth/connect flow;
-- push/export source to a repository;
-- import source from a repository.
-
-## GitHub Pages limitation
-
-A `github-pages` destination exists in stack metadata, but **one-click GitHub Pages deployment is not currently implemented by the deployment service**. The deployer intentionally refuses that path and directs the project through authenticated GitHub export instead.
-
-Therefore README/marketing should not describe GitHub Pages as a complete one-click deployment target until that implementation is added and verified.
+- COBOL
+- mainframe integrations
+- older Java
+- older .NET
+- C/C++
+- legacy databases
+- migration tooling
 
 ---
 
-# Authentication, accounts and authorization
+## 147. Migration Factory
 
-The current platform code includes:
+Support migrations such as:
 
-- Supabase authentication;
-- sign-up and login;
-- session persistence/refresh;
-- logout/session revocation paths;
-- forgotten-password/password-reset flows;
-- authenticated API boundaries;
-- project ownership enforcement;
-- organization membership/role checks;
-- administrator/owner boundaries;
-- SSO organization configuration/discovery surfaces;
-- owner-scoped and role-scoped server checks;
-- CSRF protection for cookie-authenticated mutations;
-- rate limiting and slowdown controls.
-
-Generated products do not inherit AppForge’s production identity or database credentials.
+- framework migration
+- language migration
+- database migration
+- cloud migration
+- monolith → services
+- web → mobile
+- native → cross-platform
+- legacy → modern
 
 ---
 
-# Billing, credits and controlled access
+## 148. Reverse Engineering
 
-AppForge contains Stripe-backed commercial access code for:
-
-- subscription status;
-- Stripe Checkout;
-- credit purchases;
-- Customer Portal;
-- webhook processing;
-- plan credit grants;
-- refund/recovery accounting;
-- duplicate-event/idempotency protection;
-- effective-tier and entitlement checks.
-
-The platform also contains:
-
-- build-credit accounting;
-- credit reservation/refund behavior;
-- monthly refill logic;
-- owner unlimited-access handling;
-- lifetime/unlimited access handling;
-- god-code access records;
-- OTP/SMS verification support for controlled code redemption.
-
-A customer product requesting monetization cannot reach production certification merely because billing code exists; the exact artifact needs verified monetization/entitlement evidence.
+Where authorized, AppForge should be able to understand existing software and create modernization plans.
 
 ---
 
-# Project lifecycle and continuing development
+## 149. Documentation Factory
 
-The project APIs include real operations for:
+Generate and maintain:
 
-- create/list/open projects;
-- project build logs;
-- plan revision and approval;
-- monetization approval;
-- integration approval;
-- resume after approval;
-- evidence viewing;
-- deployment choices;
-- ZIP download;
-- Senior Dev changes;
-- Senior Dev approval/status;
-- snapshots;
-- recovery status;
-- rollback to a known-good snapshot;
-- file read/update/validation;
-- required environment variables;
-- revenue-readiness checks;
-- database setup guidance;
-- deploy-health inspection.
-
-Senior Dev is designed for targeted improvements to an existing project rather than unnecessary full regeneration.
+- README
+- API docs
+- architecture docs
+- deployment docs
+- runbooks
+- user docs
+- developer docs
+- release notes
+- troubleshooting
 
 ---
 
-# Editing, collaboration and project tooling
+## 150. API Contract Testing
 
-The codebase includes application surfaces and APIs for:
+Support:
 
-- project chat;
-- project asset attachment;
-- versioned file writes;
-- visual HTML editing;
-- collaboration rooms;
-- collaborator invites/removal;
-- join/heartbeat/leave;
-- collaborative versions;
-- template creation/cloning;
-- template marketplace surfaces;
-- deep research;
-- GitHub import/export;
-- architecture and other specialist studio surfaces.
-
-These platform modules exist in code, but their presence is not by itself the same as an end-to-end production certification for every optional workflow.
+- OpenAPI
+- GraphQL schemas
+- protobuf
+- consumer-driven contracts
+- backwards-compatibility tests
 
 ---
 
-# Artifact/document tooling
+## 151. Database Migration Testing
 
-The AppForge router contains artifact operations for:
+Every schema change must be:
 
-- listing and reading artifacts;
-- creating document artifacts;
-- creating spreadsheet artifacts;
-- creating presentation artifacts;
-- creating PDFs;
-- importing/extracting PDFs;
-- artifact analysis.
+- generated
+- reviewed
+- tested
+- applied in isolation
+- rollback/recovery assessed
 
-These are platform utility capabilities and are separate from the core generated-product certification chain.
+Never rewrite applied migrations.
 
 ---
 
-# Language and localization support
+## 152. Chaos and Failure Testing
 
-The AppForge language menu currently defines **130 locale choices**, including Māori and RTL languages.
+For mature systems test:
 
-However, only **11 locales currently have complete reviewed AppForge UI catalogs**:
-
-- English
-- Māori
-- Chinese
-- Spanish
-- Hindi
-- Arabic
-- French
-- Portuguese
-- Japanese
-- Korean
-- German
-
-The remaining menu choices intentionally fall back to English rather than shipping fabricated translations.
-
-Generated products can also receive locale/i18n instructions through the localization capability, but that does not mean AppForge itself has a reviewed full translation catalog for all 130 menu entries.
+- service loss
+- database failure
+- provider outage
+- network failure
+- queue failure
+- model-provider failure
+- dependency outage
 
 ---
 
-# Optional build/studio capabilities present in code
+## 153. Offline Provider Resilience
 
-The build-capability system contains extension/studio definitions for:
-
-- live web search;
-- video editing/rendering;
-- graphics design;
-- music/lyrics;
-- AI marketing;
-- interactive AR;
-- education/courses/AR classrooms;
-- invention/patent workflows;
-- architecture/BIM;
-- game development;
-- 3D product/CAD;
-- legal/contracts;
-- finance/fintech;
-- healthcare/HIPAA-oriented generation;
-- native mobile packaging;
-- voice/podcast;
-- data/BI;
-- localization;
-- realtime team collaboration.
-
-These should be described as **available code/studio capabilities**, not automatically as production-certified end-to-end products. Each external provider, specialist toolchain and generated artifact still has to satisfy its applicable validation and runtime evidence.
+AI products should have defined behavior when providers fail.
 
 ---
 
-# Operations, monitoring and security
+## 154. Model Replacement Verification
 
-The platform code includes:
+A replacement AI model cannot be adopted solely because its provider recommends it.
 
-- structured application logging;
-- recursive secret redaction;
-- Sentry integration;
-- PostHog integration;
-- Prometheus-compatible operational metrics;
-- protected production metrics access;
-- process liveness;
-- dependency-aware readiness;
-- database health checks;
-- shared Redis health checks;
-- build/deployment/model/pipeline metrics;
-- capacity/abuse/rate-limit signals;
-- distributed production rate limiting;
-- queue diagnostics;
-- security scans for generated projects;
-- GitHub CodeQL, dependency audit and secret scanning;
-- immutable GitHub Action references;
-- exact-SHA release gating.
-
-### Sentry audit limitation
-
-The code and repository tests include Sentry integration and redaction, but the production CI source-map upload step is skipped when the required Sentry release credentials are not configured. A live Sentry issue/API query was not part of this audited proof. Do not treat “Sentry code exists” as proof that every Sentry operational workflow is currently configured.
+AppForge must verify it against the product's requirements.
 
 ---
 
-# Recovery and data integrity
+## 155. Compiler/SDK Replacement Verification
 
-The production data/recovery model includes:
+Likewise for:
 
-- one locked, transactional, checksummed AppForge migration chain;
-- migration checksum verification;
-- fail-closed ownership/billing integrity migrations;
-- database backup scripts;
-- backup checksums;
-- restore drills;
-- recovery-readiness CI;
-- versioned build artifacts;
-- known-good recovery checkpoints;
-- exact artifact/deployment hashes;
-- rollback to previous verified state;
-- self-healing that must revalidate and re-run the final product-factory verdict.
-
-**Applied migrations are immutable.** New schema work must be a new forward migration.
+- runtime upgrades
+- compilers
+- SDKs
+- operating systems
+- frameworks
 
 ---
 
-# Known limitations and cleanup items
+## 156. Continuous Capability Audit
 
-The fresh audit identified the following items that should remain visible instead of being hidden by broad “production-ready” language:
+AppForge itself must regularly verify its supported adapters.
 
-1. **Structural stacks are source deliverables, not native production certifications.** Mobile, desktop, Chrome extension and the currently structural Python adapters require external/native runtime verification.
-2. **GitHub Pages one-click deployment is not implemented.** GitHub repository export is implemented.
-3. **Only 11 of 130 AppForge UI locale choices have reviewed translation catalogs.** The rest fall back to English.
-4. **Legacy hosted-runtime fallback code remains in `src/lib/hostedRuntime.ts`.** The active hosted-product route is explicitly tested not to use it for runnable products. This is legacy/dead-code cleanup, not the certified preview path.
-5. **Legacy `completed` status compatibility still appears in some non-readiness types/statistics/UI code.** The #30 production-readiness paths no longer treat `completed` as production-certified, but the compatibility remnants can be cleaned up later.
-6. **Sentry source-map upload depends on release credentials** and was skipped in the audited release validation.
-7. **GitHub classic branch-protection settings could not be independently read through the connected GitHub App.** Repository rulesets returned no configured rulesets; the release workflows themselves still enforce exact-main/exact-SHA CI and security evidence.
-8. **A provider implementation is not the same as a live provider proof.** Vercel, Netlify, Stripe, SSO and optional integrations have implementation/tests, but this audit’s fresh live production proof was the AppForge/Fly release path, not a real charge or deployment through every provider.
+A previously working adapter can regress when external tooling changes.
 
 ---
 
-# Production certification model
+## 157. Capability Health Checks
 
-Certification is deliberately graduated:
+Every verified adapter should periodically perform minimal tests to prove:
 
-```text
-structured
-  → generated
-  → runnable
-  → behaviorally-verified
-  → deployment-verified
-  → monetization-verified (when required)
-  → production-certified
-```
-
-A production candidate is not promoted when required evidence is missing.
-
-For #30, the final product-factory report independently checks applicable steps including:
-
-- canonical contract;
-- ambiguity resolution;
-- stack selection;
-- live research;
-- architecture;
-- implementation plan;
-- specialist-agent completion;
-- real source files;
-- artifact persistence;
-- prompt/stack/requirement preservation;
-- placeholder protection;
-- requirement-linked behavior evidence;
-- isolated build;
-- runtime;
-- preview;
-- exact validated artifact deployment;
-- live verification;
-- billing/entitlement verification when requested;
-- monitoring;
-- recovery;
-- honest certification;
-- exposed limitations.
-
-`productionReady` is true only when the certification decision is production-certified **and** no applicable final-flow step remains incomplete.
+- install works
+- compile works
+- package works
+- runtime works
 
 ---
 
-# CI and release discipline
+## 158. Automatic Adapter Quarantine
 
-The current release chain is designed to fail closed.
+If an adapter begins failing:
 
-A release requires relevant evidence including:
+mark it degraded or unavailable.
 
-- lint and formatting;
-- TypeScript checks;
-- complete automated tests and coverage thresholds;
-- product-factory validation;
-- production golden path;
-- generated-project/security/isolation/recovery checks;
-- dependency vulnerability audit;
-- CodeQL;
-- secret scanning;
-- immutable workflow-action references;
-- production build;
-- built-server liveness;
-- SHA-256 artifact integrity;
-- exact current `main` SHA;
-- successful exact-SHA CI and security runs;
-- production environment requirements;
-- two-machine production convergence;
-- live/readiness checks;
-- auth-boundary checks;
-- customer route checks;
-- exact released commit verification;
-- Chromium live-shell verification.
-
-A stale queued release is intentionally refused rather than being allowed to roll production backwards.
+Do not continue advertising it as production-ready.
 
 ---
 
-# Developer setup
+## 159. Universal Frontier Rule
 
-## Requirements
+The final architectural rule is:
 
-- Node.js 22+
-- npm 10.x
-- PostgreSQL/database configuration
-- Supabase configuration for authentication
-- Redis for certified multi-machine production coordination
-- at least one configured supported AI/model provider
-- Stripe credentials when exercising billing
-- deployment credentials for the selected provider
+AppForge must not be limited to technologies known when AppForge was originally written.
 
-## Install
+It must possess the machinery to:
 
-```bash
-git clone https://github.com/Anselm04/AppForge..git
-cd AppForge.
-npm install
-cp .env.example .env
-```
+**learn new technology, verify it, add it to itself, and use it safely.**
 
-## Core verification commands
+That includes:
 
-```bash
-npm run validate-env -- --strict
-npm run lint
-npm run typecheck
-npm run test -- --run
-npm run test:e2e
-npm run build
-npm start
-```
-
-Production secrets must never be committed to the repository, generated applications, documentation, logs or browser bundles.
+- programming languages
+- frameworks
+- operating systems
+- hardware
+- game engines
+- AI providers
+- AI models
+- cloud providers
+- databases
+- package formats
+- stores
+- deployment targets
+- future computing platforms
 
 ---
 
-# Current engineering rule
+# Final Definition of AppForge
 
-AppForge should not add features by weakening verification.
+AppForge is complete only when it functions as an autonomous software engineering organization rather than a code generator.
 
-The operating rule is:
+For every supported request it must be able to:
 
-> **Preserve what already works. Fix what is actually broken. Do not call a generated product production-ready until the exact artifact has the evidence required for its stack and requested capabilities.**
+**Understand**
 
-For customers, AppForge’s purpose is to remove unnecessary technical barriers without hiding the difference between generated source, a validated artifact, a deployed product and a genuinely production-certified product.
+what the customer actually wants.
 
-For TrillionAi Tech, AppForge is the product-factory foundation for repeatedly planning, generating, validating, deploying, verifying, repairing and operating software with centralized security, billing, evidence, observability and recovery.
+**Research**
 
-> **The standard is not “AI generated code.” The standard is “the product actually works.”**
+the current technologies necessary to build it.
 
----
+**Design**
 
-## License
+the correct product and architecture.
 
-MIT
+**Select**
+
+the appropriate languages, models, frameworks, platforms and infrastructure.
+
+**Plan**
+
+all work and dependencies.
+
+**Generate**
+
+real implementation.
+
+**Build**
+
+using actual compilers, SDKs and toolchains.
+
+**Secure**
+
+the implementation and supply chain.
+
+**Test**
+
+functionality, behavior, performance and platform compatibility.
+
+**Run**
+
+the actual product.
+
+**Package**
+
+the product for the requested target.
+
+**Preview**
+
+the real executable/runtime result.
+
+**Deploy or release**
+
+where authorized.
+
+**Verify**
+
+the released result.
+
+**Repair**
+
+anything that fails.
+
+**Certify**
+
+only what has real evidence.
+
+And when AppForge encounters something it has never seen before:
+
+**research it → create an adapter → build a test environment → verify it → register it → use it.**
+
+That is the architecture required for AppForge to become the cutting-edge **builder of builders** rather than another fixed AI application generator.
