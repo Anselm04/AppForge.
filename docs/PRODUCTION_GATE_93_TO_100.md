@@ -12,7 +12,7 @@ Current production-hardening checkpoint after `dc917394`.
 
 ## Remaining launch gates
 
-- [ ] Fix Senior Dev resume-after-approval credit gate so unlimited/lifetime accounts are never blocked by raw balance.
+- [x] Senior Dev approval-resume uses the unlimited/lifetime entitlement before checking raw balance and avoids charging unreserved credits for unlimited accounts; regression coverage is in `src/__tests__/unlimitedCreditGates.test.ts`.
 - [ ] Verify exact-head CI and security workflows succeed after checkout consolidation.
 - [ ] Verify production deployment completes on Fly.io.
 - [ ] Run real authenticated signup → login → logout → relogin flow.
@@ -82,3 +82,8 @@ successfully completed against the intended release with real credentials.
 ## Release rule
 
 Do not mark AppForge approved for paying customers until every unchecked launch gate above has passed against the deployed production revision.
+
+For an owner-run staging sequence and first-tester handoff, follow
+[the self-test and first-tester playbook](SELF_TEST_AND_FIRST_TESTER.md). Its
+checklists must be completed with evidence; the document itself does not
+constitute a successful test run.
