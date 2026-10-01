@@ -198,3 +198,68 @@ export async function probePythonRuntime(
         "detection.json",
         "Python binary detection",
         { pythonBinary: null, error: errors[0] },
+      );
+    } else {
+      const version = await readPythonVersion(pythonBinary);
+      checks.pythonVersion = version;
+      if (!version) {
+        errors.push(`Failed to read a version string from ${pythonBinary}.`);
+      }
+
+      const pip = await detectPip(pythonBinary);
+      checks.pipAvailable = pip.available;
+      checks.pipVersion = pip.version;
+      if (!pip.available) {
+        errors.push("python -m pip is not available on this host.");
+      }
+
+      checks.venvSupported = await detectVenvSupport(pythonBinary);
+      if (!checks.venvSupported) {
+        errors.push("python -m venv is not supported on this host.");
+      }
+
+      await recordArtifact(
+        "detection",
+        "detection.json",
+        "Python/pip/venv detection",
+        {
+          pythonBinary,
+          pythonVersion: version,
+          pipAvailable: pip.available,
+          pipVersion: pip.version,
+          venvSupported: checks.venvSupported,
+        },
+      );
+    }
+
+    if (
+      checks.pythonBinary &&
+      checks.pythonVersion &&
+      checks.pipAvailable &&
+      checks.venvSupported
+    ) {
+      const venvDir = join(workspaceDir, ".venv");
+      const venvCreate = await runCommand(
+        checks.pythonBinary,
+        ["-m", "venv", venvDir],
+        { timeoutMs: 60_000 },
+      );
+      checks.venvCreated = venvCreate.exitCode === 0;
+      await recordArtifact("venv", "venv.json", "venv creation", {
+        exitCode: venvCreate.exitCode,
+        stdout: venvCreate.stdout.slice(0, 2_000),
+        stderr: venvCreate.stderr.slice(0, 2_000),
+        timedOut: venvCreate.timedOut,
+        venvDir,
+      });
+      if (!checks.venvCreated) {
+        errors.push(
+          `venv creation failed: ${(venvCreate.stderr || venvCreate.stdout).slice(0, 400)}`,
+        );
+      } else {
+        const venvPython = join(venvDir, "bin", "python");
+        const pkgRoot = join(workspaceDir, "local_pkg");
+        await mkdir(join(pkgRoot, "appforge_python_probe_pkg"), {
+          recursive: true,
+        });
+        await writeFile(
