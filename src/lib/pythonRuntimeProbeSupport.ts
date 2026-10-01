@@ -1,22 +1,6 @@
 /** Shared process helpers for the python-runtime probe. */
 import { spawn } from "child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-import {
-  ADAPTER_CAPABILITY_STATES,
-  evaluateAdapterPromotion,
-  stateRank,
-  type AdapterCapabilityState,
-  type AdapterEvidence,
-} from "./adapterSdk.js";
-import {
-  FIXTURE_MAIN,
-  FIXTURE_TEST,
-  HEALTH_CHECK_SCRIPT,
-  LOCAL_PKG_INIT,
-  LOCAL_PYPROJECT,
-} from "./pythonRuntimeProbeFixtures.js";
+import { writeFile } from "fs/promises";
 
 export type CommandResult = {
   exitCode: number;
@@ -108,8 +92,8 @@ export async function detectPip(
   pythonBinary: string,
 ): Promise<{ available: boolean; version: string | null }> {
   const result = await runCommand(pythonBinary, ["-m", "pip", "--version"], {
-    timeoutMs: 15_000},
-  );
+    timeoutMs: 15_000,
+  });
   if (result.exitCode !== 0) {
     return { available: false, version: null };
   }
@@ -133,88 +117,3 @@ export async function detectVenvSupport(pythonBinary: string): Promise<boolean> 
 export async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
-
-export type PythonRuntimeProbeChecks = {
-  pythonBinary: string | null;
-  pythonVersion: string | null;
-  pipAvailable: boolean;
-  pipVersion: string | null;
-  venvSupported: boolean;
-  venvCreated: boolean;
-  pipInstallVerified: boolean;
-  fixtureCompiled: boolean;
-  fixtureExecuted: boolean;
-  fixtureOutput: string | null;
-  testsVerified: boolean;
-  testRunner: "unittest" | "pytest" | null;
-  testOutput: string | null;
-  serviceHealthVerified: boolean;
-  serviceHealthStatus: number | null;
-  serviceHealthBody: string | null;
-};
-
-export type PythonRuntimeProbeArtifact = {
-  kind:
-    | "detection"
-    | "venv"
-    | "pip_install"
-    | "compile"
-    | "fixture_run"
-    | "unittest"
-    | "service_health"
-    | "summary";
-  path: string;
-  description: string;
-};
-
-export type PythonRuntimeProbeResult = {
-  ok: boolean;
-  checkedAt: string;
-  workspaceDir: string | null;
-  checks: PythonRuntimeProbeChecks;
-  evidence: AdapterEvidence;
-  justifiedState: AdapterCapabilityState;
-  artifacts: PythonRuntimeProbeArtifact[];
-  errors: string[];
-};
-
-function emptyChecks(): PythonRuntimeProbeChecks {
-  return {
-    pythonBinary: null,
-    pythonVersion: null,
-    pipAvailable: false,
-    pipVersion: null,
-    venvSupported: false,
-    venvCreated: false,
-    pipInstallVerified: false,
-    fixtureCompiled: false,
-    fixtureExecuted: false,
-    fixtureOutput: null,
-    testsVerified: false,
-    testRunner: null,
-    testOutput: null,
-    serviceHealthVerified: false,
-    serviceHealthStatus: null,
-    serviceHealthBody: null,
-  };
-}
-
-/**
- * Maps probe checks to AdapterEvidence flags. Flags are only true when the
- * corresponding host check actually passed — never speculated.
- */
-export function evidenceFromPythonProbeChecks(
-  checks: PythonRuntimeProbeChecks,
-  ledgerIds: string[] = [],
-): AdapterEvidence {
-  const discovered = Boolean(checks.pythonBinary && checks.pythonVersion);
-  const installVerified =
-    discovered &&
-    checks.pipAvailable &&
-    checks.venvSupported &&
-    checks.venvCreated &&
-    checks.pipInstallVerified;
-  const compileOrBuildVerified = installVerified && checks.fixtureCompiled;
-  const runtimeVerified =
-    compileOrBuildVerified &&
-    checks.fixtureExecuted &&
