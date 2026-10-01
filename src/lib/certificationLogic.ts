@@ -1,5 +1,9 @@
 import type { ProductContract, ProductType } from "./productContract.js";
 import { getStackAdapter } from "./stackAdapters.js";
+import {
+  resolveStackDependencyGraph,
+  type StackDependencyGraph,
+} from "./stackDependencyResolver.js";
 
 export const CERTIFICATION_STATUSES = [
   "structured",
@@ -41,7 +45,8 @@ export type CertificationRequirement =
   | "health"
   | "monetization"
   | "operations"
-  | "recovery";
+  | "recovery"
+  | "adapter_dependencies";
 
 export type CertificationDecision = {
   status: CertificationStatus;
@@ -51,6 +56,7 @@ export type CertificationDecision = {
   verificationMode: "browser" | "health" | "native";
   monetizationRequired: boolean;
   missingEvidence: CertificationRequirement[];
+  dependencyGraph: StackDependencyGraph;
 };
 
 const BROWSER_PRODUCT_TYPES = new Set<ProductType>([
@@ -80,6 +86,7 @@ function verificationModeFor(
 function missingForProduction(
   contract: ProductContract,
   evidence: CertificationEvidence,
+  dependencyGraph: StackDependencyGraph,
 ): CertificationRequirement[] {
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const verificationMode = verificationModeFor(contract);
@@ -112,18 +119,34 @@ function missingForProduction(
     if (!missing.includes("deployment")) missing.push("deployment");
   }
 
+  if (!dependencyGraph.productionEligible) {
+    missing.push("adapter_dependencies");
+  }
+
   return missing;
 }
 
 export function evaluateCertification(input: {
   productContract: ProductContract;
   evidence: CertificationEvidence;
+  /** Pass a precomputed graph to avoid re-resolving it; otherwise it is resolved here. */
+  dependencyGraph?: StackDependencyGraph;
 }): CertificationDecision {
   const { productContract: contract, evidence } = input;
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const verificationMode = verificationModeFor(contract);
   const monetizationRequired = monetizationRequested(contract);
-  const missingEvidence = missingForProduction(contract, evidence);
+  const dependencyGraph =
+    input.dependencyGraph ??
+    resolveStackDependencyGraph(
+      contract.selectedTechnologyStack,
+      contract.productType,
+    );
+  const missingEvidence = missingForProduction(
+    contract,
+    evidence,
+    dependencyGraph,
+  );
 
   let status: CertificationStatus = "structured";
   if (evidence.artifactPresent && evidence.generatedFileCount > 0) {
@@ -167,7 +190,8 @@ export function evaluateCertification(input: {
     evidence.behavioralTestsVerified &&
     evidence.runtimeVerified &&
     evidence.securityVerified &&
-    evidence.recoveryVerified;
+    evidence.recoveryVerified &&
+    dependencyGraph.allowed;
 
   const productionCertified =
     productionCandidate && missingEvidence.length === 0;
@@ -186,6 +210,7 @@ export function evaluateCertification(input: {
     verificationMode,
     monetizationRequired,
     missingEvidence,
+    dependencyGraph,
   };
 }
 

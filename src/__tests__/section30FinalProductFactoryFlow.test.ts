@@ -5,6 +5,7 @@ import {
   FINAL_PRODUCT_FACTORY_STEPS,
 } from "../lib/finalProductFactoryFlow.js";
 import type { CertificationDecision } from "../lib/certificationLogic.js";
+import { resolveStackDependencyGraph } from "../lib/stackDependencyResolver.js";
 
 const certifiedDecision: CertificationDecision = {
   status: "production-certified",
@@ -14,6 +15,7 @@ const certifiedDecision: CertificationDecision = {
   verificationMode: "browser",
   monetizationRequired: false,
   missingEvidence: [],
+  dependencyGraph: resolveStackDependencyGraph("react-node", "website"),
 };
 
 describe("#30 Final Product-Factory Flow", () => {
