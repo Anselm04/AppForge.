@@ -47,6 +47,12 @@ import {
   type CertificationDecision,
 } from "../lib/certificationLogic.js";
 import {
+  blockedDependencyNodes,
+  buildDependencyEvidence,
+  resolveStackDependencyGraph,
+  type StackDependencyGraph,
+} from "../lib/stackDependencyResolver.js";
+import {
   evaluateFinalProductFactoryFlow,
   type FinalProductFactoryFlowReport,
 } from "../lib/finalProductFactoryFlow.js";
@@ -224,6 +230,52 @@ export class BuildContractError extends Error {
 
 export const BUILD_CONTRACT_INVALID_MESSAGE =
   "This build was stopped before it started because its product contract was missing or invalid. Any reserved credits were refunded. Please create the project again.";
+
+/**
+ * Thrown by the pre-build dependency gate when `resolveStackDependencyGraph`
+ * reports `allowed === false` for the selected stack. This stops the build
+ * before the agent pipeline and isolated runner ever start — it is never
+ * thrown for `productionEligible === false` alone, which is allowed to
+ * proceed to its honest capability ceiling and is instead enforced later by
+ * `certificationLogic.ts`.
+ */
+export class BuildDependencyBlockedError extends Error {
+  constructor(public readonly graph: StackDependencyGraph) {
+    super(describeBlockedDependencyGraph(graph));
+    this.name = "BuildDependencyBlockedError";
+  }
+}
+
+function describeBlockedDependencyGraph(graph: StackDependencyGraph): string {
+  const blocked = blockedDependencyNodes(graph);
+  const detail = blocked
+    .map(
+      (node) =>
+        `${node.adapterId} is currently "${node.resolvedState ?? "unknown"}" (${node.status}) but this build path requires at least "${node.minimumCapabilityLevel}"`,
+    )
+    .join("; ");
+  return `Build blocked before execution: ${detail || "a required external technology adapter is unavailable"}.`;
+}
+
+/** Public, UI-safe reason for a pre-build dependency refusal (no stack traces). */
+export function buildDependencyBlockedReason(graph: StackDependencyGraph) {
+  return {
+    error: "build_dependency_blocked" as const,
+    message: describeBlockedDependencyGraph(graph),
+    stack: graph.stackId,
+    productType: graph.productType,
+    blockedDependencies: blockedDependencyNodes(graph).map((node) => ({
+      adapterId: node.adapterId,
+      purpose: node.purpose,
+      status: node.status,
+      requiredCapability: node.minimumCapabilityLevel,
+      currentCapability: node.resolvedState,
+      resolvedVersion: node.resolvedVersion,
+      runnerAvailable: node.runnerAvailable,
+      message: node.message,
+    })),
+  };
+}
 
 /**
  * Settles a dequeued job that failed schema validation: refund the attempt's
@@ -412,6 +464,32 @@ export async function runBuildJob(input: unknown): Promise<void> {
       );
     }
 
+    // Pre-build dependency gate: resolve the same external-adapter graph
+    // certificationLogic.ts uses at the end of the build, but check it here
+    // too, before the isolated runner or agent pipeline spend any resources.
+    // Only `allowed === false` stops the build; `productionEligible === false`
+    // is allowed to proceed to its honest capability ceiling and is enforced
+    // later by certification instead (defense in depth, not duplication).
+    const dependencyGraph = resolveStackDependencyGraph(
+      techStack,
+      queuedContract.productType,
+    );
+    await recordProjectEvidence({
+      projectId,
+      kind: "dependency_resolution",
+      payload: {
+        stack: dependencyGraph.stackId,
+        productType: dependencyGraph.productType,
+        allowed: dependencyGraph.allowed,
+        productionEligible: dependencyGraph.productionEligible,
+        capabilityCeiling: dependencyGraph.capabilityCeiling,
+        dependencies: buildDependencyEvidence(dependencyGraph),
+      },
+    });
+    if (!dependencyGraph.allowed) {
+      throw new BuildDependencyBlockedError(dependencyGraph);
+    }
+
     if (project.status === "paused") {
       await resumeProject(projectId);
     }
@@ -550,6 +628,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
         );
         certificationDecision = evaluateCertification({
           productContract: queuedContract,
+          dependencyGraph,
           evidence: {
             artifactPresent: true,
             generatedFileCount: Object.keys(artifact.files).length,
@@ -638,6 +717,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
       } else {
         certificationDecision = evaluateCertification({
           productContract: queuedContract,
+          dependencyGraph,
           evidence: {
             artifactPresent: true,
             generatedFileCount: Object.keys(artifact.files).length,
@@ -777,6 +857,15 @@ export async function runBuildJob(input: unknown): Promise<void> {
         message: BUILD_CONTRACT_INVALID_MESSAGE,
       });
       await updateProjectStatus(projectId, "failed", "build_contract_invalid");
+    } else if (err instanceof BuildDependencyBlockedError) {
+      // Refused before execution, not a mid-build failure: distinct status
+      // reason and a structured, non-stack-trace explanation for the UI/API.
+      await emit(projectId, "error", buildDependencyBlockedReason(err.graph));
+      await updateProjectStatus(
+        projectId,
+        "failed",
+        "build_dependency_blocked",
+      );
     } else {
       await emit(projectId, "error", {
         error: "build_failed",

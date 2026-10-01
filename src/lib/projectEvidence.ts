@@ -12,6 +12,7 @@ export const PROJECT_EVIDENCE_KINDS = [
   "monetization",
   "certification",
   "failure",
+  "dependency_resolution",
 ] as const;
 
 export type ProjectEvidenceKind = (typeof PROJECT_EVIDENCE_KINDS)[number];

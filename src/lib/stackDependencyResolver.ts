@@ -237,3 +237,25 @@ export function buildDependencyEvidence(
     status: node.status,
   }));
 }
+
+/** The dependency nodes that actually stopped `graph.allowed` from being true. */
+export function blockedDependencyNodes(
+  graph: StackDependencyGraph,
+): ResolvedDependencyNode[] {
+  return graph.dependencies.filter((node) =>
+    BLOCKING_STATUSES.has(node.status),
+  );
+}
+
+/** A human-readable, non-stack-trace explanation of why a build was refused. */
+export function describeBlockedDependencies(
+  graph: StackDependencyGraph,
+): string {
+  const blocked = blockedDependencyNodes(graph);
+  if (blocked.length === 0) {
+    return `Stack "${graph.stackId}" has no blocked external dependencies.`;
+  }
+  return blocked
+    .map((node) => `${node.adapterId} (${node.status}): ${node.message}`)
+    .join(" ");
+}
