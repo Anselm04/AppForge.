@@ -380,3 +380,103 @@ export async function probePythonRuntime(
           >;
           healthStatus =
             typeof healthPayload.status === "number"
+              ? healthPayload.status
+              : null;
+          healthBody =
+            typeof healthPayload.body === "string"
+              ? healthPayload.body.slice(0, 500)
+              : null;
+        } catch {
+          healthPayload = null;
+        }
+        checks.serviceHealthStatus = healthStatus;
+        checks.serviceHealthBody = healthBody;
+        checks.serviceHealthVerified =
+          healthRun.exitCode === 0 &&
+          healthStatus === 200 &&
+          Boolean(healthBody && healthBody.includes('"ok": true'));
+        await recordArtifact(
+          "service_health",
+          "service_health.json",
+          "stdlib service health check",
+          {
+            exitCode: healthRun.exitCode,
+            stdout: healthRun.stdout.slice(0, 2_000),
+            stderr: healthRun.stderr.slice(0, 2_000),
+            timedOut: healthRun.timedOut,
+            payload: healthPayload,
+          },
+        );
+        if (!checks.serviceHealthVerified) {
+          errors.push(
+            `service health check failed: ${(healthRun.stderr || healthRun.stdout).slice(0, 400)}`,
+          );
+        }
+      }
+    }
+
+    const ledgerIds = artifacts.map(
+      (artifact) => `python-runtime:${artifact.kind}:${artifact.path}`,
+    );
+    const evidence = evidenceFromPythonProbeChecks(checks, ledgerIds);
+    const justifiedState = highestJustifiedPythonState(evidence);
+    await recordArtifact(
+      "summary",
+      "summary.json",
+      "python-runtime probe summary",
+      {
+        checkedAt,
+        justifiedState,
+        evidence,
+        checks,
+        errors,
+      },
+    );
+
+    return {
+      ok: errors.length === 0 && justifiedState !== "unsupported",
+      checkedAt,
+      workspaceDir,
+      checks,
+      evidence,
+      justifiedState,
+      artifacts,
+      errors,
+    };
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+    const evidence = evidenceFromPythonProbeChecks(checks);
+    return {
+      ok: false,
+      checkedAt,
+      workspaceDir,
+      checks,
+      evidence,
+      justifiedState: highestJustifiedPythonState(evidence),
+      artifacts,
+      errors,
+    };
+  } finally {
+    if (workspaceDir && !options.keepWorkspace) {
+      await rm(workspaceDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Convenience helper: re-read a summary artifact if a caller kept the
+ * workspace. Returns null when the file is missing.
+ */
+export async function readPythonProbeSummary(
+  workspaceDir: string,
+): Promise<unknown | null> {
+  try {
+    const raw = await readFile(
+      join(workspaceDir, "evidence", "summary.json"),
+      "utf8",
+    );
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
