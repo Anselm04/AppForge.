@@ -73,7 +73,7 @@
     "react-router-dom": "7.18.3",
     "redis": "^5.0.0",
     "signal-exit": "^4.1.0",
-    "stripe": "^14.0.0",
+    "stripe": "^22.6.2",
     "superjson": "^2.2.0",
     "zod": "^3.22.4"
   },
