@@ -64,14 +64,19 @@ export const COMPILER_RUNTIMES: TechnologyAdapterDescriptor[] = [
       kind: "none",
       credentialIsolation: "not_applicable",
     },
+    // Commands use the venv interpreter the probe verifies. POSIX paths shown;
+    // on Windows substitute `.venv\\Scripts\\python.exe` for `.venv/bin/python`.
     commands: {
-      install: ["python -m venv .venv", "pip install -r requirements.txt"],
-      build: "python -m compileall app",
-      test: "pytest",
-      runtime: "python -m app.main",
+      install: [
+        "python -m venv .venv",
+        ".venv/bin/python -m pip install -r requirements.txt",
+      ],
+      build: ".venv/bin/python -m compileall app",
+      test: ".venv/bin/python -m unittest discover -s tests -v",
+      runtime: ".venv/bin/python -m app.main",
       packaging: null,
       deploy: null,
-      healthCheck: "python --version",
+      healthCheck: ".venv/bin/python --version",
     },
     capabilityTests: [
       "python_detect",
