@@ -1,3 +1,4 @@
+import { spawnSync } from "child_process";
 import { describe, expect, it } from "vitest";
 import {
   evidenceFromPythonProbeChecks,
@@ -6,10 +7,7 @@ import {
   readPythonProbeSummary,
   type PythonRuntimeProbeChecks,
 } from "../pythonRuntimeProbe.js";
-import {
-  evaluateAdapterPromotion,
-  stateRank,
-} from "../adapterSdk.js";
+import { evaluateAdapterPromotion, stateRank } from "../adapterSdk.js";
 import { getExternalTechnologyAdapter } from "../externalTechnologyAdapters.js";
 import { resolveStackDependencyGraph } from "../stackDependencyResolver.js";
 
@@ -40,7 +38,11 @@ function baseChecks(
 describe("pythonRuntimeProbe evidence mapping", () => {
   it("does not claim installVerified without pip+venv+install", () => {
     const evidence = evidenceFromPythonProbeChecks(
-      baseChecks({ pipAvailable: false, venvCreated: false, pipInstallVerified: false }),
+      baseChecks({
+        pipAvailable: false,
+        venvCreated: false,
+        pipInstallVerified: false,
+      }),
     );
     expect(evidence.discovered).toBe(true);
     expect(evidence.installVerified).toBe(false);
@@ -52,7 +54,11 @@ describe("pythonRuntimeProbe evidence mapping", () => {
     expect(evidence.runtimeVerified).toBe(true);
     expect(evidence.testsVerified).toBe(true);
     expect(highestJustifiedPythonState(evidence)).toBe("runnable");
-    const promotion = evaluateAdapterPromotion("discovered", "runnable", evidence);
+    const promotion = evaluateAdapterPromotion(
+      "discovered",
+      "runnable",
+      evidence,
+    );
     expect(promotion.ok).toBe(true);
   });
 
@@ -66,8 +72,30 @@ describe("pythonRuntimeProbe evidence mapping", () => {
   });
 });
 
+/** True when the host can run the real python/pip/venv probe (or env forces skip). */
+function hostPythonProbeAvailable(): boolean {
+  if (process.env.SKIP_PYTHON_RUNTIME_HOST_PROBE === "1") return false;
+  for (const bin of ["python3", "python"] as const) {
+    const py = spawnSync(bin, ["-c", "import sys; print(sys.executable)"], {
+      encoding: "utf8",
+      timeout: 8_000,
+    });
+    if (py.status !== 0) continue;
+    const pip = spawnSync(bin, ["-m", "pip", "--version"], {
+      encoding: "utf8",
+      timeout: 15_000,
+    });
+    const venv = spawnSync(bin, ["-m", "venv", "--help"], {
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    if (pip.status === 0 && venv.status === 0) return true;
+  }
+  return false;
+}
+
 describe("pythonRuntimeProbe against the host", () => {
-  it(
+  it.skipIf(!hostPythonProbeAvailable())(
     "detects python/pip/venv, runs fixture+unittest, and health-checks a service",
     async () => {
       const result = await probePythonRuntime({ keepWorkspace: true });
