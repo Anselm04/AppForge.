@@ -21,6 +21,25 @@ import {
   capabilitySummary,
   appforgeExclusiveCount,
 } from "../lib/platformComparison.js";
+import {
+  EXTERNAL_TECHNOLOGY_ADAPTERS,
+  listAdaptersByCategory,
+} from "../lib/externalTechnologyAdapters.js";
+import { computeLifecycleAlerts } from "../lib/adapterLifecycle.js";
+import type { AdapterCategory } from "../lib/adapterSdk.js";
+
+const ADAPTER_CATEGORIES: AdapterCategory[] = [
+  "game_engine",
+  "mobile_toolchain",
+  "desktop_toolchain",
+  "content_tool",
+  "database",
+  "cloud_platform",
+  "compiler_runtime",
+  "ai_provider",
+  "deployment_target",
+  "hardware_toolchain",
+];
 
 export const capabilitiesRouter = router({
   list: protectedProcedure.query(() => {
@@ -41,6 +60,41 @@ export const capabilitiesRouter = router({
     capabilities: capabilitySummary(),
     exclusiveFeatureCount: appforgeExclusiveCount(),
   })),
+
+  /**
+   * "Can AppForge build X?" must answer with real, truthful capability
+   * states — never implying support merely because an adapter exists.
+   */
+  technologyRegistry: protectedProcedure
+    .input(
+      z
+        .object({
+          category: z
+            .enum(ADAPTER_CATEGORIES as [AdapterCategory, ...AdapterCategory[]])
+            .optional(),
+        })
+        .optional(),
+    )
+    .query(({ input }) => {
+      const adapters = input?.category
+        ? listAdaptersByCategory(input.category)
+        : EXTERNAL_TECHNOLOGY_ADAPTERS;
+      return adapters.map((adapter) => ({
+        id: adapter.id,
+        label: adapter.label,
+        category: adapter.category,
+        state: adapter.state,
+        lifecycleStatus: adapter.lifecycleStatus,
+        latestCompatibleStableVersion: adapter.latestCompatibleStableVersion,
+        supportedVersions: adapter.supportedVersions,
+        quarantined: adapter.quarantine?.quarantined ?? false,
+        lastVerifiedAt: adapter.lastVerifiedAt,
+      }));
+    }),
+
+  adapterLifecycleAlerts: protectedProcedure.query(() => {
+    return computeLifecycleAlerts(EXTERNAL_TECHNOLOGY_ADAPTERS);
+  }),
 
   webSearch: protectedProcedure
     .input(
