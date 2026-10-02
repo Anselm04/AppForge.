@@ -66,7 +66,7 @@ describe("Supabase server authentication boundary", () => {
 
   it("derives AppForge identity from the verified Supabase user", () => {
     expect(middleware).toContain("const supabaseUid = authUser.id");
-    expect(middleware).toContain("await upsertUserFromAuth({");
+    expect(middleware).toContain("await linkUserFromAuth(db, {");
     expect(middleware).toContain("openId: supabaseUid");
     expect(middleware).toContain("req.user = {");
   });

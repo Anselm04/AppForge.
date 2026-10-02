@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const dbSource = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
+const dbSource = readFileSync(
+  resolve(process.cwd(), "src/db/linkUserFromAuth.ts"),
+  "utf8",
+);
 const middleware = readFileSync(
   resolve(process.cwd(), "src/middleware/supabaseAuth.ts"),
   "utf8",
@@ -24,9 +27,10 @@ const clientAuth = readFileSync(
 
 describe("auth/session dogfood continuity", () => {
   it("links existing users by email when openId is new", () => {
-    expect(dbSource).toContain("upsertUserFromAuth");
+    expect(dbSource).toContain("linkUserFromAuth");
     expect(dbSource).toContain("where: eq(schema.users.email, email)");
     expect(dbSource).toMatch(/byEmail/);
+    expect(middleware).toContain('await import("../db/linkUserFromAuth.js")');
   });
 
   it("returns 200 on session sync and 500 on upsert failure", () => {
