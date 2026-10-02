@@ -61,6 +61,7 @@ describe("Supabase server authentication boundary", () => {
       'secure: process.env.NODE_ENV === "production"',
     );
     expect(middleware).toContain('res.setHeader("Cache-Control", "no-store")');
+    expect(middleware).toContain("supabase_auth_session_cookies_set");
   });
 
   it("derives AppForge identity from the verified Supabase user", () => {
