@@ -94,11 +94,13 @@ describe("stack dependency graph resolution against the real registry", () => {
     expect(graph.capabilityCeiling).toBe("verified");
   });
 
-  it("allows but does not production-certify a stack whose dependency is only discovered", () => {
+  it("allows but does not production-certify a stack whose dependency is runnable but not verified", () => {
     const graph = resolveStackDependencyGraph("python-service");
     expect(graph.allowed).toBe(true);
     expect(graph.productionEligible).toBe(false);
-    expect(graph.dependencies[0].resolvedState).toBe("discovered");
+    expect(graph.dependencies[0].resolvedState).toBe("runnable");
+    expect(graph.capabilityCeiling).toBe("runnable");
+    expect(graph.dependencies[0].runnerAvailable).toBe(true);
   });
 
   it("has no dependency for stacks with no external technology requirement", () => {

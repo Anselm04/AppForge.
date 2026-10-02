@@ -1,0 +1,107 @@
+import type { TechnologyAdapterDescriptor } from "./adapterSdk.js";
+import { adapter } from "./externalTechnologyAdapterHelpers.js";
+
+export const DATABASES: TechnologyAdapterDescriptor[] = [
+  adapter({
+    id: "postgresql",
+    label: "PostgreSQL",
+    category: "database",
+    supportedVersions: ["15", "16", "17"],
+    latestCompatibleStableVersion: "17",
+    supportedPlatforms: ["linux", "windows", "macos"],
+    supportedArchitectures: ["x86_64", "arm64"],
+    installation: {
+      method: "managed Postgres provider or Docker image",
+      requiresProvisioning: true,
+      requiredToolchain: ["psql client", "drizzle-kit"],
+    },
+    authentication: {
+      required: true,
+      kind: "api_key",
+      credentialIsolation: "scoped_secret",
+    },
+    commands: {
+      install: ["docker run postgres:17-alpine"],
+      build: "drizzle-kit generate",
+      test: "drizzle-kit check",
+      runtime: null,
+      packaging: null,
+      deploy: "drizzle-kit push",
+      healthCheck: "pg_isready",
+    },
+    capabilityTests: [
+      "connection_check",
+      "migration_apply",
+      "migration_rollback",
+    ],
+    securityChecks: ["tls_enforced", "least_privilege_role"],
+    // AppForge already connects to and migrates a real Postgres database.
+    state: "runnable",
+    evidence: {
+      discovered: true,
+      installVerified: true,
+      compileOrBuildVerified: true,
+      runtimeVerified: true,
+    },
+  }),
+  adapter({
+    id: "mysql",
+    label: "MySQL",
+    category: "database",
+    supportedVersions: ["8.0", "8.4"],
+    latestCompatibleStableVersion: "8.4",
+    supportedPlatforms: ["linux", "windows", "macos"],
+    supportedArchitectures: ["x86_64", "arm64"],
+    installation: {
+      method: "managed MySQL provider or Docker image",
+      requiresProvisioning: true,
+      requiredToolchain: ["mysql client"],
+    },
+    authentication: {
+      required: true,
+      kind: "api_key",
+      credentialIsolation: "scoped_secret",
+    },
+    commands: {
+      install: ["docker run mysql:8.4"],
+      build: null,
+      test: null,
+      runtime: null,
+      packaging: null,
+      deploy: null,
+      healthCheck: "mysqladmin ping",
+    },
+    capabilityTests: ["connection_check"],
+    securityChecks: ["tls_enforced", "least_privilege_role"],
+  }),
+  adapter({
+    id: "mongodb",
+    label: "MongoDB",
+    category: "database",
+    supportedVersions: ["7.0", "8.0"],
+    latestCompatibleStableVersion: "8.0",
+    supportedPlatforms: ["linux", "windows", "macos"],
+    supportedArchitectures: ["x86_64", "arm64"],
+    installation: {
+      method: "managed Atlas cluster or Docker image",
+      requiresProvisioning: true,
+      requiredToolchain: ["mongosh"],
+    },
+    authentication: {
+      required: true,
+      kind: "api_key",
+      credentialIsolation: "scoped_secret",
+    },
+    commands: {
+      install: ["docker run mongo:8.0"],
+      build: null,
+      test: null,
+      runtime: null,
+      packaging: null,
+      deploy: null,
+      healthCheck: "mongosh --eval db.adminCommand('ping')",
+    },
+    capabilityTests: ["connection_check"],
+    securityChecks: ["tls_enforced", "least_privilege_role"],
+  }),
+];

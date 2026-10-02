@@ -134,7 +134,7 @@ export const STACK_EXTERNAL_DEPENDENCIES: Record<
     {
       adapterId: "python-runtime",
       versionConstraint: "any",
-      minimumCapabilityLevel: "discovered",
+      minimumCapabilityLevel: "runnable",
       purpose: "runtime",
     },
   ],
@@ -150,7 +150,7 @@ export const STACK_EXTERNAL_DEPENDENCIES: Record<
     {
       adapterId: "python-runtime",
       versionConstraint: "any",
-      minimumCapabilityLevel: "discovered",
+      minimumCapabilityLevel: "runnable",
       purpose: "runtime",
     },
   ],
