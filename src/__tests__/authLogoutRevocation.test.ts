@@ -68,12 +68,13 @@ describe("logout session revocation", () => {
 
   it("keeps refresh credentials out of browser-managed session storage", () => {
     expect(auth).toContain('const USER_KEY = "appforge.user"');
-    expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
+    expect(auth).toContain('const ACCESS_TOKEN_KEY = "appforge.access-token"');
+    expect(auth).toContain("sessionStorage");
     expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).not.toContain("refreshToken?: string;");
   });
 
-  it("drops an expired access token and falls back to the HttpOnly cookie session", () => {
+  it("falls back to GET /api/auth/me when the SPA bearer is missing or expired", () => {
     const ensureStart = auth.indexOf(
       "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
     );
@@ -84,10 +85,12 @@ describe("logout session revocation", () => {
     const ensureSource = auth.slice(ensureStart, signUpStart);
 
     expect(ensureSource).toContain(
-      "if (!session.accessToken || accessTokenExpired(session.accessToken))",
+      "if (session?.accessToken && !accessTokenExpired(session.accessToken))",
     );
-    expect(ensureSource).toContain("return refreshSession()");
-    expect(ensureSource).not.toContain("return session.accessToken");
+    expect(ensureSource).toContain("const hydrated = await refreshSession()");
+    expect(ensureSource).toContain("return hydrated");
+    expect(auth).toContain('fetch("/api/auth/me"');
+    expect(ensureSource).not.toContain("clearStoredAccessToken()");
   });
 
   it("does not expose raw Supabase 5xx responses to the UI", () => {
