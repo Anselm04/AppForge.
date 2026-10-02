@@ -87,12 +87,12 @@ describe("critical customer flow contract", () => {
     expect(auth).not.toContain("refreshToken?: string;");
     expect(auth).toContain("export async function refreshSession");
     expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
-    expect(auth).toContain(
-      "const refreshed = await refreshServerCookieSession()",
-    );
+    expect(auth).toContain('fetch("/api/auth/me"');
+    expect(auth).toContain("NEVER strip the bearer before the probe");
+    expect(auth).not.toContain("refreshServerCookieSession");
     expect(auth).toContain("clearStoredUser();");
     expect(auth).toContain("export async function ensureFreshSession");
-    expect(auth).toContain("return refreshSession();");
+    expect(auth).toContain("const hydrated = await refreshSession();");
     expect(auth).not.toContain("localStorage?.setItem(SESSION_KEY");
   });
 
