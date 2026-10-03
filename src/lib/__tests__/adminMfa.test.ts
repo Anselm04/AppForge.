@@ -94,20 +94,25 @@ describe("admin MFA session binding", () => {
     }
   });
 
-  it("expires the admin MFA session after its short lifetime", () => {
-    const req = request();
-    const { res, cookies } = responseCapture();
-    setAdminMfaCookie(req, res, 42);
-    req.cookies = { [cookies[0].name]: cookies[0].value };
+  it("expires the admin MFA session after its short lifetime ten times", () => {
+    for (let cycle = 1; cycle <= 10; cycle += 1) {
+      const req = request(`expiring-session-${cycle}`);
+      const { res, cookies } = responseCapture();
+      setAdminMfaCookie(req, res, 42);
+      req.cookies = { [cookies[0].name]: cookies[0].value };
 
-    vi.advanceTimersByTime(16 * 60 * 1000);
-    expect(hasValidAdminMfa(req, 42)).toBe(false);
+      vi.advanceTimersByTime(16 * 60 * 1000);
+      expect(hasValidAdminMfa(req, 42)).toBe(false);
+      vi.setSystemTime(new Date("2026-10-04T00:00:00Z"));
+    }
   });
 
-  it("clears the dedicated MFA cookie on sign out", () => {
-    const { res, cleared } = responseCapture();
-    clearAdminMfaCookie(res);
-    expect(cleared).toHaveLength(1);
-    expect(cleared[0].name).toBe("appforge_admin_mfa");
+  it("clears the dedicated MFA cookie on sign out ten times", () => {
+    for (let cycle = 1; cycle <= 10; cycle += 1) {
+      const { res, cleared } = responseCapture();
+      clearAdminMfaCookie(res);
+      expect(cleared).toHaveLength(1);
+      expect(cleared[0].name).toBe("appforge_admin_mfa");
+    }
   });
 });
