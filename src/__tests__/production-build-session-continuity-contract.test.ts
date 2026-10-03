@@ -6,9 +6,7 @@ function source(relativePath: string): string {
 }
 
 describe("production build/session continuity release contract", () => {
-  it(
-    "requires ten reauthentication cycles on the same active build and a second independent build",
-    () => {
+  it("requires ten reauthentication cycles on the same active build and a second independent build", () => {
       const canary = source("../../scripts/production-customer-canary.mjs");
       const workflow = source(
         "../../.github/workflows/production-full-customer-journey.yml",
@@ -35,6 +33,5 @@ describe("production build/session continuity release contract", () => {
         "secondary independent production build is interactive and isolated",
       );
       expect(browser).toContain("Secondary Canary Button");
-    },
-  );
+  });
 });
