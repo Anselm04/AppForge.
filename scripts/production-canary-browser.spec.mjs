@@ -45,3 +45,26 @@ test("edited redeploy preserves working interaction", async ({ page }) => {
     "Increment Canary Counter",
   ]);
 });
+
+
+test("secondary independent production build is interactive and isolated", async ({ page }) => {
+  expect(certification.secondaryIndependentBuildVerified).toBe(true);
+  expect(certification.secondaryBuild?.liveUrl).toMatch(/^https:\/\//);
+
+  await page.goto(certification.secondaryBuild.liveUrl, {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByText("AppForge Secondary Canary", { exact: false }).first(),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByText("Second independent build verified", { exact: false }).first(),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole("button", {
+      name: "Secondary Canary Button",
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 20_000 });
+});

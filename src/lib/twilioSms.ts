@@ -4,7 +4,9 @@ import { ENV } from "../_core/env.js";
 let verifyCustomCodesEnabled = false;
 
 function twilioAuthorization(): string {
-  return `Basic ${Buffer.from(`${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`).toString("base64")}`;
+  return `Basic ${Buffer.from(
+    `${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`,
+  ).toString("base64")}`;
 }
 
 function extractOtp(body: string): string {
@@ -43,7 +45,9 @@ async function sendVerifySms(to: string, body: string): Promise<void> {
   await ensureVerifyCustomCodesEnabled();
 
   const res = await fetch(
-    `https://verify.twilio.com/v2/Services/${encodeURIComponent(ENV.twilioVerifyServiceSid)}/Verifications`,
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/Verifications`,
     {
       method: "POST",
       headers: {
@@ -61,6 +65,77 @@ async function sendVerifySms(to: string, body: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`Twilio Verify delivery failed (${res.status})`);
   }
+}
+
+export function isTwilioVerifyConfigured(): boolean {
+  return !!(
+    ENV.twilioAccountSid &&
+    ENV.twilioAuthToken &&
+    ENV.twilioVerifyServiceSid
+  );
+}
+
+export async function requestTwilioVerification(to: string): Promise<void> {
+  if (!isTwilioVerifyConfigured()) {
+    throw new Error("Twilio Verify is not configured on this server.");
+  }
+
+  const res = await fetch(
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/Verifications`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: twilioAuthorization(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: to,
+        Channel: "sms",
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(`Twilio Verify delivery failed (${res.status})`);
+  }
+}
+
+export async function checkTwilioVerification(
+  to: string,
+  code: string,
+): Promise<boolean> {
+  if (!isTwilioVerifyConfigured()) {
+    throw new Error("Twilio Verify is not configured on this server.");
+  }
+
+  const res = await fetch(
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/VerificationCheck`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: twilioAuthorization(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: to,
+        Code: code,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    if (res.status === 404 || res.status === 400) return false;
+    throw new Error(`Twilio Verify check failed (${res.status})`);
+  }
+
+  const body = (await res.json().catch(() => null)) as {
+    status?: string;
+  } | null;
+  return body?.status === "approved";
 }
 
 export function isTwilioConfigured(): boolean {

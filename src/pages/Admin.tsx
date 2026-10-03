@@ -12,15 +12,46 @@ export function Admin() {
   const [minted, setMinted] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [evidenceProjectId, setEvidenceProjectId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [challengeSent, setChallengeSent] = useState(false);
+
+  const {
+    data: mfaStatus,
+    isError: mfaStatusError,
+    isLoading: mfaStatusLoading,
+    refetch: refetchMfaStatus,
+  } = useQuery({
+    queryKey: ["admin", "mfaStatus"],
+    queryFn: () => trpc.admin.mfaStatus.query(),
+    retry: false,
+  });
+
+  const requestMfa = useMutation({
+    mutationFn: () => trpc.admin.requestMfa.mutate(),
+    onSuccess: () => {
+      setChallengeSent(true);
+      setMfaCode("");
+    },
+  });
+
+  const verifyMfa = useMutation({
+    mutationFn: () => trpc.admin.verifyMfa.mutate({ code: mfaCode.trim() }),
+    onSuccess: async () => {
+      setMfaCode("");
+      await refetchMfaStatus();
+      await queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+  });
 
   const {
     data: me,
-    isError,
-    isLoading,
+    isError: meError,
+    isLoading: meLoading,
   } = useQuery({
     queryKey: ["admin", "me"],
     queryFn: () => trpc.admin.me.query(),
     retry: false,
+    enabled: mfaStatus?.verified === true,
   });
 
   const { data: analytics } = useQuery({
@@ -92,17 +123,96 @@ export function Admin() {
     },
   });
 
-  if (isError) {
+  if (mfaStatusError || meError) {
     return (
       <div className="min-h-screen p-8 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-        <p>This dashboard is owner-only.</p>
+        <p>This dashboard requires the authenticated owner account.</p>
       </div>
     );
   }
 
-  if (isLoading || !me) {
-    return <div className="min-h-screen p-8">Loading...</div>;
+  if (mfaStatusLoading) {
+    return <div className="min-h-screen p-8">Checking admin security…</div>;
+  }
+
+  if (!mfaStatus?.verified) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white p-8">
+        <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow dark:bg-slate-800">
+          <h1 className="text-2xl font-bold mb-2">
+            Admin verification required
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+            A one-time SMS code must be verified before any admin data or
+            controls are available.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => requestMfa.mutate()}
+            disabled={requestMfa.isPending}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+          >
+            {requestMfa.isPending
+              ? "Sending…"
+              : challengeSent
+                ? `Send another code to ${
+                    mfaStatus?.phoneHint || "your registered phone"
+                  }`
+                : `Send SMS code to ${
+                    mfaStatus?.phoneHint || "your registered phone"
+                  }`}
+          </button>
+
+          {requestMfa.isError && (
+            <p className="mt-3 text-sm text-red-600">
+              Unable to send the admin verification code.
+            </p>
+          )}
+
+          <label className="mt-5 block text-sm font-semibold">
+            Six-digit code
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={mfaCode}
+              onChange={(event) =>
+                setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 tracking-[0.35em] dark:border-slate-600 dark:bg-slate-700"
+              aria-label="Admin SMS code"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => verifyMfa.mutate()}
+            disabled={mfaCode.length !== 6 || verifyMfa.isPending}
+            className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+          >
+            {verifyMfa.isPending ? "Verifying…" : "Verify and enter admin"}
+          </button>
+
+          {verifyMfa.isError && (
+            <p className="mt-3 text-sm text-red-600">
+              That code was not accepted. Admin access remains locked.
+            </p>
+          )}
+
+          <p className="mt-5 text-xs text-slate-500">
+            If you receive an AppForge admin code you did not request, treat it
+            as a security warning and secure your account.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (meLoading || !me) {
+    return <div className="min-h-screen p-8">Loading secure admin…</div>;
   }
 
   return (

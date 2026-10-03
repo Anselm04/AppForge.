@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Context } from "./context.js";
 import { isOwnerEmail } from "../lib/owner.js";
+import { hasValidAdminMfa } from "../lib/adminMfa.js";
 
 const t = initTRPC.context<Context>().create();
 
@@ -22,7 +23,7 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
   });
 });
 
-export const ownerOnlyProcedure = t.procedure.use(async (opts) => {
+export const ownerAuthenticatedProcedure = t.procedure.use(async (opts) => {
   const user = opts.ctx.user;
   if (!user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
@@ -32,3 +33,16 @@ export const ownerOnlyProcedure = t.procedure.use(async (opts) => {
   }
   return opts.next({ ctx: { ...opts.ctx, user } });
 });
+
+export const ownerOnlyProcedure = ownerAuthenticatedProcedure.use(
+  async (opts) => {
+    const user = opts.ctx.user;
+    if (!hasValidAdminMfa(opts.ctx.req, user.id)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Admin SMS verification required",
+      });
+    }
+    return opts.next({ ctx: { ...opts.ctx, user } });
+  },
+);

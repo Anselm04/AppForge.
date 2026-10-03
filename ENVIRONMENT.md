@@ -48,7 +48,10 @@ If the app fails to start, run `npm run validate-env -- --strict` and compare wi
 | `BUILT_IN_FORGE_API_URL`                              | OpenAI-compatible base URL    |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`          | Billing                       |
 | `STRIPE_*_PRICE_ID` / payment links                   | Subscription tiers            |
-| `OWNER_EMAIL`                                         | Admin lock                    |
+| `OWNER_EMAIL`                                         | Owner identity lock           |
+| `OWNER_PHONE`                                         | Fixed owner SMS MFA target    |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`             | Twilio Verify authentication  |
+| `TWILIO_VERIFY_SERVICE_SID`                            | Owner admin MFA service       |
 | `CORS_ORIGIN`, `APP_URL`                              | Production URLs               |
 
 ---
@@ -62,14 +65,22 @@ When `HCAPTCHA_SECRET` is set, `projects.create` requires a valid captcha token.
 - Server: `HCAPTCHA_SECRET`
 - Client: `VITE_HCAPTCHA_SITE_KEY` or runtime `/config.js` → `hcaptchaSiteKey`
 
-### SMS god-code redeem
+### Owner admin SMS MFA
 
-When Twilio vars are set, redeeming a god code requires OTP to `OWNER_PHONE`.
+Production admin access is fail-closed and requires Twilio Verify after the
+owner has already passed normal AppForge authentication.
 
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
-- `OWNER_PHONE` (E.164)
+- `OWNER_PHONE` — fixed server-side E.164 destination; never supplied by the browser.
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
 
-If Twilio is unset, redeem works without SMS (owner-only minting still applies).
+The admin MFA cookie is HttpOnly, short-lived, bound to the current primary
+AppForge access token and browser user agent, and cleared on sign-out. A new
+primary login token must complete SMS verification again. Never commit the real
+owner phone number or Twilio credentials.
+
+God-code redemption retains its separate SMS verification behavior when Twilio
+is configured.
 
 ### Sentry + self-healing
 

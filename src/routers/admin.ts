@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   router,
+  ownerAuthenticatedProcedure,
   ownerOnlyProcedure,
   protectedProcedure,
 } from "../_core/trpc.js";
@@ -20,9 +21,17 @@ import {
   generateOtp,
   hashOtp,
   isTwilioConfigured,
+  isTwilioVerifyConfigured,
+  requestTwilioVerification,
+  checkTwilioVerification,
   sendSms,
 } from "../lib/twilioSms.js";
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
+import {
+  adminMfaExpiresInSeconds,
+  hasValidAdminMfa,
+  setAdminMfaCookie,
+} from "../lib/adminMfa.js";
 import { getBuildQueueDiagnostics } from "../services/build-queue.js";
 import { checkSharedRedis } from "../middleware/rateLimiter.js";
 import {
@@ -31,6 +40,23 @@ import {
 } from "../lib/operationsObservability.js";
 
 const REDEEM_FAIL = "Unable to redeem that code.";
+const ADMIN_MFA_FAIL = "Unable to verify admin access.";
+
+function maskedOwnerPhone(): string {
+  const phone = ENV.ownerPhone.trim();
+  if (!phone) return "";
+  const suffix = phone.slice(-4);
+  return `••••${suffix}`;
+}
+
+function ensureAdminMfaConfigured(): void {
+  if (!ENV.ownerPhone.trim() || !isTwilioVerifyConfigured()) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Admin SMS verification is not configured.",
+    });
+  }
+}
 
 function legacyHash(raw: string): string {
   return createHash("sha256")
@@ -43,6 +69,92 @@ function genericRedeemFail(): never {
 }
 
 export const adminRouter = router({
+  mfaStatus: ownerAuthenticatedProcedure.query(async ({ ctx }) => {
+    ensureAdminMfaConfigured();
+    return {
+      required: true,
+      verified: hasValidAdminMfa(ctx.req, ctx.user.id),
+      phoneHint: maskedOwnerPhone(),
+      expiresInSeconds: adminMfaExpiresInSeconds(),
+    };
+  }),
+
+  requestMfa: ownerAuthenticatedProcedure.mutation(async ({ ctx }) => {
+    ensureAdminMfaConfigured();
+
+    await requestTwilioVerification(ENV.ownerPhone.trim());
+
+    await db.insert(schema.complianceRecords).values({
+      recordType: "security_incident",
+      userId: ctx.user.id,
+      details: {
+        action: "admin_mfa_requested",
+        outcome: "challenge_sent",
+      },
+      adminEmail: ctx.user.email,
+    });
+
+    logger.info({ userId: ctx.user.id }, "admin_mfa_challenge_sent");
+    return {
+      sent: true,
+      phoneHint: maskedOwnerPhone(),
+    };
+  }),
+
+  verifyMfa: ownerAuthenticatedProcedure
+    .input(z.object({ code: z.string().regex(/^\\d{6}$/) }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdminMfaConfigured();
+
+      let approved = false;
+      try {
+        approved = await checkTwilioVerification(
+          ENV.ownerPhone.trim(),
+          input.code,
+        );
+      } catch (error) {
+        logger.error({ error, userId: ctx.user.id }, "admin_mfa_check_failed");
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: ADMIN_MFA_FAIL,
+        });
+      }
+
+      if (!approved) {
+        await db.insert(schema.complianceRecords).values({
+          recordType: "security_incident",
+          userId: ctx.user.id,
+          details: {
+            action: "admin_mfa_verify",
+            outcome: "rejected",
+          },
+          adminEmail: ctx.user.email,
+        });
+        logger.warn({ userId: ctx.user.id }, "admin_mfa_rejected");
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: ADMIN_MFA_FAIL,
+        });
+      }
+
+      setAdminMfaCookie(ctx.req, ctx.res, ctx.user.id);
+      await db.insert(schema.complianceRecords).values({
+        recordType: "security_incident",
+        userId: ctx.user.id,
+        details: {
+          action: "admin_mfa_verify",
+          outcome: "approved",
+        },
+        adminEmail: ctx.user.email,
+      });
+      logger.info({ userId: ctx.user.id }, "admin_mfa_approved");
+
+      return {
+        verified: true,
+        expiresInSeconds: adminMfaExpiresInSeconds(),
+      };
+    }),
+
   me: ownerOnlyProcedure.query(async ({ ctx }) => {
     return { email: ctx.user.email, isOwner: true };
   }),

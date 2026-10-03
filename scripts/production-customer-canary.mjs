@@ -7,6 +7,8 @@ const baseUrl = (
 const email = process.env.APPFORGE_CANARY_EMAIL;
 const password = process.env.APPFORGE_CANARY_PASSWORD;
 const hcaptchaToken = process.env.APPFORGE_CANARY_HCAPTCHA_TOKEN;
+const secondaryHcaptchaToken =
+  process.env.APPFORGE_CANARY_SECONDARY_HCAPTCHA_TOKEN || "";
 const godCode = process.env.APPFORGE_CANARY_GOD_CODE || "";
 const godCodePhone = process.env.APPFORGE_CANARY_GOD_CODE_PHONE || "";
 const godCodeOtp = process.env.APPFORGE_CANARY_GOD_CODE_OTP || "";
@@ -61,6 +63,26 @@ async function supabasePasswordLogin(config) {
     );
   }
   return body;
+}
+
+async function supabaseLogout(config, accessToken) {
+  const res = await fetchWithTimeout(
+    `${String(config.supabaseUrl).replace(/\/$/, "")}/auth/v1/logout?scope=local`,
+    {
+      method: "POST",
+      headers: {
+        apikey: config.supabasePublishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  if (!res.ok && res.status !== 401) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `Real production logout failed: HTTP ${res.status} ${body}`,
+    );
+  }
 }
 
 async function supabaseRefresh(config, refreshToken) {
@@ -304,11 +326,11 @@ async function main() {
 
   console.log("[canary] real production refresh/reopen session proof");
   const refreshed = await supabaseRefresh(config, login.refresh_token);
-  const accessToken = refreshed.access_token;
+  let accessToken = refreshed.access_token;
 
   console.log("[canary] establishing AppForge CSRF/session boundary");
-  const csrf = await getCsrf();
-  const trpc = makeTrpc(accessToken, csrf);
+  let csrf = await getCsrf();
+  let trpc = makeTrpc(accessToken, csrf);
 
   let godCodeOtpVerified = false;
   if (godCode) {
@@ -359,7 +381,38 @@ async function main() {
   const projectId = created.id;
 
   console.log(
-    `[canary] waiting for real agents/build/deployment on project ${projectId}`,
+    "[canary] exercising ten logout/re-authentication cycles while the same build remains active",
+  );
+  for (let cycle = 1; cycle <= 10; cycle += 1) {
+    const before = await trpc.query("projects.get", { id: projectId });
+    if (!before || before.id !== projectId) {
+      throw new Error(
+        `Cycle ${cycle}: active project disappeared before re-authentication`,
+      );
+    }
+
+    await supabaseLogout(config, accessToken);
+    const relogin = await supabasePasswordLogin(config);
+    const reopened = await supabaseRefresh(config, relogin.refresh_token);
+    accessToken = reopened.access_token;
+    csrf = await getCsrf();
+    trpc = makeTrpc(accessToken, csrf);
+
+    const after = await trpc.query("projects.get", { id: projectId });
+    if (!after || after.id !== projectId) {
+      throw new Error(
+        `Cycle ${cycle}: re-authenticated session did not recover the same project`,
+      );
+    }
+    if (after.status === "failed" && before.status !== "failed") {
+      throw new Error(
+        `Cycle ${cycle}: build failed while customer session was interrupted`,
+      );
+    }
+  }
+
+  console.log(
+    `[canary] reconnecting after repeated auth interruption and waiting for project ${projectId}`,
   );
   const done = await openBuildStream(projectId, accessToken);
 
@@ -457,6 +510,68 @@ async function main() {
     }
   }
 
+  let secondaryBuild = null;
+  if (secondaryHcaptchaToken) {
+    console.log("[canary] creating a separate second production project after the first build");
+    const secondCreated = await trpc.mutation("projects.create", {
+      title: `Production Secondary Canary ${stamp}`,
+      description:
+        "Create a small production-ready responsive React web app with the exact visible heading 'AppForge Secondary Canary', one button labelled exactly 'Secondary Canary Button', and a visible sentence saying 'Second independent build verified'. Include at least one real Vitest test for the button. This is a separate production build used to verify a previous authenticated build does not corrupt or block a new project.",
+      techStack: "react-node",
+      hcaptchaToken: secondaryHcaptchaToken,
+      locale: "en",
+      buildCapabilities: [],
+    });
+    if (
+      !secondCreated?.id ||
+      secondCreated.id === projectId ||
+      secondCreated.status !== "running"
+    ) {
+      throw new Error(
+        `Second independent project did not start cleanly: ${JSON.stringify(secondCreated)}`,
+      );
+    }
+
+    const secondDone = await openBuildStream(secondCreated.id, accessToken);
+    if (
+      secondDone.productionReady !== true ||
+      !secondDone.liveUrl ||
+      !/^https:\/\//i.test(secondDone.liveUrl)
+    ) {
+      throw new Error(
+        `Second independent build did not become production ready: ${JSON.stringify(secondDone)}`,
+      );
+    }
+    const secondProject = await trpc.query("projects.get", {
+      id: secondCreated.id,
+    });
+    if (secondProject?.status !== "production-certified") {
+      throw new Error(
+        `Second project was not production-certified: ${JSON.stringify(secondProject)}`,
+      );
+    }
+    const secondLive = await verifyDeployedProduct(secondDone.liveUrl, {
+      requiredTexts: [
+        "AppForge Secondary Canary",
+        "Second independent build verified",
+      ],
+    });
+    const firstStillIntact = await trpc.query("projects.get", { id: projectId });
+    if (firstStillIntact?.status !== "production-certified") {
+      throw new Error(
+        "First production-certified project regressed after starting a second build",
+      );
+    }
+    secondaryBuild = {
+      projectId: secondCreated.id,
+      liveUrl: secondDone.liveUrl,
+      projectStatus: secondProject.status,
+      liveHttpStatus: secondLive.status,
+      checkedAssets: secondLive.checkedAssets,
+      customerVisibleContentVerified: secondLive.verifiedTexts,
+    };
+  }
+
   const certification = {
     ok: true,
     baseUrl,
@@ -477,6 +592,8 @@ async function main() {
     redeployCheckedAssets: redeployedLive.checkedAssets,
     editedCustomerVisibleContentVerified: redeployedLive.verifiedTexts,
     sessionRefreshVerified: true,
+    repeatedLogoutReloginCyclesVerified: 10,
+    sameBuildRecoveredAfterReauthentication: true,
     entitlementVerified: true,
     godCodeOtpVerified,
     automaticBuildStartVerified: true,
@@ -488,6 +605,8 @@ async function main() {
     authenticatedEditVerified: true,
     editPersistenceVerified: true,
     authenticatedRedeployVerified: true,
+    secondaryIndependentBuildVerified: Boolean(secondaryBuild),
+    secondaryBuild,
   };
 
   writeFileSync(

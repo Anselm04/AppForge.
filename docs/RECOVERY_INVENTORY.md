@@ -103,6 +103,10 @@ Required production secret names include:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `OWNER_EMAIL`
+- `OWNER_PHONE`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
 - At least one supported LLM-provider credential used by the runtime router, such as `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `BUILT_IN_FORGE_API_KEY`, `FORGE_API_KEY`, or `OPENAI_API_KEY`.
 
 Verification target:
@@ -575,3 +579,70 @@ Verification target:
 - A persistent startup/database/Redis failure still fails the deployment.
 - Readiness response bodies remain visible in deployment evidence for diagnosis.
 - Liveness success alone can never promote a release.
+
+
+## Gate 1 production authentication lifecycle recovery review
+
+Recovery invariant reviewed 4 October 2026:
+- The production authentication lifecycle gate is a manual release-certification workflow, not a recovery mechanism and not a substitute for Supabase authentication backups or configuration recovery.
+- The gate intentionally uses fresh real mailboxes/aliases and real production email-confirmation URLs. It must never manufacture, bypass, or persist confirmation tokens in repository history, workflow artifacts, logs, or recovery backups.
+- Authentication reliability is not accepted from a single green pass. Each confirmed test account must survive ten logout/relogin cycles, hard reload/reopen checks, ten fresh-browser-context logins, and anonymous protected-route denials.
+- The production customer-journey canary additionally re-authenticates ten times while the same build remains active, then reconnects to that same project and requires it to finish without becoming a duplicate or losing ownership/state.
+- A separate second fresh hCaptcha token is required to start an independent second production build after the first is certified. The first project must remain production-certified after the second build completes.
+- The reusable canary password remains an Actions environment secret, and confirmation URLs are transient inputs that must not be copied into recovery documentation.
+- A recovered production environment is not considered authentication/build-continuity ready for paying customers until the repeated auth and build-continuity gates pass on the recovered revision.
+- Failure of any required repetition is release-blocking evidence; recovery procedures must fix the underlying production authentication, session, queue, or persistence issue rather than weaken or skip the gate.
+
+Verification target:
+- Complete signup + real Gmail confirmation for ten independent fresh aliases/accounts.
+- For every confirmed account used in the browser certification, require ten logout/relogin cycles with anonymous state proven after each logout.
+- Require ten fresh browser-context logins plus hard reload continuity.
+- During a real production build, perform ten logout/re-authentication cycles and prove the same project ID remains accessible and continues normally.
+- Reconnect to the original build stream and require production certification.
+- Start a second independent build with a different fresh hCaptcha token, require a different project ID, and confirm both products remain production-certified and independently reachable.
+- Confirm no confirmation URL, password, access token, refresh token, mailbox credential, or hCaptcha token is committed to Git, uploaded as an artifact, or added to recovery documentation.
+
+
+## Owner admin SMS MFA recovery invariant — 4 October 2026
+
+- Owner admin APIs are not authorized by owner email alone. A valid short-lived
+  admin MFA cookie is also required.
+- The browser never chooses the SMS destination. Production uses only the
+  server-side `OWNER_PHONE` value, with Twilio Verify credentials retained in
+  the deployment secret store.
+- The admin MFA cookie is HttpOnly, Secure in production, SameSite=Strict,
+  bound to the current AppForge primary access token and browser user agent,
+  and expires after a short interval.
+- Normal sign-out clears the dedicated admin MFA cookie. A different or newly
+  issued primary access token cannot reuse an old admin MFA cookie.
+- Recovery must never restore, manufacture, or copy an admin MFA cookie as a
+  substitute for a real Twilio verification.
+- Logs, Git history, documentation, CI artifacts, and recovery backups must not
+  contain the real owner phone number, SMS code, Twilio auth token, or full
+  MFA-cookie value.
+
+Verification target:
+- After recovery, an authenticated owner without SMS MFA receives no admin data.
+- A non-owner cannot request or verify the owner admin challenge.
+- A real Twilio Verify challenge goes only to the configured owner phone.
+- Wrong, expired, missing, and reused codes do not unlock admin access.
+- A successful code creates only a short-lived session-bound admin authorization.
+- Logout, a new primary login token, expiry, or a changed browser fingerprint
+  requires SMS verification again.
+- Production deployment refuses release when any required owner-MFA secret name
+  is absent.
+
+
+### Production admin MFA certification workflow
+
+The repository includes a production browser challenge gate for owner MFA.
+Recovery and release certification must preserve this behavior:
+- the automated challenge gate authenticates the owner, reaches the locked admin
+  screen, and requests a real Twilio Verify SMS to the fixed server-side owner phone.
+- the real six-digit code is never accepted as a GitHub workflow input, secret,
+  artifact, log value, or repository value.
+- final live verification is completed only in a secure interactive browser
+  session where the owner enters the code received on the physical phone.
+- that interactive proof must confirm admin data is unavailable before MFA,
+  available after approval, remains available across a hard reload only within
+  the short MFA lifetime, and becomes locked again after logout plus a new login.

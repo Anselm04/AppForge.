@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "../_core/cookies.js";
 import { systemRouter } from "../_core/systemRouter.js";
 import { publicProcedure, router } from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
+import { clearAdminMfaCookie } from "../lib/adminMfa.js";
 import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
@@ -42,6 +43,7 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      clearAdminMfaCookie(ctx.res);
       return { success: true } as const;
     }),
   }),
