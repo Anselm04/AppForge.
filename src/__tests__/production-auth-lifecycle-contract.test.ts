@@ -7,7 +7,9 @@ function source(relativePath: string): string {
 
 describe("production auth lifecycle release gate", () => {
   it("requires real confirmation plus repeated logout/relogin and fresh-context proof", () => {
-    const workflow = source("../../.github/workflows/production-auth-lifecycle.yml");
+    const workflow = source(
+      "../../.github/workflows/production-auth-lifecycle.yml",
+    );
     const spec = source("../../scripts/production-auth-lifecycle.spec.mjs");
 
     expect(workflow).toContain("request-confirmation");
