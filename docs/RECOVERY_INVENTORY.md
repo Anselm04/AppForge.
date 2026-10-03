@@ -103,6 +103,10 @@ Required production secret names include:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `OWNER_EMAIL`
+- `OWNER_PHONE`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
 - At least one supported LLM-provider credential used by the runtime router, such as `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `BUILT_IN_FORGE_API_KEY`, `FORGE_API_KEY`, or `OPENAI_API_KEY`.
 
 Verification target:
@@ -597,3 +601,33 @@ Verification target:
 - Reconnect to the original build stream and require production certification.
 - Start a second independent build with a different fresh hCaptcha token, require a different project ID, and confirm both products remain production-certified and independently reachable.
 - Confirm no confirmation URL, password, access token, refresh token, mailbox credential, or hCaptcha token is committed to Git, uploaded as an artifact, or added to recovery documentation.
+
+
+## Owner admin SMS MFA recovery invariant — 4 October 2026
+
+- Owner admin APIs are not authorized by owner email alone. A valid short-lived
+  admin MFA cookie is also required.
+- The browser never chooses the SMS destination. Production uses only the
+  server-side `OWNER_PHONE` value, with Twilio Verify credentials retained in
+  the deployment secret store.
+- The admin MFA cookie is HttpOnly, Secure in production, SameSite=Strict,
+  bound to the current AppForge primary access token and browser user agent,
+  and expires after a short interval.
+- Normal sign-out clears the dedicated admin MFA cookie. A different or newly
+  issued primary access token cannot reuse an old admin MFA cookie.
+- Recovery must never restore, manufacture, or copy an admin MFA cookie as a
+  substitute for a real Twilio verification.
+- Logs, Git history, documentation, CI artifacts, and recovery backups must not
+  contain the real owner phone number, SMS code, Twilio auth token, or full
+  MFA-cookie value.
+
+Verification target:
+- After recovery, an authenticated owner without SMS MFA receives no admin data.
+- A non-owner cannot request or verify the owner admin challenge.
+- A real Twilio Verify challenge goes only to the configured owner phone.
+- Wrong, expired, missing, and reused codes do not unlock admin access.
+- A successful code creates only a short-lived session-bound admin authorization.
+- Logout, a new primary login token, expiry, or a changed browser fingerprint
+  requires SMS verification again.
+- Production deployment refuses release when any required owner-MFA secret name
+  is absent.
