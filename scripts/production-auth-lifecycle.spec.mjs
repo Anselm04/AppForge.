@@ -97,7 +97,7 @@ test("confirms, logs out, and relogs into the real production account", async ({
   await expect(page).toHaveURL(`${baseUrl}/account`);
 
   // Repeat logout -> anonymous boundary -> relogin two more times.
-  for (let cycle = 2; cycle <= 3; cycle += 1) {
+  for (let cycle = 2; cycle <= 10; cycle += 1) {
     const cycleLogout = page.getByRole("button", { name: /log out/i }).first();
     await expect(cycleLogout).toBeVisible({ timeout: 30_000 });
     await cycleLogout.click();
@@ -119,25 +119,31 @@ test("confirms, logs out, and relogs into the real production account", async ({
   }
 });
 
-test("confirmed account can authenticate from a completely fresh browser context", async ({ browser }) => {
+test("confirmed account can authenticate from completely fresh browser contexts ten times", async ({ browser }) => {
   test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  try {
-    await page.goto(`${baseUrl}/login?next=%2Faccount`, {
-      waitUntil: "networkidle",
-      timeout: 60_000,
-    });
-    await page.getByLabel(/email/i).fill(email);
-    await page.getByLabel(/^password/i).fill(password);
-    await page.getByRole("button", { name: /log in|sign in/i }).click();
-    await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
-    await expectLoggedIn(page);
-  } finally {
-    await context.close();
+  for (let cycle = 1; cycle <= 10; cycle += 1) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await page.goto(`${baseUrl}/login?next=%2Faccount`, {
+        waitUntil: "networkidle",
+        timeout: 60_000,
+      });
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/^password/i).fill(password);
+      await page.getByRole("button", { name: /log in|sign in/i }).click();
+      await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
+      await expectLoggedIn(page);
+
+      // Prove each fresh context can survive a hard reload and still be authenticated.
+      await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+      await expectLoggedIn(page);
+    } finally {
+      await context.close();
+    }
   }
 });
