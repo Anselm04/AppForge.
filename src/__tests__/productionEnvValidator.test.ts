@@ -9,6 +9,10 @@ const baseProductionEnv = {
   JWT_SECRET: "j".repeat(40),
   COOKIE_SECRET: "c".repeat(40),
   OWNER_EMAIL: "owner@example.com",
+  OWNER_PHONE: "+15555550123",
+  TWILIO_ACCOUNT_SID: "AC" + "a".repeat(32),
+  TWILIO_AUTH_TOKEN: "t".repeat(40),
+  TWILIO_VERIFY_SERVICE_SID: "VA" + "b".repeat(32),
   BUILT_IN_FORGE_API_KEY: "forge_" + "x".repeat(40),
   REDIS_URL: "rediss://example.invalid:6379",
   STRIPE_SECRET_KEY: "sk_live_" + "x".repeat(40),
@@ -54,6 +58,26 @@ describe("production environment validation", () => {
     const result = validateEnv(coreOnly);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it("requires owner SMS MFA configuration in production", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      OWNER_PHONE: undefined,
+      TWILIO_VERIFY_SERVICE_SID: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("OWNER_PHONE");
+    expect(result.errors.join("\n")).toContain("TWILIO_VERIFY_SERVICE_SID");
+  });
+
+  it("rejects a non-E.164 owner phone", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      OWNER_PHONE: "022 123 4567",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("valid E.164");
   });
 
   it("fails production readiness without shared Redis coordination", () => {
