@@ -575,3 +575,19 @@ Verification target:
 - A persistent startup/database/Redis failure still fails the deployment.
 - Readiness response bodies remain visible in deployment evidence for diagnosis.
 - Liveness success alone can never promote a release.
+
+
+## Gate 1 production authentication lifecycle recovery review
+
+Recovery invariant reviewed 4 October 2026:
+- The production authentication lifecycle gate is a manual release-certification workflow, not a recovery mechanism and not a substitute for Supabase authentication backups or configuration recovery.
+- The gate intentionally uses a fresh real mailbox and the real production email-confirmation URL. It must never manufacture, bypass, or persist confirmation tokens in repository history, workflow artifacts, logs, or recovery backups.
+- The workflow stores no credentials. The reusable canary password remains an Actions environment secret, and the confirmation URL is transient workflow input that must not be copied into recovery documentation.
+- A recovered production environment is not considered authentication-ready for paying customers until signup requests real confirmation, the emailed confirmation redirects back to AppForge successfully, logout clears customer access, and password relogin succeeds against the recovered production revision.
+- Failure of either phase is release-blocking evidence for Gate 1; recovery procedures must fix the underlying production authentication/mail configuration rather than weakening or skipping the gate.
+
+Verification target:
+- Run `request-confirmation` for a fresh real mailbox and confirm the live signup UI reaches the check-email state.
+- Retrieve the real confirmation email outside repository storage and run `complete-lifecycle` with its HTTPS Supabase verification URL.
+- Confirm the browser reaches authenticated AppForge state, then logs out to anonymous state and successfully logs back in to `/account`.
+- Confirm no confirmation URL, password, access token, refresh token, or mailbox credential is committed to Git, uploaded as a workflow artifact, or added to recovery documentation.
