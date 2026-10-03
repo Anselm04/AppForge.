@@ -1,0 +1,91 @@
+name: Production Auth Lifecycle Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Gate 1 phase. Request confirmation first, then complete lifecycle using the real email link."
+        required: true
+        type: choice
+        options:
+          - request-confirmation
+          - complete-lifecycle
+      signup_email:
+        description: "Fresh real mailbox address for the production signup test"
+        required: true
+        type: string
+      confirmation_url:
+        description: "Real confirmation URL from the signup email; required only for complete-lifecycle"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-auth-lifecycle-gate
+  cancel-in-progress: false
+
+jobs:
+  auth-lifecycle:
+    name: Gate 1 real signup-confirm-logout-relogin
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate Gate 1 inputs
+        env:
+          PHASE: ${{ inputs.phase }}
+          EMAIL: ${{ inputs.signup_email }}
+          CONFIRMATION_URL: ${{ inputs.confirmation_url }}
+          PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$EMAIL" || { echo "A fresh production signup mailbox is required"; exit 1; }
+          test -n "$PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
+          if [ "$PHASE" = "complete-lifecycle" ]; then
+            test -n "$CONFIRMATION_URL" || { echo "The real confirmation URL from the production email is required"; exit 1; }
+            case "$CONFIRMATION_URL" in
+              https://*/auth/v1/verify*) ;;
+              *) echo "Confirmation URL must be a real HTTPS Supabase /auth/v1/verify URL"; exit 1 ;;
+            esac
+          fi
+
+      - name: Install browser verifier
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Run Gate 1 against real production
+        env:
+          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+          APPFORGE_AUTH_GATE_PHASE: ${{ inputs.phase }}
+          APPFORGE_AUTH_GATE_EMAIL: ${{ inputs.signup_email }}
+          APPFORGE_AUTH_GATE_CONFIRMATION_URL: ${{ inputs.confirmation_url }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+        run: npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line
+
+      - name: Record Gate 1 scope
+        if: always()
+        shell: bash
+        run: |
+          cat <<'EOF'
+          Gate 1 is complete only after BOTH phases have succeeded for the same fresh real mailbox:
+          1. request-confirmation proves the live signup UI asked production Supabase to send a real confirmation email.
+          2. complete-lifecycle follows the real emailed confirmation URL in Chromium, proves AppForge authenticated state,
+             performs a real logout, proves logged-out state, then performs a fresh password login and reaches /account.
+
+          The workflow intentionally cannot manufacture or bypass the email confirmation link.
+          EOF
