@@ -14,14 +14,21 @@ describe("production auth lifecycle release gate", () => {
 
     expect(workflow).toContain("request-confirmation");
     expect(workflow).toContain("complete-lifecycle");
-    expect(workflow).toContain("APPFORGE_AUTH_GATE_CONFIRMATION_URL");
-    expect(workflow).toContain("https://*/auth/v1/verify*");
+    expect(workflow).not.toContain("APPFORGE_AUTH_GATE_CONFIRMATION_URL");
+    expect(workflow).not.toContain("confirmation_url");
+    expect(workflow).toContain("issue_comment");
+    expect(workflow).toContain(
+      "github.event.comment.user.login == github.repository_owner",
+    );
+    expect(workflow).toContain("for n in $(seq -w 1 10)");
+    expect(workflow).toContain("gmail.com|googlemail.com");
     expect(workflow).toContain(
       "npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line",
     );
 
     expect(spec).toContain("/signup?next=%2Faccount");
-    expect(spec).toContain("/auth/v1/verify");
+    expect(spec).not.toContain("APPFORGE_AUTH_GATE_CONFIRMATION_URL");
+    expect(spec).not.toContain("/auth/v1/verify");
     expect(spec).toContain("expectLoggedIn(page)");
     expect(spec).toContain("expectLoggedOut(page)");
     expect(spec).toContain("/login?next=%2Faccount");
