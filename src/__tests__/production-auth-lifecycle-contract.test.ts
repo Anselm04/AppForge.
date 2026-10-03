@@ -23,10 +23,11 @@ describe("production auth lifecycle release gate", () => {
     expect(spec).toContain("expectLoggedIn(page)");
     expect(spec).toContain("expectLoggedOut(page)");
     expect(spec).toContain("/login?next=%2Faccount");
-    expect(spec).toContain("await page.reload");\n    expect(spec).toContain("for (let cycle = 1; cycle <= 10; cycle += 1)");
+    expect(spec).toContain("await page.reload");
+    expect(spec).toContain("for (let cycle = 1; cycle <= 10; cycle += 1)");
     expect(spec).toContain("for (let cycle = 2; cycle <= 10; cycle += 1)");
     expect(spec).toContain("logged-out protected route must stay closed");
-    expect(spec).toContain("completely fresh browser context");
+    expect(spec).toContain("fresh browser contexts ten times");
     expect(spec).toContain("toHaveURL(`${baseUrl}/account`)");
   });
 });
