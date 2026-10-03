@@ -410,7 +410,14 @@ export function getEnvSummary(
     `  Stripe Billing Catalog: ${billingCatalogReady ? "✅" : "❌"}`,
     `  Owner Email: ${config.OWNER_EMAIL ? "✅" : "❌ (required for admin)"}`,
     `  hCaptcha: ${config.HCAPTCHA_SECRET ? "✅" : "⚠️"}`,
-    `  Twilio Admin MFA: ${config.OWNER_PHONE && config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN && config.TWILIO_VERIFY_SERVICE_SID ? "✅" : "❌"}`,
+    `  Twilio Admin MFA: ${
+      config.OWNER_PHONE &&
+      config.TWILIO_ACCOUNT_SID &&
+      config.TWILIO_AUTH_TOKEN &&
+      config.TWILIO_VERIFY_SERVICE_SID
+        ? "✅"
+        : "❌"
+    }`,
     `  Vanta: ${config.VANTA_WORKSPACE_ID && config.VANTA_API_TOKEN ? "✅" : "⚠️"}`,
     `  Resend Email: ${config.RESEND_API_KEY ? "✅" : "⚠️"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
