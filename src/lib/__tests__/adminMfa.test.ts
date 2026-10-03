@@ -56,36 +56,42 @@ describe("admin MFA session binding", () => {
     vi.useRealTimers();
   });
 
-  it("accepts a freshly minted MFA cookie only for the same primary session and browser", () => {
-    const req = request();
-    const { res, cookies } = responseCapture();
+  it("accepts freshly minted MFA cookies for the same primary session and browser ten times", () => {
+    for (let cycle = 1; cycle <= 10; cycle += 1) {
+      const req = request(`primary-token-${cycle}`);
+      const { res, cookies } = responseCapture();
 
-    setAdminMfaCookie(req, res, 42);
-    expect(cookies).toHaveLength(1);
+      setAdminMfaCookie(req, res, 42);
+      expect(cookies).toHaveLength(1);
 
-    req.cookies = { [cookies[0].name]: cookies[0].value };
-    expect(hasValidAdminMfa(req, 42)).toBe(true);
-    expect(hasValidAdminMfa(req, 43)).toBe(false);
+      req.cookies = { [cookies[0].name]: cookies[0].value };
+      expect(hasValidAdminMfa(req, 42)).toBe(true);
+      expect(hasValidAdminMfa(req, 43)).toBe(false);
+    }
   });
 
-  it("rejects the MFA cookie after a new primary login token is used", () => {
-    const req = request("first-session");
-    const { res, cookies } = responseCapture();
-    setAdminMfaCookie(req, res, 42);
+  it("rejects MFA cookies after a different primary login token ten times", () => {
+    for (let cycle = 1; cycle <= 10; cycle += 1) {
+      const req = request(`first-session-${cycle}`);
+      const { res, cookies } = responseCapture();
+      setAdminMfaCookie(req, res, 42);
 
-    const relogin = request("second-session");
-    relogin.cookies = { [cookies[0].name]: cookies[0].value };
-    expect(hasValidAdminMfa(relogin, 42)).toBe(false);
+      const relogin = request(`second-session-${cycle}`);
+      relogin.cookies = { [cookies[0].name]: cookies[0].value };
+      expect(hasValidAdminMfa(relogin, 42)).toBe(false);
+    }
   });
 
-  it("rejects a copied MFA cookie from a different user agent", () => {
-    const req = request("first-session", "browser-a");
-    const { res, cookies } = responseCapture();
-    setAdminMfaCookie(req, res, 42);
+  it("rejects copied MFA cookies from different user agents ten times", () => {
+    for (let cycle = 1; cycle <= 10; cycle += 1) {
+      const req = request(`session-${cycle}`, `browser-a-${cycle}`);
+      const { res, cookies } = responseCapture();
+      setAdminMfaCookie(req, res, 42);
 
-    const copied = request("first-session", "browser-b");
-    copied.cookies = { [cookies[0].name]: cookies[0].value };
-    expect(hasValidAdminMfa(copied, 42)).toBe(false);
+      const copied = request(`session-${cycle}`, `browser-b-${cycle}`);
+      copied.cookies = { [cookies[0].name]: cookies[0].value };
+      expect(hasValidAdminMfa(copied, 42)).toBe(false);
+    }
   });
 
   it("expires the admin MFA session after its short lifetime", () => {
