@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createClient, type User } from "@supabase/supabase-js";
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../_core/logger.js";
+import { clearAdminMfaCookie } from "../lib/adminMfa.js";
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
@@ -265,6 +266,7 @@ export async function supabaseAuthMiddleware(
 
   if (!supabase) {
     if (sessionDeleteScope === "local") {
+      clearAdminMfaCookie(res);
       clearSessionCookies(res);
       res.setHeader("Cache-Control", "no-store");
       return res.status(204).end();
@@ -317,6 +319,7 @@ export async function supabaseAuthMiddleware(
   if (!token || !authUser) {
     if (sessionDeleteScope) {
       if (sessionDeleteScope === "local") {
+        clearAdminMfaCookie(res);
         clearSessionCookies(res);
         res.setHeader("Cache-Control", "no-store");
         return res.status(204).end();
@@ -356,6 +359,7 @@ export async function supabaseAuthMiddleware(
     }
 
     if (sessionDeleteScope !== "others") {
+      clearAdminMfaCookie(res);
       clearSessionCookies(res);
     }
     res.setHeader("Cache-Control", "no-store");
