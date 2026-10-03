@@ -5,7 +5,9 @@
 #   fly secrets set DATABASE_URL="..." JWT_SECRET="..." COOKIE_SECRET="..." \
 #     STRIPE_SECRET_KEY="..." STRIPE_WEBHOOK_SECRET="..." \
 #     BUILT_IN_FORGE_API_KEY="..." \
-#     OWNER_EMAIL="owner@example.com"
+#     OWNER_EMAIL="owner@example.com" OWNER_PHONE="+64..." \
+#     TWILIO_ACCOUNT_SID="..." TWILIO_AUTH_TOKEN="..." \
+#     TWILIO_VERIFY_SERVICE_SID="..."
 #
 # Optional privileged Supabase administration (for SSO provisioning only):
 #   fly secrets set SUPABASE_SERVICE_ROLE_KEY="..."
