@@ -226,6 +226,16 @@ const buildLimiter = createLocalRateLimiter({
   max: 20,
   message: "Build rate limit exceeded. Please wait before creating more builds.",
 });
+const adminMfaRequestLimiter = createLocalRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 3,
+  message: "Too many admin verification requests. Please wait before requesting another SMS.",
+});
+const adminMfaVerifyLimiter = createLocalRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: "Too many admin verification attempts. Please wait before trying again.",
+});
 const slowDown = createSlowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 50,
@@ -273,6 +283,12 @@ app.use("/api/health", healthRouter);
 // routers then use a fail-closed authorization barrier without calling Supabase a
 // second time for the same request.
 app.use("/api", supabaseAuthMiddleware);
+
+// Admin MFA is deliberately stricter than the general API limiter. These
+// controls run after trusted authentication so the distributed limiter can key
+// on the authenticated owner user ID instead of caller-controlled headers.
+app.use("/api/trpc/admin.requestMfa", adminMfaRequestLimiter);
+app.use("/api/trpc/admin.verifyMfa", adminMfaVerifyLimiter);
 
 app.get("/api/preview-auth/:projectId", async (req, res) => {
   const authorization = req.headers.authorization;
