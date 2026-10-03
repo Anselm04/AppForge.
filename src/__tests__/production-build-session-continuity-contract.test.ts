@@ -20,7 +20,9 @@ describe("production build/session continuity release contract", () => {
       expect(canary).toContain(
         "re-authenticated session did not recover the same project",
       );
-      expect(canary).toContain("sameBuildRecoveredAfterReauthentication: true");
+      expect(canary).toContain(
+      "sameBuildRecoveredAfterReauthentication: true",
+    );
       expect(canary).toContain("APPFORGE_CANARY_SECONDARY_HCAPTCHA_TOKEN");
       expect(canary).toContain("Production Secondary Canary");
       expect(canary).toContain("Second independent build verified");
