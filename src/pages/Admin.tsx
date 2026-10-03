@@ -140,7 +140,9 @@ export function Admin() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white p-8">
         <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow dark:bg-slate-800">
-          <h1 className="text-2xl font-bold mb-2">Admin verification required</h1>
+          <h1 className="text-2xl font-bold mb-2">
+            Admin verification required
+          </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
             A one-time SMS code must be verified before any admin data or
             controls are available.
@@ -155,8 +157,12 @@ export function Admin() {
             {requestMfa.isPending
               ? "Sending…"
               : challengeSent
-                ? `Send another code to ${mfaStatus?.phoneHint || "your registered phone"}`
-                : `Send SMS code to ${mfaStatus?.phoneHint || "your registered phone"}`}
+                ? `Send another code to ${
+                    mfaStatus?.phoneHint || "your registered phone"
+                  }`
+                : `Send SMS code to ${
+                    mfaStatus?.phoneHint || "your registered phone"
+                  }`}
           </button>
 
           {requestMfa.isError && (
