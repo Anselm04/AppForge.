@@ -63,7 +63,6 @@ async function sendVerifySms(to: string, body: string): Promise<void> {
   }
 }
 
-
 export function isTwilioVerifyConfigured(): boolean {
   return !!(
     ENV.twilioAccountSid &&
