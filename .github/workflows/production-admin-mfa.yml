@@ -1,0 +1,46 @@
+name: Production Admin MFA Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Request the SMS first, then run verify using the code received on the owner phone."
+        required: true
+        type: choice
+        options:
+          - request
+          - verify
+      verification_code:
+        description: "Six-digit code for the verify phase"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-admin-mfa-gate
+  cancel-in-progress: false
+
+jobs:
+  admin-mfa:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+      - run: npx playwright install chromium
+      - name: Run production admin MFA browser proof
+        env:
+          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+          APPFORGE_ADMIN_MFA_PHASE: ${{ inputs.phase }}
+          APPFORGE_ADMIN_MFA_CODE: ${{ inputs.verification_code }}
+          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+        run: npx playwright test scripts/production-admin-mfa.spec.mjs --reporter=line
