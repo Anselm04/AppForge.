@@ -45,21 +45,21 @@ duplicates.
 
 ## Recovery matrix
 
-| Failure | Safe recovery |
-| --- | --- |
-| Application failure | Restore the latest known-good checkpoint, verify integrity, then rerun normal release verification before reopening traffic. |
-| Artifact corruption | Reject the corrupt artifact. Restore the latest checkpoint whose stored SHA-256 matches its immutable snapshot. |
-| Database failure | Restore a verified database backup into an isolated recovery target, verify schema/data/RLS/auth invariants, then promote deliberately. |
-| Migration failure | Roll back only when the migration is explicitly proven reversible; otherwise roll forward with a corrective migration. |
-| Queue interruption | Restore Redis/BullMQ availability. Durable queued work may resume; persisted terminal build events are replayed after reconnect. |
-| Interrupted build | Retry/resume the queued attempt only from persisted canonical build context. Partial working files never become current. |
-| AI/provider failure | Pause or fail closed, refund an incomplete paid reservation exactly once, restore provider availability/credentials, then retry deliberately. |
-| Deployment failure | Use bounded deploy retries. Keep the previous production-verified checkpoint as the recovery target; do not mark the failed deployment known-good. |
-| Preview failure | Invalidate preview state and read from the current immutable artifact. Restore the latest known-good checkpoint if the current snapshot itself is invalid. |
-| Credit refund problem | Reconcile the idempotent credit ledger before another refund/retry; never issue a second blind refund. |
-| Duplicate build | Reject the duplicate queue/worker attempt and refund only its reservation using the duplicate attempt key. |
-| Partial generation | Keep partial files as working state only. Do not expose them as hosted, downloadable, deployable, or rollback-ready output. |
-| Paused build | Resolve the pause cause, then resume/retry from the persisted prompt/contract/stack; do not reclassify the original prompt. |
+| Failure               | Safe recovery                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application failure   | Restore the latest known-good checkpoint, verify integrity, then rerun normal release verification before reopening traffic.                               |
+| Artifact corruption   | Reject the corrupt artifact. Restore the latest checkpoint whose stored SHA-256 matches its immutable snapshot.                                            |
+| Database failure      | Restore a verified database backup into an isolated recovery target, verify schema/data/RLS/auth invariants, then promote deliberately.                    |
+| Migration failure     | Roll back only when the migration is explicitly proven reversible; otherwise roll forward with a corrective migration.                                     |
+| Queue interruption    | Restore Redis/BullMQ availability. Durable queued work may resume; persisted terminal build events are replayed after reconnect.                           |
+| Interrupted build     | Retry/resume the queued attempt only from persisted canonical build context. Partial working files never become current.                                   |
+| AI/provider failure   | Pause or fail closed, refund an incomplete paid reservation exactly once, restore provider availability/credentials, then retry deliberately.              |
+| Deployment failure    | Use bounded deploy retries. Keep the previous production-verified checkpoint as the recovery target; do not mark the failed deployment known-good.         |
+| Preview failure       | Invalidate preview state and read from the current immutable artifact. Restore the latest known-good checkpoint if the current snapshot itself is invalid. |
+| Credit refund problem | Reconcile the idempotent credit ledger before another refund/retry; never issue a second blind refund.                                                     |
+| Duplicate build       | Reject the duplicate queue/worker attempt and refund only its reservation using the duplicate attempt key.                                                 |
+| Partial generation    | Keep partial files as working state only. Do not expose them as hosted, downloadable, deployable, or rollback-ready output.                                |
+| Paused build          | Resolve the pause cause, then resume/retry from the persisted prompt/contract/stack; do not reclassify the original prompt.                                |
 
 ## Owner emergency procedure
 
@@ -149,3 +149,13 @@ Before declaring recovery complete:
 - generated-product identity matches the selected artifact;
 - browser/HTTP production verification passes;
 - owner records the recovered SHA/checkpoint and incident outcome.
+
+## Session continuity recovery review — 3 October 2026
+
+Reviewed with the SPA session change in `src/lib/auth.ts` (PR #99). No new secret, cookie name, or client-held credential was added. Break-glass owner access is unchanged.
+
+- The browser access bearer stays in sessionStorage (`appforge.access-token`) for the current tab only. Refresh tokens stay in server HttpOnly cookies.
+- Session and CSRF cookies are `SameSite=Lax` and `Secure` in production so a same-site SPA navigation can finish session sync. This does not add a new cookie or store a secret in the repo.
+- `POST /api/auth/session` links an existing AppForge user by confirmed email when the Supabase openId is new, then keeps the same integer user. Email match does not grant owner access.
+- Owner status stays server-derived (`auth.me.isOwner` / `ownerOnlyProcedure`). `docs/OWNER_BREAK_GLASS.md` is unchanged because no owner authenticator or break-glass credential changed.
+- Generate must not navigate to `/login` while a non-expired SPA bearer or an already hydrated React Query user exists. When both are gone, session proof still fails closed.

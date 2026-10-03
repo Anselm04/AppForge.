@@ -162,16 +162,29 @@ export function setSessionCookies(
   accessToken: string,
   refreshToken?: string,
 ) {
+  const opts = authCookieOptions();
+  const accessMaxAge = accessTokenMaxAgeMs(accessToken);
   res.cookie(ACCESS_COOKIE, accessToken, {
-    ...authCookieOptions(),
-    maxAge: accessTokenMaxAgeMs(accessToken),
+    ...opts,
+    maxAge: accessMaxAge,
   });
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE, refreshToken, {
-      ...authCookieOptions(),
+      ...opts,
       maxAge: refreshTokenMaxAgeMs(),
     });
   }
+  logger.info(
+    {
+      accessCookie: ACCESS_COOKIE,
+      hasRefresh: Boolean(refreshToken),
+      sameSite: opts.sameSite,
+      secure: opts.secure,
+      path: opts.path,
+      accessMaxAgeMs: accessMaxAge,
+    },
+    "supabase_auth_session_cookies_set",
+  );
 }
 
 function clearSessionCookies(res: Response) {
@@ -180,8 +193,12 @@ function clearSessionCookies(res: Response) {
 }
 
 function isSessionEndpoint(req: Request): boolean {
-  const url = req.originalUrl || req.url || "";
-  return url.split("?", 1)[0] === SESSION_PATH;
+  const raw = (req.originalUrl || req.url || "").split("?", 1)[0];
+  return (
+    raw === SESSION_PATH ||
+    raw === "/auth/session" ||
+    raw.endsWith("/auth/session")
+  );
 }
 
 async function verifyAccessToken(token: string): Promise<User | null> {
@@ -389,8 +406,9 @@ export async function supabaseAuthMiddleware(
       (email ? email.split("@")[0] : "user");
     const picture = authUser.user_metadata?.["avatar_url"] ?? null;
 
-    const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
-    const dbUser = await upsertUserFromAuth({
+    const { db, ensureUserCredits } = await import("../db.js");
+    const { linkUserFromAuth } = await import("../db/linkUserFromAuth.js");
+    const dbUser = await linkUserFromAuth(db, {
       openId: supabaseUid,
       email,
       name,
@@ -421,7 +439,11 @@ export async function supabaseAuthMiddleware(
     if (isSessionEndpoint(req) && req.method === "POST") {
       setSessionCookies(res, token, refreshToken);
       res.setHeader("Cache-Control", "no-store");
-      return res.status(204).end();
+      return res.status(200).json({
+        ok: true,
+        userId: dbUser.id,
+        supabaseUid,
+      });
     }
   } catch (err) {
     // Authentication succeeded; a database/upsert failure is a server failure,

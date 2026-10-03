@@ -110,14 +110,19 @@ export function Home() {
         if (!retriedAuth.current) {
           retriedAuth.current = true;
           const refreshed = await refreshSession();
-          if (refreshed) {
+          if (refreshed || getAccessToken()) {
             createProjectMutation.mutate(productType);
             return;
           }
         }
 
-        setFormError(t("home.needAccount"));
-        navigate(loginPathWithReturn("/"));
+        // Only bounce when both the SPA bearer and React Query user are gone.
+        if (!user && !getAccessToken()) {
+          setFormError(t("home.needAccount"));
+          navigate(loginPathWithReturn("/"));
+          return;
+        }
+        setFormError(message || t("home.needAccount"));
         return;
       }
 
@@ -139,8 +144,18 @@ export function Home() {
     if (!description.trim() || overLimit) return;
 
     writePromptDraft(description);
+    // If a non-expired SPA bearer exists, always create — never bounce to /login.
+    if (getAccessToken()) {
+      createProjectMutation.mutate(productType);
+      return;
+    }
+
     const session = await ensureFreshSession();
-    if (!session && !getAccessToken()) {
+    if (getAccessToken()) {
+      createProjectMutation.mutate(productType);
+      return;
+    }
+    if (!session && !user) {
       navigate(loginPathWithReturn("/"));
       return;
     }

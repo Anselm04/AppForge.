@@ -30,9 +30,9 @@ export const csrfProtection: RequestHandler = (
   }
 
   const cookieToken = req.signedCookies?.[COOKIE_NAME];
-  const headerToken = HEADER_NAMES
-    .map((name) => req.get(name))
-    .find((value): value is string => typeof value === "string" && value.length > 0);
+  const headerToken = HEADER_NAMES.map((name) => req.get(name)).find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 
   if (
     typeof cookieToken !== "string" ||
@@ -55,7 +55,7 @@ export function csrfTokenHandler(_req: Request, res: Response): void {
     signed: true,
     httpOnly: true,
     secure: isProd,
-    sameSite: "strict",
+    sameSite: "lax",
     path: "/",
   });
   res.setHeader("Cache-Control", "no-store");

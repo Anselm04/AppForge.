@@ -4,7 +4,12 @@ import { getUserById } from "../db.js";
 export type Context = {
   req: Request;
   res: Response;
-  user: { id: number; email: string; name: string } | null;
+  user: {
+    id: number;
+    email: string;
+    name: string;
+    supabaseUid?: string;
+  } | null;
 };
 
 export async function createContext({
@@ -22,6 +27,7 @@ export async function createContext({
       id: authUser.id,
       email: authUser.email || "",
       name: authUser.name || "",
+      supabaseUid: authUser.supabaseUid || undefined,
     };
   }
 

@@ -61,11 +61,12 @@ describe("Supabase server authentication boundary", () => {
       'secure: process.env.NODE_ENV === "production"',
     );
     expect(middleware).toContain('res.setHeader("Cache-Control", "no-store")');
+    expect(middleware).toContain("supabase_auth_session_cookies_set");
   });
 
   it("derives AppForge identity from the verified Supabase user", () => {
     expect(middleware).toContain("const supabaseUid = authUser.id");
-    expect(middleware).toContain("await upsertUserFromAuth({");
+    expect(middleware).toContain("await linkUserFromAuth(db, {");
     expect(middleware).toContain("openId: supabaseUid");
     expect(middleware).toContain("req.user = {");
   });

@@ -32,6 +32,7 @@ import { generateRouter } from "./routes/generate.js";
 import { sandboxDevProxyRouter } from "./routes/sandboxDevProxy.js";
 import { ssoHttpRouter } from "./routes/sso.js";
 import { githubOAuthRouter } from "./routes/githubOAuth.js";
+import { authRouter } from "./routes/auth.js";
 import { supabaseAuthMiddleware } from "./middleware/supabaseAuth.js";
 import { requireAuthenticatedUser } from "./middleware/requireAuthenticatedUser.js";
 import { webContainerHeaders } from "./middleware/webContainerHeaders.js";
@@ -273,6 +274,9 @@ app.use("/api/health", healthRouter);
 // routers then use a fail-closed authorization barrier without calling Supabase a
 // second time for the same request.
 app.use("/api", supabaseAuthMiddleware);
+
+// Cookie/bearer hydration for SPA continuity (Generate must not bounce to /login).
+app.use("/api/auth", authRouter);
 
 app.get("/api/preview-auth/:projectId", async (req, res) => {
   const authorization = req.headers.authorization;
