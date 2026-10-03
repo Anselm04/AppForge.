@@ -48,6 +48,22 @@ describe("owner admin MFA security contract", () => {
     expect(middleware).toContain("clearAdminMfaCookie(res)");
   });
 
+  it("restricts the live SMS challenge workflow to the repository owner", () => {
+    const workflow = source(
+      "../../../.github/workflows/production-admin-mfa.yml",
+    );
+
+    expect(workflow).toContain("issue_comment");
+    expect(workflow).toContain(
+      "github.event.comment.user.login == github.repository_owner",
+    );
+    expect(workflow).toContain(
+      "github.event.comment.body == '/gate1-admin-mfa request'",
+    );
+    expect(workflow).not.toContain("verification_code");
+    expect(workflow).not.toContain("APPFORGE_ADMIN_MFA_CODE");
+  });
+
   it("does not load admin data before SMS MFA succeeds", () => {
     const page = source("../../pages/Admin.tsx");
 
@@ -55,7 +71,7 @@ describe("owner admin MFA security contract", () => {
     expect(page).toContain("trpc.admin.requestMfa.mutate()");
     expect(page).toContain("trpc.admin.verifyMfa.mutate");
     expect(page).toContain("enabled: mfaStatus?.verified === true");
-    expect(page).toContain("Admin verification required");
-    expect(page).toContain("Six-digit code");
+    expect(page).toContain("Admin verification");
+    expect(page).toContain("6-digit SMS code");
   });
 });
