@@ -17,9 +17,7 @@ describe("production build/session continuity release contract", () => {
         "../../scripts/production-canary-browser.spec.mjs",
       );
 
-      expect(canary).toContain(
-        "for (let cycle = 1; cycle <= 10; cycle += 1)",
-      );
+      expect(canary).toContain("for (let cycle = 1; cycle <= 10; cycle += 1)");
       expect(canary).toContain("supabaseLogout(config, accessToken)");
       expect(canary).toContain(
         "re-authenticated session did not recover the same project",
