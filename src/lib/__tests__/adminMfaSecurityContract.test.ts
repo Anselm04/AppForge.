@@ -11,7 +11,9 @@ describe("owner admin MFA security contract", () => {
     const ownerIdentity = source("../ownerIdentity.ts");
 
     expect(env).toContain('ownerPhone: process.env.OWNER_PHONE ?? ""');
-    expect(env).not.toMatch(/ownerPhone:\s*process\.env\.OWNER_PHONE\s*\?\?\s*"\+\d+/);
+    expect(env).not.toMatch(
+      /ownerPhone:\s*process\.env\.OWNER_PHONE\s*\?\?\s*"\+\d+/,
+    );
     expect(ownerIdentity).not.toContain("OWNER_PHONE");
     expect(ownerIdentity).not.toContain("canonicalOwnerPhone");
   });
