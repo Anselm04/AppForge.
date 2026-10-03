@@ -7,6 +7,10 @@ on:
         description: "Fresh real hCaptcha token obtained from the production project-create flow"
         required: true
         type: string
+      secondary_hcaptcha_token:
+        description: "Second fresh real hCaptcha token for the independent new-build continuity check"
+        required: true
+        type: string
       use_god_code:
         description: "Redeem APPFORGE_CANARY_GOD_CODE during this real run (code must be unused)"
         required: true
@@ -70,6 +74,7 @@ jobs:
           APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
           APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_CANARY_HCAPTCHA_TOKEN: ${{ inputs.hcaptcha_token }}
+          APPFORGE_CANARY_SECONDARY_HCAPTCHA_TOKEN: ${{ inputs.secondary_hcaptcha_token }}
           APPFORGE_CANARY_GOD_CODE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE || '' }}
           APPFORGE_CANARY_GOD_CODE_PHONE: ${{ inputs.use_god_code && secrets.APPFORGE_CANARY_GOD_CODE_PHONE || '' }}
           APPFORGE_CANARY_GOD_CODE_OTP: ${{ inputs.use_god_code && inputs.god_code_otp || '' }}
