@@ -206,6 +206,10 @@ jobs:
             STRIPE_SECRET_KEY
             STRIPE_WEBHOOK_SECRET
             OWNER_EMAIL
+            OWNER_PHONE
+            TWILIO_ACCOUNT_SID
+            TWILIO_AUTH_TOKEN
+            TWILIO_VERIFY_SERVICE_SID
           )
           missing=0
           for name in "${required[@]}"; do
@@ -245,10 +249,10 @@ jobs:
           fi
 
           if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because AppForge cannot reliably authenticate, build, coordinate two Machines, generate with an LLM, or collect money with the current Fly secret set."
+            echo "Production deploy blocked because AppForge cannot reliably authenticate, enforce owner SMS MFA, build, coordinate two Machines, generate with an LLM, or collect money with the current Fly secret set."
             exit 1
           fi
-          echo "Revenue-critical, LLM-provider, and shared two-Machine Fly runtime secret requirements are satisfied."
+          echo "Revenue-critical, owner-MFA, LLM-provider, and shared two-Machine Fly runtime secret requirements are satisfied."
       - name: Reconfirm release freshness immediately before deploy
         shell: bash
         run: |
