@@ -635,12 +635,14 @@ Verification target:
 
 ### Production admin MFA certification workflow
 
-The repository includes a manual production browser gate for owner MFA. Recovery
-and release certification must preserve this behavior:
-- request phase: authenticated owner reaches the locked admin screen and requests
-  a real Twilio Verify SMS to the fixed server-side owner phone.
-- verify phase: the browser accepts only the real six-digit code received out of
-  band, exposes admin data only after approval, survives a hard reload within
-  the short MFA lifetime, then proves logout plus a new login returns to the
-  MFA-locked state.
-- The workflow must never manufacture, persist, print, or derive the SMS code.
+The repository includes a production browser challenge gate for owner MFA.
+Recovery and release certification must preserve this behavior:
+- the automated challenge gate authenticates the owner, reaches the locked admin
+  screen, and requests a real Twilio Verify SMS to the fixed server-side owner phone.
+- the real six-digit code is never accepted as a GitHub workflow input, secret,
+  artifact, log value, or repository value.
+- final live verification is completed only in a secure interactive browser
+  session where the owner enters the code received on the physical phone.
+- that interactive proof must confirm admin data is unavailable before MFA,
+  available after approval, remains available across a hard reload only within
+  the short MFA lifetime, and becomes locked again after logout plus a new login.
