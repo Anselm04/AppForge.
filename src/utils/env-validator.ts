@@ -261,9 +261,13 @@ export function validateEnv(
     errors.push(
       "OWNER_PHONE is required in production for owner admin SMS MFA.",
     );
-  } else if (config.OWNER_PHONE && !/^\\+[1-9]\\d{7,14}$/.test(config.OWNER_PHONE)) {
-    errors.push("OWNER_PHONE must use E.164 format.");
+  } else if (
+    config.OWNER_PHONE &&
+    !/^\+[1-9]\d{7,14}$/.test(config.OWNER_PHONE.trim())
+  ) {
+    errors.push("OWNER_PHONE must be a valid E.164 phone number.");
   }
+
   if (!config.SUPABASE_SERVICE_ROLE_KEY && isProduction) {
     warnings.push(
       "SUPABASE_SERVICE_ROLE_KEY not set. Auth can use a publishable/anon key, but admin Supabase operations may be unavailable.",
@@ -274,17 +278,6 @@ export function validateEnv(
     warnings.push(
       "TWILIO_ACCOUNT_SID set but TWILIO_AUTH_TOKEN missing. SMS verification will not work.",
     );
-  }
-
-  if (isProduction && !config.OWNER_PHONE) {
-    errors.push(
-      "OWNER_PHONE is required in production for owner admin SMS MFA.",
-    );
-  } else if (
-    config.OWNER_PHONE &&
-    !/^\+[1-9]\d{7,14}$/.test(config.OWNER_PHONE.trim())
-  ) {
-    errors.push("OWNER_PHONE must be a valid E.164 phone number.");
   }
 
   if (isProduction) {
@@ -299,17 +292,6 @@ export function validateEnv(
       errors.push(
         `Owner admin MFA requires ${missingAdminMfa.join(", ")} in production.`,
       );
-    }
-  }
-  if (isProduction) {
-    for (const key of [
-      "TWILIO_ACCOUNT_SID",
-      "TWILIO_AUTH_TOKEN",
-      "TWILIO_VERIFY_SERVICE_SID",
-    ] as const) {
-      if (!config[key]) {
-        errors.push(`${key} is required in production for owner admin SMS MFA.`);
-      }
     }
   }
 
