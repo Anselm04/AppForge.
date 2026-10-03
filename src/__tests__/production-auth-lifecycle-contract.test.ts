@@ -6,7 +6,7 @@ function source(relativePath: string): string {
 }
 
 describe("production auth lifecycle release gate", () => {
-  it("requires a real two-phase signup-confirm-logout-relogin certification", () => {
+  it("requires real confirmation plus repeated logout/relogin and fresh-context proof", () => {
     const workflow = source("../../.github/workflows/production-auth-lifecycle.yml");
     const spec = source("../../scripts/production-auth-lifecycle.spec.mjs");
 
@@ -23,6 +23,10 @@ describe("production auth lifecycle release gate", () => {
     expect(spec).toContain("expectLoggedIn(page)");
     expect(spec).toContain("expectLoggedOut(page)");
     expect(spec).toContain("/login?next=%2Faccount");
-    expect(spec).toContain('toHaveURL(\`${baseUrl}/account\`)');
+    expect(spec).toContain("await page.reload");
+    expect(spec).toContain("for (let cycle = 2; cycle <= 3; cycle += 1)");
+    expect(spec).toContain("logged-out protected route must stay closed");
+    expect(spec).toContain("completely fresh browser context");
+    expect(spec).toContain("toHaveURL(`${baseUrl}/account`)");
   });
 });
