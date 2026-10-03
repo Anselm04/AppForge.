@@ -4,20 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "Gate 1 phase. Request confirmation first, then complete lifecycle using the real email link."
+        description: "Gate 1 phase."
         required: true
         type: choice
         options:
           - request-confirmation
           - complete-lifecycle
       signup_email:
-        description: "Fresh real mailbox address for the production signup test"
+        description: "Fresh real mailbox address for a single production signup test"
         required: true
         type: string
-      confirmation_url:
-        description: "Real confirmation URL from the signup email; required only for complete-lifecycle"
-        required: false
-        type: string
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -28,10 +26,20 @@ concurrency:
 
 jobs:
   auth-lifecycle:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.issue.pull_request &&
+        github.event.comment.user.login == github.repository_owner &&
+        (
+          startsWith(github.event.comment.body, '/gate1-auth request ') ||
+          startsWith(github.event.comment.body, '/gate1-auth complete ')
+        )
+      )
     name: Gate 1 real signup-confirm-logout-relogin
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -43,25 +51,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
 
-      - name: Validate Gate 1 inputs
-        env:
-          PHASE: ${{ inputs.phase }}
-          EMAIL: ${{ inputs.signup_email }}
-          CONFIRMATION_URL: ${{ inputs.confirmation_url }}
-          PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$EMAIL" || { echo "A fresh production signup mailbox is required"; exit 1; }
-          test -n "$PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
-          if [ "$PHASE" = "complete-lifecycle" ]; then
-            test -n "$CONFIRMATION_URL" || { echo "The real confirmation URL from the production email is required"; exit 1; }
-            case "$CONFIRMATION_URL" in
-              https://*/auth/v1/verify*) ;;
-              *) echo "Confirmation URL must be a real HTTPS Supabase /auth/v1/verify URL"; exit 1 ;;
-            esac
-          fi
-
       - name: Install browser verifier
         run: npm install --no-save --package-lock=false @playwright/test@1.55.0
 
@@ -70,22 +59,79 @@ jobs:
 
       - name: Run Gate 1 against real production
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PHASE: ${{ inputs.phase }}
+          DISPATCH_EMAIL: ${{ inputs.signup_email }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          BASE_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
-          APPFORGE_AUTH_GATE_PHASE: ${{ inputs.phase }}
-          APPFORGE_AUTH_GATE_EMAIL: ${{ inputs.signup_email }}
-          APPFORGE_AUTH_GATE_CONFIRMATION_URL: ${{ inputs.confirmation_url }}
-          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
-        run: npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
+
+          run_one() {
+            phase="$1"
+            email="$2"
+            iteration="$3"
+            echo "::add-mask::$email"
+            echo "Running Gate 1 phase $phase, iteration $iteration"
+            APPFORGE_AUTH_GATE_PHASE="$phase" \
+            APPFORGE_AUTH_GATE_EMAIL="$email" \
+            APPFORGE_CANARY_PASSWORD="$PASSWORD" \
+            APPFORGE_URL="$APPFORGE_URL" \
+              npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line
+          }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            test -n "$DISPATCH_PHASE" || { echo "Missing dispatch phase"; exit 1; }
+            test -n "$DISPATCH_EMAIL" || { echo "A fresh production signup mailbox is required"; exit 1; }
+            run_one "$DISPATCH_PHASE" "$DISPATCH_EMAIL" "1/1"
+            exit 0
+          fi
+
+          read -r command action prefix extra <<<"$COMMENT_BODY"
+          test "$command" = "/gate1-auth" || { echo "Invalid Gate 1 command"; exit 1; }
+          test -z "${extra:-}" || { echo "Gate 1 command accepts exactly one batch tag"; exit 1; }
+          [[ "$prefix" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]] || {
+            echo "Batch tag must contain only lowercase letters, digits, and hyphens (max 20)."
+            exit 1
+          }
+
+          case "$action" in
+            request) phase="request-confirmation" ;;
+            complete) phase="complete-lifecycle" ;;
+            *) echo "Action must be request or complete"; exit 1 ;;
+          esac
+
+          test -n "$BASE_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
+          localpart="${BASE_EMAIL%@*}"
+          domain="${BASE_EMAIL##*@}"
+          case "${domain,,}" in
+            gmail.com|googlemail.com) ;;
+            *)
+              echo "10-account batch mode requires the protected canary mailbox to support Gmail plus aliases."
+              exit 1
+              ;;
+          esac
+
+          for n in $(seq -w 1 10); do
+            alias_email="${localpart}+gate1-${prefix}-${n}@${domain}"
+            run_one "$phase" "$alias_email" "$n/10"
+          done
 
       - name: Record Gate 1 scope
         if: always()
         shell: bash
         run: |
           cat <<'EOF'
-          Gate 1 is complete only after BOTH phases have succeeded for the same fresh real mailbox:
-          1. request-confirmation proves the live signup UI asked production Supabase to send a real confirmation email.
-          2. complete-lifecycle follows the real emailed confirmation URL in Chromium, proves AppForge authenticated state,
-             performs a real logout, proves logged-out state, then performs a fresh password login and reaches /account.
-
-          The workflow intentionally cannot manufacture or bypass the email confirmation link.
+          Gate 1 batch certification uses ten fresh Gmail plus-alias accounts.
+          The request phase proves each production signup requests a real email.
+          The one-time Supabase confirmation links are consumed out-of-band from
+          the connected mailbox and never placed in GitHub inputs, comments,
+          artifacts, logs, or repository files.
+          The complete phase then proves normal production login, ten repeated
+          logout/relogin boundaries, hard reload continuity, anonymous protected
+          route denial, and ten fresh-browser-context logins per confirmed account.
           EOF
