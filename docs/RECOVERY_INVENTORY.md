@@ -581,13 +581,19 @@ Verification target:
 
 Recovery invariant reviewed 4 October 2026:
 - The production authentication lifecycle gate is a manual release-certification workflow, not a recovery mechanism and not a substitute for Supabase authentication backups or configuration recovery.
-- The gate intentionally uses a fresh real mailbox and the real production email-confirmation URL. It must never manufacture, bypass, or persist confirmation tokens in repository history, workflow artifacts, logs, or recovery backups.
-- The workflow stores no credentials. The reusable canary password remains an Actions environment secret, and the confirmation URL is transient workflow input that must not be copied into recovery documentation.
-- A recovered production environment is not considered authentication-ready for paying customers until signup requests real confirmation, the emailed confirmation redirects back to AppForge successfully, logout clears customer access, and password relogin succeeds against the recovered production revision.
-- Failure of either phase is release-blocking evidence for Gate 1; recovery procedures must fix the underlying production authentication/mail configuration rather than weakening or skipping the gate.
+- The gate intentionally uses fresh real mailboxes/aliases and real production email-confirmation URLs. It must never manufacture, bypass, or persist confirmation tokens in repository history, workflow artifacts, logs, or recovery backups.
+- Authentication reliability is not accepted from a single green pass. Each confirmed test account must survive ten logout/relogin cycles, hard reload/reopen checks, ten fresh-browser-context logins, and anonymous protected-route denials.
+- The production customer-journey canary additionally re-authenticates ten times while the same build remains active, then reconnects to that same project and requires it to finish without becoming a duplicate or losing ownership/state.
+- A separate second fresh hCaptcha token is required to start an independent second production build after the first is certified. The first project must remain production-certified after the second build completes.
+- The reusable canary password remains an Actions environment secret, and confirmation URLs are transient inputs that must not be copied into recovery documentation.
+- A recovered production environment is not considered authentication/build-continuity ready for paying customers until the repeated auth and build-continuity gates pass on the recovered revision.
+- Failure of any required repetition is release-blocking evidence; recovery procedures must fix the underlying production authentication, session, queue, or persistence issue rather than weaken or skip the gate.
 
 Verification target:
-- Run `request-confirmation` for a fresh real mailbox and confirm the live signup UI reaches the check-email state.
-- Retrieve the real confirmation email outside repository storage and run `complete-lifecycle` with its HTTPS Supabase verification URL.
-- Confirm the browser reaches authenticated AppForge state, then logs out to anonymous state and successfully logs back in to `/account`.
-- Confirm no confirmation URL, password, access token, refresh token, or mailbox credential is committed to Git, uploaded as a workflow artifact, or added to recovery documentation.
+- Complete signup + real Gmail confirmation for ten independent fresh aliases/accounts.
+- For every confirmed account used in the browser certification, require ten logout/relogin cycles with anonymous state proven after each logout.
+- Require ten fresh browser-context logins plus hard reload continuity.
+- During a real production build, perform ten logout/re-authentication cycles and prove the same project ID remains accessible and continues normally.
+- Reconnect to the original build stream and require production certification.
+- Start a second independent build with a different fresh hCaptcha token, require a different project ID, and confirm both products remain production-certified and independently reachable.
+- Confirm no confirmation URL, password, access token, refresh token, mailbox credential, or hCaptcha token is committed to Git, uploaded as an artifact, or added to recovery documentation.
