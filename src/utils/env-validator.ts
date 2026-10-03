@@ -275,6 +275,32 @@ export function validateEnv(
       "TWILIO_ACCOUNT_SID set but TWILIO_AUTH_TOKEN missing. SMS verification will not work.",
     );
   }
+
+  if (isProduction && !config.OWNER_PHONE) {
+    errors.push(
+      "OWNER_PHONE is required in production for owner admin SMS MFA.",
+    );
+  } else if (
+    config.OWNER_PHONE &&
+    !/^\+[1-9]\d{7,14}$/.test(config.OWNER_PHONE.trim())
+  ) {
+    errors.push("OWNER_PHONE must be a valid E.164 phone number.");
+  }
+
+  if (isProduction) {
+    const missingAdminMfa = [
+      ["TWILIO_ACCOUNT_SID", config.TWILIO_ACCOUNT_SID],
+      ["TWILIO_AUTH_TOKEN", config.TWILIO_AUTH_TOKEN],
+      ["TWILIO_VERIFY_SERVICE_SID", config.TWILIO_VERIFY_SERVICE_SID],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+    if (missingAdminMfa.length > 0) {
+      errors.push(
+        `Owner admin MFA requires ${missingAdminMfa.join(", ")} in production.`,
+      );
+    }
+  }
   if (isProduction) {
     for (const key of [
       "TWILIO_ACCOUNT_SID",
