@@ -631,3 +631,16 @@ Verification target:
   requires SMS verification again.
 - Production deployment refuses release when any required owner-MFA secret name
   is absent.
+
+
+### Production admin MFA certification workflow
+
+The repository includes a manual production browser gate for owner MFA. Recovery
+and release certification must preserve this behavior:
+- request phase: authenticated owner reaches the locked admin screen and requests
+  a real Twilio Verify SMS to the fixed server-side owner phone.
+- verify phase: the browser accepts only the real six-digit code received out of
+  band, exposes admin data only after approval, survives a hard reload within
+  the short MFA lifetime, then proves logout plus a new login returns to the
+  MFA-locked state.
+- The workflow must never manufacture, persist, print, or derive the SMS code.
