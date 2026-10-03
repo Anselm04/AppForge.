@@ -45,7 +45,9 @@ async function sendVerifySms(to: string, body: string): Promise<void> {
   await ensureVerifyCustomCodesEnabled();
 
   const res = await fetch(
-    `https://verify.twilio.com/v2/Services/${encodeURIComponent(ENV.twilioVerifyServiceSid)}/Verifications`,
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/Verifications`,
     {
       method: "POST",
       headers: {
@@ -79,7 +81,9 @@ export async function requestTwilioVerification(to: string): Promise<void> {
   }
 
   const res = await fetch(
-    `https://verify.twilio.com/v2/Services/${encodeURIComponent(ENV.twilioVerifyServiceSid)}/Verifications`,
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/Verifications`,
     {
       method: "POST",
       headers: {
@@ -107,7 +111,9 @@ export async function checkTwilioVerification(
   }
 
   const res = await fetch(
-    `https://verify.twilio.com/v2/Services/${encodeURIComponent(ENV.twilioVerifyServiceSid)}/VerificationCheck`,
+    `https://verify.twilio.com/v2/Services/${encodeURIComponent(
+      ENV.twilioVerifyServiceSid,
+    )}/VerificationCheck`,
     {
       method: "POST",
       headers: {
@@ -126,9 +132,9 @@ export async function checkTwilioVerification(
     throw new Error(`Twilio Verify check failed (${res.status})`);
   }
 
-  const body = (await res.json().catch(() => null)) as
-    | { status?: string }
-    | null;
+  const body = (await res.json().catch(() => null)) as {
+    status?: string;
+  } | null;
   return body?.status === "approved";
 }
 
