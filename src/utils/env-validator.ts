@@ -48,6 +48,7 @@ export interface EnvConfig {
   OWNER_OPEN_ID?: string;
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
+  TWILIO_VERIFY_SERVICE_SID?: string;
   TWILIO_PHONE_NUMBER?: string;
   HCAPTCHA_SECRET?: string;
   VANTA_WORKSPACE_ID?: string;
@@ -256,6 +257,13 @@ export function validateEnv(
       "OWNER_EMAIL is required. Used for admin dashboard access, ban notifications, and compliance records.",
     );
   }
+  if (isProduction && !config.OWNER_PHONE) {
+    errors.push(
+      "OWNER_PHONE is required in production for owner admin SMS MFA.",
+    );
+  } else if (config.OWNER_PHONE && !/^\\+[1-9]\\d{7,14}$/.test(config.OWNER_PHONE)) {
+    errors.push("OWNER_PHONE must use E.164 format.");
+  }
   if (!config.SUPABASE_SERVICE_ROLE_KEY && isProduction) {
     warnings.push(
       "SUPABASE_SERVICE_ROLE_KEY not set. Auth can use a publishable/anon key, but admin Supabase operations may be unavailable.",
@@ -266,6 +274,17 @@ export function validateEnv(
     warnings.push(
       "TWILIO_ACCOUNT_SID set but TWILIO_AUTH_TOKEN missing. SMS verification will not work.",
     );
+  }
+  if (isProduction) {
+    for (const key of [
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN",
+      "TWILIO_VERIFY_SERVICE_SID",
+    ] as const) {
+      if (!config[key]) {
+        errors.push(`${key} is required in production for owner admin SMS MFA.`);
+      }
+    }
   }
 
   if (!config.HCAPTCHA_SECRET && isProduction) {
@@ -383,7 +402,7 @@ export function getEnvSummary(
     `  Stripe Billing Catalog: ${billingCatalogReady ? "✅" : "❌"}`,
     `  Owner Email: ${config.OWNER_EMAIL ? "✅" : "❌ (required for admin)"}`,
     `  hCaptcha: ${config.HCAPTCHA_SECRET ? "✅" : "⚠️"}`,
-    `  Twilio SMS: ${config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN ? "✅" : "⚠️"}`,
+    `  Twilio Admin MFA: ${config.OWNER_PHONE && config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN && config.TWILIO_VERIFY_SERVICE_SID ? "✅" : "❌"}`,
     `  Vanta: ${config.VANTA_WORKSPACE_ID && config.VANTA_API_TOKEN ? "✅" : "⚠️"}`,
     `  Resend Email: ${config.RESEND_API_KEY ? "✅" : "⚠️"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
