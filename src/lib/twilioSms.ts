@@ -4,7 +4,9 @@ import { ENV } from "../_core/env.js";
 let verifyCustomCodesEnabled = false;
 
 function twilioAuthorization(): string {
-  return `Basic ${Buffer.from(`${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`).toString("base64")}`;
+  return `Basic ${Buffer.from(
+    `${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`,
+  ).toString("base64")}`;
 }
 
 function extractOtp(body: string): string {
