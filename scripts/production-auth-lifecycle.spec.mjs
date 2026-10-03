@@ -90,4 +90,54 @@ test("confirms, logs out, and relogs into the real production account", async ({
   await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
   await expectLoggedIn(page);
   await expect(page).toHaveURL(`${baseUrl}/account`);
+
+  // Prove session continuity across a hard reload.
+  await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+  await expectLoggedIn(page);
+  await expect(page).toHaveURL(`${baseUrl}/account`);
+
+  // Repeat logout -> anonymous boundary -> relogin two more times.
+  for (let cycle = 2; cycle <= 3; cycle += 1) {
+    const cycleLogout = page.getByRole("button", { name: /log out/i }).first();
+    await expect(cycleLogout).toBeVisible({ timeout: 30_000 });
+    await cycleLogout.click();
+    await page.waitForURL(`${baseUrl}/`, { timeout: 30_000 });
+    await expectLoggedOut(page);
+
+    const protectedResponse = await page.request.get(`${baseUrl}/api/build/1`);
+    expect(protectedResponse.status(), `cycle ${cycle}: logged-out protected route must stay closed`).toBe(401);
+
+    await page.goto(`${baseUrl}/login?next=%2Faccount`, {
+      waitUntil: "networkidle",
+      timeout: 60_000,
+    });
+    await page.getByLabel(/email/i).fill(email);
+    await page.getByLabel(/^password/i).fill(password);
+    await page.getByRole("button", { name: /log in|sign in/i }).click();
+    await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
+    await expectLoggedIn(page);
+  }
+});
+
+test("confirmed account can authenticate from a completely fresh browser context", async ({ browser }) => {
+  test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
+
+  requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
+  requireValue("APPFORGE_CANARY_PASSWORD", password);
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(`${baseUrl}/login?next=%2Faccount`, {
+      waitUntil: "networkidle",
+      timeout: 60_000,
+    });
+    await page.getByLabel(/email/i).fill(email);
+    await page.getByLabel(/^password/i).fill(password);
+    await page.getByRole("button", { name: /log in|sign in/i }).click();
+    await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
+    await expectLoggedIn(page);
+  } finally {
+    await context.close();
+  }
 });
