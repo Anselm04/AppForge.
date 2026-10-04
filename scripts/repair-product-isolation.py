@@ -56,6 +56,9 @@ text = re.sub(
 )
 write(path, text)
 
+# The repair validates the production deployment workflow in-run. GitHub Actions
+# cannot commit workflow-file changes with its default token, so that file is
+# committed separately through the connected GitHub credential.
 path = ".github/workflows/deploy-production.yml"
 text = read(path)
 text = "\n".join(
