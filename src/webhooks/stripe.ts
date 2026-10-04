@@ -9,8 +9,11 @@ import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
 import { incrementOperationalMetric } from "../lib/operationsObservability.js";
-import { verifyAppForgeStripeAccount } from "../services/appForgeStripe.js";
 import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
+import {
+  classifyAppForgeSubscription,
+  isAppForgeCreditMetadata,
+} from "../services/appForgeStripeOwnership.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -157,6 +160,32 @@ function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
   return subscription.items?.data?.[0]?.price?.id ?? null;
 }
 
+function requireAppForgeSubscriptionOwnership(
+  subscription: Stripe.Subscription,
+): boolean {
+  const priceId = subscriptionPriceId(subscription);
+  const ownership = classifyAppForgeSubscription(
+    subscription.metadata,
+    tierFromPriceId(priceId) !== null,
+  );
+
+  if (ownership === "foreign") {
+    logger.info(
+      { subscriptionId: subscription.id, priceId },
+      "stripe_foreign_product_event_ignored",
+    );
+    return false;
+  }
+
+  if (ownership === "invalid_appforge") {
+    throw new Error(
+      `AppForge Stripe subscription uses an unconfigured price: ${priceId || "missing"}`,
+    );
+  }
+
+  return true;
+}
+
 function shouldGrantMonthlyPlanCredits(invoice: Stripe.Invoice): boolean {
   return (
     invoice.billing_reason === "subscription_create" ||
@@ -281,6 +310,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.updated": {
       const snapshot = event.data.object as Stripe.Subscription;
       const subscription = await stripe.subscriptions.retrieve(snapshot.id);
+      if (!requireAppForgeSubscriptionOwnership(subscription)) return;
       const customerId = customerIdFromSubscription(subscription);
       const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
       const customerUserId = customerId
@@ -303,6 +333,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
+      if (!requireAppForgeSubscriptionOwnership(subscription)) return;
       const customerId = customerIdFromSubscription(subscription);
       const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
       const customerUserId = customerId
@@ -326,13 +357,15 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId = resolveCheckoutUserId(session);
       const mode = session.mode;
+      if (!isAppForgeCreditMetadata(session.metadata)) return;
+      const userId = resolveCheckoutUserId(session);
 
       if (userId && mode === "subscription" && session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string,
         );
+        if (!requireAppForgeSubscriptionOwnership(subscription)) return;
         const customerId =
           typeof session.customer === "string"
             ? session.customer
@@ -388,6 +421,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "checkout.session.async_payment_succeeded": {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (!isAppForgeCreditMetadata(session.metadata)) return;
       const userId = resolveCheckoutUserId(session);
       if (!userId || session.mode !== "payment") {
         if (session.mode === "subscription") break;
@@ -423,6 +457,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         break;
       }
 
+      const payment = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (!isAppForgeCreditMetadata(payment.metadata)) return;
+
       const result = await reconcileCreditPurchaseRefund(
         paymentIntentId,
         event.id,
@@ -430,16 +467,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         charge.amount_refunded,
         charge.refunded,
       );
-      if (result.purchaseMissing) {
-        const payment = await stripe.paymentIntents.retrieve(paymentIntentId);
-        if (
-          payment.metadata.product_line === "appforge" &&
-          parseCreditPack(payment.metadata.credits)
-        ) {
-          throw new Error(
-            "Credit purchase is not yet recorded; retry refund after fulfillment",
-          );
-        }
+      if (result.purchaseMissing && parseCreditPack(payment.metadata.credits)) {
+        throw new Error(
+          "Credit purchase is not yet recorded; retry refund after fulfillment",
+        );
       }
       logger.info(
         {
@@ -477,6 +508,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         try {
           const subscription =
             await stripe.subscriptions.retrieve(subscriptionId);
+          if (!requireAppForgeSubscriptionOwnership(subscription)) return;
           const customerId = customerIdFromSubscription(subscription);
           const priceId = subscriptionPriceId(subscription);
           tier = resolveTier(subscription.metadata, priceId);
@@ -556,6 +588,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         // Lookup errors must escape so Stripe retries without changing access.
         const subscription =
           await stripe.subscriptions.retrieve(subscriptionId);
+        if (!requireAppForgeSubscriptionOwnership(subscription)) return;
         await db
           .update(subscriptions)
           .set({ status: subscription.status, updatedAt: new Date() })
@@ -591,7 +624,6 @@ export async function handleStripeWebhook(req: Request, res: Response) {
   }
 
   try {
-    await verifyAppForgeStripeAccount(stripe);
     await processStripeEventOnce(event.id, event.type, () =>
       handleStripeEvent(event),
     );

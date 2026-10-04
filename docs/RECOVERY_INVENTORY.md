@@ -693,3 +693,20 @@ credit ledger; replay must not mint another grant or revoke replacement plans.
 A dedicated account and live checkout/webhook/database/UI certification are
 required before this billing configuration is deployed. Do not treat unit tests
 as real-money certification or reuse another product's catalog as a shortcut.
+
+
+### Shared Stripe account product isolation — 5 October 2026
+
+Recovery invariant:
+- AppForge uses the same Stripe account as other independent products; account-level isolation is not required and `APPFORGE_STRIPE_ACCOUNT_ID` must not be restored or reintroduced.
+- Recover `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and only the AppForge-owned subscription/credit Price IDs used by AppForge.
+- AppForge checkout metadata remains namespaced with `product_line=appforge`; AppForge entitlements and credit records must only be created from AppForge-owned prices and valid settled AppForge payments.
+- Stripe events for unrelated products in the shared account must never create, change, cancel, refund, or grant AppForge entitlements/credits.
+- The external marketing integration is optional. The catalogue website and every other product are not AppForge runtime, billing, deployment, or recovery dependencies.
+- The product-isolation repair/release gates must fail closed if obsolete account-level Stripe isolation or production-facing cross-product coupling is reintroduced.
+
+Verification target:
+- Verify all AppForge subscription and credit Price IDs resolve to the intended AppForge products before reopening paid traffic.
+- Exercise AppForge checkout, delayed/replayed webhook delivery, refund, cancellation, failed-payment reconciliation, and entitlement/credit idempotency.
+- Deliver representative unrelated-product Stripe events from the shared account and confirm AppForge acknowledges/ignores them without mutating AppForge billing state.
+- Confirm a deliberately AppForge-marked event with a non-AppForge price fails closed and grants nothing.

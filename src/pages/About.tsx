@@ -31,16 +31,16 @@ export function About() {
           </p>
           <div className="flex flex-col gap-2 text-slate-700 dark:text-slate-200">
             <a
-              href="mailto:hello@trillionaitech.com"
-              className="text-blue-600 hover:text-blue-700"
+              href="/help"
+              className="hover:text-slate-900 dark:hover:text-white"
             >
-              hello@trillionaitech.com
+              AppForge Support
             </a>
             <a
-              href="mailto:support@trillionaitech.com"
-              className="text-blue-600 hover:text-blue-700"
+              href="/help"
+              className="hover:text-slate-900 dark:hover:text-white"
             >
-              support@trillionaitech.com
+              AppForge Support
             </a>
           </div>
         </div>

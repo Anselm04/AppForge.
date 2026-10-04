@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · 創業者兼CEO",
-    "ownerOf": "AppForgeおよびTrillionAI Techのオーナー",
+    "ownerOf": "AppForge",
     "about": "について",
-    "tagline": "TrillionAI TechのAIアプリビルダー — 計画、コード、レビュー、デプロイ。",
+    "tagline": "AppForgeのAIアプリビルダー — 計画、コード、レビュー、デプロイ。",
     "product": "製品",
     "company": "会社",
     "help": "ヘルプセンター",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "AppForgeについて",
-    "body": "AppForgeはTrillionAI TechのAIアプリビルダーです。Anselm Perkinsは創業者兼CEOであり、AppForgeとTrillionAI Techのオーナーです。"
+    "body": "AppForgeはAppForgeのAIアプリビルダーです。Anselm Perkinsは創業者兼CEOであり、AppForgeとAppForgeのオーナーです。"
   },
   "common": {
     "noResults": "結果が見つかりません。",

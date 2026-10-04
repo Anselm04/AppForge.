@@ -1,0 +1,119 @@
+name: AppForge Product Isolation Repair
+
+on:
+  push:
+    branches:
+      - fix/appforge-product-isolation
+
+permissions:
+  contents: write
+
+# This branch-local repair gate applies the complete AppForge product-boundary cleanup
+# before verification, then commits only a tree that passes typecheck and all tests.
+jobs:
+  repair-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[isolation-repair]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Apply deterministic isolation repair
+        run: |
+          python3 scripts/repair-product-isolation.py
+          python3 scripts/harden-shared-stripe.py
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format repaired source
+        run: >-
+          npx prettier --write
+          src/services/appForgeStripe.ts
+          src/services/appForgeStripeOwnership.ts
+          src/services/email.ts
+          src/services/marketingBridge.ts
+          src/webhooks/stripe.ts
+          src/integrations/catalog.ts
+          src/integrations/health.ts
+          src/routers/ecosystem.ts
+          src/pages/Home.tsx
+          src/pages/Pricing.tsx
+          src/pages/About.tsx
+          src/components/SiteFooter.tsx
+          src/components/layout/MarketingLayout.tsx
+          src/lib/hostedRuntime.ts
+          src/__tests__/appForgeStripeAccount.test.ts
+          src/__tests__/appForgeStripeOwnership.test.ts
+          src/__tests__/stripeDelayedEvents.test.ts
+          src/__tests__/hostedRuntime.test.ts
+          src/__tests__/integrationProductionContracts.test.ts
+          src/__tests__/productionEnvValidator.test.ts
+          src/i18n/data/*.json
+
+      - name: Verify TypeScript
+        run: npm run typecheck
+
+      - name: Run test suite
+        run: npm test -- --run
+
+      - name: Verify no cross-product identity remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          legacy_name='trill''ion'
+          account_key='APPFORGE_STRIPE_''ACCOUNT_ID'
+          protected=(
+            README.md
+            .env.example
+            .env.schema.json
+            src/components
+            src/pages
+            src/services
+            src/integrations
+            src/routers
+            src/webhooks
+            src/i18n
+            src/lib/hostedRuntime.ts
+            .github/workflows/deploy-production.yml
+          )
+          if git grep -in "$legacy_name" -- "${protected[@]}"; then
+            echo "Cross-product identity remains in AppForge production-facing code/config"
+            exit 1
+          fi
+          if git grep -n "$account_key" -- "${protected[@]}"; then
+            echo "Obsolete account-level Stripe isolation remains"
+            exit 1
+          fi
+
+      - name: Commit repaired tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="fix/appforge-product-isolation"
+          git config user.name "AppForge Production Repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          # The default Actions token is not allowed to update workflow files.
+          # deploy-production.yml is repaired and verified above, but is committed
+          # separately through the connected GitHub credential so the verified
+          # non-workflow repair can still land without weakening any test/gate.
+          git restore --staged .github/workflows/deploy-production.yml
+          if git diff --cached --quiet; then
+            echo "No non-workflow changes required"
+            exit 0
+          fi
+          git commit -m "fix: isolate AppForge as an independent product [isolation-repair]"
+          # Protect concurrent edits: integrate a remote advance instead of forcing it away.
+          git fetch origin "$branch"
+          if ! git merge-base --is-ancestor "origin/$branch" HEAD; then
+            git rebase "origin/$branch"
+          fi
+          git push origin HEAD:"$branch"

@@ -47,7 +47,7 @@ describe("production plugin and integration contracts", () => {
     expect(preflight).toContain('item.state !== "connected" || !item.verified');
   });
 
-  it("keeps the expected production-critical integration set explicit in the catalog", () => {
+  it("keeps only AppForge production-critical integrations required", () => {
     const requiredIds = APPFORGE_INTEGRATIONS.filter(
       (integration) => integration.requiredForProduction,
     ).map((integration) => integration.id);
@@ -61,13 +61,13 @@ describe("production plugin and integration contracts", () => {
         "stripe",
         "supabase",
         "github",
-        "marketing-app",
-        "trillionaitech-site",
       ]),
     );
+    expect(requiredFor("marketing-app")).toBe(false);
+    expect(requiredIds).not.toContain("public-site");
   });
 
-  it("keeps external plugin actions behind authenticated procedures and ownership checks", () => {
+  it("protects external plugin actions with authentication and ownership checks", () => {
     expect(ecosystemRouter).toContain("runAutomation: protectedProcedure");
     expect(ecosystemRouter).toContain("runAgentTask: protectedProcedure");
     expect(ecosystemRouter).toContain("runSecurityReview: protectedProcedure");

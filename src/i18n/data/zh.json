@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · 创始人兼首席执行官",
-    "ownerOf": "AppForge 与 TrillionAI Tech 所有者",
+    "ownerOf": "AppForge",
     "about": "关于",
-    "tagline": "TrillionAI Tech 的 AI 应用构建器 — 规划、编码、审查、部署。",
+    "tagline": "AppForge 的 AI 应用构建器 — 规划、编码、审查、部署。",
     "product": "产品",
     "company": "公司",
     "help": "帮助中心",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "关于 AppForge",
-    "body": "AppForge 是 TrillionAI Tech 的 AI 应用构建器。Anselm Perkins 是创始人兼首席执行官，也是 AppForge 与 TrillionAI Tech 的所有者。"
+    "body": "AppForge 是 AppForge 的 AI 应用构建器。Anselm Perkins 是创始人兼首席执行官，也是 AppForge 与 AppForge 的所有者。"
   },
   "common": {
     "noResults": "未找到结果。",

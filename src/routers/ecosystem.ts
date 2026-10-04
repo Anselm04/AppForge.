@@ -351,7 +351,7 @@ export const ecosystemRouter = router({
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "Create or sign in to the matching TrillionAI Marketing account first",
+              "Create or sign in to the matching marketing service account first",
           });
         }
         throw new TRPCError({

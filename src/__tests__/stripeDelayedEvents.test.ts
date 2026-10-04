@@ -27,9 +27,6 @@ vi.mock("stripe", () => ({
     paymentIntents = { retrieve: mocks.payment };
   },
 }));
-vi.mock("../services/appForgeStripe.js", () => ({
-  verifyAppForgeStripeAccount: vi.fn(),
-}));
 vi.mock("../db.js", () => ({
   addCredits: mocks.addCredits,
   db: {
@@ -192,7 +189,7 @@ describe("delayed Stripe subscription events", () => {
       mode: "payment",
       payment_status: "paid",
       payment_intent: { id: "pi_paid" },
-      metadata: { userId: "42", credits: "50" },
+      metadata: { product_line: "appforge", userId: "42", credits: "50" },
     });
     expect(mocks.addCredits).toHaveBeenCalledWith(
       42,
@@ -202,12 +199,29 @@ describe("delayed Stripe subscription events", () => {
       "pi_paid",
     );
   });
+  it("acknowledges an unrelated product checkout without minting AppForge credits", async () => {
+    const res = await deliver("checkout.session.completed", {
+      id: "cs_other_product",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_other_product",
+      metadata: {
+        product_line: "marketing-app",
+        userId: "42",
+        credits: "50",
+      },
+    });
+    expect(mocks.lineItems).not.toHaveBeenCalled();
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
   it("acknowledges an unsettled credit checkout without minting credits", async () => {
     const res = await deliver("checkout.session.completed", {
       id: "cs_waiting",
       mode: "payment",
       payment_status: "unpaid",
-      metadata: { userId: "42", credits: "50" },
+      metadata: { product_line: "appforge", userId: "42", credits: "50" },
     });
     expect(mocks.addCredits).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({ received: true });
@@ -218,7 +232,7 @@ describe("delayed Stripe subscription events", () => {
       mode: "payment",
       payment_status: "paid",
       payment_intent: "pi_paid",
-      metadata: { userId: "42", credits: "50" },
+      metadata: { product_line: "appforge", userId: "42", credits: "50" },
     });
     expect(mocks.addCredits).toHaveBeenCalledWith(
       42,
@@ -238,7 +252,7 @@ describe("delayed Stripe subscription events", () => {
       mode: "payment",
       payment_status: "paid",
       payment_intent: "pi_other",
-      metadata: { userId: "42", credits: "50" },
+      metadata: { product_line: "appforge", userId: "42", credits: "50" },
     });
     expect(mocks.addCredits).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
@@ -289,7 +303,12 @@ describe("delayed Stripe subscription events", () => {
   it.each(["active", "trialing", "canceled", "unpaid", "past_due"])(
     "keeps Stripe's current %s status when an old payment failure arrives",
     async (status) => {
-      mocks.retrieve.mockResolvedValue({ id: "sub_current", status });
+      mocks.retrieve.mockResolvedValue({
+        id: "sub_current",
+        status,
+        metadata: { product_line: "appforge", userId: "42" },
+        items: { data: [{ price: { id: "price_starter" } }] },
+      });
       const res = await deliver("invoice.payment_failed", {
         subscription: "sub_current",
       });
@@ -313,7 +332,12 @@ describe("delayed Stripe subscription events", () => {
   });
 
   it("handles expanded invoice subscription references", async () => {
-    mocks.retrieve.mockResolvedValue({ id: "sub_current", status: "active" });
+    mocks.retrieve.mockResolvedValue({
+      id: "sub_current",
+      status: "active",
+      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+    });
     await deliver("invoice.payment_failed", {
       subscription: { id: "sub_current" },
     });
@@ -328,7 +352,8 @@ describe("delayed Stripe subscription events", () => {
     const res = await deliver("customer.subscription.deleted", {
       id: "sub_old",
       customer: "cus_owner",
-      metadata: { userId: "42" },
+      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
     });
     const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0]);
     expect(query.sql).toContain('"stripe_subscription_id"');

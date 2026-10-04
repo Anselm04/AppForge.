@@ -1,6 +1,6 @@
 # AppForge Brand Guidelines v1.0
 
-> Trillion AI Tech — Premium programmatic brand system
+> AppForge — Premium programmatic brand system
 
 ---
 
@@ -257,4 +257,4 @@ svgexport social-preview.svg social-preview.jpg 1200:630
 
 ---
 
-*Brand Kit v1.0 — Generated for Anselm04/AppForge — Trillion AI Tech*
+*Brand Kit v1.0 — Generated for Anselm04/AppForge — AppForge*

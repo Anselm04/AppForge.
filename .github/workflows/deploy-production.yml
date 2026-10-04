@@ -129,7 +129,7 @@ jobs:
             echo "Production deploy blocked because public auth/billing configuration is incomplete."
             exit 1
           fi
-          echo "Production Supabase public configuration is pinned; billing catalog must come from the dedicated account."
+          echo "Production Supabase public configuration is pinned; billing catalog must use only AppForge-owned Stripe prices."
 
   deploy-fly:
     runs-on: ubuntu-latest
@@ -189,7 +189,6 @@ jobs:
             COOKIE_SECRET
             STRIPE_SECRET_KEY
             STRIPE_WEBHOOK_SECRET
-            APPFORGE_STRIPE_ACCOUNT_ID
             STRIPE_STARTER_PRICE_ID
             STRIPE_BUILDER_PRICE_ID
             STRIPE_STUDIO_PRICE_ID
