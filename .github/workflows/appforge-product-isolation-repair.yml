@@ -101,8 +101,13 @@ jobs:
           git config user.name "AppForge Production Repair"
           git config user.email "actions@users.noreply.github.com"
           git add -A
+          # The default Actions token is not allowed to update workflow files.
+          # deploy-production.yml is repaired and verified above, but is committed
+          # separately through the connected GitHub credential so the verified
+          # non-workflow repair can still land without weakening any test/gate.
+          git restore --staged .github/workflows/deploy-production.yml
           if git diff --cached --quiet; then
-            echo "No changes required"
+            echo "No non-workflow changes required"
             exit 0
           fi
           git commit -m "fix: isolate AppForge as an independent product [isolation-repair]"
