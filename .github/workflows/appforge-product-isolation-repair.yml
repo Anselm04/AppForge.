@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
 
+# This branch-local repair gate applies the complete AppForge product-boundary cleanup
+# before verification, then commits only a tree that passes typecheck and all tests.
 jobs:
   repair-and-verify:
     if: ${{ !contains(github.event.head_commit.message, '[isolation-repair]') }}
@@ -46,6 +48,9 @@ jobs:
           src/components/layout/MarketingLayout.tsx
           src/lib/hostedRuntime.ts
           src/__tests__/appForgeStripeAccount.test.ts
+          src/__tests__/hostedRuntime.test.ts
+          src/__tests__/integrationProductionContracts.test.ts
+          src/__tests__/productionEnvValidator.test.ts
           src/i18n/data/*.json
 
       - name: Verify TypeScript
