@@ -77,14 +77,39 @@ text = text.replace(
 )
 write(path, text)
 
+# AppForge's optional marketing bridge must be independent of every other product.
+path = "src/integrations/catalog.ts"
+text = read(path)
+text = re.sub(
+    r'\s*\{ id: "marketing-app", name: "TrillionAI Marketing", kind: "ecosystem", job: "Receives AppForge products and turns them into measurable marketing campaigns\.", requiredForProduction: true, capabilities: \["campaigns", "content", "seo", "social", "ads"\], env: \["MARKETING_APP_URL", "TRILLION_ECOSYSTEM_SHARED_SECRET"\] \},',
+    '\n  { id: "marketing-app", name: "Marketing Integration", kind: "external", job: "Optional export of AppForge products to an independently configured marketing service.", requiredForProduction: false, capabilities: ["campaigns", "content", "seo", "social", "ads"], env: ["MARKETING_APP_URL", "APPFORGE_MARKETING_SHARED_SECRET"] },',
+    text,
+)
+text = re.sub(
+    r'\n\s*\{ id: "trillionaitech-site",[^\n]*\},',
+    "",
+    text,
+)
+write(path, text)
+
+path = "src/integrations/health.ts"
+text = read(path)
+text = text.replace("TRILLION_ECOSYSTEM_SHARED_SECRET", "APPFORGE_MARKETING_SHARED_SECRET")
+text = text.replace(
+    "Marketing app URL and ecosystem shared secret are required",
+    "Marketing integration URL and AppForge shared secret are required",
+)
+text = re.sub(
+    r'\n\s*case "trillionaitech-site": \{.*?\n\s*\}\n\n\s*default:',
+    "\n\n    default:",
+    text,
+    flags=re.S,
+)
+write(path, text)
+
 # Optional marketing integration is AppForge-namespaced and never production-required.
 replace(
     "src/services/marketingBridge.ts",
-    "TRILLION_ECOSYSTEM_SHARED_SECRET",
-    "APPFORGE_MARKETING_SHARED_SECRET",
-)
-replace(
-    "src/integrations/health.ts",
     "TRILLION_ECOSYSTEM_SHARED_SECRET",
     "APPFORGE_MARKETING_SHARED_SECRET",
 )
