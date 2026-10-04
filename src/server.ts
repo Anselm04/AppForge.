@@ -11,6 +11,7 @@ import { securityHeaders } from "./middleware/securityHeaders.js";
 import { corsOrigin } from "./middleware/corsOrigin.js";
 import { compressionMiddleware } from "./middleware/compression.js";
 import { createLocalRateLimiter } from "./middleware/rateLimiter.js";
+import { adminMfaRateLimit } from "./middleware/adminMfaRateLimit.js";
 import { createSlowDown } from "./middleware/slowDown.js";
 import {
   sanitizeSentryEvent,
@@ -209,7 +210,8 @@ app.use("/api", (req, res, next) => {
 const webhookLimiter = createLocalRateLimiter({
   windowMs: 1 * 60 * 1000,
   max: 60,
-  message: "Webhook rate limit exceeded. Please retry with exponential backoff.",
+  message:
+    "Webhook rate limit exceeded. Please retry with exponential backoff.",
 });
 const globalLimiter = createLocalRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -224,17 +226,20 @@ const apiLimiter = createLocalRateLimiter({
 const buildLimiter = createLocalRateLimiter({
   windowMs: 60 * 60 * 1000,
   max: 20,
-  message: "Build rate limit exceeded. Please wait before creating more builds.",
+  message:
+    "Build rate limit exceeded. Please wait before creating more builds.",
 });
 const adminMfaRequestLimiter = createLocalRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 3,
-  message: "Too many admin verification requests. Please wait before requesting another SMS.",
+  message:
+    "Too many admin verification requests. Please wait before requesting another SMS.",
 });
 const adminMfaVerifyLimiter = createLocalRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 10,
-  message: "Too many admin verification attempts. Please wait before trying again.",
+  message:
+    "Too many admin verification attempts. Please wait before trying again.",
 });
 const slowDown = createSlowDown({
   windowMs: 15 * 60 * 1000,
@@ -287,8 +292,10 @@ app.use("/api", supabaseAuthMiddleware);
 // Admin MFA is deliberately stricter than the general API limiter. These
 // controls run after trusted authentication so the distributed limiter can key
 // on the authenticated owner user ID instead of caller-controlled headers.
-app.use("/api/trpc/admin.requestMfa", adminMfaRequestLimiter);
-app.use("/api/trpc/admin.verifyMfa", adminMfaVerifyLimiter);
+app.use(
+  "/api/trpc",
+  adminMfaRateLimit(adminMfaRequestLimiter, adminMfaVerifyLimiter),
+);
 
 app.get("/api/preview-auth/:projectId", async (req, res) => {
   const authorization = req.headers.authorization;
@@ -473,7 +480,10 @@ async function initialiseRuntime() {
     logger.error({ errors: envResult.errors }, "environment_validation_failed");
   }
   if (envResult.warnings.length > 0) {
-    logger.warn({ warnings: envResult.warnings }, "environment_validation_warnings");
+    logger.warn(
+      { warnings: envResult.warnings },
+      "environment_validation_warnings",
+    );
   }
   if (
     process.env.ENFORCE_ENV_VALIDATION !== "false" &&
