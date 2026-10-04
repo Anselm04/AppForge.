@@ -56,6 +56,15 @@ text = read(path)
 text = "\n".join(line for line in text.splitlines() if "APPFORGE_STRIPE_ACCOUNT_ID" not in line) + "\n"
 write(path, text)
 
+# Stripe webhook processing must not verify a dedicated Stripe account. Product
+# ownership is enforced by AppForge-owned configured price IDs plus AppForge
+# metadata/entitlement records.
+path = "src/webhooks/stripe.ts"
+text = read(path)
+text = text.replace('import { verifyAppForgeStripeAccount } from "../services/appForgeStripe.js";\n', "")
+text = text.replace("    await verifyAppForgeStripeAccount(stripe);\n", "")
+write(path, text)
+
 # Catalog: generic optional marketing bridge, no dependency on another product/site.
 path = "src/integrations/catalog.ts"
 text = read(path)
