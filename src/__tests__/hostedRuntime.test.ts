@@ -19,7 +19,7 @@ describe("hostedRuntime", () => {
     expect(publicAppUrl(42)).toMatch(/\/apps\/42$/);
   });
 
-  it("app html has add/complete controls", () => {
+  it("app html has add/complete controls and only AppForge branding", () => {
     const html = materializeHostedHtml({
       projectId: 1,
       title: "TaskFlow",
@@ -28,8 +28,8 @@ describe("hostedRuntime", () => {
     });
     expect(html).toContain("<!doctype html>");
     expect(html).toContain("id=\"add-btn\"");
-    expect(html).toContain("TrillionAI Tech");
-    expect(html).toContain("hello@trillionaitech.com");
+    expect(html).toContain("Built with AppForge");
+    expect(html).not.toContain("mailto:");
     expect(html).not.toContain("Ride Global");
   });
 
