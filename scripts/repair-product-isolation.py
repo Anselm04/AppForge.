@@ -193,6 +193,36 @@ for p in ROOT.rglob("*"):
     if new != text:
         p.write_text(new, encoding="utf-8")
 
+# Update regression contracts to the intended independent-product architecture.
+path = "src/__tests__/productionEnvValidator.test.ts"
+text = read(path)
+text = re.sub(
+    r'\s*it\("blocks production billing without a dedicated account", \(\) => \{.*?\n\s*\}\);',
+    '''\n  it("allows AppForge billing in a shared Stripe account when AppForge prices are configured", () => {\n    const result = validateEnv(baseProductionEnv);\n    expect(result.valid).toBe(true);\n    expect(result.errors).toEqual([]);\n  });''',
+    text,
+    count=1,
+    flags=re.S,
+)
+write(path, text)
+
+path = "src/__tests__/integrationProductionContracts.test.ts"
+text = read(path)
+text = text.replace('        "marketing-app",\n', "")
+text = text.replace('        "appforge-site",\n', "")
+needle = "    );\n  });\n\n  it(\"keeps external plugin actions behind authenticated procedures"
+if needle in text:
+    text = text.replace(
+        needle,
+        '''    );\n    expect(requiredFor("marketing-app")).toBe(false);\n    expect(APPFORGE_INTEGRATIONS.some((item) => item.id === "public-site" && item.requiredForProduction)).toBe(false);\n  });\n\n  it("keeps external plugin actions behind authenticated procedures"''',
+        1,
+    )
+write(path, text)
+
+path = "src/__tests__/hostedRuntime.test.ts"
+text = read(path)
+text = text.replace('    expect(html).toContain("AppForge");\n    expect(html).toContain("hello@appforge.example");\n', '    expect(html).toContain("Built with AppForge");\n    expect(html).not.toContain("mailto:");\n')
+write(path, text)
+
 # Guard the invariant: current AppForge source/config/docs must not contain the old product identity.
 violations = []
 for p in ROOT.rglob("*"):
