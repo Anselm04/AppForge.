@@ -29,6 +29,25 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Format repaired source
+        run: >-
+          npx prettier --write
+          src/services/appForgeStripe.ts
+          src/services/email.ts
+          src/services/marketingBridge.ts
+          src/webhooks/stripe.ts
+          src/integrations/catalog.ts
+          src/integrations/health.ts
+          src/routers/ecosystem.ts
+          src/pages/Home.tsx
+          src/pages/Pricing.tsx
+          src/pages/About.tsx
+          src/components/SiteFooter.tsx
+          src/components/layout/MarketingLayout.tsx
+          src/lib/hostedRuntime.ts
+          src/__tests__/appForgeStripeAccount.test.ts
+          src/i18n/data/*.json
+
       - name: Verify TypeScript
         run: npm run typecheck
 
