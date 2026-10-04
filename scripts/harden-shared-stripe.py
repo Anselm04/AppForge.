@@ -4,6 +4,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / "src/webhooks/stripe.ts"
 text = PATH.read_text(encoding="utf-8")
 
+FINAL_MARKERS = [
+    'from "../services/appForgeStripeOwnership.js";',
+    "function requireAppForgeSubscriptionOwnership(",
+    '"stripe_foreign_product_event_ignored"',
+    "if (!isAppForgeCreditMetadata(session.metadata)) return;",
+    "if (!isAppForgeCreditMetadata(payment.metadata)) return;",
+]
+
 
 def replace_required(old: str, new: str) -> None:
     global text
@@ -12,24 +20,25 @@ def replace_required(old: str, new: str) -> None:
     text = text.replace(old, new, 1)
 
 
-# Import the pure ownership classifier used to distinguish AppForge events from
-# events belonging to other products in the same Stripe account.
-import_anchor = 'import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";\n'
-if "appForgeStripeOwnership.js" not in text:
-    replace_required(
-        import_anchor,
-        import_anchor
-        + 'import {\n'
-        + '  classifyAppForgeSubscription,\n'
-        + '  isAppForgeCreditMetadata,\n'
-        + '} from "../services/appForgeStripeOwnership.js";\n',
-    )
+# The repair workflow can run repeatedly as the PR advances. Treat a fully
+# hardened webhook as success instead of trying to reapply old-source patches.
+if not all(marker in text for marker in FINAL_MARKERS):
+    import_anchor = 'import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";\n'
+    if "appForgeStripeOwnership.js" not in text:
+        replace_required(
+            import_anchor,
+            import_anchor
+            + 'import {\n'
+            + '  classifyAppForgeSubscription,\n'
+            + '  isAppForgeCreditMetadata,\n'
+            + '} from "../services/appForgeStripeOwnership.js";\n',
+        )
 
-helper_anchor = '''function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
+    helper_anchor = '''function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
   return subscription.items?.data?.[0]?.price?.id ?? null;
 }
 '''
-helper_code = helper_anchor + '''
+    helper_code = helper_anchor + '''
 function requireAppForgeSubscriptionOwnership(
   subscription: Stripe.Subscription,
 ): boolean {
@@ -56,78 +65,73 @@ function requireAppForgeSubscriptionOwnership(
   return true;
 }
 '''
-if "function requireAppForgeSubscriptionOwnership" not in text:
-    replace_required(helper_anchor, helper_code)
+    if "function requireAppForgeSubscriptionOwnership" not in text:
+        replace_required(helper_anchor, helper_code)
 
-# Subscription lifecycle events are accepted only when ownership resolves to AppForge.
-replace_required(
-    '''      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
+    replace_required(
+        '''      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
       const customerId = customerIdFromSubscription(subscription);
 ''',
-    '''      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
+        '''      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
       if (!requireAppForgeSubscriptionOwnership(subscription)) return;
       const customerId = customerIdFromSubscription(subscription);
 ''',
-)
+    )
 
-replace_required(
-    '''    case "customer.subscription.deleted": {
+    replace_required(
+        '''    case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = customerIdFromSubscription(subscription);
 ''',
-    '''    case "customer.subscription.deleted": {
+        '''    case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       if (!requireAppForgeSubscriptionOwnership(subscription)) return;
       const customerId = customerIdFromSubscription(subscription);
 ''',
-)
+    )
 
-# AppForge checkout sessions always carry product_line=appforge. Filter before
-# resolving user IDs so malformed metadata from another product cannot affect this endpoint.
-replace_required(
-    '''    case "checkout.session.completed": {
+    replace_required(
+        '''    case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = resolveCheckoutUserId(session);
       const mode = session.mode;
 ''',
-    '''    case "checkout.session.completed": {
+        '''    case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const mode = session.mode;
       if (!isAppForgeCreditMetadata(session.metadata)) return;
       const userId = resolveCheckoutUserId(session);
 ''',
-)
+    )
 
-replace_required(
-    '''        const subscription = await stripe.subscriptions.retrieve(
+    replace_required(
+        '''        const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string,
         );
         const customerId =
 ''',
-    '''        const subscription = await stripe.subscriptions.retrieve(
+        '''        const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string,
         );
         if (!requireAppForgeSubscriptionOwnership(subscription)) return;
         const customerId =
 ''',
-)
+    )
 
-replace_required(
-    '''    case "checkout.session.async_payment_succeeded": {
+    replace_required(
+        '''    case "checkout.session.async_payment_succeeded": {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = resolveCheckoutUserId(session);
 ''',
-    '''    case "checkout.session.async_payment_succeeded": {
+        '''    case "checkout.session.async_payment_succeeded": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (!isAppForgeCreditMetadata(session.metadata)) return;
       const userId = resolveCheckoutUserId(session);
 ''',
-)
+    )
 
-# A shared account can emit refunds for other products. Resolve the PaymentIntent
-# first and return before touching AppForge credit reconciliation unless it is ours.
-replace_required(
-    '''      const result = await reconcileCreditPurchaseRefund(
+    replace_required(
+        '''      const result = await reconcileCreditPurchaseRefund(
         paymentIntentId,
         event.id,
         charge.amount,
@@ -146,7 +150,7 @@ replace_required(
         }
       }
 ''',
-    '''      const payment = await stripe.paymentIntents.retrieve(paymentIntentId);
+        '''      const payment = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (!isAppForgeCreditMetadata(payment.metadata)) return;
 
       const result = await reconcileCreditPurchaseRefund(
@@ -162,48 +166,42 @@ replace_required(
         );
       }
 ''',
-)
+    )
 
-# Paid and failed subscription invoices must belong to AppForge before any local
-# subscription/credit state is read or written.
-replace_required(
-    '''          const subscription =
+    replace_required(
+        '''          const subscription =
             await stripe.subscriptions.retrieve(subscriptionId);
           const customerId = customerIdFromSubscription(subscription);
 ''',
-    '''          const subscription =
+        '''          const subscription =
             await stripe.subscriptions.retrieve(subscriptionId);
           if (!requireAppForgeSubscriptionOwnership(subscription)) return;
           const customerId = customerIdFromSubscription(subscription);
 ''',
-)
+    )
 
-replace_required(
-    '''        const subscription =
+    replace_required(
+        '''        const subscription =
           await stripe.subscriptions.retrieve(subscriptionId);
         await db
 ''',
-    '''        const subscription =
+        '''        const subscription =
           await stripe.subscriptions.retrieve(subscriptionId);
         if (!requireAppForgeSubscriptionOwnership(subscription)) return;
         await db
 ''',
-)
+    )
 
-PATH.write_text(text, encoding="utf-8")
+    PATH.write_text(text, encoding="utf-8")
 
-# Existing delayed-event tests predate product-level Stripe isolation. Keep their
-# original behavioral purpose, but make AppForge test events identify themselves
-# exactly like real AppForge events so the ownership filter is exercised rather
-# than bypassed or weakened.
+# Existing delayed-event tests predate product-level Stripe isolation. These
+# replacements are also intentionally idempotent.
 test_path = ROOT / "src/__tests__/stripeDelayedEvents.test.ts"
 test = test_path.read_text(encoding="utf-8")
-
 test = test.replace(
     'metadata: { userId: "42", credits: "50" },',
     'metadata: { product_line: "appforge", userId: "42", credits: "50" },',
 )
-
 test = test.replace(
     'mocks.retrieve.mockResolvedValue({ id: "sub_current", status });',
     '''mocks.retrieve.mockResolvedValue({
@@ -213,7 +211,6 @@ test = test.replace(
         items: { data: [{ price: { id: "price_starter" } }] },
       });''',
 )
-
 test = test.replace(
     'mocks.retrieve.mockResolvedValue({ id: "sub_current", status: "active" });',
     '''mocks.retrieve.mockResolvedValue({
@@ -223,7 +220,6 @@ test = test.replace(
       items: { data: [{ price: { id: "price_starter" } }] },
     });''',
 )
-
 test = test.replace(
     '''      metadata: { userId: "42" },
     });
@@ -233,6 +229,12 @@ test = test.replace(
     });
     const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0]);''',
 )
-
 test_path.write_text(test, encoding="utf-8")
+
+# Fail closed if a partial hardening ever slips through.
+text = PATH.read_text(encoding="utf-8")
+missing = [marker for marker in FINAL_MARKERS if marker not in text]
+if missing:
+    raise SystemExit("shared Stripe hardening incomplete: " + ", ".join(missing))
+
 print("Shared Stripe webhook ownership hardening complete")
