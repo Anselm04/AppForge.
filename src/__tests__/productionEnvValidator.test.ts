@@ -16,7 +16,6 @@ const baseProductionEnv = {
   BUILT_IN_FORGE_API_KEY: "forge_" + "x".repeat(40),
   REDIS_URL: "rediss://example.invalid:6379",
   STRIPE_SECRET_KEY: "sk_live_" + "x".repeat(40),
-  APPFORGE_STRIPE_ACCOUNT_ID: "acct_appforge",
   STRIPE_WEBHOOK_SECRET: "whsec_" + "x".repeat(40),
   STRIPE_STARTER_PRICE_ID: "price_starter",
   STRIPE_BUILDER_PRICE_ID: "price_builder",
@@ -28,14 +27,12 @@ const baseProductionEnv = {
 };
 
 describe("production environment validation", () => {
-  it("blocks production billing without a dedicated account", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      APPFORGE_STRIPE_ACCOUNT_ID: undefined,
-    });
-    expect(result.valid).toBe(false);
-    expect(result.errors.join("\n")).toContain("APPFORGE_STRIPE_ACCOUNT_ID");
+  it("allows AppForge billing in a shared Stripe account when AppForge prices are configured", () => {
+    const result = validateEnv(baseProductionEnv);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
+
   it("accepts the deployed 330-second build timeout", () => {
     const result = validateEnv(baseProductionEnv);
     expect(result.errors).not.toContain(
