@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+# Keep this repair deterministic so repeated release-gate verification is safe.
 
 
 def read(path: str) -> str:
