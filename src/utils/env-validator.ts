@@ -17,6 +17,7 @@ export interface EnvConfig {
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
+  APPFORGE_STRIPE_ACCOUNT_ID?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_STARTER_PRICE_ID?: string;
   STRIPE_BUILDER_PRICE_ID?: string;
@@ -204,6 +205,15 @@ export function validateEnv(
   if (billingEnabled && !config.STRIPE_WEBHOOK_SECRET) {
     errors.push(
       "STRIPE_WEBHOOK_SECRET is required when Stripe billing is enabled (STRIPE_SECRET_KEY is set)",
+    );
+  }
+  if (
+    isProduction &&
+    billingEnabled &&
+    !/^acct_[A-Za-z0-9]+$/.test(config.APPFORGE_STRIPE_ACCOUNT_ID ?? "")
+  ) {
+    errors.push(
+      "APPFORGE_STRIPE_ACCOUNT_ID is required for isolated production billing",
     );
   }
   if (config.STRIPE_SECRET_KEY && !config.STRIPE_SECRET_KEY.startsWith("sk_")) {

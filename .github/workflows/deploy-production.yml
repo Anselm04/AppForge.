@@ -117,23 +117,7 @@ jobs:
       - name: Require pinned production public configuration
         run: |
           set -euo pipefail
-          billing_ids=(
-            STRIPE_STARTER_PRICE_ID
-            STRIPE_BUILDER_PRICE_ID
-            STRIPE_STUDIO_PRICE_ID
-            STRIPE_ENTERPRISE_PRICE_ID
-            STRIPE_CREDITS_50_PRICE_ID
-            STRIPE_CREDITS_100_PRICE_ID
-            STRIPE_CREDITS_250_PRICE_ID
-          )
           missing=0
-          for name in "${billing_ids[@]}"; do
-            if ! grep -Eq "^[[:space:]]*${name}[[:space:]]*=[[:space:]]*'price_[^']+'" fly.toml; then
-              echo "Missing or invalid production billing identifier in fly.toml: $name"
-              missing=1
-            fi
-          done
-
           for name in SUPABASE_URL VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
             if ! grep -Eq "^[[:space:]]*${name}[[:space:]]*=[[:space:]]*'[^']+'" fly.toml; then
               echo "Missing production Supabase public configuration in fly.toml: $name"
@@ -145,7 +129,7 @@ jobs:
             echo "Production deploy blocked because public auth/billing configuration is incomplete."
             exit 1
           fi
-          echo "Production Supabase and Stripe public configuration is pinned."
+          echo "Production Supabase public configuration is pinned; billing catalog must come from the dedicated account."
 
   deploy-fly:
     runs-on: ubuntu-latest
@@ -205,6 +189,14 @@ jobs:
             COOKIE_SECRET
             STRIPE_SECRET_KEY
             STRIPE_WEBHOOK_SECRET
+            APPFORGE_STRIPE_ACCOUNT_ID
+            STRIPE_STARTER_PRICE_ID
+            STRIPE_BUILDER_PRICE_ID
+            STRIPE_STUDIO_PRICE_ID
+            STRIPE_ENTERPRISE_PRICE_ID
+            STRIPE_CREDITS_50_PRICE_ID
+            STRIPE_CREDITS_100_PRICE_ID
+            STRIPE_CREDITS_250_PRICE_ID
             OWNER_EMAIL
             OWNER_PHONE
             TWILIO_ACCOUNT_SID

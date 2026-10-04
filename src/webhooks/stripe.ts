@@ -2,13 +2,15 @@ import Stripe from "stripe";
 import type { Request, Response } from "express";
 import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
 import { logger } from "../_core/logger.js";
 import { incrementOperationalMetric } from "../lib/operationsObservability.js";
+import { verifyAppForgeStripeAccount } from "../services/appForgeStripe.js";
+import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
 
 const secretKey = process.env.STRIPE_SECRET_KEY || "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -218,29 +220,49 @@ async function upsertSubscription(opts: {
     ? new Date(subscription.current_period_end * 1000)
     : null;
 
-  await db
-    .insert(subscriptions)
-    .values({
-      userId,
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscription.id,
-      status: subscription.status,
-      tier,
-      trialEnd,
-      currentPeriodEnd: periodEnd,
-    })
-    .onConflictDoUpdate({
-      target: [subscriptions.userId],
-      set: {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const existing = await tx.query.subscriptions.findFirst({
+      where: eq(subscriptions.userId, userId),
+    });
+    if (
+      existing?.stripeSubscriptionId &&
+      existing.stripeSubscriptionId !== subscription.id
+    ) {
+      // A late invoice/update from an old subscription must not overwrite the
+      // replacement. Read Stripe while holding the same user billing lock.
+      const current = await stripe.subscriptions.retrieve(
+        existing.stripeSubscriptionId,
+      );
+      if (!["canceled", "incomplete_expired"].includes(current.status)) {
+        return resolveTier(current.metadata, subscriptionPriceId(current));
+      }
+    }
+    await tx
+      .insert(subscriptions)
+      .values({
+        userId,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         status: subscription.status,
         tier,
         trialEnd,
         currentPeriodEnd: periodEnd,
-        updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [subscriptions.userId],
+        set: {
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscription.id,
+          status: subscription.status,
+          tier,
+          trialEnd,
+          currentPeriodEnd: periodEnd,
+          updatedAt: new Date(),
+        },
+      });
+    return tier;
+  });
 }
 
 async function resolveUserIdFromCustomer(
@@ -257,7 +279,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated": {
-      const subscription = event.data.object as Stripe.Subscription;
+      const snapshot = event.data.object as Stripe.Subscription;
+      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
       const customerId = customerIdFromSubscription(subscription);
       const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
       const customerUserId = customerId
@@ -340,9 +363,14 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       }
 
       if (userId && mode === "payment") {
+        if (session.payment_status !== "paid") break;
         const credits = await paidCreditPackForSession(session);
         const paymentRef =
-          (session.payment_intent as string) || `checkout-${session.id}`;
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id;
+        if (!paymentRef)
+          throw new Error("Stripe credit payment reference is missing");
         await addCredits(
           userId,
           credits,
@@ -358,8 +386,33 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       break;
     }
 
+    case "checkout.session.async_payment_succeeded": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = resolveCheckoutUserId(session);
+      if (!userId || session.mode !== "payment") {
+        if (session.mode === "subscription") break;
+        throw new Error("AppForge credit checkout user is missing");
+      }
+      const credits = await paidCreditPackForSession(session);
+      const paymentRef =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id;
+      if (!paymentRef)
+        throw new Error("Stripe credit payment reference is missing");
+      await addCredits(
+        userId,
+        credits,
+        "purchase",
+        `Stripe delayed credit purchase (${credits} credits)`,
+        paymentRef,
+      );
+      break;
+    }
+
     case "charge.refunded": {
-      const charge = event.data.object as Stripe.Charge;
+      const snapshot = event.data.object as Stripe.Charge;
+      const charge = await stripe.charges.retrieve(snapshot.id);
       const paymentIntentId = paymentIntentIdFromCharge(charge);
 
       if (!paymentIntentId) {
@@ -377,6 +430,17 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         charge.amount_refunded,
         charge.refunded,
       );
+      if (result.purchaseMissing) {
+        const payment = await stripe.paymentIntents.retrieve(paymentIntentId);
+        if (
+          payment.metadata.product_line === "appforge" &&
+          parseCreditPack(payment.metadata.credits)
+        ) {
+          throw new Error(
+            "Credit purchase is not yet recorded; retry refund after fulfillment",
+          );
+        }
+      }
       logger.info(
         {
           chargeId: charge.id,
@@ -394,7 +458,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = invoice.subscription as string | undefined;
+      const subscriptionId =
+        typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : invoice.subscription?.id;
       if (subscriptionId) {
         const existing = await db.query.subscriptions.findFirst({
           where: eq(subscriptions.stripeSubscriptionId, subscriptionId),
@@ -428,7 +495,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           }
 
           userId = resolved;
-          await upsertSubscription({
+          tier = await upsertSubscription({
             userId,
             customerId,
             subscription,
@@ -443,10 +510,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         }
 
         if (userId && tier && shouldGrantMonthlyPlanCredits(invoice)) {
+          const creditTier = resolveInvoiceCreditTier(invoice, tierFromPriceId);
           const result = await grantStripeInvoicePlanCredits(
             userId,
-            tier,
+            creditTier,
             invoice.id,
+            tier,
           );
           if (!result.skipped) {
             logger.info(
@@ -522,6 +591,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
   }
 
   try {
+    await verifyAppForgeStripeAccount(stripe);
     await processStripeEventOnce(event.id, event.type, () =>
       handleStripeEvent(event),
     );

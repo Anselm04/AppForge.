@@ -673,3 +673,23 @@ requires SENTRY_AUTH_TOKEN, SENTRY_ORG and SENTRY_PROJECT. The repository variab
 APPFORGE_SENTRY_SOURCEMAPS_REQUIRED=true makes missing credentials block a main
 build. Without it, CI emits an explicit unverified-upload warning; such a build
 is not evidence of working monitoring or actionable production alerts.
+
+
+### Dedicated AppForge payment recovery
+
+Recover the dedicated APPFORGE_STRIPE_ACCOUNT_ID, STRIPE_SECRET_KEY and
+STRIPE_WEBHOOK_SECRET together, plus the seven AppForge subscription and credit
+price secrets. The account behind the key must match before checkout, portal or
+webhook processing. Never restore website/marketing credentials into AppForge.
+
+Recreate the webhook subscription including checkout.session.async_payment_succeeded.
+Unpaid sessions grant no credits. Completed and delayed settlement share one
+PaymentIntent ledger identity. Refunds use current cumulative provider state and
+retry when a tagged AppForge credit purchase has not yet been recorded. Paid
+subscription invoices grant once from their settled line price, while current
+subscription state controls entitlements. Recover the payment ledger with the
+credit ledger; replay must not mint another grant or revoke replacement plans.
+
+A dedicated account and live checkout/webhook/database/UI certification are
+required before this billing configuration is deployed. Do not treat unit tests
+as real-money certification or reuse another product's catalog as a shortcut.
