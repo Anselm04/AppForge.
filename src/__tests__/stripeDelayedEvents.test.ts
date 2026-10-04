@@ -199,6 +199,23 @@ describe("delayed Stripe subscription events", () => {
       "pi_paid",
     );
   });
+  it("acknowledges an unrelated product checkout without minting AppForge credits", async () => {
+    const res = await deliver("checkout.session.completed", {
+      id: "cs_other_product",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_other_product",
+      metadata: {
+        product_line: "marketing-app",
+        userId: "42",
+        credits: "50",
+      },
+    });
+    expect(mocks.lineItems).not.toHaveBeenCalled();
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
   it("acknowledges an unsettled credit checkout without minting credits", async () => {
     const res = await deliver("checkout.session.completed", {
       id: "cs_waiting",
@@ -296,9 +313,7 @@ describe("delayed Stripe subscription events", () => {
         subscription: "sub_current",
       });
       expect(mocks.retrieve).toHaveBeenCalledWith("sub_current");
-      expect(mocks.set).toHaveBeenCalledWith(
-        expect.objectContaining({ status }),
-      );
+      expect(mocks.set).toHaveBeenCalledWith(expect.objectContaining({ status }));
       expect(res.json).toHaveBeenCalledWith({ received: true });
     },
   );
