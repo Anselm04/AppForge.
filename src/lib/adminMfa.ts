@@ -1,9 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
+import { z } from "zod";
 import { ENV } from "../_core/env.js";
 
 const ADMIN_MFA_COOKIE = "appforge_admin_mfa";
 const ADMIN_MFA_TTL_MS = 15 * 60 * 1000;
+
+export const adminMfaCodeSchema = z.string().regex(/^[0-9]{6}$/);
 
 type AdminMfaPayload = {
   v: 1;

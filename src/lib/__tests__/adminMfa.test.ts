@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { ENV } from "../../_core/env.js";
 import {
   clearAdminMfaCookie,
+  adminMfaCodeSchema,
   hasValidAdminMfa,
   setAdminMfaCookie,
 } from "../adminMfa.js";
@@ -12,6 +13,21 @@ type CookieCapture = {
   value: string;
   options: Record<string, unknown>;
 };
+
+describe("admin SMS code validation", () => {
+  it.each(["123456", "000001", "999999"])(
+    "accepts six-digit code %s",
+    (code) => {
+      expect(adminMfaCodeSchema.safeParse(code).success).toBe(true);
+    },
+  );
+  it.each(["12345", "1234567", "abcdef", " 123456", "123456\n", "\\dddddd"])(
+    "rejects invalid code %j",
+    (code) => {
+      expect(adminMfaCodeSchema.safeParse(code).success).toBe(false);
+    },
+  );
+});
 
 function request(token = "primary-token", userAgent = "test-browser"): Request {
   return {

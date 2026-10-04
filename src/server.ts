@@ -68,7 +68,7 @@ const clientDir = path.resolve(process.cwd(), "dist/client");
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || "development",
-  release: process.env.npm_package_version,
+  release: process.env.SENTRY_RELEASE || process.env.npm_package_version,
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
   beforeSend: (event) => sanitizeSentryEvent(event),
 });
@@ -209,7 +209,8 @@ app.use("/api", (req, res, next) => {
 const webhookLimiter = createLocalRateLimiter({
   windowMs: 1 * 60 * 1000,
   max: 60,
-  message: "Webhook rate limit exceeded. Please retry with exponential backoff.",
+  message:
+    "Webhook rate limit exceeded. Please retry with exponential backoff.",
 });
 const globalLimiter = createLocalRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -224,17 +225,20 @@ const apiLimiter = createLocalRateLimiter({
 const buildLimiter = createLocalRateLimiter({
   windowMs: 60 * 60 * 1000,
   max: 20,
-  message: "Build rate limit exceeded. Please wait before creating more builds.",
+  message:
+    "Build rate limit exceeded. Please wait before creating more builds.",
 });
 const adminMfaRequestLimiter = createLocalRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 3,
-  message: "Too many admin verification requests. Please wait before requesting another SMS.",
+  message:
+    "Too many admin verification requests. Please wait before requesting another SMS.",
 });
 const adminMfaVerifyLimiter = createLocalRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 10,
-  message: "Too many admin verification attempts. Please wait before trying again.",
+  message:
+    "Too many admin verification attempts. Please wait before trying again.",
 });
 const slowDown = createSlowDown({
   windowMs: 15 * 60 * 1000,
@@ -473,7 +477,10 @@ async function initialiseRuntime() {
     logger.error({ errors: envResult.errors }, "environment_validation_failed");
   }
   if (envResult.warnings.length > 0) {
-    logger.warn({ warnings: envResult.warnings }, "environment_validation_warnings");
+    logger.warn(
+      { warnings: envResult.warnings },
+      "environment_validation_warnings",
+    );
   }
   if (
     process.env.ENFORCE_ENV_VALIDATION !== "false" &&

@@ -234,7 +234,14 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         { err, projectId: job.projectId },
         "build_enqueue_bullmq_failed_fallback",
       );
+      if (ENV.isProduction) throw err;
     }
+  }
+
+  if (ENV.isProduction) {
+    throw new Error(
+      "Durable build queue is unavailable. Please retry shortly.",
+    );
   }
 
   try {

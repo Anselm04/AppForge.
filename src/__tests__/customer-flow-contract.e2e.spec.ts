@@ -322,7 +322,7 @@ describe("critical customer flow contract", () => {
       "../../scripts/production-canary-browser.spec.mjs",
     );
 
-    expect(workflow).toContain("@playwright/test@1.55.0");
+    expect(workflow).toContain("bash scripts/install-browser-verifier.sh");
     expect(workflow).toContain("npx playwright install chromium");
     expect(workflow).toContain(
       "npx playwright test scripts/production-canary-browser.spec.mjs --reporter=line",
