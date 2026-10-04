@@ -70,6 +70,7 @@ async function waitFor(check: () => boolean) {
 let stop: (() => void) | undefined;
 
 beforeEach(() => {
+  env.ENV.isProduction = false;
   worker.runBuildJob.mockClear();
   fakeRedis.store.clear();
   fakeRedis.list.length = 0;
@@ -81,6 +82,19 @@ afterEach(() => {
 });
 
 describe("build queue preserves and enforces the typed build context", () => {
+  it.each(["", "redis://test"])(
+    "rejects production enqueue without BullMQ instead of losing paid work (%s)",
+    async (redisUrl) => {
+      env.ENV.isProduction = true;
+      env.ENV.redisUrl = redisUrl;
+      const queue = await loadQueue();
+      await expect(queue.enqueueBuild(validJob())).rejects.toThrow(
+        "Durable build queue is unavailable",
+      );
+      expect(fakeRedis.list).toHaveLength(0);
+      expect(worker.runBuildJob).not.toHaveBeenCalled();
+    },
+  );
   it("delivers the identical contract and intent through the Redis list", async () => {
     env.ENV.redisUrl = "redis://test";
     const queue = await loadQueue();

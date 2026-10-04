@@ -1,0 +1,9 @@
+{
+  "name": "appforge-browser-verifier",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "node scripts/assemble-pipeline.mjs && vite",
-    "build": "node scripts/assemble-pipeline.mjs && tsc -p tsconfig.server.json && vite build",
+    "build": "node scripts/assemble-pipeline.mjs && tsc -p tsconfig.server.json && vite build && sentry-cli sourcemaps inject dist",
     "start": "node dist/server.js",
     "preview": "vite preview",
     "test": "node scripts/assemble-pipeline.mjs && vitest",

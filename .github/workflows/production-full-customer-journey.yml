@@ -81,7 +81,7 @@ jobs:
         run: node scripts/production-customer-canary.mjs
 
       - name: Install browser verifier
-        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+        run: bash scripts/install-browser-verifier.sh
 
       - name: Install Chromium for production certification
         run: npx playwright install chromium

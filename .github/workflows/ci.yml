@@ -232,12 +232,25 @@ jobs:
             exit 1
           fi
       - name: Upload Sentry source maps
-        if: env.SENTRY_AUTH_TOKEN != ''
-        run: npm run sentry:sourcemaps
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          REQUIRE_SOURCE_MAPS: ${{ vars.APPFORGE_SENTRY_SOURCEMAPS_REQUIRED }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            if [ "$EVENT_NAME" != "pull_request" ] && [ "$REQUIRE_SOURCE_MAPS" = "true" ]; then
+              echo "Required Sentry source-map upload credentials are missing."
+              exit 1
+            fi
+            echo "::warning::Sentry source-map upload is unverified: no upload credentials are configured for this run."
+            exit 0
+          fi
+          test -n "$SENTRY_ORG" && test -n "$SENTRY_PROJECT"
+          npm run sentry:sourcemaps -- --validate dist
       - name: Generate and verify release artifact integrity manifest
         shell: bash
         run: |

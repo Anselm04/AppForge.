@@ -208,6 +208,14 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
 
   if (bullQueue) {
     try {
+      // Retained terminal jobs must not suppress a customer's rebuild/resume.
+      const previous = await bullQueue.getJob(`build-${job.projectId}`);
+      if (previous) {
+        const state = await previous.getState();
+        if (state === "completed" || state === "failed") {
+          await previous.remove();
+        }
+      }
       const queued = await bullQueue.add("build", job, {
         jobId: `build-${job.projectId}`,
         removeOnComplete: 100,
@@ -227,14 +235,28 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
       incrementOperationalMetric("appforge_queue_enqueued_total", {
         backend: "bullmq",
       });
-      setActiveQueueDepth("bullmq", await bullQueue.getWaitingCount());
+      // Admission already succeeded. A metrics read must never turn it into an
+      // enqueue failure, causing the caller to refund a build that will run.
+      void bullQueue
+        .getWaitingCount()
+        .then((depth) => setActiveQueueDepth("bullmq", depth))
+        .catch((error) =>
+          logger.warn({ error }, "bullmq_queue_depth_refresh_failed"),
+        );
       return;
     } catch (err) {
       logger.error(
         { err, projectId: job.projectId },
         "build_enqueue_bullmq_failed_fallback",
       );
+      if (ENV.isProduction) throw err;
     }
+  }
+
+  if (ENV.isProduction) {
+    throw new Error(
+      "Durable build queue is unavailable. Please retry shortly.",
+    );
   }
 
   try {

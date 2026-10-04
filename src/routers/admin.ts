@@ -29,6 +29,7 @@ import {
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import {
   adminMfaExpiresInSeconds,
+  adminMfaCodeSchema,
   hasValidAdminMfa,
   setAdminMfaCookie,
 } from "../lib/adminMfa.js";
@@ -102,7 +103,7 @@ export const adminRouter = router({
   }),
 
   verifyMfa: ownerAuthenticatedProcedure
-    .input(z.object({ code: z.string().regex(/^\\d{6}$/) }))
+    .input(z.object({ code: adminMfaCodeSchema }))
     .mutation(async ({ ctx, input }) => {
       ensureAdminMfaConfigured();
 
