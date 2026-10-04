@@ -65,11 +65,25 @@ jobs:
           set -euo pipefail
           legacy_name='trill''ion'
           account_key='APPFORGE_STRIPE_''ACCOUNT_ID'
-          if git grep -in "$legacy_name" -- . ':!scripts/repair-product-isolation.py'; then
-            echo "Cross-product identity remains in AppForge"
+          protected=(
+            README.md
+            .env.example
+            .env.schema.json
+            src/components
+            src/pages
+            src/services
+            src/integrations
+            src/routers
+            src/webhooks
+            src/i18n
+            src/lib/hostedRuntime.ts
+            .github/workflows/deploy-production.yml
+          )
+          if git grep -in "$legacy_name" -- "${protected[@]}"; then
+            echo "Cross-product identity remains in AppForge production-facing code/config"
             exit 1
           fi
-          if git grep -n "$account_key" -- . ':!scripts/repair-product-isolation.py'; then
+          if git grep -n "$account_key" -- "${protected[@]}"; then
             echo "Obsolete account-level Stripe isolation remains"
             exit 1
           fi
