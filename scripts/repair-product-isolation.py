@@ -55,6 +55,10 @@ text = read(path)
 text = "\n".join(
     line for line in text.splitlines() if "APPFORGE_STRIPE_ACCOUNT_ID" not in line
 ) + "\n"
+text = text.replace(
+    "billing catalog must come from the dedicated account",
+    "billing catalog must use only AppForge-owned Stripe prices",
+)
 write(path, text)
 
 # Webhook processing must never verify a dedicated Stripe account. AppForge is
@@ -74,6 +78,29 @@ text = read(path)
 text = text.replace(
     'vi.mock("../services/appForgeStripe.js", () => ({\n  verifyAppForgeStripeAccount: vi.fn(),\n}));\n',
     "",
+)
+write(path, text)
+
+# The critical-customer-flow contract now proves that account-level isolation is
+# absent while every AppForge Price ID remains required for production.
+path = "src/__tests__/customer-flow-contract.e2e.spec.ts"
+text = read(path)
+text = text.replace(
+    '    expect(deploy).toContain("APPFORGE_STRIPE_ACCOUNT_ID");\n',
+    '    expect(deploy).not.toContain("APPFORGE_STRIPE_ACCOUNT_ID");\n',
+)
+write(path, text)
+
+# Generated customer apps must carry only neutral AppForge branding. They must not
+# leak company-site addresses or another product identity into customer output.
+path = "src/lib/hostedRuntime.ts"
+text = read(path)
+text = re.sub(
+    r'<footer class="brand">.*?</footer>',
+    '<footer class="brand">Built with AppForge</footer>',
+    text,
+    count=1,
+    flags=re.S,
 )
 write(path, text)
 
