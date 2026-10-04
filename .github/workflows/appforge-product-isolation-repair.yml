@@ -52,6 +52,7 @@ jobs:
           src/lib/hostedRuntime.ts
           src/__tests__/appForgeStripeAccount.test.ts
           src/__tests__/appForgeStripeOwnership.test.ts
+          src/__tests__/stripeDelayedEvents.test.ts
           src/__tests__/hostedRuntime.test.ts
           src/__tests__/integrationProductionContracts.test.ts
           src/__tests__/productionEnvValidator.test.ts
