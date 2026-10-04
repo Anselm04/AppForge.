@@ -17,7 +17,7 @@ export type MarketingBridgePayload = {
 
 function bridgeConfig() {
   const baseUrl = process.env.MARKETING_APP_URL?.trim();
-  const secret = process.env.TRILLION_ECOSYSTEM_SHARED_SECRET?.trim();
+  const secret = process.env.APPFORGE_MARKETING_SHARED_SECRET?.trim();
   if (!baseUrl || !secret) {
     throw new Error("Marketing bridge is not configured");
   }
@@ -56,9 +56,9 @@ export async function sendProjectToMarketing(payload: MarketingBridgePayload) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-trillion-source": "appforge",
-          "x-trillion-timestamp": timestamp,
-          "x-trillion-signature": signature,
+          "x-appforge-source": "appforge",
+          "x-appforge-timestamp": timestamp,
+          "x-appforge-signature": signature,
         },
         body,
         signal: controller.signal,
