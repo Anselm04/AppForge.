@@ -20,6 +20,7 @@ export async function grantStripeInvoicePlanCredits(
   userId: number,
   tier: string,
   invoiceId: string,
+  entitlementTier: string = tier,
 ): Promise<{ granted: number; skipped: boolean }> {
   if (!invoiceId || !invoiceId.startsWith("in_")) {
     throw new Error("A valid Stripe invoice ID is required for plan credits");
@@ -56,8 +57,8 @@ export async function grantStripeInvoicePlanCredits(
       await tx
         .update(schema.userCredits)
         .set({
-          tier,
-          monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+          tier: entitlementTier,
+          monthlyAllowance: getTierBuildLimit(entitlementTier) ?? 0,
           lastRefillAt: now,
           updatedAt: now,
         })
@@ -78,8 +79,8 @@ export async function grantStripeInvoicePlanCredits(
       .update(schema.userCredits)
       .set({
         balance: newBalance,
-        tier,
-        monthlyAllowance: getTierBuildLimit(tier) ?? 0,
+        tier: entitlementTier,
+        monthlyAllowance: getTierBuildLimit(entitlementTier) ?? 0,
         lastRefillAt: now,
         updatedAt: now,
       })

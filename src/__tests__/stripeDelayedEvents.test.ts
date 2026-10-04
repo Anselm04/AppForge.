@@ -8,26 +8,40 @@ const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
   set: vi.fn(),
   where: vi.fn(),
+  addCredits: vi.fn(),
+  lineItems: vi.fn(),
+  refund: vi.fn(),
+  charge: vi.fn(),
+  payment: vi.fn(),
+  values: vi.fn(),
+  conflict: vi.fn(),
 }));
 
 vi.mock("stripe", () => ({
   default: class {
     webhooks = { constructEvent: () => mocks.event };
     subscriptions = { retrieve: mocks.retrieve };
+    checkout = { sessions: { listLineItems: mocks.lineItems } };
+    charges = { retrieve: mocks.charge };
+    paymentIntents = { retrieve: mocks.payment };
   },
 }));
+vi.mock("../services/appForgeStripe.js", () => ({
+  verifyAppForgeStripeAccount: vi.fn(),
+}));
 vi.mock("../db.js", () => ({
-  addCredits: vi.fn(),
+  addCredits: mocks.addCredits,
   db: {
     query: { subscriptions: { findFirst: mocks.findFirst } },
     update: () => ({ set: mocks.set }),
+    insert: () => ({ values: mocks.values }),
   },
 }));
 vi.mock("../services/stripeCheckout.js", () => ({
   CREDIT_PACKS: [50, 100, 250],
 }));
 vi.mock("../services/stripeCreditRefund.js", () => ({
-  reconcileCreditPurchaseRefund: vi.fn(),
+  reconcileCreditPurchaseRefund: mocks.refund,
 }));
 vi.mock("../services/stripePlanCredits.js", () => ({
   grantStripeInvoicePlanCredits: vi.fn(),
@@ -69,9 +83,117 @@ beforeEach(() => {
   mocks.findFirst.mockReset();
   mocks.set.mockImplementation(() => ({ where: mocks.where }));
   mocks.where.mockResolvedValue(undefined);
+  mocks.addCredits.mockResolvedValue(50);
+  mocks.lineItems.mockResolvedValue({
+    data: [{ quantity: 1, price: { id: "price_credit50" } }],
+  });
+  mocks.values.mockReturnValue({ onConflictDoUpdate: mocks.conflict });
+  mocks.conflict.mockResolvedValue(undefined);
+  vi.stubEnv("STRIPE_CREDITS_50_PRICE_ID", "price_credit50");
+  vi.stubEnv("STRIPE_STUDIO_PRICE_ID", "price_studio");
 });
 
 describe("delayed Stripe subscription events", () => {
+  it("uses the same payment identity for expanded completed checkout references", async () => {
+    await deliver("checkout.session.completed", {
+      id: "cs_paid",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: { id: "pi_paid" },
+      metadata: { userId: "42", credits: "50" },
+    });
+    expect(mocks.addCredits).toHaveBeenCalledWith(
+      42,
+      50,
+      "purchase",
+      expect.any(String),
+      "pi_paid",
+    );
+  });
+  it("acknowledges an unsettled credit checkout without minting credits", async () => {
+    const res = await deliver("checkout.session.completed", {
+      id: "cs_waiting",
+      mode: "payment",
+      payment_status: "unpaid",
+      metadata: { userId: "42", credits: "50" },
+    });
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("fulfills a delayed settled payment against its PaymentIntent identity", async () => {
+    const res = await deliver("checkout.session.async_payment_succeeded", {
+      id: "cs_paid",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_paid",
+      metadata: { userId: "42", credits: "50" },
+    });
+    expect(mocks.addCredits).toHaveBeenCalledWith(
+      42,
+      50,
+      "purchase",
+      expect.any(String),
+      "pi_paid",
+    );
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("rejects a foreign credit price before writing credits", async () => {
+    mocks.lineItems.mockResolvedValue({
+      data: [{ quantity: 1, price: { id: "price_marketing" } }],
+    });
+    const res = await deliver("checkout.session.async_payment_succeeded", {
+      id: "cs_other",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_other",
+      metadata: { userId: "42", credits: "50" },
+    });
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+  it("uses current subscription state instead of a stale update snapshot", async () => {
+    mocks.retrieve.mockResolvedValue({
+      id: "sub_current",
+      customer: "cus_owner",
+      status: "active",
+      metadata: { userId: "42" },
+      items: { data: [{ price: { id: "price_studio" } }] },
+    });
+    const res = await deliver("customer.subscription.updated", {
+      id: "sub_current",
+      status: "past_due",
+      metadata: { tier: "starter" },
+    });
+    expect(mocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, status: "active", tier: "studio" }),
+    );
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("retries a credit refund delivered before purchase fulfillment", async () => {
+    mocks.charge.mockResolvedValue({
+      id: "ch_paid",
+      payment_intent: "pi_paid",
+      amount: 5000,
+      amount_refunded: 5000,
+      refunded: true,
+    });
+    mocks.refund.mockResolvedValue({ purchaseMissing: true, skipped: true });
+    mocks.payment.mockResolvedValue({
+      metadata: { product_line: "appforge", credits: "50" },
+    });
+    const res = await deliver("charge.refunded", {
+      id: "ch_paid",
+      amount_refunded: 2500,
+    });
+    expect(mocks.refund).toHaveBeenCalledWith(
+      "pi_paid",
+      "evt_delayed",
+      5000,
+      5000,
+      true,
+    );
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
   it.each(["active", "trialing", "canceled", "unpaid", "past_due"])(
     "keeps Stripe's current %s status when an old payment failure arrives",
     async (status) => {

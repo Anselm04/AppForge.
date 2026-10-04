@@ -13,9 +13,13 @@ import {
   CREDIT_PACKS,
 } from "../services/stripeCheckout.js";
 import { ensureAppForgeBillingPortalConfiguration } from "../services/stripeBillingPortal.js";
+import { getAppForgeStripe } from "../services/appForgeStripe.js";
 
 const CHECKOUT_TIERS = ["starter", "builder", "studio", "enterprise"] as const;
-const TERMINAL_SUBSCRIPTION_STATUSES = new Set(["canceled", "incomplete_expired"]);
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
+  "canceled",
+  "incomplete_expired",
+]);
 
 const TIER_LIMITS: Record<string, number | null> = {
   free: 3,
@@ -57,15 +61,7 @@ function requirePublicAppUrl() {
 }
 
 async function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Stripe not configured",
-    });
-  }
-  const { default: Stripe } = await import("stripe");
-  return new Stripe(key, { apiVersion: "2024-06-20" as any });
+  return getAppForgeStripe();
 }
 
 export const subscriptionsRouter = router({
@@ -143,11 +139,13 @@ export const subscriptionsRouter = router({
   buyCredits: protectedProcedure
     .input(
       z.object({
-        credits: z.union(CREDIT_PACKS.map((value) => z.literal(value)) as [
-          z.ZodLiteral<50>,
-          z.ZodLiteral<100>,
-          z.ZodLiteral<250>,
-        ]),
+        credits: z.union(
+          CREDIT_PACKS.map((value) => z.literal(value)) as [
+            z.ZodLiteral<50>,
+            z.ZodLiteral<100>,
+            z.ZodLiteral<250>,
+          ],
+        ),
       }),
     )
     .mutation(async ({ ctx, input }) => {

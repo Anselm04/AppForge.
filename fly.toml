@@ -87,14 +87,8 @@ primary_region = 'lhr'
   VITE_SUPABASE_URL = 'https://yihcwxmcvmcquvsulqkv.supabase.co'
   VITE_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_meocU9dMEW7-iiWTzZBHgQ_61_v67Qy'
 
-  # Verified live Trillionaitech Stripe catalog (public identifiers)
-  STRIPE_STARTER_PRICE_ID = 'price_1UB11WKFfiU4ONpqujQV0YA1'
-  STRIPE_BUILDER_PRICE_ID = 'price_1UB11WKFfiU4ONpqcI7FYT9F'
-  STRIPE_STUDIO_PRICE_ID = 'price_1UB11XKFfiU4ONpq5vNU84rn'
-  STRIPE_ENTERPRISE_PRICE_ID = 'price_1UB11XKFfiU4ONpqWm4VsqWi'
-  STRIPE_CREDITS_50_PRICE_ID = 'price_1UB11YKFfiU4ONpq9lxQxD0t'
-  STRIPE_CREDITS_100_PRICE_ID = 'price_1UB11YKFfiU4ONpqxG2boP66'
-  STRIPE_CREDITS_250_PRICE_ID = 'price_1UB11ZKFfiU4ONpq3bUBdUuS'
+  # Dedicated AppForge Stripe account and catalog are supplied via Fly secrets.
+  # Do not reuse website or marketing-product billing identifiers.
 
 [processes]
   app = 'node dist/server.js'

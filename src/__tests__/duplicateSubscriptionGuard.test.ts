@@ -18,14 +18,16 @@ describe("duplicate subscription protection", () => {
     );
     expect(router).toContain("TERMINAL_SUBSCRIPTION_STATUSES");
     expect(router).toContain("hasManagedSubscription");
-    expect(router).toContain('existingTier !== "free" || hasManagedSubscription');
+    expect(router).toContain(
+      'existingTier !== "free" || hasManagedSubscription',
+    );
     expect(router).toContain('code: "CONFLICT"');
     expect(router).toContain("without creating a second subscription");
   });
 
   it("treats canceled and incomplete-expired subscriptions as terminal", () => {
-    expect(router).toContain(
-      'new Set(["canceled", "incomplete_expired"])',
+    expect(router).toMatch(
+      /new Set\(\[\s*"canceled",\s*"incomplete_expired",?\s*\]\)/,
     );
   });
 

@@ -45,6 +45,7 @@ export async function reconcileCreditPurchaseRefund(
   revoked: number;
   unrecovered: number;
   skipped: boolean;
+  purchaseMissing?: boolean;
 }> {
   if (!paymentIntentId.startsWith("pi_")) {
     throw new Error("A valid Stripe PaymentIntent ID is required for refund");
@@ -76,6 +77,7 @@ export async function reconcileCreditPurchaseRefund(
       revoked: 0,
       unrecovered: 0,
       skipped: true,
+      purchaseMissing: true,
     };
   }
 

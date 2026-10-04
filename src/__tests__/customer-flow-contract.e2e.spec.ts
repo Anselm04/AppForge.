@@ -161,7 +161,7 @@ describe("critical customer flow contract", () => {
     ]);
   });
 
-  it("pins unique production Stripe prices and one production Supabase target", () => {
+  it("isolates Stripe catalog configuration and pins one production Supabase target", () => {
     const fly = source("../../fly.toml");
     const priceNames = [
       "STRIPE_STARTER_PRICE_ID",
@@ -172,13 +172,12 @@ describe("critical customer flow contract", () => {
       "STRIPE_CREDITS_100_PRICE_ID",
       "STRIPE_CREDITS_250_PRICE_ID",
     ];
-    const prices = priceNames.map((name) => {
-      const match = fly.match(new RegExp(`${name} = '(price_[^']+)'`));
-      expect(match, `Missing production Stripe price: ${name}`).not.toBeNull();
-      return match?.[1] ?? "";
-    });
-
-    expect(new Set(prices).size).toBe(priceNames.length);
+    const deploy = source("../../.github/workflows/deploy-production.yml");
+    expect(deploy).toContain("APPFORGE_STRIPE_ACCOUNT_ID");
+    for (const name of priceNames) {
+      expect(deploy).toContain(name);
+      expect(fly).not.toMatch(new RegExp(`${name} = '(price_[^']+)'`));
+    }
 
     const supabase = fly.match(/SUPABASE_URL = '(https:\/\/[^']+)'/)?.[1];
     const viteSupabase = fly.match(
