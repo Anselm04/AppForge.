@@ -191,4 +191,48 @@ replace_required(
 )
 
 PATH.write_text(text, encoding="utf-8")
+
+# Existing delayed-event tests predate product-level Stripe isolation. Keep their
+# original behavioral purpose, but make AppForge test events identify themselves
+# exactly like real AppForge events so the ownership filter is exercised rather
+# than bypassed or weakened.
+test_path = ROOT / "src/__tests__/stripeDelayedEvents.test.ts"
+test = test_path.read_text(encoding="utf-8")
+
+test = test.replace(
+    'metadata: { userId: "42", credits: "50" },',
+    'metadata: { product_line: "appforge", userId: "42", credits: "50" },',
+)
+
+test = test.replace(
+    'mocks.retrieve.mockResolvedValue({ id: "sub_current", status });',
+    '''mocks.retrieve.mockResolvedValue({
+        id: "sub_current",
+        status,
+        metadata: { product_line: "appforge", userId: "42" },
+        items: { data: [{ price: { id: "price_starter" } }] },
+      });''',
+)
+
+test = test.replace(
+    'mocks.retrieve.mockResolvedValue({ id: "sub_current", status: "active" });',
+    '''mocks.retrieve.mockResolvedValue({
+      id: "sub_current",
+      status: "active",
+      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+    });''',
+)
+
+test = test.replace(
+    '''      metadata: { userId: "42" },
+    });
+    const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0]);''',
+    '''      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+    });
+    const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0]);''',
+)
+
+test_path.write_text(test, encoding="utf-8")
 print("Shared Stripe webhook ownership hardening complete")
