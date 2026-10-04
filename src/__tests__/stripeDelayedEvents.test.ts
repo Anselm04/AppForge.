@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   payment: vi.fn(),
   values: vi.fn(),
   conflict: vi.fn(),
+  grant: vi.fn(),
 }));
 
 vi.mock("stripe", () => ({
@@ -32,6 +33,12 @@ vi.mock("../services/appForgeStripe.js", () => ({
 vi.mock("../db.js", () => ({
   addCredits: mocks.addCredits,
   db: {
+    transaction: async (handler: (tx: unknown) => Promise<unknown>) =>
+      handler({
+        execute: vi.fn(),
+        query: { subscriptions: { findFirst: mocks.findFirst } },
+        insert: () => ({ values: mocks.values }),
+      }),
     query: { subscriptions: { findFirst: mocks.findFirst } },
     update: () => ({ set: mocks.set }),
     insert: () => ({ values: mocks.values }),
@@ -44,7 +51,7 @@ vi.mock("../services/stripeCreditRefund.js", () => ({
   reconcileCreditPurchaseRefund: mocks.refund,
 }));
 vi.mock("../services/stripePlanCredits.js", () => ({
-  grantStripeInvoicePlanCredits: vi.fn(),
+  grantStripeInvoicePlanCredits: mocks.grant,
 }));
 vi.mock("../services/stripeEventLedger.js", () => ({
   processStripeEventOnce: async (
@@ -81,6 +88,8 @@ async function deliver(type: string, object: unknown) {
 beforeEach(() => {
   mocks.retrieve.mockReset();
   mocks.findFirst.mockReset();
+  mocks.values.mockClear();
+  mocks.grant.mockReset().mockResolvedValue({ granted: 50, skipped: false });
   mocks.set.mockImplementation(() => ({ where: mocks.where }));
   mocks.where.mockResolvedValue(undefined);
   mocks.addCredits.mockResolvedValue(50);
@@ -91,9 +100,92 @@ beforeEach(() => {
   mocks.conflict.mockResolvedValue(undefined);
   vi.stubEnv("STRIPE_CREDITS_50_PRICE_ID", "price_credit50");
   vi.stubEnv("STRIPE_STUDIO_PRICE_ID", "price_studio");
+  vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
 });
 
 describe("delayed Stripe subscription events", () => {
+  it("allows a new subscription after the old one is terminal", async () => {
+    mocks.findFirst.mockResolvedValue({
+      userId: 42,
+      stripeSubscriptionId: "sub_old",
+    });
+    mocks.retrieve.mockImplementation(async (id: string) => ({
+      id,
+      customer: "cus_owner",
+      status: id === "sub_old" ? "canceled" : "active",
+      metadata: { userId: "42" },
+      items: { data: [{ price: { id: "price_studio" } }] },
+    }));
+    const res = await deliver("customer.subscription.created", {
+      id: "sub_new",
+    });
+    expect(mocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeSubscriptionId: "sub_new",
+        status: "active",
+      }),
+    );
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("retries without overwriting billing when replacement lookup fails", async () => {
+    mocks.findFirst.mockResolvedValue({
+      userId: 42,
+      stripeSubscriptionId: "sub_new",
+    });
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "sub_new") throw new Error("Stripe unavailable");
+      return {
+        id,
+        customer: "cus_owner",
+        status: "canceled",
+        metadata: { userId: "42" },
+        items: { data: [{ price: { id: "price_starter" } }] },
+      };
+    });
+    const res = await deliver("customer.subscription.updated", {
+      id: "sub_old",
+    });
+    expect(mocks.values).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+  it("keeps a replacement subscription when an old paid invoice arrives", async () => {
+    mocks.findFirst.mockResolvedValue({
+      userId: 42,
+      stripeSubscriptionId: "sub_new",
+    });
+    mocks.retrieve.mockImplementation(async (id: string) => ({
+      id,
+      customer: "cus_owner",
+      status: id === "sub_new" ? "active" : "canceled",
+      metadata: { userId: "42" },
+      items: {
+        data: [
+          {
+            price: { id: id === "sub_new" ? "price_studio" : "price_starter" },
+          },
+        ],
+      },
+    }));
+    const res = await deliver("invoice.paid", {
+      id: "in_old",
+      subscription: "sub_old",
+      billing_reason: "subscription_cycle",
+      lines: {
+        has_more: false,
+        data: [
+          {
+            type: "subscription",
+            proration: false,
+            quantity: 1,
+            price: { id: "price_starter" },
+          },
+        ],
+      },
+    });
+    expect(mocks.values).not.toHaveBeenCalled();
+    expect(mocks.grant).toHaveBeenCalledWith(42, "starter", "in_old", "studio");
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
   it("uses the same payment identity for expanded completed checkout references", async () => {
     await deliver("checkout.session.completed", {
       id: "cs_paid",

@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import type { Request, Response } from "express";
 import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
@@ -220,29 +220,49 @@ async function upsertSubscription(opts: {
     ? new Date(subscription.current_period_end * 1000)
     : null;
 
-  await db
-    .insert(subscriptions)
-    .values({
-      userId,
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscription.id,
-      status: subscription.status,
-      tier,
-      trialEnd,
-      currentPeriodEnd: periodEnd,
-    })
-    .onConflictDoUpdate({
-      target: [subscriptions.userId],
-      set: {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const existing = await tx.query.subscriptions.findFirst({
+      where: eq(subscriptions.userId, userId),
+    });
+    if (
+      existing?.stripeSubscriptionId &&
+      existing.stripeSubscriptionId !== subscription.id
+    ) {
+      // A late invoice/update from an old subscription must not overwrite the
+      // replacement. Read Stripe while holding the same user billing lock.
+      const current = await stripe.subscriptions.retrieve(
+        existing.stripeSubscriptionId,
+      );
+      if (!["canceled", "incomplete_expired"].includes(current.status)) {
+        return resolveTier(current.metadata, subscriptionPriceId(current));
+      }
+    }
+    await tx
+      .insert(subscriptions)
+      .values({
+        userId,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         status: subscription.status,
         tier,
         trialEnd,
         currentPeriodEnd: periodEnd,
-        updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [subscriptions.userId],
+        set: {
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscription.id,
+          status: subscription.status,
+          tier,
+          trialEnd,
+          currentPeriodEnd: periodEnd,
+          updatedAt: new Date(),
+        },
+      });
+    return tier;
+  });
 }
 
 async function resolveUserIdFromCustomer(
@@ -475,7 +495,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           }
 
           userId = resolved;
-          await upsertSubscription({
+          tier = await upsertSubscription({
             userId,
             customerId,
             subscription,
