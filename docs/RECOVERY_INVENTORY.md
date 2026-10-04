@@ -650,3 +650,46 @@ Recovery and release certification must preserve this behavior:
 - that interactive proof must confirm admin data is unavailable before MFA,
   available after approval, remains available across a hard reload only within
   the short MFA lifetime, and becomes locked again after logout plus a new login.
+
+
+### Durable queue and live certification recovery
+
+Production build admission requires BullMQ. Redis-list and process-memory fallback
+are development-only; a BullMQ enqueue failure must reject admission and exercise
+the existing reservation rollback. A restore must retain the durable Redis queue
+and database ledger, then prove accepted jobs resume without another debit.
+
+Owner SMS challenges accept exactly six ASCII digits through the shared schema.
+Restoring this validator does not replace the required real Twilio challenge,
+rejected wrong/expired/reused codes, or session-bound logout checks.
+
+Production browser gates install the locked verifier from
+`scripts/browser-verifier/package-lock.json` independently of application npm
+dependencies. Restore both package manifests and the installer. Delivered-email
+confirmation, new browser contexts and ten return-login cycles remain mandatory.
+
+Production builds inject Sentry debug IDs into client and server artifacts. Upload
+requires SENTRY_AUTH_TOKEN, SENTRY_ORG and SENTRY_PROJECT. The repository variable
+APPFORGE_SENTRY_SOURCEMAPS_REQUIRED=true makes missing credentials block a main
+build. Without it, CI emits an explicit unverified-upload warning; such a build
+is not evidence of working monitoring or actionable production alerts.
+
+
+### Dedicated AppForge payment recovery
+
+Recover the dedicated APPFORGE_STRIPE_ACCOUNT_ID, STRIPE_SECRET_KEY and
+STRIPE_WEBHOOK_SECRET together, plus the seven AppForge subscription and credit
+price secrets. The account behind the key must match before checkout, portal or
+webhook processing. Never restore website/marketing credentials into AppForge.
+
+Recreate the webhook subscription including checkout.session.async_payment_succeeded.
+Unpaid sessions grant no credits. Completed and delayed settlement share one
+PaymentIntent ledger identity. Refunds use current cumulative provider state and
+retry when a tagged AppForge credit purchase has not yet been recorded. Paid
+subscription invoices grant once from their settled line price, while current
+subscription state controls entitlements. Recover the payment ledger with the
+credit ledger; replay must not mint another grant or revoke replacement plans.
+
+A dedicated account and live checkout/webhook/database/UI certification are
+required before this billing configuration is deployed. Do not treat unit tests
+as real-money certification or reuse another product's catalog as a shortcut.
