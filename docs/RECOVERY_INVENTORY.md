@@ -253,10 +253,14 @@ Must be recoverable:
 
 Recovery invariant:
 - Stripe event processing is multi-Machine safe only when both Machines share the same PostgreSQL database. `processStripeEventOnce` takes a transaction-scoped PostgreSQL advisory lock derived from the Stripe event ID, checks the shared event ledger, runs the handler once, and records the event before releasing the transaction.
+- A delayed payment-failure notification reconciles the current Stripe subscription status rather than forcing `past_due`. A failed Stripe lookup returns a retryable webhook error without changing local status.
+- Subscription cancellation updates match both the user and canceled subscription ID so a late cancellation cannot revoke a replacement subscription.
 
 Verification target:
 - Deliver the same controlled test-mode webhook concurrently to both Machines and confirm only one handler execution/ledger insertion.
 - Controlled test-mode checkout/webhook path.
+- Deliver an old payment-failure event after a successful retry and confirm the subscription remains active; repeat with a temporary Stripe lookup failure and verify no local write until retry succeeds.
+- Replace a canceled subscription, replay its cancellation, and confirm the replacement retains its status and tier.
 - No production secrets stored in repository backup.
 
 ## Snapshot source-of-truth recovery
