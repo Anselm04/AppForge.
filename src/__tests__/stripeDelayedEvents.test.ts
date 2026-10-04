@@ -313,7 +313,9 @@ describe("delayed Stripe subscription events", () => {
         subscription: "sub_current",
       });
       expect(mocks.retrieve).toHaveBeenCalledWith("sub_current");
-      expect(mocks.set).toHaveBeenCalledWith(expect.objectContaining({ status }));
+      expect(mocks.set).toHaveBeenCalledWith(
+        expect.objectContaining({ status }),
+      );
       expect(res.json).toHaveBeenCalledWith({ received: true });
     },
   );
