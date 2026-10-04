@@ -39,11 +39,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git grep -in "trillion" -- . ':!scripts/repair-product-isolation.py'; then
+          legacy_name='trill''ion'
+          account_key='APPFORGE_STRIPE_''ACCOUNT_ID'
+          if git grep -in "$legacy_name" -- . ':!scripts/repair-product-isolation.py'; then
             echo "Cross-product identity remains in AppForge"
             exit 1
           fi
-          if git grep -n "APPFORGE_STRIPE_ACCOUNT_ID" -- . ':!scripts/repair-product-isolation.py'; then
+          if git grep -n "$account_key" -- . ':!scripts/repair-product-isolation.py'; then
             echo "Obsolete account-level Stripe isolation remains"
             exit 1
           fi
