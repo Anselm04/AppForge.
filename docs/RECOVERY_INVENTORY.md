@@ -605,6 +605,25 @@ Verification target:
 
 ## Owner admin SMS MFA recovery invariant — 4 October 2026
 
+### Paying-customer hardening review — 5 October 2026
+
+- The owner verification procedure must accept exactly six ASCII digits. Test
+  the actual tRPC procedure, not only the presence of Twilio helper names.
+- Persist the successful security audit record before issuing the privileged
+  MFA cookie. An audit-database failure must leave privileged access closed.
+- Apply the owner SMS send/check limits at the `/api/trpc` middleware boundary.
+  Reject mixed or repeated MFA operations in a batch before executing any
+  operation. Single-operation requests with `batch=1` remain supported.
+- Delayed Stripe subscription updates and failed-payment events must consult
+  Stripe's current subscription state. If Stripe is unavailable, return a
+  retryable webhook failure rather than persisting stale entitlements.
+- A deletion webhook must match both user ID and Stripe subscription ID before
+  canceling the stored subscription; an old cancellation must not cancel a
+  later purchase.
+- These regression checks use provider/database test doubles. They do not
+  replace real email/SMS, payments, database reconciliation, or recovery drills.
+  See `docs/PAYING_CUSTOMER_RELEASE.md` for remaining certification requirements.
+
 - Owner admin APIs are not authorized by owner email alone. A valid short-lived
   admin MFA cookie is also required.
 - The browser never chooses the SMS destination. Production uses only the

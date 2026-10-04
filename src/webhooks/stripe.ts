@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import type { Request, Response } from "express";
 import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
@@ -257,7 +257,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated": {
-      const subscription = event.data.object as Stripe.Subscription;
+      // Stripe does not guarantee webhook delivery order. Re-read the current
+      // subscription rather than overwriting entitlements with a stale snapshot.
+      const snapshot = event.data.object as Stripe.Subscription;
+      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
       const customerId = customerIdFromSubscription(subscription);
       const metadataUserId = parsePositiveUserId(subscription.metadata?.userId);
       const customerUserId = customerId
@@ -291,7 +294,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         await db
           .update(subscriptions)
           .set({ status: "canceled", tier: "free", updatedAt: new Date() })
-          .where(eq(subscriptions.userId, userId));
+          .where(
+            and(
+              eq(subscriptions.userId, userId),
+              eq(subscriptions.stripeSubscriptionId, subscription.id),
+            ),
+          );
       }
       break;
     }
@@ -473,9 +481,13 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.subscription as string | undefined;
       if (subscriptionId) {
+        // A delayed failed invoice may arrive after its payment has recovered.
+        // Current Stripe subscription status is authoritative, not this event.
+        const subscription =
+          await stripe.subscriptions.retrieve(subscriptionId);
         await db
           .update(subscriptions)
-          .set({ status: "past_due", updatedAt: new Date() })
+          .set({ status: subscription.status, updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
       }
       break;

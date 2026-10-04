@@ -102,7 +102,7 @@ export const adminRouter = router({
   }),
 
   verifyMfa: ownerAuthenticatedProcedure
-    .input(z.object({ code: z.string().regex(/^\\d{6}$/) }))
+    .input(z.object({ code: z.string().regex(/^[0-9]{6}$/) }))
     .mutation(async ({ ctx, input }) => {
       ensureAdminMfaConfigured();
 
@@ -137,7 +137,6 @@ export const adminRouter = router({
         });
       }
 
-      setAdminMfaCookie(ctx.req, ctx.res, ctx.user.id);
       await db.insert(schema.complianceRecords).values({
         recordType: "security_incident",
         userId: ctx.user.id,
@@ -147,6 +146,9 @@ export const adminRouter = router({
         },
         adminEmail: ctx.user.email,
       });
+      // A failed audit write must not leave the browser with privileged access
+      // after the mutation reports failure.
+      setAdminMfaCookie(ctx.req, ctx.res, ctx.user.id);
       logger.info({ userId: ctx.user.id }, "admin_mfa_approved");
 
       return {
