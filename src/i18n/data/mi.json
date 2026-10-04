@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · Founder & CEO",
-    "ownerOf": "Owner of AppForge and TrillionAI Tech",
+    "ownerOf": "AppForge",
     "about": "About",
-    "tagline": "Kaihanga taupānga AI nā TrillionAI Tech — whakamahere, waehere, arotake, tuku.",
+    "tagline": "Kaihanga taupānga AI nā AppForge — whakamahere, waehere, arotake, tuku.",
     "product": "Hua",
     "company": "Kamupene",
     "help": "Pokapū Āwhina",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "About AppForge",
-    "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
+    "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
   "common": {
     "noResults": "Kāore he hua.",

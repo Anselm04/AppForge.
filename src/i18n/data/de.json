@@ -158,11 +158,11 @@
   },
   "footer": {
     "founder": "Anselm Perkins · Gründer & CEO",
-    "ownerOf": "Inhaber von AppForge und TrillionAI Tech",
+    "ownerOf": "AppForge",
     "about": "Über uns"
   },
   "about": {
     "title": "Über AppForge",
-    "body": "AppForge ist der KI-App-Builder von TrillionAI Tech. Anselm Perkins ist Gründer & CEO und Inhaber von AppForge und TrillionAI Tech."
+    "body": "AppForge ist der KI-App-Builder von AppForge. Anselm Perkins ist Gründer & CEO und Inhaber von AppForge und AppForge."
   }
 }

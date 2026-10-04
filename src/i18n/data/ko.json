@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · 창업자 겸 CEO",
-    "ownerOf": "AppForge 및 TrillionAI Tech 소유자",
+    "ownerOf": "AppForge",
     "about": "소개",
-    "tagline": "TrillionAI Tech의 AI 앱 빌더 — 계획, 코드, 리뷰, 배포.",
+    "tagline": "AppForge의 AI 앱 빌더 — 계획, 코드, 리뷰, 배포.",
     "product": "제품",
     "company": "회사",
     "help": "고객센터",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "AppForge 소개",
-    "body": "AppForge는 TrillionAI Tech의 AI 앱 빌더입니다. Anselm Perkins는 창업자 겸 CEO이며 AppForge와 TrillionAI Tech의 소유자입니다."
+    "body": "AppForge는 AppForge의 AI 앱 빌더입니다. Anselm Perkins는 창업자 겸 CEO이며 AppForge와 AppForge의 소유자입니다."
   },
   "common": {
     "noResults": "결과 없음.",
@@ -529,7 +529,7 @@
     "templates": {
       "title": "템플릿 마켓플레이스",
       "hero": "SaaS, 대시보드 등을 위한 프로덕션 준비 스캐폴드에서 시작.",
-    "howIntro": "AppForge에서 템플릿 마켓플레이스 작동 방식.",
+      "howIntro": "AppForge에서 템플릿 마켓플레이스 작동 방식.",
       "step1": "프로젝트를 연결하거나 템플릿에서 시작하세요.",
       "step2": "AppForge 에이전트가 워크플로를 구성하고 검증합니다.",
       "step3": "배포 훅, 모니터링, 롤백으로 출시하세요.",

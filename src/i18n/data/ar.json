@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · Founder & CEO",
-    "ownerOf": "Owner of AppForge and TrillionAI Tech",
+    "ownerOf": "AppForge",
     "about": "About",
-    "tagline": "منشئ تطبيقات AI من TrillionAI Tech — خطط، برمج، راجع، انشر.",
+    "tagline": "منشئ تطبيقات AI من AppForge — خطط، برمج، راجع، انشر.",
     "product": "المنتج",
     "company": "الشركة",
     "help": "مركز المساعدة",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "About AppForge",
-    "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
+    "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
   "common": {
     "noResults": "لم يتم العثور على نتائج.",
@@ -511,7 +511,7 @@
     "databaseWizard": {
       "title": "معالج قواعد البيانات",
       "hero": "جهّز Postgres وشغّل الترحيلات واربط المصادقة في دقائق.",
-    "howIntro": "كيف يعمل معالج قواعد البيانات في AppForge.",
+      "howIntro": "كيف يعمل معالج قواعد البيانات في AppForge.",
       "step1": "اربط مشروعك أو ابدأ من قالب.",
       "step2": "وكلاء AppForge يضبطون ويتحققون من سير العمل.",
       "step3": "انشر مع خطافات النشر والمراقبة والتراجع الجاهزة.",

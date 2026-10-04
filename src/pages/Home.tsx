@@ -173,7 +173,7 @@ export function Home() {
           />
           <div className="flex justify-center mb-6">
             <span className="forge-badge" data-testid="hero-brand-badge">
-              <span className="dot" /> A TrillionAI Tech Product
+              <span className="dot" /> A AppForge Product
             </span>
           </div>
           <h1

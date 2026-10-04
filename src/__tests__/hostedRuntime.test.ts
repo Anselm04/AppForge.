@@ -27,7 +27,7 @@ describe("hostedRuntime", () => {
       techStack: "react-node",
     });
     expect(html).toContain("<!doctype html>");
-    expect(html).toContain("id=\"add-btn\"");
+    expect(html).toContain('id="add-btn"');
     expect(html).toContain("Built with AppForge");
     expect(html).not.toContain("mailto:");
     expect(html).not.toContain("Ride Global");
@@ -41,7 +41,7 @@ describe("hostedRuntime", () => {
       techStack: "phaser-html5",
     });
     expect(html).toContain("<canvas");
-    expect(html).toContain("id=\"score\"");
+    expect(html).toContain('id="score"');
   });
 
   it("agent html can send a message", () => {
@@ -51,8 +51,8 @@ describe("hostedRuntime", () => {
       description: "An assistant agent that answers from a product brief",
       techStack: "ai-agent-node",
     });
-    expect(html).toContain("id=\"send\"");
-    expect(html).toContain("id=\"q\"");
+    expect(html).toContain('id="send"');
+    expect(html).toContain('id="q"');
   });
 
   it("tool html converts text", () => {
@@ -62,8 +62,8 @@ describe("hostedRuntime", () => {
       description: "A word count converter tool",
       techStack: "vanilla-node",
     });
-    expect(html).toContain("id=\"upper\"");
-    expect(html).toContain("id=\"chars\"");
+    expect(html).toContain('id="upper"');
+    expect(html).toContain('id="chars"');
   });
 
   it("software html saves notes", () => {
@@ -73,7 +73,7 @@ describe("hostedRuntime", () => {
       description: "Desktop notes software",
       techStack: "electron-react",
     });
-    expect(html).toContain("id=\"save\"");
+    expect(html).toContain('id="save"');
     expect(html).toContain("Save note");
   });
 
@@ -84,7 +84,7 @@ describe("hostedRuntime", () => {
       description: "Marketing landing website for a new SaaS",
       techStack: "astro-node",
     });
-    expect(html).toContain("id=\"form\"");
+    expect(html).toContain('id="form"');
     expect(html).toContain("Join waitlist");
   });
 });

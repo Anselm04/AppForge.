@@ -173,7 +173,7 @@ describe("critical customer flow contract", () => {
       "STRIPE_CREDITS_250_PRICE_ID",
     ];
     const deploy = source("../../.github/workflows/deploy-production.yml");
-    expect(deploy).toContain("APPFORGE_STRIPE_ACCOUNT_ID");
+    expect(deploy).not.toContain("APPFORGE_STRIPE_ACCOUNT_ID");
     for (const name of priceNames) {
       expect(deploy).toContain(name);
       expect(fly).not.toMatch(new RegExp(`${name} = '(price_[^']+)'`));

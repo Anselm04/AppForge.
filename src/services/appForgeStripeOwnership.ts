@@ -1,9 +1,7 @@
 import type Stripe from "stripe";
 
 export type AppForgeStripeOwnership =
-  | "appforge"
-  | "foreign"
-  | "invalid_appforge";
+  "appforge" | "foreign" | "invalid_appforge";
 
 function productLine(metadata?: Stripe.Metadata | null): string {
   return (metadata?.product_line || "").trim().toLowerCase();

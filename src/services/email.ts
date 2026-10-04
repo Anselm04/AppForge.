@@ -7,9 +7,7 @@ function appForgeSender(): string {
 
 function supportContact(): string {
   const email = process.env.APPFORGE_SUPPORT_EMAIL?.trim();
-  return email
-    ? `<a href="mailto:${email}">${email}</a>`
-    : "AppForge Support";
+  return email ? `<a href="mailto:${email}">${email}</a>` : "AppForge Support";
 }
 
 function appUrl(path: string): string {

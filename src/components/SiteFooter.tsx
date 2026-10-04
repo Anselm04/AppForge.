@@ -13,14 +13,23 @@ export function SiteFooter() {
           <p>{t("footer.ownerOf")}</p>
         </div>
         <div className="flex flex-col sm:items-end gap-1">
-          <Link to="/about" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link
+            to="/about"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
             {t("footer.about")}
           </Link>
-          <a href="mailto:hello@trillionaitech.com" className="hover:text-slate-900 dark:hover:text-white">
-            hello@trillionaitech.com
+          <a
+            href="/help"
+            className="hover:text-slate-900 dark:hover:text-white"
+          >
+            AppForge Support
           </a>
-          <a href="mailto:support@trillionaitech.com" className="hover:text-slate-900 dark:hover:text-white">
-            support@trillionaitech.com
+          <a
+            href="/help"
+            className="hover:text-slate-900 dark:hover:text-white"
+          >
+            AppForge Support
           </a>
         </div>
       </div>

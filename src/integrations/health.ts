@@ -468,7 +468,7 @@ async function verifyRemote(
 
     case "marketing-app": {
       const url = value("MARKETING_APP_URL");
-      const secret = value("TRILLION_ECOSYSTEM_SHARED_SECRET");
+      const secret = value("APPFORGE_MARKETING_SHARED_SECRET");
       if (!url && !secret) {
         return result(
           definition,
@@ -480,24 +480,11 @@ async function verifyRemote(
         return result(
           definition,
           "configuration_required",
-          "Marketing app URL and ecosystem shared secret are required",
+          "Marketing integration URL and AppForge shared secret are required",
           true,
         );
       }
       const check = await probe(`${url.replace(/\/$/, "")}/health`);
-      return check.ok ? pass(check.message) : fail(check.message);
-    }
-
-    case "trillionaitech-site": {
-      const url = value("TRILLION_PUBLIC_SITE_URL");
-      if (!url) {
-        return result(
-          definition,
-          "not_connected",
-          "TRILLION_PUBLIC_SITE_URL is not configured",
-        );
-      }
-      const check = await probe(url);
       return check.ok ? pass(check.message) : fail(check.message);
     }
 

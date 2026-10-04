@@ -20,12 +20,7 @@ export function publicAppUrl(projectId: number): string {
 }
 
 export type HostedKind =
-  | "app"
-  | "game"
-  | "agent"
-  | "tool"
-  | "software"
-  | "website";
+  "app" | "game" | "agent" | "tool" | "software" | "website";
 
 export function classifyHostedKind(
   description: string,
@@ -168,11 +163,7 @@ function wrapPage(opts: {
     <span class="muted">${esc(opts.kind)} · live</span>
   </header>
   ${opts.body}
-  <footer class="brand">
-    Built with AppForge by TrillionAI Tech · Founder Anselm Perkins ·
-    <a href="mailto:hello@trillionaitech.com">hello@trillionaitech.com</a> ·
-    <a href="mailto:support@trillionaitech.com">support@trillionaitech.com</a>
-  </footer>
+  <footer class="brand">Built with AppForge</footer>
   <script>
 ${opts.script}
   </script>
@@ -180,7 +171,10 @@ ${opts.script}
 </html>`;
 }
 
-function appPage(title: string, entity: string): { body: string; script: string } {
+function appPage(
+  title: string,
+  entity: string,
+): { body: string; script: string } {
   const safeEntity = entity.replace(/[\\`]/g, "");
   return {
     body: `<div class="wrap">
@@ -271,7 +265,10 @@ loop();`,
   };
 }
 
-function agentPage(title: string, description: string): { body: string; script: string } {
+function agentPage(
+  title: string,
+  description: string,
+): { body: string; script: string } {
   return {
     body: `<div class="wrap">
   <div class="hero"><h1>${esc(title)}</h1><p class="muted">Ask a question. The agent replies using this product brief (runs entirely in your browser).</p></div>
@@ -381,7 +378,10 @@ render();`,
   };
 }
 
-function websitePage(title: string, description: string): { body: string; script: string } {
+function websitePage(
+  title: string,
+  description: string,
+): { body: string; script: string } {
   return {
     body: `<div class="wrap">
   <div class="hero">

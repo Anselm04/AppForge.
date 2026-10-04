@@ -166,9 +166,9 @@
   },
   "footer": {
     "founder": "Anselm Perkins · Founder & CEO",
-    "ownerOf": "Owner of AppForge and TrillionAI Tech",
+    "ownerOf": "AppForge",
     "about": "About",
-    "tagline": "TrillionAI Tech का AI ऐप बिल्डर — योजना, कोड, समीक्षा, डिप्लॉय।",
+    "tagline": "AppForge का AI ऐप बिल्डर — योजना, कोड, समीक्षा, डिप्लॉय।",
     "product": "उत्पाद",
     "company": "कंपनी",
     "help": "सहायता केंद्र",
@@ -177,7 +177,7 @@
   },
   "about": {
     "title": "About AppForge",
-    "body": "AppForge is the AI app builder from TrillionAI Tech. Anselm Perkins is Founder & CEO and owner of AppForge and TrillionAI Tech."
+    "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
   "common": {
     "noResults": "कोई परिणाम नहीं मिला।",
@@ -256,7 +256,7 @@
         "body": "प्लान, ट्रायल, क्रेडिट पैक और रुके बिल्ड।"
       },
       "deploy": {
-      "title": "डिप्लॉय और होस्टिंग",
+        "title": "डिप्लॉय और होस्टिंग",
         "body": "Fly.io, Vercel, env vars और हेल्थ चेक।"
       },
       "agents": {

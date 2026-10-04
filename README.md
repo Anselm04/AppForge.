@@ -1,6 +1,6 @@
 # AppForge
 
-**AppForge** is a private software engineering platform developed by **TrillionAI Tech**.
+**AppForge** is a private software engineering platform developed by **AppForge**.
 
 This repository contains the current application source code, tests, configuration, supporting services, and deployment assets required to develop and operate AppForge.
 
@@ -71,12 +71,12 @@ Private endpoints, production topology, infrastructure strategy, secrets, and in
 
 ## Licensing
 
-Trillion-owned source code remains subject to the licensing terms defined for this repository.
+AppForge-owned source code remains subject to the licensing terms defined for this repository.
 
 Third-party software remains governed by its respective licences.
 
 ## Ownership
 
-AppForge is developed by **TrillionAI Tech**.
+AppForge is developed by **AppForge**.
 
 All proprietary product strategy, internal architecture, future plans, commercial direction, and non-public implementation details are confidential unless explicitly approved for disclosure.

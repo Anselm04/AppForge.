@@ -14,8 +14,7 @@ type PaidTier = "starter" | "builder" | "studio" | "enterprise";
 type CreditPack = 50 | 100 | 250;
 
 const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
-const ENTERPRISE_CONTACT =
-  "mailto:hello@trillionaitech.com?subject=AppForge%20Enterprise";
+const ENTERPRISE_CONTACT = "/help?topic=enterprise";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -213,7 +212,8 @@ export function Pricing() {
         {subStatus?.stripeCustomerId && (
           <div className="mb-10 flex flex-col items-center gap-3">
             <p className="text-sm text-forge-text-muted text-center">
-              Current Stripe plan: <span className="capitalize">{currentTier}</span>
+              Current Stripe plan:{" "}
+              <span className="capitalize">{currentTier}</span>
             </p>
             <Button
               variant="secondary"

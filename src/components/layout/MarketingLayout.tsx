@@ -118,7 +118,7 @@ export function MarketingLayout() {
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 border-t border-white/[0.06] text-xs text-forge-text-muted flex flex-wrap gap-4 justify-between">
-          <span>© {new Date().getFullYear()} AppForge · TrillionAI Tech</span>
+          <span>© {new Date().getFullYear()} AppForge · AppForge</span>
           <span>{t("footer.rights")}</span>
         </div>
       </footer>
