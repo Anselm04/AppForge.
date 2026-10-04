@@ -19,7 +19,8 @@ def replace(path: str, old: str, new: str) -> None:
         write(path, updated)
 
 
-# Shared Stripe account: remove the obsolete dedicated-account requirement only.
+# Shared Stripe account: AppForge is isolated by its own configured prices,
+# metadata, webhook handling and entitlements, not by a separate Stripe account.
 path = "src/utils/env-validator.ts"
 text = read(path)
 text = text.replace("  APPFORGE_STRIPE_ACCOUNT_ID?: string;\n", "")
@@ -44,10 +45,15 @@ path = ".env.example"
 text = read(path)
 text = text.replace(
     "# Dedicated AppForge Stripe billing\n# Use credentials and prices from the AppForge account only.\nAPPFORGE_STRIPE_ACCOUNT_ID=\n",
-    "# AppForge Stripe billing\n# The Stripe account may host other products; configure AppForge-owned price IDs only.\n",
+    "# AppForge Stripe billing\n# This Stripe account may host other independent products. Configure only AppForge-owned Price IDs here.\n",
 )
 text = text.replace("TRILLION_ECOSYSTEM_SHARED_SECRET", "APPFORGE_MARKETING_SHARED_SECRET")
 text = text.replace("TRILLION_PUBLIC_SITE_URL", "APPFORGE_PUBLIC_SITE_URL")
+text = re.sub(
+    r"APPFORGE_PUBLIC_SITE_URL=https?://[^\s]+",
+    "APPFORGE_PUBLIC_SITE_URL=https://appforge.example",
+    text,
+)
 write(path, text)
 
 path = ".github/workflows/deploy-production.yml"
@@ -61,8 +67,7 @@ text = text.replace(
 )
 write(path, text)
 
-# Webhook processing must never verify a dedicated Stripe account. AppForge is
-# isolated by its configured prices, product metadata and entitlement records.
+# Remove the obsolete dedicated-account verification from webhook processing.
 path = "src/webhooks/stripe.ts"
 text = read(path)
 text = text.replace(
@@ -72,7 +77,6 @@ text = text.replace(
 text = text.replace("    await verifyAppForgeStripeAccount(stripe);\n", "")
 write(path, text)
 
-# Remove only the obsolete test mock; do not rewrite test syntax mechanically.
 path = "src/__tests__/stripeDelayedEvents.test.ts"
 text = read(path)
 text = text.replace(
@@ -81,8 +85,6 @@ text = text.replace(
 )
 write(path, text)
 
-# The critical-customer-flow contract now proves that account-level isolation is
-# absent while every AppForge Price ID remains required for production.
 path = "src/__tests__/customer-flow-contract.e2e.spec.ts"
 text = read(path)
 text = text.replace(
@@ -91,8 +93,7 @@ text = text.replace(
 )
 write(path, text)
 
-# Generated customer apps must carry only neutral AppForge branding. They must not
-# leak company-site addresses or another product identity into customer output.
+# Generated apps must not leak the company catalogue site or another product identity.
 path = "src/lib/hostedRuntime.ts"
 text = read(path)
 text = re.sub(
@@ -104,7 +105,8 @@ text = re.sub(
 )
 write(path, text)
 
-# AppForge's optional marketing bridge must be independent of every other product.
+# Marketing is optional and independently configured. The catalogue website is not
+# part of AppForge's runtime or production-readiness dependency graph.
 path = "src/integrations/catalog.ts"
 text = read(path)
 text = re.sub(
@@ -112,11 +114,7 @@ text = re.sub(
     '\n  { id: "marketing-app", name: "Marketing Integration", kind: "external", job: "Optional export of AppForge products to an independently configured marketing service.", requiredForProduction: false, capabilities: ["campaigns", "content", "seo", "social", "ads"], env: ["MARKETING_APP_URL", "APPFORGE_MARKETING_SHARED_SECRET"] },',
     text,
 )
-text = re.sub(
-    r'\n\s*\{ id: "trillionaitech-site",[^\n]*\},',
-    "",
-    text,
-)
+text = re.sub(r'\n\s*\{ id: "trillionaitech-site",[^\n]*\},', "", text)
 write(path, text)
 
 path = "src/integrations/health.ts"
@@ -134,7 +132,6 @@ text = re.sub(
 )
 write(path, text)
 
-# Optional marketing integration is AppForge-namespaced and never production-required.
 replace(
     "src/services/marketingBridge.ts",
     "TRILLION_ECOSYSTEM_SHARED_SECRET",
@@ -146,10 +143,15 @@ replace(
     "Create or sign in to the matching marketing service account first",
 )
 
-# AppForge customer-facing identity stands alone from the catalogue website and
-# other products. These replacements are deliberately scoped to known files.
+# Remove cross-product identity/contact coupling from AppForge-facing surfaces.
+path = "README.md"
+text = read(path)
+text = text.replace("Trillion-owned source code", "AppForge-owned source code")
+text = text.replace("TrillionAI Tech", "AppForge")
+text = text.replace("Trillion AI Tech", "AppForge")
+write(path, text)
+
 for file_path in [
-    "README.md",
     "index.html",
     "src/pages/Home.tsx",
     "src/components/layout/MarketingLayout.tsx",
@@ -163,15 +165,57 @@ for file_path in [
     text = text.replace("Trillion AI Tech", "AppForge")
     p.write_text(text, encoding="utf-8")
 
-# The repair itself must not mutate arbitrary tests/docs by deleting lines. Guard
-# the runtime/config boundary instead, where cross-product coupling matters.
+for file_path in ["src/components/SiteFooter.tsx", "src/pages/About.tsx"]:
+    path = ROOT / file_path
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(
+        r'<a\s+href="mailto:[^"]+"[^>]*>\s*[^<]+\s*</a>',
+        '<a href="/help" className="hover:text-slate-900 dark:hover:text-white">AppForge Support</a>',
+        text,
+        flags=re.S,
+    )
+    path.write_text(text, encoding="utf-8")
+
+path = "src/pages/Pricing.tsx"
+text = read(path)
+text = re.sub(
+    r'const ENTERPRISE_CONTACT\s*=\s*\n?\s*"mailto:[^"]+";',
+    'const ENTERPRISE_CONTACT = "/help?topic=enterprise";',
+    text,
+)
+write(path, text)
+
+# Keep all translated AppForge UI independent as well.
+for p in sorted((ROOT / "src/i18n/data").glob("*.json")):
+    text = p.read_text(encoding="utf-8")
+    text = text.replace("TrillionAI Tech", "AppForge")
+    text = text.replace("Trillion AI Tech", "AppForge")
+    text = re.sub(r'("ownerOf"\s*:\s*)"[^"]*"', r'\1"AppForge"', text)
+    p.write_text(text, encoding="utf-8")
+
+# Recovery governance: document the corrected billing/product boundary without secrets.
+recovery_path = ROOT / "docs/RECOVERY_INVENTORY.md"
+if recovery_path.exists():
+    recovery = recovery_path.read_text(encoding="utf-8")
+    marker = "### Shared Stripe account product isolation — 5 October 2026"
+    if marker not in recovery:
+        recovery += f'''\n\n{marker}\n\nRecovery invariant:\n- AppForge uses the same Stripe account as other independent products; account-level isolation is not required and `APPFORGE_STRIPE_ACCOUNT_ID` must not be restored or reintroduced.\n- Recover `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and only the AppForge-owned subscription/credit Price IDs used by AppForge.\n- AppForge checkout metadata remains namespaced with `product_line=appforge`; AppForge entitlements and credit records must only be created from AppForge-owned prices and valid settled AppForge payments.\n- Stripe events for unrelated products in the shared account must never create, change, cancel, refund, or grant AppForge entitlements/credits.\n- The external marketing integration is optional. The catalogue website and every other product are not AppForge runtime, billing, deployment, or recovery dependencies.\n- The product-isolation repair/release gates must fail closed if obsolete account-level Stripe isolation or production-facing cross-product coupling is reintroduced.\n\nVerification target:\n- Verify all AppForge subscription and credit Price IDs resolve to the intended AppForge products before reopening paid traffic.\n- Exercise AppForge checkout, delayed/replayed webhook delivery, refund, cancellation, failed-payment reconciliation, and entitlement/credit idempotency.\n- Deliver representative unrelated-product Stripe events from the shared account and confirm AppForge acknowledges/ignores them without mutating AppForge billing state.\n- Confirm a deliberately AppForge-marked event with a non-AppForge price fails closed and grants nothing.\n'''
+        recovery_path.write_text(recovery, encoding="utf-8")
+
+# Guard only production-facing/runtime product boundaries; arbitrary test fixture data
+# is not a dependency and must not be rewritten merely because it contains a company name.
 protected_paths = [
+    ROOT / "README.md",
+    ROOT / ".env.example",
+    ROOT / ".env.schema.json",
+    ROOT / "src/components",
+    ROOT / "src/pages",
     ROOT / "src/services",
     ROOT / "src/integrations",
     ROOT / "src/routers",
     ROOT / "src/webhooks",
-    ROOT / ".env.example",
-    ROOT / ".env.schema.json",
+    ROOT / "src/i18n",
+    ROOT / "src/lib/hostedRuntime.ts",
     ROOT / ".github/workflows/deploy-production.yml",
 ]
 violations: list[str] = []
@@ -185,6 +229,8 @@ for protected in protected_paths:
         except UnicodeDecodeError:
             continue
         rel = str(p.relative_to(ROOT))
+        if re.search(r"trillion", text, flags=re.I):
+            violations.append(rel + " (cross-product identity)")
         if "APPFORGE_STRIPE_ACCOUNT_ID" in text:
             violations.append(rel + " (obsolete Stripe account id)")
         if "TRILLION_ECOSYSTEM_SHARED_SECRET" in text:
