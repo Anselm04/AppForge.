@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import type { Request, Response } from "express";
 import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
@@ -291,7 +291,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         await db
           .update(subscriptions)
           .set({ status: "canceled", tier: "free", updatedAt: new Date() })
-          .where(eq(subscriptions.userId, userId));
+          .where(
+            and(
+              eq(subscriptions.userId, userId),
+              eq(subscriptions.stripeSubscriptionId, subscription.id),
+            ),
+          );
       }
       break;
     }
@@ -471,11 +476,20 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = invoice.subscription as string | undefined;
+      const subscriptionId =
+        typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : invoice.subscription?.id;
       if (subscriptionId) {
+        // Stripe does not guarantee delivery order. A failure snapshot can arrive
+        // after a successful retry, cancellation, or another status transition.
+        // Reconcile current Stripe state instead of blindly marking it past_due.
+        // Lookup errors must escape so Stripe retries without changing access.
+        const subscription =
+          await stripe.subscriptions.retrieve(subscriptionId);
         await db
           .update(subscriptions)
-          .set({ status: "past_due", updatedAt: new Date() })
+          .set({ status: subscription.status, updatedAt: new Date() })
           .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
       }
       break;
