@@ -8,13 +8,9 @@ const source = (path: string) =>
 describe("capability security observability", () => {
   it("records bounded provider security metrics without customer labels", () => {
     const watchdog = source("src/capabilities/watchdog.ts");
-    expect(watchdog).toContain(
-      "appforge_capability_security_incidents_total",
-    );
+    expect(watchdog).toContain("appforge_capability_security_incidents_total");
     expect(watchdog).toContain("appforge_capability_provider_state");
-    expect(watchdog).not.toContain(
-      "customerId: signal.context.customerId",
-    );
+    expect(watchdog).not.toContain("customerId: signal.context.customerId");
   });
 
   it("surfaces contained provider state through the persistent owner dashboard", () => {
