@@ -56,7 +56,9 @@ export async function discoverCapabilitiesForResearch(input: {
 
     if (result.ok) {
       const serialized = JSON.stringify(result.data ?? null);
-      lines.push(`- ${integration}: provider guidance available: ${serialized.slice(0, 3_000)}`);
+      lines.push(
+        `- ${integration}: provider guidance available: ${serialized.slice(0, 3_000)}`,
+      );
     } else {
       lines.push(
         `- ${integration}: provider unavailable or blocked (${(result.error ?? "unknown").slice(0, 240)}); continue without bypassing policy.`,
