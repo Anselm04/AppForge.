@@ -2,19 +2,26 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+const source = (path: string) =>
+  readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("capability security observability", () => {
   it("records bounded provider security metrics without customer labels", () => {
     const watchdog = source("src/capabilities/watchdog.ts");
-    expect(watchdog).toContain("appforge_capability_security_incidents_total");
+    expect(watchdog).toContain(
+      "appforge_capability_security_incidents_total",
+    );
     expect(watchdog).toContain("appforge_capability_provider_state");
-    expect(watchdog).not.toContain('customerId: signal.context.customerId');
+    expect(watchdog).not.toContain(
+      "customerId: signal.context.customerId",
+    );
   });
 
-  it("defines operational alerts for provider quarantine and disable", () => {
-    const alerts = source("monitoring/alerts.yml");
-    expect(alerts).toContain("CapabilityProviderContained");
-    expect(alerts).toContain("appforge_capability_provider_state");
+  it("surfaces contained provider state through the persistent owner dashboard", () => {
+    const router = source("src/routers/capabilitySecurity.ts");
+    const banner = source("src/components/CapabilitySecurityBanner.tsx");
+    expect(router).toContain('getCapabilityProviderState("composio")');
+    expect(banner).toContain("data.providerState.state");
+    expect(banner).toContain("Capability security incidents");
   });
 });
