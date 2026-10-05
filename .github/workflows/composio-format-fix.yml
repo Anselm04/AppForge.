@@ -1,0 +1,37 @@
+name: Composio format fix
+
+on:
+  push:
+    branches:
+      - feat/composio-sdk
+    paths:
+      - .github/workflows/composio-format-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/composio-sdk
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Format Composio source
+        run: npx prettier --write src/__tests__/composio.service.spec.ts src/routers/composio.ts src/services/composio.ts
+      - name: Commit formatting when changed
+        run: |
+          if git diff --quiet -- src/__tests__/composio.service.spec.ts src/routers/composio.ts src/services/composio.ts; then
+            echo "Formatting already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/__tests__/composio.service.spec.ts src/routers/composio.ts src/services/composio.ts
+          git commit -m "style: format Composio integration"
+          git push
