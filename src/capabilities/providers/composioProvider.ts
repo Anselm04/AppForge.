@@ -89,13 +89,10 @@ export class ComposioProvider implements CapabilityProvider {
         session: { generate_id: true },
       });
       return { ok: true, data: sanitizeCapabilityMetadata(data) };
-    } catch (error) {
+    } catch {
       return {
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message.slice(0, 500)
-            : "Composio discovery failed",
+        error: "Composio discovery failed",
       };
     }
   }
@@ -117,13 +114,10 @@ export class ComposioProvider implements CapabilityProvider {
       );
       const data = await session.execute(toolId, request.arguments);
       return { ok: true, data: sanitizeCapabilityMetadata(data) };
-    } catch (error) {
+    } catch {
       return {
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message.slice(0, 500)
-            : "Composio execution failed",
+        error: "Composio execution failed",
       };
     }
   }
