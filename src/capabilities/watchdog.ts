@@ -1,4 +1,8 @@
 import {
+  incrementOperationalMetric,
+  setOperationalGauge,
+} from "../lib/operationsObservability.js";
+import {
   createCapabilitySecurityIncident,
   getCapabilityProviderState,
   setCapabilityProviderState,
@@ -9,6 +13,13 @@ import type { CapabilityProviderState } from "./types.js";
 
 const CRITICAL_COMPROMISE = /(?:confirmed|verified).*(?:credential|secret|exfiltrat|integrity|compromise)|(?:credential|secret).*(?:exfiltrat|compromise)/i;
 const SECURITY_BOUNDARY = /(?:cross-project|cross-customer|protected appforge|credential|secret|policy bypass|watchdog|audit|billing|mfa|auth)/i;
+
+const STATE_GAUGE: Record<CapabilityProviderState, number> = {
+  healthy: 0,
+  restricted: 1,
+  quarantined: 2,
+  disabled: 3,
+};
 
 export function evaluateWatchdogTransition(
   current: ProviderStateRecord,
@@ -45,12 +56,29 @@ export function evaluateWatchdogTransition(
 export async function processCapabilityWatchdogSignal(
   signal: CapabilityWatchdogSignal,
 ): Promise<void> {
+  incrementOperationalMetric("appforge_capability_requests_total", {
+    provider: signal.provider,
+    result: signal.outcome,
+  });
+
+  if (signal.outcome === "policy_denial") {
+    incrementOperationalMetric("appforge_capability_policy_denials_total", {
+      provider: signal.provider,
+    });
+  }
+
   const current = await getCapabilityProviderState(signal.provider);
   const next = evaluateWatchdogTransition(current, signal);
   const changed =
     next.state !== current.state ||
     next.failureCount !== current.failureCount ||
     next.anomalyCount !== current.anomalyCount;
+
+  setOperationalGauge(
+    "appforge_capability_provider_state",
+    STATE_GAUGE[next.state],
+    { provider: signal.provider },
+  );
 
   if (!changed) return;
 
@@ -64,10 +92,15 @@ export async function processCapabilityWatchdogSignal(
     next.state === "quarantined" ||
     next.state === "disabled"
   ) {
+    const severity = next.state === "disabled" ? "critical" : "warning";
+    incrementOperationalMetric(
+      "appforge_capability_security_incidents_total",
+      { provider: signal.provider, severity },
+    );
     await createCapabilitySecurityIncident({
       context: signal.context,
       provider: signal.provider,
-      severity: next.state === "disabled" ? "critical" : "warning",
+      severity,
       reason: next.reason,
       containmentAction: next.state,
       providerState: next.state,
