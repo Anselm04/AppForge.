@@ -9,6 +9,7 @@ import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
 import { cosineRouter } from "./cosine.js";
 import { adminRouter } from "./admin.js";
+import { capabilitySecurityRouter } from "./capabilitySecurity.js";
 import { moderationRouter } from "./moderation.js";
 import { projectChatRouter } from "./projectChat.js";
 import { analyticsRouter } from "./analytics.js";
@@ -52,6 +53,7 @@ export const appRouter = router({
   github: githubRouter,
   cosine: cosineRouter,
   admin: adminRouter,
+  capabilitySecurity: capabilitySecurityRouter,
   moderation: moderationRouter,
   projectChat: projectChatRouter,
   analytics: analyticsRouter,
