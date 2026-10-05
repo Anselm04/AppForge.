@@ -14,7 +14,10 @@ describe("Composio service", () => {
     const execute = vi.fn().mockResolvedValue({ successful: true, data: {} });
     const session: ComposioSessionLike = { execute };
 
-    const result = await searchComposioTools(session, "find GitHub repositories");
+    const result = await searchComposioTools(
+      session,
+      "find GitHub repositories",
+    );
 
     expect(execute).toHaveBeenCalledWith("COMPOSIO_SEARCH_TOOLS", {
       queries: [{ use_case: "find GitHub repositories" }],

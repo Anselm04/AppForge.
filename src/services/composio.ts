@@ -1,10 +1,7 @@
 import { Composio } from "@composio/core";
 
 export interface ComposioSessionLike {
-  execute(
-    toolSlug: string,
-    args: Record<string, unknown>,
-  ): Promise<unknown>;
+  execute(toolSlug: string, args: Record<string, unknown>): Promise<unknown>;
 }
 
 let composioClient: Composio | null = null;
@@ -15,7 +12,8 @@ export function isComposioConfigured(): boolean {
 
 export function buildComposioUserId(userId: string): string {
   const normalized = userId.trim();
-  if (!normalized) throw new Error("Composio requires a non-empty AppForge user ID");
+  if (!normalized)
+    throw new Error("Composio requires a non-empty AppForge user ID");
   return `appforge:${normalized}`;
 }
 

@@ -30,7 +30,8 @@ export const composioRouter = router({
         const session = await createComposioSession(String(ctx.user.id));
         return await searchComposioTools(session, input.useCase);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Composio request failed";
+        const message =
+          error instanceof Error ? error.message : "Composio request failed";
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message,
