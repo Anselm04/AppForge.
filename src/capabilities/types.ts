@@ -51,6 +51,10 @@ export interface CapabilityProviderResult {
 export interface CapabilityProvider {
   readonly id: string;
   isConfigured(): boolean;
-  discover(request: CapabilityDiscoveryRequest): Promise<CapabilityProviderResult>;
-  execute(request: CapabilityExecutionRequest): Promise<CapabilityProviderResult>;
+  discover(
+    request: CapabilityDiscoveryRequest,
+  ): Promise<CapabilityProviderResult>;
+  execute(
+    request: CapabilityExecutionRequest,
+  ): Promise<CapabilityProviderResult>;
 }
