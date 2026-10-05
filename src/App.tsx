@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { TopNav } from "./components/TopNav.js";
 import { SiteFooter } from "./components/SiteFooter.js";
+import { CapabilitySecurityBanner } from "./components/CapabilitySecurityBanner.js";
 import { useLocale } from "./i18n/LocaleContext.js";
 import { Home } from "./pages/Home.js";
 import { About } from "./pages/About.js";
@@ -60,7 +61,15 @@ function AppShell() {
           <Route path="/tools" element={<PluginWorkspace />} />
           <Route path="/build/:projectId" element={<Build />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/admin"
+            element={
+              <>
+                <CapabilitySecurityBanner />
+                <Admin />
+              </>
+            }
+          />
           <Route path="/ai-builder" element={<AIBuilder />} />
           <Route path="/templates" element={<TemplateMarketplace />} />
           <Route path="/editor" element={<GraphicsEditor />} />
