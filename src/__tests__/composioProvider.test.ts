@@ -66,4 +66,29 @@ describe("Composio provider", () => {
       title: "Test",
     });
   });
+
+  it("never returns provider exception text that could contain credentials", async () => {
+    const provider = new ComposioProvider({
+      enabled: true,
+      apiKey: "test-key",
+      sessionFactory: async () => ({
+        execute: vi.fn().mockRejectedValue(new Error("bad key test-key")),
+      }),
+    });
+
+    const discovery = await provider.discover({
+      context,
+      useCase: "GitHub issues",
+    });
+    const execution = await provider.execute({
+      context,
+      toolId: "GITHUB_CREATE_ISSUE",
+      arguments: { title: "Test" },
+    });
+
+    expect(discovery.error).toBe("Composio discovery failed");
+    expect(execution.error).toBe("Composio execution failed");
+    expect(discovery.error).not.toContain("test-key");
+    expect(execution.error).not.toContain("test-key");
+  });
 });
