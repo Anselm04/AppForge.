@@ -17,7 +17,10 @@ function fakeProvider(): CapabilityProvider {
   return {
     id: "fake",
     isConfigured: () => true,
-    discover: vi.fn().mockResolvedValue({ ok: true, data: { tools: ["GITHUB_CREATE_ISSUE"] } }),
+    discover: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { tools: ["GITHUB_CREATE_ISSUE"] },
+    }),
     execute: vi.fn().mockResolvedValue({ ok: true, data: { id: 1 } }),
   };
 }
@@ -69,7 +72,10 @@ describe("CapabilityBroker", () => {
       signalWatchdog: async () => undefined,
     });
 
-    const result = await broker.discover("fake", { context, useCase: "GitHub issues" });
+    const result = await broker.discover("fake", {
+      context,
+      useCase: "GitHub issues",
+    });
     expect(result.ok).toBe(false);
     expect(provider.discover).not.toHaveBeenCalled();
   });
