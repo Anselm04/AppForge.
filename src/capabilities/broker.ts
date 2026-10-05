@@ -18,7 +18,11 @@ import type {
 export type CapabilityWatchdogSignal = {
   provider: string;
   context: CapabilityDiscoveryRequest["context"];
-  outcome: "success" | "provider_failure" | "policy_denial" | "security_violation";
+  outcome:
+    | "success"
+    | "provider_failure"
+    | "policy_denial"
+    | "security_violation";
   reason?: string;
   evidence?: unknown;
 };
@@ -48,10 +52,16 @@ const unavailablePolicy = (reason: string): CapabilityPolicyDecision => ({
 export class CapabilityBroker {
   private readonly enabled: boolean;
   private readonly registry: CapabilityProviderRegistry;
-  private readonly resolveProjectOwner: (projectId: number) => Promise<number | null>;
-  private readonly readProviderState: (provider: string) => Promise<ProviderStateRecord>;
+  private readonly resolveProjectOwner: (
+    projectId: number,
+  ) => Promise<number | null>;
+  private readonly readProviderState: (
+    provider: string,
+  ) => Promise<ProviderStateRecord>;
   private readonly recordAudit: typeof recordCapabilityAudit;
-  private readonly signalWatchdog: (signal: CapabilityWatchdogSignal) => Promise<void>;
+  private readonly signalWatchdog: (
+    signal: CapabilityWatchdogSignal,
+  ) => Promise<void>;
 
   constructor(deps: BrokerDependencies = {}) {
     this.enabled = deps.enabled ?? resolveCapabilityConfig().brokerEnabled;
@@ -129,7 +139,9 @@ export class CapabilityBroker {
       return {
         provider,
         state,
-        policy: unavailablePolicy("Project ownership does not match capability context"),
+        policy: unavailablePolicy(
+          "Project ownership does not match capability context",
+        ),
         allowed: false,
         reason: "Project ownership does not match capability context",
       };
