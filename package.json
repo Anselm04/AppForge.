@@ -38,6 +38,7 @@
     ]
   },
   "dependencies": {
+    "@composio/core": "^0.21.0",
     "@monaco-editor/react": "^4.7.0",
     "@sentry/node": "^7.100.0",
     "@sentry/profiling-node": "^7.100.0",
