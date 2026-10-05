@@ -93,6 +93,7 @@ export class CapabilityBroker {
     policy: CapabilityPolicyDecision;
     allowed: boolean;
     reason: string;
+    securityViolation: boolean;
   }> {
     const provider = this.provider(providerId);
     const state = await this.readProviderState(providerId);
@@ -104,6 +105,7 @@ export class CapabilityBroker {
         policy: unavailablePolicy("Capability broker is disabled"),
         allowed: false,
         reason: "Capability broker is disabled",
+        securityViolation: false,
       };
     }
     if (!provider || !provider.isConfigured()) {
@@ -113,6 +115,7 @@ export class CapabilityBroker {
         policy: unavailablePolicy("Capability provider is unavailable"),
         allowed: false,
         reason: "Capability provider is unavailable",
+        securityViolation: false,
       };
     }
     if (state.state === "disabled" || state.state === "quarantined") {
@@ -122,6 +125,7 @@ export class CapabilityBroker {
         policy: unavailablePolicy(`Capability provider is ${state.state}`),
         allowed: false,
         reason: `Capability provider is ${state.state}`,
+        securityViolation: false,
       };
     }
     if (state.state === "restricted" && operation === "execute") {
@@ -131,6 +135,7 @@ export class CapabilityBroker {
         policy: unavailablePolicy("Restricted provider cannot execute tools"),
         allowed: false,
         reason: "Restricted provider cannot execute tools",
+        securityViolation: false,
       };
     }
 
@@ -140,10 +145,12 @@ export class CapabilityBroker {
         provider,
         state,
         policy: unavailablePolicy(
-          "Project ownership does not match capability context",
+          "Cross-customer or cross-project capability context does not match persisted project ownership",
         ),
         allowed: false,
-        reason: "Project ownership does not match capability context",
+        reason:
+          "Cross-customer or cross-project capability context does not match persisted project ownership",
+        securityViolation: true,
       };
     }
 
@@ -157,6 +164,7 @@ export class CapabilityBroker {
       policy,
       allowed: policy.allowed,
       reason: policy.reason,
+      securityViolation: false,
     };
   }
 
@@ -179,7 +187,9 @@ export class CapabilityBroker {
       await this.signalWatchdog({
         provider: providerId,
         context: request.context,
-        outcome: "policy_denial",
+        outcome: auth.securityViolation
+          ? "security_violation"
+          : "policy_denial",
         reason: auth.reason,
       });
       return unavailable(auth.reason);
@@ -224,7 +234,9 @@ export class CapabilityBroker {
       await this.signalWatchdog({
         provider: providerId,
         context: request.context,
-        outcome: "policy_denial",
+        outcome: auth.securityViolation
+          ? "security_violation"
+          : "policy_denial",
         reason: auth.reason,
       });
       return unavailable(auth.reason);
