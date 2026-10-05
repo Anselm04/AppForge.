@@ -17,15 +17,27 @@ const baseContext: CapabilityExecutionContext = {
 
 describe("capability policy", () => {
   it.each([
-    ["AppForge billing", "APPFORGE_STRIPE_UPDATE_ACCOUNT", ["appforge:billing:admin"]],
+    [
+      "AppForge billing",
+      "APPFORGE_STRIPE_UPDATE_ACCOUNT",
+      ["appforge:billing:admin"],
+    ],
     ["AppForge MFA", "APPFORGE_AUTH_DISABLE_MFA", ["appforge:auth:admin"]],
-    ["platform security", "DISABLE_APPFORGE_AUDIT_LOGGING", ["appforge:security:admin"]],
+    [
+      "platform security",
+      "DISABLE_APPFORGE_AUDIT_LOGGING",
+      ["appforge:security:admin"],
+    ],
     ["service credential", "READ_SERVICE_ROLE_KEY", ["secrets:read"]],
     ["platform source", "READ_FILE", ["appforge-source:.env"]],
     ["other product", "TRILLIONENGINE_ADMIN", ["trillionengine:admin"]],
   ])("denies protected %s requests", (_label, capability, scopes) => {
     const result = evaluateCapabilityPolicy({
-      context: { ...baseContext, requestedCapability: capability, requestedScopes: scopes },
+      context: {
+        ...baseContext,
+        requestedCapability: capability,
+        requestedScopes: scopes,
+      },
       target: { customerId: 7, projectId: 42 },
     });
     expect(result.allowed).toBe(false);
@@ -34,10 +46,16 @@ describe("capability policy", () => {
 
   it("denies cross-customer and cross-project targets", () => {
     expect(
-      evaluateCapabilityPolicy({ context: baseContext, target: { customerId: 8, projectId: 42 } }).allowed,
+      evaluateCapabilityPolicy({
+        context: baseContext,
+        target: { customerId: 8, projectId: 42 },
+      }).allowed,
     ).toBe(false);
     expect(
-      evaluateCapabilityPolicy({ context: baseContext, target: { customerId: 7, projectId: 99 } }).allowed,
+      evaluateCapabilityPolicy({
+        context: baseContext,
+        target: { customerId: 7, projectId: 99 },
+      }).allowed,
     ).toBe(false);
   });
 
@@ -54,7 +72,8 @@ describe("capability policy", () => {
     const auth = evaluateCapabilityPolicy({
       context: {
         ...baseContext,
-        purpose: "Configure authentication for the generated customer project",
+        purpose:
+          "Configure authentication for the generated customer project",
         requestedCapability: "SUPABASE_CREATE_AUTH_USER",
         requestedScopes: ["project-auth:write"],
       },
@@ -80,6 +99,9 @@ describe("capability policy", () => {
       nested: { api_key: "secret-api-key", value: "safe" },
     }) as Record<string, unknown>;
     expect(result.token).toBe("[REDACTED]");
-    expect(result.nested).toEqual({ api_key: "[REDACTED]", value: "safe" });
+    expect(result.nested).toEqual({
+      api_key: "[REDACTED]",
+      value: "safe",
+    });
   });
 });
