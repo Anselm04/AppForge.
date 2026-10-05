@@ -74,7 +74,12 @@ export class ComposioProvider implements CapabilityProvider {
   ): Promise<CapabilityProviderResult> {
     try {
       const useCase = request.useCase.trim();
-      if (!useCase) return { ok: false, error: "Capability discovery requires a use case" };
+      if (!useCase) {
+        return {
+          ok: false,
+          error: "Capability discovery requires a use case",
+        };
+      }
       const session = await this.session(
         request.context.customerId,
         request.context.projectId,
@@ -87,7 +92,10 @@ export class ComposioProvider implements CapabilityProvider {
     } catch (error) {
       return {
         ok: false,
-        error: error instanceof Error ? error.message.slice(0, 500) : "Composio discovery failed",
+        error:
+          error instanceof Error
+            ? error.message.slice(0, 500)
+            : "Composio discovery failed",
       };
     }
   }
@@ -97,7 +105,12 @@ export class ComposioProvider implements CapabilityProvider {
   ): Promise<CapabilityProviderResult> {
     try {
       const toolId = request.toolId.trim();
-      if (!toolId) return { ok: false, error: "Capability execution requires a tool ID" };
+      if (!toolId) {
+        return {
+          ok: false,
+          error: "Capability execution requires a tool ID",
+        };
+      }
       const session = await this.session(
         request.context.customerId,
         request.context.projectId,
@@ -107,7 +120,10 @@ export class ComposioProvider implements CapabilityProvider {
     } catch (error) {
       return {
         ok: false,
-        error: error instanceof Error ? error.message.slice(0, 500) : "Composio execution failed",
+        error:
+          error instanceof Error
+            ? error.message.slice(0, 500)
+            : "Composio execution failed",
       };
     }
   }
