@@ -27,7 +27,7 @@ export const composioRouter = router({
       }
 
       try {
-        const session = await createComposioSession(ctx.user.id);
+        const session = await createComposioSession(String(ctx.user.id));
         return await searchComposioTools(session, input.useCase);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Composio request failed";
