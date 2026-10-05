@@ -10,7 +10,10 @@ describe("capability provider configuration", () => {
   });
 
   it("requires the broker and server key before Composio is configured", () => {
-    expect(resolveCapabilityConfig({ COMPOSIO_ENABLED: "true" }).composioConfigured).toBe(false);
+    expect(
+      resolveCapabilityConfig({ COMPOSIO_ENABLED: "true" })
+        .composioConfigured,
+    ).toBe(false);
     expect(
       resolveCapabilityConfig({
         CAPABILITY_BROKER_ENABLED: "true",
@@ -21,8 +24,8 @@ describe("capability provider configuration", () => {
   });
 
   it("rejects invalid boolean flags", () => {
-    expect(() => resolveCapabilityConfig({ COMPOSIO_ENABLED: "maybe" })).toThrow(
-      /COMPOSIO_ENABLED/,
-    );
+    expect(() =>
+      resolveCapabilityConfig({ COMPOSIO_ENABLED: "maybe" }),
+    ).toThrow(/COMPOSIO_ENABLED/);
   });
 });
