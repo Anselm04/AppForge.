@@ -2,17 +2,19 @@ import {
   incrementOperationalMetric,
   setOperationalGauge,
 } from "../lib/operationsObservability.js";
+import type { CapabilityWatchdogSignal } from "./broker.js";
 import {
   createCapabilitySecurityIncident,
   getCapabilityProviderState,
   setCapabilityProviderState,
   type ProviderStateRecord,
 } from "./store.js";
-import type { CapabilityWatchdogSignal } from "./broker.js";
 import type { CapabilityProviderState } from "./types.js";
 
-const CRITICAL_COMPROMISE = /(?:confirmed|verified).*(?:credential|secret|exfiltrat|integrity|compromise)|(?:credential|secret).*(?:exfiltrat|compromise)/i;
-const SECURITY_BOUNDARY = /(?:cross-project|cross-customer|protected appforge|credential|secret|policy bypass|watchdog|audit|billing|mfa|auth)/i;
+const CRITICAL_COMPROMISE =
+  /(?:confirmed|verified).*(?:credential|secret|exfiltrat|integrity|compromise)|(?:credential|secret).*(?:exfiltrat|compromise)/i;
+const SECURITY_BOUNDARY =
+  /(?:cross-project|cross-customer|protected appforge|credential|secret|policy bypass|watchdog|audit|billing|mfa|auth)/i;
 
 const STATE_GAUGE: Record<CapabilityProviderState, number> = {
   healthy: 0,
@@ -38,7 +40,10 @@ export function evaluateWatchdogTransition(
   } else if (signal.outcome === "security_violation") {
     anomalyCount += 1;
     state = CRITICAL_COMPROMISE.test(reason) ? "disabled" : "quarantined";
-  } else if (signal.outcome === "policy_denial" && SECURITY_BOUNDARY.test(reason)) {
+  } else if (
+    signal.outcome === "policy_denial" &&
+    SECURITY_BOUNDARY.test(reason)
+  ) {
     anomalyCount += 1;
     state = "quarantined";
   }
