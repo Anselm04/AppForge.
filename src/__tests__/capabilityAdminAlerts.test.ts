@@ -13,10 +13,12 @@ describe("capability security admin alerts", () => {
     expect(router).not.toContain("publicProcedure");
   });
 
-  it("renders persistent capability incidents in the AppForge admin dashboard", () => {
-    const admin = source("src/pages/Admin.tsx");
-    expect(admin).toContain('"security"');
-    expect(admin).toContain("Capability security incidents");
-    expect(admin).toContain("capabilitySecurity.incidents");
+  it("renders persistent capability incidents in the AppForge admin dashboard shell", () => {
+    const app = source("src/App.tsx");
+    const banner = source("src/components/CapabilitySecurityBanner.tsx");
+    expect(app).toContain("CapabilitySecurityBanner");
+    expect(banner).toContain("Capability security incidents");
+    expect(banner).toContain("capabilitySecurity.incidents");
+    expect(banner).toContain("admin.mfaStatus");
   });
 });
