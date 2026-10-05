@@ -72,8 +72,7 @@ describe("capability policy", () => {
     const auth = evaluateCapabilityPolicy({
       context: {
         ...baseContext,
-        purpose:
-          "Configure authentication for the generated customer project",
+        purpose: "Configure authentication for the generated customer project",
         requestedCapability: "SUPABASE_CREATE_AUTH_USER",
         requestedScopes: ["project-auth:write"],
       },
