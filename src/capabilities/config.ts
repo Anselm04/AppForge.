@@ -1,7 +1,9 @@
-type CapabilityEnv = Partial<Record<
-  "CAPABILITY_BROKER_ENABLED" | "COMPOSIO_ENABLED" | "COMPOSIO_API_KEY",
-  string | undefined
->>;
+type CapabilityEnv = Partial<
+  Record<
+    "CAPABILITY_BROKER_ENABLED" | "COMPOSIO_ENABLED" | "COMPOSIO_API_KEY",
+    string | undefined
+  >
+>;
 
 function parseBoolean(name: string, value: string | undefined): boolean {
   if (value === undefined || value.trim() === "") return false;
@@ -23,7 +25,10 @@ export function resolveCapabilityConfig(
     "CAPABILITY_BROKER_ENABLED",
     env.CAPABILITY_BROKER_ENABLED,
   );
-  const composioEnabled = parseBoolean("COMPOSIO_ENABLED", env.COMPOSIO_ENABLED);
+  const composioEnabled = parseBoolean(
+    "COMPOSIO_ENABLED",
+    env.COMPOSIO_ENABLED,
+  );
   const composioApiKey = env.COMPOSIO_API_KEY?.trim() ?? "";
 
   return {
