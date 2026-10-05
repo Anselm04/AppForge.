@@ -9,7 +9,8 @@ import type {
   CapabilityProviderState,
 } from "./types.js";
 
-const providerStateKey = (provider: string) => `capability_provider:${provider}`;
+const providerStateKey = (provider: string) =>
+  `capability_provider:${provider}`;
 
 export interface ProviderStateRecord {
   provider: string;
