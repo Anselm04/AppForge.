@@ -11,8 +11,7 @@ describe("capability provider configuration", () => {
 
   it("requires the broker and server key before Composio is configured", () => {
     expect(
-      resolveCapabilityConfig({ COMPOSIO_ENABLED: "true" })
-        .composioConfigured,
+      resolveCapabilityConfig({ COMPOSIO_ENABLED: "true" }).composioConfigured,
     ).toBe(false);
     expect(
       resolveCapabilityConfig({
