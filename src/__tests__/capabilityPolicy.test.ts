@@ -17,9 +17,9 @@ const baseContext: CapabilityExecutionContext = {
 
 describe("capability policy", () => {
   it.each([
-    ["AppForge billing", "STRIPE_UPDATE_ACCOUNT", ["billing:admin"]],
-    ["AppForge MFA", "AUTH_DISABLE_MFA", ["auth:admin"]],
-    ["platform security", "DISABLE_AUDIT_LOGGING", ["security:admin"]],
+    ["AppForge billing", "APPFORGE_STRIPE_UPDATE_ACCOUNT", ["appforge:billing:admin"]],
+    ["AppForge MFA", "APPFORGE_AUTH_DISABLE_MFA", ["appforge:auth:admin"]],
+    ["platform security", "DISABLE_APPFORGE_AUDIT_LOGGING", ["appforge:security:admin"]],
     ["service credential", "READ_SERVICE_ROLE_KEY", ["secrets:read"]],
     ["platform source", "READ_FILE", ["appforge-source:.env"]],
     ["other product", "TRILLIONENGINE_ADMIN", ["trillionengine:admin"]],
@@ -39,6 +39,29 @@ describe("capability policy", () => {
     expect(
       evaluateCapabilityPolicy({ context: baseContext, target: { customerId: 7, projectId: 99 } }).allowed,
     ).toBe(false);
+  });
+
+  it("allows narrowly scoped customer-project Stripe and auth integrations", () => {
+    const stripe = evaluateCapabilityPolicy({
+      context: {
+        ...baseContext,
+        purpose: "Create Stripe checkout for the generated customer project",
+        requestedCapability: "STRIPE_CREATE_CHECKOUT_SESSION",
+        requestedScopes: ["checkout:write"],
+      },
+      target: { customerId: 7, projectId: 42 },
+    });
+    const auth = evaluateCapabilityPolicy({
+      context: {
+        ...baseContext,
+        purpose: "Configure authentication for the generated customer project",
+        requestedCapability: "SUPABASE_CREATE_AUTH_USER",
+        requestedScopes: ["project-auth:write"],
+      },
+      target: { customerId: 7, projectId: 42 },
+    });
+    expect(stripe.allowed).toBe(true);
+    expect(auth.allowed).toBe(true);
   });
 
   it("allows a narrowly scoped active-project integration request", () => {
