@@ -54,8 +54,9 @@ describe("CapabilityBroker", () => {
     expect(provider.execute).not.toHaveBeenCalled();
   });
 
-  it("blocks ownership drift before provider invocation", async () => {
+  it("blocks ownership drift before provider invocation and signals containment", async () => {
     const provider = fakeProvider();
+    const signalWatchdog = vi.fn().mockResolvedValue(undefined);
     const broker = new CapabilityBroker({
       enabled: true,
       providers: [provider],
@@ -69,7 +70,7 @@ describe("CapabilityBroker", () => {
         updatedAt: new Date().toISOString(),
       }),
       recordAudit: async () => undefined,
-      signalWatchdog: async () => undefined,
+      signalWatchdog,
     });
 
     const result = await broker.discover("fake", {
@@ -78,6 +79,9 @@ describe("CapabilityBroker", () => {
     });
     expect(result.ok).toBe(false);
     expect(provider.discover).not.toHaveBeenCalled();
+    expect(signalWatchdog).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "security_violation" }),
+    );
   });
 
   it("invokes an allowed provider through the provider-neutral interface", async () => {
