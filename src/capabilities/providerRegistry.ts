@@ -8,7 +8,9 @@ export class CapabilityProviderRegistry {
   }
 
   register(provider: CapabilityProvider): void {
-    if (!provider.id.trim()) throw new Error("Capability provider ID is required");
+    if (!provider.id.trim()) {
+      throw new Error("Capability provider ID is required");
+    }
     this.providers.set(provider.id, provider);
   }
 
