@@ -30,7 +30,9 @@ export function CapabilitySecurityBanner() {
   const active = data.incidents.slice(0, 10);
   const critical =
     data.providerState.state === "disabled" ||
-    active.some((incident) => asRecord(incident.details).severity === "critical");
+    active.some(
+      (incident) => asRecord(incident.details).severity === "critical",
+    );
 
   return (
     <section
@@ -53,15 +55,26 @@ export function CapabilitySecurityBanner() {
           {active.map((incident) => {
             const details = asRecord(incident.details);
             return (
-              <div key={incident.id} className="rounded-lg border border-current/20 p-3 text-sm">
+              <div
+                key={incident.id}
+                className="rounded-lg border border-current/20 p-3 text-sm"
+              >
                 <div className="flex flex-wrap gap-x-3 gap-y-1 font-semibold">
-                  <span>{String(details.severity ?? "warning").toUpperCase()}</span>
+                  <span>
+                    {String(details.severity ?? "warning").toUpperCase()}
+                  </span>
                   <span>{String(details.containmentAction ?? "blocked")}</span>
                   <span>{String(details.provider ?? "composio")}</span>
                 </div>
-                <p className="mt-1">{String(details.reason ?? "Capability operation contained")}</p>
+                <p className="mt-1">
+                  {String(
+                    details.reason ?? "Capability operation contained",
+                  )}
+                </p>
                 <p className="mt-1 text-xs opacity-80">
-                  Project {String(details.projectId ?? "—")} · Build {String(details.buildJobId ?? "—")} · Correlation {String(details.correlationId ?? "—")}
+                  Project {String(details.projectId ?? "—")} · Build{" "}
+                  {String(details.buildJobId ?? "—")} · Correlation{" "}
+                  {String(details.correlationId ?? "—")}
                 </p>
               </div>
             );
