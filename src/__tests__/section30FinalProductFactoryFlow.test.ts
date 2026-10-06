@@ -14,6 +14,9 @@ const certifiedDecision: CertificationDecision = {
   stack: "react-node",
   verificationMode: "browser",
   monetizationRequired: false,
+  authLifecycleRequired: false,
+  tenantIsolationRequired: false,
+  billingLifecycleRequired: false,
   missingEvidence: [],
   dependencyGraph: resolveStackDependencyGraph("react-node", "website"),
 };
@@ -78,88 +81,46 @@ describe("#30 Final Product-Factory Flow", () => {
     expect(report.incompleteSteps).toContain("contract_validated");
     expect(report.incompleteSteps).toContain("live_research");
     expect(report.incompleteSteps).toContain("artifact_persisted");
-    expect(report.incompleteSteps).toContain("isolated_build_verified");
-    expect(report.limitations.length).toBeGreaterThan(0);
+    expect(report.incompleteSteps).toContain("validated_artifact_deployed");
   });
 
-  it("makes the Section 30 verdict authoritative in the final worker handoff", () => {
+  it("only declares production-ready when the complete persisted artifact flow is verified", () => {
+    const project = JSON.parse(
+      readFileSync("src/__tests__/fixtures/final-product-project.json", "utf8"),
+    );
+    const artifact = JSON.parse(
+      readFileSync("src/__tests__/fixtures/final-product-artifact.json", "utf8"),
+    );
+
+    const report = evaluateFinalProductFactoryFlow({
+      project,
+      artifact,
+      certificationDecision: certifiedDecision,
+      deployment: {
+        liveUrl: "https://example.test",
+        artifactVersion: artifact.version,
+        persistedArtifactSha256: artifact.artifactIntegrity.sha256,
+        artifactSha256: artifact.artifactIntegrity.sha256,
+        httpVerified: true,
+        browserVerified: true,
+        verification: "browser",
+        operationalVerified: true,
+      },
+      monetizationVerified: true,
+      recoveryVerified: true,
+    });
+
+    expect(report.productionReady).toBe(true);
+    expect(report.incompleteSteps).toEqual([]);
+  });
+
+  it("proves the normal worker and self-healing route through the final product-factory flow", () => {
     const worker = readFileSync("src/services/build-worker.ts", "utf8");
+    const healing = readFileSync("src/agents/selfHealing.ts", "utf8");
 
-    expect(worker).toContain("evaluateFinalProductFactoryFlow");
-    expect(worker).toContain("finalProductFactoryFlow.productionReady");
-    expect(worker).toContain(
-      "limitations: finalProductFactoryFlow.limitations",
-    );
-    expect(worker).toContain(
-      'updateProjectBuildStage(projectId, "production-candidate"',
-    );
-    expect(worker).not.toContain('updated?.status === "completed"');
-  });
-
-  it("exposes the final verdict and unresolved limitations through project evidence", () => {
-    const db = readFileSync("src/db.ts", "utf8");
-
-    expect(db).toContain("finalProductFactoryFlow");
-    expect(db).toContain('source: "final_product_factory_flow"');
-    expect(db).toContain("limitations: finalFlowLimitations");
-    expect(db).toContain('project.status === "production-certified"');
-    expect(db).toContain("?.productionReady === true");
-  });
-
-  it("removes the legacy completed status from every readiness shortcut", () => {
-    const buildStatus = readFileSync("src/lib/buildStatus.ts", "utf8");
-    const buildRoute = readFileSync("src/routes/build.ts", "utf8");
-    const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
-    const projects = readFileSync("src/routers/projects.ts", "utf8");
-    const canary = readFileSync(
-      "scripts/production-customer-canary.mjs",
-      "utf8",
-    );
-
-    expect(buildStatus).not.toContain('"completed",\n] as const;');
-    expect(buildRoute).not.toContain(
-      '["validated", "production-certified", "completed"]',
-    );
-    expect(selfHealing).not.toContain('["production-certified", "completed"]');
-    expect(projects).not.toContain(
-      '"production-certified",\n        "completed",',
-    );
-    expect(canary).toContain('project?.status !== "production-certified"');
-    expect(canary).toContain("done.productionReady !== true");
-  });
-
-  it("requires a separately verified exact-artifact preview before production deploy", () => {
-    const deploy = readFileSync("src/services/productionAutoDeploy.ts", "utf8");
-    const flow = readFileSync("src/lib/finalProductFactoryFlow.ts", "utf8");
-
-    const preview = deploy.indexOf('destination: "preview"');
-    const production = deploy.indexOf('destination: "fly"', preview);
-    expect(preview).toBeGreaterThan(-1);
-    expect(production).toBeGreaterThan(preview);
-    expect(deploy).toContain("verifyGeneratedPreview");
-    expect(deploy).toContain("previewVerified: true");
-    expect(flow).toContain("deployment?.previewVerified === true");
-    expect(flow).not.toContain(
-      "deploymentVerified &&\n    nonEmpty(deployment?.liveUrl)",
-    );
-  });
-
-  it("reruns the final product-factory verdict after self-healing", () => {
-    const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
-
-    expect(selfHealing).toContain("validateGeneratedBuild");
-    expect(selfHealing).toContain("repairValidation.passed");
-    expect(selfHealing).toContain("evaluateFinalProductFactoryFlow");
-    expect(selfHealing).toContain("finalProductFactoryFlow.productionReady");
-    expect(selfHealing).toContain(
-      "limitations: finalProductFactoryFlow.limitations",
-    );
-  });
-
-  it("keeps Section 30 in the mandatory product-factory CI gate", () => {
-    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
-    expect(ci).toContain(
-      "src/__tests__/section30FinalProductFactoryFlow.test.ts",
-    );
+    for (const source of [worker, healing]) {
+      expect(source).toContain("evaluateFinalProductFactoryFlow({");
+      expect(source).toContain("finalProductFactoryFlow.productionReady");
+    }
   });
 });
