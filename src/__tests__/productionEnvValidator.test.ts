@@ -41,10 +41,7 @@ describe("production environment validation", () => {
   });
 
   it("fails production validation when a self-serve billing price is missing", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      STRIPE_CREDITS_250_PRICE_ID: undefined,
-    });
+    const result = validateEnv({ ...baseProductionEnv, STRIPE_CREDITS_250_PRICE_ID: undefined });
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("STRIPE_CREDITS_250_PRICE_ID");
   });
@@ -67,41 +64,26 @@ describe("production environment validation", () => {
   });
 
   it("requires owner SMS MFA configuration in production", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      OWNER_PHONE: undefined,
-      TWILIO_VERIFY_SERVICE_SID: undefined,
-    });
+    const result = validateEnv({ ...baseProductionEnv, OWNER_PHONE: undefined, TWILIO_VERIFY_SERVICE_SID: undefined });
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("OWNER_PHONE");
     expect(result.errors.join("\n")).toContain("TWILIO_VERIFY_SERVICE_SID");
   });
 
   it("rejects a non-E.164 owner phone", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      OWNER_PHONE: "022 123 4567",
-    });
+    const result = validateEnv({ ...baseProductionEnv, OWNER_PHONE: "022 123 4567" });
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("valid E.164");
   });
 
   it("fails production readiness without shared Redis coordination", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      REDIS_URL: undefined,
-    });
+    const result = validateEnv({ ...baseProductionEnv, REDIS_URL: undefined });
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain(
-      "REDIS_URL is required in production for shared multi-machine coordination",
-    );
+    expect(result.errors).toContain("REDIS_URL is required in production for shared multi-machine coordination");
   });
 
   it("requires the Stripe webhook secret only when billing is enabled", () => {
-    const result = validateEnv({
-      ...baseProductionEnv,
-      STRIPE_WEBHOOK_SECRET: undefined,
-    });
+    const result = validateEnv({ ...baseProductionEnv, STRIPE_WEBHOOK_SECRET: undefined });
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("STRIPE_WEBHOOK_SECRET");
   });
@@ -113,22 +95,15 @@ describe("production environment validation", () => {
   });
 
   it("accepts any provider supported by the runtime instead of requiring Forge", () => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } =
-      baseProductionEnv;
-    const result = validateEnv({
-      ...withoutForge,
-      GROQ_API_KEY: "gsk_" + "g".repeat(40),
-    });
-
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
+    const result = validateEnv({ ...withoutForge, GROQ_API_KEY: "gsk_" + "g".repeat(40) });
     expect(result.errors.join("\n")).not.toContain("BUILT_IN_FORGE_API_KEY");
     expect(result.errors.join("\n")).not.toContain("No AI provider configured");
   });
 
   it("fails production readiness when no supported AI provider exists", () => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutProvider } =
-      baseProductionEnv;
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutProvider } = baseProductionEnv;
     const result = validateEnv(withoutProvider);
-
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("No AI provider configured");
   });
@@ -140,9 +115,61 @@ describe("production environment validation", () => {
     ["OPENAI_API_KEY", "openai-key"],
     ["OPENAI_COMPAT_BASE_URL", "https://llm.example.com"],
   ] as const)("recognizes %s as an AI provider source", (key, value) => {
-    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } =
-      baseProductionEnv;
+    const { BUILT_IN_FORGE_API_KEY: _forge, ...withoutForge } = baseProductionEnv;
     const result = validateEnv({ ...withoutForge, [key]: value });
     expect(result.errors.join("\n")).not.toContain("No AI provider configured");
+  });
+
+  it("keeps core AppForge valid when the capability broker and Composio are disabled", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      CAPABILITY_BROKER_ENABLED: "false",
+      COMPOSIO_ENABLED: "false",
+      COMPOSIO_API_KEY: undefined,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.errors.join("\n")).not.toContain("COMPOSIO");
+  });
+
+  it("requires the capability broker when Composio is enabled", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      CAPABILITY_BROKER_ENABLED: "false",
+      COMPOSIO_ENABLED: "true",
+      COMPOSIO_API_KEY: "cmp_" + "x".repeat(40),
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("CAPABILITY_BROKER_ENABLED=true");
+  });
+
+  it("requires a server-only API key when Composio is enabled", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      CAPABILITY_BROKER_ENABLED: "true",
+      COMPOSIO_ENABLED: "true",
+      COMPOSIO_API_KEY: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("COMPOSIO_API_KEY");
+  });
+
+  it("rejects invalid capability boolean switches", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      CAPABILITY_BROKER_ENABLED: "yes",
+      COMPOSIO_ENABLED: "maybe",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("CAPABILITY_BROKER_ENABLED");
+    expect(result.errors.join("\n")).toContain("COMPOSIO_ENABLED");
+  });
+
+  it("rejects browser-exposed Composio credentials", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      VITE_COMPOSIO_API_KEY: "must-never-reach-browser",
+    } as typeof baseProductionEnv & { VITE_COMPOSIO_API_KEY: string });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("VITE_COMPOSIO");
   });
 });
