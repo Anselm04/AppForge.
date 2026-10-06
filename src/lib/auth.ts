@@ -94,8 +94,7 @@ function jwtUser(accessToken: string): AppForgeSession["user"] | null {
     const [, payload] = accessToken.split(".");
     if (!payload) return null;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded =
-      normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
     const decoded = JSON.parse(atob(padded)) as {
       sub?: string;
       email?: string;
@@ -158,9 +157,7 @@ async function syncServerSession(
     res = await post();
   }
   if (!res.ok) {
-    throw new Error(
-      `Failed to establish secure browser session (${res.status})`,
-    );
+    throw new Error(`Failed to establish secure browser session (${res.status})`);
   }
 }
 
@@ -422,10 +419,7 @@ export async function signUp(email: string, password: string, next = "/") {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSessionBestEffort(
-      session.accessToken!,
-      result.refresh_token,
-    );
+    await syncServerSessionBestEffort(session.accessToken!, result.refresh_token);
   }
   return result;
 }
@@ -452,9 +446,7 @@ export const emailLogin = signIn;
 function normalizePhone(phone: string): string {
   const normalized = phone.trim().replace(/[\s()-]/g, "");
   if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-    throw new Error(
-      "Phone number must use E.164 format, for example +15551234567.",
-    );
+    throw new Error("Phone number must use E.164 format.");
   }
   return normalized;
 }
