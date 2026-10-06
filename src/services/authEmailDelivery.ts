@@ -30,7 +30,11 @@ function requireServerAuthConfig() {
 }
 
 function requireTwilioEmailConfig() {
-  const from = (process.env.TWILIO_EMAIL_FROM || ENV.ownerEmail || "").trim();
+  const from = (
+    process.env.TWILIO_EMAIL_FROM ||
+    ENV.ownerEmail ||
+    ""
+  ).trim();
   if (!ENV.twilioAccountSid || !ENV.twilioAuthToken || !from) {
     throw new Error("Twilio signup email delivery is not configured");
   }
