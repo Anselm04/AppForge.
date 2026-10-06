@@ -22,6 +22,29 @@ async function expectLoggedOut(page) {
   });
 }
 
+async function expectProtectedRouteClosed(page, label) {
+  const protectedResponse = await page.request.get(`${baseUrl}/api/build/1`);
+  expect(
+    protectedResponse.status(),
+    `${label}: logged-out protected route must stay closed`,
+  ).toBe(401);
+}
+
+async function proveCookieBackedRecovery(page, label) {
+  // Remove the non-HttpOnly bearer token while deliberately preserving the
+  // server-managed HttpOnly access/refresh cookies and the non-secret user
+  // marker. A reload must recover through POST /api/auth/session; otherwise
+  // the browser only proved sessionStorage persistence, not session recovery.
+  await page.evaluate(() => {
+    sessionStorage.removeItem("appforge.access-token");
+  });
+  await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+  await expectLoggedIn(page);
+  await expect(page, `${label}: recovery must return to the account page`).toHaveURL(
+    `${baseUrl}/account`,
+  );
+}
+
 test("requests a real production signup confirmation email", async ({ page }) => {
   test.skip(phase !== "request-confirmation", "Not the request-confirmation phase.");
 
@@ -43,7 +66,7 @@ test("requests a real production signup confirmation email", async ({ page }) =>
   ).toBeVisible({ timeout: 30_000 });
 });
 
-test("logs in, logs out, and relogs into the confirmed real production account", async ({ page }) => {
+test("logs in, recovers the session, logs out, and relogs into the confirmed real production account", async ({ page }) => {
   test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
@@ -65,21 +88,24 @@ test("logs in, logs out, and relogs into the confirmed real production account",
   await expectLoggedIn(page);
   await expect(page).toHaveURL(`${baseUrl}/account`);
 
-  // Prove session continuity across a hard reload.
+  // A plain reload proves persistence of the live browser session.
   await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
   await expectLoggedIn(page);
   await expect(page).toHaveURL(`${baseUrl}/account`);
 
-  // Repeat logout -> anonymous boundary -> relogin two more times.
+  // Removing the bearer token proves recovery from the server-managed HttpOnly
+  // refresh session rather than merely surviving because sessionStorage stayed.
+  await proveCookieBackedRecovery(page, "initial login");
+
+  // Ten login boundaries total: the initial login plus nine logout/relogin
+  // cycles. Each logout must close protected routes before the next login.
   for (let cycle = 2; cycle <= 10; cycle += 1) {
     const cycleLogout = page.getByRole("button", { name: /log out/i }).first();
     await expect(cycleLogout).toBeVisible({ timeout: 30_000 });
     await cycleLogout.click();
     await page.waitForURL(`${baseUrl}/`, { timeout: 30_000 });
     await expectLoggedOut(page);
-
-    const protectedResponse = await page.request.get(`${baseUrl}/api/build/1`);
-    expect(protectedResponse.status(), `cycle ${cycle}: logged-out protected route must stay closed`).toBe(401);
+    await expectProtectedRouteClosed(page, `cycle ${cycle}`);
 
     await page.goto(`${baseUrl}/login?next=%2Faccount`, {
       waitUntil: "networkidle",
@@ -93,7 +119,7 @@ test("logs in, logs out, and relogs into the confirmed real production account",
   }
 });
 
-test("confirmed account can authenticate from completely fresh browser contexts ten times", async ({ browser }) => {
+test("confirmed account can authenticate and recover from completely fresh browser contexts ten times", async ({ browser }) => {
   test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
@@ -113,9 +139,9 @@ test("confirmed account can authenticate from completely fresh browser contexts 
       await page.waitForURL(`${baseUrl}/account`, { timeout: 60_000 });
       await expectLoggedIn(page);
 
-      // Prove each fresh context can survive a hard reload and still be authenticated.
       await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
       await expectLoggedIn(page);
+      await proveCookieBackedRecovery(page, `fresh context ${cycle}`);
     } finally {
       await context.close();
     }
