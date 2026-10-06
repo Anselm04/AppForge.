@@ -133,6 +133,37 @@ declaring the worker fleet recovered.
 - A retry must never promote partial working files or silently create a second
   paid build.
 
+## Production account-lifecycle recovery
+
+The production account-lifecycle gate is itself a recovery-critical control.
+After an auth outage, Supabase configuration change, cookie/session change, or
+production redeploy, AppForge must not be treated as customer-ready until the
+real production lifecycle is re-proven.
+
+- A fresh signup must request a real confirmation email.
+- The confirmation link must be consumed out-of-band; confirmation URLs and
+  tokens must never be written to GitHub comments, logs, artifacts, or source.
+- A confirmed account must complete normal login and logout/relogin boundaries.
+- A hard reload must preserve the active browser session.
+- Removing the browser bearer token while preserving the HttpOnly cookie session
+  must recover authentication through the server session endpoint; a stale local
+  user marker alone is never accepted as proof of authentication.
+- Logout must close protected routes before the next login.
+- The full live gate may generate a one-time masked test password in memory so
+  recovery verification does not depend on a long-lived test password secret.
+- If any phase fails, account lifecycle remains uncertified and customer launch
+  stays blocked until the underlying auth/session problem is fixed and the same
+  gate passes again.
+
+Recovery verification target:
+- fresh production signup;
+- real email confirmation;
+- login;
+- hard-reload persistence;
+- forced HttpOnly-cookie session recovery after bearer removal;
+- logout with anonymous protected-route denial;
+- repeated relogin and fresh-browser-context recovery.
+
 ## Data-recovery verification checklist
 
 Before declaring recovery complete:
@@ -146,6 +177,7 @@ Before declaring recovery complete:
 - refund ledger reconciled;
 - health and readiness pass;
 - protected routes still fail closed anonymously;
+- account signup/confirmation/login/logout/session recovery passes when auth or session controls were affected;
 - generated-product identity matches the selected artifact;
 - browser/HTTP production verification passes;
 - owner records the recovered SHA/checkpoint and incident outcome.
