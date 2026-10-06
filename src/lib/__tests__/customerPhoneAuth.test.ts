@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const signInWithOtp = vi.fn();
 const verifyOtp = vi.fn();
-const getSession = vi.fn();
 const signOut = vi.fn();
 
 vi.mock("../supabase", () => ({
@@ -10,7 +9,6 @@ vi.mock("../supabase", () => ({
     auth: {
       signInWithOtp,
       verifyOtp,
-      getSession,
       signOut,
     },
   },
@@ -26,6 +24,8 @@ import {
 describe("customer phone authentication", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("requests an SMS OTP through Supabase using E.164 phone numbers", async () => {
@@ -43,7 +43,13 @@ describe("customer phone authentication", () => {
 
   it("verifies a six-digit SMS OTP through Supabase", async () => {
     verifyOtp.mockResolvedValue({
-      data: { session: { access_token: "access", refresh_token: "refresh", user: { id: "user-1" } } },
+      data: {
+        session: {
+          access_token: "access",
+          refresh_token: "refresh",
+          user: { id: "user-1", phone: "+64221234567" },
+        },
+      },
       error: null,
     });
 
@@ -55,13 +61,24 @@ describe("customer phone authentication", () => {
       type: "sms",
     });
     expect(result.session?.user.id).toBe("user-1");
+    expect(JSON.parse(localStorage.getItem("appforge.user") ?? "{}")).toEqual({
+      id: "user-1",
+      phone: "+64221234567",
+    });
+    expect(sessionStorage.getItem("appforge.access-token")).toBe("access");
   });
 
-  it("returns the current Supabase session", async () => {
-    const session = { access_token: "access", user: { id: "user-1" } };
-    getSession.mockResolvedValue({ data: { session }, error: null });
+  it("returns the current AppForge session backed by the Supabase identity", async () => {
+    localStorage.setItem(
+      "appforge.user",
+      JSON.stringify({ id: "user-1", phone: "+64221234567" }),
+    );
+    sessionStorage.setItem("appforge.access-token", "access");
 
-    await expect(getCurrentSession()).resolves.toEqual(session);
+    await expect(getCurrentSession()).resolves.toEqual({
+      accessToken: "access",
+      user: { id: "user-1", phone: "+64221234567" },
+    });
   });
 
   it("logs out through Supabase", async () => {
