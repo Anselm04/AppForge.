@@ -61,19 +61,25 @@ describe("customer phone authentication", () => {
       type: "sms",
     });
     expect(result.session?.user.id).toBe("user-1");
-    expect(JSON.parse(localStorage.getItem("appforge.user") ?? "{}")).toEqual({
-      id: "user-1",
-      phone: "+15551234567",
-    });
-    expect(sessionStorage.getItem("appforge.access-token")).toBe("access");
-  });
-
-  it("returns the current AppForge session backed by the Supabase identity", async () => {
-    localStorage.setItem(
+    expect(localStorage.setItem).toHaveBeenCalledWith(
       "appforge.user",
       JSON.stringify({ id: "user-1", phone: "+15551234567" }),
     );
-    sessionStorage.setItem("appforge.access-token", "access");
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(
+      "appforge.access-token",
+      "access",
+    );
+  });
+
+  it("returns the current AppForge session backed by the Supabase identity", async () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+      key === "appforge.user"
+        ? JSON.stringify({ id: "user-1", phone: "+15551234567" })
+        : null,
+    );
+    vi.mocked(sessionStorage.getItem).mockImplementation((key: string) =>
+      key === "appforge.access-token" ? "access" : null,
+    );
 
     await expect(getCurrentSession()).resolves.toEqual({
       accessToken: "access",
