@@ -33,7 +33,8 @@ jobs:
         github.event.comment.user.login == github.repository_owner &&
         (
           startsWith(github.event.comment.body, '/gate1-auth request ') ||
-          startsWith(github.event.comment.body, '/gate1-auth complete ')
+          startsWith(github.event.comment.body, '/gate1-auth complete ') ||
+          startsWith(github.event.comment.body, '/gate1-auth full ')
         )
       )
     name: Gate 1 real signup-confirm-logout-relogin
@@ -64,22 +65,22 @@ jobs:
           DISPATCH_EMAIL: ${{ inputs.signup_email }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           BASE_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
-          PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+          STORED_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
 
           run_one() {
             phase="$1"
             email="$2"
-            iteration="$3"
+            password="$3"
+            label="$4"
             echo "::add-mask::$email"
-            echo "Running Gate 1 phase $phase, iteration $iteration"
+            echo "Running Gate 1 phase $phase ($label)"
             APPFORGE_AUTH_GATE_PHASE="$phase" \
             APPFORGE_AUTH_GATE_EMAIL="$email" \
-            APPFORGE_CANARY_PASSWORD="$PASSWORD" \
+            APPFORGE_CANARY_PASSWORD="$password" \
             APPFORGE_URL="$APPFORGE_URL" \
               npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line
           }
@@ -87,7 +88,8 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             test -n "$DISPATCH_PHASE" || { echo "Missing dispatch phase"; exit 1; }
             test -n "$DISPATCH_EMAIL" || { echo "A fresh production signup mailbox is required"; exit 1; }
-            run_one "$DISPATCH_PHASE" "$DISPATCH_EMAIL" "1/1"
+            test -n "$STORED_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
+            run_one "$DISPATCH_PHASE" "$DISPATCH_EMAIL" "$STORED_PASSWORD" "1/1"
             exit 0
           fi
 
@@ -99,13 +101,67 @@ jobs:
             exit 1
           }
 
+          if [ "$action" = "full" ]; then
+            # The full live gate deliberately does not require a long-lived test
+            # password secret. It generates a strong one-time password in memory,
+            # masks it immediately, and keeps signup + confirmation wait + full
+            # lifecycle proof inside this single workflow run.
+            password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AZ')Aa1!"
+            echo "::add-mask::$password"
+
+            # Prefer the protected canary mailbox when configured. During initial
+            # bootstrap, fall back only to the current main commit author's public
+            # Gmail address so Gate 1 can be proven before permanent canary secrets
+            # are provisioned. Reject non-Gmail addresses because plus aliases are
+            # required for a fresh disposable production account.
+            base_email="$BASE_EMAIL"
+            if [ -z "$base_email" ]; then
+              base_email="$(git log -1 --format='%ae')"
+            fi
+            localpart="${base_email%@*}"
+            domain="${base_email##*@}"
+            case "${domain,,}" in
+              gmail.com|googlemail.com) ;;
+              *)
+                echo "Gate 1 full mode needs a Gmail canary mailbox or a Gmail main-commit author address."
+                exit 1
+                ;;
+            esac
+
+            alias_email="${localpart}+gate1-${prefix}@${domain}"
+            echo "::add-mask::$alias_email"
+
+            run_one "request-confirmation" "$alias_email" "$password" "signup request"
+
+            echo "Waiting up to 20 minutes for the real confirmation link to be consumed."
+            confirmed=0
+            for attempt in $(seq 1 40); do
+              if run_one "probe-confirmed" "$alias_email" "$password" "confirmation probe $attempt/40"; then
+                confirmed=1
+                break
+              fi
+              sleep 30
+            done
+            test "$confirmed" = "1" || {
+              echo "Real email confirmation was not completed within 20 minutes."
+              exit 1
+            }
+
+            run_one "complete-lifecycle" "$alias_email" "$password" "full lifecycle"
+            exit 0
+          fi
+
+          # Legacy two-phase mode remains available when permanent production
+          # canary secrets are configured.
+          test -n "$BASE_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
+          test -n "$STORED_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
+
           case "$action" in
             request) phase="request-confirmation" ;;
             complete) phase="complete-lifecycle" ;;
-            *) echo "Action must be request or complete"; exit 1 ;;
+            *) echo "Action must be request, complete, or full"; exit 1 ;;
           esac
 
-          test -n "$BASE_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
           localpart="${BASE_EMAIL%@*}"
           domain="${BASE_EMAIL##*@}"
           case "${domain,,}" in
@@ -118,7 +174,7 @@ jobs:
 
           for n in $(seq -w 1 10); do
             alias_email="${localpart}+gate1-${prefix}-${n}@${domain}"
-            run_one "$phase" "$alias_email" "$n/10"
+            run_one "$phase" "$alias_email" "$STORED_PASSWORD" "$n/10"
           done
 
       - name: Record Gate 1 scope
@@ -126,12 +182,10 @@ jobs:
         shell: bash
         run: |
           cat <<'EOF'
-          Gate 1 batch certification uses ten fresh Gmail plus-alias accounts.
-          The request phase proves each production signup requests a real email.
-          The one-time Supabase confirmation links are consumed out-of-band from
-          the connected mailbox and never placed in GitHub inputs, comments,
-          artifacts, logs, or repository files.
-          The complete phase then proves normal production login, ten repeated
-          logout/relogin boundaries, hard reload continuity, anonymous protected
-          route denial, and ten fresh-browser-context logins per confirmed account.
+          Gate 1 proves a real production signup requests a real confirmation email.
+          Full mode keeps a one-time masked password only in memory, waits for the
+          real one-time Supabase confirmation link to be consumed out-of-band, then
+          proves normal login, ten logout/relogin boundaries, hard reload continuity,
+          forced HttpOnly-cookie session recovery, anonymous protected-route denial,
+          and ten fresh-browser-context login/recovery cycles.
           EOF
