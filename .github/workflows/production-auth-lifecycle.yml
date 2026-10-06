@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: production-auth-lifecycle-gate
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   auth-lifecycle:
@@ -102,18 +102,9 @@ jobs:
           }
 
           if [ "$action" = "full" ]; then
-            # The full live gate deliberately does not require a long-lived test
-            # password secret. It generates a strong one-time password in memory,
-            # masks it immediately, and keeps signup + confirmation wait + full
-            # lifecycle proof inside this single workflow run.
             password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AZ')Aa1!"
             echo "::add-mask::$password"
 
-            # Prefer the protected canary mailbox when configured. During initial
-            # bootstrap, fall back only to the current main commit author's public
-            # Gmail address so Gate 1 can be proven before permanent canary secrets
-            # are provisioned. Reject non-Gmail addresses because plus aliases are
-            # required for a fresh disposable production account.
             base_email="$BASE_EMAIL"
             if [ -z "$base_email" ]; then
               base_email="$(git log -1 --format='%ae')"
@@ -151,8 +142,6 @@ jobs:
             exit 0
           fi
 
-          # Legacy two-phase mode remains available when permanent production
-          # canary secrets are configured.
           test -n "$BASE_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
           test -n "$STORED_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
 
