@@ -115,16 +115,16 @@ test("requests a real production signup confirmation email", async ({ page }) =>
     page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        response.url().includes("/auth/v1/signup"),
+        response.url().includes("/api/health/auth-signup"),
       { timeout: 30_000 },
     ),
     form.getByRole("button", { name: /create|sign up|signup/i }).click(),
   ]);
 
   expect(
-    signupResponse.ok(),
-    `real Supabase signup must succeed; received HTTP ${signupResponse.status()}`,
-  ).toBe(true);
+    signupResponse.status(),
+    `AppForge signup confirmation delivery must be accepted; received HTTP ${signupResponse.status()}`,
+  ).toBe(202);
 
   await expect(form, "signup form must be replaced by the check-email state").toBeHidden({
     timeout: 30_000,
