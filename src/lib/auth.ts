@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabaseClient } from "./supabase-client";
+import { supabase } from "./supabase";
 import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
@@ -8,7 +9,7 @@ const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
   accessToken?: string;
-  user: { id: string; email?: string };
+  user: { id: string; email?: string; phone?: string };
 }
 
 let cachedSession: AppForgeSession | null = null;
@@ -26,20 +27,24 @@ function subscribeSession(listener: () => void) {
   };
 }
 
-function readStoredUser(): { id: string; email?: string } | null {
+function readStoredUser(): AppForgeSession["user"] | null {
   try {
     const raw = globalThis.localStorage?.getItem(USER_KEY);
     if (!raw) return null;
-    const user = JSON.parse(raw) as { id?: string; email?: string };
+    const user = JSON.parse(raw) as {
+      id?: string;
+      email?: string;
+      phone?: string;
+    };
     return typeof user.id === "string"
-      ? { id: user.id, email: user.email }
+      ? { id: user.id, email: user.email, phone: user.phone }
       : null;
   } catch {
     return null;
   }
 }
 
-function storeUser(user: { id: string; email?: string }) {
+function storeUser(user: AppForgeSession["user"]) {
   try {
     globalThis.localStorage?.setItem(USER_KEY, JSON.stringify(user));
   } catch {
@@ -84,7 +89,7 @@ function clearStoredAccessToken() {
   }
 }
 
-function jwtUser(accessToken: string): { id: string; email?: string } | null {
+function jwtUser(accessToken: string): AppForgeSession["user"] | null {
   try {
     const [, payload] = accessToken.split(".");
     if (!payload) return null;
@@ -93,9 +98,10 @@ function jwtUser(accessToken: string): { id: string; email?: string } | null {
     const decoded = JSON.parse(atob(padded)) as {
       sub?: string;
       email?: string;
+      phone?: string;
     };
     if (!decoded.sub) return null;
-    return { id: decoded.sub, email: decoded.email };
+    return { id: decoded.sub, email: decoded.email, phone: decoded.phone };
   } catch {
     return null;
   }
@@ -108,10 +114,9 @@ function saveSession(session: AppForgeSession) {
   emitSessionChange();
 }
 
-export function rememberAuthenticatedUser(user: {
-  id: string;
-  email?: string;
-}): AppForgeSession {
+export function rememberAuthenticatedUser(
+  user: AppForgeSession["user"],
+): AppForgeSession {
   const session = { user };
   saveSession(session);
   return session;
@@ -120,7 +125,7 @@ export function rememberAuthenticatedUser(user: {
 function sessionFromAuth(result: {
   access_token?: string;
   refresh_token?: string;
-  user?: { id: string; email?: string };
+  user?: { id: string; email?: string; phone?: string };
 }): AppForgeSession | null {
   if (!result.access_token || !result.user?.id) return null;
   return {
@@ -147,10 +152,6 @@ async function syncServerSession(
   };
 
   let res = await post();
-  // A stale/rotated CSRF token yields 403 EBADCSRFTOKEN. Refetch the token once
-  // and retry so a transient CSRF mismatch cannot silently prevent the secure
-  // HttpOnly session cookie from being established (which later 401s the build
-  // request and bounced users back to login).
   if (res.status === 403) {
     clearCsrfToken();
     res = await post();
@@ -264,6 +265,20 @@ export function signOut() {
   if (session?.accessToken) {
     void supabaseClient.signOut(session.accessToken).catch(() => undefined);
   }
+  void supabase.auth.signOut().catch(() => undefined);
+}
+
+export async function logout(): Promise<void> {
+  const session = getSession();
+  clearLocalSessionState();
+
+  await Promise.allSettled([
+    clearServerSession(session?.accessToken),
+    supabase.auth.signOut(),
+    session?.accessToken
+      ? supabaseClient.signOut(session.accessToken)
+      : Promise.resolve(),
+  ]);
 }
 
 export async function signOutOtherDevices(): Promise<void> {
@@ -303,10 +318,6 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const generation = sessionGeneration;
 
   refreshInFlight = (async () => {
-    // Refresh tokens are intentionally HttpOnly. Prove that the server can
-    // authenticate (and rotate) the cookie session before treating a browser
-    // user marker as signed in. A stale local marker must never count as a
-    // successful refresh.
     clearStoredAccessToken();
     const refreshed = await refreshServerCookieSession().catch(() => false);
 
@@ -354,12 +365,10 @@ export async function ensureFreshSession(): Promise<AppForgeSession | null> {
   return session;
 }
 
-/**
- * Complete Supabase's email-confirmation implicit redirect.
- * Direct /auth/v1/signup confirmations return access/refresh tokens in the URL
- * fragment. Previously /login ignored them, so a correctly confirmed account
- * still looked signed out and testers were sent back through login again.
- */
+export async function getCurrentSession(): Promise<AppForgeSession | null> {
+  return ensureFreshSession();
+}
+
 export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   if (typeof window === "undefined") return null;
 
@@ -417,6 +426,8 @@ export async function signUp(email: string, password: string, next = "/") {
   return result;
 }
 
+export const emailSignUp = signUp;
+
 export async function signIn(
   email: string,
   password: string,
@@ -430,4 +441,55 @@ export async function signIn(
   saveSession(session);
   await syncServerSessionBestEffort(session.accessToken!, result.refresh_token);
   return session;
+}
+
+export const emailLogin = signIn;
+
+function normalizePhone(phone: string): string {
+  const normalized = phone.trim().replace(/[\s()-]/g, "");
+  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+    throw new Error("Phone number must use E.164 format, for example +64221234567.");
+  }
+  return normalized;
+}
+
+export async function sendPhoneOtp(phone: string): Promise<void> {
+  const normalizedPhone = normalizePhone(phone);
+  const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+  if (error) throw error;
+}
+
+export async function verifyPhoneOtp(phone: string, token: string) {
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedToken = token.trim();
+  if (!/^\d{6,10}$/.test(normalizedToken)) {
+    throw new Error("Enter the SMS verification code.");
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: normalizedPhone,
+    token: normalizedToken,
+    type: "sms",
+  });
+  if (error) throw error;
+
+  const remote = data.session;
+  if (remote?.access_token && remote.user?.id) {
+    const session: AppForgeSession = {
+      accessToken: remote.access_token,
+      user: {
+        id: remote.user.id,
+        email: remote.user.email ?? undefined,
+        phone: remote.user.phone ?? normalizedPhone,
+      },
+    };
+    sessionGeneration += 1;
+    saveSession(session);
+    await syncServerSessionBestEffort(
+      remote.access_token,
+      remote.refresh_token || undefined,
+    );
+  }
+
+  return data;
 }
