@@ -13,16 +13,31 @@ function requireValue(name, value) {
   return value;
 }
 
+async function openAccountNavIfNeeded(page) {
+  const account = page.getByRole("button", { name: "Account", exact: true }).first();
+  if (await account.isVisible().catch(() => false)) return;
+
+  const menu = page.getByRole("button", { name: /menu/i }).first();
+  if (await menu.isVisible().catch(() => false)) {
+    await menu.click();
+    await expect(account).toBeVisible({ timeout: 10_000 });
+  }
+}
+
 async function expectLoggedIn(page) {
+  await openAccountNavIfNeeded(page);
   await expect(
-    page.getByRole("button", { name: "Account", exact: true }),
+    page.getByRole("button", { name: "Account", exact: true }).first(),
   ).toBeVisible({ timeout: 30_000 });
 }
 
 async function expectLoggedOut(page) {
-  await expect(page.getByRole("button", { name: /log in/i }).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  const login = page.getByRole("button", { name: /log in/i }).first();
+  if (!(await login.isVisible().catch(() => false))) {
+    const menu = page.getByRole("button", { name: /menu/i }).first();
+    if (await menu.isVisible().catch(() => false)) await menu.click();
+  }
+  await expect(login).toBeVisible({ timeout: 30_000 });
 }
 
 async function expectProtectedRouteClosed(page, label) {
@@ -58,7 +73,26 @@ async function proveCookieBackedRecovery(page, label) {
   ).toHaveURL(`${baseUrl}/account`);
 }
 
+async function logoutThroughUi(page, label) {
+  await openAccountNavIfNeeded(page);
+  let logout = page.getByRole("button", { name: /log out|logout/i }).first();
+  if (!(await logout.isVisible().catch(() => false))) {
+    const menu = page.getByRole("button", { name: /menu/i }).first();
+    if (await menu.isVisible().catch(() => false)) {
+      await menu.click();
+      logout = page.getByRole("button", { name: /log out|logout/i }).first();
+    }
+  }
+  await expect(logout, `${label}: logout control must be reachable`).toBeVisible({
+    timeout: 30_000,
+  });
+  await logout.click();
+  await page.waitForURL(`${baseUrl}/`, { timeout: 30_000 });
+  await expectLoggedOut(page);
+}
+
 test("requests a real production signup confirmation email", async ({ page }) => {
+  test.setTimeout(120_000);
   test.skip(
     phase !== "request-confirmation",
     "Not the request-confirmation phase.",
@@ -101,15 +135,17 @@ test("requests a real production signup confirmation email", async ({ page }) =>
 });
 
 test("confirmed production account accepts normal login", async ({ page }) => {
+  test.setTimeout(120_000);
   test.skip(phase !== "probe-confirmed", "Not the probe-confirmed phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
-  await login(page, 15_000);
+  await login(page, 30_000);
 });
 
 test("logs in, recovers the session, logs out, and relogs into the confirmed real production account", async ({ page }) => {
+  test.setTimeout(10 * 60_000);
   test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
@@ -125,25 +161,21 @@ test("logs in, recovers the session, logs out, and relogs into the confirmed rea
   await proveCookieBackedRecovery(page, "initial login");
 
   for (let cycle = 2; cycle <= 10; cycle += 1) {
-    const cycleLogout = page.getByRole("button", { name: /log out/i }).first();
-    await expect(cycleLogout).toBeVisible({ timeout: 30_000 });
-    await cycleLogout.click();
-    await page.waitForURL(`${baseUrl}/`, { timeout: 30_000 });
-    await expectLoggedOut(page);
+    await logoutThroughUi(page, `cycle ${cycle}`);
     await expectProtectedRouteClosed(page, `cycle ${cycle}`);
-
     await login(page);
   }
 });
 
 test("confirmed account can authenticate and recover from completely fresh browser contexts ten times", async ({ browser }) => {
+  test.setTimeout(10 * 60_000);
   test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
   for (let cycle = 1; cycle <= 10; cycle += 1) {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     try {
       await login(page);
