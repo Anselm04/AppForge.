@@ -3,9 +3,9 @@ import {
   buildComposioUserId,
   searchComposioTools,
   type ComposioSessionLike,
-} from "../services/composio.js";
+} from "../capabilities/providers/composio.js";
 
-describe("Composio service", () => {
+describe("Composio provider", () => {
   it("namespaces AppForge user IDs so connected accounts stay product-scoped", () => {
     expect(buildComposioUserId("user-123")).toBe("appforge:user-123");
   });
@@ -14,10 +14,7 @@ describe("Composio service", () => {
     const execute = vi.fn().mockResolvedValue({ successful: true, data: {} });
     const session: ComposioSessionLike = { execute };
 
-    const result = await searchComposioTools(
-      session,
-      "find GitHub repositories",
-    );
+    const result = await searchComposioTools(session, "find GitHub repositories");
 
     expect(execute).toHaveBeenCalledWith("COMPOSIO_SEARCH_TOOLS", {
       queries: [{ use_case: "find GitHub repositories" }],
