@@ -124,6 +124,19 @@ For a major incident, recover in this order unless incident conditions require o
 9. Production deployment from an exact known-good SHA.
 10. Customer-flow and revenue-path acceptance verification.
 
+### Supabase + Twilio customer authentication recovery
+
+AppForge customer identity remains owned by Supabase for both email/password and phone/SMS login. Twilio is only the SMS transport configured inside the Supabase Phone provider; customer OTP verification must remain in Supabase and must not be replaced with a second customer identity store.
+
+After a provider recovery or credential rotation:
+
+1. Restore the Supabase project URL, publishable key, and service-role secret through their normal protected secret stores.
+2. Restore the Twilio SMS provider configuration in Supabase Authentication -> Providers -> Phone using the Twilio Account SID, secret authentication credential, and Messaging Service SID. Do not place those values in client code or repository files.
+3. Keep the existing Twilio Verify service separate for owner/admin MFA; it is not the customer phone-login authority.
+4. Prove email/password signup, confirmation, login, logout, relogin, and cookie-backed session recovery against production.
+5. Prove phone OTP request, SMS delivery, OTP verification, logout, relogin, and protected-route denial after logout.
+6. Do not reopen customer authentication if either Supabase JWT validation or the AppForge HttpOnly server-session boundary fails closed incorrectly.
+
 ## Break-glass production rule
 
 Emergency access does not mean emergency bypass.
