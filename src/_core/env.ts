@@ -1,3 +1,7 @@
+import { requireValidCapabilityProviderEnv } from "../capabilities/env.js";
+
+const capabilityEnv = requireValidCapabilityProviderEnv(process.env);
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.COOKIE_SECRET ?? process.env.JWT_SECRET ?? "",
@@ -22,16 +26,13 @@ export const ENV = {
   stripeBuilderPaymentLink: process.env.STRIPE_BUILDER_PAYMENT_LINK ?? "",
   stripeStudioPaymentLink: process.env.STRIPE_STUDIO_PAYMENT_LINK ?? "",
   sentryDsn: process.env.SENTRY_DSN ?? "",
-  sentryTracesSampleRate: parseFloat(
-    process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1",
-  ),
+  sentryTracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
   corsOrigin: process.env.CORS_ORIGIN ?? "",
   requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS ?? "30000", 10),
   vercelToken: process.env.VERCEL_TOKEN ?? "",
   vercelTeamId: process.env.VERCEL_TEAM_ID ?? "",
   redisUrl: process.env.REDIS_URL ?? "",
   logtailSourceToken: process.env.LOGTAIL_SOURCE_TOKEN ?? "",
-  // Admin / SMS / Moderation / Captcha / Email
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? "",
   twilioVerifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? "",
@@ -42,4 +43,7 @@ export const ENV = {
   tavilyApiKey: process.env.TAVILY_API_KEY ?? "",
   serpApiKey: process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY ?? "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
+  capabilityBrokerEnabled: capabilityEnv.brokerEnabled,
+  composioEnabled: capabilityEnv.composioEnabled,
+  composioApiKey: capabilityEnv.composioApiKey,
 };
