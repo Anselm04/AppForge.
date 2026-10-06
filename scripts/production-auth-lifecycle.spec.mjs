@@ -47,10 +47,6 @@ async function login(page, timeout = 60_000) {
 }
 
 async function proveCookieBackedRecovery(page, label) {
-  // Remove the non-HttpOnly bearer token while deliberately preserving the
-  // server-managed HttpOnly access/refresh cookies and the non-secret user
-  // marker. A reload must recover through POST /api/auth/session; otherwise
-  // the browser only proved sessionStorage persistence, not session recovery.
   await page.evaluate(() => {
     sessionStorage.removeItem("appforge.access-token");
   });
@@ -80,8 +76,25 @@ test("requests a real production signup confirmation email", async ({ page }) =>
   await form.getByLabel(/email/i).fill(email);
   await form.getByLabel(/^password/i).fill(password);
   await form.getByLabel(/confirm/i).fill(password);
-  await form.getByRole("button", { name: /create|sign up|signup/i }).click();
 
+  const [signupResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/auth/v1/signup"),
+      { timeout: 30_000 },
+    ),
+    form.getByRole("button", { name: /create|sign up|signup/i }).click(),
+  ]);
+
+  expect(
+    signupResponse.ok(),
+    `real Supabase signup must succeed; received HTTP ${signupResponse.status()}`,
+  ).toBe(true);
+
+  await expect(form, "signup form must be replaced by the check-email state").toBeHidden({
+    timeout: 30_000,
+  });
   await expect(
     page.getByText(/check.*email|email.*confirm|confirmation/i).first(),
   ).toBeVisible({ timeout: 30_000 });
@@ -105,17 +118,12 @@ test("logs in, recovers the session, logs out, and relogs into the confirmed rea
   await login(page);
   await expect(page).toHaveURL(`${baseUrl}/account`);
 
-  // A plain hard reload proves ordinary browser-session persistence.
   await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
   await expectLoggedIn(page);
   await expect(page).toHaveURL(`${baseUrl}/account`);
 
-  // Removing the bearer token proves recovery from the server-managed HttpOnly
-  // refresh session rather than merely surviving because sessionStorage stayed.
   await proveCookieBackedRecovery(page, "initial login");
 
-  // Ten login boundaries total: initial login plus nine logout/relogin cycles.
-  // Each logout must close protected routes before the next login.
   for (let cycle = 2; cycle <= 10; cycle += 1) {
     const cycleLogout = page.getByRole("button", { name: /log out/i }).first();
     await expect(cycleLogout).toBeVisible({ timeout: 30_000 });
