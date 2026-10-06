@@ -5,6 +5,32 @@ type RuntimeAuthConfig = {
   supabasePublishableKey?: string;
 };
 
+type PhoneSession = {
+  access_token: string;
+  refresh_token: string;
+  user: {
+    id: string;
+    email?: string | null;
+    phone?: string | null;
+  };
+};
+
+type PhoneOtpAuthFacade = {
+  signInWithOtp(credentials: { phone: string }): Promise<{
+    data: unknown;
+    error: Error | null;
+  }>;
+  verifyOtp(credentials: {
+    phone: string;
+    token: string;
+    type: "sms";
+  }): Promise<{
+    data: { session: PhoneSession | null };
+    error: Error | null;
+  }>;
+  signOut(): Promise<{ error: Error | null }>;
+};
+
 let client: SupabaseClient | null = null;
 
 function readSupabaseConfig() {
@@ -43,8 +69,16 @@ export function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
-export const supabase = {
-  get auth() {
-    return getSupabaseClient().auth;
+const auth: PhoneOtpAuthFacade = {
+  async signInWithOtp(credentials) {
+    return getSupabaseClient().auth.signInWithOtp(credentials);
+  },
+  async verifyOtp(credentials) {
+    return getSupabaseClient().auth.verifyOtp(credentials);
+  },
+  async signOut() {
+    return getSupabaseClient().auth.signOut();
   },
 };
+
+export const supabase: { auth: PhoneOtpAuthFacade } = { auth };
