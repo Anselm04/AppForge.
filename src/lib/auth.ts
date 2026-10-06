@@ -94,7 +94,8 @@ function jwtUser(accessToken: string): AppForgeSession["user"] | null {
     const [, payload] = accessToken.split(".");
     if (!payload) return null;
     const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const padded =
+      normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
     const decoded = JSON.parse(atob(padded)) as {
       sub?: string;
       email?: string;
@@ -318,6 +319,9 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const generation = sessionGeneration;
 
   refreshInFlight = (async () => {
+    // Refresh tokens are intentionally HttpOnly. Prove that the server can
+    // authenticate and rotate the cookie session before treating the local
+    // non-secret user marker as an authenticated browser session.
     clearStoredAccessToken();
     const refreshed = await refreshServerCookieSession().catch(() => false);
 
@@ -448,14 +452,18 @@ export const emailLogin = signIn;
 function normalizePhone(phone: string): string {
   const normalized = phone.trim().replace(/[\s()-]/g, "");
   if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-    throw new Error("Phone number must use E.164 format, for example +64221234567.");
+    throw new Error(
+      "Phone number must use E.164 format, for example +15551234567.",
+    );
   }
   return normalized;
 }
 
 export async function sendPhoneOtp(phone: string): Promise<void> {
   const normalizedPhone = normalizePhone(phone);
-  const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+  const { error } = await supabase.auth.signInWithOtp({
+    phone: normalizedPhone,
+  });
   if (error) throw error;
 }
 
