@@ -271,10 +271,18 @@ describe("Section 27 certification logic", () => {
     expect(hasVerifiedMonetizationEvidence(events, 4)).toBe(true);
     expect(hasVerifiedMonetizationEvidence(events, 5)).toBe(false);
     expect(hasVerifiedArtifactEvidence(events, "auth_lifecycle", 4)).toBe(true);
-    expect(hasVerifiedArtifactEvidence(events, "auth_lifecycle", 5)).toBe(false);
+    expect(hasVerifiedArtifactEvidence(events, "auth_lifecycle", 5)).toBe(
+      false,
+    );
     expect(
       hasVerifiedArtifactEvidence(
-        [{ kind: "auth_lifecycle", artifactVersion: 4, payload: { approved: true } }],
+        [
+          {
+            kind: "auth_lifecycle",
+            artifactVersion: 4,
+            payload: { approved: true },
+          },
+        ],
         "auth_lifecycle",
         4,
       ),

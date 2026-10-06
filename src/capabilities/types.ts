@@ -1,8 +1,5 @@
 export type CapabilityProviderState =
-  | "healthy"
-  | "restricted"
-  | "quarantined"
-  | "disabled";
+  "healthy" | "restricted" | "quarantined" | "disabled";
 
 export type CapabilityRiskLevel = "low" | "medium" | "high" | "critical";
 

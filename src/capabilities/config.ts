@@ -13,9 +13,7 @@ function parseBoolean(name: string, value: string | undefined): boolean {
   throw new Error(`${name} must be a boolean flag`);
 }
 
-export function resolveCapabilityConfig(
-  env: CapabilityEnv = process.env,
-): {
+export function resolveCapabilityConfig(env: CapabilityEnv = process.env): {
   brokerEnabled: boolean;
   composioEnabled: boolean;
   composioConfigured: boolean;

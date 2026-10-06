@@ -67,9 +67,7 @@ export function CapabilitySecurityBanner() {
                   <span>{String(details.provider ?? "composio")}</span>
                 </div>
                 <p className="mt-1">
-                  {String(
-                    details.reason ?? "Capability operation contained",
-                  )}
+                  {String(details.reason ?? "Capability operation contained")}
                 </p>
                 <p className="mt-1 text-xs opacity-80">
                   Project {String(details.projectId ?? "—")} · Build{" "}

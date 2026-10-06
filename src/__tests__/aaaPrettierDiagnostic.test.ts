@@ -23,6 +23,8 @@ describe("temporary Prettier diagnostic", () => {
     const diff = execFileSync("git", ["diff", "--", ...files], {
       encoding: "utf8",
     });
-    console.log("APPFORGE_PRETTIER_DIFF_START\n" + diff + "\nAPPFORGE_PRETTIER_DIFF_END");
+    console.log(
+      "APPFORGE_PRETTIER_DIFF_START\n" + diff + "\nAPPFORGE_PRETTIER_DIFF_END",
+    );
   });
 });

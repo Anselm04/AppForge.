@@ -89,7 +89,10 @@ describe("#30 Final Product-Factory Flow", () => {
       readFileSync("src/__tests__/fixtures/final-product-project.json", "utf8"),
     );
     const artifact = JSON.parse(
-      readFileSync("src/__tests__/fixtures/final-product-artifact.json", "utf8"),
+      readFileSync(
+        "src/__tests__/fixtures/final-product-artifact.json",
+        "utf8",
+      ),
     );
 
     const report = evaluateFinalProductFactoryFlow({

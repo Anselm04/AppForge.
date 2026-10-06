@@ -98,10 +98,10 @@ export async function processCapabilityWatchdogSignal(
     next.state === "disabled"
   ) {
     const severity = next.state === "disabled" ? "critical" : "warning";
-    incrementOperationalMetric(
-      "appforge_capability_security_incidents_total",
-      { provider: signal.provider, severity },
-    );
+    incrementOperationalMetric("appforge_capability_security_incidents_total", {
+      provider: signal.provider,
+      severity,
+    });
     await createCapabilitySecurityIncident({
       context: signal.context,
       provider: signal.provider,

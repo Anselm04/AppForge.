@@ -19,10 +19,7 @@ export type CapabilityWatchdogSignal = {
   provider: string;
   context: CapabilityDiscoveryRequest["context"];
   outcome:
-    | "success"
-    | "provider_failure"
-    | "policy_denial"
-    | "security_violation";
+    "success" | "provider_failure" | "policy_denial" | "security_violation";
   reason?: string;
   evidence?: unknown;
 };
@@ -69,12 +66,14 @@ export class CapabilityBroker {
     this.resolveProjectOwner =
       deps.resolveProjectOwner ??
       (async (projectId) => (await getProjectById(projectId))?.userId ?? null);
-    this.readProviderState = deps.readProviderState ?? getCapabilityProviderState;
+    this.readProviderState =
+      deps.readProviderState ?? getCapabilityProviderState;
     this.recordAudit = deps.recordAudit ?? recordCapabilityAudit;
     this.signalWatchdog =
       deps.signalWatchdog ??
       (async (signal) => {
-        const { processCapabilityWatchdogSignal } = await import("./watchdog.js");
+        const { processCapabilityWatchdogSignal } =
+          await import("./watchdog.js");
         await processCapabilityWatchdogSignal(signal);
       });
   }

@@ -22,9 +22,7 @@ export function sanitizeCapabilityMetadata(value: unknown): unknown {
       return current;
     }
     if (Array.isArray(current)) {
-      return current
-        .slice(0, MAX_ARRAY)
-        .map((item) => visit(item, depth + 1));
+      return current.slice(0, MAX_ARRAY).map((item) => visit(item, depth + 1));
     }
     if (typeof current !== "object") return String(current);
 

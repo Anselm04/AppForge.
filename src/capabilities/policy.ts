@@ -53,9 +53,7 @@ export function evaluateCapabilityPolicy(input: {
     );
   }
   if (
-    context.requestedScopes.some((scope) =>
-      CONTROL_PLANE_PATTERN.test(scope),
-    )
+    context.requestedScopes.some((scope) => CONTROL_PLANE_PATTERN.test(scope))
   ) {
     return deny(
       "Requested scope touches a protected AppForge control-plane boundary",
