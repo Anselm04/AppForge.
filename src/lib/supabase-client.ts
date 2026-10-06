@@ -1,3 +1,5 @@
+import { withCsrfHeaders } from "./csrf";
+
 declare global {
   interface Window {
     __APPFORGE_CONFIG__?: {
@@ -35,15 +37,6 @@ function config() {
   return { url, publishableKey };
 }
 
-function authRedirectTo(next = "/"): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  const safeNext =
-    next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
-      ? next
-      : "/";
-  return `${window.location.origin}/login?next=${encodeURIComponent(safeNext)}`;
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { url, publishableKey } = config();
   const response = await fetch(`${url}${path}`, {
@@ -68,16 +61,33 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+async function requestAppForgeSignup(
+  email: string,
+  password: string,
+  next: string,
+): Promise<AuthResponse> {
+  const headers = await withCsrfHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  });
+  const response = await fetch("/api/health/auth-signup", {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({ email, password, next }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      body?.error || `Unable to create account (${response.status})`,
+    );
+  }
+  return body as AuthResponse;
+}
+
 export const supabaseClient = {
   signUp(email: string, password: string, next = "/") {
-    const redirect = authRedirectTo(next);
-    const path = redirect
-      ? `/auth/v1/signup?redirect_to=${encodeURIComponent(redirect)}`
-      : "/auth/v1/signup";
-    return request<AuthResponse>(path, {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+    return requestAppForgeSignup(email, password, next);
   },
   signIn(email: string, password: string) {
     return request<AuthResponse>("/auth/v1/token?grant_type=password", {
