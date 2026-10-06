@@ -1,0 +1,49 @@
+name: P0 Format Fix
+
+on:
+  push:
+    branches:
+      - composio-capability-security
+    paths:
+      - .github/workflows/p0-format-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: composio-capability-security
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Format launch-hardening sources
+        run: |
+          npx prettier --write \
+            src/__tests__/aaaPrettierDiagnostic.test.ts \
+            src/__tests__/section27CertificationLogic.test.ts \
+            src/__tests__/section30FinalProductFactoryFlow.test.ts \
+            src/capabilities/broker.ts \
+            src/capabilities/config.ts \
+            src/capabilities/policy.ts \
+            src/capabilities/redaction.ts \
+            src/capabilities/types.ts \
+            src/capabilities/watchdog.ts \
+            src/components/CapabilitySecurityBanner.tsx
+      - name: Commit formatting
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          if git diff --staged --quiet; then
+            echo "Formatting already clean"
+            exit 0
+          fi
+          git commit -m "style: format P0 launch hardening sources"
+          git push origin "HEAD:composio-capability-security"
