@@ -29,6 +29,9 @@ export type CertificationEvidence = {
   browserVerified?: boolean;
   healthVerified?: boolean;
   monetizationVerified?: boolean;
+  authLifecycleVerified?: boolean;
+  tenantIsolationVerified?: boolean;
+  billingLifecycleVerified?: boolean;
   operationalVerified: boolean;
   recoveryVerified: boolean;
 };
@@ -44,6 +47,9 @@ export type CertificationRequirement =
   | "browser"
   | "health"
   | "monetization"
+  | "auth_lifecycle"
+  | "tenant_isolation"
+  | "billing_lifecycle"
   | "operations"
   | "recovery"
   | "adapter_dependencies";
@@ -55,6 +61,9 @@ export type CertificationDecision = {
   stack: string;
   verificationMode: "browser" | "health" | "native";
   monetizationRequired: boolean;
+  authLifecycleRequired: boolean;
+  tenantIsolationRequired: boolean;
+  billingLifecycleRequired: boolean;
   missingEvidence: CertificationRequirement[];
   dependencyGraph: StackDependencyGraph;
 };
@@ -72,6 +81,21 @@ function monetizationRequested(contract: ProductContract): boolean {
     contract.monetizationRequirements.length > 0 ||
     contract.secondaryCapabilities.includes("billing")
   );
+}
+
+function authLifecycleRequested(contract: ProductContract): boolean {
+  return (
+    contract.secondaryCapabilities.includes("authentication") ||
+    contract.productFamilies.includes("auth")
+  );
+}
+
+function tenantIsolationRequested(contract: ProductContract): boolean {
+  return contract.productType === "saas_application";
+}
+
+function billingLifecycleRequested(contract: ProductContract): boolean {
+  return monetizationRequested(contract);
 }
 
 function verificationModeFor(
@@ -111,6 +135,24 @@ function missingForProduction(
   ) {
     missing.push("monetization");
   }
+  if (
+    authLifecycleRequested(contract) &&
+    evidence.authLifecycleVerified !== true
+  ) {
+    missing.push("auth_lifecycle");
+  }
+  if (
+    tenantIsolationRequested(contract) &&
+    evidence.tenantIsolationVerified !== true
+  ) {
+    missing.push("tenant_isolation");
+  }
+  if (
+    billingLifecycleRequested(contract) &&
+    evidence.billingLifecycleVerified !== true
+  ) {
+    missing.push("billing_lifecycle");
+  }
   if (!evidence.operationalVerified) missing.push("operations");
   if (!evidence.recoveryVerified) missing.push("recovery");
 
@@ -136,6 +178,9 @@ export function evaluateCertification(input: {
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
   const verificationMode = verificationModeFor(contract);
   const monetizationRequired = monetizationRequested(contract);
+  const authLifecycleRequired = authLifecycleRequested(contract);
+  const tenantIsolationRequired = tenantIsolationRequested(contract);
+  const billingLifecycleRequired = billingLifecycleRequested(contract);
   const dependencyGraph =
     input.dependencyGraph ??
     resolveStackDependencyGraph(
@@ -209,6 +254,9 @@ export function evaluateCertification(input: {
     stack: adapter.id,
     verificationMode,
     monetizationRequired,
+    authLifecycleRequired,
+    tenantIsolationRequired,
+    billingLifecycleRequired,
     missingEvidence,
     dependencyGraph,
   };
@@ -257,17 +305,20 @@ export function requirementBehaviorVerified(input: unknown): boolean {
     );
 }
 
-export function hasVerifiedMonetizationEvidence(
-  events: readonly {
-    kind?: string | null;
-    artifactVersion?: number | null;
-    payload?: unknown;
-  }[],
+type ArtifactEvidenceEvent = {
+  kind?: string | null;
+  artifactVersion?: number | null;
+  payload?: unknown;
+};
+
+export function hasVerifiedArtifactEvidence(
+  events: readonly ArtifactEvidenceEvent[],
+  kind: string,
   artifactVersion: number,
 ): boolean {
   return events.some((event) => {
     if (
-      event.kind !== "monetization" ||
+      event.kind !== kind ||
       event.artifactVersion !== artifactVersion ||
       !event.payload ||
       typeof event.payload !== "object"
@@ -281,4 +332,11 @@ export function hasVerifiedMonetizationEvidence(
       payload.state === "verified"
     );
   });
+}
+
+export function hasVerifiedMonetizationEvidence(
+  events: readonly ArtifactEvidenceEvent[],
+  artifactVersion: number,
+): boolean {
+  return hasVerifiedArtifactEvidence(events, "monetization", artifactVersion);
 }
