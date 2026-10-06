@@ -5,6 +5,7 @@ import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import { logger } from "../_core/logger.js";
 import { getStartupReadiness } from "../services/startupState.js";
 import { checkSharedRedis } from "../middleware/rateLimiter.js";
+import { createSignupConfirmation } from "../services/authEmailDelivery.js";
 import {
   incrementOperationalMetric,
   setOperationalGauge,
@@ -135,6 +136,58 @@ router.get("/integrations", (_req: Request, res: Response) => {
     productionReady: summary.productionReady,
     integrations: summary.integrations,
   });
+});
+
+function safeNext(value: unknown): string {
+  if (typeof value !== "string") return "/";
+  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+    ? value
+    : "/";
+}
+
+// Public signup confirmation delivery lives on the only pre-authenticated API
+// router in the current server composition. CSRF/global abuse controls still run
+// before this router. The endpoint itself fails closed unless startup readiness,
+// Supabase service-role link generation and Twilio delivery all succeed.
+router.post("/auth-signup", async (req: Request, res: Response) => {
+  setNoStoreHeaders(res);
+  const startup = getStartupReadiness();
+  if (!startup.ready) {
+    return res.status(503).json({
+      error: "Service temporarily unavailable",
+      code: "STARTUP_NOT_READY",
+    });
+  }
+
+  const email =
+    typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const next = safeNext(req.body?.next);
+
+  if (!email || !email.includes("@") || password.length < 8) {
+    return res.status(400).json({
+      error: "A valid email and password of at least 8 characters are required.",
+      code: "INVALID_SIGNUP_INPUT",
+    });
+  }
+
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const redirectTo = `${origin}/login?next=${encodeURIComponent(next)}`;
+
+  try {
+    const result = await createSignupConfirmation({ email, password, redirectTo });
+    return res.status(202).json({
+      user: { id: result.userId, email },
+      confirmationSent: true,
+    });
+  } catch (error) {
+    logger.error({ error }, "signup_confirmation_delivery_failed");
+    incrementOperationalMetric("appforge_auth_confirmation_delivery_failures_total");
+    return res.status(503).json({
+      error: "We could not send your confirmation email. Please try again shortly.",
+      code: "CONFIRMATION_DELIVERY_FAILED",
+    });
+  }
 });
 
 export default router;
