@@ -4,6 +4,7 @@ import {
   CERTIFICATION_STATUSES,
   assertProductionCertified,
   evaluateCertification,
+  hasVerifiedArtifactEvidence,
   hasVerifiedMonetizationEvidence,
   requirementBehaviorVerified,
 } from "../lib/certificationLogic.js";
@@ -136,7 +137,59 @@ describe("Section 27 certification logic", () => {
     expect(decision.missingEvidence).toContain("browser");
   });
 
-  it("never calls requested monetization live without verified evidence", () => {
+  it("requires generated-app auth lifecycle evidence when authentication is requested", () => {
+    const authApp = contract({
+      secondaryCapabilities: ["authentication", "deployment"],
+      productFamilies: ["backend", "auth", "deployment"],
+    });
+
+    const unverified = evaluateCertification({
+      productContract: authApp,
+      evidence: evidence({ authLifecycleVerified: false }),
+    });
+    expect(unverified.productionCertified).toBe(false);
+    expect(unverified.authLifecycleRequired).toBe(true);
+    expect(unverified.missingEvidence).toContain("auth_lifecycle");
+
+    const verified = evaluateCertification({
+      productContract: authApp,
+      evidence: evidence({ authLifecycleVerified: true }),
+    });
+    expect(verified.productionCertified).toBe(true);
+  });
+
+  it("requires cross-tenant isolation evidence for every generated SaaS product", () => {
+    const saas = contract({
+      productType: "saas_application",
+      productFamilies: ["frontend", "backend", "database", "deployment"],
+      selectedTechnologyStack: "next-node",
+      secondaryCapabilities: ["database", "deployment"],
+    });
+
+    const unverified = evaluateCertification({
+      productContract: saas,
+      evidence: evidence({
+        browserVerified: true,
+        healthVerified: undefined,
+        tenantIsolationVerified: false,
+      }),
+    });
+    expect(unverified.productionCertified).toBe(false);
+    expect(unverified.tenantIsolationRequired).toBe(true);
+    expect(unverified.missingEvidence).toContain("tenant_isolation");
+
+    const verified = evaluateCertification({
+      productContract: saas,
+      evidence: evidence({
+        browserVerified: true,
+        healthVerified: undefined,
+        tenantIsolationVerified: true,
+      }),
+    });
+    expect(verified.productionCertified).toBe(true);
+  });
+
+  it("requires full generated billing lifecycle evidence in addition to monetization health", () => {
     const monetized = contract({
       productType: "saas_application",
       productFamilies: ["frontend", "backend", "billing", "deployment"],
@@ -150,19 +203,23 @@ describe("Section 27 certification logic", () => {
       evidence: evidence({
         browserVerified: true,
         healthVerified: undefined,
-        monetizationVerified: false,
+        tenantIsolationVerified: true,
+        monetizationVerified: true,
+        billingLifecycleVerified: false,
       }),
     });
     expect(unverified.productionCertified).toBe(false);
-    expect(unverified.status).toBe("production-candidate");
-    expect(unverified.missingEvidence).toContain("monetization");
+    expect(unverified.billingLifecycleRequired).toBe(true);
+    expect(unverified.missingEvidence).toContain("billing_lifecycle");
 
     const verified = evaluateCertification({
       productContract: monetized,
       evidence: evidence({
         browserVerified: true,
         healthVerified: undefined,
+        tenantIsolationVerified: true,
         monetizationVerified: true,
+        billingLifecycleVerified: true,
       }),
     });
     expect(verified.productionCertified).toBe(true);
@@ -198,29 +255,40 @@ describe("Section 27 certification logic", () => {
     ).toBe(false);
   });
 
-  it("accepts monetization verification only for the same artifact version", () => {
+  it("accepts verification evidence only for the same artifact version", () => {
     const events = [
       {
         kind: "monetization",
         artifactVersion: 4,
         payload: { verified: true },
       },
+      {
+        kind: "auth_lifecycle",
+        artifactVersion: 4,
+        payload: { verified: true },
+      },
     ];
     expect(hasVerifiedMonetizationEvidence(events, 4)).toBe(true);
     expect(hasVerifiedMonetizationEvidence(events, 5)).toBe(false);
+    expect(hasVerifiedArtifactEvidence(events, "auth_lifecycle", 4)).toBe(true);
+    expect(hasVerifiedArtifactEvidence(events, "auth_lifecycle", 5)).toBe(
+      false,
+    );
     expect(
-      hasVerifiedMonetizationEvidence(
+      hasVerifiedArtifactEvidence(
         [
           {
-            kind: "monetization",
+            kind: "auth_lifecycle",
             artifactVersion: 4,
             payload: { approved: true },
           },
         ],
+        "auth_lifecycle",
         4,
       ),
     ).toBe(false);
   });
+
   it("creates and persists real deployed monetization verification evidence", () => {
     const billingScaffold = readFileSync(
       "src/services/saasBillingScaffold.ts",

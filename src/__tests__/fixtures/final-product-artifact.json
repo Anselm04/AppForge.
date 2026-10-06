@@ -1,0 +1,70 @@
+{
+  "version": 7,
+  "integrity": {
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "artifactIntegrity": {
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "files": {
+    "src/App.tsx": "import { useState } from \"react\";\nexport function App() {\n  // requirement: REQ-001\n  // requirement: REQ-002\n  const [tasks, setTasks] = useState([{ id: 1, title: \"Track tasks\", done: false }]);\n  function completeTask() {\n    setTasks((items) => items.map((task) => ({ ...task, done: true })));\n  }\n  return (\n    <main>\n      <h1>Task tracker dashboard</h1>\n      <p>Track tasks and complete tasks with your team.</p>\n      {tasks.map((task) => <article key={task.id}>{task.title}: {task.done ? \"complete\" : \"open\"}</article>)}\n      <button onClick={completeTask}>Complete task</button>\n    </main>\n  );\n}\n",
+    "src/main.tsx": "import { App } from \"./App\";\nconsole.info(\"task tracker runtime\", App);\n",
+    "appforge.implementation.json": "{\"version\":1,\"requirements\":[{\"id\":\"REQ-001\",\"taskIds\":[\"T1\"],\"files\":[\"src/App.tsx\",\"src/main.tsx\"],\"validations\":[\"behavioral task workflow test\"]},{\"id\":\"REQ-002\",\"taskIds\":[\"T1\"],\"files\":[\"src/App.tsx\",\"src/main.tsx\"],\"validations\":[\"behavioral task workflow test\"]}]}",
+    "appforge.deploy.json": "{\"stack\":\"react-node\",\"targets\":[\"vercel\",\"netlify\",\"fly\",\"preview\"],\"buildCommand\":\"npm run build\",\"startCommand\":\"npm run start\",\"outputDirectory\":\"dist\",\"generationMode\":\"runnable\"}",
+    "appforge.runtime.json": "{\"version\":1,\"stack\":\"react-node\",\"runtime\":\"node\",\"startup\":{\"command\":\"npm run start\",\"entrypoints\":[\"src/main.tsx\",\"src/App.tsx\"],\"hostManaged\":false},\"health\":{\"mode\":\"document\",\"livenessPath\":null,\"readinessPath\":null},\"environment\":{\"files\":[\".env.example\"],\"secretsServerSide\":true,\"failClosedWhenMissing\":true},\"persistence\":{\"mode\":\"external_service\",\"isolateFromAppForge\":true},\"backgroundWorkers\":\"unsupported\",\"scheduledTasks\":\"unsupported\"}",
+    ".env.example": "PORT=3000\nAPI_BASE_URL=\n"
+  },
+  "validationResult": {
+    "passed": true,
+    "stage": "isolated-production",
+    "warning": "isolated production validation passed",
+    "errors": []
+  },
+  "requirementManifest": {
+    "version": 1,
+    "revision": 1,
+    "productType": "website",
+    "selectedTechnologyStack": "react-node",
+    "originalPrompt": "Build a task tracker dashboard where teams track tasks and complete tasks",
+    "createdAt": "2026-10-06T08:00:00.000Z",
+    "updatedAt": "2026-10-06T08:00:00.000Z",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "text": "Users can track tasks.",
+        "priority": "must",
+        "category": "workflow",
+        "source": "canonical_product_contract",
+        "sourceField": "functionalRequirements",
+        "taskIds": ["T1"],
+        "files": ["src/App.tsx", "src/main.tsx"],
+        "tests": ["src/__tests__/task-tracker.test.ts"],
+        "validations": ["behavioral task workflow test"],
+        "implementationHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "validationEvidence": [{"stage": "isolated", "passed": true, "at": "2026-10-06T08:00:00.000Z", "errors": []}],
+        "deploymentEvidence": [],
+        "status": "validated",
+        "unresolvedReason": null
+      },
+      {
+        "id": "REQ-002",
+        "text": "Users can complete tasks.",
+        "priority": "must",
+        "category": "workflow",
+        "source": "canonical_product_contract",
+        "sourceField": "functionalRequirements",
+        "taskIds": ["T1"],
+        "files": ["src/App.tsx", "src/main.tsx"],
+        "tests": ["src/__tests__/task-tracker.test.ts"],
+        "validations": ["behavioral task workflow test"],
+        "implementationHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "validationEvidence": [{"stage": "isolated", "passed": true, "at": "2026-10-06T08:00:00.000Z", "errors": []}],
+        "deploymentEvidence": [],
+        "status": "validated",
+        "unresolvedReason": null
+      }
+    ],
+    "changes": [],
+    "unresolvedMustHaveIds": []
+  }
+}

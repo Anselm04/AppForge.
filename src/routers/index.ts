@@ -8,8 +8,8 @@ import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
 import { cosineRouter } from "./cosine.js";
-import { composioRouter } from "./composio.js";
 import { adminRouter } from "./admin.js";
+import { capabilitySecurityRouter } from "./capabilitySecurity.js";
 import { moderationRouter } from "./moderation.js";
 import { projectChatRouter } from "./projectChat.js";
 import { analyticsRouter } from "./analytics.js";
@@ -52,8 +52,8 @@ export const appRouter = router({
   subscriptions: subscriptionsRouter,
   github: githubRouter,
   cosine: cosineRouter,
-  composio: composioRouter,
   admin: adminRouter,
+  capabilitySecurity: capabilitySecurityRouter,
   moderation: moderationRouter,
   projectChat: projectChatRouter,
   analytics: analyticsRouter,

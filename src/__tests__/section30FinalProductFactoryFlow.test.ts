@@ -14,6 +14,9 @@ const certifiedDecision: CertificationDecision = {
   stack: "react-node",
   verificationMode: "browser",
   monetizationRequired: false,
+  authLifecycleRequired: false,
+  tenantIsolationRequired: false,
+  billingLifecycleRequired: false,
   missingEvidence: [],
   dependencyGraph: resolveStackDependencyGraph("react-node", "website"),
 };

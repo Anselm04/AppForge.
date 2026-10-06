@@ -79,6 +79,12 @@ For every main-branch backup it:
 
 A successful upload alone is not considered a successful backup. Restore verification must also pass.
 
+## Dependency lockfile recovery
+
+`package-lock.json` is part of the recovery-critical source state. If it becomes truncated, stale, corrupted, or no longer matches `package.json`, do not bypass `npm ci` or weaken CI. Regenerate the lockfile from the trusted package manifest using Node 22/npm 10 with lifecycle scripts disabled, verify a clean `npm ci --ignore-scripts --no-audit --no-fund`, run the production dependency audit, and commit the synchronized lockfile before release.
+
+The recovery-part representation under `.github/lockfile-parts/` must remain synchronized with the canonical `package-lock.json`. A recovered repository is not releaseable until the canonical lockfile and its recovery representation reproduce the same installable dependency graph. Changes to lockfile assembly or refresh workflows therefore require this recovery protocol to be reviewed in the same change.
+
 ## Object naming and overwrite protection
 
 Backups are written beneath paths shaped like:

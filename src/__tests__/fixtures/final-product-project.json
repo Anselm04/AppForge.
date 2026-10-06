@@ -1,0 +1,192 @@
+{
+  "description": "Build a task tracker dashboard where teams track tasks and complete tasks",
+  "techStack": "react-node",
+  "productContract": {
+    "version": 2,
+    "originalPrompt": "Build a task tracker dashboard where teams track tasks and complete tasks",
+    "productType": "website",
+    "productFamilies": ["frontend", "backend", "deployment"],
+    "targetUsers": ["Teams"],
+    "userRoles": ["member", "admin"],
+    "coreWorkflows": ["Track tasks", "Complete tasks"],
+    "functionalRequirements": [
+      {
+        "id": "REQ-001",
+        "text": "Users can track tasks.",
+        "category": "workflow",
+        "priority": "must"
+      },
+      {
+        "id": "REQ-002",
+        "text": "Users can complete tasks.",
+        "category": "workflow",
+        "priority": "must"
+      }
+    ],
+    "nonFunctionalRequirements": ["No placeholders", "Production-safe errors"],
+    "dataModels": [],
+    "integrations": [],
+    "securityRequirements": ["Validate user input"],
+    "deploymentRequirements": ["Deploy a runnable production artifact"],
+    "monetizationRequirements": [],
+    "selectedTechnologyStack": "react-node",
+    "researchRequirements": ["Verify current React deployment practices"],
+    "runtimeRequirements": ["React browser runtime"],
+    "secondaryCapabilities": ["deployment"],
+    "intentConfidence": 0.99,
+    "canonicalInterpretation": "A team task tracker with task tracking and completion workflows.",
+    "contractDerivation": "prompt_deterministic"
+  },
+  "promptIntent": {
+    "ambiguous": false,
+    "primaryProductType": "website",
+    "clarificationQuestions": []
+  },
+  "researchRecord": {
+    "originalPrompt": "Build a task tracker dashboard where teams track tasks and complete tasks",
+    "productType": "website",
+    "selectedTechnologyStack": "react-node",
+    "queries": ["React task tracker production deployment"],
+    "sources": [{"url": "https://react.dev", "title": "React"}],
+    "decisions": [{"id": "RD-001", "decision": "Use React state for the validated fixture workflow."}],
+    "searchedAt": "2026-10-06T08:00:00.000Z"
+  },
+  "productPlan": {
+    "version": 1,
+    "title": "Task tracker production plan",
+    "overview": "Build and verify the task tracking and completion workflow.",
+    "productType": "website",
+    "selectedTechnologyStack": "react-node",
+    "architecture": {
+      "summary": "React browser UI with a Node-capable production stack and explicit deployment metadata.",
+      "workflows": ["Track tasks", "Complete tasks"],
+      "personas": ["Team member"],
+      "roles": ["member", "admin"],
+      "frontendModules": ["Task dashboard"],
+      "backendModules": ["Runtime boundary"],
+      "databaseModules": [],
+      "aiModules": [],
+      "integrationModules": [],
+      "authenticationDesign": "Authentication is not required for this fixture.",
+      "authorizationDesign": "Authorization is not required for this fixture.",
+      "billingDesign": "Billing is not required for this fixture.",
+      "deploymentDesign": "Deploy the validated React artifact using the canonical adapter metadata.",
+      "operationsDesign": "Verify the live browser product and operational status.",
+      "recoveryDesign": "Retain the immutable artifact version and SHA-256 checkpoint.",
+      "monetizationPlan": "No monetization requested."
+    },
+    "implementationSequence": ["T1"],
+    "tasks": [
+      {
+        "id": "T1",
+        "module": "Task dashboard",
+        "description": "Implement task tracking and completion behavior.",
+        "sequence": 1,
+        "dependencies": [],
+        "acceptanceCriteria": ["Tasks are visible and can be completed"],
+        "requirementIds": ["REQ-001", "REQ-002"],
+        "files": ["src/App.tsx", "src/main.tsx"],
+        "agent": "frontend",
+        "validations": ["behavioral task workflow test"]
+      }
+    ],
+    "requirementToTasks": {
+      "REQ-001": ["T1"],
+      "REQ-002": ["T1"]
+    },
+    "taskToFiles": {
+      "T1": ["src/App.tsx", "src/main.tsx"]
+    },
+    "taskToAgent": {
+      "T1": "frontend"
+    },
+    "taskToValidation": {
+      "T1": ["behavioral task workflow test"]
+    },
+    "researchDecisionIds": ["RD-001"]
+  },
+  "agentCoordination": {
+    "version": 1,
+    "projectId": 9001,
+    "productType": "website",
+    "selectedTechnologyStack": "react-node",
+    "planTitle": "Task tracker production plan",
+    "requirementIds": ["REQ-001", "REQ-002"],
+    "researchDecisionIds": ["RD-001"],
+    "taskStates": {
+      "T1": {
+        "taskId": "T1",
+        "ownerAgent": "frontend",
+        "requirementIds": ["REQ-001", "REQ-002"],
+        "dependencies": [],
+        "ownedFiles": ["src/App.tsx", "src/main.tsx"],
+        "validations": ["behavioral task workflow test"],
+        "status": "completed",
+        "attempts": 1,
+        "lastError": null,
+        "outputFiles": ["src/App.tsx", "src/main.tsx"]
+      }
+    },
+    "fileOwners": {
+      "src/App.tsx": "T1",
+      "src/main.tsx": "T1"
+    },
+    "events": [
+      {
+        "at": "2026-10-06T08:00:00.000Z",
+        "agent": "frontend",
+        "type": "complete",
+        "taskId": "T1",
+        "detail": "Task workflow implemented and validated."
+      }
+    ],
+    "updatedAt": "2026-10-06T08:00:00.000Z"
+  },
+  "requirementManifest": {
+    "version": 1,
+    "revision": 1,
+    "productType": "website",
+    "selectedTechnologyStack": "react-node",
+    "originalPrompt": "Build a task tracker dashboard where teams track tasks and complete tasks",
+    "createdAt": "2026-10-06T08:00:00.000Z",
+    "updatedAt": "2026-10-06T08:00:00.000Z",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "text": "Users can track tasks.",
+        "priority": "must",
+        "category": "workflow",
+        "source": "canonical_product_contract",
+        "sourceField": "functionalRequirements",
+        "taskIds": ["T1"],
+        "files": ["src/App.tsx", "src/main.tsx"],
+        "tests": ["src/__tests__/task-tracker.test.ts"],
+        "validations": ["behavioral task workflow test"],
+        "implementationHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "validationEvidence": [{"stage": "isolated", "passed": true, "at": "2026-10-06T08:00:00.000Z", "errors": []}],
+        "deploymentEvidence": [],
+        "status": "validated",
+        "unresolvedReason": null
+      },
+      {
+        "id": "REQ-002",
+        "text": "Users can complete tasks.",
+        "priority": "must",
+        "category": "workflow",
+        "source": "canonical_product_contract",
+        "sourceField": "functionalRequirements",
+        "taskIds": ["T1"],
+        "files": ["src/App.tsx", "src/main.tsx"],
+        "tests": ["src/__tests__/task-tracker.test.ts"],
+        "validations": ["behavioral task workflow test"],
+        "implementationHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "validationEvidence": [{"stage": "isolated", "passed": true, "at": "2026-10-06T08:00:00.000Z", "errors": []}],
+        "deploymentEvidence": [],
+        "status": "validated",
+        "unresolvedReason": null
+      }
+    ],
+    "changes": [],
+    "unresolvedMustHaveIds": []
+  }
+}

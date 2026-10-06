@@ -5,7 +5,9 @@ on:
   push:
     branches:
       - cursor/fix-operational-urgency-5e66
+      - composio-capability-security
     paths:
+      - package.json
       - .github/lockfile-parts/**
       - .github/workflows/assemble-lockfile.yml
 
@@ -17,7 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Decode rest part bundles
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Decode legacy part bundles when present
         run: |
           set -euo pipefail
           cd .github/lockfile-parts
@@ -29,19 +33,35 @@ jobs:
               base64 -d "$f" | tar -xzf - || true
             done
           fi
-          ls part-[0-9][0-9] | wc -l
-      - name: Assemble package-lock.json from parts
+      - name: Regenerate lockfile from package manifest
+        if: github.ref_name == 'composio-capability-security'
+        run: |
+          set -euo pipefail
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --omit=dev --audit-level=moderate
+      - name: Reassemble legacy lockfile
+        if: github.ref_name != 'composio-capability-security'
         run: |
           set -euo pipefail
           cat .github/lockfile-parts/part-[0-9][0-9] > package-lock.json
-          SIZE=$(wc -c < package-lock.json)
-          echo "assembled size=$SIZE"
-          test "$SIZE" -eq 358193
-      - name: Commit restored lockfile
+      - name: Validate and synchronize recovery parts
         run: |
+          set -euo pipefail
+          node -e 'JSON.parse(require("fs").readFileSync("package-lock.json", "utf8")); console.log("package-lock.json is valid JSON")'
+          rm -f .github/lockfile-parts/part-[0-9][0-9]
+          split -b 12000 -d -a 2 package-lock.json .github/lockfile-parts/part-
+          cat .github/lockfile-parts/part-[0-9][0-9] | cmp -s - package-lock.json
+          echo "lockfile size=$(wc -c < package-lock.json)"
+      - name: Commit synchronized lockfile
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git diff --staged --quiet && echo "No changes" && exit 0
-          git commit -m "fix: restore package-lock.json (was 1-byte stub breaking npm ci in CI)"
-          git push
+          git add package-lock.json .github/lockfile-parts
+          if git diff --staged --quiet; then
+            echo "Lockfile already synchronized"
+            exit 0
+          fi
+          git commit -m "security: synchronize patched dependency lockfile"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
