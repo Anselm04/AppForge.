@@ -6,14 +6,20 @@ export const authSignupRouter = Router();
 
 function safeNext(value: unknown): string {
   if (typeof value !== "string") return "/";
-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+  return value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("\\")
     ? value
     : "/";
 }
 
 authSignupRouter.post("/signup", async (req, res) => {
-  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const email =
+    typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+  const password =
+    typeof req.body?.password === "string" ? req.body.password : "";
   const next = safeNext(req.body?.next);
 
   if (!email || !email.includes("@") || password.length < 8) {
@@ -28,7 +34,11 @@ authSignupRouter.post("/signup", async (req, res) => {
   const redirectTo = `${origin}/login?next=${encodeURIComponent(next)}`;
 
   try {
-    const result = await createSignupConfirmation({ email, password, redirectTo });
+    const result = await createSignupConfirmation({
+      email,
+      password,
+      redirectTo,
+    });
     res.setHeader("Cache-Control", "no-store");
     return res.status(202).json({
       user: { id: result.userId, email },
@@ -38,7 +48,8 @@ authSignupRouter.post("/signup", async (req, res) => {
     logger.error({ error }, "signup_confirmation_delivery_failed");
     res.setHeader("Cache-Control", "no-store");
     return res.status(503).json({
-      error: "We could not send your confirmation email. Please try again shortly.",
+      error:
+        "We could not send your confirmation email. Please try again shortly.",
       code: "CONFIRMATION_DELIVERY_FAILED",
     });
   }
