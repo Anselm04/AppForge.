@@ -102,7 +102,7 @@ jobs:
           }
 
           if [ "$action" = "full" ]; then
-            password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AZ')Aa1!"
+            password="Gate1-$(openssl rand -hex 24)-Aa1"
             echo "::add-mask::$password"
 
             base_email="$BASE_EMAIL"
