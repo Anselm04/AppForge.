@@ -140,7 +140,9 @@ router.get("/integrations", (_req: Request, res: Response) => {
 
 function safeNext(value: unknown): string {
   if (typeof value !== "string") return "/";
-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+  return value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("\\")
     ? value
     : "/";
 }
@@ -160,8 +162,11 @@ router.post("/auth-signup", async (req: Request, res: Response) => {
   }
 
   const email =
-    typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-  const password = typeof req.body?.password === "string" ? req.body.password : "";
+    typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+  const password =
+    typeof req.body?.password === "string" ? req.body.password : "";
   const next = safeNext(req.body?.next);
 
   if (!email || !email.includes("@") || password.length < 8) {
@@ -175,16 +180,23 @@ router.post("/auth-signup", async (req: Request, res: Response) => {
   const redirectTo = `${origin}/login?next=${encodeURIComponent(next)}`;
 
   try {
-    const result = await createSignupConfirmation({ email, password, redirectTo });
+    const result = await createSignupConfirmation({
+      email,
+      password,
+      redirectTo,
+    });
     return res.status(202).json({
       user: { id: result.userId, email },
       confirmationSent: true,
     });
   } catch (error) {
     logger.error({ error }, "signup_confirmation_delivery_failed");
-    incrementOperationalMetric("appforge_auth_confirmation_delivery_failures_total");
+    incrementOperationalMetric(
+      "appforge_auth_confirmation_delivery_failures_total",
+    );
     return res.status(503).json({
-      error: "We could not send your confirmation email. Please try again shortly.",
+      error:
+        "We could not send your confirmation email. Please try again shortly.",
       code: "CONFIRMATION_DELIVERY_FAILED",
     });
   }
