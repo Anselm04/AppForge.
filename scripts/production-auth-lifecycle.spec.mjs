@@ -38,9 +38,10 @@ async function login(page, timeout = 60_000) {
     waitUntil: "networkidle",
     timeout,
   });
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/^password/i).fill(password);
-  await page.getByRole("button", { name: /log in|sign in/i }).click();
+  const form = page.locator("form");
+  await form.getByLabel(/email/i).fill(email);
+  await form.getByLabel(/^password/i).fill(password);
+  await form.getByRole("button", { name: /log in|sign in/i }).click();
   await page.waitForURL(`${baseUrl}/account`, { timeout });
   await expectLoggedIn(page);
 }
@@ -75,10 +76,11 @@ test("requests a real production signup confirmation email", async ({ page }) =>
     timeout: 60_000,
   });
 
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/^password/i).fill(password);
-  await page.getByLabel(/confirm/i).fill(password);
-  await page.getByRole("button", { name: /create|sign up|signup/i }).click();
+  const form = page.locator("form");
+  await form.getByLabel(/email/i).fill(email);
+  await form.getByLabel(/^password/i).fill(password);
+  await form.getByLabel(/confirm/i).fill(password);
+  await form.getByRole("button", { name: /create|sign up|signup/i }).click();
 
   await expect(
     page.getByText(/check.*email|email.*confirm|confirmation/i).first(),
