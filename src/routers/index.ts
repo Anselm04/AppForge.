@@ -134,7 +134,9 @@ export const appRouter = router({
       }),
     me: publicProcedure.query((opts) => {
       const user = opts.ctx.user;
-      if (!user || !hasValidLoginMfa(opts.ctx.req, user.supabaseUid)) return null;
+      if (!user || !hasValidLoginMfa(opts.ctx.req, user.supabaseUid)) {
+        return null;
+      }
       const email = (user.email ?? "").trim().toLowerCase();
       return {
         id: user.id,
