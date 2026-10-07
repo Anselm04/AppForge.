@@ -40,6 +40,8 @@ export type CertificationRequirement =
   | "behavior"
   | "runtime"
   | "security"
+  | "auth_lifecycle"
+  | "tenant_isolation"
   | "deployment"
   | "browser"
   | "health"
@@ -74,6 +76,36 @@ function monetizationRequested(contract: ProductContract): boolean {
   );
 }
 
+function securityRequirementText(contract: ProductContract): string {
+  return [
+    ...contract.securityRequirements,
+    ...contract.functionalRequirements
+      .filter((item) => item.category === "security")
+      .map((item) => item.text),
+  ]
+    .join("\n")
+    .toLowerCase();
+}
+
+function authLifecycleRequested(contract: ProductContract): boolean {
+  return (
+    contract.secondaryCapabilities.includes("authentication") ||
+    /\b(auth|authentication|login|session|oauth|sso|jwt|access control)\b/i.test(
+      securityRequirementText(contract),
+    )
+  );
+}
+
+function tenantIsolationRequested(contract: ProductContract): boolean {
+  return (
+    contract.secondaryCapabilities.includes("teams") ||
+    contract.userRoles.length > 1 ||
+    /\b(tenant|organization|organisation|workspace|ownership|role[- ]based|rbac)\b/i.test(
+      securityRequirementText(contract),
+    )
+  );
+}
+
 function verificationModeFor(
   contract: ProductContract,
 ): "browser" | "health" | "native" {
@@ -98,6 +130,12 @@ function missingForProduction(
   if (!evidence.behavioralTestsVerified) missing.push("behavior");
   if (!evidence.runtimeVerified) missing.push("runtime");
   if (!evidence.securityVerified) missing.push("security");
+  if (authLifecycleRequested(contract) && !evidence.securityVerified) {
+    missing.push("auth_lifecycle");
+  }
+  if (tenantIsolationRequested(contract) && !evidence.securityVerified) {
+    missing.push("tenant_isolation");
+  }
   if (!evidence.deploymentVerified) missing.push("deployment");
   if (verificationMode === "browser" && evidence.browserVerified !== true) {
     missing.push("browser");
@@ -275,10 +313,20 @@ export function hasVerifiedMonetizationEvidence(
       return false;
     }
     const payload = event.payload as Record<string, unknown>;
+    if (payload.verified !== true) return false;
+
+    const hasDetailedLifecycleEvidence =
+      "configured" in payload ||
+      "providerVerified" in payload ||
+      "state" in payload;
+    if (!hasDetailedLifecycleEvidence) {
+      return true;
+    }
+
     return (
-      payload.verified === true ||
-      payload.status === "verified" ||
-      payload.state === "verified"
+      payload.configured === true &&
+      payload.providerVerified === true &&
+      payload.state === "connected"
     );
   });
 }
