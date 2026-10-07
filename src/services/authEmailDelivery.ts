@@ -5,6 +5,8 @@ export type SignupConfirmationInput = {
   email: string;
   password: string;
   redirectTo: string;
+  fullName: string;
+  phone: string;
 };
 
 type ConfirmationLink = {
@@ -53,7 +55,14 @@ async function generateSupabaseSignupLink(
     type: "signup",
     email: input.email,
     password: input.password,
-    options: { redirectTo: input.redirectTo },
+    options: {
+      redirectTo: input.redirectTo,
+      data: {
+        full_name: input.fullName,
+        name: input.fullName,
+        phone: input.phone,
+      },
+    },
   });
   if (error) throw error;
 
