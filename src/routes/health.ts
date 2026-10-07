@@ -114,10 +114,6 @@ router.get("/ready", async (_req: Request, res: Response) => {
   return res.status(200).json({ status: "ok", ready: true });
 });
 
-// Keep the public readiness endpoint deliberately coarse in production. The
-// old response exposed which security/communications/monitoring integrations
-// were configured, giving unauthenticated callers a useful map of deployment
-// gaps. Detailed integration status belongs behind the authenticated admin UI.
 router.get("/integrations", (_req: Request, res: Response) => {
   const summary = summarizeTeamIntegrations();
   setNoStoreHeaders(res);
@@ -147,10 +143,12 @@ function safeNext(value: unknown): string {
     : "/";
 }
 
-// Public signup confirmation delivery lives on the only pre-authenticated API
-// router in the current server composition. CSRF/global abuse controls still run
-// before this router. The endpoint itself fails closed unless startup readiness,
-// Supabase service-role link generation and Twilio delivery all succeed.
+function normalizePhone(value: unknown): string {
+  const phone =
+    typeof value === "string" ? value.trim().replace(/[\s()-]/g, "") : "";
+  return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : "";
+}
+
 router.post("/auth-signup", async (req: Request, res: Response) => {
   setNoStoreHeaders(res);
   const startup = getStartupReadiness();
@@ -167,11 +165,22 @@ router.post("/auth-signup", async (req: Request, res: Response) => {
       : "";
   const password =
     typeof req.body?.password === "string" ? req.body.password : "";
+  const fullName =
+    typeof req.body?.fullName === "string" ? req.body.fullName.trim() : "";
+  const phone = normalizePhone(req.body?.phone);
   const next = safeNext(req.body?.next);
 
-  if (!email || !email.includes("@") || password.length < 8) {
+  if (
+    !email ||
+    !email.includes("@") ||
+    password.length < 8 ||
+    fullName.length < 2 ||
+    fullName.length > 100 ||
+    !phone
+  ) {
     return res.status(400).json({
-      error: "A valid email and password of at least 8 characters are required.",
+      error:
+        "A name, valid email, mobile number with country code, and password of at least 8 characters are required.",
       code: "INVALID_SIGNUP_INPUT",
     });
   }
@@ -184,6 +193,8 @@ router.post("/auth-signup", async (req: Request, res: Response) => {
       email,
       password,
       redirectTo,
+      fullName,
+      phone,
     });
     return res.status(202).json({
       user: { id: result.userId, email },
