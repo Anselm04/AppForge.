@@ -19,23 +19,37 @@ describe("AppForge Stripe ownership in a shared Stripe account", () => {
   it("fails closed when an AppForge marker carries an unconfigured standard price", () => {
     expect(
       classifyAppForgeSubscription(
-        { product_line: "appforge", tier: "starter" },
+        { product_line: "appforge", tier: "starter", userId: "42" },
         false,
       ),
     ).toBe("invalid_appforge");
   });
 
+  it("fails closed when explicitly marked AppForge metadata has no valid user identity", () => {
+    expect(
+      classifyAppForgeSubscription(
+        { product_line: "appforge", tier: "starter" },
+        true,
+      ),
+    ).toBe("invalid_appforge");
+    expect(() =>
+      isAppForgeCreditMetadata({ product_line: "appforge", credits: "50" }),
+    ).toThrow("missing a valid userId");
+  });
+
   it("permits explicitly marked custom AppForge subscriptions", () => {
     expect(
       classifyAppForgeSubscription(
-        { product_line: "appforge", tier: "custom" },
+        { product_line: "appforge", tier: "custom", userId: "42" },
         false,
       ),
     ).toBe("appforge");
   });
 
-  it("requires the AppForge product namespace for credit fulfillment", () => {
-    expect(isAppForgeCreditMetadata({ product_line: "appforge" })).toBe(true);
+  it("requires the AppForge product namespace and user identity for credit fulfillment", () => {
+    expect(
+      isAppForgeCreditMetadata({ product_line: "appforge", userId: "42" }),
+    ).toBe(true);
     expect(isAppForgeCreditMetadata({ product_line: "other" })).toBe(false);
     expect(isAppForgeCreditMetadata({})).toBe(false);
   });

@@ -285,7 +285,7 @@ describe("delayed Stripe subscription events", () => {
     });
     mocks.refund.mockResolvedValue({ purchaseMissing: true, skipped: true });
     mocks.payment.mockResolvedValue({
-      metadata: { product_line: "appforge", credits: "50" },
+      metadata: { product_line: "appforge", userId: "42", credits: "50" },
     });
     const res = await deliver("charge.refunded", {
       id: "ch_paid",
