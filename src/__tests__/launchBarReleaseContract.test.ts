@@ -59,9 +59,23 @@ describe("AppForge launch bar release contract", () => {
 
     expect(journey).toContain("name: Production Full Customer Journey");
     expect(journey).toContain("Run the real production customer journey");
+
     expect(auth).toContain("name: Production Auth Lifecycle");
+    expect(auth).toContain("/gate1-auth full ");
+    expect(auth).not.toContain(
+      "request-confirmation\n          - complete-lifecycle",
+    );
     expect(auth).toContain("ten logout/relogin boundaries");
+
     expect(adminMfa).toContain("name: Production Admin MFA");
+    expect(adminMfa).toContain("DATABASE_URL");
+    expect(adminMfa).toContain("FLY_API_TOKEN");
+    expect(adminMfa).toContain("admin_mfa_verify");
+    expect(adminMfa).toContain("approved");
+    expect(adminMfa).toContain("created_at");
+    expect(adminMfa).toContain("GH_SHA");
+    expect(adminMfa).toContain("evidence_started_at");
+
     expect(databaseRecovery).toContain("name: Production Database Recovery");
     expect(gate).toContain("REQUIRED_CUSTOMER_JOURNEY_PASSES: 3");
     expect(gate).toContain("Production Full Customer Journey");

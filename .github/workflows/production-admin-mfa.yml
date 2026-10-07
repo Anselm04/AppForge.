@@ -2,64 +2,114 @@ name: Production Admin MFA
 
 on:
   workflow_dispatch:
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-admin-mfa-challenge-gate
-  cancel-in-progress: false
+  group: production-admin-mfa-proof
+  cancel-in-progress: true
 
 jobs:
-  admin-mfa-challenge:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.issue.pull_request &&
-        github.event.comment.user.login == github.repository_owner &&
-        github.event.comment.body == '/gate1-admin-mfa request'
-      )
-    name: Gate 1 owner admin SMS challenge
+  admin-mfa-proof:
+    name: Verify completed owner MFA for exact production SHA
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: "22"
-          cache: npm
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
 
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Install browser verifier
-        run: bash scripts/install-browser-verifier.sh
-
-      - name: Install Chromium
-        run: npx playwright install chromium
-
-      - name: Request real production admin SMS challenge
+      - name: Verify exact release is live before accepting MFA evidence
         env:
-          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
-          APPFORGE_ADMIN_MFA_PHASE: request
-          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
-          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
-        run: npx playwright test scripts/production-admin-mfa.spec.mjs --reporter=line
-
-      - name: Record secure verification boundary
-        if: always()
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
         run: |
-          cat <<'EOF'
-          This workflow proves the live AppForge admin challenge asks Twilio
-          Verify to send an SMS to the fixed server-side owner phone.
+          set -euo pipefail
+          test -n "$FLY_API_TOKEN" || {
+            echo "FLY_API_TOKEN is required to bind MFA proof to the live release."
+            exit 1
+          }
 
-          The real SMS code is deliberately not accepted as a workflow input,
-          secret, artifact, log value, or repository value. Completing the live
-          verification phase requires a secure interactive session where the
-          owner enters the code received on the physical phone.
+          APP="appforge-unfurling-moon-9058"
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started_count="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+          started_shas="$(printf '%s' "$machines_json" | jq -r '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started") | (.image_ref.labels.GH_SHA // "unknown")] | unique | join(",")')"
+
+          if [ "$started_count" -lt 1 ] || [ "$started_shas" != "$GITHUB_SHA" ]; then
+            echo "Live AppForge is not exclusively serving exact SHA $GITHUB_SHA; refusing MFA proof."
+            exit 1
+          fi
+
+          evidence_started_at="$(date +%s)"
+          echo "evidence_started_at=$evidence_started_at" >> "$GITHUB_ENV"
+          echo "Exact release $GITHUB_SHA is live. Waiting for a fresh physical owner MFA completion."
+
+      - name: Wait for fresh durable approved MFA evidence
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EVIDENCE_STARTED_EPOCH: ${{ env.evidence_started_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL" || {
+            echo "DATABASE_URL is required to prove completed production admin MFA."
+            exit 1
+          }
+          test -n "$EVIDENCE_STARTED_EPOCH" || {
+            echo "evidence_started_at is missing; refusing MFA certification."
+            exit 1
+          }
+
+          echo "Complete the live AppForge owner SMS MFA now. The SMS code stays on the owner's device and is never sent to CI."
+
+          for attempt in $(seq 1 80); do
+            count="$(docker run --rm \
+              -e DATABASE_URL="$DATABASE_URL" \
+              -e EVIDENCE_STARTED_EPOCH="$EVIDENCE_STARTED_EPOCH" \
+              postgres:17-alpine \
+              sh -ceu '
+                psql "$DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 \
+                  -v started_epoch="$EVIDENCE_STARTED_EPOCH" \
+                  -c "SELECT COUNT(*) FROM compliance_records WHERE record_type = '\''security_incident'\'' AND details->>'\''action'\'' = '\''admin_mfa_verify'\'' AND details->>'\''outcome'\'' = '\''approved'\'' AND created_at >= to_timestamp(:'\''started_epoch'\'');"
+              ' | tr -d '[:space:]')"
+
+            if [[ "$count" =~ ^[0-9]+$ ]] && [ "$count" -ge 1 ]; then
+              echo "Fresh approved owner MFA evidence found."
+              exit 0
+            fi
+
+            sleep 15
+          done
+
+          echo "No fresh completed owner MFA verification was recorded during this exact-release proof window."
+          exit 1
+
+      - name: Reconfirm exact release after MFA completion
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="appforge-unfurling-moon-9058"
+          machines_json="$(flyctl machines list --app "$APP" --json)"
+          started_count="$(printf '%s' "$machines_json" | jq '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started")] | length')"
+          started_shas="$(printf '%s' "$machines_json" | jq -r '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started") | (.image_ref.labels.GH_SHA // "unknown")] | unique | join(",")')"
+
+          if [ "$started_count" -lt 1 ] || [ "$started_shas" != "$GITHUB_SHA" ]; then
+            echo "Production changed while MFA evidence was being collected; refusing certification."
+            exit 1
+          fi
+
+          echo "Completed owner MFA is proven while exact release $GITHUB_SHA remains live."
+
+      - name: Record certification scope
+        run: |
+          cat <<'EOF'
+          This workflow never receives, stores, or logs the owner's SMS code.
+          It first proves the exact GitHub SHA is live, then requires a brand-new
+          server-side approved Twilio Verify audit record created after that proof
+          window starts, and finally rechecks that the same exact SHA is still live.
+          A challenge request by itself can never satisfy launch certification.
           EOF

@@ -3,15 +3,8 @@ name: Production Auth Lifecycle
 on:
   workflow_dispatch:
     inputs:
-      phase:
-        description: "Gate 1 phase."
-        required: true
-        type: choice
-        options:
-          - request-confirmation
-          - complete-lifecycle
-      signup_email:
-        description: "Fresh real mailbox address for a single production signup test"
+      batch_tag:
+        description: "Unique lowercase batch tag for the real production auth lifecycle"
         required: true
         type: string
   issue_comment:
@@ -31,13 +24,9 @@ jobs:
       (
         github.event.issue.pull_request &&
         github.event.comment.user.login == github.repository_owner &&
-        (
-          startsWith(github.event.comment.body, '/gate1-auth request ') ||
-          startsWith(github.event.comment.body, '/gate1-auth complete ') ||
-          startsWith(github.event.comment.body, '/gate1-auth full ')
-        )
+        startsWith(github.event.comment.body, '/gate1-auth full ')
       )
-    name: Gate 1 real signup-confirm-logout-relogin
+    name: Gate 1 full real signup-confirm-logout-relogin
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 90
@@ -58,14 +47,12 @@ jobs:
       - name: Install Chromium
         run: npx playwright install chromium
 
-      - name: Run Gate 1 against real production
+      - name: Run full Gate 1 against real production
         env:
           EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_PHASE: ${{ inputs.phase }}
-          DISPATCH_EMAIL: ${{ inputs.signup_email }}
+          DISPATCH_TAG: ${{ inputs.batch_tag }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           BASE_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
-          STORED_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
         shell: bash
         run: |
@@ -86,95 +73,67 @@ jobs:
           }
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            test -n "$DISPATCH_PHASE" || { echo "Missing dispatch phase"; exit 1; }
-            test -n "$DISPATCH_EMAIL" || { echo "A fresh production signup mailbox is required"; exit 1; }
-            test -n "$STORED_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
-            run_one "$DISPATCH_PHASE" "$DISPATCH_EMAIL" "$STORED_PASSWORD" "1/1"
-            exit 0
+            prefix="$DISPATCH_TAG"
+          else
+            read -r command action prefix extra <<<"$COMMENT_BODY"
+            test "$command" = "/gate1-auth" || { echo "Invalid Gate 1 command"; exit 1; }
+            test "$action" = "full" || { echo "Only the full auth lifecycle can create launch evidence"; exit 1; }
+            test -z "${extra:-}" || { echo "Gate 1 full command accepts exactly one batch tag"; exit 1; }
           fi
 
-          read -r command action prefix extra <<<"$COMMENT_BODY"
-          test "$command" = "/gate1-auth" || { echo "Invalid Gate 1 command"; exit 1; }
-          test -z "${extra:-}" || { echo "Gate 1 command accepts exactly one batch tag"; exit 1; }
           [[ "$prefix" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]] || {
             echo "Batch tag must contain only lowercase letters, digits, and hyphens (max 20)."
             exit 1
           }
 
-          if [ "$action" = "full" ]; then
-            password="Gate1-$(openssl rand -hex 24)-Aa1"
-            echo "::add-mask::$password"
+          password="Gate1-$(openssl rand -hex 24)-Aa1"
+          echo "::add-mask::$password"
 
-            base_email="$BASE_EMAIL"
-            if [ -z "$base_email" ]; then
-              base_email="$(git log -1 --format='%ae')"
-            fi
-            localpart="${base_email%@*}"
-            domain="${base_email##*@}"
-            case "${domain,,}" in
-              gmail.com|googlemail.com) ;;
-              *)
-                echo "Gate 1 full mode needs a Gmail canary mailbox or a Gmail main-commit author address."
-                exit 1
-                ;;
-            esac
-
-            alias_email="${localpart}+gate1-${prefix}@${domain}"
-            echo "::add-mask::$alias_email"
-
-            run_one "request-confirmation" "$alias_email" "$password" "signup request"
-
-            echo "Waiting up to 20 minutes for the real confirmation link to be consumed."
-            confirmed=0
-            for attempt in $(seq 1 40); do
-              if run_one "probe-confirmed" "$alias_email" "$password" "confirmation probe $attempt/40"; then
-                confirmed=1
-                break
-              fi
-              sleep 30
-            done
-            test "$confirmed" = "1" || {
-              echo "Real email confirmation was not completed within 20 minutes."
-              exit 1
-            }
-
-            run_one "complete-lifecycle" "$alias_email" "$password" "full lifecycle"
-            exit 0
+          base_email="$BASE_EMAIL"
+          if [ -z "$base_email" ]; then
+            base_email="$(git log -1 --format='%ae')"
           fi
-
-          test -n "$BASE_EMAIL" || { echo "Missing APPFORGE_CANARY_EMAIL production secret"; exit 1; }
-          test -n "$STORED_PASSWORD" || { echo "Missing APPFORGE_CANARY_PASSWORD production secret"; exit 1; }
-
-          case "$action" in
-            request) phase="request-confirmation" ;;
-            complete) phase="complete-lifecycle" ;;
-            *) echo "Action must be request, complete, or full"; exit 1 ;;
-          esac
-
-          localpart="${BASE_EMAIL%@*}"
-          domain="${BASE_EMAIL##*@}"
+          localpart="${base_email%@*}"
+          domain="${base_email##*@}"
           case "${domain,,}" in
             gmail.com|googlemail.com) ;;
             *)
-              echo "10-account batch mode requires the protected canary mailbox to support Gmail plus aliases."
+              echo "Gate 1 full mode needs a Gmail canary mailbox or a Gmail main-commit author address."
               exit 1
               ;;
           esac
 
-          for n in $(seq -w 1 10); do
-            alias_email="${localpart}+gate1-${prefix}-${n}@${domain}"
-            run_one "$phase" "$alias_email" "$STORED_PASSWORD" "$n/10"
+          alias_email="${localpart}+gate1-${prefix}@${domain}"
+          echo "::add-mask::$alias_email"
+
+          run_one "request-confirmation" "$alias_email" "$password" "signup request"
+
+          echo "Waiting up to 20 minutes for the real confirmation link to be consumed."
+          confirmed=0
+          for attempt in $(seq 1 40); do
+            if run_one "probe-confirmed" "$alias_email" "$password" "confirmation probe $attempt/40"; then
+              confirmed=1
+              break
+            fi
+            sleep 30
           done
+          test "$confirmed" = "1" || {
+            echo "Real email confirmation was not completed within 20 minutes."
+            exit 1
+          }
+
+          run_one "complete-lifecycle" "$alias_email" "$password" "full lifecycle"
 
       - name: Record Gate 1 scope
         if: always()
         shell: bash
         run: |
           cat <<'EOF'
-          Gate 1 proves a real production signup requests a real confirmation email.
-          Full mode keeps a one-time masked password only in memory, waits for the
-          real one-time Supabase confirmation link to be consumed out-of-band, then
-          proves normal login, ten logout/relogin boundaries, hard reload continuity,
+          A successful Production Auth Lifecycle run is full launch evidence only.
+          It requests a real production signup confirmation, waits for the real
+          one-time Supabase confirmation link to be consumed out-of-band, then proves
+          normal login, ten logout/relogin boundaries, hard reload continuity,
           forced HttpOnly-cookie session recovery, anonymous protected-route denial,
-          and ten fresh-browser-context login/recovery cycles.
+          and ten fresh-browser-context login/recovery cycles. Partial request-only
+          or login-only runs cannot produce this workflow's successful evidence.
           EOF
