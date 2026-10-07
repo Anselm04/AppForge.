@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "正在确认你的账户并准备 AppForge 访问…",
+    "forgot": "忘记密码？",
+    "oauthUnavailable": "该登录方式暂时不可用，请改用邮箱。",
+    "invalidCredentials": "该邮箱与密码组合无法识别。",
+    "emailNotConfirmed": "请先确认你的邮箱地址。在收件箱中找到 AppForge 验证链接，然后重新登录。",
+    "rateLimited": "登录尝试次数过多。请稍候再试。",
     "title": "欢迎回来",
     "subtitle": "登录后即可生成应用并管理你的工作区。",
     "email": "邮箱",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} 使用企业 SSO（{provider}）。"
   },
   "signup": {
+    "strength": "密码强度",
+    "verifyNote": "为了安全，我们会在你首次登录前发送验证链接。如果几分钟内未收到，请检查垃圾邮件文件夹。",
     "title": "创建账号",
     "subtitle": "开始用 AI 构建全栈应用。",
     "email": "邮箱",
     "password": "密码",
     "confirm": "确认密码",
-    "minChars": "至少 6 个字符。",
+    "minChars": "至少 8 个字符。",
     "submit": "注册",
     "pending": "正在创建账号…",
     "failed": "注册失败。",
@@ -179,7 +187,23 @@
     "title": "关于 AppForge",
     "body": "AppForge 是 AppForge 的 AI 应用构建器。Anselm Perkins 是创始人兼首席执行官，也是 AppForge 与 AppForge 的所有者。"
   },
+  "auth": {
+    "strengthWeak": "弱",
+    "strengthFair": "一般",
+    "strengthGood": "良好",
+    "strengthStrong": "强",
+    "checkLength": "8 个字符以上",
+    "checkMixed": "大小写字母",
+    "checkNumber": "数字",
+    "checkSymbol": "符号"
+  },
   "common": {
+    "orContinueWithEmail": "或使用邮箱继续",
+    "continueWithGoogle": "使用 Google 继续",
+    "continueWithGitHub": "使用 GitHub 继续",
+    "emailInvalid": "请输入有效的邮箱地址。",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
     "noResults": "未找到结果。",
     "loading": "加载中...",
     "save": "保存",

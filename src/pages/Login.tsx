@@ -2,12 +2,39 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { completeAuthRedirect, signIn } from "../lib/auth.js";
+import { isValidEmail, MIN_PASSWORD_LENGTH } from "../lib/passwordStrength.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
-import { LogoLockup } from "../components/brand/LogoMark.js";
+import { AuthShell } from "../components/auth/AuthShell.js";
+import { SocialAuthButtons } from "../components/auth/SocialAuthButtons.js";
 import { Button } from "../design-system/Button.js";
-import { GlassCard } from "../design-system/GlassCard.js";
 import { Input } from "../design-system/Input.js";
+
+const MIN_PASSWORD_LENGTH_LOCAL = MIN_PASSWORD_LENGTH;
+
+/**
+ * Turn a raw auth-provider failure into copy a person can act on. Verification
+ * failures are called out explicitly so an unconfirmed account is never shown a
+ * bare "sign-in failed" that hides the verification step.
+ */
+function describeSignInError(
+  error: unknown,
+  t: (key: string) => string,
+): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/not confirmed|confirm your email|email_not_confirmed/i.test(message)) {
+    return t("login.emailNotConfirmed");
+  }
+  if (
+    /invalid login credentials|invalid_grant|invalid password/i.test(message)
+  ) {
+    return t("login.invalidCredentials");
+  }
+  if (/rate limit|too many requests/i.test(message)) {
+    return t("login.rateLimited");
+  }
+  return message || t("login.failed");
+}
 
 function safeNext(value: string | null): string {
   if (
@@ -37,6 +64,20 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [completingConfirmation, setCompletingConfirmation] = useState(false);
+  const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>(
+    { email: false, password: false },
+  );
+
+  const emailError =
+    blurred.email && email.length > 0 && !isValidEmail(email)
+      ? t("common.emailInvalid")
+      : undefined;
+  const passwordError =
+    blurred.password &&
+    password.length > 0 &&
+    password.length < MIN_PASSWORD_LENGTH_LOCAL
+      ? t("signup.minChars")
+      : undefined;
 
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
@@ -73,11 +114,7 @@ export function Login() {
         if (!cancelled) navigate(next, { replace: true });
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Account confirmation could not be completed.",
-          );
+          setError(describeSignInError(err, t));
         }
       } finally {
         if (!cancelled) setCompletingConfirmation(false);
@@ -87,7 +124,7 @@ export function Login() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, next, queryClient]);
+  }, [navigate, next, queryClient, t]);
 
   useEffect(() => {
     if (me && !completingConfirmation) {
@@ -98,6 +135,10 @@ export function Login() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isValidEmail(email)) {
+      setBlurred((previous) => ({ ...previous, email: true }));
+      return;
+    }
     setPending(true);
     try {
       await signIn(email.trim(), password);
@@ -106,7 +147,7 @@ export function Login() {
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
       navigate(next, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("login.failed"));
+      setError(describeSignInError(err, t));
     } finally {
       setPending(false);
     }
@@ -119,107 +160,124 @@ export function Login() {
     window.location.href = `/api/sso/login?domain=${encodeURIComponent(domain)}&next=${encodeURIComponent(next)}`;
   };
 
+  const alertMessage =
+    error ||
+    (loginError === "sso_exchange_failed"
+      ? t("login.ssoFailed")
+      : loginError
+        ? t("login.failed")
+        : null);
+
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-16 bg-forge-mesh">
-      <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <Link to="/">
-            <LogoLockup size="sm" />
+    <AuthShell
+      title={t("login.title")}
+      subtitle={t("login.subtitle")}
+      footer={
+        <>
+          {t("login.newTo")}{" "}
+          <Link
+            to={`/signup?next=${encodeURIComponent(next)}`}
+            className="font-medium text-forge-cyan hover:underline"
+          >
+            {t("login.createAccount")}
+          </Link>
+        </>
+      }
+    >
+      {completingConfirmation && (
+        <p
+          role="status"
+          className="mb-5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-sm text-forge-cyan"
+        >
+          {t("login.confirming")}
+        </p>
+      )}
+
+      {alertMessage && (
+        <p
+          role="alert"
+          data-testid="login-error"
+          className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+        >
+          {alertMessage}
+        </p>
+      )}
+
+      <SocialAuthButtons next={next} />
+
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <Input
+          id="login-email"
+          label={t("login.email")}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoFocus
+          required
+          value={email}
+          error={emailError}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() =>
+            setBlurred((previous) => ({ ...previous, email: true }))
+          }
+        />
+        <Input
+          id="login-password"
+          label={t("login.password")}
+          type="password"
+          autoComplete="current-password"
+          required
+          minLength={MIN_PASSWORD_LENGTH_LOCAL}
+          value={password}
+          error={passwordError}
+          onChange={(e) => setPassword(e.target.value)}
+          onBlur={() =>
+            setBlurred((previous) => ({ ...previous, password: true }))
+          }
+          showPasswordLabel={t("common.showPassword")}
+          hidePasswordLabel={t("common.hidePassword")}
+        />
+        <div className="flex justify-end">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-forge-cyan hover:underline"
+          >
+            {t("login.forgot")}
           </Link>
         </div>
-        <div className="text-center mb-8">
-          <h1 className="forge-h2 text-forge-text-primary mb-2">
-            {t("login.title")}
-          </h1>
-          <p className="text-forge-text-muted">{t("login.subtitle")}</p>
-        </div>
-        <GlassCard hover={false} padding="lg">
-          {completingConfirmation && (
-            <p className="text-sm text-forge-cyan mb-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-2">
-              Confirming your account and preparing AppForge access…
-            </p>
-          )}
-          {(loginError || error) && (
-            <p className="text-sm text-amber-600 dark:text-amber-300 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
-              {error ||
-                (loginError === "sso_exchange_failed"
-                  ? t("login.ssoFailed")
-                  : t("login.failed"))}
-            </p>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Input
-              id="login-email"
-              label={t("login.email")}
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Input
-              id="login-password"
-              label={t("login.password")}
-              type="password"
-              autoComplete="current-password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-forge-cyan hover:underline font-medium"
-              >
-                Forgot password?
-              </Link>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              loading={pending || completingConfirmation}
-              disabled={
-                pending ||
-                completingConfirmation ||
-                !email.trim() ||
-                password.length < 6
-              }
-            >
-              {pending ? t("login.pending") : t("login.submit")}
-            </Button>
-          </form>
+        <Button
+          type="submit"
+          className="w-full"
+          loading={pending || completingConfirmation}
+          disabled={
+            pending ||
+            completingConfirmation ||
+            !email.trim() ||
+            password.length < MIN_PASSWORD_LENGTH_LOCAL
+          }
+        >
+          {pending ? t("login.pending") : t("login.submit")}
+        </Button>
+      </form>
 
-          {ssoInfo?.ssoAvailable && (
-            <div className="mt-6 pt-6 border-t border-forge-border">
-              <p className="text-sm text-forge-text-muted mb-3">
-                {t("login.ssoUses", {
-                  org: ssoInfo.orgName ?? "",
-                  provider: ssoInfo.provider?.toUpperCase() ?? "",
-                })}
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                onClick={startSso}
-              >
-                {t("login.signInWithSso")}
-              </Button>
-            </div>
-          )}
-
-          <p className="text-sm text-forge-text-muted mt-6 text-center">
-            {t("login.newTo")}{" "}
-            <Link
-              to={`/signup?next=${encodeURIComponent(next)}`}
-              className="text-forge-cyan hover:underline font-medium"
-            >
-              {t("login.createAccount")}
-            </Link>
+      {ssoInfo?.ssoAvailable && (
+        <div className="mt-6 border-t border-forge-border pt-6">
+          <p className="mb-3 text-sm text-forge-text-muted">
+            {t("login.ssoUses", {
+              org: ssoInfo.orgName ?? "",
+              provider: ssoInfo.provider?.toUpperCase() ?? "",
+            })}
           </p>
-        </GlassCard>
-      </div>
-    </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={startSso}
+          >
+            {t("login.signInWithSso")}
+          </Button>
+        </div>
+      )}
+    </AuthShell>
   );
 }

@@ -63,6 +63,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "Konto wird bestätigt und AppForge-Zugang vorbereitet…",
+    "forgot": "Passwort vergessen?",
+    "oauthUnavailable": "Dieser Anmeldedienst ist derzeit nicht verfügbar. Nutze stattdessen die E-Mail.",
+    "invalidCredentials": "Diese Kombination aus E-Mail und Passwort ist nicht bekannt.",
+    "emailNotConfirmed": "Bestätige zuerst deine E-Mail-Adresse. Suche den AppForge-Bestätigungslink in deinem Posteingang und melde dich dann erneut an.",
+    "rateLimited": "Zu viele Anmeldeversuche. Warte einen Moment und versuche es erneut.",
     "title": "Willkommen zurück",
     "subtitle": "Melden Sie sich an, um Apps zu erzeugen und Ihren Arbeitsbereich zu verwalten.",
     "email": "E-Mail",
@@ -74,12 +80,14 @@
     "createAccount": "Konto erstellen"
   },
   "signup": {
+    "strength": "Passwortstärke",
+    "verifyNote": "Zu deiner Sicherheit senden wir vor der ersten Anmeldung einen Bestätigungslink. Falls er nicht in wenigen Minuten ankommt, prüfe den Spam-Ordner.",
     "title": "Konto erstellen",
     "subtitle": "Beginnen Sie, Full-Stack-Apps mit KI zu bauen.",
     "email": "E-Mail",
     "password": "Passwort",
     "confirm": "Passwort bestätigen",
-    "minChars": "Mindestens 6 Zeichen.",
+    "minChars": "Mindestens 8 Zeichen.",
     "submit": "Registrieren",
     "pending": "Konto wird erstellt …",
     "failed": "Registrierung fehlgeschlagen.",
@@ -164,5 +172,23 @@
   "about": {
     "title": "Über AppForge",
     "body": "AppForge ist der KI-App-Builder von AppForge. Anselm Perkins ist Gründer & CEO und Inhaber von AppForge und AppForge."
+  },
+  "auth": {
+    "strengthWeak": "Schwach",
+    "strengthFair": "Mittel",
+    "strengthGood": "Gut",
+    "strengthStrong": "Stark",
+    "checkLength": "Mindestens 8 Zeichen",
+    "checkMixed": "Groß- und Kleinbuchstaben",
+    "checkNumber": "Eine Zahl",
+    "checkSymbol": "Ein Sonderzeichen"
+  },
+  "common": {
+    "orContinueWithEmail": "oder mit E-Mail fortfahren",
+    "continueWithGoogle": "Mit Google fortfahren",
+    "continueWithGitHub": "Mit GitHub fortfahren",
+    "emailInvalid": "Gib eine gültige E-Mail-Adresse ein.",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen"
   }
 }

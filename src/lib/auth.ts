@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { supabaseClient } from "./supabase-client";
+import { supabaseClient, type SocialSignInProvider } from "./supabase-client";
 import { supabase } from "./supabase";
 import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
@@ -157,7 +157,9 @@ async function syncServerSession(
     res = await post();
   }
   if (!res.ok) {
-    throw new Error(`Failed to establish secure browser session (${res.status})`);
+    throw new Error(
+      `Failed to establish secure browser session (${res.status})`,
+    );
   }
 }
 
@@ -412,6 +414,30 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   return session;
 }
 
+/** Identity providers the Supabase project actually has enabled. */
+export function listSocialSignInProviders(): Promise<SocialSignInProvider[]> {
+  return supabaseClient.listAuthProviders();
+}
+
+/**
+ * Begin a Google/GitHub sign-in. The provider callback returns to /login with
+ * tokens in the URL hash, which `completeAuthRedirect` then completes.
+ */
+export function startSocialSignIn(
+  provider: SocialSignInProvider,
+  next = "/",
+): void {
+  if (typeof window === "undefined") return;
+  const target =
+    next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+      ? next
+      : "/";
+  const redirectTo = `${window.location.origin}/login?next=${encodeURIComponent(target)}`;
+  window.location.assign(
+    supabaseClient.oauthAuthorizeUrl(provider, redirectTo),
+  );
+}
+
 export async function signUp(email: string, password: string, next = "/") {
   const result = await supabaseClient.signUp(email, password, next);
   if (result.error) throw new Error(result.error.message);
@@ -419,7 +445,10 @@ export async function signUp(email: string, password: string, next = "/") {
   if (session) {
     sessionGeneration += 1;
     saveSession(session);
-    await syncServerSessionBestEffort(session.accessToken!, result.refresh_token);
+    await syncServerSessionBestEffort(
+      session.accessToken!,
+      result.refresh_token,
+    );
   }
   return result;
 }

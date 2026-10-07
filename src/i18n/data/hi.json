@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "आपका खाता सत्यापित किया जा रहा है और AppForge पहुँच तैयार की जा रही है…",
+    "forgot": "पासवर्ड भूल गए?",
+    "oauthUnavailable": "वह साइन-इन प्रदाता अभी उपलब्ध नहीं है। ईमेल का उपयोग करें।",
+    "invalidCredentials": "यह ईमेल और पासवर्ड संयोजन पहचाना नहीं गया।",
+    "emailNotConfirmed": "पहले अपना ईमेल पता सत्यापित करें। अपने इनबॉक्स में AppForge सत्यापन लिंक देखें, फिर दोबारा साइन इन करें।",
+    "rateLimited": "बहुत अधिक साइन-इन प्रयास। थोड़ी देर प्रतीक्षा करें और पुनः प्रयास करें।",
     "title": "वापसी पर स्वागत है",
     "subtitle": "ऐप बनाने और अपना वर्कस्पेस प्रबंधित करने के लिए लॉग इन करें।",
     "email": "ईमेल",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} एंटरप्राइज SSO ({provider}) का उपयोग करता है।"
   },
   "signup": {
+    "strength": "पासवर्ड की मजबूती",
+    "verifyNote": "आपकी सुरक्षा के लिए पहले साइन-इन से पहले सत्यापन लिंक भेजा जाता है। कुछ मिनटों में न मिले तो स्पैम फ़ोल्डर देखें।",
     "title": "अपना खाता बनाएँ",
     "subtitle": "AI के साथ फुल-स्टैक ऐप बनाना शुरू करें।",
     "email": "ईमेल",
     "password": "पासवर्ड",
     "confirm": "पासवर्ड की पुष्टि करें",
-    "minChars": "कम से कम 6 अक्षर।",
+    "minChars": "कम से कम 8 अक्षर।",
     "submit": "साइन अप",
     "pending": "खाता बनाया जा रहा है...",
     "failed": "साइन अप विफल रहा।",
@@ -179,7 +187,23 @@
     "title": "About AppForge",
     "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
+  "auth": {
+    "strengthWeak": "कमज़ोर",
+    "strengthFair": "ठीक",
+    "strengthGood": "अच्छा",
+    "strengthStrong": "मज़बूत",
+    "checkLength": "8+ अक्षर",
+    "checkMixed": "ऊपरी और निचले अक्षर",
+    "checkNumber": "एक संख्या",
+    "checkSymbol": "एक प्रतीक"
+  },
   "common": {
+    "orContinueWithEmail": "या ईमेल से जारी रखें",
+    "continueWithGoogle": "Google से जारी रखें",
+    "continueWithGitHub": "GitHub से जारी रखें",
+    "emailInvalid": "मान्य ईमेल पता दर्ज करें।",
+    "showPassword": "पासवर्ड दिखाएँ",
+    "hidePassword": "पासवर्ड छिपाएँ",
     "noResults": "कोई परिणाम नहीं मिला।",
     "loading": "लोड हो रहा है...",
     "save": "सहेजें",

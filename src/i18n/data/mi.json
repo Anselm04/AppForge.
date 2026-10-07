@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "Kei te whakaū i tō pūkete me te whakarite i te urunga AppForge…",
+    "forgot": "Kua wareware i a koe tō kupuhipa?",
+    "oauthUnavailable": "Kāore tēnei ratonga takiuru e wātea i tēnei wā. Whakamahia te īmēra.",
+    "invalidCredentials": "Kāore e mōhiotia tēnei huinga īmēra me te kupuhipa.",
+    "emailNotConfirmed": "Whakaūngia tō wāhitau īmēra i te tuatahi. Rapua te hononga whakaū AppForge i tō pouaka, kātahi ka takiuru anō.",
+    "rateLimited": "He nui rawa ngā whakamātautau takiuru. Tatari mō te wā poto, kātahi ka whakamātau anō.",
     "title": "Nau mai anō",
     "subtitle": "Takiuru kia waihanga taupānga, kia whakahaere hoki tō wāhi mahi.",
     "email": "Īmēra",
@@ -78,12 +84,14 @@
     "ssoUses": "Ka whakamahi a {org} i te SSO hinonga ({provider})."
   },
   "signup": {
+    "strength": "Te kaha o te kupuhipa",
+    "verifyNote": "Mō tō haumarutanga ka tukua he hononga whakaū i mua i tō takiurutanga tuatahi. Ki te kore e tae mai i roto i ētahi meneti, tirohia te kōpaki mokowhiti.",
     "title": "Waihangatia tō pūkete",
     "subtitle": "Tīmata te hanga taupānga katoa mā te AI.",
     "email": "Īmēra",
     "password": "Kupuhipa",
     "confirm": "Whakaūngia te kupuhipa",
-    "minChars": "E 6 ngā pūāhua i te iti rawa.",
+    "minChars": "E 8 ngā pūāhua i te iti rawa.",
     "submit": "Rēhita",
     "pending": "Kei te waihanga pūkete...",
     "failed": "I rahua te rēhitatanga.",
@@ -179,7 +187,23 @@
     "title": "About AppForge",
     "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
+  "auth": {
+    "strengthWeak": "Ngoikore",
+    "strengthFair": "Āhua pai",
+    "strengthGood": "Pai",
+    "strengthStrong": "Kaha",
+    "checkLength": "8+ pūāhua",
+    "checkMixed": "Pūmatua me te pūriki",
+    "checkNumber": "He tau",
+    "checkSymbol": "He tohu"
+  },
   "common": {
+    "orContinueWithEmail": "me haere tonu mā te īmēra",
+    "continueWithGoogle": "Haere tonu mā Google",
+    "continueWithGitHub": "Haere tonu mā GitHub",
+    "emailInvalid": "Whakaurua he wāhitau īmēra whaimana.",
+    "showPassword": "Whakaatu kupuhipa",
+    "hidePassword": "Huna kupuhipa",
     "noResults": "Kāore he hua.",
     "loading": "Kei te uta...",
     "save": "Tiaki",

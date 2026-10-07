@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Sites marketing, landing pages et produits web."
   },
   "login": {
+    "confirming": "Confirmation de votre compte et préparation de l'accès à AppForge…",
+    "forgot": "Mot de passe oublié ?",
+    "oauthUnavailable": "Ce fournisseur de connexion est indisponible. Utilisez plutôt l'e-mail.",
+    "invalidCredentials": "Cette combinaison e-mail / mot de passe n'est pas reconnue.",
+    "emailNotConfirmed": "Confirmez d'abord votre adresse e-mail. Cherchez le lien de vérification AppForge dans votre boîte de réception, puis reconnectez-vous.",
+    "rateLimited": "Trop de tentatives de connexion. Patientez un instant et réessayez.",
     "title": "Bon retour",
     "subtitle": "Connectez-vous pour générer des apps et gérer votre espace.",
     "email": "E-mail",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} utilise le SSO entreprise ({provider})."
   },
   "signup": {
+    "strength": "Robustesse du mot de passe",
+    "verifyNote": "Pour votre sécurité, un lien de vérification est envoyé avant votre première connexion. S'il n'arrive pas en quelques minutes, vérifiez vos courriers indésirables.",
     "title": "Créez votre compte",
     "subtitle": "Commencez à créer des apps full-stack avec l'IA.",
     "email": "E-mail",
     "password": "Mot de passe",
     "confirm": "Confirmer le mot de passe",
-    "minChars": "Au moins 6 caractères.",
+    "minChars": "Au moins 8 caractères.",
     "submit": "S'inscrire",
     "pending": "Création du compte…",
     "failed": "Échec de l'inscription.",
@@ -179,7 +187,23 @@
     "title": "À propos d'AppForge",
     "body": "AppForge est le créateur d'apps IA de AppForge. Anselm Perkins en est le fondateur et PDG."
   },
+  "auth": {
+    "strengthWeak": "Faible",
+    "strengthFair": "Moyen",
+    "strengthGood": "Bon",
+    "strengthStrong": "Excellent",
+    "checkLength": "8 caractères ou plus",
+    "checkMixed": "Majuscules et minuscules",
+    "checkNumber": "Un chiffre",
+    "checkSymbol": "Un symbole"
+  },
   "common": {
+    "orContinueWithEmail": "ou continuez avec votre e-mail",
+    "continueWithGoogle": "Continuer avec Google",
+    "continueWithGitHub": "Continuer avec GitHub",
+    "emailInvalid": "Saisissez une adresse e-mail valide.",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "noResults": "Aucun résultat.",
     "loading": "Chargement…",
     "save": "Enregistrer",

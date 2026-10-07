@@ -85,6 +85,49 @@ async function requestAppForgeSignup(
   return body as AuthResponse;
 }
 
+export const SOCIAL_SIGN_IN_PROVIDERS = ["google", "github"] as const;
+export type SocialSignInProvider = (typeof SOCIAL_SIGN_IN_PROVIDERS)[number];
+
+/**
+ * Read the Supabase project's public auth settings so the UI can only offer
+ * identity providers that are actually enabled server-side. Fails closed to
+ * "no social providers" rather than rendering buttons that would error.
+ */
+async function listAuthProviders(): Promise<SocialSignInProvider[]> {
+  try {
+    const { url, publishableKey } = config();
+    const response = await fetch(`${url}/auth/v1/settings`, {
+      headers: { apikey: publishableKey, Accept: "application/json" },
+    });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => null)) as {
+      external?: Record<string, boolean>;
+    } | null;
+    const external = body?.external ?? {};
+    return SOCIAL_SIGN_IN_PROVIDERS.filter(
+      (provider) => external[provider] === true,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Implicit-flow authorize URL: Supabase redirects back to `redirectTo` with
+ * `#access_token=...`, which `completeAuthRedirect` already consumes.
+ */
+function oauthAuthorizeUrl(
+  provider: SocialSignInProvider,
+  redirectTo: string,
+): string {
+  const { url } = config();
+  const params = new URLSearchParams({
+    provider,
+    redirect_to: redirectTo,
+  });
+  return `${url}/auth/v1/authorize?${params.toString()}`;
+}
+
 export const supabaseClient = {
   signUp(email: string, password: string, next = "/") {
     return requestAppForgeSignup(email, password, next);
@@ -127,4 +170,6 @@ export const supabaseClient = {
       body: JSON.stringify({ password }),
     });
   },
+  listAuthProviders,
+  oauthAuthorizeUrl,
 };

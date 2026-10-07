@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 import { useNavigate } from "react-router-dom";
-import { ensureFreshSession, getSession, signOut } from "../lib/auth.js";
+import {
+  ensureFreshSession,
+  getSession,
+  logout as endSession,
+} from "../lib/auth.js";
 import { useLayoutMode, type LayoutMode } from "../lib/layout.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 import { ThemeToggle } from "./ThemeToggle.js";
@@ -245,10 +249,17 @@ export function TopNav() {
   });
   const logout = useMutation({
     mutationFn: async () => {
-      signOut();
-      await trpc.auth.logout.mutate();
+      // Revoke the server-side Supabase session (and its HttpOnly cookies)
+      // before dropping cached identity. If the order is reversed an immediate
+      // auth.me refetch can resurrect the signed-out user and the nav keeps
+      // showing an authenticated shell.
+      await endSession();
+      await trpc.auth.logout.mutate().catch(() => undefined);
     },
-    onSuccess: () => {
+    onSettled: () => {
+      // Every page caches identity under ["auth", "me"]; clearing the cache is
+      // what actually flips the signed-in UI back to the signed-out state.
+      queryClient.clear();
       navigate("/");
     },
   });
@@ -389,7 +400,10 @@ export function TopNav() {
                 <CloseIcon />
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-2 bg-forge-bg" data-testid="mobile-nav-controls">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-2 bg-forge-bg"
+              data-testid="mobile-nav-controls"
+            >
               <NavChrome stacked {...chrome} />
             </div>
           </div>

@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "アカウントを確認し、AppForge へのアクセスを準備しています…",
+    "forgot": "パスワードをお忘れですか？",
+    "oauthUnavailable": "このサインイン方法は現在利用できません。メールをご利用ください。",
+    "invalidCredentials": "メールアドレスとパスワードの組み合わせが認識されません。",
+    "emailNotConfirmed": "先にメールアドレスの確認を完了してください。受信トレイの AppForge 確認リンクを開き、もう一度サインインしてください。",
+    "rateLimited": "サインインの試行回数が多すぎます。しばらく待ってから再試行してください。",
     "title": "おかえりなさい",
     "subtitle": "ログインしてアプリを生成し、ワークスペースを管理しましょう。",
     "email": "メールアドレス",
@@ -78,12 +84,14 @@
     "ssoUses": "{org}はエンタープライズSSO（{provider}）を使用しています。"
   },
   "signup": {
+    "strength": "パスワードの強度",
+    "verifyNote": "安全のため、初回サインインの前に確認リンクをお送りします。数分以内に届かない場合は迷惑メールフォルダをご確認ください。",
     "title": "アカウントを作成",
     "subtitle": "AIでフルスタックアプリの構築を始めましょう。",
     "email": "メールアドレス",
     "password": "パスワード",
     "confirm": "パスワードの確認",
-    "minChars": "6文字以上。",
+    "minChars": "8文字以上。",
     "submit": "登録する",
     "pending": "アカウントを作成中...",
     "failed": "登録に失敗しました。",
@@ -179,7 +187,23 @@
     "title": "AppForgeについて",
     "body": "AppForgeはAppForgeのAIアプリビルダーです。Anselm Perkinsは創業者兼CEOであり、AppForgeとAppForgeのオーナーです。"
   },
+  "auth": {
+    "strengthWeak": "弱い",
+    "strengthFair": "ふつう",
+    "strengthGood": "良い",
+    "strengthStrong": "強い",
+    "checkLength": "8文字以上",
+    "checkMixed": "大文字と小文字",
+    "checkNumber": "数字",
+    "checkSymbol": "記号"
+  },
   "common": {
+    "orContinueWithEmail": "またはメールで続行",
+    "continueWithGoogle": "Google で続行",
+    "continueWithGitHub": "GitHub で続行",
+    "emailInvalid": "有効なメールアドレスを入力してください。",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示",
     "noResults": "結果が見つかりません。",
     "loading": "読み込み中...",
     "save": "保存",

@@ -14,6 +14,7 @@ import { Dashboard } from "./pages/Dashboard.js";
 import { Build } from "./pages/Build.js";
 import { Pricing } from "./pages/Pricing.js";
 import { Admin } from "./pages/Admin.js";
+import { RequireOwner } from "./components/auth/RequireOwner.js";
 import { AIBuilder } from "./pages/AIBuilder.js";
 import { GraphicsEditor } from "./pages/GraphicsEditor.js";
 import { TemplateMarketplace } from "./pages/TemplateMarketplace.js";
@@ -60,7 +61,14 @@ function AppShell() {
           <Route path="/tools" element={<PluginWorkspace />} />
           <Route path="/build/:projectId" element={<Build />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireOwner>
+                <Admin />
+              </RequireOwner>
+            }
+          />
           <Route path="/ai-builder" element={<AIBuilder />} />
           <Route path="/templates" element={<TemplateMarketplace />} />
           <Route path="/editor" element={<GraphicsEditor />} />

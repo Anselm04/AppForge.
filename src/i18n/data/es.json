@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "Confirmando tu cuenta y preparando el acceso a AppForge…",
+    "forgot": "¿Olvidaste tu contraseña?",
+    "oauthUnavailable": "Ese proveedor de acceso no está disponible ahora. Usa el correo electrónico.",
+    "invalidCredentials": "Esa combinación de correo y contraseña no se reconoce.",
+    "emailNotConfirmed": "Confirma primero tu dirección de correo. Busca el enlace de verificación de AppForge en tu bandeja de entrada y vuelve a iniciar sesión.",
+    "rateLimited": "Demasiados intentos de inicio de sesión. Espera un momento e inténtalo de nuevo.",
     "title": "Bienvenido de nuevo",
     "subtitle": "Inicia sesión para generar apps y gestionar tu espacio de trabajo.",
     "email": "Correo electrónico",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} usa SSO empresarial ({provider})."
   },
   "signup": {
+    "strength": "Seguridad de la contraseña",
+    "verifyNote": "Por tu seguridad enviamos un enlace de verificación antes de tu primer inicio de sesión. Si no llega en unos minutos, revisa la carpeta de spam.",
     "title": "Crea tu cuenta",
     "subtitle": "Empieza a crear aplicaciones full-stack con IA.",
     "email": "Correo electrónico",
     "password": "Contraseña",
     "confirm": "Confirmar contraseña",
-    "minChars": "Al menos 6 caracteres.",
+    "minChars": "Al menos 8 caracteres.",
     "submit": "Registrarse",
     "pending": "Creando cuenta...",
     "failed": "Error al registrarse.",
@@ -179,7 +187,23 @@
     "title": "Acerca de AppForge",
     "body": "AppForge es el creador de apps con IA de AppForge. Anselm Perkins es Fundador y CEO y propietario de AppForge y AppForge."
   },
+  "auth": {
+    "strengthWeak": "Débil",
+    "strengthFair": "Aceptable",
+    "strengthGood": "Buena",
+    "strengthStrong": "Fuerte",
+    "checkLength": "8 caracteres o más",
+    "checkMixed": "Mayúsculas y minúsculas",
+    "checkNumber": "Un número",
+    "checkSymbol": "Un símbolo"
+  },
   "common": {
+    "orContinueWithEmail": "o continúa con tu correo",
+    "continueWithGoogle": "Continuar con Google",
+    "continueWithGitHub": "Continuar con GitHub",
+    "emailInvalid": "Introduce una dirección de correo válida.",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "noResults": "No se encontraron resultados.",
     "loading": "Cargando...",
     "save": "Guardar",

@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "Confirming your account and preparing AppForge access…",
+    "forgot": "Forgot password?",
+    "oauthUnavailable": "That sign-in provider is unavailable right now. Use your email instead.",
+    "invalidCredentials": "That email and password combination is not recognised.",
+    "emailNotConfirmed": "Confirm your email address first. Check your inbox for the AppForge verification link, then sign in again.",
+    "rateLimited": "Too many sign-in attempts. Wait a moment and try again.",
     "title": "Welcome back",
     "subtitle": "Log in to generate apps and manage your workspace.",
     "email": "Email",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} uses enterprise SSO ({provider})."
   },
   "signup": {
+    "strength": "Password strength",
+    "verifyNote": "For your security we email a verification link before your first sign-in. If it has not arrived in a few minutes, check your spam folder.",
     "title": "Create your account",
     "subtitle": "Start building full-stack apps with AI.",
     "email": "Email",
     "password": "Password",
     "confirm": "Confirm password",
-    "minChars": "At least 6 characters.",
+    "minChars": "At least 8 characters.",
     "submit": "Sign up",
     "pending": "Creating account...",
     "failed": "Sign-up failed.",
@@ -179,7 +187,23 @@
     "title": "About AppForge",
     "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
+  "auth": {
+    "strengthWeak": "Weak",
+    "strengthFair": "Fair",
+    "strengthGood": "Good",
+    "strengthStrong": "Strong",
+    "checkLength": "8+ characters",
+    "checkMixed": "Upper & lower case",
+    "checkNumber": "A number",
+    "checkSymbol": "A symbol"
+  },
   "common": {
+    "orContinueWithEmail": "or continue with email",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithGitHub": "Continue with GitHub",
+    "emailInvalid": "Enter a valid email address.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "noResults": "No results found.",
     "loading": "Loading...",
     "save": "Save",

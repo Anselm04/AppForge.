@@ -202,4 +202,146 @@
     opacity: 0.5;
     background-image: var(--forge-mesh, none);
   }
+
+  /* ---------------------------------------------------------------
+     Layout + typography primitives. These class names are referenced
+     across the app (Section, GlassCard, auth pages, marketing pages)
+     but were never defined in the stylesheet, so those surfaces fell
+     back to browser defaults.
+     --------------------------------------------------------------- */
+
+  .forge-container {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  .forge-section {
+    padding-block: 4.5rem;
+  }
+  @media (max-width: 640px) {
+    .forge-section {
+      padding-block: 2.75rem;
+    }
+  }
+
+  .forge-h1,
+  .forge-h2,
+  .forge-h3 {
+    font-family: "Sora", var(--font-sans);
+    color: var(--forge-heading);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  .forge-h1 {
+    font-size: clamp(2.1rem, 4.4vw, 3.25rem);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+  }
+  .forge-h2 {
+    font-size: clamp(1.55rem, 2.6vw, 2.1rem);
+    line-height: 1.14;
+    letter-spacing: -0.016em;
+  }
+  .forge-h3 {
+    font-size: 1.15rem;
+    line-height: 1.3;
+    letter-spacing: -0.008em;
+  }
+
+  .forge-body {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: rgba(var(--forge-text-rgb) / 0.78);
+  }
+
+  /* Frosted panel used by GlassCard and auth surfaces. */
+  .forge-glass {
+    background: linear-gradient(
+      180deg,
+      rgba(var(--forge-surface-rgb) / 0.94),
+      rgba(var(--forge-surface-rgb) / 0.76)
+    );
+    border: 1px solid var(--forge-border);
+    box-shadow: var(--forge-shadow-soft);
+    backdrop-filter: blur(16px) saturate(1.08);
+    -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  }
+  .dark .forge-glass {
+    background: linear-gradient(
+      180deg,
+      rgba(var(--forge-surface-rgb) / 0.92),
+      rgba(var(--forge-bg-rgb) / 0.74)
+    );
+    border-color: rgba(196, 163, 90, 0.24);
+  }
+
+  .forge-logo-glow {
+    filter: drop-shadow(0 8px 22px rgba(196, 163, 90, 0.32));
+  }
+
+  /* Shared input chrome so hand-rolled fields match the Input component. */
+  .forge-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--forge-border);
+    background-color: var(--forge-bg);
+    color: var(--forge-text);
+    padding: 0.625rem 0.75rem;
+    font-size: 0.95rem;
+    transition: border-color var(--forge-transition), box-shadow var(--forge-transition);
+  }
+  .forge-input::placeholder {
+    color: var(--forge-muted);
+  }
+  .forge-input:focus {
+    outline: none;
+    border-color: rgba(var(--forge-cyan-rgb) / 0.6);
+    box-shadow: 0 0 0 3px var(--forge-focus);
+  }
+
+  /* Gold pill alias used by the primary navigation action. */
+  .forge-btn-gold {
+    background-image: var(--forge-gold-gradient);
+    color: #1a1305;
+    border-radius: var(--forge-radius-pill);
+    font-weight: 600;
+    box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
+    transition: box-shadow 200ms ease, filter 200ms ease, transform 120ms ease;
+  }
+  .forge-btn-gold:hover {
+    filter: brightness(1.03);
+    box-shadow: 0 18px 40px rgba(184, 134, 11, 0.3);
+  }
+  .forge-btn-gold:active {
+    transform: scale(0.985);
+  }
+  .forge-btn-gold:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--forge-focus), 0 14px 30px rgba(184, 134, 11, 0.22);
+  }
+
+  /* Gradient hairline border for featured cards. */
+  .forge-gradient-border {
+    position: relative;
+  }
+  .forge-gradient-border::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--forge-gold-gradient);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
 }

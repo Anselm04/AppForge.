@@ -63,6 +63,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "A confirmar a sua conta e a preparar o acesso à AppForge…",
+    "forgot": "Esqueceu-se da palavra-passe?",
+    "oauthUnavailable": "Esse fornecedor de início de sessão está indisponível. Use o e-mail.",
+    "invalidCredentials": "Essa combinação de e-mail e palavra-passe não é reconhecida.",
+    "emailNotConfirmed": "Confirme primeiro o seu e-mail. Procure o link de verificação da AppForge na sua caixa de entrada e inicie sessão novamente.",
+    "rateLimited": "Demasiadas tentativas de início de sessão. Aguarde um momento e tente novamente.",
     "title": "Bem-vindo de volta",
     "subtitle": "Entre para gerar aplicativos e gerenciar seu espaço de trabalho.",
     "email": "E-mail",
@@ -74,12 +80,14 @@
     "createAccount": "Criar uma conta"
   },
   "signup": {
+    "strength": "Força da palavra-passe",
+    "verifyNote": "Por segurança enviamos um link de verificação antes do primeiro início de sessão. Se não chegar em alguns minutos, verifique a pasta de spam.",
     "title": "Crie sua conta",
     "subtitle": "Comece a criar aplicativos full-stack com IA.",
     "email": "E-mail",
     "password": "Senha",
     "confirm": "Confirmar senha",
-    "minChars": "Pelo menos 6 caracteres.",
+    "minChars": "Pelo menos 8 caracteres.",
     "submit": "Cadastrar",
     "pending": "Criando conta...",
     "failed": "Falha no cadastro.",
@@ -164,5 +172,23 @@
   "about": {
     "title": "Sobre a AppForge",
     "body": "AppForge é o construtor de apps com IA da AppForge. Anselm Perkins é Fundador e CEO e proprietário da AppForge e AppForge."
+  },
+  "auth": {
+    "strengthWeak": "Fraca",
+    "strengthFair": "Razoável",
+    "strengthGood": "Boa",
+    "strengthStrong": "Forte",
+    "checkLength": "8 caracteres ou mais",
+    "checkMixed": "Maiúsculas e minúsculas",
+    "checkNumber": "Um número",
+    "checkSymbol": "Um símbolo"
+  },
+  "common": {
+    "orContinueWithEmail": "ou continue com o e-mail",
+    "continueWithGoogle": "Continuar com Google",
+    "continueWithGitHub": "Continuar com GitHub",
+    "emailInvalid": "Introduza um endereço de e-mail válido.",
+    "showPassword": "Mostrar palavra-passe",
+    "hidePassword": "Ocultar palavra-passe"
   }
 }

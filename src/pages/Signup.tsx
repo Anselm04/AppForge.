@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { getSession, signUp } from "../lib/auth.js";
+import { isValidEmail, MIN_PASSWORD_LENGTH } from "../lib/passwordStrength.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
-import { LogoLockup } from "../components/brand/LogoMark.js";
+import { AuthShell } from "../components/auth/AuthShell.js";
+import { SocialAuthButtons } from "../components/auth/SocialAuthButtons.js";
+import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter.js";
 import { Button } from "../design-system/Button.js";
-import { GlassCard } from "../design-system/GlassCard.js";
 import { Input } from "../design-system/Input.js";
 
 function safeNext(value: string | null): string {
@@ -38,6 +40,16 @@ export function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [touchedEmail, setTouchedEmail] = useState(false);
+
+  const emailError =
+    touchedEmail && email.length > 0 && !isValidEmail(email)
+      ? t("common.emailInvalid")
+      : undefined;
+  const confirmError =
+    confirm.length > 0 && confirm !== password
+      ? t("signup.mismatch")
+      : undefined;
 
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
@@ -53,6 +65,10 @@ export function Signup() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isValidEmail(email)) {
+      setTouchedEmail(true);
+      return;
+    }
     if (password !== confirm) {
       setError(t("signup.mismatch"));
       return;
@@ -73,94 +89,131 @@ export function Signup() {
     }
   };
 
+  if (checkEmail) {
+    return (
+      <AuthShell title={t("signup.checkTitle")}>
+        <div className="space-y-5 text-center">
+          <div
+            aria-hidden="true"
+            className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-forge-cyan/30 bg-forge-cyan/10 text-forge-cyan"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+              <path d="m3 6.5 9 6.5 9-6.5" />
+            </svg>
+          </div>
+          <p className="text-sm leading-relaxed text-forge-text-muted">
+            {t("signup.checkBody", { email: email.trim() })}
+          </p>
+          <p
+            data-testid="signup-verification-note"
+            className="rounded-lg border border-forge-border bg-forge-surface/60 px-3 py-2 text-xs text-forge-text-muted"
+          >
+            {t("signup.verifyNote")}
+          </p>
+          <Button
+            className="w-full"
+            onClick={() => navigate(`/login?next=${encodeURIComponent(next)}`)}
+          >
+            {t("signup.goToLogin")}
+          </Button>
+        </div>
+      </AuthShell>
+    );
+  }
+
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-16 bg-forge-mesh">
-      <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <Link to="/">
-            <LogoLockup size="sm" />
+    <AuthShell
+      title={t("signup.title")}
+      subtitle={t("signup.subtitle")}
+      footer={
+        <>
+          {t("signup.hasAccount")}{" "}
+          <Link
+            to={`/login?next=${encodeURIComponent(next)}`}
+            className="font-medium text-forge-cyan hover:underline"
+          >
+            {t("signup.logIn")}
           </Link>
+        </>
+      }
+    >
+      {error && (
+        <p
+          role="alert"
+          data-testid="signup-error"
+          className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+        >
+          {error}
+        </p>
+      )}
+
+      <SocialAuthButtons next={next} />
+
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <Input
+          id="signup-email"
+          label={t("signup.email")}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          required
+          value={email}
+          error={emailError}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => setTouchedEmail(true)}
+        />
+        <div>
+          <Input
+            id="signup-password"
+            label={t("signup.password")}
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            showPasswordLabel={t("common.showPassword")}
+            hidePasswordLabel={t("common.hidePassword")}
+          />
+          <PasswordStrengthMeter password={password} />
         </div>
-        <div className="text-center mb-8">
-          <h1 className="forge-h2 text-forge-text-primary mb-2">
-            {t("signup.title")}
-          </h1>
-          <p className="text-forge-text-muted">{t("signup.subtitle")}</p>
-        </div>
-        <GlassCard hover={false} padding="lg">
-          {checkEmail ? (
-            <div className="text-center space-y-4">
-              <h2 className="text-xl font-semibold text-forge-text-primary">
-                {t("signup.checkTitle")}
-              </h2>
-              <p className="text-forge-text-muted">
-                {t("signup.checkBody", { email: email.trim() })}
-              </p>
-              <Button
-                className="w-full"
-                onClick={() =>
-                  navigate(`/login?next=${encodeURIComponent(next)}`)
-                }
-              >
-                {t("signup.goToLogin")}
-              </Button>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <Input
-                  id="signup-email"
-                  label={t("signup.email")}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Input
-                  id="signup-password"
-                  label={t("signup.password")}
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  hint={t("signup.minChars")}
-                />
-                <Input
-                  id="signup-confirm"
-                  label={t("signup.confirm")}
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  error={error ?? undefined}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  loading={pending}
-                  disabled={pending || !email.trim() || password.length < 6}
-                >
-                  {pending ? t("signup.pending") : t("signup.submit")}
-                </Button>
-              </form>
-              <p className="text-sm text-forge-text-muted mt-6 text-center">
-                {t("signup.hasAccount")}{" "}
-                <Link
-                  to={`/login?next=${encodeURIComponent(next)}`}
-                  className="text-forge-cyan hover:underline font-medium"
-                >
-                  {t("signup.logIn")}
-                </Link>
-              </p>
-            </>
-          )}
-        </GlassCard>
-      </div>
-    </div>
+        <Input
+          id="signup-confirm"
+          label={t("signup.confirm")}
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          error={confirmError}
+          showPasswordLabel={t("common.showPassword")}
+          hidePasswordLabel={t("common.hidePassword")}
+        />
+        <Button
+          type="submit"
+          className="w-full"
+          loading={pending}
+          disabled={
+            pending ||
+            !email.trim() ||
+            password.length < MIN_PASSWORD_LENGTH ||
+            confirm.length < MIN_PASSWORD_LENGTH
+          }
+        >
+          {pending ? t("signup.pending") : t("signup.submit")}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

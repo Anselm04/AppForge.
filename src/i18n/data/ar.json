@@ -64,6 +64,12 @@
     "catWebsitesDesc": "Marketing sites, landing pages, and web products."
   },
   "login": {
+    "confirming": "جارٍ تأكيد حسابك وتجهيز الوصول إلى AppForge…",
+    "forgot": "هل نسيت كلمة المرور؟",
+    "oauthUnavailable": "مزوّد تسجيل الدخول هذا غير متاح حالياً. استخدم البريد الإلكتروني.",
+    "invalidCredentials": "لا يتم التعرف على تركيبة البريد الإلكتروني وكلمة المرور هذه.",
+    "emailNotConfirmed": "أكّد عنوان بريدك الإلكتروني أولاً. ابحث عن رابط التحقق من AppForge في صندوق الوارد ثم سجّل الدخول مرة أخرى.",
+    "rateLimited": "محاولات تسجيل دخول كثيرة جداً. انتظر قليلاً ثم حاول مرة أخرى.",
     "title": "مرحبًا بعودتك",
     "subtitle": "سجّل الدخول لإنشاء التطبيقات وإدارة مساحة عملك.",
     "email": "البريد الإلكتروني",
@@ -78,12 +84,14 @@
     "ssoUses": "{org} يستخدم SSO للمؤسسات ({provider})."
   },
   "signup": {
+    "strength": "قوة كلمة المرور",
+    "verifyNote": "لأمانك، نرسل رابط تحقق قبل أول تسجيل دخول. إذا لم يصل خلال دقائق فتحقق من مجلد البريد العشوائي.",
     "title": "أنشئ حسابك",
     "subtitle": "ابدأ بناء تطبيقات متكاملة بالذكاء الاصطناعي.",
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "confirm": "تأكيد كلمة المرور",
-    "minChars": "ستة أحرف على الأقل.",
+    "minChars": "ثمانية أحرف على الأقل.",
     "submit": "إنشاء حساب",
     "pending": "جارٍ إنشاء الحساب...",
     "failed": "فشل إنشاء الحساب.",
@@ -179,7 +187,23 @@
     "title": "About AppForge",
     "body": "AppForge is the AI app builder from AppForge. Anselm Perkins is Founder & CEO and owner of AppForge and AppForge."
   },
+  "auth": {
+    "strengthWeak": "ضعيفة",
+    "strengthFair": "مقبولة",
+    "strengthGood": "جيدة",
+    "strengthStrong": "قوية",
+    "checkLength": "8 أحرف أو أكثر",
+    "checkMixed": "أحرف كبيرة وصغيرة",
+    "checkNumber": "رقم",
+    "checkSymbol": "رمز"
+  },
   "common": {
+    "orContinueWithEmail": "أو تابع باستخدام البريد الإلكتروني",
+    "continueWithGoogle": "المتابعة باستخدام Google",
+    "continueWithGitHub": "المتابعة باستخدام GitHub",
+    "emailInvalid": "أدخل عنوان بريد إلكتروني صالح.",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
     "noResults": "لم يتم العثور على نتائج.",
     "loading": "جارٍ التحميل...",
     "save": "حفظ",
