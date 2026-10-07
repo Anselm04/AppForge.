@@ -1,0 +1,149 @@
+name: Launch Bar Certification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: launch-bar-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Require complete exact-SHA launch evidence
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    env:
+      REQUIRED_CUSTOMER_JOURNEY_PASSES: 3
+    steps:
+      - name: Checkout exact requested release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Refuse stale release SHA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl --fail --silent --show-error \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/main" | jq -r '.sha')"
+          test -n "$main_sha"
+          if [ "$GITHUB_SHA" != "$main_sha" ]; then
+            echo "Launch certification refuses stale SHA $GITHUB_SHA; current main is $main_sha."
+            exit 1
+          fi
+          echo "Exact current main SHA confirmed: $GITHUB_SHA"
+
+      - name: Require complete exact-SHA launch evidence
+        id: evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p launch-evidence
+          response="$(curl --fail --silent --show-error \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=100")"
+
+          successful_count() {
+            local workflow_name="$1"
+            printf '%s' "$response" | jq --arg name "$workflow_name" \
+              '[.workflow_runs[] | select(.name == $name and .head_sha == env.GITHUB_SHA and .conclusion == "success")] | length'
+          }
+
+          require_success() {
+            local workflow_name="$1"
+            local count
+            count="$(successful_count "$workflow_name")"
+            if [ "$count" -lt 1 ]; then
+              echo "Missing successful exact-SHA evidence: $workflow_name"
+              failed=1
+            else
+              echo "Verified exact-SHA evidence: $workflow_name ($count successful run(s))"
+            fi
+          }
+
+          failed=0
+          require_success "CI Pipeline"
+          require_success "Security Scanning"
+          require_success "Recovery Readiness Audit"
+          require_success "Deploy Production"
+          require_success "Production Database Recovery"
+          require_success "Production Auth Lifecycle"
+          require_success "Production Admin MFA"
+
+          journey_count="$(successful_count "Production Full Customer Journey")"
+          if [ "$journey_count" -lt "$REQUIRED_CUSTOMER_JOURNEY_PASSES" ]; then
+            echo "Production Full Customer Journey requires ${REQUIRED_CUSTOMER_JOURNEY_PASSES} successful exact-SHA passes; found ${journey_count}."
+            failed=1
+          else
+            echo "Verified repeated real customer journey: ${journey_count} successful exact-SHA passes."
+          fi
+
+          jq -n \
+            --arg sha "$GITHUB_SHA" \
+            --argjson requiredCustomerJourneyPasses "$REQUIRED_CUSTOMER_JOURNEY_PASSES" \
+            --argjson customerJourneyPasses "$journey_count" \
+            --argjson ci "$(successful_count "CI Pipeline")" \
+            --argjson security "$(successful_count "Security Scanning")" \
+            --argjson recovery "$(successful_count "Recovery Readiness Audit")" \
+            --argjson deployment "$(successful_count "Deploy Production")" \
+            --argjson databaseRecovery "$(successful_count "Production Database Recovery")" \
+            --argjson authLifecycle "$(successful_count "Production Auth Lifecycle")" \
+            --argjson adminMfa "$(successful_count "Production Admin MFA")" \
+            --argjson failed "$failed" \
+            '{
+              sha: $sha,
+              certified: ($failed == 0),
+              requiredCustomerJourneyPasses: $requiredCustomerJourneyPasses,
+              evidence: {
+                ci: $ci,
+                security: $security,
+                recovery: $recovery,
+                deployment: $deployment,
+                databaseRecovery: $databaseRecovery,
+                authLifecycle: $authLifecycle,
+                adminMfa: $adminMfa,
+                customerJourneyPasses: $customerJourneyPasses
+              }
+            }' > launch-evidence/launch-bar-evidence.json
+
+          cat launch-evidence/launch-bar-evidence.json
+          if [ "$failed" -ne 0 ]; then
+            echo "Launch bar is incomplete. No production-ready claim is permitted."
+            exit 1
+          fi
+          echo "All exact-SHA launch-bar evidence requirements are satisfied."
+
+      - name: Upload launch evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: launch-bar-evidence-${{ github.sha }}
+          path: launch-evidence/launch-bar-evidence.json
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Certification scope
+        if: always()
+        shell: bash
+        run: |
+          cat <<'EOF'
+          This gate never manufactures provider evidence. It accepts only successful GitHub Actions
+          evidence for the exact current main SHA, including real production authentication, real
+          admin MFA, recoverable production PostgreSQL backup/restore, deployment, and repeated full
+          customer journeys. Missing evidence remains red rather than being converted into a green state.
+          EOF
