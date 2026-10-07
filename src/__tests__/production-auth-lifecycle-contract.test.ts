@@ -12,16 +12,22 @@ describe("production auth lifecycle release gate", () => {
     );
     const spec = source("../../scripts/production-auth-lifecycle.spec.mjs");
 
-    expect(workflow).toContain("request-confirmation");
-    expect(workflow).toContain("complete-lifecycle");
+    expect(workflow).toContain("name: Production Auth Lifecycle");
+    expect(workflow).toContain("/gate1-auth full ");
+    expect(workflow).not.toContain("/gate1-auth request ");
+    expect(workflow).not.toContain("/gate1-auth complete ");
+    expect(workflow).toContain('run_one "request-confirmation"');
+    expect(workflow).toContain('run_one "probe-confirmed"');
+    expect(workflow).toContain('run_one "complete-lifecycle"');
     expect(workflow).not.toContain("APPFORGE_AUTH_GATE_CONFIRMATION_URL");
     expect(workflow).not.toContain("confirmation_url");
     expect(workflow).toContain("issue_comment");
     expect(workflow).toContain(
       "github.event.comment.user.login == github.repository_owner",
     );
-    expect(workflow).toContain("for n in $(seq -w 1 10)");
     expect(workflow).toContain("gmail.com|googlemail.com");
+    expect(workflow).toContain("Waiting up to 20 minutes");
+    expect(workflow).toContain("ten logout/relogin boundaries");
     expect(workflow).toContain(
       "npx playwright test scripts/production-auth-lifecycle.spec.mjs --reporter=line",
     );
