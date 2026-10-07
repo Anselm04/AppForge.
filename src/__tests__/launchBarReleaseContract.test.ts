@@ -65,7 +65,9 @@ describe("AppForge launch bar release contract", () => {
 
     expect(auth).toContain("name: Production Auth Lifecycle");
     expect(auth).toContain("/gate1-auth full ");
-    expect(auth).not.toContain("request-confirmation\n          - complete-lifecycle");
+    expect(auth).not.toContain(
+      "request-confirmation\n          - complete-lifecycle",
+    );
     expect(auth).toContain("ten logout/relogin boundaries");
 
     expect(adminMfa).toContain("name: Production Admin MFA");
@@ -73,9 +75,13 @@ describe("AppForge launch bar release contract", () => {
     expect(adminMfa).toContain("admin_mfa_verify");
     expect(adminMfa).toContain("approved");
     expect(adminMfa).toContain("APPFORGE_RELEASE_SHA");
-    expect(adminRouter).toContain("releaseSha: process.env.APPFORGE_RELEASE_SHA");
+    expect(adminRouter).toContain(
+      "releaseSha: process.env.APPFORGE_RELEASE_SHA",
+    );
     expect(dockerfile).toContain("ARG APPFORGE_RELEASE_SHA");
-    expect(dockerfile).toContain("ENV APPFORGE_RELEASE_SHA=$APPFORGE_RELEASE_SHA");
+    expect(dockerfile).toContain(
+      "ENV APPFORGE_RELEASE_SHA=$APPFORGE_RELEASE_SHA",
+    );
     expect(deploy).toContain("--build-arg APPFORGE_RELEASE_SHA=$RELEASE_SHA");
 
     expect(databaseRecovery).toContain("name: Production Database Recovery");
