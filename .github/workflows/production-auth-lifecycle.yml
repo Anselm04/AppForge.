@@ -1,4 +1,4 @@
-name: Production Auth Lifecycle Gate
+name: Production Auth Lifecycle
 
 on:
   workflow_dispatch:

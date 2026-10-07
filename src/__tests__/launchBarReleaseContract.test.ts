@@ -51,10 +51,18 @@ describe("AppForge launch bar release contract", () => {
       ".github/workflows/production-full-customer-journey.yml",
     );
     const auth = source(".github/workflows/production-auth-lifecycle.yml");
+    const adminMfa = source(".github/workflows/production-admin-mfa.yml");
+    const databaseRecovery = source(
+      ".github/workflows/production-database-recovery.yml",
+    );
     const gate = source(".github/workflows/launch-bar-certification.yml");
 
+    expect(journey).toContain("name: Production Full Customer Journey");
     expect(journey).toContain("Run the real production customer journey");
+    expect(auth).toContain("name: Production Auth Lifecycle");
     expect(auth).toContain("ten logout/relogin boundaries");
+    expect(adminMfa).toContain("name: Production Admin MFA");
+    expect(databaseRecovery).toContain("name: Production Database Recovery");
     expect(gate).toContain("REQUIRED_CUSTOMER_JOURNEY_PASSES: 3");
     expect(gate).toContain("Production Full Customer Journey");
     expect(gate).toContain("Production Auth Lifecycle");

@@ -1,4 +1,4 @@
-name: Production Admin MFA Challenge Gate
+name: Production Admin MFA
 
 on:
   workflow_dispatch:
