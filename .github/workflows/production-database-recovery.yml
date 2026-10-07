@@ -1,0 +1,185 @@
+name: Production Database Recovery
+
+on:
+  schedule:
+    - cron: '11 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-recovery
+  cancel-in-progress: false
+
+jobs:
+  backup-restore-proof:
+    name: Backup, restore, and verify production PostgreSQL
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 35
+    services:
+      restore-postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: restore-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      OFFSITE_BACKUP_PASSPHRASE: ${{ secrets.OFFSITE_BACKUP_PASSPHRASE }}
+      OFFSITE_1_ENDPOINT: ${{ secrets.OFFSITE_1_ENDPOINT }}
+      OFFSITE_1_REGION: ${{ secrets.OFFSITE_1_REGION }}
+      OFFSITE_1_BUCKET: ${{ secrets.OFFSITE_1_BUCKET }}
+      OFFSITE_1_ACCESS_KEY_ID: ${{ secrets.OFFSITE_1_ACCESS_KEY_ID }}
+      OFFSITE_1_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_1_SECRET_ACCESS_KEY }}
+      OFFSITE_2_ENDPOINT: ${{ secrets.OFFSITE_2_ENDPOINT }}
+      OFFSITE_2_REGION: ${{ secrets.OFFSITE_2_REGION }}
+      OFFSITE_2_BUCKET: ${{ secrets.OFFSITE_2_BUCKET }}
+      OFFSITE_2_ACCESS_KEY_ID: ${{ secrets.OFFSITE_2_ACCESS_KEY_ID }}
+      OFFSITE_2_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_2_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Checkout trusted recovery controls
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Require production backup credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DATABASE_URL:-}" || { echo 'DATABASE_URL production secret is required for recoverable database backups.'; exit 1; }
+          test -n "${OFFSITE_BACKUP_PASSPHRASE:-}" || { echo 'OFFSITE_BACKUP_PASSPHRASE is required so database backups are never persisted in plaintext.'; exit 1; }
+
+      - name: Create logical production backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p database-recovery
+          docker run --rm \
+            -e DATABASE_URL \
+            postgres:17-alpine \
+            sh -ec 'pg_dump --format=custom --compress=9 --no-owner --no-privileges "$DATABASE_URL"' \
+            > database-recovery/appforge-production.dump
+          test -s database-recovery/appforge-production.dump
+          sha256sum database-recovery/appforge-production.dump > database-recovery/appforge-production.dump.sha256
+
+      - name: Restore backup into isolated PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$PWD/database-recovery:/recovery:ro" \
+            -e PGPASSWORD=restore-only \
+            postgres:17-alpine \
+            pg_restore --exit-on-error --no-owner --no-privileges \
+              --dbname=postgresql://postgres@127.0.0.1:5432/postgres \
+              /recovery/appforge-production.dump
+
+      - name: Verify restored database invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          tables="$(docker run --rm --network host \
+            -e PGPASSWORD=restore-only \
+            postgres:17-alpine \
+            psql -At postgresql://postgres@127.0.0.1:5432/postgres \
+              -c "select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE';")"
+          test "${tables:-0}" -gt 0 || { echo 'Restored database contains no public base tables.'; exit 1; }
+          migrations="$(docker run --rm --network host \
+            -e PGPASSWORD=restore-only \
+            postgres:17-alpine \
+            psql -At postgresql://postgres@127.0.0.1:5432/postgres \
+              -c "select count(*) from information_schema.tables where table_schema='public';")"
+          test "${migrations:-0}" -gt 0
+          echo "Restore rehearsal passed with ${tables} public base tables."
+
+      - name: Build encrypted recovery package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > database-recovery/RECOVERY-MANIFEST.txt <<EOF
+          repository=${GITHUB_REPOSITORY}
+          source_sha=${GITHUB_SHA}
+          workflow_run=${GITHUB_RUN_ID}
+          workflow_attempt=${GITHUB_RUN_ATTEMPT}
+          created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          restore_rehearsal=passed
+          EOF
+          tar -C database-recovery -czf /tmp/appforge-production-database.tar.gz \
+            appforge-production.dump appforge-production.dump.sha256 RECOVERY-MANIFEST.txt
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | \
+            openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -md sha256 \
+              -pass stdin \
+              -in /tmp/appforge-production-database.tar.gz \
+              -out database-recovery/appforge-production-database.enc
+          rm -f /tmp/appforge-production-database.tar.gz database-recovery/appforge-production.dump
+          sha256sum database-recovery/appforge-production-database.enc > database-recovery/appforge-production-database.enc.sha256
+          openssl dgst -sha256 -hmac "$OFFSITE_BACKUP_PASSPHRASE" \
+            database-recovery/appforge-production-database.enc \
+            > database-recovery/appforge-production-database.enc.hmac-sha256
+
+      - name: Verify encrypted package can be decrypted
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check database-recovery/appforge-production-database.enc.sha256
+          printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | \
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 \
+              -pass stdin \
+              -in database-recovery/appforge-production-database.enc \
+              -out /tmp/database-verify.tar.gz
+          tar -tzf /tmp/database-verify.tar.gz | grep -Fq 'appforge-production.dump'
+          rm -f /tmp/database-verify.tar.gz
+
+      - name: Upload encrypted recovery artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: appforge-production-database-${{ github.sha }}
+          path: |
+            database-recovery/appforge-production-database.enc
+            database-recovery/appforge-production-database.enc.sha256
+            database-recovery/appforge-production-database.enc.hmac-sha256
+            database-recovery/RECOVERY-MANIFEST.txt
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Mirror encrypted backup to offsite target 1
+        if: env.OFFSITE_1_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_1_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_1_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_1_REGION }}
+        run: |
+          set -euo pipefail
+          test -n "$OFFSITE_1_ENDPOINT" && test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY"
+          key="appforge/database/$(date -u +%Y/%m/%d)/${GITHUB_SHA}/appforge-production-database.enc"
+          aws --endpoint-url "$OFFSITE_1_ENDPOINT" s3 cp database-recovery/appforge-production-database.enc "s3://${OFFSITE_1_BUCKET}/${key}" --no-progress
+          aws --endpoint-url "$OFFSITE_1_ENDPOINT" s3 cp database-recovery/appforge-production-database.enc.sha256 "s3://${OFFSITE_1_BUCKET}/${key}.sha256" --no-progress
+
+      - name: Mirror encrypted backup to offsite target 2
+        if: env.OFFSITE_2_BUCKET != ''
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.OFFSITE_2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.OFFSITE_2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.OFFSITE_2_REGION }}
+        run: |
+          set -euo pipefail
+          test -n "$OFFSITE_2_ENDPOINT" && test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY"
+          key="appforge/database/$(date -u +%Y/%m/%d)/${GITHUB_SHA}/appforge-production-database.enc"
+          aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp database-recovery/appforge-production-database.enc "s3://${OFFSITE_2_BUCKET}/${key}" --no-progress
+          aws --endpoint-url "$OFFSITE_2_ENDPOINT" s3 cp database-recovery/appforge-production-database.enc.sha256 "s3://${OFFSITE_2_BUCKET}/${key}.sha256" --no-progress
+
+      - name: Database recovery evidence summary
+        shell: bash
+        run: |
+          echo 'Production PostgreSQL logical backup created.'
+          echo 'Backup restored into an isolated PostgreSQL 17 service and schema invariants verified.'
+          echo 'Only encrypted backup material is persisted after the restore rehearsal.'
