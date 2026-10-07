@@ -7,7 +7,7 @@ export type Context = {
     id: number;
     email: string;
     name: string;
-    supabaseUid: string;
+    supabaseUid?: string;
   } | null;
 };
 
