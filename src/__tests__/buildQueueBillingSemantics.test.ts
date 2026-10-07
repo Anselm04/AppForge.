@@ -27,13 +27,13 @@ describe("build queue billing semantics", () => {
     expect(terminalCatch).toBeGreaterThan(-1);
     expect(refund).toBeGreaterThan(terminalCatch);
     expect(finallyBlock).toBeGreaterThan(refund);
-    expect(
-      rethrowAfterRefund === -1 || rethrowAfterRefund > finallyBlock,
-    ).toBe(true);
+    expect(rethrowAfterRefund === -1 || rethrowAfterRefund > finallyBlock).toBe(
+      true,
+    );
   });
 
   it("uses a stable per-project BullMQ id to deduplicate starts", () => {
-    expect(queueSource).toContain('jobId: `build-${job.projectId}`');
+    expect(queueSource).toContain("jobId: `build-${job.projectId}`");
     expect(queueSource).toContain("queuedData.createdAt !== job.createdAt");
     expect(queueSource).not.toContain("build-${job.projectId}-${Date.now()}");
   });
