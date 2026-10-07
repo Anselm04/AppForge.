@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { completeAuthRedirect, signIn } from "../lib/auth.js";
+import { completeAuthRedirect } from "../lib/auth.js";
+import {
+  beginPasswordSignIn,
+  completeVerifiedLogin,
+} from "../lib/verifiedLogin.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { LogoLockup } from "../components/brand/LogoMark.js";
@@ -127,7 +131,7 @@ export function Login() {
     setError(null);
     setPending(true);
     try {
-      await signIn(email.trim().toLowerCase(), password);
+      await beginPasswordSignIn(email.trim().toLowerCase(), password);
       await sendVerification();
       await queryClient.invalidateQueries({
         queryKey: ["auth", "loginVerificationStatus"],
@@ -144,8 +148,12 @@ export function Login() {
     setError(null);
     setPending(true);
     try {
-      await trpc.auth.verifyLoginVerification.mutate({
+      const result = await trpc.auth.verifyLoginVerification.mutate({
         code: verificationCode.trim(),
+      });
+      completeVerifiedLogin({
+        id: result.user.id,
+        email: result.user.email,
       });
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
       const meNow = await trpc.auth.me.query();
@@ -154,7 +162,9 @@ export function Login() {
       navigate(next, { replace: true });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Verification code was not accepted.",
+        err instanceof Error
+          ? err.message
+          : "Verification code was not accepted.",
       );
     } finally {
       setPending(false);
