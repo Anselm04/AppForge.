@@ -63,7 +63,9 @@ export function Signup() {
       return;
     }
     if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
-      setError("Enter your mobile number with country code, for example +64221234567.");
+      setError(
+        "Enter your mobile number with country code, for example +64221234567.",
+      );
       return;
     }
     if (password !== confirm) {
