@@ -13,6 +13,12 @@ function safeNext(value: unknown): string {
     : "/";
 }
 
+function normalizePhone(value: unknown): string {
+  const phone =
+    typeof value === "string" ? value.trim().replace(/[\s()-]/g, "") : "";
+  return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : "";
+}
+
 authSignupRouter.post("/signup", async (req, res) => {
   const email =
     typeof req.body?.email === "string"
@@ -20,12 +26,23 @@ authSignupRouter.post("/signup", async (req, res) => {
       : "";
   const password =
     typeof req.body?.password === "string" ? req.body.password : "";
+  const fullName =
+    typeof req.body?.fullName === "string" ? req.body.fullName.trim() : "";
+  const phone = normalizePhone(req.body?.phone);
   const next = safeNext(req.body?.next);
 
-  if (!email || !email.includes("@") || password.length < 8) {
+  if (
+    !email ||
+    !email.includes("@") ||
+    password.length < 8 ||
+    fullName.length < 2 ||
+    fullName.length > 100 ||
+    !phone
+  ) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(400).json({
-      error: "A valid email and password of at least 8 characters are required.",
+      error:
+        "A name, valid email, mobile number with country code, and password of at least 8 characters are required.",
       code: "INVALID_SIGNUP_INPUT",
     });
   }
@@ -38,6 +55,8 @@ authSignupRouter.post("/signup", async (req, res) => {
       email,
       password,
       redirectTo,
+      fullName,
+      phone,
     });
     res.setHeader("Cache-Control", "no-store");
     return res.status(202).json({
