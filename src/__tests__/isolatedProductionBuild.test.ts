@@ -27,40 +27,43 @@ describe("isolated production build runner", () => {
     expect(isolatedBuildConfigured()).toBe(true);
   });
 
-  it("accepts success only with install, security, test, build, runtime, and exact-artifact evidence", async () => {
-    process.env.NODE_ENV = "production";
-    process.env.SPRITES_BUILD_URL = "https://sprites.example.test/build";
-    process.env.SPRITES_API_TOKEN = "secret";
-    const files = { "package.json": "{}" };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            passed: true,
-            stage: "isolated_runtime",
-            isolationId: "sandbox-123",
-            artifactSha256: artifactSha256(files),
-            techStack: "react-node",
-            steps: {
-              install: { passed: true },
-              security: { passed: true },
-              tests: { passed: true },
-              build: { passed: true },
-              runtime: { passed: true },
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
+  it(
+    "accepts success only with install, security, test, build, runtime, and exact-artifact evidence",
+    async () => {
+      process.env.NODE_ENV = "production";
+      process.env.SPRITES_BUILD_URL = "https://sprites.example.test/build";
+      process.env.SPRITES_API_TOKEN = "secret";
+      const files = { "package.json": "{}" };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              passed: true,
+              stage: "isolated_runtime",
+              isolationId: "sandbox-123",
+              artifactSha256: artifactSha256(files),
+              techStack: "react-node",
+              steps: {
+                install: { passed: true },
+                security: { passed: true },
+                tests: { passed: true },
+                build: { passed: true },
+                runtime: { passed: true },
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
         ),
-      ),
-    );
+      );
 
-    const result = await validateWithIsolatedBuildRunner(files, "react-node");
-    expect(result).toMatchObject({
-      passed: true,
-      isolationId: "sandbox-123",
-    });
-  });
+      const result = await validateWithIsolatedBuildRunner(files, "react-node");
+      expect(result).toMatchObject({
+        passed: true,
+        isolationId: "sandbox-123",
+      });
+    },
+  );
 
   it("rejects a false green missing runtime proof", async () => {
     process.env.NODE_ENV = "production";
