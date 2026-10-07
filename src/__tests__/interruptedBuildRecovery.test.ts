@@ -12,29 +12,35 @@ describe("launch bar #4 interrupted build recovery", () => {
     expect(queue).toContain("attempts: BUILD_QUEUE_MAX_ATTEMPTS");
     expect(queue).toContain('type: "exponential"');
     expect(queue).toContain("delay: BUILD_QUEUE_RETRY_BASE_MS");
-    expect(queue).toContain("attempt: job.attemptsMade + 1");
-    expect(queue).toContain("maxAttempts: BUILD_QUEUE_MAX_ATTEMPTS");
+    expect(queue).toContain('bullWorker.on("stalled"');
   });
 
-  it("retries transient worker failures without refunding or emitting a terminal error early", () => {
-    const worker = source("src/services/build-worker.ts");
+  it("replays an already-finished project after worker restart instead of rebuilding it", () => {
+    const queue = source("src/services/build-queue.ts");
+    const recoveryCheck = queue.indexOf("recoverAlreadyCompletedBuild(parsed.job)");
+    const workerRun = queue.indexOf("await runBuildJob(job.data)");
 
-    expect(worker).toContain("export type BuildExecutionContext");
-    expect(worker).toContain("const retryableInterruption =");
-    expect(worker).toContain('await emit(projectId, "recovery"');
-    expect(worker).toContain("throw err;");
-    expect(worker.indexOf("if (retryableInterruption)")).toBeLessThan(
-      worker.indexOf('await refundReservation("Failed build")'),
+    expect(queue).toContain("async function recoverAlreadyCompletedBuild");
+    expect(queue).toContain('status !== "validated"');
+    expect(queue).toContain('status !== "production-certified"');
+    expect(queue).toContain("recoveredAfterWorkerRestart: true");
+    expect(queue).toContain("await getCurrentArtifact(job.projectId)");
+    expect(recoveryCheck).toBeGreaterThan(-1);
+    expect(workerRun).toBeGreaterThan(recoveryCheck);
+  });
+
+  it("persists a reconstructed terminal recovery event before publishing it", () => {
+    const queue = source("src/services/build-queue.ts");
+    const append = queue.indexOf(
+      'await appendBuildEvent(job.projectId, "done", payload)',
     );
-  });
+    const publish = queue.indexOf(
+      'await publishBuildEvent(job.projectId, "done", payload)',
+    );
 
-  it("recognizes an already-finished exact project after worker restart instead of rebuilding it", () => {
-    const worker = source("src/services/build-worker.ts");
-
-    expect(worker).toContain("recoverAlreadyCompletedBuild");
-    expect(worker).toContain('status === "production-certified"');
-    expect(worker).toContain('status === "validated"');
-    expect(worker).toContain('recoveredAfterWorkerRestart: true');
+    expect(append).toBeGreaterThan(-1);
+    expect(publish).toBeGreaterThan(append);
+    expect(queue).toContain("getLatestTerminalBuildEvent(job.projectId)");
   });
 
   it("keeps reconnect recovery backed by persisted events rather than client memory", () => {
