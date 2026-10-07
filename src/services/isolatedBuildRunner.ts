@@ -14,10 +14,18 @@ type RemoteProof = {
   errors?: unknown;
   durationMs?: number;
   isolationId?: string;
+  artifactSha256?: string;
+  techStack?: string;
   steps?: Record<string, { passed?: boolean }>;
 };
 
-const REQUIRED_STEPS = ["install", "security", "tests", "build", "runtime"] as const;
+const REQUIRED_STEPS = [
+  "install",
+  "security",
+  "tests",
+  "build",
+  "runtime",
+] as const;
 
 export function isolatedBuildConfigured(): boolean {
   return Boolean(
@@ -26,7 +34,11 @@ export function isolatedBuildConfigured(): boolean {
   );
 }
 
-function validateProof(value: unknown): RemoteProof {
+function validateProof(
+  value: unknown,
+  expectedArtifactSha256: string,
+  expectedTechStack: string,
+): RemoteProof {
   if (!value || typeof value !== "object") {
     throw new Error("Sprites build runner returned no validation proof");
   }
@@ -44,6 +56,15 @@ function validateProof(value: unknown): RemoteProof {
   if (proof.passed === true && missing.length > 0) {
     throw new Error(
       `Sprites build runner claimed success without passing: ${missing.join(", ")}`,
+    );
+  }
+  if (
+    proof.passed === true &&
+    (proof.artifactSha256 !== expectedArtifactSha256 ||
+      proof.techStack !== expectedTechStack)
+  ) {
+    throw new Error(
+      "Sprites build runner proof does not match the generated artifact or selected stack",
     );
   }
   return proof;
@@ -110,7 +131,11 @@ export async function validateWithIsolatedBuildRunner(
         `Sprites build runner failed with HTTP ${response.status}`,
       );
     }
-    const proof = validateProof(await response.json());
+    const proof = validateProof(
+      await response.json(),
+      artifactSha256,
+      techStack,
+    );
     return {
       passed: proof.passed === true,
       stage: proof.stage?.trim() || "isolated_runtime",
