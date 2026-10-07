@@ -2,64 +2,61 @@ name: Production Admin MFA
 
 on:
   workflow_dispatch:
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-admin-mfa-challenge-gate
-  cancel-in-progress: false
+  group: production-admin-mfa-proof
+  cancel-in-progress: true
 
 jobs:
-  admin-mfa-challenge:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.issue.pull_request &&
-        github.event.comment.user.login == github.repository_owner &&
-        github.event.comment.body == '/gate1-admin-mfa request'
-      )
-    name: Gate 1 owner admin SMS challenge
+  admin-mfa-proof:
+    name: Verify completed owner MFA for exact production SHA
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Install browser verifier
-        run: bash scripts/install-browser-verifier.sh
-
-      - name: Install Chromium
-        run: npx playwright install chromium
-
-      - name: Request real production admin SMS challenge
+      - name: Require durable approved MFA evidence for this exact release
         env:
-          APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
-          APPFORGE_ADMIN_MFA_PHASE: request
-          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
-          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
-        run: npx playwright test scripts/production-admin-mfa.spec.mjs --reporter=line
-
-      - name: Record secure verification boundary
-        if: always()
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APPFORGE_RELEASE_SHA: ${{ github.sha }}
         shell: bash
         run: |
-          cat <<'EOF'
-          This workflow proves the live AppForge admin challenge asks Twilio
-          Verify to send an SMS to the fixed server-side owner phone.
+          set -euo pipefail
+          test -n "$DATABASE_URL" || {
+            echo "DATABASE_URL is required to prove completed production admin MFA."
+            exit 1
+          }
+          test -n "$APPFORGE_RELEASE_SHA" || {
+            echo "Exact release SHA is unavailable; refusing MFA certification."
+            exit 1
+          }
 
-          The real SMS code is deliberately not accepted as a workflow input,
-          secret, artifact, log value, or repository value. Completing the live
-          verification phase requires a secure interactive session where the
-          owner enters the code received on the physical phone.
+          count="$(docker run --rm \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e APPFORGE_RELEASE_SHA="$APPFORGE_RELEASE_SHA" \
+            postgres:17-alpine \
+            sh -ceu '
+              psql "$DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 \
+                -v release_sha="$APPFORGE_RELEASE_SHA" \
+                -c "SELECT COUNT(*) FROM compliance_records WHERE record_type = '\''security_incident'\'' AND details->>'\''action'\'' = '\''admin_mfa_verify'\'' AND details->>'\''outcome'\'' = '\''approved'\'' AND details->>'\''releaseSha'\'' = :'\''release_sha'\'';"
+            ' | tr -d '[:space:]')"
+
+          if ! [[ "$count" =~ ^[0-9]+$ ]] || [ "$count" -lt 1 ]; then
+            echo "No completed owner MFA verification exists for exact release $APPFORGE_RELEASE_SHA."
+            echo "Request the SMS challenge, complete the code in live AppForge, then run this proof again."
+            exit 1
+          fi
+
+          echo "Completed owner MFA is durably recorded for exact release $APPFORGE_RELEASE_SHA."
+
+      - name: Record certification scope
+        run: |
+          cat <<'EOF'
+          This workflow never receives, stores, or logs the owner's SMS code.
+          It succeeds only after the live production server has recorded an
+          approved Twilio Verify result tagged with this exact deployed release SHA.
           EOF
