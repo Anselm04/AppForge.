@@ -6,13 +6,17 @@ import { runBuildJob } from "./build-worker.js";
 import {
   cloneBuildJob,
   extractBuildJobIdentity,
+  parseBuildJob,
   serializeBuildJob,
   validateBuildJob,
   type BuildJob,
 } from "../lib/buildJob.js";
-import { addCredits } from "../db.js";
+import { addCredits, getCurrentArtifact, getProjectById } from "../db.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
-import { getLatestTerminalBuildEvent } from "./build-event-store.js";
+import {
+  appendBuildEvent,
+  getLatestTerminalBuildEvent,
+} from "./build-event-store.js";
 import {
   incrementOperationalMetric,
   setOperationalGauge,
@@ -27,6 +31,8 @@ let bullQueue: Queue | null = null;
 
 const QUEUE_KEY = "appforge:build:queue";
 const BULL_QUEUE_NAME = "appforge-builds";
+const BUILD_QUEUE_MAX_ATTEMPTS = 3;
+const BUILD_QUEUE_RETRY_BASE_MS = 2_000;
 const queueClaimKey = (projectId: number) =>
   `appforge:build:queued:${projectId}`;
 const isTerminalEvent = (event: string) =>
@@ -81,6 +87,54 @@ async function getRedis(): Promise<RedisClientType | null> {
   return redisClient;
 }
 
+/**
+ * A BullMQ job can be delivered again after a worker loses its Redis lock or
+ * the process dies after persisting success but before acknowledging the job.
+ * Never rerun generation when the same project already has a validated current
+ * artifact. Replay (or reconstruct) the terminal event instead.
+ */
+async function recoverAlreadyCompletedBuild(job: BuildJob): Promise<boolean> {
+  const project = await getProjectById(job.projectId);
+  if (!project || project.userId !== job.userId) return false;
+
+  const status = project.status ?? "";
+  if (status !== "validated" && status !== "production-certified") {
+    return false;
+  }
+
+  const artifact = await getCurrentArtifact(job.projectId);
+  if (!artifact) return false;
+
+  const terminal = await getLatestTerminalBuildEvent(job.projectId);
+  const payload =
+    terminal?.event === "done"
+      ? terminal.payload
+      : {
+          projectId: job.projectId,
+          status,
+          buildStage: project.buildStage,
+          outputMaturity: project.outputMaturity,
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          artifactSha256: artifact.integrity.sha256,
+          fileCount: Object.keys(artifact.files).length,
+          recoveredAfterWorkerRestart: true,
+        };
+
+  if (terminal?.event !== "done") {
+    await appendBuildEvent(job.projectId, "done", payload);
+  }
+  await publishBuildEvent(job.projectId, "done", payload);
+  incrementOperationalMetric("appforge_build_recoveries_total", {
+    reason: "already_completed",
+  });
+  logger.info(
+    { projectId: job.projectId, status },
+    "completed_build_replayed_after_worker_restart",
+  );
+  return true;
+}
+
 async function initBullMQ(): Promise<boolean> {
   if (bullQueue) return true;
   if (!ENV.redisUrl) return false;
@@ -91,11 +145,20 @@ async function initBullMQ(): Promise<boolean> {
     bullWorker = new Worker(
       BULL_QUEUE_NAME,
       async (job) => {
-        // runBuildJob validates the typed context and settles (refund + failed
-        // status) any job whose contract is missing or invalid.
+        // Invalid job contracts are still settled by runBuildJob. Valid jobs
+        // are checked for an already-persisted terminal artifact first so a
+        // stalled/re-delivered job cannot duplicate customer work.
+        const parsed = parseBuildJob(job.data);
+        if (parsed.ok && (await recoverAlreadyCompletedBuild(parsed.job))) {
+          return;
+        }
         await runBuildJob(job.data);
       },
-      { connection, concurrency: 2 },
+      {
+        connection,
+        concurrency: 2,
+        maxStalledCount: 2,
+      },
     );
     const refreshBullQueueDepth = () => {
       void bullQueue
@@ -117,6 +180,13 @@ async function initBullMQ(): Promise<boolean> {
         refreshBullQueueDepth();
       },
     );
+    bullWorker.on("stalled", (jobId: string) => {
+      logger.warn({ jobId }, "bullmq_build_job_stalled_recovering");
+      incrementOperationalMetric("appforge_build_recoveries_total", {
+        reason: "worker_stalled",
+      });
+      refreshBullQueueDepth();
+    });
     refreshBullQueueDepth();
     logger.info("BullMQ build worker started");
     return true;
@@ -220,7 +290,11 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         jobId: `build-${job.projectId}`,
         removeOnComplete: 100,
         removeOnFail: 50,
-        attempts: 1,
+        attempts: BUILD_QUEUE_MAX_ATTEMPTS,
+        backoff: {
+          type: "exponential",
+          delay: BUILD_QUEUE_RETRY_BASE_MS,
+        },
       });
       const queuedData = queued.data as BuildJob;
       if (queuedData.createdAt !== job.createdAt) {
