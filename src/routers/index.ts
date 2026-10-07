@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { COOKIE_NAME, getSessionCookieOptions } from "../_core/cookies.js";
 import { systemRouter } from "../_core/systemRouter.js";
 import { publicProcedure, router } from "../_core/trpc.js";
@@ -96,7 +97,7 @@ export const appRouter = router({
       return { sent: true, phoneHint: maskPhone(phone) } as const;
     }),
     verifyLoginVerification: publicProcedure
-      .input(loginMfaCodeSchema.transform((code) => ({ code })))
+      .input(z.object({ code: loginMfaCodeSchema }))
       .mutation(async ({ ctx, input }) => {
         const user = ctx.user;
         if (!user) {
