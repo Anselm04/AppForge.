@@ -5,6 +5,8 @@ export type SignupConfirmationInput = {
   email: string;
   password: string;
   redirectTo: string;
+  fullName: string;
+  phone: string;
 };
 
 type ConfirmationLink = {
@@ -30,11 +32,7 @@ function requireServerAuthConfig() {
 }
 
 function requireTwilioEmailConfig() {
-  const from = (
-    process.env.TWILIO_EMAIL_FROM ||
-    ENV.ownerEmail ||
-    ""
-  ).trim();
+  const from = (process.env.TWILIO_EMAIL_FROM || ENV.ownerEmail || "").trim();
   if (!ENV.twilioAccountSid || !ENV.twilioAuthToken || !from) {
     throw new Error("Twilio signup email delivery is not configured");
   }
@@ -53,7 +51,14 @@ async function generateSupabaseSignupLink(
     type: "signup",
     email: input.email,
     password: input.password,
-    options: { redirectTo: input.redirectTo },
+    options: {
+      redirectTo: input.redirectTo,
+      data: {
+        full_name: input.fullName,
+        name: input.fullName,
+        phone: input.phone,
+      },
+    },
   });
   if (error) throw error;
 

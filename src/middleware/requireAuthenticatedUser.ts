@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { hasValidLoginMfa } from "../lib/loginMfa.js";
 
 /**
  * Fail-closed authorization barrier for REST routes that require a verified
@@ -15,6 +16,14 @@ export function requireAuthenticatedUser(
     return res.status(401).json({
       error: "Not authenticated",
       code: "AUTH_REQUIRED",
+    });
+  }
+
+  if (!hasValidLoginMfa(req, req.user.supabaseUid)) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(403).json({
+      error: "Phone verification required",
+      code: "PHONE_VERIFICATION_REQUIRED",
     });
   }
 

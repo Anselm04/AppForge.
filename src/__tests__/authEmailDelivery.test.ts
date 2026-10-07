@@ -14,6 +14,8 @@ describe("AppForge signup confirmation delivery", () => {
         email: "customer@example.com",
         password: "StrongPassword123!",
         redirectTo: "https://app.example.com/login?next=%2Faccount",
+        fullName: "Test Customer",
+        phone: "+64221234567",
       },
       { generateLink, sendEmail },
     );
@@ -22,6 +24,8 @@ describe("AppForge signup confirmation delivery", () => {
       email: "customer@example.com",
       password: "StrongPassword123!",
       redirectTo: "https://app.example.com/login?next=%2Faccount",
+      fullName: "Test Customer",
+      phone: "+64221234567",
     });
     expect(sendEmail).toHaveBeenCalledWith({
       to: "customer@example.com",
@@ -48,6 +52,8 @@ describe("AppForge signup confirmation delivery", () => {
           email: "customer@example.com",
           password: "StrongPassword123!",
           redirectTo: "https://app.example.com/login?next=%2Faccount",
+          fullName: "Test Customer",
+          phone: "+64221234567",
         },
         { generateLink, sendEmail },
       ),
