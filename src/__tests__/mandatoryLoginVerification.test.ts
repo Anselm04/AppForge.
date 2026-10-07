@@ -13,7 +13,9 @@ describe("mandatory login verification contract", () => {
 
     expect(pendingLogin).toContain("beginPasswordSignIn");
     expect(pendingLogin).toContain("completeVerifiedLogin");
-    expect(pendingLogin).not.toContain("rememberAuthenticatedUser(result.user)");
+    expect(pendingLogin).not.toContain(
+      "rememberAuthenticatedUser(result.user)",
+    );
     expect(login).toContain("trpc.auth.requestLoginVerification.mutate()");
     expect(login).toContain("trpc.auth.verifyLoginVerification.mutate");
     expect(login).toContain("Verification code");
