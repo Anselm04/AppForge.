@@ -18,7 +18,9 @@ describe("build queue billing semantics", () => {
     expect(queueSource).toContain("maxStalledCount: 2");
 
     const terminalCatch = workerSource.indexOf("} catch (err: unknown) {");
-    const refund = workerSource.indexOf('await refundReservation("Failed build")');
+    const refund = workerSource.indexOf(
+      'await refundReservation("Failed build")',
+    );
     const finallyBlock = workerSource.indexOf("} finally {", refund);
     const rethrowAfterRefund = workerSource.indexOf("throw err", refund);
 
