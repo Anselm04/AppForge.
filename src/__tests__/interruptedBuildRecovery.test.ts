@@ -17,7 +17,9 @@ describe("launch bar #4 interrupted build recovery", () => {
 
   it("replays an already-finished project after worker restart instead of rebuilding it", () => {
     const queue = source("src/services/build-queue.ts");
-    const recoveryCheck = queue.indexOf("recoverAlreadyCompletedBuild(parsed.job)");
+    const recoveryCheck = queue.indexOf(
+      "recoverAlreadyCompletedBuild(parsed.job)",
+    );
     const workerRun = queue.indexOf("await runBuildJob(job.data)");
 
     expect(queue).toContain("async function recoverAlreadyCompletedBuild");
