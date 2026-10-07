@@ -17,7 +17,7 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
       message: "Not authenticated",
     });
   }
-  if (!hasValidLoginMfa(opts.ctx.req, user.supabaseUid)) {
+  if (!hasValidLoginMfa(opts.ctx.req, user.supabaseUid ?? "")) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Phone verification required",
@@ -36,7 +36,7 @@ export const ownerAuthenticatedProcedure = t.procedure.use(async (opts) => {
   if (!user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
   }
-  if (!hasValidLoginMfa(opts.ctx.req, user.supabaseUid)) {
+  if (!hasValidLoginMfa(opts.ctx.req, user.supabaseUid ?? "")) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Phone verification required",
