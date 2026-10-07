@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { describe, expect, it } from "vitest";
 
 function source(relativePath: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf8");
@@ -8,11 +8,12 @@ function source(relativePath: string): string {
 
 describe("mandatory login verification contract", () => {
   it("does not treat primary Supabase credentials as a complete AppForge login", () => {
-    const auth = source("src/lib/auth.ts");
+    const pendingLogin = source("src/lib/verifiedLogin.ts");
     const login = source("src/pages/Login.tsx");
 
-    expect(auth).toContain("beginPasswordSignIn");
-    expect(auth).toContain("completeVerifiedLogin");
+    expect(pendingLogin).toContain("beginPasswordSignIn");
+    expect(pendingLogin).toContain("completeVerifiedLogin");
+    expect(pendingLogin).not.toContain("rememberAuthenticatedUser(result.user)");
     expect(login).toContain("trpc.auth.requestLoginVerification.mutate()");
     expect(login).toContain("trpc.auth.verifyLoginVerification.mutate");
     expect(login).toContain("Verification code");
@@ -44,6 +45,9 @@ describe("mandatory login verification contract", () => {
 
   it("never exposes owner identity through auth.me before login verification", () => {
     const router = source("src/routers/index.ts");
-    expect(router).toContain("hasValidLoginMfa(opts.ctx.req, user.supabaseUid)");
+    expect(router).toContain(
+      "hasValidLoginMfa(opts.ctx.req, user.supabaseUid)",
+    );
+    expect(router).toContain("clearLoginMfaCookie(ctx.res)");
   });
 });
