@@ -113,8 +113,8 @@ describe("launch bar #5 generated SaaS certification", () => {
     expect(hasVerifiedMonetizationEvidence(weakEvidence, artifactVersion)).toBe(
       false,
     );
-    expect(hasVerifiedMonetizationEvidence(strongEvidence, artifactVersion)).toBe(
-      true,
-    );
+    expect(
+      hasVerifiedMonetizationEvidence(strongEvidence, artifactVersion),
+    ).toBe(true);
   });
 });
