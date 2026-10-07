@@ -49,19 +49,37 @@ describe("owner admin MFA security contract", () => {
   });
 
   it("restricts the live SMS challenge workflow to the repository owner", () => {
-    const workflow = source(
+    const challenge = source(
+      "../../../.github/workflows/production-admin-mfa-challenge.yml",
+    );
+
+    expect(challenge).toContain("name: Production Admin MFA Challenge");
+    expect(challenge).toContain("issue_comment");
+    expect(challenge).toContain(
+      "github.event.comment.user.login == github.repository_owner",
+    );
+    expect(challenge).toContain(
+      "github.event.comment.body == '/gate1-admin-mfa request'",
+    );
+    expect(challenge).not.toContain("verification_code");
+    expect(challenge).not.toContain("APPFORGE_ADMIN_MFA_CODE");
+  });
+
+  it("requires fresh completed physical MFA before launch evidence can pass", () => {
+    const proof = source(
       "../../../.github/workflows/production-admin-mfa.yml",
     );
 
-    expect(workflow).toContain("issue_comment");
-    expect(workflow).toContain(
-      "github.event.comment.user.login == github.repository_owner",
-    );
-    expect(workflow).toContain(
-      "github.event.comment.body == '/gate1-admin-mfa request'",
-    );
-    expect(workflow).not.toContain("verification_code");
-    expect(workflow).not.toContain("APPFORGE_ADMIN_MFA_CODE");
+    expect(proof).toContain("name: Production Admin MFA");
+    expect(proof).toContain("DATABASE_URL");
+    expect(proof).toContain("FLY_API_TOKEN");
+    expect(proof).toContain("admin_mfa_verify");
+    expect(proof).toContain("approved");
+    expect(proof).toContain("created_at >= to_timestamp");
+    expect(proof).toContain("evidence_started_at");
+    expect(proof).toContain("started_shas");
+    expect(proof).not.toContain("verification_code");
+    expect(proof).not.toContain("APPFORGE_ADMIN_MFA_CODE");
   });
 
   it("does not load admin data before SMS MFA succeeds", () => {
