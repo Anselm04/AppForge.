@@ -3,7 +3,8 @@ import { ENV } from "../_core/env.js";
 import { isOwnerEmail } from "../lib/owner.js";
 
 function normalizePhone(value: unknown): string {
-  const phone = typeof value === "string" ? value.trim().replace(/[\s()-]/g, "") : "";
+  const phone =
+    typeof value === "string" ? value.trim().replace(/[\s()-]/g, "") : "";
   return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : "";
 }
 
@@ -18,7 +19,9 @@ export async function resolveLoginVerificationPhone(input: {
 }): Promise<string> {
   if (isOwnerEmail(input.email)) {
     const ownerPhone = normalizePhone(ENV.ownerPhone);
-    if (!ownerPhone) throw new Error("Owner phone verification is not configured");
+    if (!ownerPhone) {
+      throw new Error("Owner phone verification is not configured");
+    }
     return ownerPhone;
   }
 
@@ -29,7 +32,9 @@ export async function resolveLoginVerificationPhone(input: {
   const supabase = createClient(ENV.supabaseUrl, ENV.supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await supabase.auth.admin.getUserById(input.supabaseUid);
+  const { data, error } = await supabase.auth.admin.getUserById(
+    input.supabaseUid,
+  );
   if (error || !data.user) {
     throw new Error("Unable to load account verification details");
   }
