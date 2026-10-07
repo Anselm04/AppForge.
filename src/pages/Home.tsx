@@ -54,7 +54,10 @@ export function Home() {
   });
 
   const { data: tierStatus } = useQuery({
-    queryKey: ["projects", "tierStatus"],
+    // Entitlement data is user-scoped. Including the authenticated user in the
+    // key prevents a cached free-plan response from a prior session/account
+    // being shown after the owner signs in.
+    queryKey: ["projects", "tierStatus", user?.id ?? null],
     queryFn: () => trpc.projects.tierStatus.query(),
     enabled: !!user,
   });
@@ -125,11 +128,17 @@ export function Home() {
     },
   });
 
+  // auth.me is server-authoritative for owner identity. Treat it as an
+  // immediate unlimited entitlement while tierStatus is loading/refetching.
+  // projects.create independently enforces the same owner entitlement on the
+  // server, so this changes presentation only and cannot promote a customer.
+  const ownerUnlimited = user?.isOwner === true;
+  const unlimited = ownerUnlimited || !!tierStatus?.unlimited;
   const creditBalance = tierStatus?.credits ?? 0;
   const outOfCredits =
     !!user &&
     tierStatus !== undefined &&
-    !tierStatus.unlimited &&
+    !unlimited &&
     creditBalance < BUILD_CREDIT_COST;
   const overLimit = description.length > PROMPT_MAX_CHARS;
 
@@ -187,33 +196,33 @@ export function Home() {
           </p>
         </div>
 
-        {tierStatus && (
+        {(tierStatus || ownerUnlimited) && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-8 max-w-2xl mx-auto text-center">
             <p className="text-slate-700 dark:text-slate-300 font-semibold">
-              {tierStatus.unlimited
+              {unlimited
                 ? "Owner account · Unlimited lifetime access"
-                : tierStatus.tier === "free"
+                : tierStatus?.tier === "free"
                   ? t("home.planFree", {
                       remaining: tierStatus.remaining ?? 0,
                       credits: tierStatus.credits ?? 0,
                     })
-                  : tierStatus.tier === "starter"
+                  : tierStatus?.tier === "starter"
                     ? t("home.planStarter", {
                         remaining: tierStatus.remaining ?? 0,
                         credits: tierStatus.credits ?? 0,
                       })
-                    : tierStatus.tier === "builder"
+                    : tierStatus?.tier === "builder"
                       ? t("home.planBuilder", {
                           remaining: tierStatus.remaining ?? 0,
                           credits: tierStatus.credits ?? 0,
                         })
-                      : tierStatus.tier === "studio"
+                      : tierStatus?.tier === "studio"
                         ? t("home.planStudio", {
                             credits: tierStatus.credits ?? 0,
                           })
                         : t("home.planEnterprise")}
             </p>
-            {!tierStatus.unlimited && tierStatus.tier === "free" && (
+            {!unlimited && tierStatus?.tier === "free" && (
               <a
                 href="/pricing"
                 className="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block"
