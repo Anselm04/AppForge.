@@ -56,9 +56,6 @@ describe("AppForge launch bar release contract", () => {
       ".github/workflows/production-database-recovery.yml",
     );
     const gate = source(".github/workflows/launch-bar-certification.yml");
-    const adminRouter = source("src/routers/admin.ts");
-    const dockerfile = source("Dockerfile");
-    const deploy = source(".github/workflows/deploy-production.yml");
 
     expect(journey).toContain("name: Production Full Customer Journey");
     expect(journey).toContain("Run the real production customer journey");
@@ -72,17 +69,12 @@ describe("AppForge launch bar release contract", () => {
 
     expect(adminMfa).toContain("name: Production Admin MFA");
     expect(adminMfa).toContain("DATABASE_URL");
+    expect(adminMfa).toContain("FLY_API_TOKEN");
     expect(adminMfa).toContain("admin_mfa_verify");
     expect(adminMfa).toContain("approved");
-    expect(adminMfa).toContain("APPFORGE_RELEASE_SHA");
-    expect(adminRouter).toContain(
-      "releaseSha: process.env.APPFORGE_RELEASE_SHA",
-    );
-    expect(dockerfile).toContain("ARG APPFORGE_RELEASE_SHA");
-    expect(dockerfile).toContain(
-      "ENV APPFORGE_RELEASE_SHA=$APPFORGE_RELEASE_SHA",
-    );
-    expect(deploy).toContain("--build-arg APPFORGE_RELEASE_SHA=$RELEASE_SHA");
+    expect(adminMfa).toContain("created_at");
+    expect(adminMfa).toContain("GH_SHA");
+    expect(adminMfa).toContain("evidence_started_at");
 
     expect(databaseRecovery).toContain("name: Production Database Recovery");
     expect(gate).toContain("REQUIRED_CUSTOMER_JOURNEY_PASSES: 3");
