@@ -23,7 +23,6 @@ type AuthResponse = {
 function config() {
   const runtime =
     typeof window !== "undefined" ? window.__APPFORGE_CONFIG__ : undefined;
-  // Prefer runtime /config.js so a localhost VITE_* bake cannot override live Fly.
   const url =
     runtime?.supabaseUrl ||
     (import.meta.env.VITE_SUPABASE_URL as string | undefined);
@@ -65,6 +64,8 @@ async function requestAppForgeSignup(
   email: string,
   password: string,
   next: string,
+  fullName?: string,
+  phone?: string,
 ): Promise<AuthResponse> {
   const headers = await withCsrfHeaders({
     Accept: "application/json",
@@ -74,7 +75,7 @@ async function requestAppForgeSignup(
     method: "POST",
     credentials: "same-origin",
     headers,
-    body: JSON.stringify({ email, password, next }),
+    body: JSON.stringify({ email, password, next, fullName, phone }),
   });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
@@ -86,8 +87,14 @@ async function requestAppForgeSignup(
 }
 
 export const supabaseClient = {
-  signUp(email: string, password: string, next = "/") {
-    return requestAppForgeSignup(email, password, next);
+  signUp(
+    email: string,
+    password: string,
+    next = "/",
+    fullName?: string,
+    phone?: string,
+  ) {
+    return requestAppForgeSignup(email, password, next, fullName, phone);
   },
   signIn(email: string, password: string) {
     return request<AuthResponse>("/auth/v1/token?grant_type=password", {
