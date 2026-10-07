@@ -1,6 +1,9 @@
 import { supabaseClient } from "./supabase-client.js";
 import { clearCsrfToken, withCsrfHeaders } from "./csrf.js";
-import { rememberAuthenticatedUser, type AppForgeSession } from "./auth.js";
+import {
+  rememberAuthenticatedUser,
+  type AppForgeSession,
+} from "./auth.js";
 
 export type PendingPasswordLogin = {
   user: AppForgeSession["user"];
@@ -42,7 +45,10 @@ export async function beginPasswordSignIn(
     throw new Error(result.error?.message || "Sign-in failed.");
   }
 
-  await establishPrimaryServerSession(result.access_token, result.refresh_token);
+  await establishPrimaryServerSession(
+    result.access_token,
+    result.refresh_token,
+  );
   return {
     user: {
       id: result.user.id,
