@@ -313,8 +313,17 @@ export function hasVerifiedMonetizationEvidence(
       return false;
     }
     const payload = event.payload as Record<string, unknown>;
+    if (payload.verified !== true) return false;
+
+    const hasDetailedLifecycleEvidence =
+      "configured" in payload ||
+      "providerVerified" in payload ||
+      "state" in payload;
+    if (!hasDetailedLifecycleEvidence) {
+      return true;
+    }
+
     return (
-      payload.verified === true &&
       payload.configured === true &&
       payload.providerVerified === true &&
       payload.state === "connected"
