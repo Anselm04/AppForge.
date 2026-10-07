@@ -19,12 +19,18 @@ type RemoteProof = {
   steps?: Record<string, { passed?: boolean }>;
 };
 
-const REQUIRED_STEPS = ["install", "security", "tests", "build", "runtime"] as const;
+const REQUIRED_STEPS = [
+  "install",
+  "security",
+  "tests",
+  "build",
+  "runtime",
+] as const;
 
 export function isolatedBuildConfigured(): boolean {
   return Boolean(
     (process.env.SPRITES_BUILD_URL || process.env.SPRITES_EXEC_URL)?.trim() &&
-    process.env.SPRITES_API_TOKEN?.trim(),
+      process.env.SPRITES_API_TOKEN?.trim(),
   );
 }
 
