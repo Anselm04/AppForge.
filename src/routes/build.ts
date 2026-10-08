@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { deployProject } from "../services/deployer.js";
 import { watchProject } from "../agents/selfHealing.js";
 import { getBuildEventsSince } from "../services/build-event-store.js";
+import { currentBuildAttemptEvents } from "../lib/buildRecovery.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
 import { subscribeBuildEvents } from "../services/build-queue.js";
 import {
@@ -174,7 +175,9 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   const sinceEventId = Number.isFinite(parsedLastEventId)
     ? Math.max(0, parsedLastEventId)
     : 0;
-  const historical = await getBuildEventsSince(projectId, sinceEventId);
+  const historical = currentBuildAttemptEvents(
+    await getBuildEventsSince(projectId, sinceEventId),
+  );
   let sawTerminal = false;
   for (const row of historical) {
     write(row.event, row.payload);
