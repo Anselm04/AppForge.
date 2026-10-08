@@ -710,3 +710,9 @@ Verification target:
 - Exercise AppForge checkout, delayed/replayed webhook delivery, refund, cancellation, failed-payment reconciliation, and entitlement/credit idempotency.
 - Deliver representative unrelated-product Stripe events from the shared account and confirm AppForge acknowledges/ignores them without mutating AppForge billing state.
 - Confirm a deliberately AppForge-marked event with a non-AppForge price fails closed and grants nothing.
+
+
+## 2026-10-08 authenticated build-entry hotfix
+- Signed-out visitors are blocked from the build entry routes and redirected to sign-in before the build UI mounts.
+- The server-authoritative owner identity bypasses customer CAPTCHA/moderation/credit gates only for the owner; customer gates remain fail-closed.
+- Recovery validation must confirm a restored release preserves both boundaries: unauthenticated build entry remains closed and the verified owner can start a build without a customer CAPTCHA token.
