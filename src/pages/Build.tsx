@@ -458,7 +458,10 @@ export function Build() {
     }
   };
 
-  const canUseWorkspace = isComplete || hasPartialFiles;
+  const canUseWorkspace =
+    isComplete ||
+    hasPartialFiles ||
+    Object.keys(project?.generatedFiles ?? {}).length > 0;
 
   const stack = stackPresentation(project?.techStack);
   const structuralOnly = structuralDone || stack?.structuralOnly === true;
