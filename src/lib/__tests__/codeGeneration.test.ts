@@ -259,6 +259,39 @@ function fixture(): {
 }
 
 describe("code generation guard", () => {
+  it("supplies the rejected output error and exact ownership on retry", () => {
+    const { contract, plan } = fixture();
+    const instruction = coderTaskInstruction({
+      contract,
+      plan,
+      task: plan.tasks[0],
+      researchDecisions: [],
+      previousValidationError:
+        "Task T1 returned unplanned file(s): tsconfig.node.json, tsconfig.server.json",
+    });
+    expect(instruction).toContain("PREVIOUS ATTEMPT REJECTED");
+    expect(instruction).toContain("unplanned file(s): tsconfig.node.json");
+    expect(instruction).toContain(
+      "Return exactly these complete file paths and no others: src/main.tsx, src/App.tsx",
+    );
+  });
+
+  it("continues rejecting unplanned configuration files", () => {
+    const { contract, plan } = fixture();
+    expect(() =>
+      validateCoderTaskOutput({
+        contract,
+        task: plan.tasks[0],
+        files: {
+          "src/main.tsx":
+            "// requirement: REQ-001\n// requirement: REQ-002\nexport const boot = true;",
+          "src/App.tsx": "export const App = () => <main>Ready</main>;",
+          "tsconfig.server.json": '{"compilerOptions":{"target":"ES2022"}}',
+        },
+      }),
+    ).toThrow(/unplanned file.*tsconfig.server.json/);
+  });
+
   it("builds a contract-aware task instruction with real behavior rules", () => {
     const { contract, plan } = fixture();
     const instruction = coderTaskInstruction({
