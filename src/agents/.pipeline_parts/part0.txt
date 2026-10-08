@@ -181,6 +181,7 @@ async function streamLLM(
   const result = await invokeLLM({
     messages: messages as any,
     model,
+    allowModelFallback: true,
     startProviderIndex: normalized.startProviderIndex,
     preferredProviderId: normalized.preferredProviderId,
     signal: normalized.signal,

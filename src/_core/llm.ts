@@ -80,6 +80,8 @@ export type InvokeParams = {
   responseFormat?: ResponseFormat;
   response_format?: ResponseFormat;
   model?: string;
+  /** Internal agent selections may switch to available free models on quota failure. */
+  allowModelFallback?: boolean;
   thinking?: Record<string, unknown>;
   reasoning?: Record<string, unknown>;
   /** Prefer this provider id first (failover still tries the rest). */
@@ -497,13 +499,19 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   const explicitModel = (model && model.trim()) || "";
   const errors: string[] = [];
+  const freeFallbacks = new Set<LlmProvider>();
+  const attemptedModels = new Set<string>();
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
     const payload = {
       ...basePayload,
-      model: explicitModel || provider.defaultModel || DEFAULT_CHAT_MODEL,
+      model:
+        (freeFallbacks.has(provider) ? "" : explicitModel) ||
+        provider.defaultModel ||
+        DEFAULT_CHAT_MODEL,
     };
+    attemptedModels.add(String(payload.model));
     const url = chatCompletionsUrl(provider.baseUrl);
     const requestStartedAt = Date.now();
     try {
@@ -550,20 +558,23 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       if (
         response.status === 429 &&
         provider.id === "gemini" &&
-        !explicitModel
+        (!explicitModel || params.allowModelFallback === true)
       ) {
         const fallback = [
           "gemini-3.1-flash-lite",
           "gemini-3.5-flash-lite",
         ].find(
           (model) =>
+            !attemptedModels.has(model) &&
             !providers.some(
               (candidate) =>
                 candidate.id === "gemini" && candidate.defaultModel === model,
             ),
         );
         if (fallback) {
-          providers.splice(i + 1, 0, { ...provider, defaultModel: fallback });
+          const candidate = { ...provider, defaultModel: fallback };
+          freeFallbacks.add(candidate);
+          providers.splice(i + 1, 0, candidate);
         }
       }
 
