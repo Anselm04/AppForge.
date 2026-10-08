@@ -18,6 +18,8 @@ import {
   ensureUserCredits,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import { isRecoverableBuildPause } from "../lib/buildRecovery.js";
+import { appendBuildEvent } from "../services/build-event-store.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import {
@@ -494,16 +496,24 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       if (
         project.status !== "paused" ||
-        project.pauseReason !== "approval_required"
+        (project.pauseReason !== "approval_required" &&
+          !isRecoverableBuildPause(project.status, project.pauseReason))
       ) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "This build is not waiting for approval.",
+          message:
+            "This build is not waiting for approval or a recoverable retry.",
         });
       }
 
       const contract = validateProductContract(project.productContract);
       const revisingPlan = project.planStatus === "revision_requested";
+      if (revisingPlan && project.pauseReason !== "approval_required") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Approve the revised plan before retrying generation.",
+        });
+      }
       if (!revisingPlan && project.planStatus !== "approved") {
         throw new TRPCError({
           code: "CONFLICT",
@@ -588,7 +598,7 @@ export const projectsRouter = router({
           input.projectId,
           ctx.user.id,
           "paused",
-          "approval_required",
+          project.pauseReason,
         );
         throw new TRPCError({
           code: "CONFLICT",
@@ -598,6 +608,10 @@ export const projectsRouter = router({
       }
 
       try {
+        await appendBuildEvent(input.projectId, "build_resume", {
+          message:
+            "Resuming the saved build with its existing approved decisions.",
+        });
         const { enqueueBuild } = await import("../services/build-queue.js");
         await enqueueBuild({
           projectId: input.projectId,
@@ -617,7 +631,7 @@ export const projectsRouter = router({
           input.projectId,
           ctx.user.id,
           "paused",
-          "approval_required",
+          project.pauseReason,
         );
         if (newlyCharged) {
           const { addCredits } = await import("../db.js");

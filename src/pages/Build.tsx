@@ -17,6 +17,7 @@ import {
   stackPresentation,
 } from "../lib/stackPresentation.js";
 import { buildStageLabel, outputMaturityLabel } from "../lib/buildStatus.js";
+import { isRecoverableBuildPause } from "../lib/buildRecovery.js";
 
 interface BuildLog {
   agent: string;
@@ -63,6 +64,7 @@ export function Build() {
   const [hasPartialFiles, setHasPartialFiles] = useState(false);
   const [planRevision, setPlanRevision] = useState("");
   const [approvalBusy, setApprovalBusy] = useState(false);
+  const [streamRevision, setStreamRevision] = useState(0);
 
   const { data: project, refetch: refetchProject } = useQuery({
     queryKey: ["projects", projectId],
@@ -137,6 +139,10 @@ export function Build() {
         if (closed) return;
         authReconnectAttempts = 0;
         setError(null);
+        if (event === "build_resume") {
+          setIsPaused(false);
+          return;
+        }
         if (event === "agent") {
           const data = JSON.parse(raw) as BuildLog;
           setLogs((prev) => [...prev, data]);
@@ -186,18 +192,13 @@ export function Build() {
           ]);
           if (spent) setCreditsSpent(spent);
 
-          const retryable =
-            reason === "retry_after_error" ||
-            reason === "still_building" ||
-            reason.startsWith("still_building");
+          const retryable = isRecoverableBuildPause("paused", reason);
           if (retryable) {
-            setIsPaused(false);
+            setIsPaused(true);
             setError(null);
+            closed = true;
             thisStream.abort();
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(() => {
-              if (!closed && !effectAc.signal.aborted) connect();
-            }, 3000);
+            void refetchProject();
             return;
           }
 
@@ -313,7 +314,7 @@ export function Build() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       effectAc.abort();
     };
-  }, [projectId, pid]);
+  }, [projectId, pid, streamRevision]);
 
   const handleDeploy = async () => {
     if (!projectId) return;
@@ -430,6 +431,8 @@ export function Build() {
       await trpc.projects.resumeApprovedBuild.mutate({ projectId: pid });
       setIsPaused(false);
       await refreshApprovalState();
+      setLogs([]);
+      setStreamRevision((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Build resume failed");
     } finally {
@@ -590,6 +593,29 @@ export function Build() {
             </div>
           </section>
         )}
+
+        {project &&
+          isRecoverableBuildPause(project.status, project.pauseReason) && (
+            <section
+              className="mb-6 rounded-xl border border-amber-600/60 p-5"
+              data-testid="build-retry-panel"
+            >
+              <h2 className="text-lg font-semibold">
+                Build paused after an interruption
+              </h2>
+              <p className="mt-1 text-sm">
+                Your saved plan and progress are preserved. Retry to continue
+                with the same approved decisions.
+              </p>
+              <button
+                className="mt-3 forge-gold-btn px-4 py-2"
+                disabled={approvalBusy || !approvalsReady}
+                onClick={handleResumeApprovedBuild}
+              >
+                {approvalBusy ? "Resuming…" : "Retry saved build"}
+              </button>
+            </section>
+          )}
 
         {project && awaitingApproval && (
           <section

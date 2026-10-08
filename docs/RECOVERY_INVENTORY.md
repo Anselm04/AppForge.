@@ -241,6 +241,14 @@ Verification target:
 - Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
 - Exercise disconnect/reconnect around terminal publication and confirm persisted terminal replay without duplicate execution or charging.
 
+### Explicit interrupted-build recovery — 2026-10-08
+
+The authenticated build event GET is observational: reconnecting subscribes to events and does not enqueue a paused worker. Owners must use **Retry saved build** for `retry_after_error`, `agent_timeout`, `still_building`, or a numbered `still_building_soft_ceiling` pause. The protected resume procedure retains ownership, canonical intent, plan/integration/monetization approval, reservation, and atomic build-claim checks. User cancellation, missing credentials, insufficient credits, and unapproved decisions are not retryable through this action.
+
+A successful claim persists a `build_resume` event before queue admission. Reconnect replay begins at the latest such event, so a prior attempt's pause or terminal error cannot stop the resumed stream. Earlier events remain stored for audit and recovery; they are not deleted. Failed queue admission restores the original pause reason and the existing reservation refund behavior. The client starts a fresh stream after successful resume and stops reconnecting to a recoverable paused worker.
+
+Recovery verification must exercise the pause allowlist and cancellation exclusions, latest-attempt replay, duplicate admission and credit recovery, then a real saved-plan retry across the production workers. Source tests alone do not certify a complete generated-product journey.
+
 ## Stripe
 
 Must be recoverable:
