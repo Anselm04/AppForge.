@@ -89,7 +89,7 @@ export function SocialAuthButtons({ next = "/" }: { next?: string }) {
             key={provider}
             type="button"
             onClick={() => start(provider)}
-            className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-forge-border bg-forge-surface px-4 text-sm font-medium text-forge-text-primary shadow-[var(--forge-shadow-soft)] transition-[box-shadow,border-color] duration-forge hover:border-forge-gold/50 hover:shadow-[var(--forge-shadow)] focus:outline-none focus-visible:ring-2 focus-visible:ring-forge-cyan/50"
+            className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-forge-border bg-forge-surface px-4 text-sm font-medium text-forge-text-primary shadow-(--forge-shadow-soft) transition-[box-shadow,border-color] duration-forge hover:border-forge-gold/50 hover:shadow-(--forge-shadow) focus:outline-hidden focus-visible:ring-2 focus-visible:ring-forge-cyan/50"
           >
             {provider === "google" ? <GoogleIcon /> : <GitHubIcon />}
             {providerLabel(provider, t)}

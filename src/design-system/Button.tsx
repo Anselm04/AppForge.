@@ -15,7 +15,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: "forge-gold-btn font-semibold",
   secondary: "forge-ghost-btn",
   ghost:
-    "bg-transparent rounded-full text-forge-text-muted hover:text-forge-text-primary hover:bg-[color:var(--forge-surface-hover)]",
+    "bg-transparent rounded-full text-forge-text-muted hover:text-forge-text-primary hover:bg-(--forge-surface-hover)",
 };
 
 const SIZES: Record<Size, string> = {

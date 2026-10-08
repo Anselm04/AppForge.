@@ -49,7 +49,7 @@ export function Discover() {
                   <Link
                     key={feature.id}
                     to={featurePath(feature.id)}
-                    className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-forge-cyan/50 rounded-card"
+                    className="block focus:outline-hidden focus-visible:ring-2 focus-visible:ring-forge-cyan/50 rounded-card"
                   >
                     <GlassCard className="h-full">
                       <span className="text-2xl" aria-hidden="true">

@@ -86,7 +86,7 @@ export function Redeem() {
 
   if (isFetched && !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-md mx-auto px-4 py-20 text-center">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
             Redeem a code
@@ -106,7 +106,7 @@ export function Redeem() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-md mx-auto px-4 py-20">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 text-center">
           Redeem a code
@@ -129,7 +129,7 @@ export function Redeem() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 autoComplete="off"
-                className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 font-mono"
+                className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-hidden focus:border-blue-500 font-mono"
               />
             </div>
             <div>
@@ -144,7 +144,7 @@ export function Redeem() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1234567890"
-                className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-hidden focus:border-blue-500"
               />
               <button
                 type="button"
@@ -169,7 +169,7 @@ export function Redeem() {
                   onChange={(e) => setOtp(e.target.value)}
                   inputMode="numeric"
                   maxLength={6}
-                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-hidden focus:border-blue-500 font-mono"
                 />
               </div>
             )}

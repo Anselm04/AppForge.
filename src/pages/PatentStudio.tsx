@@ -255,7 +255,7 @@ export function PatentStudio() {
                 setJurisdiction(e.target.value as PatentJurisdiction);
                 setFilingType("");
               }}
-              className="ml-2 bg-white dark:bg-slate-800 border rounded px-2 py-1"
+              className="ml-2 bg-white dark:bg-slate-800 border rounded-sm px-2 py-1"
             >
               {Object.values(PATENT_JURISDICTIONS).map((j) => (
                 <option key={j.id} value={j.id}>
@@ -269,7 +269,7 @@ export function PatentStudio() {
             <select
               value={filingType || effectiveFiling}
               onChange={(e) => setFilingType(e.target.value as FilingType)}
-              className="ml-2 bg-white dark:bg-slate-800 border rounded px-2 py-1"
+              className="ml-2 bg-white dark:bg-slate-800 border rounded-sm px-2 py-1"
             >
               {meta.allowedFilingTypes.map((t) => (
                 <option key={t} value={t}>
@@ -388,14 +388,14 @@ export function PatentStudio() {
               <button
                 type="button"
                 onClick={() => setDrawingMode("informal")}
-                className={`px-3 py-1 rounded text-sm ${drawingMode === "informal" ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
+                className={`px-3 py-1 rounded-sm text-sm ${drawingMode === "informal" ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
               >
                 Informal (provisional)
               </button>
               <button
                 type="button"
                 onClick={() => setDrawingMode("formal")}
-                className={`px-3 py-1 rounded text-sm ${drawingMode === "formal" ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
+                className={`px-3 py-1 rounded-sm text-sm ${drawingMode === "formal" ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
               >
                 Formal (complete)
               </button>
@@ -416,7 +416,7 @@ export function PatentStudio() {
                       key={f.figureNumber}
                       type="button"
                       onClick={() => setActiveFigure(i)}
-                      className={`px-3 py-1 rounded text-sm ${activeFigure === i ? "bg-slate-800 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
+                      className={`px-3 py-1 rounded-sm text-sm ${activeFigure === i ? "bg-slate-800 text-white" : "bg-slate-200 dark:bg-slate-700"}`}
                     >
                       Fig. {f.figureNumber}
                     </button>
@@ -426,7 +426,7 @@ export function PatentStudio() {
                   ref={canvasRef}
                   width={640}
                   height={480}
-                  className="w-full border border-slate-400 bg-white rounded"
+                  className="w-full border border-slate-400 bg-white rounded-sm"
                 />
                 <button
                   type="button"
@@ -438,7 +438,7 @@ export function PatentStudio() {
                 </button>
                 {refCheck && (
                   <div
-                    className={`text-sm p-3 rounded ${refCheck.ok ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}
+                    className={`text-sm p-3 rounded-sm ${refCheck.ok ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}
                   >
                     {refCheck.ok
                       ? `All reference numerals match (${refCheck.matched.length} numerals).`
@@ -482,7 +482,7 @@ export function PatentStudio() {
             placeholder="Project ID"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="border rounded px-2 py-1 w-28 dark:bg-slate-800 dark:border-slate-700"
+            className="border rounded-sm px-2 py-1 w-28 dark:bg-slate-800 dark:border-slate-700"
           />
           <button
             type="button"

@@ -1,199 +1,248 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --forge-bg: #f7f1e5;
-  --forge-bg-rgb: 247 241 229;
-  --forge-surface: #fffaf0;
-  --forge-surface-rgb: 255 250 240;
-  --forge-surface-hover: #f1e5cf;
-  --forge-surface-hover-rgb: 241 229 207;
-  --forge-text: #26231f;
-  --forge-text-rgb: 38 35 31;
-  --forge-muted: #756f65;
-  --forge-muted-rgb: 117 111 101;
-  --forge-border: rgba(166, 131, 63, 0.28);
-  --forge-gold: #b78d3d;
-  --forge-gold-rgb: 183 141 61;
-  --forge-gold-bright: #ead7a6;
-  --forge-gold-deep: #8b6728;
-  --forge-heading: #2f2d29;
-  --forge-cyan: #55c6c8;
-  --forge-cyan-rgb: 85 198 200;
-  --forge-blue: #b78d3d;
-  --forge-blue-rgb: 183 141 61;
-  --forge-gradient: linear-gradient(135deg, #8b6728 0%, #b78d3d 48%, #ead7a6 100%);
-  --forge-gold-gradient: linear-gradient(135deg, #f3e3b0 0%, #cfaa58 30%, #b78d3d 62%, #886326 100%);
-  --forge-silver-1: #f1f1ef;
-  --forge-silver-2: #a7a39b;
-  --forge-silver-3: #66645f;
-  --forge-live: #38c172;
-  --forge-focus: rgba(183, 141, 61, 0.42);
-  --forge-shadow: 0 18px 50px rgba(17, 18, 20, 0.10);
-  --forge-shadow-soft: 0 10px 30px rgba(17, 18, 20, 0.08);
-  --forge-radius: 14px;
-  --forge-radius-pill: 9999px;
-  --forge-transition: 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  --forge-mesh-a: rgba(183, 141, 61, 0.13);
-  --forge-mesh-b: rgba(85, 198, 200, 0.045);
-  --font-serif: "Cormorant Garamond", "Iowan Old Style", Palatino, Georgia, serif;
-  --font-sans: "Outfit", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  color-scheme: light;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-forge-bg: rgb(var(--forge-bg-rgb));
+  --color-forge-surface: rgb(var(--forge-surface-rgb));
+  --color-forge-surface-hover: rgb(var(--forge-surface-hover-rgb));
+  --color-forge-gold: rgb(var(--forge-gold-rgb));
+  --color-forge-text-primary: rgb(var(--forge-text-rgb));
+  --color-forge-text-muted: rgb(var(--forge-muted-rgb));
+  --color-forge-cyan: rgb(var(--forge-cyan-rgb));
+  --color-forge-blue: rgb(var(--forge-blue-rgb));
+  --color-forge-border: var(--forge-border);
+
+  --font-sans:
+    Inter, Sora, "Noto Sans", "Noto Sans Devanagari", "Noto Sans SC",
+    "Noto Sans JP", "Noto Sans KR", "Noto Sans Arabic", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-display: Sora, Inter, system-ui, sans-serif;
+
+  --radius-card: 16px;
+  --radius-tile: 16px;
+
+  --shadow-glow: 0 0 40px rgba(34, 184, 255, 0.12);
+  --shadow-glow-gold: 0 0 24px rgba(212, 175, 55, 0.15);
+  --shadow-card-hover:
+    0 0 0 1px rgba(34, 184, 255, 0.25), 0 8px 32px rgba(0, 0, 0, 0.35);
+
+  --background-image-forge-gradient: var(--forge-gradient);
+  --background-image-forge-mesh:
+    radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      var(--forge-mesh-a),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 90% 20%,
+      var(--forge-mesh-b),
+      transparent
+    );
+
+  --transition-duration-forge: 200ms;
+
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.5s ease-out forwards;
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
-.dark {
-  --forge-bg: #07080b;
-  --forge-bg-rgb: 7 8 11;
-  --forge-surface: #0c0e14;
-  --forge-surface-rgb: 12 14 20;
-  --forge-surface-hover: #12151e;
-  --forge-surface-hover-rgb: 18 21 30;
-  --forge-text: #efeae0;
-  --forge-text-rgb: 239 234 224;
-  --forge-muted: #9a9488;
-  --forge-muted-rgb: 154 148 136;
-  --forge-border: rgba(196, 163, 90, 0.22);
-  --forge-gold: #c4a35a;
-  --forge-gold-rgb: 196 163 90;
-  --forge-gold-bright: #e8d5a3;
-  --forge-gold-deep: #8d6e32;
-  --forge-heading: #e8d5a3;
-  --forge-cyan: #6ec9d0;
-  --forge-cyan-rgb: 110 201 208;
-  --forge-blue: #c4a35a;
-  --forge-blue-rgb: 196 163 90;
-  --forge-gradient: linear-gradient(135deg, #8d6e32 0%, #c4a35a 45%, #e8d5a3 100%);
-  --forge-gold-gradient: linear-gradient(135deg, #f3e3b0 0%, #c6a24c 30%, #b8860b 62%, #8a6a1f 100%);
-  --forge-silver-1: #d7dde3;
-  --forge-silver-2: #9aa4ad;
-  --forge-silver-3: #5b6670;
-  --forge-live: #38c172;
-  --forge-focus: rgba(232, 213, 163, 0.5);
-  --forge-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  --forge-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
-  --forge-mesh-a: rgba(196, 163, 90, 0.16);
-  --forge-mesh-b: rgba(110, 201, 208, 0.08);
-  color-scheme: dark;
-}
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
 
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
 @layer base {
-  body {
-    background-color: var(--forge-bg);
-    color: var(--forge-text);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
   }
 }
 
-@layer components {
+@utility forge-metal-wordmark {
   /* Polished chrome wordmark with gold-lit top edge (hero use only) */
-  .forge-metal-wordmark {
-    color: var(--forge-heading);
-    background-image:
-      linear-gradient(180deg, rgba(198, 162, 76, 0.95) 0%, rgba(198, 162, 76, 0) 22%),
-      linear-gradient(180deg, #6b7480 0%, #aab3bb 20%, #4a525b 50%, #8b949c 66%, #2f363e 100%);
-    background-size: 100% 100%, 100% 240%;
-    background-position: center, center;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.10), 0 10px 30px rgba(17, 18, 20, 0.18);
-    filter: drop-shadow(0 8px 16px rgba(17, 18, 20, 0.14));
+  color: var(--forge-heading);
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(198, 162, 76, 0.95) 0%,
+      rgba(198, 162, 76, 0) 22%
+    ),
+    linear-gradient(
+      180deg,
+      #6b7480 0%,
+      #aab3bb 20%,
+      #4a525b 50%,
+      #8b949c 66%,
+      #2f363e 100%
+    );
+  background-size:
+    100% 100%,
+    100% 240%;
+  background-position: center, center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.1),
+    0 10px 30px rgba(17, 18, 20, 0.18);
+  filter: drop-shadow(0 8px 16px rgba(17, 18, 20, 0.14));
+  .dark & {
+    text-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.5),
+      0 10px 30px rgba(0, 0, 0, 0.5);
   }
-  .dark .forge-metal-wordmark {
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5);
-  }
+}
 
+@utility dark {
+  & .forge-metal-wordmark {
+    text-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.5),
+      0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  & .forge-badge {
+    color: var(--forge-gold-bright);
+  }
+  & .forge-glass {
+    background: linear-gradient(
+      180deg,
+      rgba(var(--forge-surface-rgb) / 0.92),
+      rgba(var(--forge-bg-rgb) / 0.74)
+    );
+    border-color: rgba(196, 163, 90, 0.24);
+  }
+}
+
+@utility forge-gold-text {
   /* Gold text for small luxury accents (headings/labels, not body) */
-  .forge-gold-text {
-    background-image: var(--forge-gold-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+  background-image: var(--forge-gold-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
-  .forge-wordmark-subtitle {
-    font-family: var(--font-sans);
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: rgba(var(--forge-text-rgb) / 0.7);
-  }
+@utility forge-wordmark-subtitle {
+  font-family: var(--font-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(var(--forge-text-rgb) / 0.7);
+}
 
+@utility forge-gold-btn {
   /* Primary gold pill button */
-  .forge-gold-btn {
-    background-image: var(--forge-gold-gradient);
-    color: #1a1305;
-    border-radius: var(--forge-radius-pill);
-    box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
-    transition: box-shadow 200ms ease, filter 200ms ease, transform 120ms ease;
-  }
-  .forge-gold-btn:hover {
+  background-image: var(--forge-gold-gradient);
+  color: #1a1305;
+  border-radius: var(--forge-radius-pill);
+  box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
+  transition:
+    box-shadow 200ms ease,
+    filter 200ms ease,
+    transform 120ms ease;
+  &:hover {
     filter: brightness(1.03);
     box-shadow: 0 18px 40px rgba(184, 134, 11, 0.3);
   }
-  .forge-gold-btn:active {
+  &:active {
     transform: scale(0.985);
   }
-  .forge-gold-btn:focus-visible {
+  &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--forge-focus), 0 14px 30px rgba(184, 134, 11, 0.22);
+    box-shadow:
+      0 0 0 3px var(--forge-focus),
+      0 14px 30px rgba(184, 134, 11, 0.22);
   }
+}
 
+@utility forge-ghost-btn {
   /* Secondary ivory pill button */
-  .forge-ghost-btn {
-    background-color: var(--forge-surface);
-    color: var(--forge-text);
-    border: 1px solid var(--forge-border);
-    border-radius: var(--forge-radius-pill);
-    box-shadow: var(--forge-shadow-soft);
-    transition: box-shadow 200ms ease, border-color 200ms ease, transform 120ms ease;
-  }
-  .forge-ghost-btn:hover {
+  background-color: var(--forge-surface);
+  color: var(--forge-text);
+  border: 1px solid var(--forge-border);
+  border-radius: var(--forge-radius-pill);
+  box-shadow: var(--forge-shadow-soft);
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    transform 120ms ease;
+  &:hover {
     border-color: rgba(198, 162, 76, 0.5);
     box-shadow: var(--forge-shadow);
   }
+}
 
+@utility forge-badge {
   /* Brand status pill (green dot + gold label) */
-  .forge-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: var(--forge-radius-pill);
-    padding: 0.35rem 0.9rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    background: rgba(var(--forge-surface-rgb) / 0.8);
-    border: 1px solid rgba(198, 162, 76, 0.35);
-    color: var(--forge-gold-deep);
-    backdrop-filter: blur(6px);
-  }
-  .dark .forge-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--forge-radius-pill);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: rgba(var(--forge-surface-rgb) / 0.8);
+  border: 1px solid rgba(198, 162, 76, 0.35);
+  color: var(--forge-gold-deep);
+  backdrop-filter: blur(6px);
+  .dark & {
     color: var(--forge-gold-bright);
   }
-  .forge-badge .dot {
+  & .dot {
     height: 0.5rem;
     width: 0.5rem;
     border-radius: 9999px;
     background: var(--forge-live);
     box-shadow: 0 0 0 3px rgba(56, 193, 114, 0.16);
   }
+}
 
+@utility dot {
+  .forge-badge & {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background: var(--forge-live);
+    box-shadow: 0 0 0 3px rgba(56, 193, 114, 0.16);
+  }
+}
+
+@utility forge-logo-tile {
   /* Dark logo tile with gold monogram */
-  .forge-logo-tile {
-    background: #111214;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(17, 18, 20, 0.18);
-  }
+  background: #111214;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(17, 18, 20, 0.18);
+}
 
+@utility forge-noise {
   /* Subtle noise overlay for large panels / hero */
-  .forge-noise {
-    position: relative;
-  }
-  .forge-noise::before {
+  position: relative;
+  &::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -202,73 +251,76 @@
     opacity: 0.5;
     background-image: var(--forge-mesh, none);
   }
+}
 
+@utility forge-container {
   /* ---------------------------------------------------------------
      Layout + typography primitives. These class names are referenced
      across the app (Section, GlassCard, auth pages, marketing pages)
      but were never defined in the stylesheet, so those surfaces fell
      back to browser defaults.
      --------------------------------------------------------------- */
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
 
-  .forge-container {
-    width: 100%;
-    max-width: 1200px;
-    margin-inline: auto;
-    padding-inline: 1.25rem;
-  }
-
-  .forge-section {
-    padding-block: 4.5rem;
-  }
+@utility forge-section {
+  padding-block: 4.5rem;
   @media (max-width: 640px) {
-    .forge-section {
-      padding-block: 2.75rem;
-    }
+    padding-block: 2.75rem;
   }
+}
 
-  .forge-h1,
-  .forge-h2,
-  .forge-h3 {
-    font-family: "Sora", var(--font-sans);
-    color: var(--forge-heading);
-    font-weight: 600;
-    text-wrap: balance;
-  }
-  .forge-h1 {
-    font-size: clamp(2.1rem, 4.4vw, 3.25rem);
-    line-height: 1.06;
-    letter-spacing: -0.022em;
-  }
-  .forge-h2 {
-    font-size: clamp(1.55rem, 2.6vw, 2.1rem);
-    line-height: 1.14;
-    letter-spacing: -0.016em;
-  }
-  .forge-h3 {
-    font-size: 1.15rem;
-    line-height: 1.3;
-    letter-spacing: -0.008em;
-  }
+@utility forge-h1 {
+  font-family: "Sora", var(--font-sans);
+  color: var(--forge-heading);
+  font-weight: 600;
+  text-wrap: balance;
+  font-size: clamp(2.1rem, 4.4vw, 3.25rem);
+  line-height: 1.06;
+  letter-spacing: -0.022em;
+}
 
-  .forge-body {
-    font-size: 1.0625rem;
-    line-height: 1.7;
-    color: rgba(var(--forge-text-rgb) / 0.78);
-  }
+@utility forge-h2 {
+  font-family: "Sora", var(--font-sans);
+  color: var(--forge-heading);
+  font-weight: 600;
+  text-wrap: balance;
+  font-size: clamp(1.55rem, 2.6vw, 2.1rem);
+  line-height: 1.14;
+  letter-spacing: -0.016em;
+}
 
+@utility forge-h3 {
+  font-family: "Sora", var(--font-sans);
+  color: var(--forge-heading);
+  font-weight: 600;
+  text-wrap: balance;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+}
+
+@utility forge-body {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: rgba(var(--forge-text-rgb) / 0.78);
+}
+
+@utility forge-glass {
   /* Frosted panel used by GlassCard and auth surfaces. */
-  .forge-glass {
-    background: linear-gradient(
-      180deg,
-      rgba(var(--forge-surface-rgb) / 0.94),
-      rgba(var(--forge-surface-rgb) / 0.76)
-    );
-    border: 1px solid var(--forge-border);
-    box-shadow: var(--forge-shadow-soft);
-    backdrop-filter: blur(16px) saturate(1.08);
-    -webkit-backdrop-filter: blur(16px) saturate(1.08);
-  }
-  .dark .forge-glass {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--forge-surface-rgb) / 0.94),
+    rgba(var(--forge-surface-rgb) / 0.76)
+  );
+  border: 1px solid var(--forge-border);
+  box-shadow: var(--forge-shadow-soft);
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  .dark & {
     background: linear-gradient(
       180deg,
       rgba(var(--forge-surface-rgb) / 0.92),
@@ -276,57 +328,64 @@
     );
     border-color: rgba(196, 163, 90, 0.24);
   }
+}
 
-  .forge-logo-glow {
-    filter: drop-shadow(0 8px 22px rgba(196, 163, 90, 0.32));
-  }
+@utility forge-logo-glow {
+  filter: drop-shadow(0 8px 22px rgba(196, 163, 90, 0.32));
+}
 
+@utility forge-input {
   /* Shared input chrome so hand-rolled fields match the Input component. */
-  .forge-input {
-    width: 100%;
-    border-radius: 0.75rem;
-    border: 1px solid var(--forge-border);
-    background-color: var(--forge-bg);
-    color: var(--forge-text);
-    padding: 0.625rem 0.75rem;
-    font-size: 0.95rem;
-    transition: border-color var(--forge-transition), box-shadow var(--forge-transition);
-  }
-  .forge-input::placeholder {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--forge-border);
+  background-color: var(--forge-bg);
+  color: var(--forge-text);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.95rem;
+  transition:
+    border-color var(--forge-transition),
+    box-shadow var(--forge-transition);
+  &::placeholder {
     color: var(--forge-muted);
   }
-  .forge-input:focus {
+  &:focus {
     outline: none;
     border-color: rgba(var(--forge-cyan-rgb) / 0.6);
     box-shadow: 0 0 0 3px var(--forge-focus);
   }
+}
 
+@utility forge-btn-gold {
   /* Gold pill alias used by the primary navigation action. */
-  .forge-btn-gold {
-    background-image: var(--forge-gold-gradient);
-    color: #1a1305;
-    border-radius: var(--forge-radius-pill);
-    font-weight: 600;
-    box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
-    transition: box-shadow 200ms ease, filter 200ms ease, transform 120ms ease;
-  }
-  .forge-btn-gold:hover {
+  background-image: var(--forge-gold-gradient);
+  color: #1a1305;
+  border-radius: var(--forge-radius-pill);
+  font-weight: 600;
+  box-shadow: 0 14px 30px rgba(184, 134, 11, 0.22);
+  transition:
+    box-shadow 200ms ease,
+    filter 200ms ease,
+    transform 120ms ease;
+  &:hover {
     filter: brightness(1.03);
     box-shadow: 0 18px 40px rgba(184, 134, 11, 0.3);
   }
-  .forge-btn-gold:active {
+  &:active {
     transform: scale(0.985);
   }
-  .forge-btn-gold:focus-visible {
+  &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--forge-focus), 0 14px 30px rgba(184, 134, 11, 0.22);
+    box-shadow:
+      0 0 0 3px var(--forge-focus),
+      0 14px 30px rgba(184, 134, 11, 0.22);
   }
+}
 
+@utility forge-gradient-border {
   /* Gradient hairline border for featured cards. */
-  .forge-gradient-border {
-    position: relative;
-  }
-  .forge-gradient-border::after {
+  position: relative;
+  &::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -343,5 +402,114 @@
     mask-composite: exclude;
     pointer-events: none;
   }
+}
 
+@layer utilities {
+  :root {
+    --forge-bg: #f7f1e5;
+    --forge-bg-rgb: 247 241 229;
+    --forge-surface: #fffaf0;
+    --forge-surface-rgb: 255 250 240;
+    --forge-surface-hover: #f1e5cf;
+    --forge-surface-hover-rgb: 241 229 207;
+    --forge-text: #26231f;
+    --forge-text-rgb: 38 35 31;
+    --forge-muted: #756f65;
+    --forge-muted-rgb: 117 111 101;
+    --forge-border: rgba(166, 131, 63, 0.28);
+    --forge-gold: #b78d3d;
+    --forge-gold-rgb: 183 141 61;
+    --forge-gold-bright: #ead7a6;
+    --forge-gold-deep: #8b6728;
+    --forge-heading: #2f2d29;
+    --forge-cyan: #55c6c8;
+    --forge-cyan-rgb: 85 198 200;
+    --forge-blue: #b78d3d;
+    --forge-blue-rgb: 183 141 61;
+    --forge-gradient: linear-gradient(
+      135deg,
+      #8b6728 0%,
+      #b78d3d 48%,
+      #ead7a6 100%
+    );
+    --forge-gold-gradient: linear-gradient(
+      135deg,
+      #f3e3b0 0%,
+      #cfaa58 30%,
+      #b78d3d 62%,
+      #886326 100%
+    );
+    --forge-silver-1: #f1f1ef;
+    --forge-silver-2: #a7a39b;
+    --forge-silver-3: #66645f;
+    --forge-live: #38c172;
+    --forge-focus: rgba(183, 141, 61, 0.42);
+    --forge-shadow: 0 18px 50px rgba(17, 18, 20, 0.1);
+    --forge-shadow-soft: 0 10px 30px rgba(17, 18, 20, 0.08);
+    --forge-radius: 14px;
+    --forge-radius-pill: 9999px;
+    --forge-transition: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    --forge-mesh-a: rgba(183, 141, 61, 0.13);
+    --forge-mesh-b: rgba(85, 198, 200, 0.045);
+    --font-serif:
+      "Cormorant Garamond", "Iowan Old Style", Palatino, Georgia, serif;
+    --font-sans: "Outfit", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    color-scheme: light;
+  }
+
+  .dark {
+    --forge-bg: #07080b;
+    --forge-bg-rgb: 7 8 11;
+    --forge-surface: #0c0e14;
+    --forge-surface-rgb: 12 14 20;
+    --forge-surface-hover: #12151e;
+    --forge-surface-hover-rgb: 18 21 30;
+    --forge-text: #efeae0;
+    --forge-text-rgb: 239 234 224;
+    --forge-muted: #9a9488;
+    --forge-muted-rgb: 154 148 136;
+    --forge-border: rgba(196, 163, 90, 0.22);
+    --forge-gold: #c4a35a;
+    --forge-gold-rgb: 196 163 90;
+    --forge-gold-bright: #e8d5a3;
+    --forge-gold-deep: #8d6e32;
+    --forge-heading: #e8d5a3;
+    --forge-cyan: #6ec9d0;
+    --forge-cyan-rgb: 110 201 208;
+    --forge-blue: #c4a35a;
+    --forge-blue-rgb: 196 163 90;
+    --forge-gradient: linear-gradient(
+      135deg,
+      #8d6e32 0%,
+      #c4a35a 45%,
+      #e8d5a3 100%
+    );
+    --forge-gold-gradient: linear-gradient(
+      135deg,
+      #f3e3b0 0%,
+      #c6a24c 30%,
+      #b8860b 62%,
+      #8a6a1f 100%
+    );
+    --forge-silver-1: #d7dde3;
+    --forge-silver-2: #9aa4ad;
+    --forge-silver-3: #5b6670;
+    --forge-live: #38c172;
+    --forge-focus: rgba(232, 213, 163, 0.5);
+    --forge-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    --forge-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --forge-mesh-a: rgba(196, 163, 90, 0.16);
+    --forge-mesh-b: rgba(110, 201, 208, 0.08);
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--forge-bg);
+    color: var(--forge-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 }

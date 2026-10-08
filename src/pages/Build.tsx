@@ -518,7 +518,7 @@ export function Build() {
             {stack?.structuralOnly && (
               <span
                 data-testid="structural-stack-badge"
-                className="ml-2 rounded bg-amber-900/60 px-2 py-0.5 text-xs font-medium text-amber-200"
+                className="ml-2 rounded-sm bg-amber-900/60 px-2 py-0.5 text-xs font-medium text-amber-200"
               >
                 {stack.badge}
               </span>
@@ -917,7 +917,7 @@ export function Build() {
                     onChange={(e) =>
                       setDestination(e.target.value as DeployDestination)
                     }
-                    className="ml-2 bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
+                    className="ml-2 bg-slate-800 border border-slate-600 text-white rounded-sm px-2 py-1"
                   >
                     <option value="preview">Preview</option>
                     <option
@@ -1027,7 +1027,7 @@ function ApprovalItem({
           type="button"
           onClick={onApprove}
           disabled={disabled}
-          className="mt-3 rounded bg-amber-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          className="mt-3 rounded-sm bg-amber-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
         >
           Approve
         </button>
@@ -1049,7 +1049,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded"
+        className="w-full text-left flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-sm"
       >
         <div>
           <p className="font-semibold text-white">
@@ -1062,7 +1062,7 @@ function AgentLogItem({ log }: { log: BuildLog }) {
         <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
       </button>
       {expanded && log.payload?.text && (
-        <div className="mt-4 bg-slate-800 p-3 rounded text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">
+        <div className="mt-4 bg-slate-800 p-3 rounded-sm text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">
           {log.payload.text}
         </div>
       )}

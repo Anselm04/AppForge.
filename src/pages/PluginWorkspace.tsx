@@ -397,7 +397,7 @@ export function PluginWorkspace() {
                 Clear
               </Button>
             </div>
-            <pre className="whitespace-pre-wrap break-words overflow-x-auto text-sm text-forge-text-muted max-h-[32rem] overflow-y-auto">
+            <pre className="whitespace-pre-wrap wrap-break-word overflow-x-auto text-sm text-forge-text-muted max-h-128 overflow-y-auto">
               {result}
             </pre>
           </GlassCard>

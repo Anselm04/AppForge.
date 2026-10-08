@@ -126,7 +126,7 @@ export function VideoStudio() {
                 onChange={(e) =>
                   setDuration(parseInt(e.target.value, 10) || 30)
                 }
-                className="ml-2 w-20 bg-slate-800 border border-slate-700 rounded px-2 py-1"
+                className="ml-2 w-20 bg-slate-800 border border-slate-700 rounded-sm px-2 py-1"
               />
             </label>
             <button
@@ -141,7 +141,7 @@ export function VideoStudio() {
             {scenes.length > 0 && (
               <ul className="text-sm space-y-2 max-h-48 overflow-auto">
                 {scenes.map((s) => (
-                  <li key={s.id} className="bg-slate-800 p-2 rounded">
+                  <li key={s.id} className="bg-slate-800 p-2 rounded-sm">
                     <span className="text-blue-400">
                       {s.startSec}s–{s.endSec}s
                     </span>{" "}
@@ -198,7 +198,7 @@ export function VideoStudio() {
             <input
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="ml-2 bg-slate-800 border border-slate-700 rounded px-2 py-1 w-24"
+              className="ml-2 bg-slate-800 border border-slate-700 rounded-sm px-2 py-1 w-24"
             />
           </label>
           <button

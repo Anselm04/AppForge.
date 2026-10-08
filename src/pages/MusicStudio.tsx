@@ -110,7 +110,7 @@ export function MusicStudio() {
                 max={200}
                 value={bpm}
                 onChange={(e) => setBpm(parseInt(e.target.value, 10) || 120)}
-                className="ml-2 w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1"
+                className="ml-2 w-16 bg-slate-800 border border-slate-700 rounded-sm px-2 py-1"
               />
             </label>
             <button
@@ -146,7 +146,7 @@ export function MusicStudio() {
               placeholder="Project ID"
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-28"
+              className="bg-slate-800 border border-slate-700 rounded-sm px-2 py-1 w-28"
             />
             <button
               type="button"

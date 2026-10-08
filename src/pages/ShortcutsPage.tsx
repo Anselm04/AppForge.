@@ -24,7 +24,7 @@ export function ShortcutsPage() {
       <Section title={t("shortcuts.title")} subtitle={t("shortcuts.subtitle")}>
         <GlassCard
           hover={false}
-          className="max-w-xl mx-auto divide-y divide-white/[0.06]"
+          className="max-w-xl mx-auto divide-y divide-white/6"
         >
           {SHORTCUTS.map((s) => (
             <div
@@ -38,7 +38,7 @@ export function ShortcutsPage() {
                 {s.keys.map((k) => (
                   <kbd
                     key={k}
-                    className="px-2 py-1 rounded-lg bg-forge-bg border border-white/[0.08] text-xs font-mono text-forge-text-primary"
+                    className="px-2 py-1 rounded-lg bg-forge-bg border border-white/8 text-xs font-mono text-forge-text-primary"
                   >
                     {k}
                   </kbd>

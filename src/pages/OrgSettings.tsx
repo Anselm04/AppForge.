@@ -88,7 +88,7 @@ export function OrgSettings() {
           Supabase Auth, and enable enterprise login on the sign-in page.
         </p>
 
-        <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
+        <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm mb-6">
           <h2 className="font-semibold mb-3">Create organization</h2>
           <div className="flex gap-2">
             <input
@@ -108,7 +108,7 @@ export function OrgSettings() {
           </div>
         </section>
 
-        <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
+        <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm mb-6">
           <h2 className="font-semibold mb-3">Your organizations</h2>
           {(orgs ?? []).length === 0 && (
             <p className="text-slate-500 text-sm">No orgs yet.</p>
@@ -135,7 +135,7 @@ export function OrgSettings() {
 
         {selectedOrgId && (
           <>
-            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
+            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm mb-6">
               <h2 className="font-semibold mb-3">Verify domain</h2>
               <div className="flex gap-2 mb-3">
                 <input
@@ -188,7 +188,7 @@ export function OrgSettings() {
               )}
             </section>
 
-            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow mb-6">
+            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm mb-6">
               <h2 className="font-semibold mb-3">Supabase SAML endpoints</h2>
               {ssoConfig ? (
                 <ul className="text-xs space-y-2 font-mono text-slate-600 dark:text-slate-300">
@@ -201,7 +201,7 @@ export function OrgSettings() {
               )}
             </section>
 
-            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow">
+            <section className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm">
               <h2 className="font-semibold mb-3">SSO configuration</h2>
               <div className="flex gap-2 mb-3">
                 {(["saml", "oidc"] as const).map((p) => (

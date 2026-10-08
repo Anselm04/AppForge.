@@ -139,7 +139,7 @@ export function Admin() {
   if (!mfaStatus?.verified) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white p-8">
-        <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow dark:bg-slate-800">
+        <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-800">
           <h1 className="text-2xl font-bold mb-2">
             Admin verification required
           </h1>
@@ -280,7 +280,7 @@ export function Admin() {
             ].map((card) => (
               <div
                 key={card.label}
-                className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow"
+                className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm"
               >
                 <div className="text-sm text-slate-500">{card.label}</div>
                 <div className="text-2xl font-bold">{card.value}</div>
@@ -289,7 +289,7 @@ export function Admin() {
           </div>
 
           <h2 className="text-xl font-semibold">Subscriptions</h2>
-          <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden">
+          <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
             <thead className="bg-slate-100 dark:bg-slate-700">
               <tr>
                 <th className="text-left p-3">Tier</th>
@@ -313,7 +313,7 @@ export function Admin() {
 
           <h2 className="text-xl font-semibold">Recent signups</h2>
           <div className="overflow-x-auto">
-            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden">
+            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
               <thead className="bg-slate-100 dark:bg-slate-700">
                 <tr>
                   <th className="text-left p-3">ID</th>
@@ -409,7 +409,7 @@ export function Admin() {
             ].map((card) => (
               <div
                 key={card.label}
-                className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow"
+                className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm"
               >
                 <div className="text-sm text-slate-500">{card.label}</div>
                 <div className="text-xl font-bold">{card.value}</div>
@@ -418,7 +418,7 @@ export function Admin() {
           </div>
 
           {operations.alerts.length > 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
               <h2 className="text-xl font-semibold mb-3">
                 Active operational alerts
               </h2>
@@ -438,7 +438,7 @@ export function Admin() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
             <h2 className="text-xl font-semibold mb-3">
               Recent operational traces
             </h2>
@@ -461,7 +461,7 @@ export function Admin() {
 
       {tab === "evidence" && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
             <h2 className="text-xl font-semibold mb-2">
               Project evidence & audit trail
             </h2>
@@ -475,7 +475,7 @@ export function Admin() {
                 min={1}
                 value={evidenceProjectId}
                 onChange={(event) => setEvidenceProjectId(event.target.value)}
-                className="mt-1 w-full rounded border border-slate-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-700"
+                className="mt-1 w-full rounded-sm border border-slate-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-700"
                 placeholder="Enter project ID"
               />
             </label>
@@ -512,7 +512,7 @@ export function Admin() {
                 ].map((card) => (
                   <div
                     key={card.label}
-                    className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow"
+                    className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm"
                   >
                     <div className="text-sm text-slate-500">{card.label}</div>
                     <div className="text-xl font-bold break-all">
@@ -522,11 +522,11 @@ export function Admin() {
                 ))}
               </div>
 
-              <details className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow">
+              <details className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
                 <summary className="cursor-pointer font-semibold">
                   Full canonical evidence
                 </summary>
-                <pre className="mt-4 max-h-[32rem] overflow-auto whitespace-pre-wrap text-xs">
+                <pre className="mt-4 max-h-128 overflow-auto whitespace-pre-wrap text-xs">
                   {JSON.stringify(projectEvidence, null, 2)}
                 </pre>
               </details>
@@ -537,7 +537,7 @@ export function Admin() {
 
       {tab === "codes" && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow max-w-xl">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm max-w-xl">
             <h2 className="text-xl font-semibold mb-4">Create god code</h2>
             <p className="text-sm text-slate-500 mb-4">
               The plaintext code is shown once. Copy it now — it cannot be
@@ -551,7 +551,7 @@ export function Admin() {
                   onChange={(e) =>
                     setGrantType(e.target.value as "lifetime" | "limited")
                   }
-                  className="mt-1 w-full p-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
+                  className="mt-1 w-full p-2 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
                 >
                   <option value="limited">Limited credits</option>
                   <option value="lifetime">Lifetime (unlimited credits)</option>
@@ -565,7 +565,7 @@ export function Admin() {
                     min={1}
                     value={credits}
                     onChange={(e) => setCredits(e.target.value)}
-                    className="mt-1 w-full p-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
+                    className="mt-1 w-full p-2 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
                   />
                 </label>
               )}
@@ -611,7 +611,7 @@ export function Admin() {
 
           <h2 className="text-xl font-semibold">Codes</h2>
           {codes && codes.length > 0 ? (
-            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden">
+            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
               <thead className="bg-slate-100 dark:bg-slate-700">
                 <tr>
                   <th className="text-left p-3">ID</th>
@@ -656,7 +656,7 @@ export function Admin() {
           {!moderationQueue?.length ? (
             <p className="text-slate-500">No pending flags.</p>
           ) : (
-            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden">
+            <table className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
               <thead className="bg-slate-100 dark:bg-slate-700">
                 <tr>
                   <th className="text-left p-3">ID</th>
@@ -687,7 +687,7 @@ export function Admin() {
                             action: "dismiss",
                           })
                         }
-                        className="text-xs bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded"
+                        className="text-xs bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-sm"
                       >
                         Dismiss
                       </button>
@@ -699,7 +699,7 @@ export function Admin() {
                             action: "uphold",
                           })
                         }
-                        className="text-xs bg-amber-200 dark:bg-amber-800 px-2 py-1 rounded"
+                        className="text-xs bg-amber-200 dark:bg-amber-800 px-2 py-1 rounded-sm"
                       >
                         Uphold
                       </button>
@@ -711,7 +711,7 @@ export function Admin() {
                             action: "ban",
                           })
                         }
-                        className="text-xs bg-red-600 text-white px-2 py-1 rounded"
+                        className="text-xs bg-red-600 text-white px-2 py-1 rounded-sm"
                       >
                         Ban
                       </button>

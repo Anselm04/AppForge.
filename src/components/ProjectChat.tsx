@@ -44,7 +44,7 @@ function SeniorDevStream({
       {messages.map((msg, i) => (
         <div
           key={i}
-          className="text-xs bg-slate-900/60 rounded px-2 py-1.5 text-slate-300"
+          className="text-xs bg-slate-900/60 rounded-sm px-2 py-1.5 text-slate-300"
         >
           <span className="text-purple-400">[{msg.stage}]</span> {msg.message}
         </div>
@@ -63,14 +63,14 @@ function SeniorDevStream({
             <button
               type="button"
               onClick={onApprove}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-xs"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-sm text-xs"
             >
               Approve & execute
             </button>
             <button
               type="button"
               onClick={onReset}
-              className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs"
+              className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded-sm text-xs"
             >
               Cancel
             </button>
@@ -87,7 +87,7 @@ function SeniorDevStream({
           <button
             type="button"
             onClick={onReset}
-            className="mt-2 text-xs bg-green-800 hover:bg-green-700 px-3 py-1 rounded"
+            className="mt-2 text-xs bg-green-800 hover:bg-green-700 px-3 py-1 rounded-sm"
           >
             Done
           </button>

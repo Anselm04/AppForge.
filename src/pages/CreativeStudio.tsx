@@ -33,7 +33,7 @@ export function CreativeStudio() {
                 <Link
                   key={id}
                   to={meta.studioPath}
-                  className="block bg-white dark:bg-slate-800 rounded-xl p-5 shadow hover:shadow-md border border-slate-200 dark:border-slate-700 transition-shadow"
+                  className="block bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-700 transition-shadow"
                 >
                   <span className="text-3xl">{meta.icon}</span>
                   <h2 className="text-lg font-semibold mt-3">{meta.label}</h2>

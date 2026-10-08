@@ -128,7 +128,7 @@ export function AgentTerminal({ projectId, enabled = true }: Props) {
               : "Booting WebContainer…"}
         </span>
         <select
-          className="ml-auto bg-slate-900 border border-slate-700 rounded px-2 py-0.5"
+          className="ml-auto bg-slate-900 border border-slate-700 rounded-sm px-2 py-0.5"
           value={mode}
           onChange={(e) =>
             setMode(e.target.value as "auto" | "browser" | "server")
@@ -156,7 +156,7 @@ export function AgentTerminal({ projectId, enabled = true }: Props) {
       >
         <span className="px-3 py-2 text-green-500">$</span>
         <input
-          className="flex-1 bg-transparent text-slate-200 outline-none py-2 pr-3"
+          className="flex-1 bg-transparent text-slate-200 outline-hidden py-2 pr-3"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="npm run dev"

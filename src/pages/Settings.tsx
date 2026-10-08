@@ -49,7 +49,7 @@ export function Settings() {
             <Link
               key={section.id}
               to={section.to}
-              className="block rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-forge-cyan/50"
+              className="block rounded-card focus:outline-hidden focus-visible:ring-2 focus-visible:ring-forge-cyan/50"
             >
               <GlassCard className="h-full">
                 <h2 className="forge-h3 mb-2">

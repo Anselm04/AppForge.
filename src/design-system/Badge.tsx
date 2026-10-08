@@ -8,7 +8,7 @@ type Props = {
 };
 
 const tones = {
-  default: "bg-white/[0.06] text-forge-text-muted border-white/[0.08]",
+  default: "bg-white/6 text-forge-text-muted border-white/8",
   gold: "bg-forge-gold/10 text-forge-gold border-forge-gold/30",
   cyan: "bg-forge-cyan/10 text-forge-cyan border-forge-cyan/30",
   success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",

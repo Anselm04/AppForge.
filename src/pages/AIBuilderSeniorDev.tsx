@@ -35,7 +35,7 @@ function PlanDisplay({
       </p>
       <div className="space-y-3">
         {plan.steps.map((s) => (
-          <div key={s.step} className="p-3 bg-gray-50 rounded">
+          <div key={s.step} className="p-3 bg-gray-50 rounded-sm">
             <div className="font-medium text-gray-900">
               {s.step}. {s.title}
             </div>
@@ -52,13 +52,13 @@ function PlanDisplay({
       <div className="flex gap-3 mt-4">
         <button
           onClick={onApprove}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-sm hover:bg-blue-700"
         >
           Approve & Execute
         </button>
         <button
           onClick={onReject}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-sm hover:bg-gray-200"
         >
           Cancel
         </button>
@@ -105,7 +105,7 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
         value={request}
         onChange={(e) => setRequest(e.target.value)}
         placeholder="Example: Add a dark mode toggle with theme persistence."
-        className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 mb-4"
         rows={4}
         disabled={isLoading}
       />
@@ -136,7 +136,7 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
       <button
         onClick={handleStart}
         disabled={isLoading || !request.trim() || outOfCredits}
-        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-gray-300 mb-4"
+        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-sm hover:bg-blue-700 disabled:bg-gray-300 mb-4"
       >
         {outOfCredits
           ? "Paused — out of credits"
@@ -155,14 +155,17 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
         />
       )}
       {error && !/credit/i.test(error) && (
-        <div className="p-3 bg-red-50 text-red-700 text-sm rounded mb-4">
+        <div className="p-3 bg-red-50 text-red-700 text-sm rounded-sm mb-4">
           {error}
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto space-y-3">
         {messages.map((msg, i) => (
-          <div key={i} className="p-3 bg-gray-50 rounded text-sm text-gray-800">
+          <div
+            key={i}
+            className="p-3 bg-gray-50 rounded-sm text-sm text-gray-800"
+          >
             <span className="font-medium text-blue-700">[{msg.stage}]</span>{" "}
             {msg.message}
           </div>
@@ -189,7 +192,7 @@ export function SeniorDevPanel({ projectId }: { projectId: number }) {
             </p>
             <button
               onClick={reset}
-              className="mt-3 px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded hover:bg-green-200"
+              className="mt-3 px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-sm hover:bg-green-200"
             >
               Start New Task
             </button>

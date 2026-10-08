@@ -47,7 +47,7 @@ export function TemplatePreview({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
               {template.features.map((feature, index) => (
                 <div key={index} className="flex items-start gap-2">
-                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm font-medium">
+                  <div className="shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm font-medium">
                     ✓
                   </div>
                   <p className="text-sm text-gray-700">{feature}</p>
@@ -62,7 +62,7 @@ export function TemplatePreview({
               {template.techStack.map((tech, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded"
+                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-sm"
                 >
                   {tech}
                 </span>
