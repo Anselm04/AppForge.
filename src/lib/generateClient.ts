@@ -34,7 +34,8 @@ export function generateAuthHeaders(): Record<string, string> {
 export async function postGenerate(body: {
   title: string;
   description: string;
-  techStack: string;
+  techStack?: string;
+  productType?: string;
   locale?: string;
   buildCapabilities?: string[];
   hcaptchaToken?: string;
