@@ -254,9 +254,14 @@ jobs:
             exit 1
           fi
       - name: Deploy to Fly.io
+        timeout-minutes: 20
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --config fly.toml --app appforge-unfurling-moon-9058
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          flyctl deploy --local-only --config fly.toml --app appforge-unfurling-moon-9058
       - name: Reconcile and require exactly two started Fly app machines after deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

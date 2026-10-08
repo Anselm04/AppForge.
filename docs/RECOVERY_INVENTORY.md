@@ -757,3 +757,9 @@ If this gate fails after deployment, distinguish healthy runtime from incomplete
 The existing Gemini key may select each configured free fallback model once after exhausted quota, request timeout or provider 5xx unavailability. Bounded backoff still respects Retry-After; explicit caller model binding remains authoritative unless the internal pipeline opts into fallback. Exhausting every available model pauses the build and preserves its plan. No paid subscription, new account or relaxed validation is a recovery substitute. Regression evidence: llm.test.ts covers successful transient failover, bound callers and all-model exhaustion.
 
 Build workspace recovery must also recognize persisted generated files after refresh. Access to code, preview and terminal must not depend only on an in-memory streaming notification; protected server ownership and artifact integrity checks remain authoritative.
+
+## Production image builder recovery — 9 October 2026
+
+Production deployment builds the same reviewed Dockerfile on the existing GitHub runner using Fly's local Docker builder. Require an available Docker daemon and a bounded twenty-minute deploy step; do not silently fall back to an unavailable remote builder. The Fly registry, existing protected deploy credential, blue/green strategy, exact release SHA and all post-deploy runtime, fleet and browser gates remain mandatory.
+
+This removes the additional Depot builder dependency observed stalled while copying production dependencies. A failed build must leave the previous healthy release serving; it is not evidence that the new revision was deployed. Rerun a trusted exact-SHA release after correcting builder availability, then require matching healthy machine image labels and successful public checks before certification. No new provider account or subscription is required by this change.
