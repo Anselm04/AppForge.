@@ -187,6 +187,62 @@ describe("LLM invokeLLM", () => {
     }
   });
 
+  it("switches internal model selections while keeping explicit selections binding", async () => {
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    const exhausted = [
+      { error: { details: [{ violations: [{ quotaId: "RequestsPerDay" }] }] } },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(
+        async () => new Response(JSON.stringify(exhausted), { status: 429 }),
+      )
+      .mockImplementationOnce(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: "repair",
+              choices: [{ message: { content: "fixed" } }],
+            }),
+            { status: 200 },
+          ),
+      );
+    global.fetch = fetchMock;
+    const result = await invokeLLM({
+      messages: [{ role: "user", content: "repair" }],
+      model: "gemini-3-flash-preview",
+      allowModelFallback: true,
+    });
+    expect(result.id).toBe("repair");
+    expect(
+      fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).model),
+    ).toEqual(["gemini-3-flash-preview", "gemini-3.1-flash-lite"]);
+    fetchMock
+      .mockReset()
+      .mockImplementation(
+        async () => new Response(JSON.stringify(exhausted), { status: 429 }),
+      );
+    await expect(
+      invokeLLM({
+        messages: [{ role: "user", content: "repair" }],
+        model: "gemini-3-flash-preview",
+      }),
+    ).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockClear();
+    await expect(
+      invokeLLM({
+        messages: [{ role: "user", content: "repair" }],
+        model: "gemini-3.1-flash-lite",
+        allowModelFallback: true,
+      }),
+    ).rejects.toThrow();
+    expect(
+      fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).model),
+    ).toEqual(["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]);
+  });
+
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
