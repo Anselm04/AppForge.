@@ -755,3 +755,5 @@ If this gate fails after deployment, distinguish healthy runtime from incomplete
 ## Free model availability recovery — 9 October 2026
 
 The existing Gemini key may select each configured free fallback model once after exhausted quota, request timeout or provider 5xx unavailability. Bounded backoff still respects Retry-After; explicit caller model binding remains authoritative unless the internal pipeline opts into fallback. Exhausting every available model pauses the build and preserves its plan. No paid subscription, new account or relaxed validation is a recovery substitute. Regression evidence: llm.test.ts covers successful transient failover, bound callers and all-model exhaustion.
+
+Build workspace recovery must also recognize persisted generated files after refresh. Access to code, preview and terminal must not depend only on an in-memory streaming notification; protected server ownership and artifact integrity checks remain authoritative.
