@@ -13,6 +13,31 @@ describe("surgicalFix", () => {
     "package.json": "{}",
   };
 
+  it("supplies real backend bodies for project-level account-isolation failures", () => {
+    const prompt = buildSurgicalFixPrompt({
+      appTitle: "Tasks",
+      techStack: "react-node",
+      errors: [
+        "tenant.missing-isolation (appforge.security:1): enforce account ownership",
+      ],
+      files: {
+        ...files,
+        "server/index.js": "const app = express();",
+        "server/controllers/tasks.js":
+          "export function listTasks() { return allTasks; }",
+        "server/models/task.js": "export const Task = database.table('tasks');",
+        "server/index.test.js": "function test() {}",
+        "src/api/client.ts": "export const request = fetch;",
+      },
+    });
+    expect(prompt).toContain("// filename: server/index.js");
+    expect(prompt).toContain("return allTasks");
+    expect(prompt).toContain("database.table('tasks')");
+    expect(prompt).not.toContain("// filename: src/App.tsx");
+    expect(prompt).not.toContain("// filename: server/index.test.js");
+    expect(prompt).not.toContain("// filename: src/api/client.ts");
+  });
+
   it("extracts paths from tsc-style errors", () => {
     const paths = extractErrorPaths(
       ["src/App.tsx(3,1): error TS2304: Cannot find name 'foo'."],

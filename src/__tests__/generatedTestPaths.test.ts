@@ -5,6 +5,23 @@ import { attachGeneratedTests } from "../agents/testingAgent.js";
 import { assertSurgicalPatchScope } from "../lib/surgicalFix.js";
 
 describe("generated test artifact paths", () => {
+  it("does not spend model quota writing tests for existing JavaScript or TypeScript tests", async () => {
+    vi.mocked(invokeLLM).mockClear();
+    const tests = await attachGeneratedTests(
+      {
+        "server/index.test.js": "export function testHelper() {}",
+        "server/model.spec.cjs": "function existingSpec() {}",
+        "src/App.test.tsx": "export function existingTest() {}",
+        "package.json": "{}",
+      },
+      "react-node",
+    );
+    expect(invokeLLM).not.toHaveBeenCalled();
+    expect(
+      Object.keys(tests).filter((path) => /test\.[cm]?[jt]sx?$/.test(path)),
+    ).toEqual([]);
+  });
+
   it("keeps nested and duplicate basenames beside their exact source regardless of model headers", async () => {
     const mocked = vi.mocked(invokeLLM);
     mocked.mockResolvedValue({

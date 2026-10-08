@@ -251,8 +251,7 @@ export async function attachGeneratedTests(
     : createRequirementContract(requirements);
   for (const [filename, content] of Object.entries(generatedFiles)) {
     if (
-      filename.endsWith(".test.ts") ||
-      filename.endsWith(".test.tsx") ||
+      /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(filename) ||
       filename.endsWith(".md") ||
       filename.endsWith(".json")
     )
@@ -313,8 +312,7 @@ export const TestingAgent: Agent = {
     let skippedCount = 0;
 
     for (const [filename, content] of Object.entries(files)) {
-      if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx"))
-        continue;
+      if (/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(filename)) continue;
       if (filename.endsWith(".md") || filename.endsWith(".json")) continue;
 
       const moduleName =

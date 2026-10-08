@@ -12,6 +12,19 @@ export function extractErrorPaths(
   const keys = Object.keys(knownFiles);
 
   for (const line of errors) {
+    // Project-level isolation findings have no real filename. Supply the
+    // existing backend artifact rather than guessing from the first UI files.
+    if (line.includes("tenant.missing-isolation")) {
+      for (const path of keys) {
+        if (
+          /^(?:src\/)?(?:server|api)\//.test(path) &&
+          /\.[cm]?[jt]sx?$/.test(path) &&
+          !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path) &&
+          !/(?:^|\/)client\.[cm]?[jt]sx?$/.test(path)
+        )
+          found.add(path);
+      }
+    }
     if (
       /missing runtime dependency|undeclared development dependency|conflicting runtime\/dev versions/.test(
         line,
