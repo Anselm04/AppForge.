@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: "22"
   RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
@@ -416,12 +416,15 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund @playwright/test@1.63.0
 
-      - name: Install Chromium for live shell verification
-        working-directory: ${{ runner.temp }}/live-shell
-        run: npx playwright install --with-deps chromium
+      # GitHub's Ubuntu runner already supplies stable Chrome and its dependencies.
+      # Require it rather than blocking the release on redundant apt/download work.
+      - name: Require installed Chrome for live shell verification
+        timeout-minutes: 1
+        run: google-chrome --version
 
       - name: Verify production customer shell interactions in Chromium
         working-directory: ${{ runner.temp }}/live-shell
         env:
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
+          APPFORGE_BROWSER_CHANNEL: chrome
         run: npx playwright test production-shell-browser.spec.mjs --reporter=line
