@@ -19,6 +19,7 @@ import {
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
+import { isOwnerEmail } from "../lib/owner.js";
 import {
   BUILD_CAPABILITY_IDS,
   type BuildCapabilityId,
@@ -192,34 +193,39 @@ export const projectsRouter = router({
       }
       const { promptIntent } = intake;
 
-      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
-      const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
-      if (!captchaOk) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Captcha verification failed. Complete the challenge and try again.",
-        });
+      // Owner identity is server-authoritative. Customer anti-abuse gates must
+      // never block the authenticated owner build path.
+      const owner = isOwnerEmail(ctx.user.email);
+      if (!owner) {
+        const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+        const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
+        if (!captchaOk) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Captcha verification failed. Complete the challenge and try again.",
+          });
+        }
+
+        // ── Content moderation ──
+        const { moderateUserContent } = await import("./moderation.js");
+        const moderation = await moderateUserContent(
+          ctx.user.id,
+          input.description + " " + input.title,
+        );
+        if (!moderation.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: moderation.reason ?? "Content flagged",
+          });
+        }
       }
 
-      // ── Content moderation ──
-      const { moderateUserContent } = await import("./moderation.js");
-      const moderation = await moderateUserContent(
-        ctx.user.id,
-        input.description + " " + input.title,
-      );
-      if (!moderation.allowed) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: moderation.reason ?? "Content flagged",
-        });
-      }
-
-      // Backend tier/credit enforcement. The configured owner is provisioned
-      // as unlimited by ensureUserCredits, so maker testing is never blocked
-      // by customer billing limits.
+      // Customer unlimited/lifetime entitlements remain supported; owner is
+      // independently authoritative and is never charged build credits.
       const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      const unlimited =
+        owner || !!credits.unlimited || credits.tier === "lifetime";
       const tier = await getUserTier(ctx.user.id);
       const limit = getTierBuildLimit(tier);
       if (!unlimited && limit !== null) {
