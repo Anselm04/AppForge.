@@ -29,7 +29,13 @@ function languageForPath(path: string): string {
 
 export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
   const queryClient = useQueryClient();
-  const { data: files, isLoading } = useQuery({
+  const {
+    data: files,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["projects", projectId, "files"],
     queryFn: () => trpc.projects.getFiles.query({ id: projectId }),
     enabled: enabled && projectId > 0,
@@ -75,6 +81,17 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
 
   if (isLoading) {
     return <p className="text-slate-400 text-sm">Loading files…</p>;
+  }
+  if (isError) {
+    return (
+      <div role="alert" className="text-sm text-red-600">
+        <p>Saved files could not be loaded.</p>
+        <p>{error instanceof Error ? error.message : "Please try again."}</p>
+        <button type="button" onClick={() => void refetch()}>
+          Retry loading files
+        </button>
+      </div>
+    );
   }
   if (!files || paths.length === 0) {
     return (
