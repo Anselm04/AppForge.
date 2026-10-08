@@ -58,7 +58,10 @@ export const requirementManifestEntrySchema = z.object({
   files: z.array(z.string().min(1)),
   tests: z.array(z.string().min(1)),
   validations: z.array(z.string().min(1)),
-  implementationHash: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+  implementationHash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable(),
   validationEvidence: z.array(requirementValidationEvidenceSchema),
   deploymentEvidence: z.array(requirementDeploymentEvidenceSchema),
   status: requirementStatusSchema,
@@ -212,8 +215,7 @@ function compareRequirements(
         requirementId: requirement.id,
         type: "remapped",
         at,
-        detail:
-          "Requirement planner task/file/validation mappings changed.",
+        detail: "Requirement planner task/file/validation mappings changed.",
       });
     }
   }
@@ -245,9 +247,13 @@ export function createRequirementManifest(input: {
     : undefined;
   const now = input.now ?? new Date().toISOString();
 
-  const ids = contract.functionalRequirements.map((requirement) => requirement.id);
+  const ids = contract.functionalRequirements.map(
+    (requirement) => requirement.id,
+  );
   if (new Set(ids).size !== ids.length) {
-    throw new Error("Requirement IDs must be unique in the canonical product contract");
+    throw new Error(
+      "Requirement IDs must be unique in the canonical product contract",
+    );
   }
 
   const provisionalRevision = (previous?.revision ?? 0) + 1;
@@ -262,8 +268,10 @@ export function createRequirementManifest(input: {
     previous && changes.length === 0 ? previous.revision : provisionalRevision;
 
   const previousById = new Map(
-    previous?.requirements.map((requirement) => [requirement.id, requirement]) ??
-      [],
+    previous?.requirements.map((requirement) => [
+      requirement.id,
+      requirement,
+    ]) ?? [],
   );
 
   const requirements: RequirementManifestEntry[] =
@@ -300,7 +308,7 @@ export function createRequirementManifest(input: {
         deploymentEvidence: prior?.deploymentEvidence ?? [],
         status: mapped ? (prior?.status ?? "planned") : "blocked",
         unresolvedReason: mapped
-          ? prior?.unresolvedReason ?? null
+          ? (prior?.unresolvedReason ?? null)
           : "Requirement has no planner task/file mapping.",
       };
     });
@@ -337,7 +345,8 @@ export function markRequirementImplementation(
     }
 
     const existingFiles = requirement.files.filter(
-      (path) => typeof files[path] === "string" && files[path].trim().length > 0,
+      (path) =>
+        typeof files[path] === "string" && files[path].trim().length > 0,
     );
     const evidenceMarker = `requirement: ${requirement.id}`;
     const hasImplementationMarker = existingFiles.some((path) =>
@@ -519,7 +528,10 @@ export function markRequirementDeployment(
   };
 
   const requirements = manifest.requirements.map((requirement) => {
-    if (requirement.status !== "validated" && requirement.status !== "deployed") {
+    if (
+      requirement.status !== "validated" &&
+      requirement.status !== "deployed"
+    ) {
       return requirement;
     }
     return {
@@ -546,7 +558,10 @@ export function validateRequirementManifest(
   }
 
   const calculated = unresolvedMustHaveIds(manifest.requirements);
-  if (JSON.stringify(calculated) !== JSON.stringify(manifest.unresolvedMustHaveIds)) {
+  if (
+    JSON.stringify(calculated) !==
+    JSON.stringify(manifest.unresolvedMustHaveIds)
+  ) {
     throw new Error("Requirement manifest unresolved must-have index is stale");
   }
   return manifest;

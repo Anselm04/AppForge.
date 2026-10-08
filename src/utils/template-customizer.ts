@@ -17,7 +17,10 @@ export interface Customization {
   };
 }
 
-export function customizeTemplate(template: any, customization: Customization): any {
+export function customizeTemplate(
+  template: any,
+  customization: Customization,
+): any {
   const customized = { ...template };
 
   if (customization.name) {
@@ -34,17 +37,23 @@ export function customizeTemplate(template: any, customization: Customization): 
 
   if (customization.features) {
     if (customization.features.enabled) {
-      customized.features = [...customized.features, ...customization.features.enabled];
+      customized.features = [
+        ...customized.features,
+        ...customization.features.enabled,
+      ];
     }
     if (customization.features.disabled) {
       customized.features = customized.features.filter(
-        (f: string) => !customization.features!.disabled!.includes(f)
+        (f: string) => !customization.features!.disabled!.includes(f),
       );
     }
   }
 
   if (customization.integrations) {
-    customized.integrations = { ...customized.integrations, ...customization.integrations };
+    customized.integrations = {
+      ...customized.integrations,
+      ...customization.integrations,
+    };
   }
 
   return customized;

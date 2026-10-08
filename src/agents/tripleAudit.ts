@@ -28,14 +28,20 @@ export type TripleAuditResult = {
 function scanA11y(files: Record<string, string>): AuditFinding[] {
   const findings: AuditFinding[] = [];
   const imgWithoutAlt = /<(img|Image)\b[^>]*>(?!.*alt=)/gi;
-  const noAriaLabel = /<(button|a|input)\b[^>]*>(?!.*aria-label)(?!.*aria-labelledby)/gi;
+  const noAriaLabel =
+    /<(button|a|input)\b[^>]*>(?!.*aria-label)(?!.*aria-labelledby)/gi;
   const noFormLabels = /<input\b[^>]*>(?!.*label)/gi;
   const noLangAttr = /<html\b(?!.*lang=)/gi;
   const lowContrastTailwind = /(text-gray-\d00).*(bg-gray-\d00)/gi; // same shade text/bg
   const missingFocus = /:focus-visible|focus:outline/gi; // absence of focus styles
 
   for (const [path, content] of Object.entries(files)) {
-    if (!path.endsWith(".tsx") && !path.endsWith(".ts") && !path.endsWith(".jsx")) continue;
+    if (
+      !path.endsWith(".tsx") &&
+      !path.endsWith(".ts") &&
+      !path.endsWith(".jsx")
+    )
+      continue;
 
     const lines = content.split("\n");
     lines.forEach((line, idx) => {
@@ -46,7 +52,8 @@ function scanA11y(files: Record<string, string>): AuditFinding[] {
           file: path,
           line: idx + 1,
           rule: "WCAG-1.1.1",
-          message: "Image without alt attribute — screen readers cannot describe it.",
+          message:
+            "Image without alt attribute — screen readers cannot describe it.",
           fixHint: 'Add alt="description" or alt="" for decorative images.',
         });
       }
@@ -80,14 +87,18 @@ function scanA11y(files: Record<string, string>): AuditFinding[] {
           line: idx + 1,
           rule: "WCAG-1.4.3",
           message: "Potential low-contrast color combination detected.",
-          fixHint: "Use Tailwind contrast utilities (e.g. text-white on bg-slate-900).",
+          fixHint:
+            "Use Tailwind contrast utilities (e.g. text-white on bg-slate-900).",
         });
       }
     });
 
     // Whole-file checks
     const hasFocusStyles = missingFocus.test(content);
-    if (!hasFocusStyles && (path.includes(".css") || path.includes("index.css"))) {
+    if (
+      !hasFocusStyles &&
+      (path.includes(".css") || path.includes("index.css"))
+    ) {
       findings.push({
         category: "a11y",
         severity: "warning",
@@ -108,17 +119,29 @@ function scanSecurity(files: Record<string, string>): AuditFinding[] {
 
   const secretPatterns = [
     { regex: /sk-[a-zA-Z0-9]{20,}/gi, name: "Stripe secret key leak" },
-    { regex: /eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*/gi, name: "JWT token hardcoded" },
+    {
+      regex: /eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*/gi,
+      name: "JWT token hardcoded",
+    },
     { regex: /password\s*=\s*["'][^"']{4,}["']/gi, name: "Hardcoded password" },
-    { regex: /api[_-]?key\s*=\s*["'][^"']{8,}["']/gi, name: "Hardcoded API key" },
+    {
+      regex: /api[_-]?key\s*=\s*["'][^"']{8,}["']/gi,
+      name: "Hardcoded API key",
+    },
     { regex: /AKIA[0-9A-Z]{16}/gi, name: "AWS access key leak" },
   ];
 
   const unsafePatterns = [
-    { regex: /dangerouslySetInnerHTML/gi, name: "dangerouslySetInnerHTML usage" },
+    {
+      regex: /dangerouslySetInnerHTML/gi,
+      name: "dangerouslySetInnerHTML usage",
+    },
     { regex: /eval\s*\(/gi, name: "eval() usage" },
     { regex: /innerHTML\s*=/gi, name: "innerHTML assignment" },
-    { regex: /window\.location\.href\s*=\s*[^;]*\+/gi, name: "Unsanitized redirect" },
+    {
+      regex: /window\.location\.href\s*=\s*[^;]*\+/gi,
+      name: "Unsanitized redirect",
+    },
     { regex: /\.exec\s*\(/gi, name: "Shell exec in frontend" },
   ];
 
@@ -132,7 +155,8 @@ function scanSecurity(files: Record<string, string>): AuditFinding[] {
           file: path,
           rule: "secret-leak",
           message: `${p.name}: ${matches.length} occurrence(s) found in source code.`,
-          fixHint: "Move secrets to environment variables. Never commit API keys.",
+          fixHint:
+            "Move secrets to environment variables. Never commit API keys.",
         });
       }
     }
@@ -145,7 +169,8 @@ function scanSecurity(files: Record<string, string>): AuditFinding[] {
           file: path,
           rule: "unsafe-pattern",
           message: `${p.name}: potential XSS or injection vector.`,
-          fixHint: "Use safe alternatives (textContent, sanitized DOM insertion, parameterized queries).",
+          fixHint:
+            "Use safe alternatives (textContent, sanitized DOM insertion, parameterized queries).",
         });
       }
     }
@@ -164,7 +189,10 @@ function scanSecurity(files: Record<string, string>): AuditFinding[] {
         fixHint: "import helmet from 'helmet' and app.use(helmet()).",
       });
     }
-    if (!serverFile.includes("rateLimit") && !serverFile.includes("rate-limit")) {
+    if (
+      !serverFile.includes("rateLimit") &&
+      !serverFile.includes("rate-limit")
+    ) {
       findings.push({
         category: "security",
         severity: "warning",
@@ -190,7 +218,8 @@ function scanPerf(files: Record<string, string>): AuditFinding[] {
 
   for (const [path, content] of Object.entries(files)) {
     totalSize += content.length;
-    if (path.endsWith(".ts") || path.endsWith(".tsx") || path.endsWith(".js")) jsSize += content.length;
+    if (path.endsWith(".ts") || path.endsWith(".tsx") || path.endsWith(".js"))
+      jsSize += content.length;
     if (path.endsWith(".css")) cssSize += content.length;
     if (path.match(/\.(png|jpg|jpeg|gif|svg|webp)/i)) imageCount++;
   }
@@ -204,20 +233,26 @@ function scanPerf(files: Record<string, string>): AuditFinding[] {
       file: "(overall)",
       rule: "bundle-oversized",
       message: `Estimated JS bundle ~${estMinifiedKB}KB. Likely too large for fast load.`,
-      fixHint: "Split with dynamic imports (React.lazy), trim unused deps, use tree-shaking.",
+      fixHint:
+        "Split with dynamic imports (React.lazy), trim unused deps, use tree-shaking.",
     });
   }
 
   // Check for missing lazy loading
   const allContent = Object.values(files).join("\n");
-  if (!allContent.includes("React.lazy") && !allContent.includes("lazy") && jsSize > 200_000) {
+  if (
+    !allContent.includes("React.lazy") &&
+    !allContent.includes("lazy") &&
+    jsSize > 200_000
+  ) {
     findings.push({
       category: "perf",
       severity: "warning",
       file: "(overall)",
       rule: "no-code-splitting",
       message: "No code splitting (React.lazy / dynamic imports) found.",
-      fixHint: "Lazy load heavy pages/components with React.lazy() and Suspense.",
+      fixHint:
+        "Lazy load heavy pages/components with React.lazy() and Suspense.",
     });
   }
 
@@ -230,19 +265,26 @@ function scanPerf(files: Record<string, string>): AuditFinding[] {
       file: "server.ts",
       rule: "no-compression",
       message: "No gzip/brotli compression middleware found.",
-      fixHint: "Add compression() middleware or enable at CDN/reverse proxy level.",
+      fixHint:
+        "Add compression() middleware or enable at CDN/reverse proxy level.",
     });
   }
 
   // Check for unoptimized images
-  if (imageCount > 0 && !allContent.includes("next/image") && !allContent.includes("lazyLoad") && !allContent.includes("loading=\"lazy\"")) {
+  if (
+    imageCount > 0 &&
+    !allContent.includes("next/image") &&
+    !allContent.includes("lazyLoad") &&
+    !allContent.includes('loading="lazy"')
+  ) {
     findings.push({
       category: "perf",
       severity: "warning",
       file: "(overall)",
       rule: "unoptimized-images",
       message: `${imageCount} image(s) without lazy loading or optimization.`,
-      fixHint: "Add loading='lazy' to <img>, use WebP where possible, or a CDN image optimizer.",
+      fixHint:
+        "Add loading='lazy' to <img>, use WebP where possible, or a CDN image optimizer.",
     });
   }
 
@@ -262,7 +304,7 @@ function scoreCategory(findings: AuditFinding[], maxScore: number): number {
 
 // ── Main Entry ──
 export async function runTripleAudit(
-  files: Record<string, string>
+  files: Record<string, string>,
 ): Promise<TripleAuditResult> {
   logger.info({ fileCount: Object.keys(files).length }, "triple_audit_start");
 
@@ -275,7 +317,9 @@ export async function runTripleAudit(
   const perfScore = scoreCategory(perfFindings, 100);
 
   const overallScore = Math.round((a11yScore + securityScore + perfScore) / 3);
-  const hasCriticalSecurity = securityFindings.some(f => f.severity === "critical");
+  const hasCriticalSecurity = securityFindings.some(
+    (f) => f.severity === "critical",
+  );
 
   const result: TripleAuditResult = {
     a11y: { score: a11yScore, max: 100, findings: a11yFindings },
@@ -287,7 +331,7 @@ export async function runTripleAudit(
 
   logger.info(
     { overallScore, a11y: a11yScore, security: securityScore, perf: perfScore },
-    "triple_audit_complete"
+    "triple_audit_complete",
   );
 
   return result;
@@ -298,23 +342,39 @@ export function auditReportMarkdown(r: TripleAuditResult): string {
   const lines: string[] = [];
   lines.push("## Build Quality Report");
   lines.push("");
-  lines.push(`**Overall Score:** ${r.overallScore}/100 ${r.passed ? "✅ PASS" : "❌ FAIL"}`);
+  lines.push(
+    `**Overall Score:** ${r.overallScore}/100 ${r.passed ? "✅ PASS" : "❌ FAIL"}`,
+  );
   lines.push("");
-  lines.push(`- Accessibility: ${r.a11y.score}/100 (${r.a11y.findings.length} findings)`);
-  lines.push(`- Security: ${r.security.score}/100 (${r.security.findings.length} findings)`);
-  lines.push(`- Performance: ${r.perf.score}/100 (${r.perf.findings.length} findings)`);
+  lines.push(
+    `- Accessibility: ${r.a11y.score}/100 (${r.a11y.findings.length} findings)`,
+  );
+  lines.push(
+    `- Security: ${r.security.score}/100 (${r.security.findings.length} findings)`,
+  );
+  lines.push(
+    `- Performance: ${r.perf.score}/100 (${r.perf.findings.length} findings)`,
+  );
   lines.push("");
 
-  const allFindings = [...r.a11y.findings, ...r.security.findings, ...r.perf.findings];
+  const allFindings = [
+    ...r.a11y.findings,
+    ...r.security.findings,
+    ...r.perf.findings,
+  ];
   if (allFindings.length === 0) {
     lines.push("No issues found. Clean build.");
     return lines.join("\n");
   }
 
   for (const f of allFindings) {
-    const icon = f.severity === "critical" ? "🔴" : f.severity === "warning" ? "🟡" : "🟢";
-    lines.push(`${icon} **[${f.category.toUpperCase()}]** ${f.rule} — ${f.message}`);
-    if (f.file) lines.push(`   File: \`${f.file}\`${f.line ? `:${f.line}` : ""}`);
+    const icon =
+      f.severity === "critical" ? "🔴" : f.severity === "warning" ? "🟡" : "🟢";
+    lines.push(
+      `${icon} **[${f.category.toUpperCase()}]** ${f.rule} — ${f.message}`,
+    );
+    if (f.file)
+      lines.push(`   File: \`${f.file}\`${f.line ? `:${f.line}` : ""}`);
     lines.push(`   Fix: ${f.fixHint}`);
     lines.push("");
   }

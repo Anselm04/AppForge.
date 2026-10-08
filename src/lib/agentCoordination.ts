@@ -49,9 +49,7 @@ export const taskCoordinationStateSchema = z.object({
   outputFiles: z.array(nonEmpty),
 });
 
-export type TaskCoordinationState = z.infer<
-  typeof taskCoordinationStateSchema
->;
+export type TaskCoordinationState = z.infer<typeof taskCoordinationStateSchema>;
 
 export const agentCoordinationRecordSchema = z.object({
   version: z.literal(1),
@@ -161,8 +159,7 @@ export function createAgentCoordinationRecord(input: {
       input.context.productContract.selectedTechnologyStack,
     planTitle: input.context.productPlan.title,
     requirementIds: input.context.requirementIds,
-    researchDecisionIds:
-      input.context.productPlan.researchDecisionIds,
+    researchDecisionIds: input.context.productPlan.researchDecisionIds,
     taskStates,
     fileOwners,
     events: [],
@@ -202,9 +199,7 @@ export function validateTaskHandoff(input: {
 
   for (const file of task.files) {
     if (input.record.fileOwners[file] !== task.id) {
-      throw new Error(
-        `Task ${task.id} does not own planned file ${file}`,
-      );
+      throw new Error(`Task ${task.id} does not own planned file ${file}`);
     }
   }
 
@@ -306,15 +301,15 @@ export function unlockReadyTasks(
   });
 }
 
-
 export function buildAgentTaskContext(input: {
   context: AgentCoordinationContext;
   task: ProductPlanTask;
 }): string {
   const requirementSet = new Set(input.task.requirementIds);
-  const requirements = input.context.productContract.functionalRequirements.filter(
-    (requirement) => requirementSet.has(requirement.id),
-  );
+  const requirements =
+    input.context.productContract.functionalRequirements.filter((requirement) =>
+      requirementSet.has(requirement.id),
+    );
   const decisionSet = new Set(input.context.productPlan.researchDecisionIds);
   const researchDecisions = input.context.researchDecisions.filter((decision) =>
     decisionSet.has(decision.id),
@@ -373,9 +368,7 @@ export function reconcileCoordinationResume(input: {
   return unlockReadyTasks(record);
 }
 
-export function coordinationStatusSummary(
-  record: AgentCoordinationRecord,
-): {
+export function coordinationStatusSummary(record: AgentCoordinationRecord): {
   pending: number;
   blocked: number;
   running: number;

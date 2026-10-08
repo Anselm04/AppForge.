@@ -11,7 +11,8 @@ const hostedApps = readFileSync(
   "utf8",
 );
 
-const sandboxPolicy = "sandbox allow-scripts allow-forms allow-modals allow-popups";
+const sandboxPolicy =
+  "sandbox allow-scripts allow-forms allow-modals allow-popups";
 
 describe("generated-app preview isolation", () => {
   it("keeps generated content on an opaque sandbox origin", () => {
@@ -35,13 +36,17 @@ describe("generated-app preview isolation", () => {
   it("requires signed, explicitly public, or owner access for protected live previews", () => {
     expect(livePreview).toContain("verifyPreviewSignature(projectId, sig)");
     expect(livePreview).toContain("const ownerAccess = Boolean(");
-    expect(livePreview).toContain("!signedAccess && !publicAccess && !ownerAccess");
+    expect(livePreview).toContain(
+      "!signedAccess && !publicAccess && !ownerAccess",
+    );
   });
 
   it("prevents generated previews from leaking referrers or being cached", () => {
     for (const source of [livePreview, hostedApps]) {
       expect(source).toContain('res.setHeader("Cache-Control", "no-store")');
-      expect(source).toContain('res.setHeader("Referrer-Policy", "no-referrer")');
+      expect(source).toContain(
+        'res.setHeader("Referrer-Policy", "no-referrer")',
+      );
     }
   });
 });

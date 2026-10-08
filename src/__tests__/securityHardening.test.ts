@@ -108,7 +108,9 @@ describe("#16 security hardening", () => {
   it("keeps generated Python services on the secure header, abuse-control, and rate-limit baseline", () => {
     const files = getStackScaffold("python-service", "api");
     expect(scanProjectFiles(files).passed).toBe(true);
-    expect(validateGeneratedSecurityPosture(files, "python-service")).toEqual([]);
+    expect(validateGeneratedSecurityPosture(files, "python-service")).toEqual(
+      [],
+    );
     expect(files["requirements.txt"]).toContain("slowapi");
     expect(files["app/main.py"]).toContain("MAX_BODY_BYTES");
     expect(files["app/main.py"]).toContain("X-Content-Type-Options");
@@ -136,7 +138,8 @@ describe("#16 security hardening", () => {
 
   it("does not mistake ordinary parser/application token variables for credentials", () => {
     const scan = scanProjectFiles({
-      "src/parser.ts": 'const token = "identifier"; const csrfToken = "placeholder";',
+      "src/parser.ts":
+        'const token = "identifier"; const csrfToken = "placeholder";',
     });
     expect(scan.findings.map((finding) => finding.ruleId)).not.toContain(
       "secret.literal-assignment",

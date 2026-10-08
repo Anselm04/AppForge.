@@ -1,56 +1,60 @@
-import { ParsedRequirements } from './requirement-parser.js';
+import { ParsedRequirements } from "./requirement-parser.js";
 
 export interface ClarificationQuestion {
   question: string;
-  category: 'feature' | 'design' | 'technical' | 'business';
-  priority: 'high' | 'medium' | 'low';
+  category: "feature" | "design" | "technical" | "business";
+  priority: "high" | "medium" | "low";
 }
 
-export function generateClarificationQuestions(requirements: ParsedRequirements): ClarificationQuestion[] {
+export function generateClarificationQuestions(
+  requirements: ParsedRequirements,
+): ClarificationQuestion[] {
   const questions: ClarificationQuestion[] = [];
-  
+
   // Feature questions
-  if (requirements.features.includes('authentication')) {
+  if (requirements.features.includes("authentication")) {
     questions.push({
-      question: 'What authentication methods do you need? (Email/password, OAuth, SSO, etc.)',
-      category: 'feature',
-      priority: 'high',
+      question:
+        "What authentication methods do you need? (Email/password, OAuth, SSO, etc.)",
+      category: "feature",
+      priority: "high",
     });
   }
-  
-  if (requirements.features.includes('dashboard')) {
+
+  if (requirements.features.includes("dashboard")) {
     questions.push({
-      question: 'What metrics or data should be displayed on the dashboard?',
-      category: 'feature',
-      priority: 'high',
+      question: "What metrics or data should be displayed on the dashboard?",
+      category: "feature",
+      priority: "high",
     });
   }
-  
+
   // Design questions
-  if (requirements.type === 'web') {
+  if (requirements.type === "web") {
     questions.push({
-      question: 'Do you have a preferred color scheme or design style?',
-      category: 'design',
-      priority: 'medium',
+      question: "Do you have a preferred color scheme or design style?",
+      category: "design",
+      priority: "medium",
     });
   }
-  
+
   // Technical questions
-  if (requirements.features.includes('database')) {
+  if (requirements.features.includes("database")) {
     questions.push({
-      question: 'What type of data will you be storing? Any specific requirements?',
-      category: 'technical',
-      priority: 'high',
+      question:
+        "What type of data will you be storing? Any specific requirements?",
+      category: "technical",
+      priority: "high",
     });
   }
-  
+
   // Business questions
   questions.push({
-    question: 'Who is your target audience for this app?',
-    category: 'business',
-    priority: 'medium',
+    question: "Who is your target audience for this app?",
+    category: "business",
+    priority: "medium",
   });
-  
+
   // Limit to top 5 questions
   return questions
     .sort((a, b) => {

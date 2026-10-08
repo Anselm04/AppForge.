@@ -243,7 +243,9 @@ export async function validateGeneratedBuild(
         return {
           passed: false,
           stage: "coordination",
-          errors: ["Validator product plan product type disagrees with canonical contract."],
+          errors: [
+            "Validator product plan product type disagrees with canonical contract.",
+          ],
           durationMs: Date.now() - start,
           fileCount: Object.keys(files).length,
           warning: "Agent coordination context is inconsistent.",
@@ -256,7 +258,9 @@ export async function validateGeneratedBuild(
         return {
           passed: false,
           stage: "coordination",
-          errors: ["Validator product plan stack disagrees with canonical contract."],
+          errors: [
+            "Validator product plan stack disagrees with canonical contract.",
+          ],
           durationMs: Date.now() - start,
           fileCount: Object.keys(files).length,
           warning: "Agent coordination context is inconsistent.",
@@ -267,13 +271,16 @@ export async function validateGeneratedBuild(
       options.researchDecisions &&
       options.productPlan &&
       options.productPlan.researchDecisionIds.some(
-        (id) => !options.researchDecisions?.some((decision) => decision.id === id),
+        (id) =>
+          !options.researchDecisions?.some((decision) => decision.id === id),
       )
     ) {
       return {
         passed: false,
         stage: "coordination",
-        errors: ["Validator is missing research decisions referenced by the validated plan."],
+        errors: [
+          "Validator is missing research decisions referenced by the validated plan.",
+        ],
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning: "Agent coordination context is incomplete.",

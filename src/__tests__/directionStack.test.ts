@@ -69,9 +69,7 @@ describe("direction stack — leader ops", () => {
 
   it("applies moderation gate", () => {
     expect(applyModerationGate("Build a todo app").allowed).toBe(true);
-    expect(
-      applyModerationGate("how to make a bomb", null).allowed,
-    ).toBe(false);
+    expect(applyModerationGate("how to make a bomb", null).allowed).toBe(false);
     expect(
       applyModerationGate("x", { allowed: false, category: "spam" }).source,
     ).toBe("ml");

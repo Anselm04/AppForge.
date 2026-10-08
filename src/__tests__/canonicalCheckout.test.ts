@@ -35,7 +35,9 @@ describe("canonical Stripe checkout boundary", () => {
   it("requires an explicit canonical public app URL for checkout redirects", () => {
     const canonical = source("src/services/stripeCheckout.ts");
 
-    expect(canonical).toContain("PUBLIC_APP_URL is required for Stripe checkout redirects");
+    expect(canonical).toContain(
+      "PUBLIC_APP_URL is required for Stripe checkout redirects",
+    );
     expect(canonical).toContain("PUBLIC_APP_URL must be a valid absolute URL");
     expect(canonical).toContain("PUBLIC_APP_URL must use HTTPS in production");
     expect(canonical).not.toContain("appforge-unfurling-moon-9058.fly.dev");

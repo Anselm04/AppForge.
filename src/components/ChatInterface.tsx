@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
-  type?: 'question' | 'clarification' | 'building' | 'complete';
+  type?: "question" | "clarification" | "building" | "complete";
 }
 
 interface ChatInterfaceProps {
@@ -15,8 +15,13 @@ interface ChatInterfaceProps {
   onClear: () => void;
 }
 
-export function ChatInterface({ messages, isBuilding, onSendMessage, onClear }: ChatInterfaceProps) {
-  const [input, setInput] = useState('');
+export function ChatInterface({
+  messages,
+  isBuilding,
+  onSendMessage,
+  onClear,
+}: ChatInterfaceProps) {
+  const [input, setInput] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,16 +34,16 @@ export function ChatInterface({ messages, isBuilding, onSendMessage, onClear }: 
     e.preventDefault();
     if (input.trim()) {
       onSendMessage(input.trim());
-      setInput('');
+      setInput("");
     }
   };
 
   const getAssistantIcon = (message: Message) => {
-    if (message.type === 'question') return '❓';
-    if (message.type === 'clarification') return '💡';
-    if (message.type === 'building') return '⚙️';
-    if (message.type === 'complete') return '✅';
-    return '🤖';
+    if (message.type === "question") return "❓";
+    if (message.type === "clarification") return "💡";
+    if (message.type === "building") return "⚙️";
+    if (message.type === "complete") return "✅";
+    return "🤖";
   };
 
   return (
@@ -48,8 +53,12 @@ export function ChatInterface({ messages, isBuilding, onSendMessage, onClear }: 
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="text-4xl mb-4">👋</div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Welcome to AppForge!</h3>
-            <p className="text-gray-500 mb-4">Tell me about the app you want to build</p>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              Welcome to AppForge!
+            </h3>
+            <p className="text-gray-500 mb-4">
+              Tell me about the app you want to build
+            </p>
             <div className="text-sm text-gray-400 space-y-2">
               <p>Examples:</p>
               <p>• "I need a task management app with drag-and-drop boards"</p>
@@ -62,27 +71,32 @@ export function ChatInterface({ messages, isBuilding, onSendMessage, onClear }: 
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+            className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
           >
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
-              {message.role === 'user' ? '👤' : getAssistantIcon(message)}
+              {message.role === "user" ? "👤" : getAssistantIcon(message)}
             </div>
             <div
               className={`max-w-[80%] rounded-lg p-3 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : message.type === 'question'
-                  ? 'bg-yellow-50 border border-yellow-200'
-                  : message.type === 'building'
-                  ? 'bg-blue-50 border border-blue-200'
-                  : message.type === 'complete'
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-gray-100'
+                message.role === "user"
+                  ? "bg-blue-600 text-white"
+                  : message.type === "question"
+                    ? "bg-yellow-50 border border-yellow-200"
+                    : message.type === "building"
+                      ? "bg-blue-50 border border-blue-200"
+                      : message.type === "complete"
+                        ? "bg-green-50 border border-green-200"
+                        : "bg-gray-100"
               }`}
             >
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <p
+                className={`text-xs mt-1 ${message.role === "user" ? "text-blue-100" : "text-gray-400"}`}
+              >
+                {message.timestamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </p>
             </div>
           </div>
@@ -104,7 +118,10 @@ export function ChatInterface({ messages, isBuilding, onSendMessage, onClear }: 
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 bg-white">
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-200 bg-white"
+      >
         <div className="flex gap-2">
           <input
             type="text"

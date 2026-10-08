@@ -28,14 +28,62 @@ export type FeatureMeta = {
 };
 
 export const PLATFORM_FEATURES: FeatureMeta[] = [
-  { id: "orchestrator", icon: "⚡", i18nKey: "features.orchestrator", appRoute: "/app/new", category: "build" },
-  { id: "live-preview", icon: "👁", i18nKey: "features.livePreview", appRoute: "/build", category: "build" },
-  { id: "deploy", icon: "🚀", i18nKey: "features.deploy", appRoute: "/dashboard", category: "ship" },
-  { id: "database-wizard", icon: "🗄", i18nKey: "features.databaseWizard", appRoute: "/dashboard", category: "ship" },
-  { id: "templates", icon: "📦", i18nKey: "features.templates", appRoute: "/templates", category: "build" },
-  { id: "onboarding-assistant", icon: "✨", i18nKey: "features.onboardingAssistant", appRoute: "/onboarding", category: "discover" },
-  { id: "health-scanner", icon: "🛡", i18nKey: "features.healthScanner", appRoute: "/app/health", category: "discover" },
-  { id: "feedback-board", icon: "💬", i18nKey: "features.feedbackBoard", appRoute: "/feedback", category: "discover" },
+  {
+    id: "orchestrator",
+    icon: "⚡",
+    i18nKey: "features.orchestrator",
+    appRoute: "/app/new",
+    category: "build",
+  },
+  {
+    id: "live-preview",
+    icon: "👁",
+    i18nKey: "features.livePreview",
+    appRoute: "/build",
+    category: "build",
+  },
+  {
+    id: "deploy",
+    icon: "🚀",
+    i18nKey: "features.deploy",
+    appRoute: "/dashboard",
+    category: "ship",
+  },
+  {
+    id: "database-wizard",
+    icon: "🗄",
+    i18nKey: "features.databaseWizard",
+    appRoute: "/dashboard",
+    category: "ship",
+  },
+  {
+    id: "templates",
+    icon: "📦",
+    i18nKey: "features.templates",
+    appRoute: "/templates",
+    category: "build",
+  },
+  {
+    id: "onboarding-assistant",
+    icon: "✨",
+    i18nKey: "features.onboardingAssistant",
+    appRoute: "/onboarding",
+    category: "discover",
+  },
+  {
+    id: "health-scanner",
+    icon: "🛡",
+    i18nKey: "features.healthScanner",
+    appRoute: "/app/health",
+    category: "discover",
+  },
+  {
+    id: "feedback-board",
+    icon: "💬",
+    i18nKey: "features.feedbackBoard",
+    appRoute: "/feedback",
+    category: "discover",
+  },
 ];
 
 export function featurePath(id: FeatureId): string {
@@ -47,6 +95,16 @@ export function getFeature(id: FeatureId): FeatureMeta | undefined {
 }
 
 export const SIDEBAR_GROUPS = [
-  { key: "sidebar.build", ids: ["orchestrator", "live-preview", "templates"] as FeatureId[] },
-  { key: "sidebar.discover", ids: ["onboarding-assistant", "health-scanner", "feedback-board"] as FeatureId[] },
+  {
+    key: "sidebar.build",
+    ids: ["orchestrator", "live-preview", "templates"] as FeatureId[],
+  },
+  {
+    key: "sidebar.discover",
+    ids: [
+      "onboarding-assistant",
+      "health-scanner",
+      "feedback-board",
+    ] as FeatureId[],
+  },
 ];

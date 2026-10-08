@@ -18,7 +18,10 @@ const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ORGANIZATION_DOMAIN_PATTERN =
   /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 
-export function normalizeOrganizationSlug(name: string, requested?: string): string {
+export function normalizeOrganizationSlug(
+  name: string,
+  requested?: string,
+): string {
   const slug = slugify(requested?.trim() || name);
   if (slug.length < 2 || !ORGANIZATION_SLUG_PATTERN.test(slug)) {
     throw new TRPCError({
@@ -31,7 +34,11 @@ export function normalizeOrganizationSlug(name: string, requested?: string): str
 }
 
 export function normalizeOrganizationDomain(input: string): string {
-  const domain = input.trim().toLowerCase().replace(/^@/, "").replace(/\.$/, "");
+  const domain = input
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, "")
+    .replace(/\.$/, "");
   if (!ORGANIZATION_DOMAIN_PATTERN.test(domain)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -201,7 +208,9 @@ export const orgsRouter = router({
       if (!verified) {
         try {
           const records = await dns.resolveTxt(domain);
-          verified = records.some((chunks) => chunks.join("").trim() === expected);
+          verified = records.some(
+            (chunks) => chunks.join("").trim() === expected,
+          );
         } catch {
           verified = false;
         }

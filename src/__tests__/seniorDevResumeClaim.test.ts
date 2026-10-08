@@ -52,9 +52,7 @@ describe("Senior Dev execution claims", () => {
   });
 
   it("derives failure and stale-recovery refunds from the reservation ledger", () => {
-    expect(route).toContain(
-      'from "../services/senior-dev-reservation.js"',
-    );
+    expect(route).toContain('from "../services/senior-dev-reservation.js"');
     expect(
       route.match(/await refundOutstandingSeniorDevReservation\(/g),
     ).toHaveLength(3);

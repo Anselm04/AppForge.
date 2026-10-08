@@ -47,11 +47,15 @@ export function decryptUtf8(payload: string, purpose: string): string {
   const enc = buf.subarray(28);
   const decipher = createDecipheriv("aes-256-gcm", aesKey(purpose), iv);
   decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString(
+    "utf8",
+  );
 }
 
 export function hmacUtf8(value: string, purpose: string): string {
-  return createHmac("sha256", serverSecret()).update(`${purpose}:${value}`).digest("hex");
+  return createHmac("sha256", serverSecret())
+    .update(`${purpose}:${value}`)
+    .digest("hex");
 }
 
 export function hmacEqualHex(a: string, b: string): boolean {
@@ -87,7 +91,9 @@ export function ownerEmailHmac(email: string): string {
 
 export function hashGodCode(raw: string): string {
   const normalized = raw.trim().toUpperCase().replace(/\s+/g, "");
-  return createHash("sha256").update(`god-code:${normalized}:${serverSecret()}`).digest("hex");
+  return createHash("sha256")
+    .update(`god-code:${normalized}:${serverSecret()}`)
+    .digest("hex");
 }
 
 export function encryptGodCode(raw: string): string {
@@ -95,6 +101,9 @@ export function encryptGodCode(raw: string): string {
 }
 
 export function mintGodCode(): string {
-  const raw = randomBytes(9).toString("base64url").toUpperCase().replace(/[^A-Z0-9]/g, "X");
+  const raw = randomBytes(9)
+    .toString("base64url")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "X");
   return `AF-${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
 }

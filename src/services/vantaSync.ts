@@ -50,10 +50,14 @@ async function claimVantaHeartbeatSlot(intervalMs: number): Promise<boolean> {
   const slot = Math.floor(Date.now() / intervalMs);
   const key = `appforge:vanta:heartbeat:${slot}`;
   const ttlMs = Math.max(intervalMs + 60_000, 120_000);
-  const claimed = await client.set(key, process.env.FLY_MACHINE_ID || "appforge", {
-    NX: true,
-    PX: ttlMs,
-  });
+  const claimed = await client.set(
+    key,
+    process.env.FLY_MACHINE_ID || "appforge",
+    {
+      NX: true,
+      PX: ttlMs,
+    },
+  );
   return claimed === "OK";
 }
 

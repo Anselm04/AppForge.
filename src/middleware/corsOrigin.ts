@@ -10,7 +10,8 @@ export function normalizeCorsOrigin(
   try {
     const parsed = new URL(value.trim());
     const validProtocol =
-      parsed.protocol === "https:" || (!requireHttps && parsed.protocol === "http:");
+      parsed.protocol === "https:" ||
+      (!requireHttps && parsed.protocol === "http:");
     if (!validProtocol) return null;
     return parsed.origin;
   } catch {
@@ -20,8 +21,10 @@ export function normalizeCorsOrigin(
 
 export function allowedCorsOrigins(
   isProduction = ENV.isProduction,
-  configuredValue =
-    process.env.CORS_ORIGIN || process.env.PUBLIC_APP_URL || process.env.APP_URL || "",
+  configuredValue = process.env.CORS_ORIGIN ||
+    process.env.PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    "",
 ): Set<string> {
   const configured = configuredValue
     .split(",")

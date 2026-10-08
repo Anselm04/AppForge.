@@ -29,7 +29,9 @@ export function extractErrorPaths(
       continue;
     }
     const base = p.split("/").pop() ?? p;
-    const hit = keys.find((k) => k === p || k.endsWith(`/${base}`) || k === base);
+    const hit = keys.find(
+      (k) => k === p || k.endsWith(`/${base}`) || k === base,
+    );
     if (hit) resolved.push(hit);
   }
 
@@ -53,7 +55,9 @@ export function buildSurgicalFixPrompt(opts: {
           .map((p) => {
             const body = opts.files[p] ?? "";
             const clipped =
-              body.length > 4000 ? `${body.slice(0, 4000)}\n/* …truncated… */` : body;
+              body.length > 4000
+                ? `${body.slice(0, 4000)}\n/* …truncated… */`
+                : body;
             return `// filename: ${p}\n${clipped}`;
           })
           .join("\n\n")
@@ -62,7 +66,9 @@ export function buildSurgicalFixPrompt(opts: {
           .slice(0, 6)
           .map(([p, body]) => {
             const clipped =
-              body.length > 2500 ? `${body.slice(0, 2500)}\n/* …truncated… */` : body;
+              body.length > 2500
+                ? `${body.slice(0, 2500)}\n/* …truncated… */`
+                : body;
             return `// filename: ${p}\n${clipped}`;
           })
           .join("\n\n");

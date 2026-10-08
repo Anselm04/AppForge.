@@ -20,7 +20,10 @@ export const analyticsRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
     const stats = await getUserBuildStats(ctx.user.id);
     const tier = await getUserTier(ctx.user.id);
-    const buildsThisMonth = Math.max(0, await countBuildsThisMonth(ctx.user.id));
+    const buildsThisMonth = Math.max(
+      0,
+      await countBuildsThisMonth(ctx.user.id),
+    );
     const rawLimit = getTierBuildLimit(tier);
     const totalBuilds = Math.max(0, stats?.totalBuilds ?? 0);
     const successfulBuilds = Math.max(0, stats?.successfulBuilds ?? 0);

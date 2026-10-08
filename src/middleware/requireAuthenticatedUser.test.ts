@@ -5,7 +5,10 @@ import { requireAuthenticatedUser } from "./requireAuthenticatedUser.js";
 type MockResponse = Pick<Response, "setHeader" | "status" | "json">;
 
 function createResponse() {
-  const response: Partial<MockResponse> & { statusCode?: number; body?: unknown } = {};
+  const response: Partial<MockResponse> & {
+    statusCode?: number;
+    body?: unknown;
+  } = {};
   response.setHeader = vi.fn();
   response.status = vi.fn((statusCode: number) => {
     response.statusCode = statusCode;

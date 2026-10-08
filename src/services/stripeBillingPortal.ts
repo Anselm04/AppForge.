@@ -22,7 +22,9 @@ function requiredPriceIds(): string[] {
 function productIdForPrice(price: Stripe.Price): string {
   if (typeof price.product === "string") return price.product;
   if ("id" in price.product) return price.product.id;
-  throw new Error(`Stripe price ${price.id} does not reference a valid product.`);
+  throw new Error(
+    `Stripe price ${price.id} does not reference a valid product.`,
+  );
 }
 
 export async function ensureAppForgeBillingPortalConfiguration(

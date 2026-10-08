@@ -15,7 +15,9 @@ async function getClient(): Promise<RedisClientType | null> {
 
   connecting = (async () => {
     const next = createClient({ url: ENV.redisUrl }) as RedisClientType;
-    next.on("error", (err) => logger.error({ err }, "self_healing_redis_error"));
+    next.on("error", (err) =>
+      logger.error({ err }, "self_healing_redis_error"),
+    );
     await next.connect();
     client = next;
     logger.info("Self-healing Redis coordination connected");

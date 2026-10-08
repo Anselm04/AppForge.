@@ -34,7 +34,9 @@ describe("environment source-of-truth contracts", () => {
 
   it("recognizes keyless/self-hosted provider configuration", () => {
     expect(
-      hasConfiguredLlmProvider({ OPENAI_COMPAT_BASE_URL: "https://llm.example.com/v1" }),
+      hasConfiguredLlmProvider({
+        OPENAI_COMPAT_BASE_URL: "https://llm.example.com/v1",
+      }),
     ).toBe(true);
     expect(hasConfiguredLlmProvider({ OLLAMA_ENABLED: "true" })).toBe(true);
   });

@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 
 interface PerformanceMetrics {
   route: string;
@@ -15,10 +15,10 @@ export function performanceMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
 
-    res.on('finish', () => {
+    res.on("finish", () => {
       const duration = Date.now() - start;
       const route = req.route?.path || req.path;
-      
+
       metrics.push({
         route,
         method: req.method,
@@ -30,7 +30,9 @@ export function performanceMiddleware() {
       if (metrics.length > 1000) metrics.shift();
 
       if (duration > slowQueryThreshold) {
-        console.warn(`[PERFORMANCE] Slow request: ${req.method} ${route} took ${duration}ms`);
+        console.warn(
+          `[PERFORMANCE] Slow request: ${req.method} ${route} took ${duration}ms`,
+        );
       }
     });
 
@@ -38,7 +40,9 @@ export function performanceMiddleware() {
   };
 }
 
-export function getPerformanceMetrics() { return metrics; }
+export function getPerformanceMetrics() {
+  return metrics;
+}
 export function getSlowRoutes(limit = 10) {
   return metrics.sort((a, b) => b.duration - a.duration).slice(0, limit);
 }

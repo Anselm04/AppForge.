@@ -4,14 +4,7 @@
  */
 
 export type GraphicsTool =
-  | "select"
-  | "rect"
-  | "ellipse"
-  | "line"
-  | "pen"
-  | "text"
-  | "image"
-  | "frame";
+  "select" | "rect" | "ellipse" | "line" | "pen" | "text" | "image" | "frame";
 
 export type GraphicsColor = string;
 
@@ -122,15 +115,9 @@ export function isGraphicsNode(value: unknown): value is GraphicsNode {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: string; id?: string; transform?: unknown };
   if (typeof v.id !== "string" || !v.transform) return false;
-  return [
-    "rect",
-    "ellipse",
-    "line",
-    "pen",
-    "text",
-    "image",
-    "frame",
-  ].includes(v.type ?? "");
+  return ["rect", "ellipse", "line", "pen", "text", "image", "frame"].includes(
+    v.type ?? "",
+  );
 }
 
 export function createEmptyDocument(

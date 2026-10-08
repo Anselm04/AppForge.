@@ -14,16 +14,29 @@ describe("#15 runtime architecture", () => {
       const runtime = getRuntimeArchitecture(adapter.id);
       expect(runtime.stack, adapter.id).toBe(adapter.id);
       expect(runtime.runtime, adapter.id).toBe(adapter.runtime);
-      expect(runtime.startup.entrypoints, adapter.id).toEqual(adapter.entrypoints);
+      expect(runtime.startup.entrypoints, adapter.id).toEqual(
+        adapter.entrypoints,
+      );
       expect(runtime.startup.command, adapter.id).toBe(adapter.startCommand);
-      expect(runtime.environment.files, adapter.id).toEqual(adapter.environmentFiles);
-      expect(runtime.assets.outputDirectory, adapter.id).toBe(adapter.outputDirectory);
+      expect(runtime.environment.files, adapter.id).toEqual(
+        adapter.environmentFiles,
+      );
+      expect(runtime.assets.outputDirectory, adapter.id).toBe(
+        adapter.outputDirectory,
+      );
       expect(runtime.persistence.isolateFromAppForge, adapter.id).toBe(true);
     }
   });
 
   it("uses service lifecycle assumptions only for service runtimes", () => {
-    for (const stack of ["api-service", "node-service", "ai-agent-node", "browser-automation", "python-service", "ai-agent-python"]) {
+    for (const stack of [
+      "api-service",
+      "node-service",
+      "ai-agent-node",
+      "browser-automation",
+      "python-service",
+      "ai-agent-python",
+    ]) {
       const runtime = getRuntimeArchitecture(stack);
       expect(runtime.shutdown.mode, stack).toBe("signals");
       expect(runtime.shutdown.signals, stack).toEqual(["SIGTERM", "SIGINT"]);
@@ -34,7 +47,12 @@ describe("#15 runtime architecture", () => {
       expect(runtime.port.environmentVariable, stack).toBe("PORT");
     }
 
-    for (const stack of ["static-html", "phaser-html5", "three-js-3d", "data-visualization"]) {
+    for (const stack of [
+      "static-html",
+      "phaser-html5",
+      "three-js-3d",
+      "data-visualization",
+    ]) {
       const runtime = getRuntimeArchitecture(stack);
       expect(runtime.shutdown.mode, stack).toBe("host_managed");
       expect(runtime.health.mode, stack).toBe("document");
@@ -59,7 +77,13 @@ describe("#15 runtime architecture", () => {
   });
 
   it("uses native platform lifecycle for mobile, desktop and extensions", () => {
-    for (const stack of ["react-native-expo", "flutter-firebase", "electron-react", "tauri-rust", "chrome-extension"]) {
+    for (const stack of [
+      "react-native-expo",
+      "flutter-firebase",
+      "electron-react",
+      "tauri-rust",
+      "chrome-extension",
+    ]) {
       const runtime = getRuntimeArchitecture(stack);
       expect(runtime.shutdown.mode, stack).toBe("platform_lifecycle");
       expect(runtime.health.mode, stack).toBe("native_runtime");
@@ -78,16 +102,16 @@ describe("#15 runtime architecture", () => {
 
   it("gives service scaffolds liveness, readiness and graceful shutdown behavior", () => {
     const node = getStackScaffold("api-service", "api")["src/server.ts"];
-    expect(node).toContain('/health/live');
-    expect(node).toContain('/health/ready');
-    expect(node).toContain('SIGTERM');
-    expect(node).toContain('SIGINT');
-    expect(node).toContain('server.close');
+    expect(node).toContain("/health/live");
+    expect(node).toContain("/health/ready");
+    expect(node).toContain("SIGTERM");
+    expect(node).toContain("SIGINT");
+    expect(node).toContain("server.close");
 
     const python = getStackScaffold("python-service", "api")["app/main.py"];
-    expect(python).toContain('/health/live');
-    expect(python).toContain('/health/ready');
-    expect(python).toContain('lifespan');
+    expect(python).toContain("/health/live");
+    expect(python).toContain("/health/ready");
+    expect(python).toContain("lifespan");
   });
 
   it("fails generated services that omit required runtime behavior", () => {
@@ -96,8 +120,12 @@ describe("#15 runtime architecture", () => {
         'import express from "express"; const app=express(); app.listen(3000);',
     };
     const problems = validateRuntimeImplementation(incomplete, "api-service");
-    expect(problems).toContain("missing runtime liveness endpoint /health/live");
-    expect(problems).toContain("missing runtime readiness endpoint /health/ready");
+    expect(problems).toContain(
+      "missing runtime liveness endpoint /health/live",
+    );
+    expect(problems).toContain(
+      "missing runtime readiness endpoint /health/ready",
+    );
     expect(problems).toContain("runtime must read port from PORT");
     expect(problems).toContain("missing graceful shutdown handler for SIGTERM");
 
@@ -112,14 +140,20 @@ describe("#15 runtime architecture", () => {
     const part1 = readFileSync("src/agents/.pipeline_parts/part1.txt", "utf8");
     const part2 = readFileSync("src/agents/.pipeline_parts/part2.txt", "utf8");
     expect(part0).toContain("runtimeArchitectureInstruction");
-    expect(part1).toContain("const runtimeContract = runtimeArchitectureInstruction(techStack)");
+    expect(part1).toContain(
+      "const runtimeContract = runtimeArchitectureInstruction(techStack)",
+    );
     expect(part1).toContain("runtimeContract");
-    expect(part2.match(/\$\{runtimeContract\}/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(
+      part2.match(/\$\{runtimeContract\}/g)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("explicitly tells agents not to borrow runtime assumptions across stacks", () => {
     const instruction = runtimeArchitectureInstruction("api-service");
-    expect(instruction).toContain("Do not apply runtime assumptions from another stack");
+    expect(instruction).toContain(
+      "Do not apply runtime assumptions from another stack",
+    );
     expect(instruction).toContain('"livenessPath": "/health/live"');
     expect(instruction).toContain('"environmentVariable": "PORT"');
   });

@@ -28,10 +28,7 @@ function cleanPath(raw: string): string | null {
   return filename;
 }
 
-function parseWithRegex(
-  llmOutput: string,
-  re: RegExp,
-): Record<string, string> {
+function parseWithRegex(llmOutput: string, re: RegExp): Record<string, string> {
   const files: Record<string, string> = {};
   const matches = [...llmOutput.matchAll(re)];
   if (matches.length === 0) return files;

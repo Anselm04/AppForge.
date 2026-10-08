@@ -3,9 +3,7 @@ import type { Request } from "express";
 
 export const COOKIE_NAME = "appforge_session";
 
-export function getSessionCookieOptions(
-  req: Request
-): CookieSerializeOptions {
+export function getSessionCookieOptions(req: Request): CookieSerializeOptions {
   const isProduction = process.env.NODE_ENV === "production";
   const isSecure = req.protocol === "https" || isProduction;
 

@@ -9,9 +9,7 @@ describe("Senior Dev resume credit recovery", () => {
       "utf8",
     );
 
-    const resumeStart = source.indexOf(
-      'router.post("/senior/:taskId/resume"',
-    );
+    const resumeStart = source.indexOf('router.post("/senior/:taskId/resume"');
     const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
     const resumeRoute = source.slice(resumeStart, deployStart);
 

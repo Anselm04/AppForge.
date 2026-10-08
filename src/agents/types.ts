@@ -1,11 +1,11 @@
 export type AgentRole =
-  | 'architect'
-  | 'backend'
-  | 'frontend'
-  | 'database'
-  | 'devops'
-  | 'security'
-  | 'testing';
+  | "architect"
+  | "backend"
+  | "frontend"
+  | "database"
+  | "devops"
+  | "security"
+  | "testing";
 
 export interface AgentContext {
   prompt: string;

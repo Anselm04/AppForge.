@@ -143,13 +143,14 @@ describe("generated project structure", () => {
       "src/App.tsx":
         'import dayjs from "dayjs"; export function App(){return <main>{dayjs().year()}</main>}',
     };
-    expect(validateGeneratedProjectStructure(runtimeFiles, "react-node")).toContain(
-      "src/App.tsx: missing runtime dependency dayjs",
-    );
+    expect(
+      validateGeneratedProjectStructure(runtimeFiles, "react-node"),
+    ).toContain("src/App.tsx: missing runtime dependency dayjs");
 
     const devFiles = {
       ...getStackScaffold("react-node"),
-      "src/example.test.ts": 'import fc from "fast-check"; export const value=fc;',
+      "src/example.test.ts":
+        'import fc from "fast-check"; export const value=fc;',
     };
     expect(validateGeneratedProjectStructure(devFiles, "react-node")).toContain(
       "src/example.test.ts: undeclared development dependency fast-check",
@@ -183,7 +184,9 @@ describe("generated project structure", () => {
       }),
       "yarn.lock": "conflict",
     };
-    expect(validateGeneratedProjectStructure(conflicting, "react-node")).toContain(
+    expect(
+      validateGeneratedProjectStructure(conflicting, "react-node"),
+    ).toContain(
       "conflicting package-manager lockfiles: package-lock.json, yarn.lock",
     );
 
@@ -201,7 +204,10 @@ describe("generated project structure", () => {
         },
       },
     });
-    const staleProblems = validateGeneratedProjectStructure(stale, "react-node");
+    const staleProblems = validateGeneratedProjectStructure(
+      stale,
+      "react-node",
+    );
     expect(staleProblems).toContain(
       "package-lock.json runtime dependencies are stale",
     );

@@ -19,7 +19,9 @@ export const GOD_CODE_PLANS: {
   { id: "enterprise", label: "Enterprise", price: 1499, credits: 5000 },
 ];
 
-export function isGodCodePlanId(value: string | null | undefined): value is GodCodePlanId {
+export function isGodCodePlanId(
+  value: string | null | undefined,
+): value is GodCodePlanId {
   return GOD_CODE_PLAN_IDS.includes(value as GodCodePlanId);
 }
 

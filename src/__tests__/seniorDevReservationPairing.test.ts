@@ -5,9 +5,7 @@ describe("Senior Dev reservation ledger pairing", () => {
   it("returns null when there is no paid reservation", () => {
     expect(findOutstandingSeniorDevReservationChargeId([])).toBeNull();
     expect(
-      findOutstandingSeniorDevReservationChargeId([
-        { id: 1, amount: 20 },
-      ]),
+      findOutstandingSeniorDevReservationChargeId([{ id: 1, amount: 20 }]),
     ).toBeNull();
   });
 

@@ -7,7 +7,9 @@ type LanguageSwitcherProps = {
   variant?: "dropdown" | "panel";
 };
 
-export function LanguageSwitcher({ variant = "dropdown" }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  variant = "dropdown",
+}: LanguageSwitcherProps) {
   const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);

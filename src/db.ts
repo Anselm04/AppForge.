@@ -271,10 +271,14 @@ export async function createProject(data: {
   if (productContract) {
     productContract = validateProductContract(productContract);
     if (productContract.originalPrompt !== data.description) {
-      throw new Error("Product contract original prompt does not match project description");
+      throw new Error(
+        "Product contract original prompt does not match project description",
+      );
     }
     if (productContract.selectedTechnologyStack !== data.techStack) {
-      throw new Error("Product contract selected stack does not match project tech stack");
+      throw new Error(
+        "Product contract selected stack does not match project tech stack",
+      );
     }
   }
 
@@ -395,7 +399,8 @@ export async function getProjectEvidenceBundle(projectId: number) {
       ? project.productPlan
       : null;
   const manifest =
-    project.requirementManifest && typeof project.requirementManifest === "object"
+    project.requirementManifest &&
+    typeof project.requirementManifest === "object"
       ? project.requirementManifest
       : null;
   const currentSnapshot =
@@ -406,7 +411,7 @@ export async function getProjectEvidenceBundle(projectId: number) {
     ? ((currentSnapshot?.validationResult as any).errors as unknown[])
     : [];
   const auditFindings = [
-    ...((((currentSnapshot?.auditScores as any)?.findings as unknown[]) ?? [])),
+    ...(((currentSnapshot?.auditScores as any)?.findings as unknown[]) ?? []),
   ];
   const productionVerificationCheckpoint =
     findProductionVerificationForCurrentArtifact(
@@ -415,16 +420,17 @@ export async function getProjectEvidenceBundle(projectId: number) {
         ? {
             id: currentSnapshot.id,
             version: currentSnapshot.version,
-            artifactIntegrity: currentSnapshot.artifactIntegrity as
-              | { sha256?: string | null }
-              | null,
+            artifactIntegrity: currentSnapshot.artifactIntegrity as {
+              sha256?: string | null;
+            } | null,
           }
         : null,
     );
-  const unresolvedRequirementIds =
-    Array.isArray((manifest as any)?.unresolvedMustHaveIds)
-      ? ((manifest as any).unresolvedMustHaveIds as unknown[])
-      : [];
+  const unresolvedRequirementIds = Array.isArray(
+    (manifest as any)?.unresolvedMustHaveIds,
+  )
+    ? ((manifest as any).unresolvedMustHaveIds as unknown[])
+    : [];
   const currentCertificationEvent = [...events]
     .reverse()
     .find(
@@ -446,9 +452,9 @@ export async function getProjectEvidenceBundle(projectId: number) {
   const finalFlowLimitations = Array.isArray(
     (finalProductFactoryFlow as { limitations?: unknown } | null)?.limitations,
   )
-    ? ((
-        finalProductFactoryFlow as { limitations: unknown[] }
-      ).limitations.map(String))
+    ? (finalProductFactoryFlow as { limitations: unknown[] }).limitations.map(
+        String,
+      )
     : [];
 
   const unresolvedRisks = [
@@ -462,10 +468,7 @@ export async function getProjectEvidenceBundle(projectId: number) {
     })),
     ...auditFindings.map((finding) => ({
       source: "security_quality",
-      detail:
-        typeof finding === "string"
-          ? finding
-          : JSON.stringify(finding),
+      detail: typeof finding === "string" ? finding : JSON.stringify(finding),
     })),
     ...(project.errorMessage
       ? [{ source: "build", detail: project.errorMessage }]
@@ -566,7 +569,9 @@ export async function updateProjectBuildStage(
       ...(options.outputMaturity
         ? { outputMaturity: options.outputMaturity }
         : {}),
-      ...(options.clearFailure ? { failureStage: null, errorMessage: null } : {}),
+      ...(options.clearFailure
+        ? { failureStage: null, errorMessage: null }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(schema.projects.id, id));
@@ -1187,7 +1192,9 @@ export async function createBuildSnapshot(data: {
   );
   const files = validateArtifactFiles(data.files);
   if (data.fileCount !== Object.keys(files).length) {
-    throw new Error("Snapshot fileCount does not match persisted artifact files");
+    throw new Error(
+      "Snapshot fileCount does not match persisted artifact files",
+    );
   }
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
@@ -1262,7 +1269,9 @@ export async function createAndActivateBuildSnapshot(data: {
   );
   const files = validateArtifactFiles(data.files);
   if (data.fileCount !== Object.keys(files).length) {
-    throw new Error("Snapshot fileCount does not match persisted artifact files");
+    throw new Error(
+      "Snapshot fileCount does not match persisted artifact files",
+    );
   }
 
   const result = await db.transaction(async (tx) => {
@@ -1725,8 +1734,7 @@ export async function appendArtifactToCurrentSnapshot(input: {
       .set({ isCurrent: true })
       .where(eq(schema.buildSnapshots.id, snapshotId));
 
-    const workingArtifactVersion =
-      (project.workingArtifactVersion ?? 0) + 1;
+    const workingArtifactVersion = (project.workingArtifactVersion ?? 0) + 1;
     const workingArtifactIntegrity = buildArtifactIntegrity({
       projectId: input.projectId,
       artifactVersion: workingArtifactVersion,

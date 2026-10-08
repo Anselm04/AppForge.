@@ -64,7 +64,10 @@ const mobilePlanSchema = z
         /^[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9-]*)+$/,
         "bundleId must be a reverse-DNS identifier",
       ),
-    platforms: z.array(z.enum(["ios", "android"])).min(1).max(2),
+    platforms: z
+      .array(z.enum(["ios", "android"]))
+      .min(1)
+      .max(2),
     storeListing: z.object({
       title: z.string().trim().min(1).max(120),
       subtitle: z.string().trim().max(120),
@@ -74,7 +77,10 @@ const mobilePlanSchema = z
     icons: z
       .array(
         z.object({
-          size: z.union([z.string().trim().min(1).max(40), z.number().positive()]),
+          size: z.union([
+            z.string().trim().min(1).max(40),
+            z.number().positive(),
+          ]),
           purpose: z.string().trim().min(1).max(120),
         }),
       )
@@ -93,7 +99,10 @@ const collabPlanSchema = z
       .array(
         z.object({
           id: z.string().trim().min(1).max(80),
-          permissions: z.array(z.string().trim().min(1).max(120)).min(1).max(50),
+          permissions: z
+            .array(z.string().trim().min(1).max(120))
+            .min(1)
+            .max(50),
         }),
       )
       .min(1)
@@ -106,7 +115,9 @@ const collabPlanSchema = z
   })
   .passthrough();
 
-const EXTENSION_PLAN_SCHEMAS: Partial<Record<ExtensionCapabilityId, z.ZodTypeAny>> = {
+const EXTENSION_PLAN_SCHEMAS: Partial<
+  Record<ExtensionCapabilityId, z.ZodTypeAny>
+> = {
   game: gamePlanSchema,
   mobile: mobilePlanSchema,
   collab: collabPlanSchema,

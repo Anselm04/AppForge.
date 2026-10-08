@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, ImgHTMLAttributes } from 'react';
+import { useState, useEffect, useRef, ImgHTMLAttributes } from "react";
 
 interface LazyImageProps extends ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -11,9 +11,9 @@ interface LazyImageProps extends ImgHTMLAttributes<HTMLImageElement> {
 export function LazyImage({
   src,
   alt,
-  placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxIiBoZWlnaHQ9IjEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiLz48L3N2Zz4=',
+  placeholder = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxIiBoZWlnaHQ9IjEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiLz48L3N2Zz4=",
   threshold = 0.1,
-  className = '',
+  className = "",
   ...props
 }: LazyImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -29,7 +29,7 @@ export function LazyImage({
           observer.disconnect();
         }
       },
-      { threshold }
+      { threshold },
     );
 
     if (imgRef.current) observer.observe(imgRef.current);
@@ -41,7 +41,7 @@ export function LazyImage({
       ref={imgRef}
       src={isInView && !isError ? src : placeholder}
       alt={alt}
-      className={`transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${className}`}
+      className={`transition-opacity duration-300 ${isLoaded ? "opacity-100" : "opacity-0"} ${className}`}
       loading="lazy"
       decoding="async"
       onLoad={() => setIsLoaded(true)}

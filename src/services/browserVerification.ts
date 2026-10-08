@@ -53,7 +53,10 @@ export function analyzeRenderedDom(html: string): {
 } {
   const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
   if (!bodyMatch) {
-    return { ok: false, error: "Browser did not return a rendered document body" };
+    return {
+      ok: false,
+      error: "Browser did not return a rendered document body",
+    };
   }
 
   const bodyMarkup = bodyMatch[1]
@@ -76,7 +79,10 @@ export function analyzeRenderedDom(html: string): {
       visibleText,
     )
   ) {
-    return { ok: false, error: "Rendered page contains a fatal application error" };
+    return {
+      ok: false,
+      error: "Rendered page contains a fatal application error",
+    };
   }
 
   const hasRenderedMarkup = bodyMarkup.length >= 40;

@@ -92,7 +92,11 @@ export async function getOutstandingSeniorDevReservationChargeId(
   projectId: number,
   taskId: number,
 ): Promise<number | null> {
-  const entries = await getSeniorDevReservationLedger(userId, projectId, taskId);
+  const entries = await getSeniorDevReservationLedger(
+    userId,
+    projectId,
+    taskId,
+  );
   return findOutstandingSeniorDevReservationChargeId(entries);
 }
 
