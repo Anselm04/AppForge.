@@ -117,6 +117,7 @@ export function coderTaskInstruction(input: {
   plan: ProductPlan;
   task: ProductPlanTask;
   researchDecisions: ResearchDecision[];
+  previousValidationError?: string;
 }): string {
   const { contract, plan, task } = input;
   const adapter = getStackAdapter(contract.selectedTechnologyStack);
@@ -202,6 +203,7 @@ export function coderTaskInstruction(input: {
     "Mandatory implementation rules:",
     "- Return EVERY planned task file in full, even when modifying an existing file.",
     "- Output only // filename: <path> blocks for the files owned by this task.",
+    "- Stack recipes describe the whole product, not this task's file ownership. Do not return additional build/configuration files or files assigned to another task. Keep imports and configuration references consistent with the approved plan.",
     "- Implement real workflows and real state transitions; no mock success, stubs, placeholders, TODO-only files, or empty handlers.",
     "- Preserve the canonical product scope, architecture, requirement IDs, and selected technology stack.",
     "- Add a short comment near substantive implementation points using the exact form: // requirement: REQ-001 (use the real requirement ID).",
@@ -212,6 +214,13 @@ export function coderTaskInstruction(input: {
     ...(integrationInstruction ? [integrationInstruction] : []),
     ...(aiAgentInstruction ? [aiAgentInstruction] : []),
     ...(monetizationInstruction ? [monetizationInstruction] : []),
+    ...(input.previousValidationError
+      ? [
+          "PREVIOUS ATTEMPT REJECTED — correct this error while preserving the approved task:",
+          input.previousValidationError.slice(0, 2000),
+          `Return exactly these complete file paths and no others: ${task.files.join(", ")}`,
+        ]
+      : []),
   ].join("\n");
 }
 
