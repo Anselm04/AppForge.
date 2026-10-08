@@ -13,7 +13,8 @@ describe("owner build start", () => {
   });
 
   it("does not render the customer captcha widget for the server-confirmed owner", () => {
-    expect(home).toContain("{!ownerUnlimited && (");
-    expect(home).toContain("<HcaptchaWidget onToken={setHcaptchaToken} />");
+    expect(home).toMatch(
+      /\{!ownerUnlimited\s*&&\s*(?:\(\s*)?<HcaptchaWidget\s+onToken=\{setHcaptchaToken\}\s*\/>(?:\s*\))?\s*\}/,
+    );
   });
 });
