@@ -420,6 +420,26 @@ export function listSocialSignInProviders(): Promise<SocialSignInProvider[]> {
 }
 
 /**
+ * Only same-origin app paths are safe post-sign-in destinations. Anything else
+ * (protocol-relative `//host`, absolute URLs, backslash tricks) falls back to
+ * `fallback` so a `next` value can never become an open redirect.
+ */
+export function safeAuthDestination(
+  value: string | null | undefined,
+  fallback = "/",
+): string {
+  if (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("\\")
+  ) {
+    return value;
+  }
+  return fallback;
+}
+
+/**
  * Begin a Google/GitHub sign-in. The provider callback returns to /login with
  * tokens in the URL hash, which `completeAuthRedirect` then completes.
  */
@@ -428,10 +448,7 @@ export function startSocialSignIn(
   next = "/",
 ): void {
   if (typeof window === "undefined") return;
-  const target =
-    next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
-      ? next
-      : "/";
+  const target = safeAuthDestination(next);
   const redirectTo = `${window.location.origin}/login?next=${encodeURIComponent(target)}`;
   window.location.assign(
     supabaseClient.oauthAuthorizeUrl(provider, redirectTo),

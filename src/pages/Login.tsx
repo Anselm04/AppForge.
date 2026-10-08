@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { completeAuthRedirect, signIn } from "../lib/auth.js";
+import {
+  completeAuthRedirect,
+  safeAuthDestination,
+  signIn,
+} from "../lib/auth.js";
 import { isValidEmail, MIN_PASSWORD_LENGTH } from "../lib/passwordStrength.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
@@ -36,25 +40,13 @@ function describeSignInError(
   return message || t("login.failed");
 }
 
-function safeNext(value: string | null): string {
-  if (
-    value &&
-    value.startsWith("/") &&
-    !value.startsWith("//") &&
-    !value.includes("\\")
-  ) {
-    return value;
-  }
-  return "/";
-}
-
 export function Login() {
   const navigate = useNavigate();
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const next = useMemo(
-    () => safeNext(searchParams.get("next")),
+    () => safeAuthDestination(searchParams.get("next")),
     [searchParams],
   );
   const loginError = searchParams.get("error");

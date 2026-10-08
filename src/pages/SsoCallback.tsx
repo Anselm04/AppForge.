@@ -1,12 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { rememberAuthenticatedUser } from "../lib/auth.js";
-
-function safeNext(value: string | null): string {
-  if (value && value.startsWith("/") && !value.startsWith("//")) return value;
-  return "/dashboard";
-}
+import { rememberAuthenticatedUser, safeAuthDestination } from "../lib/auth.js";
 
 /** Client handoff after server SSO code exchange — keeps tokens in HttpOnly cookies. */
 export function SsoCallback() {
@@ -15,7 +10,7 @@ export function SsoCallback() {
   const [params] = useSearchParams();
 
   useEffect(() => {
-    const next = safeNext(params.get("next"));
+    const next = safeAuthDestination(params.get("next"), "/dashboard");
     let cancelled = false;
 
     void (async () => {

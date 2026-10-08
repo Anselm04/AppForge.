@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { getSession, signUp } from "../lib/auth.js";
+import { getSession, safeAuthDestination, signUp } from "../lib/auth.js";
 import { isValidEmail, MIN_PASSWORD_LENGTH } from "../lib/passwordStrength.js";
 import { trpc } from "../utils/trpc.js";
 import { useLocale } from "../i18n/LocaleContext.js";
@@ -12,25 +12,13 @@ import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter.
 import { Button } from "../design-system/Button.js";
 import { Input } from "../design-system/Input.js";
 
-function safeNext(value: string | null): string {
-  if (
-    value &&
-    value.startsWith("/") &&
-    !value.startsWith("//") &&
-    !value.includes("\\")
-  ) {
-    return value;
-  }
-  return "/";
-}
-
 export function Signup() {
   const navigate = useNavigate();
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const next = useMemo(
-    () => safeNext(searchParams.get("next")),
+    () => safeAuthDestination(searchParams.get("next")),
     [searchParams],
   );
 
