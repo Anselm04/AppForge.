@@ -83,7 +83,9 @@
     "dompurify": "3.4.16",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
-    }
+    },
+    "source-map-js": "1.2.2",
+    "postcss-selector-parser": "7.1.6"
   },
   "devDependencies": {
     "@sentry/cli": "2.39.1",

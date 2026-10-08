@@ -6,6 +6,8 @@ const baseProductionEnv = {
   DATABASE_URL: "postgresql://user:password@localhost:5432/appforge",
   VITE_SUPABASE_URL: "https://example.supabase.co",
   VITE_SUPABASE_ANON_KEY: "anon_" + "a".repeat(40),
+  SUPABASE_SERVICE_ROLE_KEY: "test-service-role-fixture",
+  PUBLIC_APP_URL: "https://app.example.com",
   JWT_SECRET: "j".repeat(40),
   COOKIE_SECRET: "c".repeat(40),
   OWNER_EMAIL: "owner@example.com",
@@ -27,6 +29,26 @@ const baseProductionEnv = {
 };
 
 describe("production environment validation", () => {
+  it("does not certify signup without server link-generation credentials", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      SUPABASE_SERVICE_ROLE_KEY: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain(
+      "signup confirmation link generation",
+    );
+  });
+
+  it.each([
+    "",
+    "http://app.example.com",
+    "https://user:secret@app.example.com",
+  ])("rejects unsafe confirmation origin %s", (PUBLIC_APP_URL) => {
+    const result = validateEnv({ ...baseProductionEnv, PUBLIC_APP_URL });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain("trusted HTTPS");
+  });
   it("allows AppForge billing in a shared Stripe account when AppForge prices are configured", () => {
     const result = validateEnv(baseProductionEnv);
     expect(result.valid).toBe(true);

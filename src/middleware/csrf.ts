@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
+import { allowedCorsOrigins, normalizeCorsOrigin } from "./corsOrigin.js";
 
 const isProd = process.env.NODE_ENV === "production";
 const COOKIE_NAME = "appforge_csrf";
@@ -29,10 +30,23 @@ export const csrfProtection: RequestHandler = (
     return;
   }
 
+  const origin = req.get("origin");
+  if (origin) {
+    const normalized = normalizeCorsOrigin(origin, isProd);
+    if (!normalized || !allowedCorsOrigins(isProd).has(normalized)) {
+      const error = new Error("Untrusted request origin") as Error & {
+        code?: string;
+      };
+      error.code = "EBADCSRFTOKEN";
+      next(error);
+      return;
+    }
+  }
+
   const cookieToken = req.signedCookies?.[COOKIE_NAME];
-  const headerToken = HEADER_NAMES
-    .map((name) => req.get(name))
-    .find((value): value is string => typeof value === "string" && value.length > 0);
+  const headerToken = HEADER_NAMES.map((name) => req.get(name)).find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 
   if (
     typeof cookieToken !== "string" ||

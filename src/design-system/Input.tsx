@@ -1,4 +1,4 @@
-import { useState, type InputHTMLAttributes } from "react";
+import { useState, useRef, type InputHTMLAttributes } from "react";
 import { cn } from "../lib/cn.js";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
@@ -53,8 +53,11 @@ export function Input({
   disabled,
   showPasswordLabel = "Show password",
   hidePasswordLabel = "Hide password",
+  "aria-describedby": describedBy,
   ...rest
 }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const descriptionId = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === "password";
   const resolvedType = isPassword && revealed ? "text" : type;
@@ -71,7 +74,12 @@ export function Input({
       )}
       <div className="relative">
         <input
+          ref={inputRef}
           id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={
+            [describedBy, descriptionId].filter(Boolean).join(" ") || undefined
+          }
           type={resolvedType}
           disabled={disabled}
           className={cn(
@@ -85,7 +93,11 @@ export function Input({
         {isPassword && (
           <button
             type="button"
-            onClick={() => setRevealed((value) => !value)}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setRevealed((value) => !value);
+              inputRef.current?.focus();
+            }}
             disabled={disabled}
             aria-label={revealed ? hidePasswordLabel : showPasswordLabel}
             aria-pressed={revealed}
@@ -98,9 +110,15 @@ export function Input({
         )}
       </div>
       {hint && !error && (
-        <p className="mt-2 text-xs text-forge-text-muted">{hint}</p>
+        <p id={`${id}-hint`} className="mt-2 text-xs text-forge-text-muted">
+          {hint}
+        </p>
       )}
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && (
+        <p id={`${id}-error`} className="mt-2 text-xs text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

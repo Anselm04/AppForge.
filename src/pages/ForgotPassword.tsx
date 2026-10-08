@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabaseClient } from "../lib/supabase-client.js";
 import { isValidEmail } from "../lib/passwordStrength.js";
@@ -9,6 +9,7 @@ import { Input } from "../design-system/Input.js";
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -20,10 +21,12 @@ export function ForgotPassword() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitting.current) return;
     if (!isValidEmail(email)) {
       setTouched(true);
       return;
     }
+    submitting.current = true;
     setPending(true);
     setMessage(null);
     try {
@@ -39,6 +42,7 @@ export function ForgotPassword() {
           : "Unable to request a password reset.",
       );
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   };

@@ -26,6 +26,7 @@ export const APP_ROUTES = [
   "/password-reset",
   "/pricing",
   "/redeem",
+  "/resend-verification",
   "/settings",
   "/settings/org",
   "/shortcuts",

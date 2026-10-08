@@ -3,6 +3,7 @@ import { TopNav } from "./components/TopNav.js";
 import { SiteFooter } from "./components/SiteFooter.js";
 import { useLocale } from "./i18n/LocaleContext.js";
 import { Home } from "./pages/Home.js";
+import { PublicHome } from "./pages/PublicHome.js";
 import { About } from "./pages/About.js";
 import { Dashboard } from "./pages/Dashboard.js";
 import { Build } from "./pages/Build.js";
@@ -38,6 +39,8 @@ import { Settings } from "./pages/Settings.js";
 import { NotFound } from "./pages/NotFound.js";
 import { ShortcutsPage } from "./pages/ShortcutsPage.js";
 
+import { ResendVerification } from "./pages/ResendVerification.js";
+
 function AppShell() {
   const { locale, dir } = useLocale();
   const { pathname } = useLocation();
@@ -47,10 +50,12 @@ function AppShell() {
       <TopNav />
       <div className="flex-1">
         <Routes>
+          <Route path="/" element={<PublicHome />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/sso/callback" element={<SsoCallback />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/resend-verification" element={<ResendVerification />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/password-reset" element={<PasswordReset />} />
@@ -60,7 +65,6 @@ function AppShell() {
           <Route path="/pricing" element={<Pricing />} />
 
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
             <Route path="/app/new" element={<Home />} />
             <Route path="/settings/org" element={<OrgSettings />} />
             <Route path="/account" element={<Account />} />
@@ -79,17 +83,50 @@ function AppShell() {
             <Route path="/studio/ar" element={<ARStudio />} />
             <Route path="/studio/education" element={<EducationStudio />} />
             <Route path="/studio/patent" element={<PatentStudio />} />
-            <Route path="/studio/architecture" element={<ArchitectureStudio />} />
-            <Route path="/studio/game" element={<ExtensionStudio studioId="game" />} />
-            <Route path="/studio/cad" element={<ExtensionStudio studioId="cad" />} />
-            <Route path="/studio/legal" element={<ExtensionStudio studioId="legal" />} />
-            <Route path="/studio/fintech" element={<ExtensionStudio studioId="fintech" />} />
-            <Route path="/studio/healthcare" element={<ExtensionStudio studioId="healthcare" />} />
-            <Route path="/studio/mobile" element={<ExtensionStudio studioId="mobile" />} />
-            <Route path="/studio/voice" element={<ExtensionStudio studioId="voice" />} />
-            <Route path="/studio/data" element={<ExtensionStudio studioId="data" />} />
-            <Route path="/studio/localization" element={<ExtensionStudio studioId="localization" />} />
-            <Route path="/studio/collab" element={<ExtensionStudio studioId="collab" />} />
+            <Route
+              path="/studio/architecture"
+              element={<ArchitectureStudio />}
+            />
+            <Route
+              path="/studio/game"
+              element={<ExtensionStudio studioId="game" />}
+            />
+            <Route
+              path="/studio/cad"
+              element={<ExtensionStudio studioId="cad" />}
+            />
+            <Route
+              path="/studio/legal"
+              element={<ExtensionStudio studioId="legal" />}
+            />
+            <Route
+              path="/studio/fintech"
+              element={<ExtensionStudio studioId="fintech" />}
+            />
+            <Route
+              path="/studio/healthcare"
+              element={<ExtensionStudio studioId="healthcare" />}
+            />
+            <Route
+              path="/studio/mobile"
+              element={<ExtensionStudio studioId="mobile" />}
+            />
+            <Route
+              path="/studio/voice"
+              element={<ExtensionStudio studioId="voice" />}
+            />
+            <Route
+              path="/studio/data"
+              element={<ExtensionStudio studioId="data" />}
+            />
+            <Route
+              path="/studio/localization"
+              element={<ExtensionStudio studioId="localization" />}
+            />
+            <Route
+              path="/studio/collab"
+              element={<ExtensionStudio studioId="collab" />}
+            />
             <Route
               path="/admin"
               element={

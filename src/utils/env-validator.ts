@@ -13,6 +13,7 @@ export interface EnvConfig {
   SUPABASE_URL?: string;
   VITE_SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_ANON_KEY?: string;
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -152,6 +153,41 @@ export function validateEnv(
   }
   if (supabaseUrl && !supabaseUrl.startsWith("https://")) {
     errors.push("Invalid Supabase URL format. Expected https://");
+  }
+
+  if (isProduction) {
+    if (!config.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      errors.push(
+        "SUPABASE_SERVICE_ROLE_KEY is required for signup confirmation link generation",
+      );
+    }
+    if (
+      !(
+        config.SUPABASE_PUBLISHABLE_KEY ||
+        config.SUPABASE_ANON_KEY ||
+        config.VITE_SUPABASE_PUBLISHABLE_KEY ||
+        config.VITE_SUPABASE_ANON_KEY
+      )?.trim()
+    ) {
+      errors.push(
+        "A Supabase publishable or anon key is required for verification resend",
+      );
+    }
+    const confirmationOrigin = (
+      config.PUBLIC_APP_URL ||
+      config.APP_URL ||
+      ""
+    ).trim();
+    try {
+      const origin = new URL(confirmationOrigin);
+      if (origin.protocol !== "https:" || origin.username || origin.password) {
+        throw new Error("unsafe origin");
+      }
+    } catch {
+      errors.push(
+        "A trusted HTTPS PUBLIC_APP_URL or APP_URL is required for signup confirmation",
+      );
+    }
   }
 
   if (!config.JWT_SECRET || config.JWT_SECRET.length < 32) {

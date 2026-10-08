@@ -34,6 +34,12 @@ export function HelpCenter() {
           <p className="forge-body">{t("help.subtitle")}</p>
         </header>
 
+        <Link
+          to="/resend-verification"
+          className="mb-6 block text-forge-cyan hover:underline"
+        >
+          Resend your verification email
+        </Link>
         <label htmlFor="help-search" className="sr-only">
           {t("help.search")}
         </label>

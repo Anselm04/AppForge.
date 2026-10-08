@@ -716,3 +716,7 @@ Verification target:
 - Signed-out visitors are blocked from the build entry routes and redirected to sign-in before the build UI mounts.
 - The server-authoritative owner identity bypasses customer CAPTCHA/moderation/credit gates only for the owner; customer gates remain fail-closed.
 - Recovery validation must confirm a restored release preserves both boundaries: unauthenticated build entry remains closed and the verified owner can start a build without a customer CAPTCHA token.
+
+## Signup confirmation and verification recovery — 2026-10-08
+
+See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup uses server-side Supabase link generation plus Twilio Email; resend uses Supabase Auth SMTP. Restore and verify both delivery paths, the Supabase public/service credentials, trusted HTTPS confirmation origin and shared Redis abuse bucket. A healthy liveness endpoint does not prove these integrations work. Use controlled mailboxes and an immutable release revision for recovery evidence; never persist confirmation links, passwords, session cookies, or private keys in the report.

@@ -52,3 +52,29 @@ describe("Input password visibility toggle", () => {
     ).toBeInTheDocument();
   });
 });
+
+it("retains field focus when revealing and links error text to the input", () => {
+  render(
+    <Input
+      id="focus-pw"
+      label="Password"
+      type="password"
+      error="Password is required"
+      aria-describedby="existing-help"
+    />,
+  );
+  const field = screen.getByLabelText("Password");
+  field.focus();
+  fireEvent.mouseDown(screen.getByRole("button", { name: "Show password" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+  expect(field).toHaveFocus();
+  expect(field).toHaveAttribute("aria-invalid", "true");
+  expect(field).toHaveAttribute(
+    "aria-describedby",
+    "existing-help focus-pw-error",
+  );
+  expect(screen.getByText("Password is required")).toHaveAttribute(
+    "id",
+    "focus-pw-error",
+  );
+});

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { completeAuthRedirect, getAccessToken } from "../lib/auth.js";
 import { supabaseClient } from "../lib/supabase-client.js";
@@ -15,6 +15,7 @@ export function PasswordReset() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -23,7 +24,15 @@ export function PasswordReset() {
     void (async () => {
       try {
         await completeAuthRedirect();
-        if (!cancelled) setReady(Boolean(getAccessToken()));
+        if (!cancelled) {
+          const hasSession = Boolean(getAccessToken());
+          setReady(hasSession);
+          if (!hasSession) {
+            setMessage(
+              "This reset link is missing or expired. Request a new one.",
+            );
+          }
+        }
       } catch (error) {
         if (!cancelled) {
           setMessage(
@@ -47,6 +56,7 @@ export function PasswordReset() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitting.current || !ready || done) return;
     setMessage(null);
     if (password.length < MIN_PASSWORD_LENGTH) {
       setMessage(
@@ -63,6 +73,7 @@ export function PasswordReset() {
       setMessage("This reset link is missing or expired. Request a new one.");
       return;
     }
+    submitting.current = true;
     setPending(true);
     try {
       await supabaseClient.updatePassword(token, password);
@@ -77,6 +88,7 @@ export function PasswordReset() {
         error instanceof Error ? error.message : "Unable to reset password.",
       );
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   };
@@ -144,6 +156,7 @@ export function PasswordReset() {
           loading={pending}
           disabled={
             !ready ||
+            done ||
             pending ||
             password.length < MIN_PASSWORD_LENGTH ||
             confirm.length < MIN_PASSWORD_LENGTH
@@ -151,6 +164,14 @@ export function PasswordReset() {
         >
           Set new password
         </Button>
+        {!ready && message && (
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-forge-cyan hover:underline"
+          >
+            Request a new reset link
+          </Link>
+        )}
         {!ready && !message && (
           <p role="status" className="text-xs text-forge-text-muted">
             Verifying your reset link…

@@ -30,11 +30,7 @@ function requireServerAuthConfig() {
 }
 
 function requireTwilioEmailConfig() {
-  const from = (
-    process.env.TWILIO_EMAIL_FROM ||
-    ENV.ownerEmail ||
-    ""
-  ).trim();
+  const from = (process.env.TWILIO_EMAIL_FROM || ENV.ownerEmail || "").trim();
   if (!ENV.twilioAccountSid || !ENV.twilioAuthToken || !from) {
     throw new Error("Twilio signup email delivery is not configured");
   }
@@ -58,8 +54,7 @@ async function generateSupabaseSignupLink(
   if (error) throw error;
 
   const properties = data?.properties as
-    | { action_link?: string; actionLink?: string }
-    | undefined;
+    { action_link?: string; actionLink?: string } | undefined;
   const actionLink = properties?.action_link || properties?.actionLink || "";
   const userId = data?.user?.id || "";
   if (!actionLink || !userId) {
@@ -109,6 +104,10 @@ export async function createSignupConfirmation(
   input: SignupConfirmationInput,
   deps: SignupConfirmationDeps = productionDeps,
 ): Promise<{ userId: string; confirmationSent: true }> {
+  if (deps === productionDeps) {
+    requireServerAuthConfig();
+    requireTwilioEmailConfig();
+  }
   const link = await deps.generateLink(input);
   await deps.sendEmail({
     to: input.email,
@@ -116,4 +115,36 @@ export async function createSignupConfirmation(
     confirmationUrl: link.actionLink,
   });
   return { userId: link.userId, confirmationSent: true };
+}
+
+/** Supabase resend uses the existing signup identity; it never changes its password. */
+export async function resendSignupConfirmation(input: {
+  email: string;
+  redirectTo: string;
+}): Promise<void> {
+  const key =
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
+  if (!ENV.supabaseUrl || !key) {
+    throw new Error("Supabase confirmation resend is not configured");
+  }
+  const client = createClient(ENV.supabaseUrl, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error } = await client.auth.resend({
+    type: "signup",
+    email: input.email,
+    options: { emailRedirectTo: input.redirectTo },
+  });
+  // Preserve account privacy even when the provider reports an unknown address.
+  if (
+    error &&
+    !["user_not_found", "email_not_found", "email_already_confirmed"].includes(
+      error.code || "",
+    )
+  ) {
+    throw error;
+  }
 }
