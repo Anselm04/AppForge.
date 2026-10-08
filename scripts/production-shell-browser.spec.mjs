@@ -8,15 +8,15 @@ test.use({ viewport: { width: 390, height: 844 } });
 test("production customer shell is interactive on mobile", async ({ page }) => {
   await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
 
-  const prompt = page.getByTestId("hero-app-idea-textarea");
-  await expect(prompt).toBeVisible({ timeout: 20_000 });
-  await prompt.fill(
-    "Build a production-ready booking app with authentication and payments",
-  );
-  await expect(prompt).toHaveValue(
-    "Build a production-ready booking app with authentication and payments",
-  );
-  await expect(page.getByTestId("home-generate-button")).toBeEnabled();
+  // Signed-out visitors see the public landing page. The private builder
+  // mounts only after the server confirms an authenticated session.
+  const startBuilding = page.locator('a[href="/app/new"]').first();
+  await expect(startBuilding).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("hero-app-idea-textarea")).toHaveCount(0);
+  await startBuilding.click();
+  await expect(page).toHaveURL(/\/login(?:\?|$)/);
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
 
   const menu = page.locator('button[aria-controls="mobile-nav-drawer"]');
   await expect(menu).toBeVisible();
@@ -36,9 +36,7 @@ test("production customer shell is interactive on mobile", async ({ page }) => {
   const french = controls.getByRole("option", { name: "Français" });
   await french.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
-  await expect(
-    controls.getByRole("button", { name: /langue/i }),
-  ).toBeVisible();
+  await expect(controls.getByRole("button", { name: /langue/i })).toBeVisible();
 
   const dark = controls.getByRole("button", { name: /sombre/i });
   const light = controls.getByRole("button", { name: /clair/i });

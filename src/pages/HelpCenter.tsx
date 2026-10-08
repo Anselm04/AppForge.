@@ -32,6 +32,12 @@ export function HelpCenter() {
         <header className="mb-10 max-w-2xl">
           <h1 className="forge-h1 mb-4">{t("help.title")}</h1>
           <p className="forge-body">{t("help.subtitle")}</p>
+          <a
+            href="mailto:anselm.perkins@gmail.com"
+            className="mt-4 inline-block text-forge-cyan hover:underline"
+          >
+            Contact AppForge support: anselm.perkins@gmail.com
+          </a>
         </header>
 
         <Link
