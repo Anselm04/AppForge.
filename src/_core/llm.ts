@@ -1,4 +1,5 @@
 import { ENV } from "./env.js";
+import { llmRetryWait } from "../lib/llmRetryPolicy.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
 import {
   assertAnyLlmProviderConfigured,
@@ -340,14 +341,6 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 
-const parseRetryAfter = (value: string | null): number | undefined => {
-  if (!value) return undefined;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
-  const at = Date.parse(value);
-  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
-};
-
 const computeBackoffDelay = (
   attempt: number,
   retryAfterMs?: number,
@@ -371,7 +364,20 @@ const fetchWithBackoff = async (
         return response;
       }
 
-      const retryAfterMs = parseRetryAfter(response.headers.get("retry-after"));
+      let details: unknown;
+      if (response.status === 429 && typeof response.clone === "function") {
+        try {
+          details = await response.clone().json();
+        } catch {
+          // Non-JSON responses still use status and Retry-After.
+        }
+      }
+      const retryAfterMs = llmRetryWait(
+        response.status,
+        response.headers.get("retry-after"),
+        details,
+      );
+      if (retryAfterMs === null) return response;
       try {
         await response.body?.cancel();
       } catch {
@@ -538,6 +544,24 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       });
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
       errors.push(detail);
+
+      // Use the existing account's separate free model allowance once. Keep
+      // explicit model choices binding and never add keys or enable billing.
+      if (
+        response.status === 429 &&
+        provider.id === "gemini" &&
+        !explicitModel &&
+        !providers.some(
+          (candidate) =>
+            candidate.id === "gemini" &&
+            candidate.defaultModel === "gemini-3.1-flash-lite",
+        )
+      ) {
+        providers.splice(i + 1, 0, {
+          ...provider,
+          defaultModel: "gemini-3.1-flash-lite",
+        });
+      }
 
       if (shouldFailoverStatus(response.status) && i < providers.length - 1) {
         console.warn(
