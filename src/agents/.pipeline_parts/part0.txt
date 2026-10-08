@@ -51,6 +51,7 @@ import {
 } from "../lib/reliableBuild.js";
 import {
   buildSurgicalFixPrompt,
+  assertSurgicalPatchScope,
   mergeSurgicalPatches,
 } from "../lib/surgicalFix.js";
 import {

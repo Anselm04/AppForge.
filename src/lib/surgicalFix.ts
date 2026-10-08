@@ -12,6 +12,13 @@ export function extractErrorPaths(
   const keys = Object.keys(knownFiles);
 
   for (const line of errors) {
+    if (
+      /missing runtime dependency|undeclared development dependency|conflicting runtime\/dev versions/.test(
+        line,
+      ) &&
+      knownFiles["package.json"]
+    )
+      found.add("package.json");
     // src/App.tsx(12,5): error TS...
     const m1 = line.match(/([\w./-]+\.(?:tsx?|jsx?|css|json))\s*[(:]/);
     if (m1) found.add(m1[1].replace(/^\.\//, ""));
@@ -98,4 +105,23 @@ export function mergeSurgicalPatches(
     }
   }
   return out;
+}
+
+/** Repair existing artifact files or files explicitly owned by the approved plan. */
+export function assertSurgicalPatchScope(
+  patches: Record<string, string>,
+  current: Record<string, string>,
+  plannedPaths: string[],
+): void {
+  const allowed = new Set([...Object.keys(current), ...plannedPaths]);
+  for (const path of Object.keys(patches)) {
+    if (
+      !allowed.has(path) ||
+      path.includes("..") ||
+      path.startsWith("/") ||
+      path.includes("\\")
+    ) {
+      throw new Error(`Repair patch is outside the approved artifact: ${path}`);
+    }
+  }
 }
