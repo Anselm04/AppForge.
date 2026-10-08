@@ -732,3 +732,7 @@ See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup uses server-side Supabase li
 ## Generated artifact preservation
 
 Generation and edit hardening must retain approved source, backend and compliance modules even when the artifact exceeds historical golden file-count limits. Explicit user edits may delete files; automatic cleanup must not silently remove them. The approved-plan code-generation gate remains mandatory and rejects missing planned files. Regression evidence: `iterateReliable.test.ts` and `productHardeningGuardrails.test.ts`.
+
+## Live build display recovery
+
+The build page keeps a bounded recent-activity window and coalesces consecutive streaming chunks by agent. This display policy does not modify persisted event history, Redis delivery or recovery markers. A refresh reconstructs the display from the saved current-attempt events. Regression evidence: `src/lib/__tests__/buildLogView.test.ts` exercises 20,000 chunks, immutable snapshots and newest-failure retention.
