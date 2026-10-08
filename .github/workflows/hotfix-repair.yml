@@ -1,0 +1,138 @@
+name: AppForge Hotfix Repair
+
+on:
+  push:
+    branches: [hotfix/require-auth-build-ui]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: hotfix/require-auth-build-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Apply production hotfix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          projects_path = Path('src/routers/projects.ts')
+          projects = projects_path.read_text()
+
+          import_anchor = 'import { PROMPT_MAX_CHARS } from "../lib/prompt.js";\n'
+          owner_import = 'import { isOwnerEmail } from "../lib/owner.js";\n'
+          if owner_import not in projects:
+              if import_anchor not in projects:
+                  raise SystemExit('projects import anchor not found')
+              projects = projects.replace(import_anchor, import_anchor + owner_import, 1)
+
+          old_guard = '''      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+      const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
+      if (!captchaOk) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Captcha verification failed. Complete the challenge and try again.",
+        });
+      }
+
+      // ── Content moderation ──
+      const { moderateUserContent } = await import("./moderation.js");
+      const moderation = await moderateUserContent(
+        ctx.user.id,
+        input.description + " " + input.title,
+      );
+      if (!moderation.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: moderation.reason ?? "Content flagged",
+        });
+      }
+
+      // Backend tier/credit enforcement. The configured owner is provisioned
+      // as unlimited by ensureUserCredits, so maker testing is never blocked
+      // by customer billing limits.
+      const credits = await ensureUserCredits(ctx.user.id);
+      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+'''
+          new_guard = '''      // The authenticated owner is server-authoritative and must not be blocked
+      // by customer anti-abuse gates. This mirrors POST /api/generate.
+      const owner = isOwnerEmail(ctx.user.email);
+      if (!owner) {
+        const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+        const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
+        if (!captchaOk) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Captcha verification failed. Complete the challenge and try again.",
+          });
+        }
+
+        // ── Content moderation ──
+        const { moderateUserContent } = await import("./moderation.js");
+        const moderation = await moderateUserContent(
+          ctx.user.id,
+          input.description + " " + input.title,
+        );
+        if (!moderation.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: moderation.reason ?? "Content flagged",
+          });
+        }
+      }
+
+      // Backend tier/credit enforcement. Owner status is authoritative on the
+      // server; customer unlimited/lifetime entitlements remain supported.
+      const credits = await ensureUserCredits(ctx.user.id);
+      const unlimited =
+        owner || !!credits.unlimited || credits.tier === "lifetime";
+'''
+          if old_guard in projects:
+              projects = projects.replace(old_guard, new_guard, 1)
+          elif 'const owner = isOwnerEmail(ctx.user.email);' not in projects:
+              raise SystemExit('projects captcha block not found')
+          projects_path.write_text(projects)
+
+          home_path = Path('src/pages/Home.tsx')
+          home = home_path.read_text()
+          old_widget = '            <HcaptchaWidget onToken={setHcaptchaToken} />'
+          new_widget = '''            {!ownerUnlimited && (
+              <HcaptchaWidget onToken={setHcaptchaToken} />
+            )}'''
+          if old_widget in home:
+              home = home.replace(old_widget, new_widget, 1)
+          elif '{!ownerUnlimited && (' not in home:
+              raise SystemExit('Home captcha widget not found')
+          home_path.write_text(home)
+      - name: Format changed files
+        run: npx prettier --write src/App.tsx src/components/auth/RequireAuth.tsx src/routers/projects.ts src/pages/Home.tsx src/lib/generateClient.ts src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
+      - name: Run hotfix regression tests
+        run: npx vitest run src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx src/components/auth/RequireAuth.tsx src/routers/projects.ts src/pages/Home.tsx src/lib/generateClient.ts src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
+          if git diff --cached --quiet; then
+            echo "No repair changes to commit."
+            exit 0
+          fi
+          git commit -m "fix(production): lock build UI and restore owner build start"
+          git push origin HEAD:hotfix/require-auth-build-ui
