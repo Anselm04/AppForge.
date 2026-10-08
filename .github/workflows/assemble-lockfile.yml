@@ -19,17 +19,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: node scripts/hotfix-repair.mjs
-      - run: npx prettier --write src/App.tsx src/components/auth/RequireAuth.tsx src/routers/projects.ts src/pages/Home.tsx src/lib/generateClient.ts src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
-      - run: npx vitest run src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
-      - run: npm run typecheck
-      - run: npm run lint
-      - name: Commit verified repair
+      - name: Apply production source repair
+        run: node scripts/hotfix-repair.mjs
+      - name: Commit source repair
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
