@@ -2,14 +2,14 @@ name: AppForge Hotfix Repair
 
 on:
   push:
-    branches: [hotfix/require-auth-build-ui]
+    branches:
+      - hotfix/require-auth-build-ui
 
 permissions:
   contents: write
 
 jobs:
   repair:
-    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -23,21 +23,21 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Apply production hotfix
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           projects_path = Path('src/routers/projects.ts')
           projects = projects_path.read_text()
-
-          import_anchor = 'import { PROMPT_MAX_CHARS } from "../lib/prompt.js";\n'
+          anchor = 'import { PROMPT_MAX_CHARS } from "../lib/prompt.js";\n'
           owner_import = 'import { isOwnerEmail } from "../lib/owner.js";\n'
           if owner_import not in projects:
-              if import_anchor not in projects:
+              if anchor not in projects:
                   raise SystemExit('projects import anchor not found')
-              projects = projects.replace(import_anchor, import_anchor + owner_import, 1)
+              projects = projects.replace(anchor, anchor + owner_import, 1)
 
-          old_guard = '''      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
+          old = '''      const { verifyHcaptchaToken } = await import("../lib/hcaptcha.js");
       const captchaOk = await verifyHcaptchaToken(input.hcaptchaToken);
       if (!captchaOk) {
         throw new TRPCError({
@@ -66,7 +66,7 @@ jobs:
       const credits = await ensureUserCredits(ctx.user.id);
       const unlimited = !!credits.unlimited || credits.tier === "lifetime";
 '''
-          new_guard = '''      // The authenticated owner is server-authoritative and must not be blocked
+          new = '''      // The authenticated owner is server-authoritative and must not be blocked
       // by customer anti-abuse gates. This mirrors POST /api/generate.
       const owner = isOwnerEmail(ctx.user.email);
       if (!owner) {
@@ -100,8 +100,8 @@ jobs:
       const unlimited =
         owner || !!credits.unlimited || credits.tier === "lifetime";
 '''
-          if old_guard in projects:
-              projects = projects.replace(old_guard, new_guard, 1)
+          if old in projects:
+              projects = projects.replace(old, new, 1)
           elif 'const owner = isOwnerEmail(ctx.user.email);' not in projects:
               raise SystemExit('projects captcha block not found')
           projects_path.write_text(projects)
@@ -117,6 +117,7 @@ jobs:
           elif '{!ownerUnlimited && (' not in home:
               raise SystemExit('Home captcha widget not found')
           home_path.write_text(home)
+          PY
       - name: Format changed files
         run: npx prettier --write src/App.tsx src/components/auth/RequireAuth.tsx src/routers/projects.ts src/pages/Home.tsx src/lib/generateClient.ts src/__tests__/authenticatedAppRoutes.test.ts src/__tests__/ownerBuildCaptchaBypass.test.ts
       - name: Run hotfix regression tests
