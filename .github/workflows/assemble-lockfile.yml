@@ -19,22 +19,16 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - name: Clean hotfix diff and record recovery impact
+      - name: Update recovery inventory
+        run: node scripts/hotfix-cleanup.mjs
+      - name: Commit clean hotfix diff
         run: |
           set -euo pipefail
           git checkout origin/main -- package-lock.json
-          cat >> docs/RECOVERY_INVENTORY.md <<'EOF'
-
-## 2026-10-08 authenticated build-entry hotfix
-- Signed-out visitors are blocked from the build entry routes and redirected to sign-in before the build UI mounts.
-- The server-authoritative owner identity bypasses customer CAPTCHA/moderation/credit gates only for the owner; customer gates remain fail-closed.
-- Recovery validation must confirm a restored release preserves both boundaries: unauthenticated build entry remains closed and the verified owner can start a build without a customer CAPTCHA token.
-EOF
-      - name: Commit clean hotfix diff
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git show origin/main:.github/workflows/assemble-lockfile.yml > .github/workflows/assemble-lockfile.yml
+          rm -f scripts/hotfix-cleanup.mjs
           git add -A
           git diff --staged --quiet && exit 0
           git commit -m "docs(recovery): cover authenticated build-entry hotfix"
