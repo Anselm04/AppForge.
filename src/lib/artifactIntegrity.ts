@@ -224,7 +224,7 @@ export function assertArtifactIntegrity(input: {
   const files = validateArtifactFiles(input.files);
   const expectedPaths = Object.keys(files).sort();
   const persistedFiles = [...(integrity.files ?? [])].sort((a, b) =>
-    a.path.localeCompare(b.path),
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
   );
   if (
     integrity.fileCount !== expectedPaths.length ||
