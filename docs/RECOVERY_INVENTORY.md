@@ -744,3 +744,7 @@ A code-generation rejection is a failed validation result in the bounded surgica
 ## Build monitoring request budget
 
 Live updates use authenticated SSE. Poll project status every 15 seconds only while active; stop polling paused, terminal or failed-access builds. Do not retry authentication, ownership or rate-limit rejections. Convert plain middleware HTTP 429 responses into a clear client error instead of a tRPC decoding failure. Preserve every server-side limiter and its existing limits. Regression evidence: `src/lib/__tests__/buildPolling.test.ts`.
+
+## Fly fleet verification recovery — 2026-10-09
+
+Production deployment and scheduled capacity verification share a non-cancelling concurrency group. Neither capacity verifier scales the entire fleet or starts historical stopped machines: those operations revived an old release during a failed blue/green retirement and later raced a deleted-machine lease. Poll for exactly two started app machines with passing health checks and matching image commit labels. The deployment verifier additionally requires the approved release SHA. Missing capacity fails visibly and requires a release recovery; this guard does not claim automatic remediation. Do not use the previous guard to recover a mixed fleet. Retain public readiness, anonymous-access, exact-commit and browser checks after fleet verification. Regression evidence: scripts/verify-fly-capacity.test.mjs (seven adverse/healthy cases).

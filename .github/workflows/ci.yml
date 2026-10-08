@@ -81,6 +81,8 @@ jobs:
         run: npm run test -- --coverage --run
         env:
           CI: true
+      - name: Verify Fly capacity safety cases
+        run: node --test scripts/verify-fly-capacity.test.mjs
       - name: Run production golden-path test explicitly
         run: npm run test:e2e
         env:
