@@ -545,22 +545,26 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
       errors.push(detail);
 
-      // Use the existing account's separate free model allowance once. Keep
-      // explicit model choices binding and never add keys or enable billing.
+      // Each free model is tried at most once using the existing account.
+      // An explicit caller model stays binding; no keys or billing are added.
       if (
         response.status === 429 &&
         provider.id === "gemini" &&
-        !explicitModel &&
-        !providers.some(
-          (candidate) =>
-            candidate.id === "gemini" &&
-            candidate.defaultModel === "gemini-3.1-flash-lite",
-        )
+        !explicitModel
       ) {
-        providers.splice(i + 1, 0, {
-          ...provider,
-          defaultModel: "gemini-3.1-flash-lite",
-        });
+        const fallback = [
+          "gemini-3.1-flash-lite",
+          "gemini-3.5-flash-lite",
+        ].find(
+          (model) =>
+            !providers.some(
+              (candidate) =>
+                candidate.id === "gemini" && candidate.defaultModel === model,
+            ),
+        );
+        if (fallback) {
+          providers.splice(i + 1, 0, { ...provider, defaultModel: fallback });
+        }
       }
 
       if (shouldFailoverStatus(response.status) && i < providers.length - 1) {

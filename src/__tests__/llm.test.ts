@@ -158,6 +158,35 @@ describe("LLM invokeLLM", () => {
     );
   });
 
+  it("bounds free-model switching when every Gemini quota is exhausted", async () => {
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    const exhausted = {
+      error: { details: [{ violations: [{ quotaId: "RequestsPerDay" }] }] },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        async () => new Response(JSON.stringify(exhausted), { status: 429 }),
+      );
+    global.fetch = fetchMock;
+    await expect(
+      invokeLLM({ messages: [{ role: "user", content: "build" }] }),
+    ).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const models = fetchMock.mock.calls.map(
+      (call) => JSON.parse(call[1].body).model,
+    );
+    expect(models.slice(1)).toEqual([
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash-lite",
+    ]);
+    expect(new Set(models).size).toBe(3);
+    for (const call of fetchMock.mock.calls) {
+      expect(call[1].headers.authorization).toBe("Bearer test-gemini-key");
+    }
+  });
+
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
