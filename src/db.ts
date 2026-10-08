@@ -321,7 +321,19 @@ export async function createProject(data: {
 }
 
 export async function getProjectById(id: number) {
-  return db.query.projects.findFirst({ where: eq(schema.projects.id, id) });
+  const project = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, id),
+  });
+  // Older pipeline pauses stored the reason in errorMessage. Recover only the
+  // known approval handoff so existing plans can be reviewed and resumed.
+  if (
+    project?.status === "paused" &&
+    !project.pauseReason &&
+    project.errorMessage === "approval_required"
+  ) {
+    return { ...project, pauseReason: "approval_required" };
+  }
+  return project;
 }
 
 export async function getProjectsByUserId(userId: number) {
@@ -547,6 +559,7 @@ export async function updateProjectStatus(
     .set({
       status,
       errorMessage,
+      pauseReason: status === "paused" ? (errorMessage ?? null) : null,
       failureStage:
         status === "failed" ? sql`${schema.projects.buildStage}` : undefined,
       updatedAt: new Date(),
