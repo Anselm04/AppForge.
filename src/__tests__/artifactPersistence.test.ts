@@ -10,6 +10,47 @@ import {
 } from "../lib/artifactIntegrity.js";
 
 describe("artifact persistence integrity", () => {
+  it.each(["working", "final"] as const)(
+    "verifies persisted %s artifacts with mixed-case and punctuation paths",
+    (state) => {
+      const files = {
+        "README.md": "# Saved project",
+        "appforge.requirements.json": "{}",
+        ".env.example": "PORT=3000",
+        "src/App.tsx": "export const App = true;",
+        "src/app.tsx": "export const helper = true;",
+        "src/é.ts": "export const unicode = true;",
+      };
+      const original = buildArtifactIntegrity({
+        projectId: 68,
+        artifactVersion: 23,
+        state,
+        files,
+      });
+      const persisted = JSON.parse(JSON.stringify(original));
+      persisted.files.reverse();
+      expect(() =>
+        assertArtifactIntegrity({
+          files,
+          integrity: persisted,
+          projectId: 68,
+          artifactVersion: 23,
+          requiredState: state,
+        }),
+      ).not.toThrow();
+      expect(persisted.sha256).toBe(original.sha256);
+      expect(() =>
+        assertArtifactIntegrity({
+          files: { ...files, "README.md": "tampered" },
+          integrity: persisted,
+          projectId: 68,
+          artifactVersion: 23,
+          requiredState: state,
+        }),
+      ).toThrow("Artifact integrity verification failed");
+    },
+  );
+
   it("builds deterministic per-file and aggregate SHA-256 metadata", () => {
     const files = {
       "src/App.tsx": "export function App(){ return <main>Real app</main>; }",
