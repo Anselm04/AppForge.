@@ -61,7 +61,7 @@ export function DeployWizard({
       {structuralNotice && (
         <p
           data-testid="structural-deploy-notice"
-          className="text-sm mb-3 rounded border border-amber-700 bg-amber-900/30 px-3 py-2 text-amber-200"
+          className="text-sm mb-3 rounded-sm border border-amber-700 bg-amber-900/30 px-3 py-2 text-amber-200"
         >
           {structuralNotice}
         </p>
@@ -84,7 +84,7 @@ export function DeployWizard({
               type="button"
               onClick={() => healthCheck.mutate(deployUrl)}
               disabled={healthCheck.isPending}
-              className="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded"
+              className="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-sm"
             >
               {healthCheck.isPending ? "Checking…" : "Run health check"}
             </button>
@@ -113,7 +113,7 @@ export function DeployWizard({
             {envVars.map((key) => (
               <li
                 key={key}
-                className="flex items-center justify-between bg-slate-900/50 rounded px-2 py-1 font-mono text-xs"
+                className="flex items-center justify-between bg-slate-900/50 rounded-sm px-2 py-1 font-mono text-xs"
               >
                 <span>{key}</span>
                 <button

@@ -174,7 +174,7 @@ export function ExtensionStudio({ studioId }: Props) {
             placeholder="Project ID"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-28 text-sm"
+            className="bg-slate-800 border border-slate-700 rounded-sm px-2 py-1 w-28 text-sm"
           />
           <button
             type="button"

@@ -65,8 +65,8 @@ export function LanguageSwitcher({
           role="listbox"
           className={
             isPanel
-              ? "relative mt-2 w-full max-h-64 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[200]"
-              : "absolute end-0 mt-2 w-56 max-h-80 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[200]"
+              ? "relative mt-2 w-full max-h-64 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-200"
+              : "absolute inset-e-0 mt-2 w-56 max-h-80 overflow-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-200"
           }
         >
           {LOCALES.map((item) => (

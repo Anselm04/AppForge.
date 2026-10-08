@@ -83,7 +83,7 @@ export function Input({
           type={resolvedType}
           disabled={disabled}
           className={cn(
-            "w-full h-11 px-3 rounded-xl bg-forge-bg border border-forge-border text-forge-text-primary placeholder:text-forge-text-muted focus:outline-none focus:border-forge-cyan/50 transition-colors duration-forge",
+            "w-full h-11 px-3 rounded-xl bg-forge-bg border border-forge-border text-forge-text-primary placeholder:text-forge-text-muted focus:outline-hidden focus:border-forge-cyan/50 transition-colors duration-forge",
             isPassword ? "pr-12" : "",
             error ? "border-red-500/60" : "",
             className,
@@ -103,7 +103,7 @@ export function Input({
             aria-pressed={revealed}
             aria-controls={id}
             title={revealed ? hidePasswordLabel : showPasswordLabel}
-            className="absolute inset-y-0 right-1.5 flex w-9 items-center justify-center rounded-lg text-forge-text-muted transition-colors duration-forge hover:text-forge-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-forge-cyan/50 disabled:opacity-50"
+            className="absolute inset-y-0 right-1.5 flex w-9 items-center justify-center rounded-lg text-forge-text-muted transition-colors duration-forge hover:text-forge-text-primary focus:outline-hidden focus-visible:ring-2 focus-visible:ring-forge-cyan/50 disabled:opacity-50"
           >
             <PasswordVisibilityIcon concealed={!revealed} />
           </button>

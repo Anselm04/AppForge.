@@ -46,7 +46,7 @@ export function RevenueReadinessPanel({ projectId, enabled = true }: Props) {
       </p>
 
       {data.needsBillingScaffold && (
-        <p className="text-sm text-amber-300 mb-3 bg-amber-900/20 border border-amber-800 rounded px-3 py-2">
+        <p className="text-sm text-amber-300 mb-3 bg-amber-900/20 border border-amber-800 rounded-sm px-3 py-2">
           Enable the Fintech capability or describe a paid product — the build
           pipeline merges Stripe checkout, webhook, and entitlements scaffolds.
         </p>
@@ -56,7 +56,7 @@ export function RevenueReadinessPanel({ projectId, enabled = true }: Props) {
         {data.items.map((item) => (
           <li
             key={item.id}
-            className="border border-slate-700 rounded px-3 py-2 bg-slate-900/40"
+            className="border border-slate-700 rounded-sm px-3 py-2 bg-slate-900/40"
           >
             <div className="flex items-start justify-between gap-2">
               <span className="font-medium">{item.label}</span>

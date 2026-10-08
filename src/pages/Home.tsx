@@ -177,7 +177,7 @@ export function Home() {
             alt="AppForge"
             width={520}
             height={520}
-            className="mx-auto mb-6 h-64 w-64 sm:h-80 sm:w-80 md:h-96 md:w-96 lg:h-[28rem] lg:w-[28rem] object-contain drop-shadow-[0_24px_60px_rgba(184,134,11,0.28)]"
+            className="mx-auto mb-6 h-64 w-64 sm:h-80 sm:w-80 md:h-96 md:w-96 lg:h-112 lg:w-md object-contain drop-shadow-[0_24px_60px_rgba(184,134,11,0.28)]"
             data-testid="home-hero-logo"
           />
           <div className="flex justify-center mb-6">
@@ -244,7 +244,7 @@ export function Home() {
         )}
 
         <div
-          className="bg-forge-surface border border-forge-border rounded-[var(--forge-radius)] shadow-[var(--forge-shadow-soft)] p-6 sm:p-8 max-w-2xl mx-auto forge-noise"
+          className="bg-forge-surface border border-forge-border rounded-(--forge-radius) shadow-(--forge-shadow-soft) p-6 sm:p-8 max-w-2xl mx-auto forge-noise"
           data-testid="hero-prompt-card"
         >
           <form onSubmit={handleStartBuild} className="space-y-6">
@@ -260,7 +260,7 @@ export function Home() {
                 maxLength={PROMPT_MAX_CHARS}
                 placeholder={t("home.promptPlaceholder")}
                 data-testid="hero-app-idea-textarea"
-                className="w-full h-32 px-4 py-3 bg-forge-bg border border-forge-border rounded-2xl text-forge-text-primary placeholder:text-forge-text-muted focus:outline-none focus:ring-2 focus:ring-[color:var(--forge-focus)] resize-none transition-[box-shadow,border-color]"
+                className="w-full h-32 px-4 py-3 bg-forge-bg border border-forge-border rounded-2xl text-forge-text-primary placeholder:text-forge-text-muted focus:outline-hidden focus:ring-2 focus:ring-(--forge-focus) resize-none transition-[box-shadow,border-color]"
               />
               <p className="text-xs mt-2 text-slate-500 dark:text-slate-400">
                 {t("home.charCount", { count: description.length })}
@@ -296,7 +296,7 @@ export function Home() {
                             setClarification(null);
                             void startBuild(choice.value);
                           }}
-                          className="px-3 py-1.5 text-sm rounded-full border border-forge-border text-forge-text-primary hover:border-[color:var(--forge-focus)] disabled:opacity-50"
+                          className="px-3 py-1.5 text-sm rounded-full border border-forge-border text-forge-text-primary hover:border-(--forge-focus) disabled:opacity-50"
                         >
                           {choice.label}
                         </button>

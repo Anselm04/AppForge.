@@ -91,8 +91,8 @@ function LayoutSwitcher({
               onClick={() => setMode(value)}
               className={
                 stacked
-                  ? `min-h-[44px] px-2 text-sm font-medium ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`
-                  : `min-h-[32px] px-2 text-xs font-medium whitespace-nowrap ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-[color:var(--forge-heading)]"}`
+                  ? `min-h-[44px] px-2 text-sm font-medium ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+                  : `min-h-[32px] px-2 text-xs font-medium whitespace-nowrap ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
               }
             >
               {labelFor(value)}
@@ -132,8 +132,8 @@ function NavChrome({
   onLogout,
 }: NavChromeProps) {
   const item = stacked
-    ? "w-full min-h-[44px] px-3 py-2 text-start text-forge-text-primary hover:bg-[rgba(196,163,90,0.08)] hover:text-[color:var(--forge-heading)]"
-    : "text-forge-text-muted hover:text-[color:var(--forge-heading)] text-sm uppercase tracking-[0.08em]";
+    ? "w-full min-h-[44px] px-3 py-2 text-start text-forge-text-primary hover:bg-[rgba(196,163,90,0.08)] hover:text-(--forge-heading)"
+    : "text-forge-text-muted hover:text-(--forge-heading) text-sm uppercase tracking-[0.08em]";
   const adminBtn = stacked
     ? "w-full min-h-[44px] bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-semibold"
     : "bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-sm font-semibold";
@@ -197,12 +197,12 @@ function NavChrome({
             </button>
           )}
           {isTrialing && (
-            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-[color:var(--forge-heading)] border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold self-start">
+            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-(--forge-heading) border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold self-start">
               {t("nav.trial", { tier })}
             </span>
           )}
           {isPaid && !isTrialing && (
-            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-[color:var(--forge-heading)] border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold capitalize self-start">
+            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-(--forge-heading) border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold capitalize self-start">
               {tier}
             </span>
           )}
@@ -341,7 +341,7 @@ export function TopNav() {
             height={72}
             className="h-14 w-14 md:h-16 md:w-16 object-contain forge-logo-glow"
           />
-          <span className="font-display text-2xl md:text-[1.7rem] font-medium tracking-wide text-[color:var(--forge-heading)] group-hover:text-[#c4a35a]">
+          <span className="font-display text-2xl md:text-[1.7rem] font-medium tracking-wide text-(--forge-heading) group-hover:text-[#c4a35a]">
             AppForge
           </span>
         </button>
@@ -354,7 +354,7 @@ export function TopNav() {
           <button
             ref={hamburgerRef}
             type="button"
-            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] border border-forge-border text-[color:var(--forge-heading)] hover:bg-[rgba(196,163,90,0.08)]"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] border border-forge-border text-(--forge-heading) hover:bg-[rgba(196,163,90,0.08)]"
             aria-label={t("nav.menu")}
             aria-expanded={menuOpen}
             aria-controls="mobile-nav-drawer"
@@ -368,7 +368,7 @@ export function TopNav() {
         <div>
           <button
             type="button"
-            className="fixed inset-0 z-[60] bg-black/60"
+            className="fixed inset-0 z-60 bg-black/60"
             aria-label={t("nav.closeMenu")}
             onClick={closeMenu}
           />
@@ -377,10 +377,10 @@ export function TopNav() {
             role="dialog"
             aria-modal="true"
             aria-label={t("nav.menu")}
-            className="fixed top-0 right-0 bottom-0 z-[70] h-[100dvh] w-[min(20rem,86vw)] bg-forge-bg border-l border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden"
+            className="fixed top-0 right-0 bottom-0 z-70 h-[100dvh] w-[min(20rem,86vw)] bg-forge-bg border-l border-forge-border shadow-[0_24px_80px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-forge-border shrink-0">
-              <span className="flex items-center gap-2 font-display text-lg font-medium text-[color:var(--forge-heading)]">
+              <span className="flex items-center gap-2 font-display text-lg font-medium text-(--forge-heading)">
                 <img
                   src="/branding/logo-mark.png"
                   alt=""
@@ -393,7 +393,7 @@ export function TopNav() {
               <button
                 ref={closeBtnRef}
                 type="button"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[color:var(--forge-heading)] hover:bg-[rgba(196,163,90,0.08)]"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-(--forge-heading) hover:bg-[rgba(196,163,90,0.08)]"
                 aria-label={t("nav.closeMenu")}
                 onClick={closeMenu}
               >

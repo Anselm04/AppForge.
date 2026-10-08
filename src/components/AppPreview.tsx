@@ -103,7 +103,7 @@ export function AppPreview({ appData }: AppPreviewProps) {
                   key={index}
                   className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
                 >
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm font-medium">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm font-medium">
                     ✓
                   </div>
                   <p className="text-sm text-gray-700">{feature}</p>

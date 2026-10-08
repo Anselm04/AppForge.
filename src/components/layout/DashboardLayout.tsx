@@ -34,11 +34,11 @@ export function DashboardLayout() {
     <div className="min-h-screen flex bg-forge-bg">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 border-r border-white/[0.06] bg-forge-surface/95 backdrop-blur-xl transform transition-transform duration-forge lg:translate-x-0 lg:static",
+          "fixed inset-y-0 left-0 z-40 w-64 border-r border-white/6 bg-forge-surface/95 backdrop-blur-xl transform transition-transform duration-forge lg:translate-x-0 lg:static",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="p-4 border-b border-white/[0.06]">
+        <div className="p-4 border-b border-white/6">
           <Link to="/dashboard" onClick={() => setSidebarOpen(false)}>
             <LogoLockup size="sm" />
           </Link>
@@ -46,7 +46,7 @@ export function DashboardLayout() {
         <nav className="p-3 space-y-6 overflow-y-auto max-h-[calc(100vh-5rem)]">
           <Link
             to="/dashboard"
-            className="block px-3 py-2 rounded-xl text-sm font-medium text-forge-text-primary hover:bg-white/[0.04]"
+            className="block px-3 py-2 rounded-xl text-sm font-medium text-forge-text-primary hover:bg-white/4"
             onClick={() => setSidebarOpen(false)}
           >
             {t("nav.dashboard")}
@@ -70,7 +70,7 @@ export function DashboardLayout() {
                     <li key={id}>
                       <Link
                         to={featurePath(id)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-forge-text-muted hover:text-forge-text-primary hover:bg-white/[0.04] transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-forge-text-muted hover:text-forge-text-primary hover:bg-white/4 transition-colors"
                         onClick={() => setSidebarOpen(false)}
                       >
                         <span aria-hidden>{f.icon}</span>
@@ -84,7 +84,7 @@ export function DashboardLayout() {
           ))}
           <Link
             to="/studio"
-            className="block px-3 py-2 rounded-xl text-sm text-forge-text-muted hover:bg-white/[0.04]"
+            className="block px-3 py-2 rounded-xl text-sm text-forge-text-muted hover:bg-white/4"
             onClick={() => setSidebarOpen(false)}
           >
             {t("sidebar.studios")}
@@ -102,10 +102,10 @@ export function DashboardLayout() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-white/[0.06] bg-forge-bg/80 backdrop-blur-xl flex items-center gap-3 px-4">
+        <header className="h-14 border-b border-white/6 bg-forge-bg/80 backdrop-blur-xl flex items-center gap-3 px-4">
           <button
             type="button"
-            className="lg:hidden p-2 rounded-lg hover:bg-white/[0.04]"
+            className="lg:hidden p-2 rounded-lg hover:bg-white/4"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
           >
@@ -114,13 +114,13 @@ export function DashboardLayout() {
           <button
             type="button"
             onClick={() => setCmdOpen(true)}
-            className="flex-1 max-w-md h-9 px-3 rounded-xl bg-forge-surface border border-white/[0.08] text-sm text-forge-text-muted text-left hover:border-forge-cyan/30 transition-colors"
+            className="flex-1 max-w-md h-9 px-3 rounded-xl bg-forge-surface border border-white/8 text-sm text-forge-text-muted text-left hover:border-forge-cyan/30 transition-colors"
           >
             {t("dashboard.searchPlaceholder")} ⌘K
           </button>
           <button
             type="button"
-            className="p-2 rounded-lg hover:bg-white/[0.04] text-forge-text-muted"
+            className="p-2 rounded-lg hover:bg-white/4 text-forge-text-muted"
             aria-label={t("dashboard.notifications")}
           >
             🔔

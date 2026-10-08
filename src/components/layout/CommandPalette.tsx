@@ -71,14 +71,14 @@ export function CommandPalette({ open, onOpenChange }: Props) {
       <div
         role="dialog"
         aria-label="Command palette"
-        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.08] bg-forge-surface shadow-2xl"
+        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-white/8 bg-forge-surface shadow-2xl"
       >
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("dashboard.searchPlaceholder") || "Search…"}
-          className="w-full border-b border-white/[0.06] bg-transparent px-4 py-3 text-sm text-forge-text-primary outline-none placeholder:text-forge-text-muted"
+          className="w-full border-b border-white/6 bg-transparent px-4 py-3 text-sm text-forge-text-primary outline-hidden placeholder:text-forge-text-muted"
         />
         <ul className="max-h-72 overflow-y-auto p-2">
           {filtered.length === 0 ? (
@@ -90,7 +90,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
               <li key={item.id}>
                 <button
                   type="button"
-                  className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-forge-text-primary hover:bg-white/[0.06]"
+                  className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-forge-text-primary hover:bg-white/6"
                   onClick={() => {
                     navigate(item.path);
                     onOpenChange(false);

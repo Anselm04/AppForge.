@@ -18,7 +18,7 @@ export function TemplateCard({
   onUse,
 }: TemplateCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
+    <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative border-b border-gray-200 bg-gray-50 px-6 py-4">
         <div className="absolute top-2 right-2 px-2 py-1 bg-white rounded-md text-xs font-medium text-gray-700">
           {template.category}
@@ -59,7 +59,7 @@ export function TemplateCard({
           {template.techStack.slice(0, 4).map((tech, index) => (
             <span
               key={index}
-              className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+              className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-sm"
             >
               {tech}
             </span>

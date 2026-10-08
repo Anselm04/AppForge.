@@ -13,7 +13,7 @@ export function MarketingLayout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-forge-bg bg-forge-mesh">
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-forge-bg/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/6 bg-forge-bg/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
           <Link to="/" className="shrink-0 hover:opacity-90 transition-opacity">
             <LogoLockup size="sm" />
@@ -69,7 +69,7 @@ export function MarketingLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-white/[0.06] bg-forge-surface/40">
+      <footer className="border-t border-white/6 bg-forge-surface/40">
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 grid gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
             <LogoLockup size="sm" />
@@ -117,7 +117,7 @@ export function MarketingLayout() {
             </ul>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 border-t border-white/[0.06] text-xs text-forge-text-muted flex flex-wrap gap-4 justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 border-t border-white/6 text-xs text-forge-text-muted flex flex-wrap gap-4 justify-between">
           <span>© {new Date().getFullYear()} AppForge · AppForge</span>
           <span>{t("footer.rights")}</span>
         </div>

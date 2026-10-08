@@ -49,7 +49,7 @@ export function LogoLockup({ size = "md", className }: LogoLockupProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2.5 font-display font-medium text-[color:var(--forge-heading)]",
+        "inline-flex items-center gap-2.5 font-display font-medium text-(--forge-heading)",
         className,
       )}
     >

@@ -73,7 +73,7 @@ export function ChatInterface({
             key={message.id}
             className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
           >
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
               {message.role === "user" ? "👤" : getAssistantIcon(message)}
             </div>
             <div
@@ -104,7 +104,7 @@ export function ChatInterface({
 
         {isBuilding && (
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
               ⚙️
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-[80%]">
@@ -128,7 +128,7 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe your app idea..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isBuilding}
           />
           <button

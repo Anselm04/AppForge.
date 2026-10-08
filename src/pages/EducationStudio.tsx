@@ -376,7 +376,7 @@ export function EducationStudio() {
             placeholder="Project ID"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-28"
+            className="bg-slate-800 border border-slate-700 rounded-sm px-2 py-1 w-28"
           />
           <button
             type="button"

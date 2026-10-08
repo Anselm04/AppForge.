@@ -219,7 +219,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
           <p className="text-slate-400">No element selected.</p>
         ) : (
           <div className="space-y-3">
-            <div className="rounded bg-slate-900 p-2 font-mono text-xs">
+            <div className="rounded-sm bg-slate-900 p-2 font-mono text-xs">
               &lt;{selection.tag}
               {selection.id ? ` id="${selection.id}"` : ""}&gt;
             </div>
@@ -231,7 +231,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
                   onChange={(event) => setText(event.target.value)}
                   maxLength={2000}
                   rows={3}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-950 p-2 text-white"
+                  className="mt-1 w-full rounded-sm border border-slate-600 bg-slate-950 p-2 text-white"
                 />
               </label>
             )}
@@ -255,7 +255,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
                       )
                     }
                     maxLength={120}
-                    className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-white"
+                    className="mt-1 w-full rounded-sm border border-slate-600 bg-slate-950 px-2 py-1.5 text-white"
                   />
                 </label>
               ))}
@@ -263,7 +263,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
               type="button"
               disabled={!selection.id || !styles || save.isPending}
               onClick={() => save.mutate()}
-              className="w-full rounded bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 px-4 py-2 font-medium text-white"
+              className="w-full rounded-sm bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 px-4 py-2 font-medium text-white"
             >
               {save.isPending ? "Saving…" : "Save visual change"}
             </button>
@@ -276,7 +276,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
             {(snapshots ?? []).slice(0, 10).map((snapshot) => (
               <div
                 key={snapshot.id}
-                className="flex items-center justify-between gap-2 rounded bg-slate-900 p-2"
+                className="flex items-center justify-between gap-2 rounded-sm bg-slate-900 p-2"
               >
                 <div className="min-w-0">
                   <p className="truncate text-xs text-slate-200">
@@ -290,7 +290,7 @@ export function VisualProjectEditor({ projectId, enabled = true }: Props) {
                   type="button"
                   disabled={!!snapshot.isCurrent || rollback.isPending}
                   onClick={() => rollback.mutate(snapshot.id)}
-                  className="shrink-0 rounded bg-slate-700 px-2 py-1 text-xs text-white hover:bg-slate-600 disabled:opacity-50"
+                  className="shrink-0 rounded-sm bg-slate-700 px-2 py-1 text-xs text-white hover:bg-slate-600 disabled:opacity-50"
                 >
                   Restore
                 </button>

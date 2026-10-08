@@ -1339,7 +1339,7 @@ export function GraphicsEditor() {
                         onChange={(e) =>
                           updateSelected({ x: parseInt(e.target.value) || 0 })
                         }
-                        className="w-full mt-1 px-2 py-1 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full mt-1 px-2 py-1 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                       />
                     </label>
                     <label className="text-xs text-[#94a3b8]">
@@ -1350,7 +1350,7 @@ export function GraphicsEditor() {
                         onChange={(e) =>
                           updateSelected({ y: parseInt(e.target.value) || 0 })
                         }
-                        className="w-full mt-1 px-2 py-1 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full mt-1 px-2 py-1 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                       />
                     </label>
                     <label className="text-xs text-[#94a3b8]">
@@ -1363,7 +1363,7 @@ export function GraphicsEditor() {
                             w: Math.max(1, parseInt(e.target.value) || 1),
                           })
                         }
-                        className="w-full mt-1 px-2 py-1 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full mt-1 px-2 py-1 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                       />
                     </label>
                     <label className="text-xs text-[#94a3b8]">
@@ -1376,7 +1376,7 @@ export function GraphicsEditor() {
                             h: Math.max(1, parseInt(e.target.value) || 1),
                           })
                         }
-                        className="w-full mt-1 px-2 py-1 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full mt-1 px-2 py-1 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                       />
                     </label>
                   </div>
@@ -1443,7 +1443,7 @@ export function GraphicsEditor() {
                       onChange={(e) =>
                         updateSelected({ color: e.target.value })
                       }
-                      className="w-6 h-6 rounded bg-transparent border-0 p-0"
+                      className="w-6 h-6 rounded-sm bg-transparent border-0 p-0"
                     />
                     Custom color
                   </label>
@@ -1481,7 +1481,7 @@ export function GraphicsEditor() {
                         onChange={(e) =>
                           updateSelected({ stroke: e.target.value })
                         }
-                        className="w-6 h-6 rounded bg-transparent border-0 p-0"
+                        className="w-6 h-6 rounded-sm bg-transparent border-0 p-0"
                       />
                       Border color
                     </label>
@@ -1513,7 +1513,7 @@ export function GraphicsEditor() {
                       type="text"
                       value={sel.text || ""}
                       onChange={(e) => updateSelected({ text: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                      className="w-full px-2 py-1.5 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                     />
                     <div className="flex gap-2">
                       <input
@@ -1524,7 +1524,7 @@ export function GraphicsEditor() {
                             fontSize: parseInt(e.target.value) || 12,
                           })
                         }
-                        className="w-full px-2 py-1.5 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full px-2 py-1.5 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                         placeholder="Size"
                       />
                       <select
@@ -1532,7 +1532,7 @@ export function GraphicsEditor() {
                         onChange={(e) =>
                           updateSelected({ fontWeight: e.target.value })
                         }
-                        className="w-full px-2 py-1.5 rounded bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
+                        className="w-full px-2 py-1.5 rounded-sm bg-[#1e293b] border border-[#334155] text-xs text-[#e2e8f0]"
                       >
                         <option value="400">Regular</option>
                         <option value="600">SemiBold</option>
@@ -1637,7 +1637,7 @@ export function GraphicsEditor() {
                     }`}
                   >
                     <span
-                      className="w-3 h-3 rounded-sm shrink-0"
+                      className="w-3 h-3 rounded-xs shrink-0"
                       style={{
                         background: el.gradient
                           ? PREMIUM_GRADIENTS[el.gradient]?.[0]

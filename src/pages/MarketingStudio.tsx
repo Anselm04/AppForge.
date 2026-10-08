@@ -135,7 +135,7 @@ export function MarketingStudio() {
             placeholder="Project ID"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="border rounded px-2 py-1 w-28 dark:bg-slate-800 dark:border-slate-700"
+            className="border rounded-sm px-2 py-1 w-28 dark:bg-slate-800 dark:border-slate-700"
           />
           <button
             type="button"

@@ -4,7 +4,7 @@ import { BuildPurposeStatement } from "../components/BuildPurposeStatement.js";
 export function About() {
   const { t } = useLocale();
   return (
-    <div className="min-h-[70vh] bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-[70vh] bg-linear-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8">
           <div className="flex items-center gap-3 mb-6">
