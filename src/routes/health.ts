@@ -12,7 +12,24 @@ import {
   startOperationalTrace,
 } from "../lib/operationsObservability.js";
 
+import { signupRedirect } from "../services/authRedirect.js";
+import { signupAbuseLimiter, resendConfirmationHandler } from "./authSignup.js";
 const router = Router();
+router.post(
+  "/auth-resend-verification",
+  signupAbuseLimiter,
+  (req, res, next) => {
+    if (!getStartupReadiness().ready) {
+      setNoStoreHeaders(res);
+      res.status(503).json({
+        error: "Service temporarily unavailable",
+        code: "STARTUP_NOT_READY",
+      });
+      return;
+    }
+    void resendConfirmationHandler(req, res, next);
+  },
+);
 
 function setNoStoreHeaders(res: Response) {
   res.setHeader(
@@ -151,56 +168,59 @@ function safeNext(value: unknown): string {
 // router in the current server composition. CSRF/global abuse controls still run
 // before this router. The endpoint itself fails closed unless startup readiness,
 // Supabase service-role link generation and Twilio delivery all succeed.
-router.post("/auth-signup", async (req: Request, res: Response) => {
-  setNoStoreHeaders(res);
-  const startup = getStartupReadiness();
-  if (!startup.ready) {
-    return res.status(503).json({
-      error: "Service temporarily unavailable",
-      code: "STARTUP_NOT_READY",
-    });
-  }
+router.post(
+  "/auth-signup",
+  signupAbuseLimiter,
+  async (req: Request, res: Response) => {
+    setNoStoreHeaders(res);
+    const startup = getStartupReadiness();
+    if (!startup.ready) {
+      return res.status(503).json({
+        error: "Service temporarily unavailable",
+        code: "STARTUP_NOT_READY",
+      });
+    }
 
-  const email =
-    typeof req.body?.email === "string"
-      ? req.body.email.trim().toLowerCase()
-      : "";
-  const password =
-    typeof req.body?.password === "string" ? req.body.password : "";
-  const next = safeNext(req.body?.next);
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof req.body?.password === "string" ? req.body.password : "";
+    const next = safeNext(req.body?.next);
 
-  if (!email || !email.includes("@") || password.length < 8) {
-    return res.status(400).json({
-      error: "A valid email and password of at least 8 characters are required.",
-      code: "INVALID_SIGNUP_INPUT",
-    });
-  }
+    if (!email || !email.includes("@") || password.length < 8) {
+      return res.status(400).json({
+        error:
+          "A valid email and password of at least 8 characters are required.",
+        code: "INVALID_SIGNUP_INPUT",
+      });
+    }
 
-  const origin = `${req.protocol}://${req.get("host")}`;
-  const redirectTo = `${origin}/login?next=${encodeURIComponent(next)}`;
-
-  try {
-    const result = await createSignupConfirmation({
-      email,
-      password,
-      redirectTo,
-    });
-    return res.status(202).json({
-      user: { id: result.userId, email },
-      confirmationSent: true,
-    });
-  } catch (error) {
-    logger.error({ error }, "signup_confirmation_delivery_failed");
-    incrementOperationalMetric(
-      "appforge_auth_confirmation_delivery_failures_total",
-    );
-    return res.status(503).json({
-      error:
-        "We could not send your confirmation email. Please try again shortly.",
-      code: "CONFIRMATION_DELIVERY_FAILED",
-    });
-  }
-});
+    try {
+      const redirectTo = signupRedirect(next);
+      const result = await createSignupConfirmation({
+        email,
+        password,
+        redirectTo,
+      });
+      return res.status(202).json({
+        user: { id: result.userId, email },
+        confirmationSent: true,
+      });
+    } catch (error) {
+      logger.error({ error }, "signup_confirmation_delivery_failed");
+      incrementOperationalMetric(
+        "appforge_auth_confirmation_delivery_failures_total",
+      );
+      return res.status(503).json({
+        error:
+          "We could not send your confirmation email. Please try again shortly.",
+        code: "CONFIRMATION_DELIVERY_FAILED",
+      });
+    }
+  },
+);
 
 export default router;
 

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -55,6 +55,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [completingConfirmation, setCompletingConfirmation] = useState(false);
   const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>(
     { email: false, password: false },
@@ -126,11 +127,17 @@ export function Login() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting.current || completingConfirmation) return;
     setError(null);
     if (!isValidEmail(email)) {
       setBlurred((previous) => ({ ...previous, email: true }));
       return;
     }
+    if (!password) {
+      setError("Enter your password.");
+      return;
+    }
+    submitting.current = true;
     setPending(true);
     try {
       await signIn(email.trim(), password);
@@ -141,6 +148,7 @@ export function Login() {
     } catch (err) {
       setError(describeSignInError(err, t));
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   };
@@ -196,6 +204,12 @@ export function Login() {
       )}
 
       <SocialAuthButtons next={next} />
+      <Link
+        to={`/resend-verification?email=${encodeURIComponent(email.trim())}&next=${encodeURIComponent(next)}`}
+        className="mb-4 block text-sm font-medium text-forge-cyan hover:underline"
+      >
+        Need a verification email?
+      </Link>
 
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <Input

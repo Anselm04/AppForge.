@@ -539,3 +539,26 @@ export async function verifyPhoneOtp(phone: string, token: string) {
 
   return data;
 }
+
+export async function resendVerification(
+  email: string,
+  next = "/",
+): Promise<void> {
+  const headers = await withCsrfHeaders({ "Content-Type": "application/json" });
+  const response = await fetch("/api/health/auth-resend-verification", {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({
+      email: email.trim(),
+      next: safeAuthDestination(next),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 429
+        ? "Too many requests. Please wait before trying again."
+        : "Unable to request a verification email. Please try again shortly.",
+    );
+  }
+}

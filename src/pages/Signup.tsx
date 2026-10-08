@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +27,7 @@ export function Signup() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [checkEmail, setCheckEmail] = useState(false);
   const [touchedEmail, setTouchedEmail] = useState(false);
 
@@ -52,15 +53,21 @@ export function Signup() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     setError(null);
     if (!isValidEmail(email)) {
       setTouchedEmail(true);
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(t("signup.minChars"));
       return;
     }
     if (password !== confirm) {
       setError(t("signup.mismatch"));
       return;
     }
+    submitting.current = true;
     setPending(true);
     try {
       await signUp(email.trim(), password, next);
@@ -73,6 +80,7 @@ export function Signup() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t("signup.failed"));
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   };
@@ -114,6 +122,12 @@ export function Signup() {
           >
             {t("signup.goToLogin")}
           </Button>
+          <Link
+            to={`/resend-verification?email=${encodeURIComponent(email.trim())}&next=${encodeURIComponent(next)}`}
+            className="block text-sm font-medium text-forge-cyan hover:underline"
+          >
+            Resend verification email
+          </Link>
         </div>
       </AuthShell>
     );

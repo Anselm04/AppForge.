@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../i18n/LocaleContext.js";
 import { Login } from "../Login.js";
+import { signIn, signUp, getAccessToken } from "../../lib/auth.js";
+import { PasswordReset } from "../PasswordReset.js";
 import { Signup } from "../Signup.js";
 
 vi.mock("../../utils/trpc.js", () => ({
@@ -25,6 +27,7 @@ vi.mock("../../lib/auth.js", async () => {
     ...actual,
     signIn: vi.fn(),
     signUp: vi.fn(),
+    getAccessToken: vi.fn(() => null),
     getSession: vi.fn(() => null),
     completeAuthRedirect: vi.fn(async () => null),
     listSocialSignInProviders: vi.fn(async () => []),
@@ -92,5 +95,49 @@ describe("modern create-account page", () => {
       target: { value: "Different1!" },
     });
     expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
+  });
+});
+
+describe("auth submission resilience", () => {
+  it.each([
+    ["login", Login, signIn],
+    ["signup", Signup, signUp],
+  ] as const)(
+    "ignores repeated %s form submissions while a request is pending",
+    async (route, Page, request) => {
+      vi.mocked(request).mockImplementationOnce(() => new Promise(() => {}));
+      const { container } = renderPage(<Page />, `/${route}`);
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "builder@example.com" },
+      });
+      fireEvent.change(screen.getByLabelText("Password"), {
+        target: { value: "ForgeBuilder1!" },
+      });
+      if (route === "signup") {
+        fireEvent.change(screen.getByLabelText("Confirm password"), {
+          target: { value: "ForgeBuilder1!" },
+        });
+      }
+      const form = container.querySelector("form")!;
+      const before = vi.mocked(request).mock.calls.length;
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+      await waitFor(() => expect(request).toHaveBeenCalledTimes(before + 1));
+    },
+  );
+
+  it("finishes reset-link verification without a session and offers recovery", async () => {
+    vi.mocked(getAccessToken).mockReturnValue(null);
+    renderPage(<PasswordReset />, "/reset-password");
+    await screen.findByText(
+      "This reset link is missing or expired. Request a new one.",
+    );
+    expect(screen.queryByText("Verifying your reset link…")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Request a new reset link" }),
+    ).toHaveAttribute("href", "/forgot-password");
+    expect(
+      screen.getByRole("button", { name: "Set new password" }),
+    ).toBeDisabled();
   });
 });
