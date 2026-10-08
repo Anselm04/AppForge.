@@ -94,6 +94,70 @@ describe("LLM invokeLLM", () => {
     ).rejects.toThrow(/429 Too Many Requests/);
   }, 20_000);
 
+  it("does not repeat permanent failures or retry before a long cooldown", async () => {
+    for (const [status, retryAfter] of [
+      [401, null],
+      [429, "60"],
+    ] as const) {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        statusText: "Rejected",
+        headers: { get: () => retryAfter },
+        text: async () => "provider unavailable",
+        body: null,
+      });
+      global.fetch = fetchMock;
+      await expect(
+        invokeLLM({ messages: [{ role: "user", content: "hi" }] }),
+      ).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("uses the existing Gemini key for one free-model fallback on quota exhaustion", async () => {
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    const exhausted = {
+      error: {
+        details: [
+          {
+            violations: [
+              { quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" },
+            ],
+          },
+        ],
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(exhausted), { status: 429 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: "fallback",
+            model: "gemini-3.1-flash-lite",
+            choices: [{ message: { content: "built" } }],
+          }),
+          { status: 200 },
+        ),
+      );
+    global.fetch = fetchMock;
+    const result = await invokeLLM({
+      messages: [{ role: "user", content: "build" }],
+    });
+    expect(result.id).toBe("fallback");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe(
+      "gemini-3.1-flash-lite",
+    );
+    expect(fetchMock.mock.calls[1][1].headers.authorization).toBe(
+      "Bearer test-gemini-key",
+    );
+  });
+
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
