@@ -728,3 +728,7 @@ Verification target:
 ## Signup confirmation and verification recovery — 2026-10-08
 
 See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup uses server-side Supabase link generation plus Twilio Email; resend uses Supabase Auth SMTP. Restore and verify both delivery paths, the Supabase public/service credentials, trusted HTTPS confirmation origin and shared Redis abuse bucket. A healthy liveness endpoint does not prove these integrations work. Use controlled mailboxes and an immutable release revision for recovery evidence; never persist confirmation links, passwords, session cookies, or private keys in the report.
+
+## Generated artifact preservation
+
+Generation and edit hardening must retain approved source, backend and compliance modules even when the artifact exceeds historical golden file-count limits. Explicit user edits may delete files; automatic cleanup must not silently remove them. The approved-plan code-generation gate remains mandatory and rejects missing planned files. Regression evidence: `iterateReliable.test.ts` and `productHardeningGuardrails.test.ts`.

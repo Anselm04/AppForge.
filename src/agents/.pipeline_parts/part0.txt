@@ -76,10 +76,6 @@ import {
   resolveMaxOuterAttempts,
 } from "../lib/neverGiveUp.js";
 import { applyDeterministicErrorFixes } from "../lib/errorFixTable.js";
-import {
-  stripComplianceFromGolden,
-  capGoldenFiles,
-} from "../lib/goldenLimits.js";
 import { requireExplicitStack } from "../lib/stackDefaults.js";
 import { getStackAdapter, STACK_ADAPTERS } from "../lib/stackAdapters.js";
 import { runtimeArchitectureInstruction } from "../lib/runtimeArchitecture.js";

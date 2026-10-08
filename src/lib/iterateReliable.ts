@@ -3,12 +3,8 @@
  * Apply chat patches, harden, validate, fix, or roll back.
  */
 
-import {
-  appliesGoldenWebLimits,
-  hardenGeneratedProject,
-} from "./reliableBuild.js";
+import { hardenGeneratedProject } from "./reliableBuild.js";
 import { requireExplicitStack } from "./stackDefaults.js";
-import { stripComplianceFromGolden, capGoldenFiles } from "./goldenLimits.js";
 import { applyDeterministicErrorFixes } from "./errorFixTable.js";
 import { mergeSurgicalPatches } from "./surgicalFix.js";
 import type { ValidationResult } from "../agents/buildValidator.js";
@@ -38,24 +34,13 @@ export function applyPatches(
   return next;
 }
 
-/**
- * Post-edit harden with the same stack adapter as generation. Runnable web
- * bundler stacks keep the golden file cap; every other stack (mobile, desktop
- * shells, services, Python, extensions) is hardened without trimming or
- * converting it.
- */
+/** Harden edits without silently deleting approved source or compliance modules. */
 export function hardenAfterIterate(
   files: Record<string, string>,
   techStack: string,
 ): Record<string, string> {
   const stack = requireExplicitStack(techStack);
-  let out = { ...files };
-  if (appliesGoldenWebLimits(stack)) {
-    out = stripComplianceFromGolden(out);
-    out = capGoldenFiles(out, 14);
-  }
-  out = hardenGeneratedProject(out, stack);
-  return out;
+  return hardenGeneratedProject({ ...files }, stack);
 }
 
 export type IterateOutcome = {

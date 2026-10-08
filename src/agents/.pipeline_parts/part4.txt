@@ -100,9 +100,6 @@
     if (validationResult?.passed && complianceScaffoldingAllowed(techStack)) {
       injectComplianceScaffolding(generatedFiles, { reactComponents: false });
     }
-    if (appliesGoldenWebLimits(techStack)) {
-      generatedFiles = stripComplianceFromGolden(generatedFiles);
-    }
     generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
     if (!requirementManifest) {
       throw new Error("Requirement manifest was not initialized by the Planner");
