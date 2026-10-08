@@ -41,7 +41,9 @@ describe("#16 production build isolation", () => {
 
     expect(result.passed).toBe(false);
     expect(result.stage).toBe("isolation");
-    expect(result.errors.join(" ")).toMatch(/may not execute generated code on the AppForge host/i);
+    expect(result.errors.join(" ")).toMatch(
+      /may not execute generated code on the AppForge host/i,
+    );
   });
 
   it("fails closed for Flutter instead of returning a structural production pass", async () => {

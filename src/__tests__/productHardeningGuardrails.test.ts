@@ -30,10 +30,16 @@ const ecosystemRouterSource = readFileSync(
 describe("product hardening guardrails", () => {
   it("blocks credential-like fields from outbound integration payloads", () => {
     expect(() =>
-      assertSafeExternalPayload({ nested: { api_key: "should-not-leave-appforge" } }),
+      assertSafeExternalPayload({
+        nested: { api_key: "should-not-leave-appforge" },
+      }),
     ).toThrow(ExternalPayloadGuardError);
     expect(() =>
-      assertSafeExternalPayload({ projectId: 1, action: "build", values: [1, 2] }),
+      assertSafeExternalPayload({
+        projectId: 1,
+        action: "build",
+        values: [1, 2],
+      }),
     ).not.toThrow();
   });
 
@@ -59,9 +65,17 @@ describe("product hardening guardrails", () => {
 
   it("bounds external integration IO and guards support contexts", () => {
     expect(integrationRuntimeSource).toContain("MAX_INTEGRATION_REQUEST_BYTES");
-    expect(integrationRuntimeSource).toContain("MAX_INTEGRATION_RESPONSE_BYTES");
-    expect(integrationRuntimeSource).toContain("may not embed credentials in URLs");
-    expect(ecosystemRouterSource).toContain("guardOutboundPayload(input.context ?? {}, \"Support context\")");
-    expect(ecosystemRouterSource).toContain("guardOutboundPayload(input.payload, \"Automation payload\")");
+    expect(integrationRuntimeSource).toContain(
+      "MAX_INTEGRATION_RESPONSE_BYTES",
+    );
+    expect(integrationRuntimeSource).toContain(
+      "may not embed credentials in URLs",
+    );
+    expect(ecosystemRouterSource).toContain(
+      'guardOutboundPayload(input.context ?? {}, "Support context")',
+    );
+    expect(ecosystemRouterSource).toContain(
+      'guardOutboundPayload(input.payload, "Automation payload")',
+    );
   });
 });

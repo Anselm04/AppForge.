@@ -1,4 +1,4 @@
-import { categories, useCases } from '../data/templates';
+import { categories, useCases } from "../data/templates";
 
 interface TemplateFiltersProps {
   selectedCategory: string;
@@ -72,17 +72,19 @@ export function TemplateFilters({
       </div>
 
       {/* Active Filters */}
-      {(selectedCategory !== 'all' || selectedUseCase !== 'all' || searchQuery) && (
+      {(selectedCategory !== "all" ||
+        selectedUseCase !== "all" ||
+        searchQuery) && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">Active filters:</span>
-          {selectedCategory !== 'all' && (
+          {selectedCategory !== "all" && (
             <span className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
-              {categories.find(c => c.id === selectedCategory)?.name}
+              {categories.find((c) => c.id === selectedCategory)?.name}
             </span>
           )}
-          {selectedUseCase !== 'all' && (
+          {selectedUseCase !== "all" && (
             <span className="px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full">
-              {useCases.find(u => u.id === selectedUseCase)?.name}
+              {useCases.find((u) => u.id === selectedUseCase)?.name}
             </span>
           )}
           {searchQuery && (
@@ -92,9 +94,9 @@ export function TemplateFilters({
           )}
           <button
             onClick={() => {
-              onCategoryChange('all');
-              onUseCaseChange('all');
-              onSearchChange('');
+              onCategoryChange("all");
+              onUseCaseChange("all");
+              onSearchChange("");
             }}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
           >

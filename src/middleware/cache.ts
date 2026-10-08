@@ -30,9 +30,7 @@ export function cacheMiddleware(options: CacheOptions = { ttl: 300 }) {
       res.json = (body) => {
         void redisClient
           .setEx(cacheKey, options.ttl, JSON.stringify(body))
-          .catch((error) =>
-            logger.error({ error }, "cache_write_failed"),
-          );
+          .catch((error) => logger.error({ error }, "cache_write_failed"));
         res.setHeader("X-Cache", "MISS");
         return originalJson(body);
       };

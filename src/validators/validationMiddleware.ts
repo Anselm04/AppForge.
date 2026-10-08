@@ -3,8 +3,8 @@
  * Generic middleware for validating Express requests with Zod
  */
 
-import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { z, ZodSchema, ZodError } from 'zod';
+import { Request, Response, NextFunction, RequestHandler } from "express";
+import { z, ZodSchema, ZodError } from "zod";
 
 // Validation error response
 export interface ValidationError {
@@ -15,7 +15,7 @@ export interface ValidationError {
 
 export interface ValidationErrorResponse {
   success: false;
-  error: 'VALIDATION_ERROR';
+  error: "VALIDATION_ERROR";
   message: string;
   errors: ValidationError[];
 }
@@ -32,7 +32,7 @@ export interface ParsedRequest {
  */
 export function formatZodError(error: ZodError): ValidationError[] {
   return error.errors.map((err) => ({
-    field: err.path.join('.'),
+    field: err.path.join("."),
     message: err.message,
     code: err.code,
   }));
@@ -44,17 +44,17 @@ export function formatZodError(error: ZodError): ValidationError[] {
 export function validateBody<T extends ZodSchema>(schema: T): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body);
-    
+
     if (!result.success) {
       const errors = formatZodError(result.error);
       return res.status(400).json({
         success: false,
-        error: 'VALIDATION_ERROR',
-        message: 'Invalid request body',
+        error: "VALIDATION_ERROR",
+        message: "Invalid request body",
         errors,
       } as ValidationErrorResponse);
     }
-    
+
     // Overwrite body with parsed data (includes transformations)
     req.body = result.data;
     next();
@@ -67,17 +67,17 @@ export function validateBody<T extends ZodSchema>(schema: T): RequestHandler {
 export function validateQuery<T extends ZodSchema>(schema: T): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.query);
-    
+
     if (!result.success) {
       const errors = formatZodError(result.error);
       return res.status(400).json({
         success: false,
-        error: 'VALIDATION_ERROR',
-        message: 'Invalid query parameters',
+        error: "VALIDATION_ERROR",
+        message: "Invalid query parameters",
         errors,
       } as ValidationErrorResponse);
     }
-    
+
     req.query = result.data;
     next();
   };
@@ -89,17 +89,17 @@ export function validateQuery<T extends ZodSchema>(schema: T): RequestHandler {
 export function validateParams<T extends ZodSchema>(schema: T): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.params);
-    
+
     if (!result.success) {
       const errors = formatZodError(result.error);
       return res.status(400).json({
         success: false,
-        error: 'VALIDATION_ERROR',
-        message: 'Invalid route parameters',
+        error: "VALIDATION_ERROR",
+        message: "Invalid route parameters",
         errors,
       } as ValidationErrorResponse);
     }
-    
+
     req.params = result.data;
     next();
   };
@@ -111,7 +111,7 @@ export function validateParams<T extends ZodSchema>(schema: T): RequestHandler {
 export function validateRequest<
   BodySchema extends ZodSchema,
   QuerySchema extends ZodSchema,
-  ParamsSchema extends ZodSchema
+  ParamsSchema extends ZodSchema,
 >(schemas: {
   body?: BodySchema;
   query?: QuerySchema;
@@ -119,7 +119,7 @@ export function validateRequest<
 }): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const errors: ValidationError[] = [];
-    
+
     // Validate body
     if (schemas.body) {
       const bodyResult = schemas.body.safeParse(req.body);
@@ -129,7 +129,7 @@ export function validateRequest<
         req.body = bodyResult.data;
       }
     }
-    
+
     // Validate query
     if (schemas.query) {
       const queryResult = schemas.query.safeParse(req.query);
@@ -139,7 +139,7 @@ export function validateRequest<
         req.query = queryResult.data;
       }
     }
-    
+
     // Validate params
     if (schemas.params) {
       const paramsResult = schemas.params.safeParse(req.params);
@@ -149,17 +149,17 @@ export function validateRequest<
         req.params = paramsResult.data;
       }
     }
-    
+
     // Return errors if any
     if (errors.length > 0) {
       return res.status(400).json({
         success: false,
-        error: 'VALIDATION_ERROR',
-        message: 'Validation failed',
+        error: "VALIDATION_ERROR",
+        message: "Validation failed",
         errors,
       } as ValidationErrorResponse);
     }
-    
+
     next();
   };
 }
@@ -167,20 +167,22 @@ export function validateRequest<
 /**
  * Validate request headers
  */
-export function validateHeaders<T extends ZodSchema>(schema: T): RequestHandler {
+export function validateHeaders<T extends ZodSchema>(
+  schema: T,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.headers);
-    
+
     if (!result.success) {
       const errors = formatZodError(result.error);
       return res.status(400).json({
         success: false,
-        error: 'VALIDATION_ERROR',
-        message: 'Invalid headers',
+        error: "VALIDATION_ERROR",
+        message: "Invalid headers",
         errors,
       } as ValidationErrorResponse);
     }
-    
+
     next();
   };
 }
@@ -188,20 +190,17 @@ export function validateHeaders<T extends ZodSchema>(schema: T): RequestHandler 
 /**
  * Create a validated request handler with typed input
  */
-export type ValidatedRequest<
-  Body = {},
-  Query = {},
-  Params = {}
-> = Request<Params, any, Body, Query>;
+export type ValidatedRequest<Body = {}, Query = {}, Params = {}> = Request<
+  Params,
+  any,
+  Body,
+  Query
+>;
 
-export type ValidatedHandler<
-  Body = {},
-  Query = {},
-  Params = {}
-> = (
+export type ValidatedHandler<Body = {}, Query = {}, Params = {}> = (
   req: ValidatedRequest<Body, Query, Params>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => void;
 
 export default {

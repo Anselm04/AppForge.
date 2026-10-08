@@ -29,7 +29,9 @@ describe("parsePositiveIntParam", () => {
     "abc",
     String(Number.MAX_SAFE_INTEGER + 1),
   ])("rejects invalid request-boundary value %j", (value) => {
-    expect(parsePositiveIntParam(value as string | string[] | undefined)).toBeNull();
+    expect(
+      parsePositiveIntParam(value as string | string[] | undefined),
+    ).toBeNull();
   });
 });
 

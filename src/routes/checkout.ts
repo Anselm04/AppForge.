@@ -14,11 +14,13 @@ const checkoutSchema = z
   .object({
     plan: z.enum(SELF_SERVE_PLAN_TIERS).optional(),
     credits: z
-      .union(CREDIT_PACKS.map((value) => z.literal(value)) as [
-        z.ZodLiteral<50>,
-        z.ZodLiteral<100>,
-        z.ZodLiteral<250>,
-      ])
+      .union(
+        CREDIT_PACKS.map((value) => z.literal(value)) as [
+          z.ZodLiteral<50>,
+          z.ZodLiteral<100>,
+          z.ZodLiteral<250>,
+        ],
+      )
       .optional(),
   })
   .refine((d) => Boolean(d.plan || d.credits), {

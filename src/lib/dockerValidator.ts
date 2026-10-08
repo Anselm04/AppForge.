@@ -96,12 +96,7 @@ function hardenedRunArgs(
     "/tmp:rw,noexec,nosuid,size=64m",
   ];
   if (options.networkNone) args.push("--network=none");
-  args.push(
-    "-v",
-    `${tmpDir}:/app`,
-    "-w",
-    options.workdir ?? "/app",
-  );
+  args.push("-v", `${tmpDir}:/app`, "-w", options.workdir ?? "/app");
   return args;
 }
 
@@ -241,11 +236,7 @@ export async function validateWithDocker(
         180_000,
       );
       if (r.exitCode !== 0) {
-        return dockerFailure(
-          "docker_flutter",
-          start,
-          r.stderr || r.stdout,
-        );
+        return dockerFailure("docker_flutter", start, r.stderr || r.stdout);
       }
       return {
         passed: true,

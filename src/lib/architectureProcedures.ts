@@ -152,7 +152,9 @@ export const ARCHITECTURE_PROCEDURES: ArchitectureProcedure[] = [
   },
 ];
 
-export function proceduresForPhase(phase: ProjectPhase): ArchitectureProcedure[] {
+export function proceduresForPhase(
+  phase: ProjectPhase,
+): ArchitectureProcedure[] {
   return ARCHITECTURE_PROCEDURES.filter((p) => p.phase === phase);
 }
 

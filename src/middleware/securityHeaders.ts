@@ -7,7 +7,12 @@ import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 
 export function shouldPreventCaching(path: string): boolean {
-  return path.startsWith("/api/") || path === "/api" || path.startsWith("/auth/") || path === "/auth";
+  return (
+    path.startsWith("/api/") ||
+    path === "/api" ||
+    path.startsWith("/auth/") ||
+    path === "/auth"
+  );
 }
 
 export function additionalSecurityHeaders() {

@@ -15,9 +15,7 @@ import {
   validateRequirementManifest,
 } from "../requirementManifest.js";
 
-function contract(
-  overrides: Partial<ProductContract> = {},
-): ProductContract {
+function contract(overrides: Partial<ProductContract> = {}): ProductContract {
   return validateProductContract({
     version: 2,
     originalPrompt:
@@ -259,9 +257,9 @@ describe("requirements system", () => {
     expect(manifest.requirements[0].tests).toEqual(["src/tasks.test.ts"]);
     expect(manifest.requirements[1].tests).toEqual(["src/tasks.test.ts"]);
     expect(manifest.requirements[2].tests).toEqual(["src/audit.test.ts"]);
-    expect(manifest.requirements.every((item) => item.status === "tested")).toBe(
-      true,
-    );
+    expect(
+      manifest.requirements.every((item) => item.status === "tested"),
+    ).toBe(true);
   });
 
   it("prevents completion while any must-have requirement is unresolved", () => {
@@ -374,7 +372,9 @@ describe("requirements system", () => {
       productPlan: plan(),
     });
     expect(
-      validateRequirementManifest(JSON.parse(serializeRequirementManifest(manifest))),
+      validateRequirementManifest(
+        JSON.parse(serializeRequirementManifest(manifest)),
+      ),
     ).toEqual(manifest);
   });
 });

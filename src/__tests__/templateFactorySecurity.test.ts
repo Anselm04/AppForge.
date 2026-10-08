@@ -16,14 +16,20 @@ describe("template factory secret filtering", () => {
   });
 
   it("blocks known live-secret patterns while allowing placeholders", () => {
-    expect(isSafeTemplateContent("STRIPE_SECRET_KEY=sk_live_1234567890abcdef")).toBe(false);
-    expect(isSafeTemplateContent("GITHUB_TOKEN=github_pat_1234567890abcdef")).toBe(false);
+    expect(
+      isSafeTemplateContent("STRIPE_SECRET_KEY=sk_live_1234567890abcdef"),
+    ).toBe(false);
+    expect(
+      isSafeTemplateContent("GITHUB_TOKEN=github_pat_1234567890abcdef"),
+    ).toBe(false);
     expect(
       isSafeTemplateContent(
         "-----BEGIN PRIVATE KEY-----\nvery-secret\n-----END PRIVATE KEY-----",
       ),
     ).toBe(false);
-    expect(isSafeTemplateContent("STRIPE_SECRET_KEY=your-stripe-secret-key")).toBe(true);
+    expect(
+      isSafeTemplateContent("STRIPE_SECRET_KEY=your-stripe-secret-key"),
+    ).toBe(true);
     expect(isSafeTemplateContent("const title = 'AppForge';")).toBe(true);
   });
 

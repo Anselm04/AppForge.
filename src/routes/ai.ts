@@ -99,7 +99,8 @@ router.post("/clarify", async (req: Request, res: Response) => {
       });
     }
     const { requirements } = validation.data;
-    const questions = await aiService.generateClarificationQuestions(requirements);
+    const questions =
+      await aiService.generateClarificationQuestions(requirements);
     res.json({ success: true, data: questions });
   } catch (error) {
     logger.error(

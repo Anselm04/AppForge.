@@ -37,7 +37,10 @@ export const visualEditorRouter = router({
     .mutation(async ({ ctx, input }) => {
       const project = await getProjectById(input.projectId);
       if (!project || project.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
       }
       if (!/\.html?$/i.test(input.path)) {
         throw new TRPCError({

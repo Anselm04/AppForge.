@@ -13,7 +13,7 @@ const worker = readFileSync(
 
 describe("build queue duplicate-start protection", () => {
   it("uses a stable per-project BullMQ job id", () => {
-    expect(queue).toContain('jobId: `build-${job.projectId}`');
+    expect(queue).toContain("jobId: `build-${job.projectId}`");
     expect(queue).toContain("queuedData.createdAt !== job.createdAt");
   });
 
@@ -45,7 +45,9 @@ describe("build queue duplicate-start protection", () => {
 
 describe("build event reconnect protection", () => {
   it("persists each worker event before publishing it", () => {
-    const persistIndex = worker.indexOf("await appendBuildEvent(projectId, event, data)");
+    const persistIndex = worker.indexOf(
+      "await appendBuildEvent(projectId, event, data)",
+    );
     const runtimeIndex = worker.indexOf(
       "publishRuntimeBuildEvent(projectId, event, data)",
     );

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   applyDocumentLocale,
   DEFAULT_LOCALE,
@@ -26,7 +34,12 @@ function unwrapMessages(mod: unknown): Messages | undefined {
   if (!mod || typeof mod !== "object") return undefined;
   const rec = mod as Record<string, unknown>;
   if ("nav" in rec) return mod as Messages;
-  if (rec.default && typeof rec.default === "object" && rec.default && "nav" in (rec.default as object)) {
+  if (
+    rec.default &&
+    typeof rec.default === "object" &&
+    rec.default &&
+    "nav" in (rec.default as object)
+  ) {
     return rec.default as Messages;
   }
   return undefined;
@@ -45,7 +58,9 @@ function lookup(tree: Messages | undefined, key: string): string | undefined {
 function interpolate(template: string, vars?: Vars): string {
   if (!vars) return template;
   return template.replace(/\{(\w+)\}/g, (_, name: string) =>
-    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : `{${name}}`,
+    Object.prototype.hasOwnProperty.call(vars, name)
+      ? String(vars[name])
+      : `{${name}}`,
   );
 }
 
@@ -75,7 +90,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const t = useCallback(
     (key: string, vars?: Vars) => {
       try {
-        const catalog = unwrapMessages(messages[locale]) ?? unwrapMessages(messages[DEFAULT_LOCALE]);
+        const catalog =
+          unwrapMessages(messages[locale]) ??
+          unwrapMessages(messages[DEFAULT_LOCALE]);
         const fallback = unwrapMessages(messages[DEFAULT_LOCALE]);
         const raw = lookup(catalog, key) ?? lookup(fallback, key) ?? key;
         return interpolate(raw, vars);
@@ -96,7 +113,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     [locale, setLocale, t],
   );
 
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+  return (
+    <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
+  );
 }
 
 export function useLocale(): LocaleContextValue {

@@ -12,9 +12,15 @@ function sanitizeString(value: string): string {
   return value
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
     .replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/g, "<redacted-stripe-key>")
-    .replace(/\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}\b/g, "<redacted-model-key>")
+    .replace(
+      /\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}\b/g,
+      "<redacted-model-key>",
+    )
     .replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, "<redacted-google-key>")
-    .replace(/\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g, "<redacted-github-token>")
+    .replace(
+      /\b(?:github_pat_[A-Za-z0-9_]{12,}|ghp_[A-Za-z0-9]{20,})\b/g,
+      "<redacted-github-token>",
+    )
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, "<redacted-aws-key>")
     .replace(
       /((?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY|DATABASE_URL)[A-Z0-9_]*\s*[:=]\s*)[^\s,;)]+/gi,
@@ -29,7 +35,9 @@ function sanitizeValue(value: unknown, depth = 0): unknown {
   }
   if (value && typeof value === "object") {
     const clean: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, item] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       clean[key] = SENSITIVE_KEY.test(key)
         ? "[redacted]"
         : sanitizeValue(item, depth + 1);

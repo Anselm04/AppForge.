@@ -59,13 +59,15 @@ describe("technology stack adapters", () => {
 
   it("rejects an explicit stack that is incompatible with the product contract", () => {
     const contract = buildProductContract("Build a mobile app for field staff");
-    expect(() =>
-      withSelectedTechnologyStack(contract, "next-node"),
-    ).toThrow(/does not support product type mobile_app/);
+    expect(() => withSelectedTechnologyStack(contract, "next-node")).toThrow(
+      /does not support product type mobile_app/,
+    );
   });
 
   it("preserves a compatible explicit stack in canonical form", () => {
-    const contract = buildProductContract("Build a website for a design studio");
+    const contract = buildProductContract(
+      "Build a website for a design studio",
+    );
     const updated = withSelectedTechnologyStack(contract, "Next.js");
     expect(updated.selectedTechnologyStack).toBe("next-node");
     expect(updated.originalPrompt).toBe(contract.originalPrompt);
@@ -102,9 +104,9 @@ describe("technology stack adapters", () => {
     expect(assertStackSupportsProduct("phaser-html5", "game").id).toBe(
       "phaser-html5",
     );
-    expect(() =>
-      assertStackSupportsProduct("phaser-html5", "api"),
-    ).toThrow(/does not support product type api/);
+    expect(() => assertStackSupportsProduct("phaser-html5", "api")).toThrow(
+      /does not support product type api/,
+    );
   });
 
   it("exposes adapter metadata for runtime decisions", () => {

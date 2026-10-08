@@ -11,6 +11,6 @@ describe("Sentry request redaction", () => {
     expect(source).not.toContain("headers: req.headers");
     expect(source).not.toContain("url: req.url");
     expect(source).toContain("[redacted]");
-    expect(source).toContain('path: req.path');
+    expect(source).toContain("path: req.path");
   });
 });

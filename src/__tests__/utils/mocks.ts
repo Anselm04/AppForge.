@@ -1,12 +1,16 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 export const mockApiResponse = {
   success: true,
-  data: { id: 'test-id', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' },
+  data: {
+    id: "test-id",
+    createdAt: "2024-01-01T00:00:00Z",
+    updatedAt: "2024-01-01T00:00:00Z",
+  },
 };
 
 export const mockAuthContext = {
-  user: { id: 'test-user-id', email: 'test@example.com', username: 'testuser' },
+  user: { id: "test-user-id", email: "test@example.com", username: "testuser" },
   isLoading: false,
   isAuthenticated: true,
   login: vi.fn(),
@@ -28,11 +32,11 @@ export const mockToast = {
 export const mockNavigate = vi.fn();
 
 export const mockLocation = {
-  pathname: '/',
-  search: '',
-  hash: '',
+  pathname: "/",
+  search: "",
+  hash: "",
   state: null,
-  key: 'default',
+  key: "default",
 };
 
 export const mockQueryClient = {

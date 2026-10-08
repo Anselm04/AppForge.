@@ -16,7 +16,9 @@ function sanitizeContext(value: unknown, depth = 0): unknown {
   }
   if (value && typeof value === "object") {
     const clean: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, item] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       clean[key] = SENSITIVE_CONTEXT_KEY.test(key)
         ? "[REDACTED]"
         : sanitizeContext(item, depth + 1);

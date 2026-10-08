@@ -41,7 +41,7 @@ export function isolatedPreviewConfigured(): boolean {
   return Boolean(
     (process.env.SPRITES_PREVIEW_URL?.trim() ||
       process.env.SPRITES_EXEC_URL?.trim()) &&
-      process.env.SPRITES_API_TOKEN?.trim(),
+    process.env.SPRITES_API_TOKEN?.trim(),
   );
 }
 

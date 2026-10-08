@@ -20,11 +20,17 @@ export interface GeneratedCode {
 }
 
 function isGameRequest(requirements: any): boolean {
-  const text = [requirements?.appName, requirements?.description, ...(requirements?.features ?? [])]
+  const text = [
+    requirements?.appName,
+    requirements?.description,
+    ...(requirements?.features ?? []),
+  ]
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
     .toLowerCase();
-  return /\b(game|arcade|pac[- ]?man|maze|snake|pong|platformer|level|ghost)\b/.test(text);
+  return /\b(game|arcade|pac[- ]?man|maze|snake|pong|platformer|level|ghost)\b/.test(
+    text,
+  );
 }
 
 function gameSource(): string {
@@ -77,25 +83,63 @@ export default function PacManGame() {
 }
 
 export class CodeGenerator {
-  async generateFrontend(requirements: any, architecture: any): Promise<GeneratedCode['frontend']> {
-    if (isGameRequest(requirements)) return { code: gameSource(), components: ['PacManGame'], pages: ['Game'] };
-    const components = (architecture?.frontend?.components ?? ['Header', 'Dashboard']).map((name: string) => this.generateComponent(name, requirements));
-    const pages = (architecture?.frontend?.pages ?? ['Home']).map((name: string) => this.generatePage(name, requirements));
-    return { code: 'export default function App() { return <div>Generated product</div>; }', components, pages };
+  async generateFrontend(
+    requirements: any,
+    architecture: any,
+  ): Promise<GeneratedCode["frontend"]> {
+    if (isGameRequest(requirements))
+      return {
+        code: gameSource(),
+        components: ["PacManGame"],
+        pages: ["Game"],
+      };
+    const components = (
+      architecture?.frontend?.components ?? ["Header", "Dashboard"]
+    ).map((name: string) => this.generateComponent(name, requirements));
+    const pages = (architecture?.frontend?.pages ?? ["Home"]).map(
+      (name: string) => this.generatePage(name, requirements),
+    );
+    return {
+      code: "export default function App() { return <div>Generated product</div>; }",
+      components,
+      pages,
+    };
   }
 
-  async generateBackend(requirements: any, architecture: any): Promise<GeneratedCode['backend']> {
-    const endpoints = (architecture?.backend?.endpoints ?? ['/api/health']).map((endpoint: string) => `app.get('${endpoint}', (_req, res) => res.json({ ok: true }));`);
-    return { endpoints, services: ['AppService'], code: 'export default function startServer() { return true; }' };
+  async generateBackend(
+    requirements: any,
+    architecture: any,
+  ): Promise<GeneratedCode["backend"]> {
+    const endpoints = (architecture?.backend?.endpoints ?? ["/api/health"]).map(
+      (endpoint: string) =>
+        `app.get('${endpoint}', (_req, res) => res.json({ ok: true }));`,
+    );
+    return {
+      endpoints,
+      services: ["AppService"],
+      code: "export default function startServer() { return true; }",
+    };
   }
 
-  async generateDatabase(_requirements: any, architecture: any): Promise<GeneratedCode['database']> {
-    const tables = architecture?.database?.tables ?? ['app_state'];
-    return { schema: tables.map((table: string) => `CREATE TABLE ${table} (id uuid PRIMARY KEY);`).join('\n'), migrations: ['0001_initial.sql'] };
+  async generateDatabase(
+    _requirements: any,
+    architecture: any,
+  ): Promise<GeneratedCode["database"]> {
+    const tables = architecture?.database?.tables ?? ["app_state"];
+    return {
+      schema: tables
+        .map((table: string) => `CREATE TABLE ${table} (id uuid PRIMARY KEY);`)
+        .join("\n"),
+      migrations: ["0001_initial.sql"],
+    };
   }
 
-  private generateComponent(name: string, requirements: any): string { return `export function ${name}() { return <section><h2>${name}</h2><p>${requirements?.appName ?? 'Generated product'}</p></section>; }`; }
-  private generatePage(name: string, requirements: any): string { return `export function ${name}Page() { return <main><h1>${name}</h1><p>${requirements?.description ?? ''}</p></main>; }`; }
+  private generateComponent(name: string, requirements: any): string {
+    return `export function ${name}() { return <section><h2>${name}</h2><p>${requirements?.appName ?? "Generated product"}</p></section>; }`;
+  }
+  private generatePage(name: string, requirements: any): string {
+    return `export function ${name}Page() { return <main><h1>${name}</h1><p>${requirements?.description ?? ""}</p></main>; }`;
+  }
 }
 
 export default CodeGenerator;

@@ -7,15 +7,15 @@ export {
   createCustomRateLimiter,
   getRateLimitConfig,
   rateLimiters,
-} from './rateLimiter';
+} from "./rateLimiter";
 
-export type { RateLimitConfig } from './rateLimiter';
+export type { RateLimitConfig } from "./rateLimiter";
 
 export {
   createSlowDown,
   createCustomSlowDown,
   slowDownMiddleware,
-} from './slowDown';
+} from "./slowDown";
 
-export type { SlowDownConfig } from './slowDown';
-export type { RateLimitRequestHandler } from 'express-rate-limit';
+export type { SlowDownConfig } from "./slowDown";
+export type { RateLimitRequestHandler } from "express-rate-limit";

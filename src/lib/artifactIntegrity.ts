@@ -159,7 +159,7 @@ export function buildArtifactIntegrity(input: {
       const previous = previousByPath.get(path);
       const previousVersion =
         previous?.fileVersion ??
-        (previous ? input.previousIntegrity?.artifactVersion ?? 0 : 0);
+        (previous ? (input.previousIntegrity?.artifactVersion ?? 0) : 0);
       const fileVersion =
         previous && previous.sha256 === sha256
           ? Math.max(1, previousVersion)
@@ -211,7 +211,9 @@ export function assertArtifactIntegrity(input: {
     integrity.projectId !== input.projectId ||
     integrity.artifactVersion !== input.artifactVersion
   ) {
-    throw new Error("Artifact integrity metadata does not match project/version");
+    throw new Error(
+      "Artifact integrity metadata does not match project/version",
+    );
   }
   if (input.requiredState && integrity.state !== input.requiredState) {
     throw new Error(

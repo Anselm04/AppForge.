@@ -23,7 +23,8 @@ export function App() {
   {
     name: "landing with fences",
     stack: "react-node",
-    llmBlob: "```tsx src/App.tsx\nexport function App() { return <h1 className=\"text-3xl\">Hello</h1> }\n```\n",
+    llmBlob:
+      '```tsx src/App.tsx\nexport function App() { return <h1 className="text-3xl">Hello</h1> }\n```\n',
   },
   {
     name: "dashboard multi-file",
@@ -56,9 +57,9 @@ export default function App() {
 describe("Item 1 golden structural suite", () => {
   for (const sample of PROMPTS) {
     it(`${sample.name} (${sample.stack}) hardens to buildable shape`, () => {
-      expect(isGoldenStack(sample.stack) || sample.stack.includes("react")).toBe(
-        true,
-      );
+      expect(
+        isGoldenStack(sample.stack) || sample.stack.includes("react"),
+      ).toBe(true);
       const parsed = parseGeneratedFiles(sample.llmBlob);
       const problems = assertBuildableShape(parsed, sample.stack);
       expect(problems).toEqual([]);
@@ -67,7 +68,9 @@ describe("Item 1 golden structural suite", () => {
       expect(hardened["package.json"]).toBeTruthy();
       const pkg = JSON.parse(hardened["package.json"]);
       expect(pkg.scripts.build).toBeTruthy();
-      expect(pkg.dependencies?.react || sample.stack.includes("next")).toBeTruthy();
+      expect(
+        pkg.dependencies?.react || sample.stack.includes("next"),
+      ).toBeTruthy();
     });
   }
 

@@ -3,8 +3,17 @@
  * Request/response schemas for AppForge API endpoints
  */
 
-import { z } from 'zod';
-import { emailSchema, passwordSchema, usernameSchema, uuidSchema, paginationSchema, searchSchema, nameSchema, statusEnum } from './commonSchemas';
+import { z } from "zod";
+import {
+  emailSchema,
+  passwordSchema,
+  usernameSchema,
+  uuidSchema,
+  paginationSchema,
+  searchSchema,
+  nameSchema,
+  statusEnum,
+} from "./commonSchemas";
 
 // ==================== Auth Schemas ====================
 
@@ -20,7 +29,7 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   body: z.object({
     email: emailSchema,
-    password: z.string().min(1, 'Password is required'),
+    password: z.string().min(1, "Password is required"),
   }),
 });
 
@@ -32,7 +41,7 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   params: z.object({
-    token: z.string().min(1, 'Token is required'),
+    token: z.string().min(1, "Token is required"),
   }),
   body: z.object({
     password: passwordSchema,
@@ -41,7 +50,7 @@ export const resetPasswordSchema = z.object({
 
 export const verifyEmailSchema = z.object({
   params: z.object({
-    token: z.string().min(1, 'Token is required'),
+    token: z.string().min(1, "Token is required"),
   }),
 });
 
@@ -81,7 +90,7 @@ export const createAgentSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(100),
     description: z.string().optional(),
-    type: z.enum(['workflow', 'task', 'pipeline']),
+    type: z.enum(["workflow", "task", "pipeline"]),
     config: z.record(z.string(), z.any()).optional(),
     metadata: z.record(z.string(), z.any()).optional(),
   }),
@@ -94,7 +103,7 @@ export const updateAgentSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
-    type: z.enum(['workflow', 'task', 'pipeline']).optional(),
+    type: z.enum(["workflow", "task", "pipeline"]).optional(),
     config: z.record(z.string(), z.any()).optional(),
     metadata: z.record(z.string(), z.any()).optional(),
   }),
@@ -122,10 +131,12 @@ export const runAgentSchema = z.object({
   }),
   body: z.object({
     input: z.record(z.string(), z.any()).optional(),
-    options: z.object({
-      timeout: z.number().int().positive().optional(),
-      retries: z.number().int().nonnegative().optional(),
-    }).optional(),
+    options: z
+      .object({
+        timeout: z.number().int().positive().optional(),
+        retries: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
   }),
 });
 
@@ -136,7 +147,9 @@ export const createProjectSchema = z.object({
     name: z.string().min(1).max(100),
     description: z.string().optional(),
     repository: z.string().url().optional(),
-    framework: z.enum(['react', 'vue', 'angular', 'svelte', 'next', 'nuxt']).optional(),
+    framework: z
+      .enum(["react", "vue", "angular", "svelte", "next", "nuxt"])
+      .optional(),
     metadata: z.record(z.string(), z.any()).optional(),
   }),
 });
@@ -149,7 +162,9 @@ export const updateProjectSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
     repository: z.string().url().optional(),
-    framework: z.enum(['react', 'vue', 'angular', 'svelte', 'next', 'nuxt']).optional(),
+    framework: z
+      .enum(["react", "vue", "angular", "svelte", "next", "nuxt"])
+      .optional(),
   }),
 });
 
@@ -177,7 +192,10 @@ export const createTaskSchema = z.object({
     agentId: uuidSchema,
     name: z.string().min(1).max(100),
     description: z.string().optional(),
-    priority: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
+    priority: z
+      .enum(["low", "medium", "high", "critical"])
+      .optional()
+      .default("medium"),
     input: z.record(z.string(), z.any()).optional(),
   }),
 });
@@ -189,8 +207,10 @@ export const updateTaskSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
-    priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-    status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']).optional(),
+    priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+    status: z
+      .enum(["pending", "running", "completed", "failed", "cancelled"])
+      .optional(),
   }),
 });
 
@@ -207,13 +227,15 @@ export const deleteTaskSchema = z.object({
 });
 
 export const listTasksSchema = z.object({
-  query: paginationSchema
-    .merge(searchSchema)
-    .merge(z.object({
+  query: paginationSchema.merge(searchSchema).merge(
+    z.object({
       projectId: uuidSchema.optional(),
       agentId: uuidSchema.optional(),
-      status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']).optional(),
-    })),
+      status: z
+        .enum(["pending", "running", "completed", "failed", "cancelled"])
+        .optional(),
+    }),
+  ),
 });
 
 // ==================== Export all schemas ====================
@@ -225,13 +247,13 @@ export const apiSchemas = {
   forgotPassword: forgotPasswordSchema,
   resetPassword: resetPasswordSchema,
   verifyEmail: verifyEmailSchema,
-  
+
   // User
   updateUser: updateUserSchema,
   getUser: getUserSchema,
   deleteUser: deleteUserSchema,
   listUsers: listUsersSchema,
-  
+
   // Agent
   createAgent: createAgentSchema,
   updateAgent: updateAgentSchema,
@@ -239,14 +261,14 @@ export const apiSchemas = {
   deleteAgent: deleteAgentSchema,
   listAgents: listAgentsSchema,
   runAgent: runAgentSchema,
-  
+
   // Project
   createProject: createProjectSchema,
   updateProject: updateProjectSchema,
   getProject: getProjectSchema,
   deleteProject: deleteProjectSchema,
   listProjects: listProjectsSchema,
-  
+
   // Task
   createTask: createTaskSchema,
   updateTask: updateTaskSchema,

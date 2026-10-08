@@ -43,7 +43,7 @@ Output format:
 export async function generateSafeMigration(
   oldSchema: string,
   newSchema: string,
-  projectId: number
+  projectId: number,
 ): Promise<MigrationPackage> {
   logger.info({ projectId }, "db_migration_start");
 
@@ -55,26 +55,45 @@ export async function generateSafeMigration(
     },
   ];
 
-  const result = await invokeLLM({ messages, maxTokens: 4000, responseFormat: { type: "text" } });
+  const result = await invokeLLM({
+    messages,
+    maxTokens: 4000,
+    responseFormat: { type: "text" },
+  });
   const rawContent = result.choices[0]?.message?.content ?? "";
-  const text = typeof rawContent === "string"
-    ? rawContent
-    : rawContent.filter((c): c is { type: "text"; text: string } => c.type === "text").map(c => c.text).join("");
+  const text =
+    typeof rawContent === "string"
+      ? rawContent
+      : rawContent
+          .filter((c): c is { type: "text"; text: string } => c.type === "text")
+          .map((c) => c.text)
+          .join("");
 
-  const forwardMatch = text.match(/--\s*Forward\s*Migration\s*([\s\S]*?)(?=--\s*Rollback\s*--|$)/i);
+  const forwardMatch = text.match(
+    /--\s*Forward\s*Migration\s*([\s\S]*?)(?=--\s*Rollback\s*--|$)/i,
+  );
   const rollbackMatch = text.match(/--\s*Rollback\s*--\s*([\s\S]*)/i);
 
   const forwardSql = forwardMatch ? forwardMatch[1].trim() : text;
-  const rollbackSql = rollbackMatch ? rollbackMatch[1].trim() : "-- No rollback generated";
+  const rollbackSql = rollbackMatch
+    ? rollbackMatch[1].trim()
+    : "-- No rollback generated";
 
-  const isDestructive = /DROP\s+(COLUMN|TABLE)|ALTER\s+.*\s+TYPE|DELETE\s+FROM/i.test(forwardSql);
+  const isDestructive =
+    /DROP\s+(COLUMN|TABLE)|ALTER\s+.*\s+TYPE|DELETE\s+FROM/i.test(forwardSql);
   const destructiveWarning = isDestructive
     ? "Migration contains destructive operations. Manual review REQUIRED before running."
     : null;
 
-  const indexesAdded = (forwardSql.match(/CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+"(\w+)"/gi) ?? []).map(m => m.match(/"(\w+)"/)?.[1] ?? m);
-  const tablesAdded = (forwardSql.match(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+"(\w+)"/gi) ?? []).map(m => m.match(/"(\w+)"/)?.[1] ?? m);
-  const columnsAdded = (forwardSql.match(/ADD\s+COLUMN\s+"?(\w+)"?/gi) ?? []).map(m => m.match(/"?(\w+)"?/)?.[1] ?? m);
+  const indexesAdded = (
+    forwardSql.match(/CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+"(\w+)"/gi) ?? []
+  ).map((m) => m.match(/"(\w+)"/)?.[1] ?? m);
+  const tablesAdded = (
+    forwardSql.match(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+"(\w+)"/gi) ?? []
+  ).map((m) => m.match(/"(\w+)"/)?.[1] ?? m);
+  const columnsAdded = (
+    forwardSql.match(/ADD\s+COLUMN\s+"?(\w+)"?/gi) ?? []
+  ).map((m) => m.match(/"?(\w+)"?/)?.[1] ?? m);
 
   // Safety score: deduct for destructive ops, missing rollback, no guards
   let safetyScore = 100;
@@ -94,8 +113,14 @@ export async function generateSafeMigration(
   };
 
   logger.info(
-    { projectId, safetyScore, isDestructive, indexes: indexesAdded.length, tables: tablesAdded.length },
-    "db_migration_complete"
+    {
+      projectId,
+      safetyScore,
+      isDestructive,
+      indexes: indexesAdded.length,
+      tables: tablesAdded.length,
+    },
+    "db_migration_complete",
   );
 
   return pkg;
@@ -105,7 +130,7 @@ export async function generateSafeMigration(
 export async function writeMigrationToDisk(
   pkg: MigrationPackage,
   outDir: string,
-  timestamp: string
+  timestamp: string,
 ): Promise<{ forwardPath: string; rollbackPath: string }> {
   const { mkdir, writeFile } = await import("fs/promises");
   const { join } = await import("path");

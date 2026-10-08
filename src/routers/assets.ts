@@ -24,7 +24,8 @@ export function validateAssetAttachment(input: {
   ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Asset filename must be a safe file name without path traversal.",
+      message:
+        "Asset filename must be a safe file name without path traversal.",
     });
   }
 
@@ -40,7 +41,8 @@ export function validateAssetAttachment(input: {
     if (ACTIVE_SVG_CONTENT.test(input.content)) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "SVG assets may not contain scripts, embedded documents, or event handlers.",
+        message:
+          "SVG assets may not contain scripts, embedded documents, or event handlers.",
       });
     }
   }

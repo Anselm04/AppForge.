@@ -1,5 +1,5 @@
-import { CodeGenerator } from './code-generator.js';
-import { AIService } from './ai-service.js';
+import { CodeGenerator } from "./code-generator.js";
+import { AIService } from "./ai-service.js";
 
 export interface GeneratedApp {
   id: string;
@@ -11,7 +11,7 @@ export interface GeneratedApp {
   infrastructure: any;
   previewUrl: string;
   deployUrl: string;
-  status: 'building' | 'ready';
+  status: "building" | "ready";
 }
 
 export class AppBuilder {
@@ -25,15 +25,25 @@ export class AppBuilder {
 
   async build(requirements: any): Promise<GeneratedApp> {
     const appId = `app_${Date.now()}`;
-    
+
     // Generate architecture
-    const architecture = await this.aiService.generateAppArchitecture(requirements);
-    
+    const architecture =
+      await this.aiService.generateAppArchitecture(requirements);
+
     // Generate code
-    const frontend = await this.codeGenerator.generateFrontend(requirements, architecture);
-    const backend = await this.codeGenerator.generateBackend(requirements, architecture);
-    const database = await this.codeGenerator.generateDatabase(requirements, architecture);
-    
+    const frontend = await this.codeGenerator.generateFrontend(
+      requirements,
+      architecture,
+    );
+    const backend = await this.codeGenerator.generateBackend(
+      requirements,
+      architecture,
+    );
+    const database = await this.codeGenerator.generateDatabase(
+      requirements,
+      architecture,
+    );
+
     // Create app structure
     const app: GeneratedApp = {
       id: appId,
@@ -45,9 +55,9 @@ export class AppBuilder {
       infrastructure: architecture.infrastructure,
       previewUrl: `https://${appId}.appforge.dev`,
       deployUrl: `https://vercel.com/new?clone=1&repository-url=https://github.com/appforge/${appId}`,
-      status: 'ready',
+      status: "ready",
     };
-    
+
     return app;
   }
 

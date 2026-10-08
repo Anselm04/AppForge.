@@ -9,9 +9,7 @@ const source = readFileSync(
 
 describe("Senior Dev resume billing entitlement", () => {
   it("does not require a second credit balance after the initial reservation", () => {
-    const resumeStart = source.indexOf(
-      'router.post("/senior/:taskId/resume"',
-    );
+    const resumeStart = source.indexOf('router.post("/senior/:taskId/resume"');
     const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
     const resumeRoute = source.slice(resumeStart, deployStart);
 

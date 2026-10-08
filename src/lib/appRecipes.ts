@@ -61,7 +61,8 @@ export const APP_RECIPES: AppRecipe[] = [
     label: "Settings",
     match: /\b(settings|preferences|profile\s*settings|account\s*settings)\b/i,
     specKeywords: ["settings", "save", "profile"],
-    coderHint: "Build a settings page: card sections, labeled inputs, Save button.",
+    coderHint:
+      "Build a settings page: card sections, labeled inputs, Save button.",
   },
   {
     id: "blog",
@@ -512,10 +513,15 @@ export function buildRecipeApp(opts: {
       files["src/App.tsx"] = appChat(title);
       break;
     default:
-      files["src/App.tsx"] = appLanding(title, opts.description || recipe.label, entities);
+      files["src/App.tsx"] = appLanding(
+        title,
+        opts.description || recipe.label,
+        entities,
+      );
   }
 
-  files["README.md"] = `# ${esc(title)}\n\nRecipe: ${recipe.id}\n\n\`\`\`bash\nnpm install && npm run dev\n\`\`\`\n`;
+  files["README.md"] =
+    `# ${esc(title)}\n\nRecipe: ${recipe.id}\n\n\`\`\`bash\nnpm install && npm run dev\n\`\`\`\n`;
   return files;
 }
 

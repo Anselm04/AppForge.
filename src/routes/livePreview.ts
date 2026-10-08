@@ -9,7 +9,10 @@ import { verifyPreviewSignature } from "../services/deployer.js";
 import { parsePositiveIntParam } from "../lib/httpParams.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { validateProductContract } from "../lib/productContract.js";
-import { ensureIsolatedPreview, invalidateIsolatedPreview } from "../services/previewRuntime.js";
+import {
+  ensureIsolatedPreview,
+  invalidateIsolatedPreview,
+} from "../services/previewRuntime.js";
 
 const livePreviewRouter = Router();
 
@@ -259,7 +262,10 @@ function hasSignedPreviewAccess(req: Request, projectId: number): boolean {
 }
 
 function isPublicPreviewEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" || process.env.PREVIEW_PUBLIC === "true";
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.PREVIEW_PUBLIC === "true"
+  );
 }
 
 livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
@@ -439,8 +445,7 @@ livePreviewRouter.use("/:projectId", async (req: Request, res: Response) => {
         return;
       } catch {
         const looksLikeClientRoute =
-          !assetPath.includes(".") ||
-          req.accepts(["html", "json"]) === "html";
+          !assetPath.includes(".") || req.accepts(["html", "json"]) === "html";
         if (looksLikeClientRoute) {
           try {
             const index = await readFile(join(distDir, "index.html"));

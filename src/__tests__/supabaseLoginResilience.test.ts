@@ -11,11 +11,9 @@ describe("Supabase login resilience", () => {
   it("keeps a valid bearer session when browser-cookie sync is temporarily unavailable", () => {
     expect(authSource).toContain("syncServerSessionBestEffort");
     expect(authSource).toContain("saveSession(session)");
-    expect(authSource).toContain(
-      "await syncServerSessionBestEffort(",
-    );
-    expect(authSource).toContain('result.refresh_token');
-    expect(authSource).not.toContain('session.refreshToken');
+    expect(authSource).toContain("await syncServerSessionBestEffort(");
+    expect(authSource).toContain("result.refresh_token");
+    expect(authSource).not.toContain("session.refreshToken");
     expect(authSource).toContain('"x-supabase-refresh-token"');
   });
 });
