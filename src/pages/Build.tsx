@@ -875,7 +875,8 @@ export function Build() {
           </div>
         )}
 
-        {(isPaused || outOfCredits) && (
+        {(outOfCredits ||
+          (!unlimited && project?.pauseReason === "credits_exhausted")) && (
           <CreditsPauseBanner
             credits={creditBalance}
             cost={BUILD_CREDIT_COST}
