@@ -32,6 +32,28 @@ describe("iterateReliable (Priority 2)", () => {
     expect(assertBuildableShape(hardened, "react-node")).toEqual([]);
   });
 
+  it("preserves approved backend and small modules when a product exceeds the legacy file cap", () => {
+    const files = buildRecipeApp({
+      title: "Tasks",
+      description: "todo",
+      recipe: classifyRecipe("todo"),
+    });
+    const planned = {
+      "server/index.js": "import './middleware/error.js';",
+      "server/middleware/error.js": "export const onError = () => {};",
+      "compliance/cookie-consent.tsx": "export const Consent = () => null;",
+      ...Object.fromEntries(
+        Array.from({ length: 20 }, (_, i) => [
+          `src/task${i}.ts`,
+          `export const task${i} = ${i};`,
+        ]),
+      ),
+    };
+    const hardened = hardenAfterIterate({ ...files, ...planned }, "react-node");
+    for (const [path, content] of Object.entries(planned))
+      expect(hardened[path]).toBe(content);
+  });
+
   it("selectEditContext prioritizes App.tsx", () => {
     const ctx = selectEditContext("change the title", {
       "src/App.tsx": "title here",

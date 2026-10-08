@@ -28,6 +28,20 @@ const ecosystemRouterSource = readFileSync(
 );
 
 describe("product hardening guardrails", () => {
+  it("generation hardening never trims files from the approved artifact", () => {
+    const pipeline = [0, 1, 2, 3, 4]
+      .map((i) =>
+        readFileSync(
+          resolve(process.cwd(), `src/agents/.pipeline_parts/part${i}.txt`),
+          "utf8",
+        ),
+      )
+      .join("");
+    expect(pipeline).not.toMatch(/capGoldenFiles\s*\(/);
+    expect(pipeline).not.toMatch(/stripComplianceFromGolden\s*\(/);
+    expect(pipeline).toContain("validateGeneratedCodeArtifact");
+  });
+
   it("blocks credential-like fields from outbound integration payloads", () => {
     expect(() =>
       assertSafeExternalPayload({

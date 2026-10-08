@@ -436,8 +436,7 @@
             description,
             recipe: activeRecipe,
           });
-          generatedFiles = stripComplianceFromGolden(generatedFiles);
-          generatedFiles = capGoldenFiles(generatedFiles, 12);
+          // Approved modules must survive hardening regardless of file count.
           generatedFiles = hardenGeneratedProject(generatedFiles, techStack);
           emit("System", "info", {
             message: `Recipe guidance preserved generated output; infrastructure hardening applied (${activeRecipe.id}).`,
