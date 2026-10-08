@@ -1,10 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { TopNav } from "./components/TopNav.js";
 import { SiteFooter } from "./components/SiteFooter.js";
 import { useLocale } from "./i18n/LocaleContext.js";
@@ -36,6 +30,12 @@ import { Redeem } from "./pages/Redeem.js";
 import { Account } from "./pages/Account.js";
 import { ForgotPassword } from "./pages/ForgotPassword.js";
 import { PasswordReset } from "./pages/PasswordReset.js";
+import { Discover } from "./pages/Discover.js";
+import { FeatureDetail } from "./pages/FeatureDetail.js";
+import { HelpCenter } from "./pages/HelpCenter.js";
+import { Settings } from "./pages/Settings.js";
+import { NotFound } from "./pages/NotFound.js";
+import { ShortcutsPage } from "./pages/ShortcutsPage.js";
 
 function AppShell() {
   const { locale, dir } = useLocale();
@@ -57,6 +57,11 @@ function AppShell() {
           <Route path="/account" element={<Account />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/password-reset" element={<PasswordReset />} />
+          <Route path="/discover" element={<Discover />} />
+          <Route path="/features/:id" element={<FeatureDetail />} />
+          <Route path="/help" element={<HelpCenter />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/shortcuts" element={<ShortcutsPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/tools" element={<PluginWorkspace />} />
           <Route path="/build/:projectId" element={<Build />} />
@@ -120,7 +125,7 @@ function AppShell() {
             path="/studio/collab"
             element={<ExtensionStudio studioId="collab" />}
           />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
       {!hideFooter && <SiteFooter />}

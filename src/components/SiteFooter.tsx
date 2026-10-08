@@ -19,18 +19,12 @@ export function SiteFooter() {
           >
             {t("footer.about")}
           </Link>
-          <a
-            href="/help"
+          <Link
+            to="/help"
             className="hover:text-slate-900 dark:hover:text-white"
           >
             AppForge Support
-          </a>
-          <a
-            href="/help"
-            className="hover:text-slate-900 dark:hover:text-white"
-          >
-            AppForge Support
-          </a>
+          </Link>
         </div>
       </div>
     </footer>
