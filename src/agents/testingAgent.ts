@@ -53,11 +53,18 @@ export async function generateTestsForModule(
   techStack: string,
   requirements: RequirementContract[] = [],
   coordinationContext = "",
+  sourcePath?: string,
 ): Promise<{ testFile: string; filename: string } | null> {
   // Skip non-code files
   if (!fileContent.includes("export") && !fileContent.includes("function")) {
     return null;
   }
+
+  // The artifact owns the path, not the model's filename comment.
+  const expectedTestPath = sourcePath
+    ? sourcePath.replace(/\.(tsx?|jsx?|mjs|cjs)$/, ".test.$1")
+    : undefined;
+  if (sourcePath && expectedTestPath === sourcePath) return null;
 
   const result = await invokeLLM({
     messages: [
@@ -71,6 +78,7 @@ Given a source file, write a Vitest unit test file that covers:
 Use vitest (describe, it, expect, vi.fn).
 Mock external dependencies (DB, API calls, fetch) with vi.fn().
 Output ONLY the test file content, starting with // filename: <path>.test.ts or <path>.test.tsx.
+${expectedTestPath ? `The exact source path is ${sourcePath}. Write only ${expectedTestPath}, beside the source file. Import the module from its actual sibling basename; never guess a different directory or move the test.` : ""}
 ${harnessPromptLine(techStack)}
 If the file is a tRPC router, test with mocked context.
 If the file is a utility, test pure functions directly.
@@ -99,7 +107,15 @@ ${coordinationContext.slice(0, 8_000)}`,
     ? filenameMatch[1].trim()
     : `src/__tests__/${moduleName.toLowerCase().replace(/\s+/g, "-")}.test.ts`;
 
-  return { testFile: content, filename };
+  return {
+    testFile: expectedTestPath
+      ? content.replace(
+          /\/\/\s*filename:\s*[^\n]+/,
+          `// filename: ${expectedTestPath}`,
+        )
+      : content,
+    filename: expectedTestPath ?? filename,
+  };
 }
 
 export type RequirementContract = { id: string; text: string };
@@ -252,6 +268,7 @@ export async function attachGeneratedTests(
       techStack,
       requirementContract,
       coordinationContext,
+      filename,
     );
     if (testResult) {
       testFiles[testResult.filename] = testResult.testFile;
@@ -309,6 +326,9 @@ export const TestingAgent: Agent = {
         moduleName,
         String(content),
         String(techStack),
+        [],
+        "",
+        filename,
       );
       if (testResult) {
         testFiles[testResult.filename] = testResult.testFile;
