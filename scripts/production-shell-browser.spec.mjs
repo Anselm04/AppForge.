@@ -3,7 +3,12 @@ import { expect, test } from "@playwright/test";
 const appUrl =
   process.env.APPFORGE_URL || "https://appforge-unfurling-moon-9058.fly.dev";
 
-test.use({ viewport: { width: 390, height: 844 } });
+test.use({
+  viewport: { width: 390, height: 844 },
+  ...(process.env.APPFORGE_BROWSER_CHANNEL === "chrome"
+    ? { channel: "chrome" }
+    : {}),
+});
 
 test("production customer shell is interactive on mobile", async ({ page }) => {
   await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
