@@ -26,7 +26,21 @@ For a failed email request, inspect sanitized provider errors and configuration 
 - Live anonymous build request: HTTP 401.
 - Approved test signup: HTTP 503 `CONFIRMATION_DELIVERY_FAILED`; no matching test user was created in the connected Supabase project and no email was found in the approved Gmail mailbox.
 - Connected Stripe exposes existing AppForge products in a shared live account; no sandbox/test account is exposed.
-- Fly dashboard and CLI need authentication before provider diagnosis or deployment can proceed.
+- Fly dashboard access was obtained through the existing GitHub sign-in. Release v405 is running on two machines. Its protected secret inventory lacks `SUPABASE_SERVICE_ROLE_KEY`; its public configuration already includes the trusted AppForge HTTPS origin. The operator approved copying the existing server key; it was stored in the protected Fly secret manager on 8 October 09:49 UTC. Fly secret deployment v406 completed on 8 October 10:10 UTC; both replacement machines are Started with 2/2 checks and the pending secret badge is gone. The local Fly CLI has no token.
 - Privacy/terms/support publication needs the operator's approved content and contact.
 
 The live customer journey has not passed. This candidate is not a paying-customer certification.
+
+## Verified source candidate
+
+Draft PR: https://github.com/Anselm04/AppForge./pull/124 . Source commit `93213e0a54627f44200750e9efe57906900b60ee`. Local full run: 1,171 passed, one skipped, across 185 files. Typecheck, lint, production build, and changed-source formatting passed. Production dependency audit: zero findings; full audit: six high development-tool findings remain. GitHub CI security, lint/format, coverage/full tests, explicit golden-path contracts, typecheck, and product-factory validation also passed; production build subsequently passed; CI Pipeline, Security Scanning, Deploy Preview and the corrected PR Checklist all passed. Contract tests are not live customer-journey evidence.
+
+## Production account and email findings
+
+The operator requested existing real accounts only; no further synthetic or tagged signup accounts will be used. The existing operator Supabase account is email-confirmed and has signed in before. This proves its auth record exists, not that AppForge currently establishes its backend session. Production custom SMTP is disabled in Supabase. Customer reset and resend email must be configured with a verified production sender before those journeys can pass. Keep live Stripe product configuration in the operator’s existing shared account; never replace it with sandbox values to claim live readiness.
+
+Source formatting cleanup is independently saved in draft PR #125: https://github.com/Anselm04/AppForge./pull/125 . It reformats 112 previously failing files, passes the whole-source check and lint, and preserves compiled program structures. It is merged; deployment of the combined source candidate is pending.
+
+## Authorized release progress
+
+The operator approved merging and deploying PRs #124 and #125; both are merged. All four GitHub workflows passed for each candidate. The existing real Google account successfully signs into AppForge and is recognized as its owner. Real generation journey build 68 is running. This is progress evidence, not paying-customer approval.
