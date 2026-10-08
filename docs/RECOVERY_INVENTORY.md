@@ -732,3 +732,15 @@ See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup uses server-side Supabase li
 ## Generated artifact preservation
 
 Generation and edit hardening must retain approved source, backend and compliance modules even when the artifact exceeds historical golden file-count limits. Explicit user edits may delete files; automatic cleanup must not silently remove them. The approved-plan code-generation gate remains mandatory and rejects missing planned files. Regression evidence: `iterateReliable.test.ts` and `productHardeningGuardrails.test.ts`.
+
+## Live build display recovery
+
+The build page keeps a bounded recent-activity window and coalesces consecutive streaming chunks by agent. This display policy does not modify persisted event history, Redis delivery or recovery markers. A refresh reconstructs the display from the saved current-attempt events. Regression evidence: `src/lib/__tests__/buildLogView.test.ts` exercises 20,000 chunks, immutable snapshots and newest-failure retention.
+
+## Code generation repair recovery
+
+A code-generation rejection is a failed validation result in the bounded surgical repair loop, not a fatal restart that skips all completed tasks. Persist the rejected artifact and failure evidence before repair. Dependency diagnostics include the current package manifest; repair patches may target existing artifact files or paths owned by the approved plan only. Keep all subsequent compile, test, security and quality gates mandatory. Regression evidence: surgicalFix and productHardeningGuardrails tests.
+
+## Build monitoring request budget
+
+Live updates use authenticated SSE. Poll project status every 15 seconds only while active; stop polling paused, terminal or failed-access builds. Do not retry authentication, ownership or rate-limit rejections. Convert plain middleware HTTP 429 responses into a clear client error instead of a tRPC decoding failure. Preserve every server-side limiter and its existing limits. Regression evidence: `src/lib/__tests__/buildPolling.test.ts`.

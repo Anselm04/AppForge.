@@ -60,6 +60,8 @@
           },
         );
         const patches = parseGeneratedFiles(fixContent);
+        const approvedRepairPaths = coordinationContext!.productPlan.tasks.flatMap(task => task.files);
+        assertSurgicalPatchScope(patches, generatedFiles, approvedRepairPaths);
         if (Object.keys(patches).length > 0) {
           generatedFiles = mergeSurgicalPatches(generatedFiles, patches);
           for (const filename of Object.keys(patches)) {
@@ -69,6 +71,7 @@
           const filenameMatch = fixContent.match(/\/\/\s*filename:\s*(.+)/);
           if (filenameMatch) {
             const filename = filenameMatch[1].trim();
+            assertSurgicalPatchScope({ [filename]: fixContent }, generatedFiles, approvedRepairPaths);
             generatedFiles[filename] = fixContent
               .replace(/^\/\/\s*filename:\s*.+\r?\n?/i, "")
               .trimStart();
@@ -472,10 +475,27 @@
         plan: coordinationContext!.productPlan,
       });
       if (codeGenerationProblems.length > 0) {
-        throw new Error(
-          "Generated code artifact failed Code Generation gate: " +
-            codeGenerationProblems.join("; "),
-        );
+        validationResult = {
+          passed: false,
+          stage: "code_generation",
+          errors: codeGenerationProblems,
+          durationMs: 0,
+          fileCount: Object.keys(generatedFiles).length,
+          warning: "",
+        };
+        await updateProjectBuildStage(projectId, "repairing");
+        await updateProjectFiles(projectId, { ...generatedFiles });
+        await recordCoordinationEvent({
+          agent: "Validator",
+          type: "failure",
+          detail: "Code Generation gate rejected the artifact: " + codeGenerationProblems.join("; "),
+        });
+        emit("Validator", "complete", {
+          ...validationResult,
+          message: "Code Generation gate failed; attempting a constrained repair.",
+        });
+        fixAttempt++;
+        continue;
       }
       if (!requirementManifest) {
         throw new Error("Requirement manifest was not initialized by the Planner");
