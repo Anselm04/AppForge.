@@ -211,12 +211,22 @@ jobs:
           inventory=docs/RECOVERY_INVENTORY.md
           runbook=docs/DISASTER_RECOVERY.md
 
-          grep -Fq 'flyctl scale count 2 --process-group app' "$deploy"
-          grep -Fq 'expected exactly two started app Machines' "$deploy"
-          grep -Fq 'flyctl scale count 2 --process-group app' "$guard"
-          grep -Fq 'Exactly two started Fly app Machines established.' "$guard"
-          grep -Fq 'needed=$((2 - started))' "$guard"
-          grep -Fq 'head -n "$needed"' "$guard"
+          capacity=scripts/verify-fly-capacity.mjs
+          test -s "$capacity"
+          for workflow in "$deploy" "$guard"; do
+            grep -Fq 'group: fly-production-runtime' "$workflow"
+            grep -Fq 'cancel-in-progress: false' "$workflow"
+            grep -Fq 'node scripts/verify-fly-capacity.mjs' "$workflow"
+            if grep -Eq 'flyctl (scale count|machine(s)? start)' "$workflow"; then
+              echo 'Production verification must not revive or scale historical machines.'
+              exit 1
+            fi
+          done
+          grep -Fq 'started.length === 2' "$capacity"
+          grep -Fq 'process.env.RELEASE_SHA' "$capacity"
+          grep -Fq 'machine.image_ref?.labels?.GH_SHA' "$capacity"
+          grep -Fq 'check.status === "passing"' "$capacity"
+          node --test scripts/verify-fly-capacity.test.mjs
 
           grep -Fq 'REDIS_URL' "$deploy"
           grep -Fq 'REDIS_URL is required in production for shared multi-machine coordination' src/utils/env-validator.ts
