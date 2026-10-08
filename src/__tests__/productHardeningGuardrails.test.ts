@@ -42,6 +42,29 @@ describe("product hardening guardrails", () => {
     expect(pipeline).toContain("validateGeneratedCodeArtifact");
   });
 
+  it("sends code-generation rejection to the bounded repair loop without marking it passed", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/agents/.pipeline_parts/part2.txt"),
+      "utf8",
+    );
+    const gate = source.slice(
+      source.indexOf("if (codeGenerationProblems.length > 0)"),
+      source.indexOf(
+        "if (!requirementManifest)",
+        source.indexOf("if (codeGenerationProblems.length > 0)"),
+      ),
+    );
+    expect(gate).toContain('stage: "code_generation"');
+    expect(gate).toContain("passed: false");
+    expect(gate).toContain("errors: codeGenerationProblems");
+    expect(gate).toContain("fixAttempt++;");
+    expect(gate).toContain("continue;");
+    expect(gate).not.toContain("throw new Error");
+    expect(source).toContain(
+      "assertSurgicalPatchScope(patches, generatedFiles, approvedRepairPaths)",
+    );
+  });
+
   it("blocks credential-like fields from outbound integration payloads", () => {
     expect(() =>
       assertSafeExternalPayload({

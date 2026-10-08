@@ -18,18 +18,12 @@ import {
 } from "../lib/stackPresentation.js";
 import { buildStageLabel, outputMaturityLabel } from "../lib/buildStatus.js";
 import { isRecoverableBuildPause } from "../lib/buildRecovery.js";
+import { buildPollingInterval } from "../lib/buildPolling.js";
 
-interface BuildLog {
-  agent: string;
-  type: string;
-  payload?: {
-    message?: string;
-    type?: string;
-    text?: string;
-    spent?: number;
-    creditsSpent?: number;
-  };
-}
+import {
+  appendVisibleBuildLog,
+  type BuildLogEntry as BuildLog,
+} from "../lib/buildLogView.js";
 
 type DeployDestination =
   "vercel" | "netlify" | "fly" | "preview" | "github-pages";
@@ -70,14 +64,12 @@ export function Build() {
     queryKey: ["projects", projectId],
     queryFn: () => trpc.projects.get.query({ id: pid }),
     enabled: pid > 0,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "production-certified" ||
-        status === "validated" ||
-        status === "failed"
-        ? false
-        : 2000;
-    },
+    refetchInterval: (query) =>
+      buildPollingInterval(
+        query.state.data?.status,
+        query.state.status === "error",
+        isPaused,
+      ),
   });
 
   const { data: tierStatus } = useQuery({
@@ -145,7 +137,7 @@ export function Build() {
         }
         if (event === "agent") {
           const data = JSON.parse(raw) as BuildLog;
-          setLogs((prev) => [...prev, data]);
+          setLogs((prev) => appendVisibleBuildLog(prev, data));
           if (
             data.agent === "Coder" &&
             (data.type === "task_complete" || data.type === "complete")
@@ -182,14 +174,13 @@ export function Build() {
             /* ignore parse errors */
           }
 
-          setLogs((prev) => [
-            ...prev,
-            {
+          setLogs((prev) =>
+            appendVisibleBuildLog(prev, {
               agent: "System",
               type: "pause",
               payload: { message: message || reason, type: reason },
-            },
-          ]);
+            }),
+          );
           if (spent) setCreditsSpent(spent);
 
           const retryable = isRecoverableBuildPause("paused", reason);
@@ -748,6 +739,9 @@ export function Build() {
 
         {tab === "logs" && (
           <div className="space-y-4 mb-8">
+            <p className="text-slate-500 text-sm">
+              Recent activity · Earlier events remain saved with this build.
+            </p>
             {logs.map((log, idx) => (
               <AgentLogItem key={idx} log={log} />
             ))}

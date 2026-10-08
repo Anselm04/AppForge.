@@ -1,4 +1,5 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import { rejectRateLimitedResponse } from "../lib/buildPolling.js";
 import type { AppRouter } from "../routers/index.js";
 import {
   ensureFreshSession,
@@ -34,6 +35,7 @@ export const trpc = createTRPCProxyClient<AppRouter>({
             headers,
             credentials: "same-origin",
           });
+          rejectRateLimitedResponse(res);
           if (res.status === 403 && !retried) {
             clearCsrfToken();
             return run(true);

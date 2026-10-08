@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertSurgicalPatchScope,
   extractErrorPaths,
   mergeSurgicalPatches,
   buildSurgicalFixPrompt,
@@ -18,6 +19,39 @@ describe("surgicalFix", () => {
       files,
     );
     expect(paths).toContain("src/App.tsx");
+  });
+
+  it("includes the package manifest when a runtime import has no declared dependency", () => {
+    const prompt = buildSurgicalFixPrompt({
+      appTitle: "Tasks",
+      techStack: "react-node",
+      errors: ["server/index.js: missing runtime dependency helmet"],
+      files: {
+        "server/index.js": "import helmet from 'helmet';",
+        "package.json": '{"dependencies":{"express":"^4.21.0"}}',
+      },
+    });
+    expect(prompt).toContain("// filename: package.json");
+    expect(prompt).toContain('"express":"^4.21.0"');
+    expect(prompt).toContain("// filename: server/index.js");
+  });
+
+  it("allows existing and approved missing files but rejects scope expansion", () => {
+    expect(() =>
+      assertSurgicalPatchScope(
+        { "package.json": "{}", "server/index.js": "server" },
+        files,
+        ["server/index.js"],
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSurgicalPatchScope({ "server/unapproved.js": "server" }, files, []),
+    ).toThrow(/outside the approved artifact/);
+    expect(() =>
+      assertSurgicalPatchScope({ "../escape.ts": "server" }, files, [
+        "../escape.ts",
+      ]),
+    ).toThrow(/outside the approved artifact/);
   });
 
   it("merges patches without dropping other files", () => {
