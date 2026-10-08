@@ -744,10 +744,14 @@ Production deployment and scheduled capacity verification share a non-cancelling
 
 ## Free AI quota recovery — 2026-10-09
 
-Do not retry permanent provider failures, exhausted daily quotas or unavailable quota limits. Respect Retry-After and Gemini RetryInfo delays; a cooldown beyond the bounded inline wait must return the original failure for failover/pause rather than retry early. Gemini quota rejection may try gemini-3.1-flash-lite once using the same configured account key when no explicit model was requested. No new credentials, paid billing, quality-gate bypass or synthetic generation is introduced. Google rate limits are project/model scoped; confirm active quotas and run a real generated-product journey before paid approval. Regression evidence: llmRetryPolicy.test.ts and llm.test.ts.
+Do not retry permanent provider failures, exhausted daily quotas or unavailable quota limits. Respect Retry-After and Gemini RetryInfo delays; a cooldown beyond the bounded inline wait must return the original failure for failover/pause rather than retry early. Gemini quota rejection may select gemini-3.1-flash-lite and gemini-3.5-flash-lite once each using the same configured account key when no explicit model was requested or the internal pipeline allows fallback. No new credentials, paid billing, quality-gate bypass or synthetic generation is introduced. Google rate limits are project/model scoped; confirm active quotas and run a real generated-product journey before paid approval. Regression evidence: llmRetryPolicy.test.ts and llm.test.ts.
 
 ### Live browser verifier recovery — 9 October 2026
 
 Production release verification requires the installed stable Chrome supplied by GitHub's Ubuntu runner. The existing mobile shell assertions still run through Playwright's supported Chrome channel; a missing browser or a failed interaction fails the release. This avoids repeating Chromium downloads and system-package installation after a healthy Fly rollout. Other callers of the spec retain the default Chromium selection.
 
 If this gate fails after deployment, distinguish healthy runtime from incomplete release evidence. Preserve the healthy fleet while repairing verifier provisioning or the failing customer interaction, then rerun the exact release checks. Never mark a release verified from an installed-browser version check alone, and do not rerun historical-machine scaling as a browser recovery action.
+
+## Free model availability recovery — 9 October 2026
+
+The existing Gemini key may select each configured free fallback model once after exhausted quota, request timeout or provider 5xx unavailability. Bounded backoff still respects Retry-After; explicit caller model binding remains authoritative unless the internal pipeline opts into fallback. Exhausting every available model pauses the build and preserves its plan. No paid subscription, new account or relaxed validation is a recovery substitute. Regression evidence: llm.test.ts covers successful transient failover, bound callers and all-model exhaustion.

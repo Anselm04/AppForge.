@@ -553,10 +553,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
       errors.push(detail);
 
-      // Each free model is tried at most once using the existing account.
+      // Each free model is selected at most once using the existing account.
       // An explicit caller model stays binding; no keys or billing are added.
       if (
-        response.status === 429 &&
+        (response.status === 408 ||
+          response.status === 429 ||
+          (response.status >= 500 && response.status <= 599)) &&
         provider.id === "gemini" &&
         (!explicitModel || params.allowModelFallback === true)
       ) {
@@ -578,7 +580,10 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         }
       }
 
-      if (shouldFailoverStatus(response.status) && i < providers.length - 1) {
+      if (
+        (response.status === 408 || shouldFailoverStatus(response.status)) &&
+        i < providers.length - 1
+      ) {
         console.warn(
           `LLM provider ${provider.id} failed (${response.status}); trying next`,
         );

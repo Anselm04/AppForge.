@@ -243,6 +243,71 @@ describe("LLM invokeLLM", () => {
     ).toEqual(["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]);
   });
 
+  it.each([408, 500, 503])(
+    "switches free Gemini models after transient status %i without ignoring caller binding",
+    async (status) => {
+      process.env.GEMINI_API_KEY = "test-gemini-key";
+      delete process.env.BUILT_IN_FORGE_API_KEY;
+      const unavailable = () =>
+        new Response(
+          JSON.stringify([{ error: { message: "Model unavailable" } }]),
+          {
+            status,
+            headers: { "retry-after": "31" },
+          },
+        );
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(async () => unavailable())
+        .mockImplementationOnce(
+          async () =>
+            new Response(
+              JSON.stringify({
+                id: "free-repair",
+                choices: [{ message: { content: "fixed" } }],
+              }),
+              { status: 200 },
+            ),
+        );
+      global.fetch = fetchMock;
+      const result = await invokeLLM({
+        messages: [{ role: "user", content: "repair" }],
+        model: "gemini-3-flash-preview",
+        allowModelFallback: true,
+      });
+      expect(result.id).toBe("free-repair");
+      expect(
+        fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).model),
+      ).toEqual(["gemini-3-flash-preview", "gemini-3.1-flash-lite"]);
+      expect(fetchMock.mock.calls[1][1].headers.authorization).toBe(
+        "Bearer test-gemini-key",
+      );
+      fetchMock.mockReset().mockImplementation(async () => unavailable());
+      await expect(
+        invokeLLM({
+          messages: [{ role: "user", content: "repair" }],
+          model: "gemini-3-flash-preview",
+        }),
+      ).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      fetchMock.mockClear();
+      await expect(
+        invokeLLM({
+          messages: [{ role: "user", content: "repair" }],
+          model: "gemini-3-flash-preview",
+          allowModelFallback: true,
+        }),
+      ).rejects.toThrow();
+      expect(
+        fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).model),
+      ).toEqual([
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
+      ]);
+    },
+  );
+
   it("should apply tool choice 'required' only when single tool present", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
