@@ -9,7 +9,11 @@ type Props = {
 
 export function RequireAuth({ children }: Props) {
   const location = useLocation();
-  const { data: me, isPending, isError } = useQuery({
+  const {
+    data: me,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => trpc.auth.me.query(),
     staleTime: 0,

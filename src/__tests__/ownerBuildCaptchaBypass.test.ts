@@ -6,7 +6,9 @@ const home = readFileSync("src/pages/Home.tsx", "utf8");
 
 describe("owner build start", () => {
   it("bypasses customer captcha for the authenticated owner", () => {
-    expect(projects).toContain('import { isOwnerEmail } from "../lib/owner.js";');
+    expect(projects).toContain(
+      'import { isOwnerEmail } from "../lib/owner.js";',
+    );
     expect(projects).toContain("const owner = isOwnerEmail(ctx.user.email);");
     expect(projects).toContain("if (!owner) {");
     expect(projects).toContain("verifyHcaptchaToken(input.hcaptchaToken)");

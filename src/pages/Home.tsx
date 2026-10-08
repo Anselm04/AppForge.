@@ -267,9 +267,7 @@ export function Home() {
               </p>
             </div>
 
-            {!ownerUnlimited && (
-              <HcaptchaWidget onToken={setHcaptchaToken} />
-            )}
+            {!ownerUnlimited && <HcaptchaWidget onToken={setHcaptchaToken} />}
 
             {clarification && (
               <div

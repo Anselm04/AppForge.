@@ -6,15 +6,17 @@ const guardSource = readFileSync("src/components/auth/RequireAuth.tsx", "utf8");
 
 describe("authenticated AppForge routes", () => {
   it("redirects signed-out visitors before mounting the build interface", () => {
-    expect(guardSource).toContain('trpc.auth.me.query()');
-    expect(guardSource).toContain('<Navigate');
-    expect(guardSource).toContain('/login?next=');
-    expect(guardSource).toContain('<Outlet />');
+    expect(guardSource).toContain("trpc.auth.me.query()");
+    expect(guardSource).toContain("<Navigate");
+    expect(guardSource).toContain("/login?next=");
+    expect(guardSource).toContain("<Outlet />");
   });
 
   it("places every build-capable route behind RequireAuth", () => {
-    expect(appSource).toContain('import { RequireAuth } from "./components/auth/RequireAuth.js";');
-    expect(appSource).toContain('<Route element={<RequireAuth />}>');
+    expect(appSource).toContain(
+      'import { RequireAuth } from "./components/auth/RequireAuth.js";',
+    );
+    expect(appSource).toContain("<Route element={<RequireAuth />}>");
 
     for (const path of [
       "/",
