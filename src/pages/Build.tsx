@@ -16,8 +16,15 @@ import {
   completedBuildUrl,
   stackPresentation,
 } from "../lib/stackPresentation.js";
-import { buildStageLabel, outputMaturityLabel } from "../lib/buildStatus.js";
-import { isRecoverableBuildPause } from "../lib/buildRecovery.js";
+import {
+  buildActivityLabel,
+  buildStageLabel,
+  outputMaturityLabel,
+} from "../lib/buildStatus.js";
+import {
+  canRetryPlanning,
+  isRecoverableBuildPause,
+} from "../lib/buildRecovery.js";
 import { buildPollingInterval } from "../lib/buildPolling.js";
 
 import {
@@ -60,7 +67,11 @@ export function Build() {
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [streamRevision, setStreamRevision] = useState(0);
 
-  const { data: project, refetch: refetchProject } = useQuery({
+  const {
+    data: project,
+    refetch: refetchProject,
+    error: projectError,
+  } = useQuery({
     queryKey: ["projects", projectId],
     queryFn: () => trpc.projects.get.query({ id: pid }),
     enabled: pid > 0,
@@ -194,6 +205,7 @@ export function Build() {
           }
 
           setIsPaused(true);
+          void refetchProject();
           return;
         }
         if (event === "done") {
@@ -240,6 +252,7 @@ export function Build() {
           return;
         }
         if (event === "error") {
+          void refetchProject();
           try {
             const data = JSON.parse(raw) as {
               message?: string;
@@ -480,9 +493,14 @@ export function Build() {
   const integrationsRequired = (productContract?.integrations?.length ?? 0) > 0;
   const unresolvedRequirements =
     project?.requirementManifest?.unresolvedMustHaveIds ?? [];
+  const retryPlanning = project ? canRetryPlanning(project) : false;
+  const recoverablePause = project
+    ? isRecoverableBuildPause(project.status, project.pauseReason)
+    : false;
   const awaitingApproval =
     project?.status === "paused" &&
-    project?.pauseReason === "approval_required";
+    (project?.pauseReason === "approval_required" ||
+      (recoverablePause && !!project.productPlan));
   const approvalsReady =
     project?.planStatus === "approved" &&
     (!monetizationRequired || project?.monetizationApproved === true) &&
@@ -498,17 +516,16 @@ export function Build() {
   ].filter((value): value is string => Boolean(value));
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8">
+      <div className="max-w-6xl min-w-0 mx-auto">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {project?.status === "production-certified"
-            ? "Production certified"
-            : project?.status === "validated"
-              ? "Validated production candidate"
-              : awaitingApproval
-                ? "Review build plan"
-                : "Building your app…"}
+          {project ? buildActivityLabel(project) : "Checking build status…"}
         </h1>
+        {projectError && (
+          <p role="alert" className="mb-4 text-red-300">
+            Unable to load build status: {projectError.message}
+          </p>
+        )}
         {project && (
           <p className="text-slate-400 mb-4">
             {project.title} — {stack?.label ?? project.techStack}
@@ -520,7 +537,7 @@ export function Build() {
                 {stack.badge}
               </span>
             )}
-            {["running", "paused"].includes(project.status ?? "") && (
+            {project.status === "running" && (
               <span className="ml-2 text-amber-400 text-sm">
                 (runs in background — safe to refresh)
               </span>
@@ -588,6 +605,50 @@ export function Build() {
           </section>
         )}
 
+        {project && (
+          <section
+            role="status"
+            aria-live="polite"
+            className="mb-6 rounded-xl border border-slate-600 bg-slate-800 p-4 text-slate-100"
+          >
+            <p className="font-semibold">{buildActivityLabel(project)}</p>
+            <p className="mt-2 text-sm text-slate-200">
+              {project.status === "paused"
+                ? retryPlanning
+                  ? "Research or planning was interrupted before a plan was ready. Retry planning below; generation will wait for your approval."
+                  : awaitingApproval
+                    ? "Generation is stopped. Review the plan and approve the outstanding decisions below, then resume."
+                    : `Build is stopped. Reason: ${project.pauseReason ?? "Not supplied"}. Check Logs and Evidence before continuing.`
+                : project.status === "failed"
+                  ? "Build has stopped with a failure. Check the failure stage and Logs; it is not still generating."
+                  : project.status === "pending"
+                    ? "Your build is queued. No action is required yet."
+                    : project.status === "running"
+                      ? "Work is running in the background. Logs show activity; refreshing does not pause or restart the job."
+                      : "Check Preview and Evidence to verify the result before using or deploying it."}
+            </p>
+            <p className="mt-2 text-xs text-slate-300">
+              Last saved update:{" "}
+              {project.updatedAt
+                ? new Date(project.updatedAt).toLocaleString()
+                : "Not available"}
+            </p>
+            {project.status === "paused" && (
+              <p className="mt-2 text-sm break-words">
+                Pause reason: {project.pauseReason ?? "Not supplied"}
+              </p>
+            )}
+            {project.errorMessage &&
+              !["approval_required", project.pauseReason].includes(
+                project.errorMessage,
+              ) && (
+                <p className="mt-2 text-sm text-amber-200 break-words">
+                  {project.errorMessage}
+                </p>
+              )}
+          </section>
+        )}
+
         {project &&
           isRecoverableBuildPause(project.status, project.pauseReason) && (
             <section
@@ -598,16 +659,28 @@ export function Build() {
                 Build paused after an interruption
               </h2>
               <p className="mt-1 text-sm">
-                Your saved plan and progress are preserved. Retry to continue
-                with the same approved decisions.
+                Your saved progress is preserved.{" "}
+                {retryPlanning
+                  ? "Retry research and planning first; a plan will be presented for approval before generation."
+                  : "Complete the approvals below before continuing with the same saved decisions."}
               </p>
               <button
                 className="mt-3 forge-gold-btn px-4 py-2"
-                disabled={approvalBusy || !approvalsReady}
+                disabled={approvalBusy || (!retryPlanning && !approvalsReady)}
                 onClick={handleResumeApprovedBuild}
               >
-                {approvalBusy ? "Resuming…" : "Retry saved build"}
+                {approvalBusy
+                  ? "Resuming…"
+                  : retryPlanning
+                    ? "Retry planning"
+                    : "Retry saved build"}
               </button>
+              {!retryPlanning && !approvalsReady && (
+                <p className="mt-2 text-sm text-amber-200">
+                  Retry is unavailable until the outstanding approvals below are
+                  completed.
+                </p>
+              )}
             </section>
           )}
 
@@ -653,7 +726,7 @@ export function Build() {
                 approved={project.planStatus === "approved"}
                 detail="Approve the validated architecture, or request a revision first."
                 onApprove={handleApprovePlan}
-                disabled={approvalBusy}
+                disabled={approvalBusy || !project.productPlan}
               />
               {monetizationRequired && (
                 <ApprovalItem

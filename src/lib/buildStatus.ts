@@ -65,6 +65,34 @@ export function outputMaturityLabel(
   }
 }
 
+/** Durable lifecycle wins over a stale stage or stream notification. */
+export function buildActivityLabel(project: {
+  status?: string | null;
+  pauseReason?: string | null;
+  buildStage?: string | null;
+}): string {
+  switch (project.status) {
+    case "pending":
+      return "Queued";
+    case "paused":
+      return project.pauseReason === "approval_required"
+        ? "Waiting for your approval"
+        : "Paused — action required";
+    case "failed":
+      return "Build failed";
+    case "cancelled":
+      return "Build cancelled";
+    case "validated":
+      return "Validated production candidate";
+    case "production-certified":
+      return "Production certified";
+    case "running":
+      return buildStageLabel(project.buildStage);
+    default:
+      return "Checking build status…";
+  }
+}
+
 export const READY_PROJECT_STATUSES = [
   "validated",
   "production-certified",

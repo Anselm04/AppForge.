@@ -63,6 +63,18 @@ duplicates.
 
 ## Owner emergency procedure
 
+### Interrupted planning recovery
+
+A recoverable interruption in research, planning, or architecture with no saved
+product plan may retry planning from the persisted prompt/contract/stack. This
+does not approve generation: the pipeline must save a plan and enforce plan,
+monetization, and integration approvals before generating files. When a plan is
+already saved, the normal approval/revision controls remain required. Cancellation,
+missing credentials, and credit exhaustion do not qualify for this retry.
+
+Roll back the application revision if recovery behavior regresses. No schema or
+credential migration is introduced by this repair.
+
 Use this when customer safety, data integrity, billing integrity, or production
 availability is at risk.
 
