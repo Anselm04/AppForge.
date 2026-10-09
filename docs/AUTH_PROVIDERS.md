@@ -46,6 +46,25 @@ returning to the dev app, and the session never reaches the client.
 
 ## Verifying
 
+Enabled providers are not proof of a working OAuth application registration.
+GitHub's `redirect_uri` warning must be corrected in the OAuth app registered
+with the same client ID as the Supabase provider. The GitHub repository/export
+integration's `/api/github/callback` is a different flow: do not change or reuse
+that callback when repairing Supabase sign-in.
+
+Login captures an incoming callback before the token-bearing fragment is
+scrubbed and shares one completion attempt across effect restarts. A completed
+callback must refresh the authenticated user query before navigation. Regression
+coverage: `src/__tests__/socialCallbackLifecycle.test.tsx`.
+
+Admin SMS delivery errors now expose only numeric provider diagnostics and safe
+operator guidance. The owner phone remains server configured and must use E.164
+format. Delivery requests time out rather than leaving the page indefinitely
+pending. The verification check and session-bound admin MFA gate are unchanged.
+Unit tests are not evidence of real SMS delivery or completed owner verification.
+Correct provider configuration and verify receipt through the real owner phone
+before considering the SMS failure resolved.
+
 The allow-list is only enforced at the callback, not at `authorize`, so a
 `redirect_to` echoed back by `/auth/v1/authorize` does **not** prove it is
 allowed. To check an origin:
