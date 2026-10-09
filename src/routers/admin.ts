@@ -25,6 +25,7 @@ import {
   requestTwilioVerification,
   checkTwilioVerification,
   sendSms,
+  TwilioVerificationDeliveryError,
 } from "../lib/twilioSms.js";
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import {
@@ -57,6 +58,13 @@ function ensureAdminMfaConfigured(): void {
       message: "Admin SMS verification is not configured.",
     });
   }
+  if (!/^\+[1-9]\d{7,14}$/.test(ENV.ownerPhone.trim())) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "The configured admin phone must use international E.164 format. Admin remains locked.",
+    });
+  }
 }
 
 function legacyHash(raw: string): string {
@@ -83,7 +91,31 @@ export const adminRouter = router({
   requestMfa: ownerAuthenticatedProcedure.mutation(async ({ ctx }) => {
     ensureAdminMfaConfigured();
 
-    await requestTwilioVerification(ENV.ownerPhone.trim());
+    try {
+      await requestTwilioVerification(ENV.ownerPhone.trim());
+    } catch (error) {
+      logger.error(
+        {
+          userId: ctx.user.id,
+          httpStatus:
+            error instanceof TwilioVerificationDeliveryError
+              ? error.httpStatus
+              : undefined,
+          providerCode:
+            error instanceof TwilioVerificationDeliveryError
+              ? error.providerCode
+              : undefined,
+        },
+        "admin_mfa_delivery_failed",
+      );
+      throw new TRPCError({
+        code: "BAD_GATEWAY",
+        message:
+          error instanceof TwilioVerificationDeliveryError
+            ? error.message
+            : "Unable to contact the SMS provider. Admin remains locked. Check provider availability before retrying.",
+      });
+    }
 
     await db.insert(schema.complianceRecords).values({
       recordType: "security_incident",

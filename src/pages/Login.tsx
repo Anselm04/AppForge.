@@ -56,7 +56,21 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
-  const [completingConfirmation, setCompletingConfirmation] = useState(false);
+  // Capture before completeAuthRedirect scrubs tokens from the address bar.
+  // Effect cleanup/restart must await the same attempt rather than lose it.
+  const [hasAuthRedirect] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.location.hash.includes("access_token=") ||
+        window.location.search.includes("access_token=") ||
+        window.location.hash.includes("error_description=") ||
+        window.location.search.includes("error_description=")),
+  );
+  const confirmationAttempt = useRef<ReturnType<
+    typeof completeAuthRedirect
+  > | null>(null);
+  const [completingConfirmation, setCompletingConfirmation] =
+    useState(hasAuthRedirect);
   const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>(
     { email: false, password: false },
   );
@@ -88,17 +102,13 @@ export function Login() {
     let cancelled = false;
     const completeConfirmation = async () => {
       if (typeof window === "undefined") return;
-      const hasAuthRedirect =
-        window.location.hash.includes("access_token=") ||
-        window.location.search.includes("access_token=") ||
-        window.location.hash.includes("error_description=") ||
-        window.location.search.includes("error_description=");
       if (!hasAuthRedirect) return;
 
       setCompletingConfirmation(true);
       setError(null);
       try {
-        const session = await completeAuthRedirect();
+        confirmationAttempt.current ??= completeAuthRedirect();
+        const session = await confirmationAttempt.current;
         if (!session || cancelled) return;
         const meNow = await trpc.auth.me.query();
         if (cancelled) return;
@@ -117,7 +127,7 @@ export function Login() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, next, queryClient, t]);
+  }, [hasAuthRedirect, navigate, next, queryClient, t]);
 
   useEffect(() => {
     if (me && !completingConfirmation) {

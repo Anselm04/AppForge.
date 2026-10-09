@@ -167,7 +167,7 @@ export function Admin() {
 
           {requestMfa.isError && (
             <p className="mt-3 text-sm text-red-600">
-              Unable to send the admin verification code.
+              {requestMfa.error.message}
             </p>
           )}
 

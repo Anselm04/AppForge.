@@ -3,6 +3,30 @@ import { ENV } from "../_core/env.js";
 
 let verifyCustomCodesEnabled = false;
 
+export class TwilioVerificationDeliveryError extends Error {
+  constructor(
+    public readonly httpStatus: number,
+    public readonly providerCode?: number,
+  ) {
+    const hint =
+      providerCode === 20003
+        ? "Check the configured Twilio account credentials."
+        : providerCode === 21608
+          ? "Verify the registered owner phone in the Twilio trial account."
+          : providerCode === 60410
+            ? "Check Verify geographic permission for the owner phone's country."
+            : providerCode === 60212 || providerCode === 20404
+              ? "Check the configured Twilio Verify Service SID."
+              : providerCode === 60202
+                ? "Wait before requesting another code; the provider's send limit was reached."
+                : "Check the Verify service, account balance, and destination permissions.";
+    super(
+      `SMS provider rejected the request (HTTP ${httpStatus}${providerCode ? `, code ${providerCode}` : ""}). ${hint} Admin remains locked.`,
+    );
+    this.name = "TwilioVerificationDeliveryError";
+  }
+}
+
 function twilioAuthorization(): string {
   return `Basic ${Buffer.from(
     `${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`,
@@ -94,11 +118,22 @@ export async function requestTwilioVerification(to: string): Promise<void> {
         To: to,
         Channel: "sms",
       }),
+      signal: AbortSignal.timeout(12_000),
     },
   );
 
   if (!res.ok) {
-    throw new Error(`Twilio Verify delivery failed (${res.status})`);
+    const body: unknown = await res.json().catch(() => null);
+    const code =
+      body && typeof body === "object" && "code" in body
+        ? body.code
+        : undefined;
+    throw new TwilioVerificationDeliveryError(
+      res.status,
+      typeof code === "number" && Number.isSafeInteger(code) && code > 0
+        ? code
+        : undefined,
+    );
   }
 }
 
