@@ -18,7 +18,10 @@ import {
   ensureUserCredits,
 } from "../db.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
-import { isRecoverableBuildPause } from "../lib/buildRecovery.js";
+import {
+  canRetryPlanning,
+  isRecoverableBuildPause,
+} from "../lib/buildRecovery.js";
 import { appendBuildEvent } from "../services/build-event-store.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { isOwnerEmail } from "../lib/owner.js";
@@ -363,7 +366,9 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       if (
         project.status !== "paused" ||
-        project.pauseReason !== "approval_required" ||
+        (project.pauseReason !== "approval_required" &&
+          !isRecoverableBuildPause(project.status, project.pauseReason)) ||
+        !project.productPlan ||
         !["planning", "architecture"].includes(project.buildStage ?? "")
       ) {
         throw new TRPCError({
@@ -508,13 +513,24 @@ export const projectsRouter = router({
 
       const contract = validateProductContract(project.productContract);
       const revisingPlan = project.planStatus === "revision_requested";
-      if (revisingPlan && project.pauseReason !== "approval_required") {
+      const retryPlanning = canRetryPlanning(project);
+      if (
+        revisingPlan &&
+        project.pauseReason !== "approval_required" &&
+        !["researching", "planning", "architecture"].includes(
+          project.buildStage ?? "",
+        )
+      ) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Approve the revised plan before retrying generation.",
         });
       }
-      if (!revisingPlan && project.planStatus !== "approved") {
+      if (
+        !revisingPlan &&
+        !retryPlanning &&
+        project.planStatus !== "approved"
+      ) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Approve the plan before generation resumes.",
@@ -522,6 +538,7 @@ export const projectsRouter = router({
       }
       if (
         !revisingPlan &&
+        !retryPlanning &&
         contract.monetizationRequirements.length > 0 &&
         project.monetizationApproved !== true
       ) {
@@ -532,6 +549,7 @@ export const projectsRouter = router({
       }
       if (
         !revisingPlan &&
+        !retryPlanning &&
         contract.integrations.length > 0 &&
         project.integrationsApproved !== true
       ) {
@@ -609,8 +627,9 @@ export const projectsRouter = router({
 
       try {
         await appendBuildEvent(input.projectId, "build_resume", {
-          message:
-            "Resuming the saved build with its existing approved decisions.",
+          message: retryPlanning
+            ? "Retrying research and planning from the saved prompt. Generation still requires approval."
+            : "Resuming the saved build with its existing approved decisions.",
         });
         const { enqueueBuild } = await import("../services/build-queue.js");
         await enqueueBuild({

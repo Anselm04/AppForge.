@@ -13,6 +13,24 @@ export function isRecoverableBuildPause(
   );
 }
 
+/** Research/planning must be recoverable before a validated plan exists.
+ * This never authorizes generation: the pipeline still pauses for approval.
+ */
+export function canRetryPlanning(project: {
+  status?: string | null;
+  pauseReason?: string | null;
+  buildStage?: string | null;
+  productPlan?: unknown;
+}): boolean {
+  return (
+    isRecoverableBuildPause(project.status, project.pauseReason) &&
+    !project.productPlan &&
+    ["researching", "planning", "architecture"].includes(
+      project.buildStage ?? "",
+    )
+  );
+}
+
 /** Retain the audit history while preventing old terminal events ending a retry. */
 export function currentBuildAttemptEvents<T extends { event: string }>(
   events: T[],
