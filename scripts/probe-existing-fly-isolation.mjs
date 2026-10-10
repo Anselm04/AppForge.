@@ -10,7 +10,7 @@ const probe = [
   "const exists=p=>fs.existsSync(p);",
   "const status=fs.readFileSync(\"/proc/self/status\",\"utf8\");",
   "const memory=fs.readFileSync(\"/proc/meminfo\",\"utf8\");",
-  "console.log(JSON.stringify({uid:process.getuid(),gid:process.getgid(),node:process.version,capabilities:status.match(/^CapEff:.*$/m)?.[0],memoryAvailable:memory.match(/^MemAvailable:.*$/m)?.[0],cgroupV2:exists(\"/sys/fs/cgroup/cgroup.controllers\"),docker:exists(\"/usr/bin/docker\"),dockerd:exists(\"/usr/bin/dockerd\"),bubblewrap:exists(\"/usr/bin/bwrap\"),unshare:exists(\"/usr/bin/unshare\")}));"
+  "console.log(JSON.stringify({uid:process.getuid(),gid:process.getgid(),node:process.version,capabilities:status.match(/^CapEff:.*$/m)?.[0],memoryAvailable:memory.match(/^MemAvailable:.*$/m)?.[0],cgroupV2:exists(\"/sys/fs/cgroup/cgroup.controllers\"),docker:exists(\"/usr/bin/docker\"),dockerd:exists(\"/usr/bin/dockerd\"),bubblewrap:exists(\"/usr/bin/bwrap\"),unshare:exists(\"/usr/bin/unshare\"),cgroupMemory:exists(\"/sys/fs/cgroup/memory/memory.limit_in_bytes\"),cgroupPids:exists(\"/sys/fs/cgroup/pids/pids.max\"),cgroupMounts:fs.readFileSync(\"/proc/mounts\",\"utf8\").split(\"\n\").filter(l=>l.includes(\" cgroup\")),filesystems:fs.readFileSync(\"/proc/filesystems\",\"utf8\").split(\"\n\").filter(l=>l.includes(\"overlay\"))}));"
 ].join("");
 // Fixed read-only qualification command only. No environment, customer files,
 // keys, new machines, installations, runtime changes, or Sprites calls.
