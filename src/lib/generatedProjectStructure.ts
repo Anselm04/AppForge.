@@ -1,4 +1,4 @@
-import { builtinModules } from "node:module";
+import { isBuiltin } from "node:module";
 import { posix } from "node:path";
 import { getStackAdapter } from "./stackAdapters.js";
 
@@ -30,14 +30,6 @@ const SOURCE_EXTENSIONS = [
   ".json",
   ".css",
 ];
-
-const NODE_BUILTINS = new Set(
-  builtinModules.flatMap((name) => [
-    name,
-    name.replace(/^node:/, ""),
-    `node:${name}`,
-  ]),
-);
 
 function json(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -271,10 +263,7 @@ function packageNameFromSpecifier(specifier: string): string | null {
   ) {
     return null;
   }
-  if (
-    NODE_BUILTINS.has(specifier) ||
-    NODE_BUILTINS.has(specifier.replace(/^node:/, ""))
-  ) {
+  if (isBuiltin(specifier)) {
     return null;
   }
   if (specifier.startsWith("@")) {

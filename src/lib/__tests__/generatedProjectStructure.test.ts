@@ -157,6 +157,28 @@ describe("generated project structure", () => {
     );
   });
 
+  it("accepts prefixed Node built-ins without npm dependencies", () => {
+    const files = {
+      ...getStackScaffold("react-node"),
+      "server/middleware/error.test.js":
+        'import test from "node:test"; import assert from "node:assert/strict"; test("built-in test runner", () => assert.ok(true));',
+    };
+    expect(validateGeneratedProjectStructure(files, "react-node")).toEqual([]);
+  });
+
+  it.each(["test", "node:unknown-package"])(
+    "still rejects undeclared %s imports",
+    (specifier) => {
+      const files = {
+        ...getStackScaffold("react-node"),
+        "server/example.test.js": `import value from "${specifier}"; export default value;`,
+      };
+      expect(validateGeneratedProjectStructure(files, "react-node")).toContain(
+        `server/example.test.js: undeclared development dependency ${specifier}`,
+      );
+    },
+  );
+
   it("rejects conflicting or stale npm lockfiles", () => {
     const conflicting = {
       ...getStackScaffold("react-node"),
