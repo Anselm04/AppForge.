@@ -1,7 +1,11 @@
 import { eq, sql } from "drizzle-orm";
-import { db, getProjectFiles, type getProjectById } from "../db.js";
+import { db, getEditableProjectFiles, type getProjectById } from "../db.js";
 import * as schema from "../db/schema.js";
-import { getStackAdapter } from "../lib/stackAdapters.js";
+import {
+  assertArtifactIntegrity,
+  buildArtifactIntegrity,
+  validateArtifactFiles,
+} from "../lib/artifactIntegrity.js";
 import { validateSingleFile } from "../lib/validateSingleFile.js";
 
 export type EditableProject = NonNullable<
@@ -22,13 +26,60 @@ async function commitProjectFilesSnapshot(input: {
   userId: number;
   label: string;
   files: Record<string, string>;
+  originalFiles: Record<string, string>;
   techStack: string;
   validationResult?: unknown;
 }) {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT id FROM ${schema.projects} WHERE id = ${input.projectId} FOR UPDATE`,
-    );
+    await tx.execute(sql`select pg_advisory_xact_lock(${input.projectId})`);
+    const rows = await tx
+      .select()
+      .from(schema.projects)
+      .where(eq(schema.projects.id, input.projectId))
+      .limit(1);
+    const project = rows[0];
+    if (!project || project.userId !== input.userId) {
+      throw new Error("Project not found");
+    }
+    if (project.status === "running") {
+      throw new Error("Pause the build before editing saved files");
+    }
+    const workingFiles = project.generatedFiles
+      ? validateArtifactFiles(project.generatedFiles as Record<string, string>)
+      : {};
+    const currentFiles =
+      Object.keys(workingFiles).length > 0 ? workingFiles : input.originalFiles;
+    if (
+      project.workingArtifactIntegrity &&
+      Object.keys(workingFiles).length > 0
+    ) {
+      assertArtifactIntegrity({
+        files: currentFiles,
+        integrity: project.workingArtifactIntegrity,
+        projectId: input.projectId,
+        artifactVersion: project.workingArtifactVersion,
+        requiredState: "working",
+      });
+    }
+    if (
+      Object.keys(currentFiles).length !==
+        Object.keys(input.originalFiles).length ||
+      Object.entries(currentFiles).some(
+        ([path, content]) => input.originalFiles[path] !== content,
+      )
+    ) {
+      throw new Error(
+        "Saved files changed during this edit. Reload them and try again.",
+      );
+    }
+    const workingArtifactVersion = (project.workingArtifactVersion ?? 0) + 1;
+    const workingArtifactIntegrity = buildArtifactIntegrity({
+      projectId: input.projectId,
+      artifactVersion: workingArtifactVersion,
+      state: "working",
+      files: input.files,
+      previousIntegrity: project.workingArtifactIntegrity,
+    });
 
     const versionResult = await tx
       .select({
@@ -38,11 +89,15 @@ async function commitProjectFilesSnapshot(input: {
       .where(eq(schema.buildSnapshots.projectId, input.projectId));
     const version = Number(versionResult[0]?.maxVersion ?? 0) + 1;
 
-    await tx
-      .update(schema.buildSnapshots)
-      .set({ isCurrent: false })
-      .where(eq(schema.buildSnapshots.projectId, input.projectId));
-
+    // An isolated file check cannot certify the complete product. Retain the
+    // validated serving snapshot and save this revision as working source only.
+    const snapshotIntegrity = buildArtifactIntegrity({
+      projectId: input.projectId,
+      artifactVersion: version,
+      state: "working",
+      files: input.files,
+      previousIntegrity: project.workingArtifactIntegrity,
+    });
     const inserted = await tx
       .insert(schema.buildSnapshots)
       .values({
@@ -54,7 +109,8 @@ async function commitProjectFilesSnapshot(input: {
         fileCount: Object.keys(input.files).length,
         techStack: input.techStack,
         validationResult: input.validationResult ?? null,
-        isCurrent: true,
+        artifactIntegrity: snapshotIntegrity,
+        isCurrent: false,
       })
       .returning({ id: schema.buildSnapshots.id });
 
@@ -62,12 +118,8 @@ async function commitProjectFilesSnapshot(input: {
       .update(schema.projects)
       .set({
         generatedFiles: input.files,
-        status: "validated",
-        buildStage: "production-candidate",
-        outputMaturity:
-          getStackAdapter(input.techStack).generationMode === "structural"
-            ? "structural"
-            : "runnable",
+        workingArtifactVersion,
+        workingArtifactIntegrity,
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, input.projectId));
@@ -89,7 +141,7 @@ export async function commitValidatedProjectFileEdit(input: {
   if (!safeProjectPath(input.path)) {
     throw new Error("Invalid project file path");
   }
-  const files = await getProjectFiles(input.project.id);
+  const files = await getEditableProjectFiles(input.project.id);
   if (!(input.path in files) && !input.allowCreate) {
     throw new Error("Project file not found");
   }
@@ -107,6 +159,7 @@ export async function commitValidatedProjectFileEdit(input: {
     userId: input.userId,
     label: input.label,
     files: nextFiles,
+    originalFiles: files,
     techStack: input.project.techStack ?? "unknown",
     validationResult: validation,
   });

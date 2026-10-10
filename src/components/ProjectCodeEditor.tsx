@@ -101,8 +101,7 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
     );
   }
 
-  const content = activePath ? (files[activePath] ?? "") : "";
-  const editorValue = draft || content;
+  const editorValue = draft;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 min-h-[320px]">
@@ -160,7 +159,7 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
             disabled={!activePath || save.isPending}
             onClick={() => {
               if (!activePath) return;
-              save.mutate({ path: activePath, content: draft || content });
+              save.mutate({ path: activePath, content: draft });
             }}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm"
           >
@@ -173,13 +172,29 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
               if (!activePath) return;
               validate.mutate({
                 path: activePath,
-                content: draft || content,
+                content: draft,
               });
             }}
             className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm"
           >
             {validate.isPending ? "Validating…" : "Re-run validator"}
           </button>
+          {save.isError && save.variables?.path === activePath && (
+            <p role="alert" className="text-sm text-red-600">
+              File could not be saved:{" "}
+              {save.error instanceof Error
+                ? save.error.message
+                : "Please try again."}
+            </p>
+          )}
+          {save.isSuccess &&
+            save.variables?.path === activePath &&
+            save.variables?.content === draft && (
+              <p role="status" className="text-xs text-green-400">
+                Saved working revision. Full build validation is required before
+                deployment.
+              </p>
+            )}
           {validationMsg && (
             <span
               className={`text-xs ${validationMsg.ok ? "text-green-400" : "text-amber-400"}`}
