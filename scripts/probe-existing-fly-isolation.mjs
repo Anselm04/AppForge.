@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
+import { gzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 
 async function inspectHost(payload) {
@@ -251,9 +252,11 @@ console.log(
     })),
   ),
 );
-const encoded = Buffer.from(probe).toString("base64");
+const encoded = gzipSync(Buffer.from(probe)).toString("base64");
 const command =
-  "node -e 'eval(Buffer.from(\"" + encoded + '","base64").toString())\'';
+  'node -e \'eval(require("node:zlib").gunzipSync(Buffer.from("' +
+  encoded +
+  '","base64")).toString())\'';
 const output = execFileSync(
   "flyctl",
   ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "40"],
@@ -261,7 +264,10 @@ const output = execFileSync(
 );
 const marker = "APPFORGE_HOST_PROBE ";
 const line = output.split("\n").find((line) => line.startsWith(marker));
-if (!line) throw new Error("Remote probe did not produce its required result");
+if (!line)
+  throw new Error(
+    "Remote probe did not produce its required result: " + output.slice(-600),
+  );
 const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
   throw new Error("Incomplete remote probe");
