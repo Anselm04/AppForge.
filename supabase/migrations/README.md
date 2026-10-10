@@ -7,3 +7,8 @@ They are **not** applied by the AppForge Express server. Production app data use
 Do **not** run these migrations against your Fly/Drizzle database expecting the AppForge app schema.
 
 If you use Supabase only for Auth, keep Auth in the Supabase dashboard and point `DATABASE_URL` at your Drizzle-compatible Postgres (Fly Postgres, Supabase pooler, etc.).
+
+Migration 20261001213735 was recovered from the existing project's recorded
+migration statements on 11 October 2026 after the GitHub integration reported
+remote history absent from this directory. It preserves the applied SQL; no
+production migration repair, reset, or replay was performed.
