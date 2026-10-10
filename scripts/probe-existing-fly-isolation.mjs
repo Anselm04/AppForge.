@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
+import { readFileSync } from "node:fs";
 
-function inspectHost() {
+function inspectHost(reviewedFixture) {
   const fs = require("node:fs");
   const { execFileSync } = require("node:child_process");
   const exists = (p) => fs.existsSync(p);
@@ -49,15 +50,7 @@ function inspectHost() {
     for (const group of groups) fs.rmdirSync(group);
     throw new Error("Required resource controls are unavailable");
   }
-  const fixture = [
-    "const fs=require('node:fs');const assert=require('node:assert/strict');const net=require('node:net');",
-    "assert.equal(process.env.APPFORGE_HOST_SENTINEL,undefined);assert.notEqual(process.getuid(),0);",
-    "for(const p of ['/app','/root','/proc/1/environ']) assert.equal(fs.existsSync(p),false);",
-    "const socket=net.connect({host:'1.1.1.1',port:443});",
-    "socket.once('connect',()=>{console.error('Network escaped sandbox');socket.destroy();process.exit(1)});",
-    "socket.once('error',error=>{assert.ok(['ENETUNREACH','EHOSTUNREACH'].includes(error.code));console.log('SANDBOX_QUALIFIED');});",
-    "socket.setTimeout(1000,()=>{socket.destroy();process.exit(1)});",
-  ].join("");
+  const fixture = reviewedFixture;
   const sandboxArgs = [
     "/usr/bin/bwrap",
     "--unshare-all",
@@ -115,7 +108,7 @@ function inspectHost() {
       ],
       {
         encoding: "utf8",
-        timeout: 8000,
+        timeout: 28000,
         maxBuffer: 32768,
         env: {
           PATH: "/usr/local/bin:/usr/bin:/bin",
@@ -186,7 +179,13 @@ function inspectHost() {
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
 }
 
-const probe = "(" + inspectHost.toString() + ")()";
+const fixture = readFileSync(
+  new URL("./fixtures/existing-host-node.cjs", import.meta.url),
+  "utf8",
+);
+new Script(fixture);
+const probe =
+  "(" + inspectHost.toString() + ")(" + JSON.stringify(fixture) + ")";
 new Script(probe);
 if (process.argv.includes("--syntax-only")) process.exit(0);
 const app = "appforge-unfurling-moon-9058";
@@ -217,8 +216,8 @@ const command =
   "node -e 'eval(Buffer.from(\"" + encoded + '","base64").toString())\'';
 const output = execFileSync(
   "flyctl",
-  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "20"],
-  { encoding: "utf8", timeout: 30000 },
+  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "40"],
+  { encoding: "utf8", timeout: 50000 },
 );
 const marker = "APPFORGE_HOST_PROBE ";
 const line = output.split("\n").find((line) => line.startsWith(marker));
