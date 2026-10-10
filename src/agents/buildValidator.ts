@@ -12,6 +12,7 @@
 // If validation FAILS, the pipeline will feed the errors back to the LLM
 // for an automatic retry (see pipeline.ts "Validator" phase).
 
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -233,7 +234,7 @@ export async function validateGeneratedBuild(
   techStack: string,
   options: ValidateOptions = {},
 ): Promise<ValidationResult> {
-  const tmpDir = join(tmpdir(), `appforge-build-${Date.now()}`);
+  const tmpDir = join(tmpdir(), `appforge-build-${randomUUID()}`);
   const start = Date.now();
   const errors: string[] = [];
   if (options.productContract) {

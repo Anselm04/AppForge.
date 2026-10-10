@@ -773,3 +773,15 @@ Artifact creation and verification use the same locale-independent path ordering
 Editor file checks are bounded static parsing only: they do not write temporary customer files, spawn host tools, install packages, execute source, or certify the full product. The existing locked TypeScript parser is a production dependency so syntax checks work in the final image without downloading a tool. Unsupported file types require full isolated validation; no check claims it saved an edit.
 
 When full validation reports missing isolation infrastructure, preserve the current working artifact and pause with `validation_unavailable` before another surgical repair or redesign. Resume remains explicit and requires the original plan, monetization, and integration approvals. Restore the existing isolated runner and rerun full validation before deploying customer products; do not substitute host execution or claim runtime success from static editor feedback.
+
+### Build retry artifact and container ownership — 11 October 2026
+
+Validation retries preserve non-empty sibling test artifacts instead of regenerating and overwriting saved assertions. Missing tests are generated beside their source, and model Markdown/filename wrappers are normalized before persistence. Failed behavioral assertions remain blocking and require explicit repair.
+
+Every host validation workspace and Docker validation container has a unique UUID identity. On timeout, terminate the Docker client and forcibly remove only that invocation's named container, with a bounded cleanup wait. Cleanup failure is reported with the validation failure; never remove containers or workspaces belonging to other customer builds.
+
+Docker Node validation requires test/build/start-or-preview scripts, runs tests once with CI mode (without Vitest-specific flags that break Node's built-in runner), and checks a real successful HTTP startup in a separate offline container. The controller disables signal-triggered debugging. Python compilation and Flutter analysis are partial evidence and must pause with isolation unavailable, never certify a complete product.
+
+The existing Product Factory Validation CI job now runs reviewed, dependency-free fixtures through real Docker install/audit/test/build/runtime validation. It requires successful HTTP startup and rejects failed assertions or a command that exits without serving a product. A synthetic sentinel proves host environment variables are not inherited; the offline test verifies external connections are rejected. Public CI never receives customer source or credentials. This check proves the adapter, not a production runner connection or the complete customer journey.
+
+The real Docker fixture exposed artifact ownership failures with dropped capabilities on non-root hosts. Node containers now match the host artifact UID/GID and use a disposable npm cache under /tmp, preserving capability restrictions and offline test/build/runtime phases.

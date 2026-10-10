@@ -157,6 +157,9 @@ jobs:
             src/__tests__/selfHealingRecoveryGuardrails.test.ts \
             src/__tests__/section29CiReleaseInfrastructure.test.ts \
             src/__tests__/section30FinalProductFactoryFlow.test.ts
+      - name: Verify real isolated Docker build flow without customer data
+        run: npx tsx scripts/verify-docker-build-flow.ts
+
 
   build:
     name: Production Build

@@ -1,7 +1,9 @@
 import { spawn } from "child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { join, posix } from "path";
 import { tmpdir } from "os";
+import { NODE_RUNTIME_PROBE } from "./dockerRuntimeProbe.js";
 
 export type DockerValidationResult = {
   passed: boolean;
@@ -20,6 +22,7 @@ function runDocker(
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let timedOut = false;
     const finish = (result: {
       exitCode: number;
       stdout: string;
@@ -29,19 +32,34 @@ function runDocker(
       settled = true;
       resolve(result);
     };
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      timedOut = true;
       child.kill("SIGTERM");
-      finish({ exitCode: 1, stdout, stderr: stderr + "\n[TIMEOUT]" });
+      // Killing the CLI does not stop its container. Remove only this run's
+      // generated identity, and wait for bounded cleanup before returning.
+      const nameIndex = args.indexOf("--name");
+      const name = nameIndex >= 0 ? args[nameIndex + 1] : undefined;
+      let cleanupError = "";
+      if (args[0] === "run" && name?.startsWith("appforge-validation-")) {
+        const cleanup = await runDocker(["rm", "--force", name], 10_000);
+        if (cleanup.exitCode !== 0)
+          cleanupError = "\n[CONTAINER CLEANUP FAILED]";
+      }
+      finish({
+        exitCode: 1,
+        stdout,
+        stderr: stderr + "\n[TIMEOUT]" + cleanupError,
+      });
     }, timeoutMs);
     child.stdout?.on("data", (d) => (stdout += d.toString()));
     child.stderr?.on("data", (d) => (stderr += d.toString()));
     child.on("close", (code) => {
       clearTimeout(timer);
-      finish({ exitCode: code ?? 1, stdout, stderr });
+      if (!timedOut) finish({ exitCode: code ?? 1, stdout, stderr });
     });
     child.on("error", (err) => {
       clearTimeout(timer);
-      finish({ exitCode: 1, stdout, stderr: err.message });
+      if (!timedOut) finish({ exitCode: 1, stdout, stderr: err.message });
     });
   });
 }
@@ -80,11 +98,13 @@ export function safeDockerRelativePath(value: string): string | null {
 
 function hardenedRunArgs(
   tmpDir: string,
-  options: { networkNone?: boolean; workdir?: string } = {},
+  options: { networkNone?: boolean; workdir?: string; hostUser?: boolean } = {},
 ): string[] {
   const args = [
     "run",
     "--rm",
+    "--name",
+    `appforge-validation-${randomUUID()}`,
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
     "--pids-limit=256",
@@ -95,6 +115,11 @@ function hardenedRunArgs(
     "--tmpfs",
     "/tmp:rw,noexec,nosuid,size=64m",
   ];
+  if (options.hostUser && process.getuid && process.getgid) {
+    // Match the artifact owner without restoring root's filesystem capabilities.
+    args.push("--user", `${process.getuid()}:${process.getgid()}`);
+    args.push("-e", "npm_config_cache=/tmp/appforge-npm-cache");
+  }
   if (options.networkNone) args.push("--network=none");
   args.push("-v", `${tmpDir}:/app`, "-w", options.workdir ?? "/app");
   return args;
@@ -120,7 +145,7 @@ export async function validateWithDocker(
   if (!(await dockerAvailable())) return null;
 
   const start = Date.now();
-  const tmpDir = join(tmpdir(), `appforge-docker-${Date.now()}`);
+  const tmpDir = join(tmpdir(), `appforge-docker-${randomUUID()}`);
 
   try {
     await mkdir(tmpDir, { recursive: true });
@@ -216,12 +241,11 @@ export async function validateWithDocker(
           offlineValidation.stderr || offlineValidation.stdout,
         );
       }
-      return {
-        passed: true,
-        stage: "docker_python",
-        errors: [],
-        durationMs: Date.now() - start,
-      };
+      return dockerFailure(
+        "isolation",
+        start,
+        "Python syntax checks passed, but this Docker runner does not yet prove behavioral tests, a production build, and runtime. Full isolated validation is required.",
+      );
     }
 
     if (stack.includes("flutter") || files["pubspec.yaml"]) {
@@ -238,20 +262,44 @@ export async function validateWithDocker(
       if (r.exitCode !== 0) {
         return dockerFailure("docker_flutter", start, r.stderr || r.stdout);
       }
-      return {
-        passed: true,
-        stage: "docker_flutter",
-        errors: [],
-        durationMs: Date.now() - start,
-      };
+      return dockerFailure(
+        "isolation",
+        start,
+        "Flutter analysis passed, but this Docker runner does not yet prove tests, build, and runtime. Full isolated validation is required.",
+      );
     }
 
     if (files["package.json"] || files["src/package.json"]) {
       const workdir = files["package.json"] ? "/app" : "/app/src";
+      try {
+        const pkg = JSON.parse(
+          files["package.json"] ?? files["src/package.json"],
+        );
+        const hasScript = (name: string) =>
+          typeof pkg.scripts?.[name] === "string" &&
+          pkg.scripts[name].trim().length > 0;
+        if (
+          !hasScript("test") ||
+          !hasScript("build") ||
+          !(hasScript("start") || hasScript("preview"))
+        ) {
+          return dockerFailure(
+            "docker_contract",
+            start,
+            "Node validation requires non-empty test, build, and start or preview scripts. Missing steps cannot be skipped.",
+          );
+        }
+      } catch {
+        return dockerFailure(
+          "docker_contract",
+          start,
+          "Node validation requires a valid package.json.",
+        );
+      }
 
       const dependencyProof = await runDocker(
         [
-          ...hardenedRunArgs(tmpDir, { workdir }),
+          ...hardenedRunArgs(tmpDir, { workdir, hostUser: true }),
           "node:22-alpine",
           "sh",
           "-c",
@@ -272,13 +320,17 @@ export async function validateWithDocker(
 
       const nodeValidation = [
         "if [ -f tsconfig.json ]; then npx --no-install tsc --noEmit; fi",
-        "if node -e \"const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)\"; then npm test -- --run; fi",
-        "if node -e \"const p=require('./package.json');process.exit(p.scripts&&p.scripts.build?0:1)\"; then npm run build; fi",
+        "CI=true npm test",
+        "npm run build",
       ].join(" && ");
 
       const offlineValidation = await runDocker(
         [
-          ...hardenedRunArgs(tmpDir, { networkNone: true, workdir }),
+          ...hardenedRunArgs(tmpDir, {
+            networkNone: true,
+            workdir,
+            hostUser: true,
+          }),
           "node:22-alpine",
           "sh",
           "-c",
@@ -293,6 +345,29 @@ export async function validateWithDocker(
           offlineValidation.stderr || offlineValidation.stdout,
         );
       }
+      const runtime = await runDocker(
+        [
+          ...hardenedRunArgs(tmpDir, {
+            networkNone: true,
+            workdir,
+            hostUser: true,
+          }),
+          "node:22-alpine",
+          "node",
+          "--disable-sigusr1",
+          "-e",
+          NODE_RUNTIME_PROBE,
+        ],
+        45_000,
+      );
+      if (runtime.exitCode !== 0) {
+        return dockerFailure(
+          "docker_node_runtime",
+          start,
+          runtime.stderr || runtime.stdout,
+        );
+      }
+
       return {
         passed: true,
         stage: "docker_node",
