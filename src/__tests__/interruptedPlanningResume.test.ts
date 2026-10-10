@@ -9,14 +9,12 @@ const io = vi.hoisted(() => ({
   queued: vi.fn(),
   claim: vi.fn(),
   credits: vi.fn(),
+  readiness: vi.fn(),
+  entitlements: { unlimited: true, tier: "lifetime", balance: 0 },
 }));
 vi.mock("../db.js", () => ({
   getProjectById: vi.fn(async () => io.project),
-  ensureUserCredits: vi.fn(async () => ({
-    unlimited: true,
-    tier: "lifetime",
-    balance: 0,
-  })),
+  ensureUserCredits: vi.fn(async () => io.entitlements),
   updateProjectCreditsReserved: io.credits,
 }));
 vi.mock("../services/build-claim.js", () => ({
@@ -26,6 +24,9 @@ vi.mock("../services/build-claim.js", () => ({
 vi.mock("../services/build-queue.js", () => ({ enqueueBuild: io.queued }));
 vi.mock("../services/build-event-store.js", () => ({
   appendBuildEvent: vi.fn(),
+}));
+vi.mock("../services/buildExecutionReadiness.js", () => ({
+  assertBuildExecutionReady: io.readiness,
 }));
 import { projectsRouter } from "../routers/projects.js";
 
@@ -38,6 +39,8 @@ const prompt =
   "Build a lead generation website with Stripe subscription billing";
 
 beforeEach(() => {
+  io.readiness.mockReset().mockResolvedValue(undefined);
+  io.entitlements = { unlimited: true, tier: "lifetime", balance: 0 };
   io.queued.mockReset();
   io.claim.mockReset().mockResolvedValue(true);
   io.credits.mockReset();
@@ -59,6 +62,38 @@ beforeEach(() => {
 });
 
 describe("real resume API with database and queue I/O replaced", () => {
+  it("refuses an unavailable runtime before credits, claims or queue writes", async () => {
+    const { TRPCError } = await import("@trpc/server");
+    io.readiness.mockRejectedValue(
+      new TRPCError({
+        code: "SERVICE_UNAVAILABLE",
+        message: "Build runtime unavailable",
+      }),
+    );
+    await expect(
+      caller.resumeApprovedBuild({ projectId: 1 }),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(io.credits).not.toHaveBeenCalled();
+    expect(io.claim).not.toHaveBeenCalled();
+    expect(io.queued).not.toHaveBeenCalled();
+  });
+  it("resumes the server-authoritative owner without charging missing unlimited entitlement flags", async () => {
+    io.entitlements = { unlimited: false, tier: "free", balance: 0 };
+    const { canonicalOwnerEmail } = await import("../lib/owner.js");
+    const ownerCaller = projectsRouter.createCaller({
+      req: {} as never,
+      res: {} as never,
+      user: { id: 7, email: canonicalOwnerEmail(), name: "Owner" },
+    });
+    await expect(
+      ownerCaller.resumeApprovedBuild({ projectId: 1 }),
+    ).resolves.toMatchObject({ success: true });
+    expect(io.credits).not.toHaveBeenCalled();
+    expect(io.queued).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationCharged: false }),
+    );
+  });
+
   it("queues interrupted planning with the original contract without pretending approvals exist", async () => {
     await expect(
       caller.resumeApprovedBuild({ projectId: 1 }),

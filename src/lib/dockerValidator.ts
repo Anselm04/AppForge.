@@ -64,7 +64,7 @@ function runDocker(
   });
 }
 
-async function dockerAvailable(): Promise<boolean> {
+export async function dockerBuildAvailable(): Promise<boolean> {
   if (process.env.DOCKER_VALIDATION === "false") return false;
   const r = await runDocker(
     ["version", "--format", "{{.Server.Version}}"],
@@ -142,7 +142,7 @@ export async function validateWithDocker(
   files: Record<string, string>,
   techStack: string,
 ): Promise<DockerValidationResult | null> {
-  if (!(await dockerAvailable())) return null;
+  if (!(await dockerBuildAvailable())) return null;
 
   const start = Date.now();
   const tmpDir = join(tmpdir(), `appforge-docker-${randomUUID()}`);
