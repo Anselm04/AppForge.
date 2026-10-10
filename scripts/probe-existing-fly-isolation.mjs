@@ -30,7 +30,10 @@ async function inspectHost(payload) {
   };
   const groups = [];
   for (const [controller, settings] of [
-    ["memory", { "memory.limit_in_bytes": "268435456" }],
+    [
+      "memory",
+      { "memory.use_hierarchy": "1", "memory.limit_in_bytes": "268435456" },
+    ],
     [
       "cpu,cpuacct",
       { "cpu.cfs_period_us": "100000", "cpu.cfs_quota_us": "50000" },
@@ -55,6 +58,42 @@ async function inspectHost(payload) {
     for (const group of groups) fs.rmdirSync(group);
     throw new Error("Required resource controls are unavailable");
   }
+  result.delegation = false;
+  const delegatedGroups = [];
+  for (const group of groups) fs.chownSync(group, 1001, 1001);
+  const delegatedScript =
+    "const fs=require('node:fs');for(const group of " +
+    JSON.stringify(groups) +
+    "){const child=group+'/delegated';fs.mkdirSync(child);fs.writeFileSync(child+'/cgroup.procs',String(process.pid));}console.log('DELEGATED_CGROUPS_READY');";
+  try {
+    const { stdout } = await execFile(
+      "/bin/su",
+      [
+        "-s",
+        "/bin/sh",
+        "appforge",
+        "-c",
+        "exec node --max-old-space-size=64 -e '" +
+          delegatedScript.replaceAll("'", "'\\''") +
+          "'",
+      ],
+      {
+        encoding: "utf8",
+        timeout: 3000,
+        maxBuffer: 32768,
+        env: { PATH: "/usr/local/bin:/usr/bin:/bin" },
+      },
+    );
+    result.delegation = stdout.includes("DELEGATED_CGROUPS_READY");
+  } catch (error) {
+    result.delegationError = String(error.stderr ?? error.message).slice(
+      0,
+      300,
+    );
+  }
+  for (const group of groups)
+    if (fs.existsSync(group + "/delegated"))
+      delegatedGroups.push(group + "/delegated");
   const fixture = reviewedFixture;
   const gatewayDirectory = fs.mkdtempSync(
     "/tmp/appforge-qualification-gateway-",
@@ -175,7 +214,9 @@ async function inspectHost(payload) {
         staleGroups.push(root + "/" + name);
     }
   }
-  for (const group of [...new Set([...groups, ...staleGroups])]) {
+  for (const group of [
+    ...new Set([...delegatedGroups, ...groups, ...staleGroups]),
+  ]) {
     const readPids = () =>
       fs
         .readFileSync(group + "/cgroup.procs", "utf8")
@@ -184,7 +225,12 @@ async function inspectHost(payload) {
         .filter(Boolean);
     // Stale groups are removed only when empty; only this run's groups may
     // have their reviewed fixture processes terminated.
-    if (!groups.includes(group) && readPids().length) continue;
+    if (
+      !groups.includes(group) &&
+      !delegatedGroups.includes(group) &&
+      readPids().length
+    )
+      continue;
     for (const pid of readPids()) {
       try {
         process.kill(Number(pid), "SIGKILL");
@@ -286,6 +332,7 @@ if (!result.node || typeof result.uid !== "number")
 console.log(JSON.stringify(result));
 
 if (
+  !result.delegation ||
   !result.cleanup ||
   !result.sandbox ||
   !Object.values(result.resourceControls).every(Boolean) ||
