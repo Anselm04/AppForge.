@@ -124,17 +124,52 @@ function inspectHost() {
     result.sandbox = false;
     result.sandboxError = String(error.stderr ?? error.message).slice(0, 1000);
   }
-  for (const group of groups) {
-    for (const pid of fs
-      .readFileSync(group + "/cgroup.procs", "utf8")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)) {
+  result.cleanup = true;
+  const staleGroups = [];
+  for (const controller of ["memory", "cpu,cpuacct", "pids"]) {
+    const root = "/sys/fs/cgroup/" + controller;
+    for (const name of fs.readdirSync(root)) {
+      if (/^appforge-qualification-\d+$/.test(name))
+        staleGroups.push(root + "/" + name);
+    }
+  }
+  for (const group of [...new Set([...groups, ...staleGroups])]) {
+    const readPids = () =>
+      fs
+        .readFileSync(group + "/cgroup.procs", "utf8")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    // Stale groups are removed only when empty; only this run's groups may
+    // have their reviewed fixture processes terminated.
+    if (!groups.includes(group) && readPids().length) continue;
+    for (const pid of readPids()) {
       try {
         process.kill(Number(pid), "SIGKILL");
       } catch {}
     }
-    fs.rmdirSync(group);
+    let removed = false;
+    for (let retry = 0; retry < 20; retry++) {
+      try {
+        if (!readPids().length && group.includes("/memory/")) {
+          try {
+            fs.writeFileSync(group + "/memory.force_empty", "0");
+          } catch {}
+        }
+        fs.rmdirSync(group);
+        removed = true;
+        break;
+      } catch {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+      }
+    }
+    if (!removed) {
+      result.cleanup = false;
+      result.cleanupProcesses = readPids().length;
+      result.cleanupChildren = fs
+        .readdirSync(group)
+        .filter((name) => fs.statSync(group + "/" + name).isDirectory());
+    }
   }
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
 }
@@ -182,6 +217,7 @@ if (!result.node || typeof result.uid !== "number")
 console.log(JSON.stringify(result));
 
 if (
+  !result.cleanup ||
   !result.sandbox ||
   !Object.values(result.resourceControls).every(Boolean) ||
   !(result.resourceUsage?.memoryPeakBytes > 0) ||
