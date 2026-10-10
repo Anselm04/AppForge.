@@ -1,0 +1,27 @@
+name: Qualify Existing Build Host
+on:
+  push:
+    branches: [fix/provider-neutral-build-runtime]
+    paths:
+      - scripts/probe-existing-fly-isolation.mjs
+      - .github/workflows/qualify-existing-build-host.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fly-production-runtime
+  cancel-in-progress: false
+jobs:
+  read-only-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Inspect existing runtime capacity without changing it
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: node scripts/probe-existing-fly-isolation.mjs
