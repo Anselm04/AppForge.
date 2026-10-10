@@ -1,4 +1,9 @@
 import { createHash } from "node:crypto";
+import {
+  isolatedRuntimeConfig,
+  assertRuntimeProviderAllowed,
+  spritesDisabled,
+} from "./isolatedRuntimeConfig.js";
 import type { StackAdapter } from "../lib/stackAdapters.js";
 import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 
@@ -23,32 +28,36 @@ const DEFAULT_TTL_MS = 10 * 60_000;
 const MIN_TTL_MS = 30_000;
 
 function previewEndpoint(): URL | null {
-  const raw =
-    process.env.SPRITES_PREVIEW_URL?.trim() ||
-    process.env.SPRITES_EXEC_URL?.trim();
-  if (!raw) return null;
-  const endpoint = new URL(raw);
+  const config = isolatedRuntimeConfig("preview");
+  if (!config) return null;
+  const endpoint = new URL(config.url);
+  assertRuntimeProviderAllowed(endpoint);
   if (endpoint.username || endpoint.password) {
-    throw new Error("Sprites preview URL must not contain credentials");
+    throw new Error("Isolated preview URL must not contain credentials");
   }
   if (process.env.NODE_ENV === "production" && endpoint.protocol !== "https:") {
-    throw new Error("Sprites production preview URL must use HTTPS");
+    throw new Error("Isolated production preview URL must use HTTPS");
   }
   return endpoint;
 }
 
 export function isolatedPreviewConfigured(): boolean {
-  return Boolean(
-    (process.env.SPRITES_PREVIEW_URL?.trim() ||
-      process.env.SPRITES_EXEC_URL?.trim()) &&
-    process.env.SPRITES_API_TOKEN?.trim(),
-  );
+  return Boolean(isolatedRuntimeConfig("preview"));
 }
 
 function allowedPreviewHost(hostname: string, endpoint: URL): boolean {
   if (hostname === endpoint.hostname) return true;
-  if (hostname.endsWith(".sprites.app")) return true;
-  const configured = (process.env.SPRITES_PREVIEW_HOST_SUFFIXES || "")
+  if (
+    !spritesDisabled() &&
+    endpoint.hostname.endsWith(".sprites.app") &&
+    hostname.endsWith(".sprites.app")
+  )
+    return true;
+  const configured = (
+    process.env.ISOLATED_PREVIEW_HOST_SUFFIXES ||
+    (!spritesDisabled() ? process.env.SPRITES_PREVIEW_HOST_SUFFIXES : "") ||
+    ""
+  )
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -62,8 +71,9 @@ export function validateIsolatedPreviewUrl(
   endpointRaw?: string,
 ): string {
   const endpoint = endpointRaw ? new URL(endpointRaw) : previewEndpoint();
-  if (!endpoint) throw new Error("Sprites preview runtime is not configured");
+  if (!endpoint) throw new Error("Isolated preview runtime is not configured");
   const url = new URL(raw);
+  assertRuntimeProviderAllowed(url);
   if (url.username || url.password) {
     throw new Error("Isolated preview URL must not contain credentials");
   }
@@ -136,10 +146,15 @@ export async function ensureIsolatedPreview(input: {
   stack: StackAdapter;
 }): Promise<string | null> {
   const endpoint = previewEndpoint();
-  const token = process.env.SPRITES_API_TOKEN?.trim();
+  const config = isolatedRuntimeConfig("preview");
+  const token = config?.token;
   if (!endpoint || !token) return null;
 
-  const key = cacheKey(input.projectId, input.artifact, input.stack);
+  const key = [
+    cacheKey(input.projectId, input.artifact, input.stack),
+    config!.provider,
+    endpoint.href,
+  ].join(":");
   const cached = runtimeCache.get(key);
   if (cached && cached.expiresAt > Date.now() + 5_000) return cached.url;
 
@@ -160,7 +175,10 @@ export async function ensureIsolatedPreview(input: {
       headers: {
         authorization: "Bearer " + token,
         "content-type": "application/json",
-        "x-appforge-agent-runtime": "sprites-preview",
+        "x-appforge-agent-runtime":
+          config?.provider === "sprites"
+            ? "sprites-preview"
+            : "isolated-preview",
         "x-appforge-artifact-sha256": input.artifact.integrity.sha256,
       },
       body: JSON.stringify({
@@ -188,7 +206,7 @@ export async function ensureIsolatedPreview(input: {
 
     if (!response.ok) {
       throw new Error(
-        "Sprites preview runtime failed with HTTP " + response.status,
+        "Isolated preview runtime failed with HTTP " + response.status,
       );
     }
 
@@ -196,7 +214,7 @@ export async function ensureIsolatedPreview(input: {
     const payload = envelope.data ?? envelope.result ?? envelope;
     const rawUrl = typeof payload.url === "string" ? payload.url : "";
     if (!rawUrl.trim()) {
-      throw new Error("Sprites preview runtime returned no URL");
+      throw new Error("Isolated preview runtime returned no URL");
     }
 
     const url = validateIsolatedPreviewUrl(rawUrl);

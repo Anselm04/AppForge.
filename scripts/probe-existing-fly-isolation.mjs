@@ -21,6 +21,7 @@ function inspectHost() {
     resourceControls: {},
     sandbox: null,
   };
+  const groups = [];
   for (const [controller, settings] of [
     ["memory", { "memory.limit_in_bytes": "268435456" }],
     [
@@ -36,15 +37,17 @@ function inspectHost() {
       for (const [name, value] of Object.entries(settings))
         fs.writeFileSync(group + "/" + name, value);
       result.resourceControls[controller] = true;
+      groups.push(group);
     } catch {
       result.resourceControls[controller] = false;
-    } finally {
-      try {
-        fs.rmdirSync(group);
-      } catch {}
     }
   }
-  // Reviewed fixture only, with bounded execution and no application files.
+  // Reviewed fixture only. The trusted shell attaches itself before the
+  // sandbox starts; every descendant inherits all three resource limits.
+  if (groups.length !== 3) {
+    for (const group of groups) fs.rmdirSync(group);
+    throw new Error("Required resource controls are unavailable");
+  }
   const fixture = [
     "const fs=require('node:fs');const assert=require('node:assert/strict');const net=require('node:net');",
     "assert.equal(process.env.APPFORGE_HOST_SENTINEL,undefined);",
@@ -56,8 +59,14 @@ function inspectHost() {
   ].join("");
   try {
     const output = execFileSync(
-      "/usr/bin/bwrap",
+      "/bin/sh",
       [
+        "-c",
+        groups
+          .map((group) => "echo $$ > " + group + "/cgroup.procs")
+          .join(" && ") + ' && exec "$@"',
+        "appforge-qualification",
+        "/usr/bin/bwrap",
         "--unshare-all",
         "--die-with-parent",
         "--new-session",
@@ -103,9 +112,29 @@ function inspectHost() {
       },
     );
     result.sandbox = output.includes("SANDBOX_QUALIFIED");
+    result.resourceUsage = {
+      memoryPeakBytes: Number(
+        fs.readFileSync(groups[0] + "/memory.max_usage_in_bytes", "utf8"),
+      ),
+      cpuNanoseconds: Number(
+        fs.readFileSync(groups[1] + "/cpuacct.usage", "utf8"),
+      ),
+    };
   } catch (error) {
     result.sandbox = false;
     result.sandboxError = String(error.stderr ?? error.message).slice(0, 1000);
+  }
+  for (const group of groups) {
+    for (const pid of fs
+      .readFileSync(group + "/cgroup.procs", "utf8")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)) {
+      try {
+        process.kill(Number(pid), "SIGKILL");
+      } catch {}
+    }
+    fs.rmdirSync(group);
   }
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
 }
@@ -151,3 +180,11 @@ const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
   throw new Error("Incomplete remote probe");
 console.log(JSON.stringify(result));
+
+if (
+  !result.sandbox ||
+  !Object.values(result.resourceControls).every(Boolean) ||
+  !(result.resourceUsage?.memoryPeakBytes > 0) ||
+  !(result.resourceUsage?.cpuNanoseconds > 0)
+)
+  throw new Error("Existing host did not pass bounded sandbox qualification");

@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  isolatedRuntimeConfig,
+  assertRuntimeProviderAllowed,
+} from "./isolatedRuntimeConfig.js";
 
 export type IsolatedBuildResult = {
   passed: boolean;
@@ -28,10 +32,7 @@ const REQUIRED_STEPS = [
 ] as const;
 
 export function isolatedBuildConfigured(): boolean {
-  return Boolean(
-    (process.env.SPRITES_BUILD_URL || process.env.SPRITES_EXEC_URL)?.trim() &&
-    process.env.SPRITES_API_TOKEN?.trim(),
-  );
+  return Boolean(isolatedRuntimeConfig("build"));
 }
 
 function validateProof(
@@ -40,22 +41,22 @@ function validateProof(
   expectedTechStack: string,
 ): RemoteProof {
   if (!value || typeof value !== "object") {
-    throw new Error("Sprites build runner returned no validation proof");
+    throw new Error("Isolated build runner returned no validation proof");
   }
   const envelope = value as { data?: unknown; result?: unknown };
   const proof = (envelope.data ?? envelope.result ?? value) as RemoteProof;
   if (!proof.isolationId?.trim()) {
-    throw new Error("Sprites build runner returned no isolation ID");
+    throw new Error("Isolated build runner returned no isolation ID");
   }
   if (!proof.steps || typeof proof.steps !== "object") {
-    throw new Error("Sprites build runner returned no step evidence");
+    throw new Error("Isolated build runner returned no step evidence");
   }
   const missing = REQUIRED_STEPS.filter(
     (step) => proof.steps?.[step]?.passed !== true,
   );
   if (proof.passed === true && missing.length > 0) {
     throw new Error(
-      `Sprites build runner claimed success without passing: ${missing.join(", ")}`,
+      `Isolated build runner claimed success without passing: ${missing.join(", ")}`,
     );
   }
   if (
@@ -64,7 +65,7 @@ function validateProof(
       proof.techStack !== expectedTechStack)
   ) {
     throw new Error(
-      "Sprites build runner proof does not match the generated artifact or selected stack",
+      "Isolated build runner proof does not match the generated artifact or selected stack",
     );
   }
   return proof;
@@ -74,16 +75,15 @@ export async function validateWithIsolatedBuildRunner(
   files: Record<string, string>,
   techStack: string,
 ): Promise<IsolatedBuildResult | null> {
-  if (!isolatedBuildConfigured()) return null;
-
-  const endpoint = new URL(
-    (process.env.SPRITES_BUILD_URL || process.env.SPRITES_EXEC_URL)!.trim(),
-  );
+  const config = isolatedRuntimeConfig("build");
+  if (!config) return null;
+  const endpoint = new URL(config.url);
+  assertRuntimeProviderAllowed(endpoint);
   if (endpoint.username || endpoint.password) {
-    throw new Error("Sprites build URL must not contain credentials");
+    throw new Error("Isolated build URL must not contain credentials");
   }
   if (process.env.NODE_ENV === "production" && endpoint.protocol !== "https:") {
-    throw new Error("Sprites production build URL must use HTTPS");
+    throw new Error("Isolated production build URL must use HTTPS");
   }
 
   const serializedFiles = JSON.stringify(files);
@@ -102,9 +102,9 @@ export async function validateWithIsolatedBuildRunner(
       method: "POST",
       redirect: "error",
       headers: {
-        authorization: `Bearer ${process.env.SPRITES_API_TOKEN!.trim()}`,
+        authorization: `Bearer ${config.token}`,
         "content-type": "application/json",
-        "x-appforge-agent-runtime": "sprites",
+        "x-appforge-agent-runtime": config.provider,
         "x-appforge-artifact-sha256": artifactSha256,
       },
       body: JSON.stringify({
@@ -128,7 +128,7 @@ export async function validateWithIsolatedBuildRunner(
     });
     if (!response.ok) {
       throw new Error(
-        `Sprites build runner failed with HTTP ${response.status}`,
+        `Isolated build runner failed with HTTP ${response.status}`,
       );
     }
     const proof = validateProof(

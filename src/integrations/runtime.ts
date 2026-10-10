@@ -1,3 +1,7 @@
+import {
+  isolatedRuntimeConfig,
+  assertRuntimeProviderAllowed,
+} from "../services/isolatedRuntimeConfig.js";
 type JsonRecord = Record<string, unknown>;
 
 type RequestOptions = {
@@ -269,18 +273,20 @@ export async function runSpritesAgentTask(input: {
   projectId?: number;
   context?: JsonRecord;
 }) {
-  const execUrl = value("SPRITES_EXEC_URL");
-  const token = value("SPRITES_API_TOKEN");
+  const config = isolatedRuntimeConfig("agent");
+  const execUrl = config?.url;
+  const token = config?.token;
   if (!execUrl || !token) {
-    throw new Error("Sprites execution bridge is not configured");
+    throw new Error("Isolated execution bridge is not configured");
   }
 
+  assertRuntimeProviderAllowed(new URL(execUrl));
   return requestJson(execUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${token}`,
-      "x-appforge-agent-runtime": "sprites",
+      "x-appforge-agent-runtime": config!.provider,
     },
     body: {
       task: input.task,

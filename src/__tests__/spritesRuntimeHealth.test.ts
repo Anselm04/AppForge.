@@ -12,13 +12,13 @@ const health = readFileSync(
 );
 const envExample = readFileSync(resolve(process.cwd(), ".env.example"), "utf8");
 
-describe("Sprites runtime health", () => {
-  it("requires an independently verifiable Sprites runtime bridge", () => {
+describe("isolated runtime health", () => {
+  it("requires an independently verifiable isolated runtime bridge", () => {
     expect(catalog).toContain("SPRITES_HEALTH_URL");
     expect(catalog).toContain("SPRITES_API_TOKEN");
-    expect(health).toContain("Sprites runtime bridge is not configured");
-    expect(health).toContain("SPRITES_HEALTH_URL");
-    expect(health).toContain("SPRITES_API_TOKEN");
+    expect(health).toContain("approved isolated execution is not configured");
+    expect(health).toContain('isolatedRuntimeConfig("health")');
+    expect(health).toContain("assertRuntimeProviderAllowed");
   });
 
   it("documents the server-side bridge configuration", () => {
