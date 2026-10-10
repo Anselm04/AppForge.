@@ -22,6 +22,78 @@ describe("generated test artifact paths", () => {
     ).toEqual([]);
   });
 
+  it("preserves a customer's existing behavioral test on validation retries without another model call", async () => {
+    vi.mocked(invokeLLM).mockClear();
+    vi.mocked(invokeLLM).mockResolvedValue({
+      choices: [
+        { message: { content: "// filename: tasks.test.ts\nreplacement" } },
+      ],
+    } as Awaited<ReturnType<typeof invokeLLM>>);
+    const savedTest =
+      "// requirement: REQ-001\nimport { it, expect } from 'vitest';\nit('retains edited behavior', () => expect(true).toBe(true));";
+    const files = {
+      "src/tasks.ts": "export function addTask() { return 'task'; }",
+      "src/tasks.test.ts": savedTest,
+      "package.json": "{}",
+    };
+    const additions = await attachGeneratedTests(files, "react-node");
+    expect(invokeLLM).not.toHaveBeenCalled();
+    expect(additions["src/tasks.test.ts"]).toBeUndefined();
+    expect({ ...files, ...additions }["src/tasks.test.ts"]).toBe(savedTest);
+  });
+
+  it("generates missing tests even when another module already has a saved test", async () => {
+    const mocked = vi.mocked(invokeLLM);
+    mocked.mockClear();
+    mocked.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content:
+              "// filename: wrong.test.ts\nimport { it } from 'vitest'; it('new behavior', () => {});",
+          },
+        },
+      ],
+    } as Awaited<ReturnType<typeof invokeLLM>>);
+    const additions = await attachGeneratedTests(
+      {
+        "src/saved.ts": "export function saved() {}",
+        "src/saved.test.ts":
+          "import { it } from 'vitest'; it('saved behavior', () => {});",
+        "src/new.ts": "export function newBehavior() {}",
+        "package.json": "{}",
+      },
+      "react-node",
+    );
+    expect(mocked).toHaveBeenCalledTimes(1);
+    expect(additions["src/saved.test.ts"]).toBeUndefined();
+    expect(additions["src/new.test.ts"]).toContain(
+      "// filename: src/new.test.ts",
+    );
+  });
+
+  it("saves executable test code when the model wraps its response in Markdown", async () => {
+    vi.mocked(invokeLLM).mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content:
+              "```typescript\n// filename: guessed.test.ts\nimport { it, expect } from 'vitest';\nit('behavior', () => expect(1).toBe(1));\n```",
+          },
+        },
+      ],
+    } as Awaited<ReturnType<typeof invokeLLM>>);
+    const tests = await attachGeneratedTests(
+      { "src/tasks.ts": "export function tasks() {}", "package.json": "{}" },
+      "react-node",
+    );
+    expect(tests["src/tasks.test.ts"]).not.toContain("```");
+    expect(tests["src/tasks.test.ts"]).toContain(
+      "// filename: src/tasks.test.ts",
+    );
+    expect(tests["src/tasks.test.ts"]).toContain("it('behavior'");
+  });
+
   it("keeps nested and duplicate basenames beside their exact source regardless of model headers", async () => {
     const mocked = vi.mocked(invokeLLM);
     mocked.mockResolvedValue({

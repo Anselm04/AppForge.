@@ -11,7 +11,10 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
-import { hardeningProfileForStack } from "../lib/reliableBuild.js";
+import {
+  hardeningProfileForStack,
+  stripFilenameHeaders,
+} from "../lib/reliableBuild.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 
 /**
@@ -107,14 +110,12 @@ ${coordinationContext.slice(0, 8_000)}`,
     ? filenameMatch[1].trim()
     : `src/__tests__/${moduleName.toLowerCase().replace(/\s+/g, "-")}.test.ts`;
 
+  const testBody = stripFilenameHeaders(content);
+  if (!testBody.trim()) return null;
+  const artifactPath = expectedTestPath ?? filename;
   return {
-    testFile: expectedTestPath
-      ? content.replace(
-          /\/\/\s*filename:\s*[^\n]+/,
-          `// filename: ${expectedTestPath}`,
-        )
-      : content,
-    filename: expectedTestPath ?? filename,
+    testFile: `// filename: ${artifactPath}\n${testBody}`,
+    filename: artifactPath,
   };
 }
 
@@ -256,6 +257,18 @@ export async function attachGeneratedTests(
       filename.endsWith(".json")
     )
       continue;
+    const existingTestPath = filename.replace(
+      /\.(tsx?|jsx?|mjs|cjs)$/,
+      ".test.$1",
+    );
+    if (
+      existingTestPath !== filename &&
+      generatedFiles[existingTestPath]?.trim()
+    ) {
+      // Saved assertions belong to the artifact. Repair failures explicitly;
+      // validation retries must not silently replace them with weaker tests.
+      continue;
+    }
     const moduleName =
       filename
         .split("/")

@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { join, posix } from "path";
 import { tmpdir } from "os";
@@ -20,6 +21,7 @@ function runDocker(
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let timedOut = false;
     const finish = (result: {
       exitCode: number;
       stdout: string;
@@ -29,19 +31,34 @@ function runDocker(
       settled = true;
       resolve(result);
     };
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      timedOut = true;
       child.kill("SIGTERM");
-      finish({ exitCode: 1, stdout, stderr: stderr + "\n[TIMEOUT]" });
+      // Killing the CLI does not stop its container. Remove only this run's
+      // generated identity, and wait for bounded cleanup before returning.
+      const nameIndex = args.indexOf("--name");
+      const name = nameIndex >= 0 ? args[nameIndex + 1] : undefined;
+      let cleanupError = "";
+      if (args[0] === "run" && name?.startsWith("appforge-validation-")) {
+        const cleanup = await runDocker(["rm", "--force", name], 10_000);
+        if (cleanup.exitCode !== 0)
+          cleanupError = "\n[CONTAINER CLEANUP FAILED]";
+      }
+      finish({
+        exitCode: 1,
+        stdout,
+        stderr: stderr + "\n[TIMEOUT]" + cleanupError,
+      });
     }, timeoutMs);
     child.stdout?.on("data", (d) => (stdout += d.toString()));
     child.stderr?.on("data", (d) => (stderr += d.toString()));
     child.on("close", (code) => {
       clearTimeout(timer);
-      finish({ exitCode: code ?? 1, stdout, stderr });
+      if (!timedOut) finish({ exitCode: code ?? 1, stdout, stderr });
     });
     child.on("error", (err) => {
       clearTimeout(timer);
-      finish({ exitCode: 1, stdout, stderr: err.message });
+      if (!timedOut) finish({ exitCode: 1, stdout, stderr: err.message });
     });
   });
 }
@@ -85,6 +102,8 @@ function hardenedRunArgs(
   const args = [
     "run",
     "--rm",
+    "--name",
+    `appforge-validation-${randomUUID()}`,
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
     "--pids-limit=256",
@@ -120,7 +139,7 @@ export async function validateWithDocker(
   if (!(await dockerAvailable())) return null;
 
   const start = Date.now();
-  const tmpDir = join(tmpdir(), `appforge-docker-${Date.now()}`);
+  const tmpDir = join(tmpdir(), `appforge-docker-${randomUUID()}`);
 
   try {
     await mkdir(tmpDir, { recursive: true });
