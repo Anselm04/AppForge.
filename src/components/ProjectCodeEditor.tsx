@@ -187,12 +187,14 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
                 : "Please try again."}
             </p>
           )}
-          {save.isSuccess && save.variables?.path === activePath && (
-            <p role="status" className="text-xs text-green-400">
-              Saved working revision. Full build validation is required before
-              deployment.
-            </p>
-          )}
+          {save.isSuccess &&
+            save.variables?.path === activePath &&
+            save.variables?.content === draft && (
+              <p role="status" className="text-xs text-green-400">
+                Saved working revision. Full build validation is required before
+                deployment.
+              </p>
+            )}
           {validationMsg && (
             <span
               className={`text-xs ${validationMsg.ok ? "text-green-400" : "text-amber-400"}`}

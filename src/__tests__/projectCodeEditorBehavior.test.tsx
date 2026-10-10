@@ -66,6 +66,8 @@ describe("Code editor save feedback", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Full build validation is required before deployment",
     );
+    fireEvent.change(editor, { target: { value: "Next unsaved change" } });
+    expect(screen.queryByRole("status")).toBeNull();
   });
   it("shows rejected saves instead of silently implying persistence", async () => {
     mocks.save.mockRejectedValue(new Error("Project file not found"));
