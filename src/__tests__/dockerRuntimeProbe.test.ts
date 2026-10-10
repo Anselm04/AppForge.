@@ -53,7 +53,9 @@ async function probe(source: string, limit: number) {
     // Fixtures run locally, outside Docker: clean up the entire owned group.
     try {
       process.kill(-child.pid!, "SIGKILL");
-    } catch {}
+    } catch {
+      // The probe may already have stopped its entire process group.
+    }
     await rm(dir, { recursive: true, force: true });
   }
 }

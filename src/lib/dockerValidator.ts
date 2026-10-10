@@ -98,7 +98,7 @@ export function safeDockerRelativePath(value: string): string | null {
 
 function hardenedRunArgs(
   tmpDir: string,
-  options: { networkNone?: boolean; workdir?: string } = {},
+  options: { networkNone?: boolean; workdir?: string; hostUser?: boolean } = {},
 ): string[] {
   const args = [
     "run",
@@ -115,6 +115,11 @@ function hardenedRunArgs(
     "--tmpfs",
     "/tmp:rw,noexec,nosuid,size=64m",
   ];
+  if (options.hostUser && process.getuid && process.getgid) {
+    // Match the artifact owner without restoring root's filesystem capabilities.
+    args.push("--user", `${process.getuid()}:${process.getgid()}`);
+    args.push("-e", "npm_config_cache=/tmp/appforge-npm-cache");
+  }
   if (options.networkNone) args.push("--network=none");
   args.push("-v", `${tmpDir}:/app`, "-w", options.workdir ?? "/app");
   return args;
@@ -294,7 +299,7 @@ export async function validateWithDocker(
 
       const dependencyProof = await runDocker(
         [
-          ...hardenedRunArgs(tmpDir, { workdir }),
+          ...hardenedRunArgs(tmpDir, { workdir, hostUser: true }),
           "node:22-alpine",
           "sh",
           "-c",
@@ -321,7 +326,11 @@ export async function validateWithDocker(
 
       const offlineValidation = await runDocker(
         [
-          ...hardenedRunArgs(tmpDir, { networkNone: true, workdir }),
+          ...hardenedRunArgs(tmpDir, {
+            networkNone: true,
+            workdir,
+            hostUser: true,
+          }),
           "node:22-alpine",
           "sh",
           "-c",
@@ -338,7 +347,11 @@ export async function validateWithDocker(
       }
       const runtime = await runDocker(
         [
-          ...hardenedRunArgs(tmpDir, { networkNone: true, workdir }),
+          ...hardenedRunArgs(tmpDir, {
+            networkNone: true,
+            workdir,
+            hostUser: true,
+          }),
           "node:22-alpine",
           "node",
           "--disable-sigusr1",

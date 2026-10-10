@@ -88,6 +88,15 @@ describe("isolated Docker build lifecycle", () => {
     expect(result?.passed).toBe(true);
     const runs = state.calls.filter((args) => args[0] === "run");
     expect(runs).toHaveLength(3);
+    if (process.getuid && process.getgid) {
+      for (const run of runs) {
+        expect(run[run.indexOf("--user") + 1]).toBe(
+          `${process.getuid()}:${process.getgid()}`,
+        );
+        expect(run).toContain("npm_config_cache=/tmp/appforge-npm-cache");
+        expect(run).toContain("--cap-drop=ALL");
+      }
+    }
     expect(runs[1]).toContain("--network=none");
     expect(runs[1].join(" ")).not.toContain("npm test -- --run");
     expect(runs[2]).toContain("--network=none");
