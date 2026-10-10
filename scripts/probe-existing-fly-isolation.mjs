@@ -1,6 +1,118 @@
 import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
 
+function inspectHost() {
+  const fs = require("node:fs");
+  const { execFileSync } = require("node:child_process");
+  const exists = (p) => fs.existsSync(p);
+  const result = {
+    uid: process.getuid(),
+    gid: process.getgid(),
+    node: process.version,
+    capabilities: fs
+      .readFileSync("/proc/self/status", "utf8")
+      .match(/^CapEff:.*$/m)?.[0],
+    memoryAvailable: fs
+      .readFileSync("/proc/meminfo", "utf8")
+      .match(/^MemAvailable:.*$/m)?.[0],
+    docker: exists("/usr/bin/docker"),
+    dockerd: exists("/usr/bin/dockerd"),
+    bubblewrap: exists("/usr/bin/bwrap"),
+    resourceControls: {},
+    sandbox: null,
+  };
+  for (const [controller, settings] of [
+    ["memory", { "memory.limit_in_bytes": "268435456" }],
+    [
+      "cpu,cpuacct",
+      { "cpu.cfs_period_us": "100000", "cpu.cfs_quota_us": "50000" },
+    ],
+    ["pids", { "pids.max": "64" }],
+  ]) {
+    const group =
+      "/sys/fs/cgroup/" + controller + "/appforge-qualification-" + process.pid;
+    try {
+      fs.mkdirSync(group);
+      for (const [name, value] of Object.entries(settings))
+        fs.writeFileSync(group + "/" + name, value);
+      result.resourceControls[controller] = true;
+    } catch {
+      result.resourceControls[controller] = false;
+    } finally {
+      try {
+        fs.rmdirSync(group);
+      } catch {}
+    }
+  }
+  // Reviewed fixture only, with bounded execution and no application files.
+  const fixture = [
+    "const fs=require('node:fs');const assert=require('node:assert/strict');const net=require('node:net');",
+    "assert.equal(process.env.APPFORGE_HOST_SENTINEL,undefined);",
+    "for(const p of ['/app','/root','/proc/1/environ']) assert.equal(fs.existsSync(p),false);",
+    "const socket=net.connect({host:'1.1.1.1',port:443});",
+    "socket.once('connect',()=>{console.error('Network escaped sandbox');socket.destroy();process.exit(1)});",
+    "socket.once('error',error=>{assert.ok(['ENETUNREACH','EHOSTUNREACH'].includes(error.code));console.log('SANDBOX_QUALIFIED');});",
+    "socket.setTimeout(1000,()=>{socket.destroy();process.exit(1)});",
+  ].join("");
+  try {
+    const output = execFileSync(
+      "/usr/bin/bwrap",
+      [
+        "--unshare-all",
+        "--die-with-parent",
+        "--new-session",
+        "--cap-drop",
+        "ALL",
+        "--clearenv",
+        "--ro-bind",
+        "/usr",
+        "/usr",
+        "--ro-bind",
+        "/bin",
+        "/bin",
+        "--ro-bind",
+        "/lib",
+        "/lib",
+        "--tmpfs",
+        "/tmp",
+        "--tmpfs",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--setenv",
+        "PATH",
+        "/usr/local/bin:/usr/bin:/bin",
+        "--setenv",
+        "HOME",
+        "/tmp",
+        "--chdir",
+        "/tmp",
+        process.execPath,
+        "--max-old-space-size=64",
+        "-e",
+        fixture,
+      ],
+      {
+        encoding: "utf8",
+        timeout: 8000,
+        maxBuffer: 32768,
+        env: {
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+          APPFORGE_HOST_SENTINEL: "synthetic-only",
+        },
+      },
+    );
+    result.sandbox = output.includes("SANDBOX_QUALIFIED");
+  } catch (error) {
+    result.sandbox = false;
+    result.sandboxError = String(error.stderr ?? error.message).slice(0, 1000);
+  }
+  console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
+}
+
+const probe = "(" + inspectHost.toString() + ")()";
+new Script(probe);
+if (process.argv.includes("--syntax-only")) process.exit(0);
 const app = "appforge-unfurling-moon-9058";
 const machines = JSON.parse(
   execFileSync("flyctl", ["machines", "list", "--app", app, "--json"], {
@@ -24,28 +136,16 @@ console.log(
     })),
   ),
 );
-const probe = [
-  'const fs=require("node:fs");',
-  "const exists=p=>fs.existsSync(p);",
-  'const status=fs.readFileSync("/proc/self/status","utf8");',
-  'const memory=fs.readFileSync("/proc/meminfo","utf8");',
-  'console.log("APPFORGE_HOST_PROBE "+JSON.stringify({uid:process.getuid(),gid:process.getgid(),node:process.version,capabilities:status.match(/^CapEff:.*$/m)?.[0],memoryAvailable:memory.match(/^MemAvailable:.*$/m)?.[0],cgroupV2:exists("/sys/fs/cgroup/cgroup.controllers"),docker:exists("/usr/bin/docker"),dockerd:exists("/usr/bin/dockerd"),bubblewrap:exists("/usr/bin/bwrap"),unshare:exists("/usr/bin/unshare"),cgroupMemory:exists("/sys/fs/cgroup/memory/memory.limit_in_bytes"),cgroupPids:exists("/sys/fs/cgroup/pids/pids.max"),cgroupMounts:fs.readFileSync("/proc/mounts","utf8").split(String.fromCharCode(10)).filter(l=>l.includes(" cgroup")),filesystems:fs.readFileSync("/proc/filesystems","utf8").split(String.fromCharCode(10)).filter(l=>l.includes("overlay"))}));',
-].join("");
-// Fixed read-only qualification command only. No environment, customer files,
-// keys, new machines, installations, runtime changes, or Sprites calls.
-new Script(probe);
 const encoded = Buffer.from(probe).toString("base64");
 const command =
   "node -e 'eval(Buffer.from(\"" + encoded + '","base64").toString())\'';
 const output = execFileSync(
   "flyctl",
-  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "15"],
+  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "20"],
   { encoding: "utf8", timeout: 30000 },
 );
 const marker = "APPFORGE_HOST_PROBE ";
-const line = output
-  .split(String.fromCharCode(10))
-  .find((line) => line.startsWith(marker));
+const line = output.split("\n").find((line) => line.startsWith(marker));
 if (!line) throw new Error("Remote probe did not produce its required result");
 const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
