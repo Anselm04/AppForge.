@@ -5,6 +5,8 @@ on:
     paths:
       - scripts/probe-existing-fly-isolation.mjs
       - scripts/fixtures/existing-host-node.cjs
+      - scripts/runtime/registry-gateway.mjs
+      - scripts/runtime/registry-relay.cjs
       - .github/workflows/qualify-existing-build-host.yml
   workflow_dispatch:
 permissions:

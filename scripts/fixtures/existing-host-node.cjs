@@ -65,6 +65,26 @@ async function main() {
       npm_config_update_notifier: "false",
     },
   };
+  const publicVersion = execFileSync(
+    process.execPath,
+    [
+      "/gateway/registry-relay.cjs",
+      "view",
+      "is-number@7.0.0",
+      "version",
+      "--registry=https://registry.npmjs.org",
+      "--https-proxy=http://127.0.0.1:4873",
+      "--userconfig=/tmp/empty-config",
+      "--globalconfig=/tmp/empty-global-config",
+      "--loglevel=error",
+    ],
+    options,
+  ).trim();
+  assert.equal(
+    publicVersion,
+    "7.0.0",
+    "restricted npm gateway did not return the reviewed version",
+  );
   execFileSync(
     "npm",
     ["install", "--ignore-scripts", "--no-fund", "--loglevel=error"],

@@ -2,9 +2,12 @@ import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
 import { readFileSync } from "node:fs";
 
-function inspectHost(reviewedFixture) {
+async function inspectHost(payload) {
+  const reviewedFixture = payload.fixture;
   const fs = require("node:fs");
-  const { execFileSync } = require("node:child_process");
+  const execFile = require("node:util").promisify(
+    require("node:child_process").execFile,
+  );
   const exists = (p) => fs.existsSync(p);
   const result = {
     uid: process.getuid(),
@@ -51,6 +54,23 @@ function inspectHost(reviewedFixture) {
     throw new Error("Required resource controls are unavailable");
   }
   const fixture = reviewedFixture;
+  const gatewayDirectory = fs.mkdtempSync(
+    "/tmp/appforge-qualification-gateway-",
+  );
+  fs.chownSync(gatewayDirectory, 1001, 1001);
+  fs.chmodSync(gatewayDirectory, 0o700);
+  fs.writeFileSync(gatewayDirectory + "/registry-relay.cjs", payload.relay, {
+    mode: 0o444,
+  });
+  const { createRegistryGateway } = await import(
+    "data:text/javascript;base64," +
+      Buffer.from(payload.gateway).toString("base64")
+  );
+  const gateway = await createRegistryGateway(
+    gatewayDirectory + "/registry.sock",
+  );
+  fs.chownSync(gatewayDirectory + "/registry.sock", 1001, 1001);
+  fs.chmodSync(gatewayDirectory + "/registry.sock", 0o600);
   const sandboxArgs = [
     "/usr/bin/bwrap",
     "--unshare-all",
@@ -68,6 +88,9 @@ function inspectHost(reviewedFixture) {
     "--ro-bind",
     "/lib",
     "/lib",
+    "--ro-bind",
+    gatewayDirectory,
+    "/gateway",
     "--tmpfs",
     "/tmp",
     "--tmpfs",
@@ -88,7 +111,7 @@ function inspectHost(reviewedFixture) {
     fixture,
   ];
   try {
-    const output = execFileSync(
+    const { stdout: output } = await execFile(
       "/bin/sh",
       [
         "-c",
@@ -129,6 +152,8 @@ function inspectHost(reviewedFixture) {
     result.sandbox = false;
     result.sandboxError = String(error.stderr ?? error.message).slice(0, 1000);
   }
+  await gateway.close();
+  fs.rmSync(gatewayDirectory, { recursive: true, force: true });
   result.cleanup = true;
   const staleGroups = [];
   for (const controller of ["memory", "cpu,cpuacct", "pids"]) {
@@ -179,13 +204,28 @@ function inspectHost(reviewedFixture) {
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
 }
 
-const fixture = readFileSync(
-  new URL("./fixtures/existing-host-node.cjs", import.meta.url),
-  "utf8",
-);
-new Script(fixture);
+const payload = {
+  fixture: readFileSync(
+    new URL("./fixtures/existing-host-node.cjs", import.meta.url),
+    "utf8",
+  ),
+  gateway: readFileSync(
+    new URL("./runtime/registry-gateway.mjs", import.meta.url),
+    "utf8",
+  ),
+  relay: readFileSync(
+    new URL("./runtime/registry-relay.cjs", import.meta.url),
+    "utf8",
+  ),
+};
+new Script(payload.fixture);
+new Script(payload.relay);
 const probe =
-  "(" + inspectHost.toString() + ")(" + JSON.stringify(fixture) + ")";
+  "(" +
+  inspectHost.toString() +
+  ")(" +
+  JSON.stringify(payload) +
+  ").catch(error => {console.error(error.message);process.exitCode=1})";
 new Script(probe);
 if (process.argv.includes("--syntax-only")) process.exit(0);
 const app = "appforge-unfurling-moon-9058";
