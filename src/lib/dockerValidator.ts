@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { join, posix } from "path";
 import { tmpdir } from "os";
+import { NODE_RUNTIME_PROBE } from "./dockerRuntimeProbe.js";
 
 export type DockerValidationResult = {
   passed: boolean;
@@ -235,12 +236,11 @@ export async function validateWithDocker(
           offlineValidation.stderr || offlineValidation.stdout,
         );
       }
-      return {
-        passed: true,
-        stage: "docker_python",
-        errors: [],
-        durationMs: Date.now() - start,
-      };
+      return dockerFailure(
+        "isolation",
+        start,
+        "Python syntax checks passed, but this Docker runner does not yet prove behavioral tests, a production build, and runtime. Full isolated validation is required.",
+      );
     }
 
     if (stack.includes("flutter") || files["pubspec.yaml"]) {
@@ -257,16 +257,40 @@ export async function validateWithDocker(
       if (r.exitCode !== 0) {
         return dockerFailure("docker_flutter", start, r.stderr || r.stdout);
       }
-      return {
-        passed: true,
-        stage: "docker_flutter",
-        errors: [],
-        durationMs: Date.now() - start,
-      };
+      return dockerFailure(
+        "isolation",
+        start,
+        "Flutter analysis passed, but this Docker runner does not yet prove tests, build, and runtime. Full isolated validation is required.",
+      );
     }
 
     if (files["package.json"] || files["src/package.json"]) {
       const workdir = files["package.json"] ? "/app" : "/app/src";
+      try {
+        const pkg = JSON.parse(
+          files["package.json"] ?? files["src/package.json"],
+        );
+        const hasScript = (name: string) =>
+          typeof pkg.scripts?.[name] === "string" &&
+          pkg.scripts[name].trim().length > 0;
+        if (
+          !hasScript("test") ||
+          !hasScript("build") ||
+          !(hasScript("start") || hasScript("preview"))
+        ) {
+          return dockerFailure(
+            "docker_contract",
+            start,
+            "Node validation requires non-empty test, build, and start or preview scripts. Missing steps cannot be skipped.",
+          );
+        }
+      } catch {
+        return dockerFailure(
+          "docker_contract",
+          start,
+          "Node validation requires a valid package.json.",
+        );
+      }
 
       const dependencyProof = await runDocker(
         [
@@ -291,8 +315,8 @@ export async function validateWithDocker(
 
       const nodeValidation = [
         "if [ -f tsconfig.json ]; then npx --no-install tsc --noEmit; fi",
-        "if node -e \"const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)\"; then npm test -- --run; fi",
-        "if node -e \"const p=require('./package.json');process.exit(p.scripts&&p.scripts.build?0:1)\"; then npm run build; fi",
+        "CI=true npm test",
+        "npm run build",
       ].join(" && ");
 
       const offlineValidation = await runDocker(
@@ -312,6 +336,25 @@ export async function validateWithDocker(
           offlineValidation.stderr || offlineValidation.stdout,
         );
       }
+      const runtime = await runDocker(
+        [
+          ...hardenedRunArgs(tmpDir, { networkNone: true, workdir }),
+          "node:22-alpine",
+          "node",
+          "--disable-sigusr1",
+          "-e",
+          NODE_RUNTIME_PROBE,
+        ],
+        45_000,
+      );
+      if (runtime.exitCode !== 0) {
+        return dockerFailure(
+          "docker_node_runtime",
+          start,
+          runtime.stderr || runtime.stdout,
+        );
+      }
+
       return {
         passed: true,
         stage: "docker_node",

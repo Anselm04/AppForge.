@@ -51,6 +51,49 @@ describe("isolated Docker build lifecycle", () => {
       .map((args) => args[args.indexOf("-v") + 1]);
     expect(new Set(mounts).size).toBe(2);
   });
+  it("rejects a Node package with no tests or production build instead of returning green", async () => {
+    const result = await validateWithDocker(
+      { "package.json": '{"name":"incomplete","scripts":{}}' },
+      "react-node",
+    );
+    expect(result?.passed).toBe(false);
+    expect(result?.stage).toBe("docker_contract");
+    expect(state.calls.filter((args) => args[0] === "run")).toHaveLength(0);
+  });
+
+  it("does not certify Python from syntax-only checks", async () => {
+    const result = await validateWithDocker(
+      { "main.py": "print('syntax only')", "requirements.txt": "" },
+      "python-service",
+    );
+    expect(result?.passed).toBe(false);
+    expect(result?.stage).toBe("isolation");
+  });
+
+  it("runs a separate offline runtime probe after Node tests and build", async () => {
+    const result = await validateWithDocker(
+      {
+        "package.json": JSON.stringify({
+          name: "checked",
+          scripts: {
+            test: "node --test",
+            build: "node --check app.js",
+            start: "node app.js",
+          },
+        }),
+        "app.js": "console.log('fixture')",
+      },
+      "api-service",
+    );
+    expect(result?.passed).toBe(true);
+    const runs = state.calls.filter((args) => args[0] === "run");
+    expect(runs).toHaveLength(3);
+    expect(runs[1]).toContain("--network=none");
+    expect(runs[1].join(" ")).not.toContain("npm test -- --run");
+    expect(runs[2]).toContain("--network=none");
+    expect(runs[2].join(" ")).toContain("HTTP response");
+  });
+
   it("forcibly removes a timed-out container before returning failure", async () => {
     vi.useFakeTimers();
     state.stall = true;
