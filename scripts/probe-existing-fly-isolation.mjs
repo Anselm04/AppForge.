@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
+import { randomUUID } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import reviewedFiles from "./fixtures/reviewed-node-files.mjs";
@@ -439,15 +440,52 @@ console.log(
   ),
 );
 const encoded = gzipSync(Buffer.from(probe)).toString("base64");
-const command =
-  'node -e \'eval(require("node:zlib").gunzipSync(Buffer.from("' +
-  encoded +
-  '","base64")).toString())\'';
-const output = execFileSync(
-  "flyctl",
-  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "110"],
-  { encoding: "utf8", timeout: 120000 },
-);
+// Machine exec has a small request limit; transfer controlled public fixture
+// bytes in bounded chunks. No token, customer code or environment is included.
+const transferPath = "/tmp/af-probe-" + randomUUID();
+const execute = (code, timeout = 10) =>
+  execFileSync(
+    "flyctl",
+    [
+      "machine",
+      "exec",
+      started[0].id,
+      "node -e '" + code.replaceAll("'", "'\\''") + "'",
+      "--app",
+      app,
+      "--timeout",
+      String(timeout),
+    ],
+    { encoding: "utf8", timeout: (timeout + 10) * 1000 },
+  );
+let output;
+try {
+  execute(
+    'require("node:fs").writeFileSync(' +
+      JSON.stringify(transferPath) +
+      ',"",{flag:"wx",mode:384});',
+  );
+  for (let offset = 0; offset < encoded.length; offset += 3000)
+    execute(
+      'require("node:fs").appendFileSync(' +
+        JSON.stringify(transferPath) +
+        "," +
+        JSON.stringify(encoded.slice(offset, offset + 3000)) +
+        ");",
+    );
+  output = execute(
+    'const fs=require("node:fs");const path=' +
+      JSON.stringify(transferPath) +
+      ';const data=fs.readFileSync(path,"utf8");fs.unlinkSync(path);eval(require("node:zlib").gunzipSync(Buffer.from(data,"base64")).toString());',
+    110,
+  );
+} finally {
+  execute(
+    'require("node:fs").rmSync(' +
+      JSON.stringify(transferPath) +
+      ",{force:true});",
+  );
+}
 const marker = "APPFORGE_HOST_PROBE ";
 const line = output.split("\n").find((line) => line.startsWith(marker));
 if (!line)
