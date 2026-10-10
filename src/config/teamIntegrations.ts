@@ -1,3 +1,4 @@
+import { isolatedRuntimeConfig } from "../services/isolatedRuntimeConfig.js";
 import { getIntegrationDefinition } from "../integrations/catalog.js";
 import { hasConfiguredLlmProvider } from "../lib/llmProviderConfig.js";
 
@@ -44,7 +45,11 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
       configured:
         has("FLY_APP_NAME") &&
         has("FLY_API_TOKEN") &&
-        all("SPRITES_HEALTH_URL", "SPRITES_EXEC_URL", "SPRITES_API_TOKEN"),
+        Boolean(
+          isolatedRuntimeConfig("health") &&
+          isolatedRuntimeConfig("build") &&
+          isolatedRuntimeConfig("preview"),
+        ),
       requiredForProduction: canonicalRequired("sprites-fly", true),
     },
     {

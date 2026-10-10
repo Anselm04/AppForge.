@@ -37,7 +37,7 @@ export const APPFORGE_INTEGRATIONS: AppForgeIntegrationDefinition[] = [
   },
   {
     id: "sprites-fly",
-    name: "Sprites / Fly.io",
+    name: "Isolated runtime / Fly.io",
     kind: "external",
     job: "Isolated agent execution plus production application and worker runtime.",
     requiredForProduction: true,
@@ -45,6 +45,12 @@ export const APPFORGE_INTEGRATIONS: AppForgeIntegrationDefinition[] = [
     env: [
       "FLY_APP_NAME",
       "FLY_API_TOKEN",
+      "ISOLATED_HEALTH_URL",
+      "ISOLATED_BUILD_URL",
+      "ISOLATED_PREVIEW_URL",
+      "ISOLATED_EXEC_URL",
+      "ISOLATED_RUNTIME_TOKEN",
+      "SPRITES_DISABLED",
       "SPRITES_HEALTH_URL",
       "SPRITES_EXEC_URL",
       "SPRITES_API_TOKEN",

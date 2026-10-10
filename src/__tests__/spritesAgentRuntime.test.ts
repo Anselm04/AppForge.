@@ -15,9 +15,8 @@ const envExample = readFileSync(resolve(process.cwd(), ".env.example"), "utf8");
 describe("Sprites agent runtime bridge", () => {
   it("has a server-side execution client", () => {
     expect(runtime).toContain("runSpritesAgentTask");
-    expect(runtime).toContain("SPRITES_EXEC_URL");
-    expect(runtime).toContain("SPRITES_API_TOKEN");
-    expect(runtime).toContain('"x-appforge-agent-runtime": "sprites"');
+    expect(runtime).toContain('isolatedRuntimeConfig("agent")');
+    expect(runtime).toContain("assertRuntimeProviderAllowed");
   });
 
   it("exposes only a protected bounded task route", () => {

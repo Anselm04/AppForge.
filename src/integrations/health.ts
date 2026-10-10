@@ -1,4 +1,8 @@
 import {
+  isolatedRuntimeConfig,
+  assertRuntimeProviderAllowed,
+} from "../services/isolatedRuntimeConfig.js";
+import {
   APPFORGE_INTEGRATIONS,
   type AppForgeIntegrationDefinition,
   type AppForgeIntegrationKind,
@@ -328,8 +332,7 @@ async function verifyRemote(
 
     case "sprites-fly": {
       const appName = value("FLY_APP_NAME");
-      const spritesHealthUrl = value("SPRITES_HEALTH_URL");
-      const spritesToken = value("SPRITES_API_TOKEN");
+      const runtime = isolatedRuntimeConfig("health");
 
       if (!appName) {
         return result(
@@ -346,35 +349,37 @@ async function verifyRemote(
         return fail(`Fly.io runtime: ${flyCheck.message}`);
       }
 
-      if (!spritesHealthUrl && !spritesToken) {
+      if (!runtime) {
         return result(
           definition,
           "configuration_required",
-          "Fly.io runtime is healthy, but the Sprites runtime bridge is not configured",
+          "Fly.io runtime is healthy, but approved isolated execution is not configured",
           true,
           false,
         );
       }
-
-      if (!spritesHealthUrl || !spritesToken) {
+      assertRuntimeProviderAllowed(new URL(runtime.url));
+      if (
+        runtime.provider === "isolated" &&
+        (!isolatedRuntimeConfig("build") || !isolatedRuntimeConfig("preview"))
+      ) {
         return result(
           definition,
           "configuration_required",
-          "Sprites runtime verification requires both SPRITES_HEALTH_URL and SPRITES_API_TOKEN",
+          "Isolated execution requires configured build and preview endpoints",
           true,
           false,
         );
       }
-
-      const spritesCheck = await probe(spritesHealthUrl, {
-        headers: { Authorization: `Bearer ${spritesToken}` },
+      const runtimeCheck = await probe(runtime.url, {
+        headers: { Authorization: `Bearer ${runtime.token}` },
       });
-      return spritesCheck.ok
+      return runtimeCheck.ok
         ? pass(
-            `Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`,
+            `Fly.io runtime verified; isolated runtime ${runtimeCheck.message}`,
           )
         : fail(
-            `Fly.io runtime verified; Sprites runtime ${spritesCheck.message}`,
+            `Fly.io runtime verified; isolated runtime ${runtimeCheck.message}`,
           );
     }
 

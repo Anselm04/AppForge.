@@ -348,7 +348,7 @@ export async function validateGeneratedBuild(
     }
 
     // Production must never execute generated customer code on the AppForge host.
-    // Run every stack through an isolated Sprites/Docker boundary before any
+    // Run every stack through an isolated runtime boundary before any
     // local syntax, package, build, or runtime command can execute.
     if (process.env.NODE_ENV === "production") {
       const remoteIsolatedResult = await validateWithIsolatedBuildRunner(
@@ -391,7 +391,7 @@ export async function validateGeneratedBuild(
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Configure the Sprites build bridge or a functioning Docker isolation runtime.",
+          "Configure an approved isolated build runner or a functioning Docker isolation runtime.",
       };
     }
 
@@ -631,7 +631,7 @@ export async function validateGeneratedBuild(
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Configure the Sprites build bridge or a functioning Docker isolation runtime.",
+          "Configure an approved isolated build runner or a functioning Docker isolation runtime.",
       };
     }
 
