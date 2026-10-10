@@ -614,11 +614,13 @@ export function Build() {
             <p className="font-semibold">{buildActivityLabel(project)}</p>
             <p className="mt-2 text-sm text-slate-200">
               {project.status === "paused"
-                ? retryPlanning
-                  ? "Research or planning was interrupted before a plan was ready. Retry planning below; generation will wait for your approval."
-                  : awaitingApproval
-                    ? "Generation is stopped. Review the plan and approve the outstanding decisions below, then resume."
-                    : `Build is stopped. Reason: ${project.pauseReason ?? "Not supplied"}. Check Logs and Evidence before continuing.`
+                ? project.pauseReason === "validation_unavailable"
+                  ? "Validation is temporarily unavailable. Your edits are saved. Retry after the isolated build runner is available."
+                  : retryPlanning
+                    ? "Research or planning was interrupted before a plan was ready. Retry planning below; generation will wait for your approval."
+                    : awaitingApproval
+                      ? "Generation is stopped. Review the plan and approve the outstanding decisions below, then resume."
+                      : `Build is stopped. Reason: ${project.pauseReason ?? "Not supplied"}. Check Logs and Evidence before continuing.`
                 : project.status === "failed"
                   ? "Build has stopped with a failure. Check the failure stage and Logs; it is not still generating."
                   : project.status === "pending"
@@ -660,9 +662,11 @@ export function Build() {
               </h2>
               <p className="mt-1 text-sm">
                 Your saved progress is preserved.{" "}
-                {retryPlanning
-                  ? "Retry research and planning first; a plan will be presented for approval before generation."
-                  : "Complete the approvals below before continuing with the same saved decisions."}
+                {project.pauseReason === "validation_unavailable"
+                  ? "Validation is unavailable. Retry after the build runner is restored; your approved plan and saved edits will be reused."
+                  : retryPlanning
+                    ? "Retry research and planning first; a plan will be presented for approval before generation."
+                    : "Complete the approvals below before continuing with the same saved decisions."}
               </p>
               <button
                 className="mt-3 forge-gold-btn px-4 py-2"

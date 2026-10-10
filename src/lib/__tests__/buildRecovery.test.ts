@@ -8,6 +8,7 @@ describe("saved build recovery", () => {
   it("permits only known recoverable worker pauses", () => {
     for (const reason of [
       "retry_after_error",
+      "validation_unavailable",
       "agent_timeout",
       "still_building",
       "still_building_soft_ceiling_8",
