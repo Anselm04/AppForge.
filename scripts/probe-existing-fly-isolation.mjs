@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { Script } from "node:vm";
 
 const app = "appforge-unfurling-moon-9058";
 const machines = JSON.parse(
@@ -28,10 +29,11 @@ const probe = [
   "const exists=p=>fs.existsSync(p);",
   'const status=fs.readFileSync("/proc/self/status","utf8");',
   'const memory=fs.readFileSync("/proc/meminfo","utf8");',
-  'console.log("APPFORGE_HOST_PROBE "+JSON.stringify({uid:process.getuid(),gid:process.getgid(),node:process.version,capabilities:status.match(/^CapEff:.*$/m)?.[0],memoryAvailable:memory.match(/^MemAvailable:.*$/m)?.[0],cgroupV2:exists("/sys/fs/cgroup/cgroup.controllers"),docker:exists("/usr/bin/docker"),dockerd:exists("/usr/bin/dockerd"),bubblewrap:exists("/usr/bin/bwrap"),unshare:exists("/usr/bin/unshare"),cgroupMemory:exists("/sys/fs/cgroup/memory/memory.limit_in_bytes"),cgroupPids:exists("/sys/fs/cgroup/pids/pids.max"),cgroupMounts:fs.readFileSync("/proc/mounts","utf8").split("\n").filter(l=>l.includes(" cgroup")),filesystems:fs.readFileSync("/proc/filesystems","utf8").split("\n").filter(l=>l.includes("overlay"))}));',
+  'console.log("APPFORGE_HOST_PROBE "+JSON.stringify({uid:process.getuid(),gid:process.getgid(),node:process.version,capabilities:status.match(/^CapEff:.*$/m)?.[0],memoryAvailable:memory.match(/^MemAvailable:.*$/m)?.[0],cgroupV2:exists("/sys/fs/cgroup/cgroup.controllers"),docker:exists("/usr/bin/docker"),dockerd:exists("/usr/bin/dockerd"),bubblewrap:exists("/usr/bin/bwrap"),unshare:exists("/usr/bin/unshare"),cgroupMemory:exists("/sys/fs/cgroup/memory/memory.limit_in_bytes"),cgroupPids:exists("/sys/fs/cgroup/pids/pids.max"),cgroupMounts:fs.readFileSync("/proc/mounts","utf8").split(String.fromCharCode(10)).filter(l=>l.includes(" cgroup")),filesystems:fs.readFileSync("/proc/filesystems","utf8").split(String.fromCharCode(10)).filter(l=>l.includes("overlay"))}));',
 ].join("");
 // Fixed read-only qualification command only. No environment, customer files,
 // keys, new machines, installations, runtime changes, or Sprites calls.
+new Script(probe);
 const encoded = Buffer.from(probe).toString("base64");
 const command =
   "node -e 'eval(Buffer.from(\"" + encoded + '","base64").toString())\'';
@@ -41,7 +43,9 @@ const output = execFileSync(
   { encoding: "utf8", timeout: 30000 },
 );
 const marker = "APPFORGE_HOST_PROBE ";
-const line = output.split("\n").find((line) => line.startsWith(marker));
+const line = output
+  .split(String.fromCharCode(10))
+  .find((line) => line.startsWith(marker));
 if (!line) throw new Error("Remote probe did not produce its required result");
 const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
