@@ -9,6 +9,18 @@ for (const path of ["/app", "/root", "/proc/1/environ"])
   assert.equal(fs.existsSync(path), false);
 
 async function main() {
+  assert.equal(fs.existsSync("/usr/bin/unshare"), true);
+  try {
+    execFileSync(
+      "/usr/bin/unshare",
+      ["--user", "--map-root-user", "/bin/true"],
+      { encoding: "utf8", timeout: 1000 },
+    );
+    throw Error("Nested user namespace escaped the syscall policy");
+  } catch (error) {
+    assert.match(String(error.stderr), /[Oo]peration not permitted/);
+  }
+
   await new Promise((resolve, reject) => {
     const socket = net.connect({ host: "1.1.1.1", port: 443 });
     socket.once("connect", () => {

@@ -7,6 +7,7 @@ on:
       - scripts/fixtures/existing-host-node.cjs
       - scripts/runtime/registry-gateway.mjs
       - scripts/runtime/registry-relay.cjs
+      - scripts/runtime/namespace-filter.mjs
       - .github/workflows/qualify-existing-build-host.yml
   workflow_dispatch:
 permissions:

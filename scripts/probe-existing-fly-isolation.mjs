@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
 import { gzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
+import { namespaceFilter } from "./runtime/namespace-filter.mjs";
 
 async function inspectHost(payload) {
   const reviewedFixture = payload.fixture;
@@ -72,6 +73,11 @@ async function inspectHost(payload) {
   );
   fs.chownSync(gatewayDirectory + "/registry.sock", 1001, 1001);
   fs.chmodSync(gatewayDirectory + "/registry.sock", 0o600);
+  fs.writeFileSync(
+    gatewayDirectory + "/namespace-seccomp.bpf",
+    Buffer.from(payload.filter, "base64"),
+    { mode: 0o444 },
+  );
   const sandboxArgs = [
     "/usr/bin/bwrap",
     "--unshare-all",
@@ -80,6 +86,8 @@ async function inspectHost(payload) {
     "--cap-drop",
     "ALL",
     "--clearenv",
+    "--seccomp",
+    "3",
     "--ro-bind",
     "/usr",
     "/usr",
@@ -118,7 +126,10 @@ async function inspectHost(payload) {
         "-c",
         groups
           .map((group) => "echo $$ > " + group + "/cgroup.procs")
-          .join(" && ") + ' && exec "$@"',
+          .join(" && ") +
+          " && exec 3< " +
+          gatewayDirectory +
+          '/namespace-seccomp.bpf && exec "$@"',
         "appforge-qualification",
         "/bin/su",
         "-s",
@@ -206,6 +217,7 @@ async function inspectHost(payload) {
 }
 
 const payload = {
+  filter: namespaceFilter().toString("base64"),
   fixture: readFileSync(
     new URL("./fixtures/existing-host-node.cjs", import.meta.url),
     "utf8",
