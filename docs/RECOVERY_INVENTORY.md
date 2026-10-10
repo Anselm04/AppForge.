@@ -767,3 +767,9 @@ This removes the additional Depot builder dependency observed stalled while copy
 ### Artifact verification order recovery
 
 Artifact creation and verification use the same locale-independent path ordering. Existing saved hashes and per-file versions are preserved; no artifact is resealed to bypass verification. Mixed-case names such as README.md and lowercase requirement files must verify together after recovery. Working and final artifact regression cases must still reject changed contents, foreign project/version bindings and invalid paths. The live saved-workspace error identified this ordering mismatch; successful source access and the full product journey remain separate release evidence.
+
+### Editor check and validation availability recovery — 10 October 2026
+
+Editor file checks are bounded static parsing only: they do not write temporary customer files, spawn host tools, install packages, execute source, or certify the full product. The existing locked TypeScript parser is a production dependency so syntax checks work in the final image without downloading a tool. Unsupported file types require full isolated validation; no check claims it saved an edit.
+
+When full validation reports missing isolation infrastructure, preserve the current working artifact and pause with `validation_unavailable` before another surgical repair or redesign. Resume remains explicit and requires the original plan, monetization, and integration approvals. Restore the existing isolated runner and rerun full validation before deploying customer products; do not substitute host execution or claim runtime success from static editor feedback.

@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../design-system/Button.js";
 import { Badge } from "../design-system/Badge.js";
 import { GlassCard } from "../design-system/GlassCard.js";
-import { useSession } from "../lib/auth.js";
 import { trpc } from "../utils/trpc.js";
 
 type ArtifactKind = "document" | "pdf" | "spreadsheet" | "presentation";
@@ -50,7 +49,11 @@ function slidesFromTextarea(value: string) {
 }
 
 export function PluginWorkspace() {
-  const session = useSession();
+  const { data: session } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => trpc.auth.me.query(),
+    retry: false,
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -64,10 +67,6 @@ export function PluginWorkspace() {
   const [artifactTitle, setArtifactTitle] = useState("Project Report");
   const [artifactBody, setArtifactBody] = useState("");
   const [result, setResult] = useState<string>("");
-
-  useEffect(() => {
-    if (!session) navigate("/login?next=/tools", { replace: true });
-  }, [session, navigate]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "list", "tools"],

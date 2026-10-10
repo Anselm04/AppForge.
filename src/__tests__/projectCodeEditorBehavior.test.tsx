@@ -2,12 +2,16 @@ import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-const mocks = vi.hoisted(() => ({ save: vi.fn(), files: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  save: vi.fn(),
+  files: vi.fn(),
+  check: vi.fn(),
+}));
 vi.mock("../utils/trpc.js", () => ({
   trpc: {
     projects: {
       getFiles: { query: mocks.files },
-      validateFile: { mutate: vi.fn() },
+      validateFile: { mutate: mocks.check },
     },
     versionedWrites: { updateFile: { mutate: mocks.save } },
   },
@@ -47,6 +51,37 @@ function mount() {
   );
 }
 describe("Code editor save feedback", () => {
+  it("shows file check failures and does not save", async () => {
+    mocks.check.mockRejectedValue(new Error("File check unavailable"));
+    mount();
+    await screen.findByRole("textbox", { name: "Editor content" });
+    fireEvent.click(screen.getByRole("button", { name: "Check file syntax" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "File check failed: File check unavailable",
+    );
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("hides syntax feedback after the checked draft changes", async () => {
+    mocks.check.mockResolvedValue({
+      ok: true,
+      message: "Syntax checked; full build validation required",
+    });
+    mount();
+    const editor = await screen.findByRole("textbox", {
+      name: "Editor content",
+    });
+    await waitFor(() => expect(editor).toHaveValue("Original"));
+    fireEvent.click(screen.getByRole("button", { name: "Check file syntax" }));
+    expect(
+      await screen.findByText("Syntax checked; full build validation required"),
+    ).toBeVisible();
+    fireEvent.change(editor, { target: { value: "Unsaved new draft" } });
+    expect(
+      screen.queryByText("Syntax checked; full build validation required"),
+    ).toBeNull();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("saves an intentionally empty file and reports a working revision", async () => {
     mocks.save.mockResolvedValue({ ok: true });
     mount();
