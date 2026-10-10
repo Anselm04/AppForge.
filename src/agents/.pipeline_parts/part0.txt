@@ -23,6 +23,7 @@ import {
   validateStackScaffold,
 } from "../services/stackScaffolds.js";
 import { validateGeneratedBuild, ValidationResult } from "./buildValidator.js";
+import { pauseUnavailableValidation } from "../services/buildValidationPause.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { getValidationMode } from "../lib/validationMode.js";
 import { modelForAgent } from "../lib/llmModels.js";

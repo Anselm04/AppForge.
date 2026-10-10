@@ -89,6 +89,29 @@ describe("real resume API with database and queue I/O replaced", () => {
     );
     expect(io.queued).not.toHaveBeenCalled();
   });
+  it("queues a saved infrastructure pause only after all original approvals", async () => {
+    io.project.pauseReason = "validation_unavailable";
+    io.project.buildStage = "validating";
+    io.project.productPlan = { title: "Original approved plan" };
+    io.project.planStatus = "approved";
+    await expect(caller.resumeApprovedBuild({ projectId: 1 })).rejects.toThrow(
+      "Approve monetization",
+    );
+    expect(io.queued).not.toHaveBeenCalled();
+    io.project.monetizationApproved = true;
+    io.project.integrationsApproved = true;
+    await expect(
+      caller.resumeApprovedBuild({ projectId: 1 }),
+    ).resolves.toMatchObject({ success: true });
+    expect(io.queued).toHaveBeenCalledTimes(1);
+    expect(io.queued).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 1,
+        productContract: io.project.productContract,
+      }),
+    );
+    expect(io.project.productPlan).toEqual({ title: "Original approved plan" });
+  });
   it("rejects another user's project and user cancellation before any queue action", async () => {
     io.project.userId = 8;
     await expect(

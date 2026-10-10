@@ -237,6 +237,10 @@
         durationMs: validationResult.durationMs,
         warning: validationResult.warning,
       });
+      if (await pauseUnavailableValidation({
+        projectId, files: generatedFiles, result: validationResult, write,
+      })) return;
+
       fixAttempt++;
     } while (!validationResult.passed && fixAttempt <= maxFixRetries && !signal?.aborted);
 

@@ -177,7 +177,7 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
             }}
             className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm"
           >
-            {validate.isPending ? "Validating…" : "Re-run validator"}
+            {validate.isPending ? "Validating…" : "Check file syntax"}
           </button>
           {save.isError && save.variables?.path === activePath && (
             <p role="alert" className="text-sm text-red-600">
@@ -195,13 +195,23 @@ export function ProjectCodeEditor({ projectId, enabled = true }: Props) {
                 deployment.
               </p>
             )}
-          {validationMsg && (
-            <span
-              className={`text-xs ${validationMsg.ok ? "text-green-400" : "text-amber-400"}`}
-            >
-              {validationMsg.message}
-            </span>
+          {validate.isError && validate.variables?.path === activePath && (
+            <p role="alert" className="text-sm text-red-600">
+              File check failed:{" "}
+              {validate.error instanceof Error
+                ? validate.error.message
+                : "Please try again."}
+            </p>
           )}
+          {validationMsg &&
+            validate.variables?.path === activePath &&
+            validate.variables?.content === draft && (
+              <span
+                className={`text-xs ${validationMsg.ok ? "text-green-400" : "text-amber-400"}`}
+              >
+                {validationMsg.message}
+              </span>
+            )}
         </div>
       </div>
     </div>

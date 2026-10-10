@@ -6,9 +6,12 @@ export function isRecoverableBuildPause(
   return (
     status === "paused" &&
     typeof reason === "string" &&
-    (["retry_after_error", "agent_timeout", "still_building"].includes(
-      reason,
-    ) ||
+    ([
+      "retry_after_error",
+      "agent_timeout",
+      "still_building",
+      "validation_unavailable",
+    ].includes(reason) ||
       /^still_building_soft_ceiling_\d+$/.test(reason))
   );
 }
