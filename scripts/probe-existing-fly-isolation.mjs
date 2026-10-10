@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
 import { gzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
+import reviewedFiles from "./fixtures/reviewed-node-files.mjs";
 import { namespaceFilter } from "./runtime/namespace-filter.mjs";
 
 async function inspectHost(payload) {
@@ -205,6 +206,124 @@ async function inspectHost(payload) {
   }
   await gateway.close();
   fs.rmSync(gatewayDirectory, { recursive: true, force: true });
+  // Exercise the actual controller with reviewed fixture sources only.
+  const controllerDirectory = fs.mkdtempSync("/tmp/af-ctl-");
+  fs.chmodSync(controllerDirectory, 0o755);
+  const workspace = controllerDirectory + "/w";
+  fs.mkdirSync(workspace);
+  let mounted = false;
+  try {
+    await execFile("/bin/mount", [
+      "-t",
+      "tmpfs",
+      "-o",
+      "size=64m,nosuid,nodev,mode=700",
+      "tmpfs",
+      workspace,
+    ]);
+    mounted = true;
+    fs.chownSync(workspace, 1001, 1001);
+    const controller = payload.controller
+      .replace(
+        'const WORKSPACE = "/var/lib/appforge-builds";',
+        "const WORKSPACE = " + JSON.stringify(workspace) + ";",
+      )
+      .replace(
+        'const ROOTS = CONTROLLERS.map(\n  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\n);',
+        "const ROOTS = " + JSON.stringify(groups) + ";",
+      );
+    if (controller.includes("const ROOTS = CONTROLLERS.map"))
+      throw Error("Qualification controller path substitution failed");
+    for (const [name, content] of Object.entries({
+      "existing-host-controller.mjs": controller,
+      "registry-gateway.mjs": payload.gateway,
+      "registry-relay.cjs": payload.relay,
+      "runtime-relay.cjs": payload.runtimeRelay,
+      "runner.mjs":
+        'import {validateExistingHost} from "./existing-host-controller.mjs";const proof=await validateExistingHost(' +
+        JSON.stringify(payload.files) +
+        ',"node-service",{sourceSecurityVerified:true});console.log("CONTROLLER_PROOF "+JSON.stringify(proof));if(!proof.passed)process.exitCode=1;',
+    }))
+      fs.writeFileSync(controllerDirectory + "/" + name, content, {
+        mode: 0o444,
+      });
+    fs.writeFileSync(
+      controllerDirectory + "/namespace-seccomp.bpf",
+      Buffer.from(payload.filter, "base64"),
+      { mode: 0o444 },
+    );
+    const { stdout } = await execFile(
+      "/bin/su",
+      [
+        "-s",
+        "/bin/sh",
+        "appforge",
+        "-c",
+        "exec node " + controllerDirectory + "/runner.mjs",
+      ],
+      {
+        encoding: "utf8",
+        timeout: 65000,
+        maxBuffer: 32768,
+        env: {
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+          EXISTING_HOST_SANDBOX_ENABLED: "true",
+          APPFORGE_SANDBOX_PREPARED: "true",
+        },
+      },
+    );
+    const line = stdout
+      .split("\n")
+      .find((line) => line.startsWith("CONTROLLER_PROOF "));
+    if (!line) throw Error("Controller proof missing");
+    const proof = JSON.parse(line.slice("CONTROLLER_PROOF ".length));
+    result.controller = {
+      passed: proof.passed,
+      steps: proof.steps,
+      stage: proof.stage,
+      durationMs: proof.durationMs,
+    };
+    if (
+      !proof.passed ||
+      !proof.isolationId ||
+      !["install", "security", "tests", "build", "runtime"].every(
+        (stage) => proof.steps[stage]?.passed,
+      )
+    )
+      throw Error("Controller qualification failed");
+  } catch (error) {
+    result.controller = {
+      passed: false,
+      error: String(error.stderr ?? error.message).slice(-1800),
+    };
+  } finally {
+    for (const group of groups)
+      for (const name of fs.readdirSync(group)) {
+        if (!/^appforge-build-[a-f0-9-]+$/.test(name)) continue;
+        const child = group + "/" + name;
+        for (const pid of fs
+          .readFileSync(child + "/cgroup.procs", "utf8")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean))
+          try {
+            process.kill(Number(pid), "SIGKILL");
+          } catch {}
+        for (let retry = 0; retry < 20; retry++)
+          try {
+            if (child.includes("/memory/"))
+              try {
+                fs.writeFileSync(child + "/memory.force_empty", "0");
+              } catch {}
+            fs.rmdirSync(child);
+            break;
+          } catch {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+      }
+    if (mounted) await execFile("/bin/umount", [workspace]);
+    fs.rmSync(controllerDirectory, { recursive: true, force: true });
+  }
   result.cleanup = true;
   const staleGroups = [];
   for (const controller of ["memory", "cpu,cpuacct", "pids"]) {
@@ -263,6 +382,15 @@ async function inspectHost(payload) {
 }
 
 const payload = {
+  files: reviewedFiles,
+  controller: readFileSync(
+    new URL("./runtime/existing-host-controller.mjs", import.meta.url),
+    "utf8",
+  ),
+  runtimeRelay: readFileSync(
+    new URL("./runtime/runtime-relay.cjs", import.meta.url),
+    "utf8",
+  ),
   filter: namespaceFilter().toString("base64"),
   fixture: readFileSync(
     new URL("./fixtures/existing-host-node.cjs", import.meta.url),
@@ -317,8 +445,8 @@ const command =
   '","base64")).toString())\'';
 const output = execFileSync(
   "flyctl",
-  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "40"],
-  { encoding: "utf8", timeout: 50000 },
+  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "110"],
+  { encoding: "utf8", timeout: 120000 },
 );
 const marker = "APPFORGE_HOST_PROBE ";
 const line = output.split("\n").find((line) => line.startsWith(marker));
@@ -332,6 +460,7 @@ if (!result.node || typeof result.uid !== "number")
 console.log(JSON.stringify(result));
 
 if (
+  !result.controller?.passed ||
   !result.delegation ||
   !result.cleanup ||
   !result.sandbox ||
