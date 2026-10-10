@@ -10,6 +10,14 @@ const db = vi.hoisted(() => ({
   updateProjectCreditsSpent: vi.fn(),
   updateProjectStatus: vi.fn(),
 }));
+const readiness = vi.hoisted(() => ({ assertBuildExecutionReady: vi.fn() }));
+vi.mock("../services/buildExecutionReadiness.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../services/buildExecutionReadiness.js")
+  >()),
+  assertBuildExecutionReady: readiness.assertBuildExecutionReady,
+}));
+
 const pipeline = vi.hoisted(() => ({ runAgentPipeline: vi.fn() }));
 const events = vi.hoisted(() => ({ appendBuildEvent: vi.fn() }));
 const stats = vi.hoisted(() => ({ recordBuildOutcome: vi.fn() }));
@@ -95,6 +103,7 @@ function errorEvents() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  readiness.assertBuildExecutionReady.mockReset().mockResolvedValue(undefined);
   db.getCurrentArtifact.mockResolvedValue({
     snapshotId: 91,
     version: 3,
@@ -105,6 +114,26 @@ beforeEach(() => {
 });
 
 describe("build worker typed contract enforcement", () => {
+  it("pauses and refunds a queued job if the runtime disappeared before execution", async () => {
+    const { BuildRuntimeUnavailableError } =
+      await import("../services/buildExecutionReadiness.js");
+    const job = validJob({ reservationCharged: true });
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    readiness.assertBuildExecutionReady.mockRejectedValue(
+      new BuildRuntimeUnavailableError(),
+    );
+    await runBuildJob(job);
+    expect(pipeline.runAgentPipeline).not.toHaveBeenCalled();
+    expect(db.addCredits).toHaveBeenCalledTimes(1);
+    expect(db.updateProjectStatus).toHaveBeenCalledWith(
+      job.projectId,
+      "paused",
+      "validation_unavailable",
+    );
+    expect(errorEvents()).toEqual(["validation_unavailable"]);
+    expect(recovery.recordKnownGoodCheckpoint).not.toHaveBeenCalled();
+  });
+
   it("runs a valid job with the queued contract and stack, without reclassifying", async () => {
     const job = validJob();
     expect(job.productContract.productType).toBe("game");

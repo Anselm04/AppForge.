@@ -24,6 +24,8 @@ const created: Array<{ techStack: string; productContract: ProductContract }> =
   [];
 const queued: unknown[] = [];
 const navigateSpy = vi.fn();
+const readiness = vi.hoisted(() => ({ assertBuildExecutionReady: vi.fn() }));
+vi.mock("../services/buildExecutionReadiness.js", () => readiness);
 
 vi.mock("../db.js", () => ({
   createProject: vi.fn(async (data: Record<string, unknown>) => {
@@ -138,6 +140,7 @@ afterAll(() => {
   delete process.env.APPFORGE_CONTRACT_LLM_ENRICHMENT;
 });
 beforeEach(() => {
+  readiness.assertBuildExecutionReady.mockReset().mockResolvedValue(undefined);
   created.length = 0;
   queued.length = 0;
   navigateSpy.mockReset();
@@ -312,4 +315,31 @@ describe("Home → projects.create → contract → stack", () => {
     expect((error as TRPCError).message).toMatch(/phaser-html5/);
     expect(created).toHaveLength(1);
   });
+});
+
+it("refuses create before reservations, project writes or enrichment when runtime is unavailable", async () => {
+  const db = await import("../db.js");
+  const previousCalls = vi.mocked(db.deductCredits).mock.calls.length;
+  const previousProjects = created.length;
+  const previousQueue = queued.length;
+  readiness.assertBuildExecutionReady.mockRejectedValue(
+    new TRPCError({
+      code: "SERVICE_UNAVAILABLE",
+      message: "Build runtime unavailable",
+    }),
+  );
+  const caller = projectsRouter.createCaller({
+    req: {} as never,
+    res: {} as never,
+    user: { id: 7, email: "maker@example.com", name: "Maker" },
+  });
+  await expect(
+    caller.create({
+      title: "A landing page",
+      description: "Build a landing page for a local bakery",
+    }),
+  ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+  expect(vi.mocked(db.deductCredits).mock.calls).toHaveLength(previousCalls);
+  expect(created).toHaveLength(previousProjects);
+  expect(queued).toHaveLength(previousQueue);
 });

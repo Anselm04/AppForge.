@@ -43,6 +43,8 @@ import {
   updateSeniorDevTask,
 } from "../db.js";
 
+import { assertBuildExecutionReady } from "../services/buildExecutionReadiness.js";
+
 const FREE_TIER_LIMIT = 3;
 
 const recoveryFailureKindEnum = z.enum([
@@ -196,6 +198,7 @@ export const projectsRouter = router({
       if (!intake.ok) {
         throw new TRPCError({ code: "BAD_REQUEST", message: intake.message });
       }
+      await assertBuildExecutionReady();
       const { promptIntent } = intake;
 
       // Owner identity is server-authoritative. Customer anti-abuse gates must
@@ -560,8 +563,12 @@ export const projectsRouter = router({
         });
       }
 
+      await assertBuildExecutionReady();
       const credits = await ensureUserCredits(ctx.user.id);
-      const unlimited = !!credits.unlimited || credits.tier === "lifetime";
+      const unlimited =
+        isOwnerEmail(ctx.user.email) ||
+        !!credits.unlimited ||
+        credits.tier === "lifetime";
       let reservationCharged =
         (project.creditsReserved ?? 0) >= BUILD_CREDIT_COST;
       let newlyCharged = false;

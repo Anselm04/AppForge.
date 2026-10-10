@@ -57,6 +57,11 @@ import {
   type FinalProductFactoryFlowReport,
 } from "../lib/finalProductFactoryFlow.js";
 
+import {
+  assertBuildExecutionReady,
+  BuildRuntimeUnavailableError,
+} from "./buildExecutionReadiness.js";
+
 const activeJobs = new Set<number>();
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_BASE_MS = 1_000;
@@ -490,6 +495,8 @@ export async function runBuildJob(input: unknown): Promise<void> {
       throw new BuildDependencyBlockedError(dependencyGraph);
     }
 
+    await assertBuildExecutionReady();
+
     if (project.status === "paused") {
       await resumeProject(projectId);
     }
@@ -851,7 +858,13 @@ export async function runBuildJob(input: unknown): Promise<void> {
     }
 
     await recordBuildOutcome(userId, false, 0);
-    if (err instanceof BuildContractError) {
+    if (err instanceof BuildRuntimeUnavailableError) {
+      await emit(projectId, "error", {
+        error: "validation_unavailable",
+        message: err.message,
+      });
+      await updateProjectStatus(projectId, "paused", "validation_unavailable");
+    } else if (err instanceof BuildContractError) {
       await emit(projectId, "error", {
         error: "build_contract_invalid",
         message: BUILD_CONTRACT_INVALID_MESSAGE,

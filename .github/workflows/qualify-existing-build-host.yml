@@ -1,7 +1,7 @@
 name: Qualify Existing Build Host
 on:
   push:
-    branches: [fix/provider-neutral-build-runtime]
+    branches: [fix/provider-neutral-build-runtime, fix/build-runtime-preflight]
     paths:
       - scripts/probe-existing-fly-isolation.mjs
       - .github/workflows/qualify-existing-build-host.yml
