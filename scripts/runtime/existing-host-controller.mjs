@@ -32,6 +32,26 @@ const ROOTS = CONTROLLERS.map(
 let active = false;
 let cleanupFailed = false;
 
+export function aggregateLimitsQualified({
+  memory,
+  memoryHierarchy,
+  cpuQuota,
+  cpuPeriod,
+  pids,
+}) {
+  return (
+    Number.isFinite(memory) &&
+    memory > 0 &&
+    memory <= 805306368 &&
+    memoryHierarchy === 1 &&
+    cpuQuota === 50000 &&
+    cpuPeriod === 100000 &&
+    Number.isInteger(pids) &&
+    pids > 0 &&
+    pids <= 256
+  );
+}
+
 export function existingHostReady() {
   if (
     process.env.EXISTING_HOST_SANDBOX_ENABLED !== "true" ||
@@ -49,13 +69,19 @@ export function existingHostReady() {
       statSync(WORKSPACE).uid === 1001 &&
       fs.type === 0x01021994 &&
       fs.blocks * fs.bsize <= 512 * 1024 * 1024 &&
-      Number(readFileSync(ROOTS[0] + "/memory.limit_in_bytes", "utf8")) <=
-        805306368 &&
-      Number(readFileSync(ROOTS[0] + "/memory.use_hierarchy", "utf8")) === 1 &&
-      Number(readFileSync(ROOTS[1] + "/cpu.cfs_quota_us", "utf8")) === 50000 &&
-      Number(readFileSync(ROOTS[1] + "/cpu.cfs_period_us", "utf8")) ===
-        100000 &&
-      Number(readFileSync(ROOTS[2] + "/pids.max", "utf8")) <= 256
+      aggregateLimitsQualified({
+        memory: Number(
+          readFileSync(ROOTS[0] + "/memory.limit_in_bytes", "utf8"),
+        ),
+        memoryHierarchy: Number(
+          readFileSync(ROOTS[0] + "/memory.use_hierarchy", "utf8"),
+        ),
+        cpuQuota: Number(readFileSync(ROOTS[1] + "/cpu.cfs_quota_us", "utf8")),
+        cpuPeriod: Number(
+          readFileSync(ROOTS[1] + "/cpu.cfs_period_us", "utf8"),
+        ),
+        pids: Number(readFileSync(ROOTS[2] + "/pids.max", "utf8")),
+      })
     );
   } catch {
     return false;

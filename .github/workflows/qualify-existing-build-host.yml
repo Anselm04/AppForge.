@@ -5,9 +5,8 @@ on:
     paths:
       - scripts/probe-existing-fly-isolation.mjs
       - scripts/fixtures/existing-host-node.cjs
-      - scripts/runtime/registry-gateway.mjs
-      - scripts/runtime/registry-relay.cjs
-      - scripts/runtime/namespace-filter.mjs
+      - scripts/runtime/**
+      - scripts/fixtures/reviewed-node-files.mjs
       - .github/workflows/qualify-existing-build-host.yml
   workflow_dispatch:
 permissions:
@@ -25,6 +24,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Verify reviewed fixtures and local isolation boundaries
+        run: |
+          node scripts/probe-existing-fly-isolation.mjs --syntax-only
+          node --test scripts/runtime/*.test.mjs
       - name: Check bounded isolation on the existing fleet
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

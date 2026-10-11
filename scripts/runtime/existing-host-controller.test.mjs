@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  aggregateLimitsQualified,
   existingHostReady,
   inspectSandboxInput,
   validateExistingHost,
@@ -154,5 +155,36 @@ test("multi-package workspaces and overrides require independent qualification",
           "node-service",
         ),
       /qualified|qualification/,
+    );
+});
+
+test("unlimited, absent, zero and enlarged aggregate budgets cannot enable execution", () => {
+  const qualified = {
+    memory: 268435456,
+    memoryHierarchy: 1,
+    cpuQuota: 50000,
+    cpuPeriod: 100000,
+    pids: 64,
+  };
+  assert.equal(aggregateLimitsQualified(qualified), true);
+  for (const changes of [
+    { memory: 0 },
+    { memory: -1 },
+    { memory: Infinity },
+    { memory: NaN },
+    { memory: 805306369 },
+    { memoryHierarchy: 0 },
+    { cpuQuota: -1 },
+    { cpuQuota: 100000 },
+    { cpuPeriod: 50000 },
+    { pids: 0 },
+    { pids: -1 },
+    { pids: Infinity },
+    { pids: 257 },
+  ])
+    assert.equal(
+      aggregateLimitsQualified({ ...qualified, ...changes }),
+      false,
+      JSON.stringify(changes),
     );
 });

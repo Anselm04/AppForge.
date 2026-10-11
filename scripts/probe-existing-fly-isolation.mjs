@@ -289,6 +289,12 @@ async function inspectHost(payload) {
       !proof.negativeTestsStop ||
       !proof.passed ||
       !proof.isolationId ||
+      proof.techStack !== "node-service" ||
+      proof.artifactSha256 !==
+        require("node:crypto")
+          .createHash("sha256")
+          .update(JSON.stringify(payload.files))
+          .digest("hex") ||
       !["install", "security", "tests", "build", "runtime"].every(
         (stage) => proof.steps[stage]?.passed,
       )
