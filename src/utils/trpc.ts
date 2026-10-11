@@ -29,6 +29,7 @@ export const trpc = createTRPCProxyClient<AppRouter>({
           const token = getAccessToken();
           let headers = new Headers(options?.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
+          else headers.delete("Authorization");
           headers = await withCsrfHeaders(headers);
           const res = await fetch(url, {
             ...options,
