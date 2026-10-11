@@ -118,17 +118,15 @@ export async function pauseFailedQueueAttempt(
       )
       .returning({ id: schema.projects.id });
     if (paused.length === 1) {
-      await tx
-        .insert(schema.buildEvents)
-        .values({
-          projectId,
-          event: "build_execution_claim",
-          payload: {
-            revoked: true,
-            createdAt: attemptCreatedAt,
-            reason: "worker_interruption",
-          },
-        });
+      await tx.insert(schema.buildEvents).values({
+        projectId,
+        event: "build_execution_claim",
+        payload: {
+          revoked: true,
+          createdAt: attemptCreatedAt,
+          reason: "worker_interruption",
+        },
+      });
     }
     return paused.length === 1;
   });
