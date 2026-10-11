@@ -60,7 +60,8 @@ RUN addgroup -g 1001 -S appforge && \
     chown -R appforge:appforge /app
 # Startup prepares bounded isolation as root, then drops to appforge before
 # launching the server. Customer processes never receive root or host secrets.
-RUN chown -R root:root /app/scripts/runtime && chmod 755 /app/scripts/runtime/bootstrap.sh
+RUN chown root:root /app /app/scripts && chmod 755 /app /app/scripts \
+    && chown -R root:root /app/scripts/runtime && chmod 755 /app/scripts/runtime/bootstrap.sh
 
 EXPOSE 3000
 

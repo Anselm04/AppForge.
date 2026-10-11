@@ -238,7 +238,10 @@ jobs:
             import { statSync } from "node:fs";
             import { existingHostReady } from "./scripts/runtime/existing-host-controller.mjs";
             assert.equal(process.getuid(), 1001);
-            assert.equal(statSync("/app/scripts/runtime").uid, 0);
+            for (const path of ["/app", "/app/scripts", "/app/scripts/runtime"]) {
+              assert.equal(statSync(path).uid, 0);
+              assert.equal(statSync(path).mode & 0o022, 0);
+            }
             assert.equal(existingHostReady(), false);
             console.log("Production startup drops privileges and preserves immutable tooling");'
           docker run --rm -e EXISTING_HOST_SANDBOX_ENABLED=true appforge-startup-check node --input-type=module -e '
