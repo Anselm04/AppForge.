@@ -9,7 +9,10 @@ const { execFileSync } = require("node:child_process");
 const assert = require("node:assert/strict");
 const servers = fs.readdirSync("/proc").filter(pid => {
   if (!/^\\d+$/.test(pid)) return false;
-  try { return fs.readFileSync("/proc/"+pid+"/cmdline","utf8").split("\\0").includes("dist/server.js"); } catch { return false; }
+  try {
+    const args = fs.readFileSync("/proc/"+pid+"/cmdline","utf8").split("\\0");
+    return /(?:^|\\/)node$/.test(args[0]) && args.slice(1).some(arg => arg === "dist/server.js" || arg === "/app/dist/server.js");
+  } catch { return false; }
 });
 assert.equal(servers.length, 1, "Expected one serving AppForge process");
 const entries = fs.readFileSync("/proc/"+servers[0]+"/environ","utf8").split("\\0");
@@ -19,7 +22,7 @@ for (const name of ["EXISTING_HOST_SANDBOX_ENABLED","APPFORGE_SANDBOX_PREPARED"]
   assert.equal(entry, name+"=true", "Serving process isolation preparation failed");
   env[name] = "true";
 }
-const output = execFileSync("su-exec",["1001:1001","node","--input-type=module","-e",
+const output = execFileSync("/sbin/su-exec",["1001:1001","node","--input-type=module","-e",
   'import assert from "node:assert/strict"; import {existingHostBuildReady} from "./dist/services/existingHostBuildRunner.js"; assert.equal(process.getuid(),1001); assert.equal(await existingHostBuildReady(),true); console.log("APPFORGE_BUILD_RUNTIME_READY");'
 ],{cwd:"/app",env,encoding:"utf8",timeout:10000,maxBuffer:8192});
 assert.ok(output.includes("APPFORGE_BUILD_RUNTIME_READY"));
