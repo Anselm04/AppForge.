@@ -409,9 +409,12 @@ async function httpProbe(socketPath, path) {
 export async function validateExistingHost(
   files,
   techStack,
-  { sourceSecurityVerified = false } = {},
+  { sourceSecurityVerified = false, commandTimeoutMs = 120000 } = {},
 ) {
   const started = Date.now();
+  const executionTimeout = Number.isFinite(commandTimeoutMs)
+    ? Math.max(1000, Math.min(120000, commandTimeoutMs))
+    : 120000;
   const proof = {
     passed: false,
     stage: "isolation",
@@ -456,7 +459,10 @@ export async function validateExistingHost(
     ];
     const run = async (stage, args, options = {}) => {
       proof.stage = stage;
-      const result = await startSandbox(job, args, options).finished;
+      const result = await startSandbox(job, args, {
+        timeout: executionTimeout,
+        ...options,
+      }).finished;
       proof.steps[stage] = { passed: result.passed };
       if (!result.passed) {
         const memoryFailures = Number(
