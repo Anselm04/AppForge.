@@ -32,6 +32,11 @@ if [ "${EXISTING_HOST_SANDBOX_ENABLED:-false}" = "true" ]; then
     done
   fi
   if [ "$prepared" = true ]; then
+    if ! su-exec 1001:1001 env APPFORGE_SANDBOX_PREPARED=true node --input-type=module -e 'import { existingHostReady } from "./scripts/runtime/existing-host-controller.mjs"; if (!existingHostReady()) process.exit(1)'; then
+      prepared=false
+    fi
+  fi
+  if [ "$prepared" = true ]; then
     export APPFORGE_SANDBOX_PREPARED=true
   else
     echo "Existing-host build isolation is unavailable; build execution stays disabled." >&2
