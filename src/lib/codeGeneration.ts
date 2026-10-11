@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { getStackAdapter } from "./stackAdapters.js";
 import {
   getRuntimeArchitecture,
@@ -29,7 +30,7 @@ import {
 } from "./monetizationImplementation.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
-  [/\bTODO\b/i, "TODO marker"],
+  [/\bTODO\b/, "TODO marker"],
   [/\bcoming soon\b/i, "coming-soon placeholder"],
   [/scaffold is ready/i, "scaffold-ready placeholder"],
   [/your generated ui will replace/i, "generated-UI placeholder"],
@@ -46,6 +47,65 @@ const EMPTY_HANDLER_PATTERNS: RegExp[] = [
   /(?:async\s*)?[A-Za-z_$][\w$]*\s*=>\s*\{\s*\}/m,
   /function\s+[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{\s*\}/m,
 ];
+
+function todoCommentSource(source: string, path: string): string {
+  if (!/\.[cm]?[jt]sx?$/i.test(path)) {
+    // TODO is an unfinished-code annotation, not a task label or document noun.
+    return source
+      .split("\n")
+      .filter((line) => /^\s*(?:#|\/\/|\/\*|\*|<!--)\s*TODO\b/.test(line))
+      .join("\n");
+  }
+  const parsed = ts.createSourceFile(
+    path,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    /[jt]sx$/i.test(path) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const literalRanges: Array<[number, number]> = [];
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isStringLiteralLike(node) ||
+      ts.isRegularExpressionLiteral(node) ||
+      ts.isJsxText(node) ||
+      ts.isTemplateLiteralToken(node)
+    ) {
+      literalRanges.push([node.getStart(parsed), node.end]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  literalRanges.sort((left, right) => left[0] - right[0]);
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    false,
+    ts.LanguageVariant.Standard,
+    source,
+  );
+  const comments: string[] = [];
+  let rangeIndex = 0;
+  for (
+    let token = scanner.scan();
+    token !== ts.SyntaxKind.EndOfFileToken;
+    token = scanner.scan()
+  ) {
+    const position = scanner.getTokenPos();
+    while (literalRanges[rangeIndex]?.[1] <= position) rangeIndex++;
+    const range = literalRanges[rangeIndex];
+    if (range && range[0] <= position && position < range[1]) {
+      scanner.setTextPos(range[1]);
+      continue;
+    }
+    if (
+      token === ts.SyntaxKind.SingleLineCommentTrivia ||
+      token === ts.SyntaxKind.MultiLineCommentTrivia
+    ) {
+      comments.push(scanner.getTokenText());
+    }
+  }
+  return comments.join("\n");
+}
 
 function isTextSource(path: string): boolean {
   return !/\.(?:png|jpe?g|gif|webp|ico|woff2?|ttf|pdf)$/i.test(path);
@@ -263,7 +323,11 @@ export function validateCoderTaskOutput(input: {
     if (!isTextSource(path)) continue;
 
     for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
-      if (pattern.test(source)) {
+      if (
+        pattern.test(source) &&
+        (label !== "TODO marker" ||
+          pattern.test(todoCommentSource(source, path)))
+      ) {
         throw new Error(`Task ${input.task.id} returned ${label} in ${path}`);
       }
     }
@@ -549,7 +613,12 @@ export function validateGeneratedCodeArtifact(input: {
   for (const [path, source] of Object.entries(input.files)) {
     if (!isTextSource(path)) continue;
     for (const [pattern, label] of PLACEHOLDER_PATTERNS) {
-      if (pattern.test(source)) problems.push(`${path}: ${label}`);
+      if (
+        pattern.test(source) &&
+        (label !== "TODO marker" ||
+          pattern.test(todoCommentSource(source, path)))
+      )
+        problems.push(`${path}: ${label}`);
     }
   }
 
