@@ -84,7 +84,7 @@ jobs:
       - name: Verify existing-host isolation input, syscall and registry boundaries
         run: node --test scripts/runtime/*.test.mjs
       - name: Verify Fly capacity safety cases
-        run: node --test scripts/verify-fly-capacity.test.mjs
+        run: node --test scripts/verify-fly-capacity.test.mjs scripts/verify-production-build-runtime.test.mjs
       - name: Run production golden-path test explicitly
         run: npm run test:e2e
         env:
