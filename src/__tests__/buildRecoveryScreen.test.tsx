@@ -36,7 +36,7 @@ vi.mock("../components/ProjectCodeEditor.js", () => ({
 }));
 vi.mock("../components/ProjectChat.js", () => ({ ProjectChat: () => null }));
 vi.mock("../components/BuildLivePreview.js", () => ({
-  BuildLivePreview: () => null,
+  BuildLivePreview: () => <div data-testid="runtime-preview" />,
 }));
 vi.mock("../components/DeployWizard.js", () => ({ DeployWizard: () => null }));
 vi.mock("../components/RevenueReadinessPanel.js", () => ({
@@ -48,8 +48,30 @@ vi.mock("../components/AgentTerminal.js", () => ({
 import { Build } from "../pages/Build.js";
 afterEach(() => {
   vi.clearAllMocks();
+  state.project.status = "paused";
+  state.project.planStatus = "approved";
 });
 describe("saved build recovery screen", () => {
+  it.each(["validated", "production-certified"])(
+    "preserves the runtime preview for a %s artifact",
+    (status) => {
+      state.project.status = status;
+      render(<Build />);
+      fireEvent.click(screen.getByRole("button", { name: "preview" }));
+      expect(screen.getByTestId("runtime-preview")).toBeInTheDocument();
+    },
+  );
+  it("explains that saved working files need validation rather than loading a blocked iframe", () => {
+    state.project.planStatus = "approved";
+    render(<Build />);
+    fireEvent.click(screen.getByRole("button", { name: "preview" }));
+    expect(screen.queryByTestId("runtime-preview")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Full build validation is required before preview. Your working edits are saved; check Logs and Evidence for the blocked step.",
+      ),
+    ).toBeInTheDocument();
+  });
   it("offers a single retry for an interrupted build whose decisions are already approved", async () => {
     state.project.planStatus = "approved";
     state.resume.mockRejectedValue(

@@ -13,6 +13,7 @@
  */
 
 import { getStackAdapter, type StackAdapter } from "./stackAdapters.js";
+import { repairNativeNodeImports } from "./nativeNodeImports.js";
 
 /** Stacks that get full sandbox validation and this reliability pass. */
 export const GOLDEN_STACKS = [
@@ -507,6 +508,8 @@ export function hardenGeneratedProject(
     // Bundler resolution only: NodeNext services need explicit extensions.
     fixBrokenRelativeImports(files);
   }
+
+  if (adapter.runtime === "node") repairNativeNodeImports(files);
 
   if (!files["README.md"]) files["README.md"] = stackReadme(adapter);
   if (!files[".gitignore"]) files[".gitignore"] = stackGitignore(adapter);

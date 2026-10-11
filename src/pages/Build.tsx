@@ -20,6 +20,7 @@ import {
   buildActivityLabel,
   buildStageLabel,
   outputMaturityLabel,
+  isProjectArtifactReady,
 } from "../lib/buildStatus.js";
 import {
   canRetryPlanning,
@@ -953,13 +954,20 @@ export function Build() {
           </section>
         )}
 
-        {tab === "preview" && pid > 0 && (
-          <BuildLivePreview
-            projectId={pid}
-            deployUrl={deployUrl}
-            enabled={canUseWorkspace}
-          />
-        )}
+        {tab === "preview" &&
+          pid > 0 &&
+          (isProjectArtifactReady(project?.status) ? (
+            <BuildLivePreview
+              projectId={pid}
+              deployUrl={deployUrl}
+              enabled={canUseWorkspace}
+            />
+          ) : (
+            <p role="status" className="mb-6 text-slate-300">
+              Full build validation is required before preview. Your working
+              edits are saved; check Logs and Evidence for the blocked step.
+            </p>
+          ))}
 
         {tab === "code" && pid > 0 && (
           <ProjectCodeEditor projectId={pid} enabled={canUseWorkspace} />
