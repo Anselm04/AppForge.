@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { appendVisibleBuildLog, type BuildLogEntry } from "../buildLogView.js";
+import {
+  appendVisibleBuildLog,
+  buildLogDetails,
+  buildLogSummary,
+  type BuildLogEntry,
+} from "../buildLogView.js";
 
 describe("live build log display", () => {
   it("keeps a long token stream in one bounded readable row", () => {
@@ -61,5 +66,41 @@ describe("live build log display", () => {
     });
     expect(logs).toHaveLength(200);
     expect(logs.at(-1)?.payload?.message).toBe("Validation failed");
+  });
+});
+
+describe("validation diagnostics in customer logs", () => {
+  it("exposes the failure stage and actionable errors without a message/text field", () => {
+    const log: BuildLogEntry = {
+      agent: "Validator",
+      type: "failed",
+      payload: {
+        passed: false,
+        stage: "tests",
+        errors: [
+          "Task creation assertion failed",
+          "Persistence assertion failed",
+        ],
+      },
+    };
+    expect(buildLogSummary(log)).toBe("Validation failed (tests)");
+    expect(buildLogDetails(log)).toContain("Task creation assertion failed");
+    expect(buildLogDetails(log)).toContain("Persistence assertion failed");
+  });
+  it("bounds structured error output while preserving ordinary streamed text", () => {
+    expect(
+      buildLogDetails({
+        agent: "Validator",
+        type: "failed",
+        payload: { errors: Array(30).fill("x".repeat(10000)) },
+      }).length,
+    ).toBeLessThan(17000);
+    expect(
+      buildLogDetails({
+        agent: "Coder",
+        type: "chunk",
+        payload: { text: "existing stream", errors: ["other"] },
+      }),
+    ).toBe("existing stream");
   });
 });
