@@ -2,7 +2,7 @@ import { createClient, type RedisClientType } from "redis";
 import type { Queue, Worker } from "bullmq";
 import { logger } from "../_core/logger.js";
 import { ENV } from "../_core/env.js";
-import { runBuildJob } from "./build-worker.js";
+import { runBuildJob, isBuildActive } from "./build-worker.js";
 import {
   cloneBuildJob,
   extractBuildJobIdentity,
@@ -12,9 +12,12 @@ import {
   type BuildJob,
 } from "../lib/buildJob.js";
 import { addCredits, getCurrentArtifact, getProjectById } from "../db.js";
+import { pauseFailedQueueAttempt } from "./build-claim.js";
+import { publishRuntimeBuildEvent } from "./build-runtime.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import {
   appendBuildEvent,
+  getLatestBuildClaimAt,
   getLatestTerminalBuildEvent,
 } from "./build-event-store.js";
 import {
@@ -177,6 +180,18 @@ async function initBullMQ(): Promise<boolean> {
           { err, projectId: (job?.data as BuildJob)?.projectId },
           "bullmq_job_failed",
         );
+        const identity = extractBuildJobIdentity(job?.data);
+        if (identity) {
+          void recoverFailedQueuedBuild(
+            identity.projectId,
+            identity.userId,
+          ).catch((error) =>
+            logger.error(
+              { error, projectId: identity.projectId },
+              "queue_failure_recovery_failed",
+            ),
+          );
+        }
         refreshBullQueueDepth();
       },
     );
@@ -388,6 +403,99 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
   });
   setActiveQueueDepth("memory", memoryQueue.length);
   void processMemoryQueue();
+}
+
+/** Terminal queue state, never elapsed time alone, authorizes interruption recovery. */
+export async function recoverFailedQueuedBuild(
+  projectId: number,
+  userId: number,
+): Promise<{ recovered: boolean; message: string }> {
+  if (!bullQueue || isBuildActive(projectId)) {
+    return {
+      recovered: false,
+      message:
+        "The worker is active or queue status is unavailable. No build state was changed.",
+    };
+  }
+  const queued = await bullQueue.getJob(`build-${projectId}`);
+  if (!queued || (await queued.getState()) !== "failed") {
+    return {
+      recovered: false,
+      message:
+        "The queue has no terminal worker failure for this build. No build state was changed.",
+    };
+  }
+  const parsed = parseBuildJob(queued.data);
+  const project = await getProjectById(projectId);
+  if (
+    !parsed.ok ||
+    parsed.job.projectId !== projectId ||
+    parsed.job.userId !== userId ||
+    !project ||
+    project.userId !== userId ||
+    project.status !== "running" ||
+    !project.updatedAt
+  ) {
+    return {
+      recovered: false,
+      message:
+        "The saved build state does not match this failed queue attempt. No build state was changed.",
+    };
+  }
+  const job = parsed.job;
+  const latestClaim = await getLatestBuildClaimAt(projectId);
+  if (latestClaim && Date.parse(latestClaim) > Date.parse(job.createdAt)) {
+    return {
+      recovered: false,
+      message:
+        "A newer build has claimed this project. No build state was changed.",
+    };
+  }
+  // Check the retained job again before settlement: another attempt may have replaced it.
+  const current = await bullQueue.getJob(`build-${projectId}`);
+  if (
+    !current ||
+    current.data.createdAt !== job.createdAt ||
+    (await current.getState()) !== "failed"
+  ) {
+    return {
+      recovered: false,
+      message:
+        "The queue attempt changed while checking. No build state was changed.",
+    };
+  }
+  if (job.reservationCharged) {
+    await addCredits(
+      userId,
+      BUILD_CREDIT_COST,
+      "build_refund",
+      `Interrupted build reservation refund for project ${projectId}`,
+      `build-refund-${projectId}-${job.createdAt}`,
+    );
+  }
+  const recovered = await pauseFailedQueueAttempt(
+    projectId,
+    userId,
+    project.updatedAt,
+    job.createdAt,
+  );
+  const message = recovered
+    ? "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue."
+    : "The build changed while checking. No build state was changed.";
+  if (recovered) {
+    const payload = {
+      error: "retry_after_error",
+      message,
+      recoveredAfterWorkerFailure: true,
+    };
+    await appendBuildEvent(projectId, "error", payload);
+    publishRuntimeBuildEvent(projectId, "error", payload);
+    await publishBuildEvent(projectId, "error", payload);
+    incrementOperationalMetric("appforge_build_recoveries_total", {
+      reason: "terminal_worker_failure",
+    });
+  }
+  return { recovered, message };
 }
 
 export async function getBuildQueueDiagnostics() {

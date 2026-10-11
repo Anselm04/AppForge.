@@ -1107,6 +1107,18 @@ export const projectsRouter = router({
     }),
 
   /** Recovery status and safe action for a project failure mode. */
+  recoverInterruptedBuild: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await getProjectById(input.projectId);
+      if (!project || project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      }
+      const { recoverFailedQueuedBuild } =
+        await import("../services/build-queue.js");
+      return recoverFailedQueuedBuild(input.projectId, ctx.user.id);
+    }),
+
   recoveryStatus: protectedProcedure
     .input(
       z.object({
