@@ -28,6 +28,7 @@ import {
   validateProductContract,
   type ProductContract,
 } from "../lib/productContract.js";
+import { validateMonetizationArtifact } from "../lib/monetizationImplementation.js";
 import type { ProductPlan } from "../lib/productPlan.js";
 import type { ResearchDecision } from "../lib/researchRecord.js";
 import { validateGeneratedProjectStructure } from "../lib/generatedProjectStructure.js";
@@ -60,9 +61,10 @@ type RequirementManifest = {
   requirements: Array<{ id: string; text: string }>;
 };
 
-function validateRequirementTestCoverage(
+export function validateRequirementTestCoverage(
   files: Record<string, string>,
   testFiles: string[],
+  contract?: ProductContract,
 ): string[] {
   const raw = files["appforge.requirements.json"];
   if (!raw) return ["Missing appforge.requirements.json acceptance contract."];
@@ -81,18 +83,36 @@ function validateRequirementTestCoverage(
     return ["Requirement acceptance contract is empty or unsupported."];
   }
 
+  const scopeText =
+    "Do not invent monetization; the prompt did not request payments";
+  const canonicalScope =
+    contract?.monetizationRequirements.length === 0
+      ? contract.functionalRequirements.find(
+          (requirement) =>
+            requirement.category === "monetization" &&
+            requirement.text === scopeText,
+        )
+      : undefined;
+  const scopeErrors = canonicalScope
+    ? validateMonetizationArtifact({ files, contract: contract! })
+    : [];
   const testSource = testFiles.map((path) => files[path] ?? "").join("\n");
-  return manifest.requirements
+  const coverageErrors = manifest.requirements
     .filter(
       (requirement) =>
         !/^REQ-\d{3}$/.test(requirement.id) ||
         !requirement.text?.trim() ||
-        !testSource.includes(`// requirement: ${requirement.id}`),
+        (!testSource.includes(`// requirement: ${requirement.id}`) &&
+          !(
+            canonicalScope?.id === requirement.id &&
+            requirement.text === scopeText
+          )),
     )
     .map(
       (requirement) =>
         `Requirement ${requirement.id || "unknown"} has no linked executable behavioral test.`,
     );
+  return [...scopeErrors, ...coverageErrors];
 }
 
 function runCommand(
@@ -372,6 +392,7 @@ export async function validateGeneratedBuild(
       const requirementCoverageErrors = validateRequirementTestCoverage(
         files,
         generatedTestFiles,
+        options.productContract,
       );
       if (requirementCoverageErrors.length > 0) {
         return {
