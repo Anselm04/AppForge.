@@ -169,7 +169,7 @@
             task,
           });
           let taskSucceeded = false;
-          let taskLastError = "";
+          let taskLastError = existingTaskState?.lastError ?? "";
 
           for (let taskAttempt = 1; taskAttempt <= 3; taskAttempt++) {
             const attemptProviderIndex =

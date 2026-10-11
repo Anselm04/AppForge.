@@ -344,11 +344,22 @@ export function buildAgentTaskContext(input: {
 export function reconcileCoordinationResume(input: {
   record: AgentCoordinationRecord;
   generatedFiles: Record<string, string>;
+  repairReason?: string;
 }): AgentCoordinationRecord {
   let record = input.record;
 
   for (const [taskId, state] of Object.entries(record.taskStates)) {
     if (state.status !== "completed") continue;
+
+    // Completed generation is not completed validation. A failed repair burst
+    // must reopen owned tasks even when their old output files still exist.
+    if (input.repairReason) {
+      record = updateTaskCoordinationState(record, taskId, {
+        status: state.dependencies.length > 0 ? "blocked" : "pending",
+        lastError: input.repairReason,
+      });
+      continue;
+    }
 
     const missing = state.outputFiles.filter(
       (file) => !(file in input.generatedFiles),
