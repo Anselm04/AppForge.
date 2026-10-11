@@ -457,35 +457,43 @@ export async function validateExistingHost(
       "--maxsockets=4",
       "--strict-ssl=true",
     ];
+    const resourceCounters = async () => {
+      let memoryFailures = 0;
+      let pidFailures = 0;
+      // A hierarchical v1 aggregate can enforce a limit before its child.
+      // Inspect both levels; child-only counters miss aggregate OOM kills.
+      for (const group of [ROOTS[0], job.groups[0]])
+        memoryFailures += Number(
+          await readFile(group + "/memory.failcnt", "utf8").catch(() => "0"),
+        );
+      for (const group of [ROOTS[2], job.groups[2]]) {
+        const events = await readFile(group + "/pids.events", "utf8").catch(
+          () => "",
+        );
+        pidFailures += Number(events.match(/^max\s+(\d+)/m)?.[1] ?? 0);
+      }
+      return { memoryFailures, pidFailures };
+    };
     const run = async (stage, args, options = {}) => {
       proof.stage = stage;
+      const before = await resourceCounters();
       const result = await startSandbox(job, args, {
         timeout: executionTimeout,
         ...options,
       }).finished;
-      proof.steps[stage] = { passed: result.passed };
-      if (!result.passed) {
-        const memoryFailures = Number(
-          await readFile(job.groups[0] + "/memory.failcnt", "utf8").catch(
-            () => "0",
-          ),
+      const after = await resourceCounters();
+      const exhausted =
+        result.unavailable ||
+        after.memoryFailures > before.memoryFailures ||
+        after.pidFailures > before.pidFailures;
+      proof.steps[stage] = { passed: result.passed && !exhausted };
+      if (exhausted) {
+        proof.stage = "isolation";
+        throw Error(
+          "Isolated execution exceeded its bounded resource allowance",
         );
-        const pidEvents = await readFile(
-          job.groups[2] + "/pids.events",
-          "utf8",
-        ).catch(() => "");
-        if (
-          result.unavailable ||
-          memoryFailures > 0 ||
-          /max\s+[1-9]\d*/.test(pidEvents)
-        ) {
-          proof.stage = "isolation";
-          throw Error(
-            "Isolated execution exceeded its bounded resource allowance",
-          );
-        }
-        throw Error(result.error || stage + " failed");
       }
+      if (!result.passed) throw Error(result.error || stage + " failed");
     };
     await run(
       "install",
