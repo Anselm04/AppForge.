@@ -817,3 +817,8 @@ The generated-project reliability pass preserves explicit relative `.js` imports
 ## Existing-host build runtime startup integration — 11 October 2026
 
 The production image now carries the reviewed namespace controller and startup preparation. Startup drops to UID 1001 before launching the web server. Build execution remains disabled unless EXISTING_HOST_SANDBOX_ENABLED is explicitly true and tmpfs, delegated aggregate resource limits, seccomp and Bubblewrap qualify. Preparation failure preserves the web service and refuses builds. Roll back to main release 76ef53c2299c9b397526a0da6bbd960afbae946c or disable the flag to restore the prior build pause. No new Fly machines, tokens, external runtimes or paid services are required by the integration. Customer preview and deployment remain separate qualification requirements.
+
+
+### Serving-process readiness probe correction — 11 October 2026
+
+The production readiness probe now identifies the Node executable and exact relative/absolute server entrypoint, excluding the dumb-init supervisor that retains the same server argument. The prepared public isolation flags and compiled UID-1001 adapter check remain mandatory. The existing-fleet qualification workflow runs this corrected read-only check against both serving machines before this correction is merged. It never provisions resources, changes runtime credentials or forwards the host environment.

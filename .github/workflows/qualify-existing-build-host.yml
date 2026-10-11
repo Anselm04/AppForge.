@@ -1,7 +1,7 @@
 name: Qualify Existing Build Host
 on:
   push:
-    branches: [fix/provider-neutral-build-runtime, fix/build-runtime-preflight, fix/existing-host-build-runner, fix/production-build-runtime]
+    branches: [fix/provider-neutral-build-runtime, fix/build-runtime-preflight, fix/existing-host-build-runner, fix/production-build-runtime, fix/build-runtime-process-check]
     paths:
       - scripts/verify-production-build-runtime*
       - .github/workflows/deploy-production.yml
@@ -36,3 +36,8 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: node scripts/probe-existing-fly-isolation.mjs
+      - name: Verify the actual serving process uses prepared non-root isolation
+        if: github.ref_name == 'fix/build-runtime-process-check'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: node scripts/verify-production-build-runtime.mjs
