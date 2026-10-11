@@ -271,6 +271,10 @@ jobs:
           # Observe first. Global scale operations can select stale blue/green
           # machines or race deletion leases even when two replacements are ready.
           node scripts/verify-fly-capacity.mjs
+      - name: Require prepared non-root build runtime on every serving machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: node scripts/verify-production-build-runtime.mjs
       - name: Verify production runtime and auth boundaries
         run: |
           set -euo pipefail

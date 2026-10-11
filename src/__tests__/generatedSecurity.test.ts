@@ -49,6 +49,8 @@ describe("#16 generated security", () => {
 
   it("blocks authorization identities accepted directly from unverified request headers", () => {
     for (const source of [
+      "req.user = { id: req.headers['x-user-id'] || 'anonymous' };",
+      "req.user.id = request.query.userId;",
       "const userId = req.headers['x-user-id'];",
       'const tenantId = request.headers.get("x-tenant-id");',
       'const workspaceId = req.get("X-Workspace-ID");',

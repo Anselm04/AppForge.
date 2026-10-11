@@ -1,3 +1,4 @@
+import { existingHostBuildReady } from "./existingHostBuildRunner.js";
 import { TRPCError } from "@trpc/server";
 import { dockerBuildAvailable } from "../lib/dockerValidator.js";
 import {
@@ -36,6 +37,7 @@ export async function assertBuildExecutionReady(): Promise<void> {
     }
     throw new BuildRuntimeUnavailableError();
   }
+  if (await existingHostBuildReady()) return;
   if (await dockerBuildAvailable()) return;
   throw new BuildRuntimeUnavailableError();
 }
