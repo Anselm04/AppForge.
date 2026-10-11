@@ -3,6 +3,8 @@ on:
   push:
     branches: [fix/provider-neutral-build-runtime, fix/build-runtime-preflight, fix/existing-host-build-runner, fix/production-build-runtime]
     paths:
+      - Dockerfile
+      - fly.toml
       - scripts/probe-existing-fly-isolation.mjs
       - scripts/fixtures/existing-host-node.cjs
       - scripts/runtime/**
