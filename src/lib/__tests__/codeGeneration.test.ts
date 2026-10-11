@@ -364,6 +364,50 @@ describe("code generation guard", () => {
     ).toThrow(/empty handler/);
   });
 
+  it("accepts working todo identifiers, labels and literal comment examples", () => {
+    const { contract, plan } = fixture();
+    const files = {
+      "src/main.tsx":
+        "// requirement: REQ-001\n// requirement: REQ-002\nexport const boot = true;",
+      "src/App.tsx":
+        'export function App(){ const todo={id:1,text:"Task"}; const example="// TODO: literal example"; const matcher=/TODO/; const loading=false; const error=null; return <main><h1>TODO tasks</h1>{loading ? "Loading" : error ? "Error" : todo.text}</main>; }',
+    };
+    expect(() =>
+      validateCoderTaskOutput({ contract, task: plan.tasks[0], files }),
+    ).not.toThrow();
+    const problems = validateGeneratedCodeArtifact({
+      contract,
+      plan,
+      files: { ...files, "README.md": "# Todo tracker" },
+    });
+    expect(problems.some((problem) => problem.includes("TODO marker"))).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    "// TODO: persist tasks",
+    "/* TODO implement storage */",
+    "/* repairs\n * TODO: implement delete\n */",
+    'const example="// TODO literal"; // TODO: real missing behavior',
+    "const label = `tasks ${1 /* TODO: implement counter */}`;",
+  ])("still rejects unfinished-code comments: %s", (comment) => {
+    const { contract, plan } = fixture();
+    const files = {
+      "src/main.tsx":
+        "// requirement: REQ-001\n// requirement: REQ-002\nexport const boot = true;",
+      "src/App.tsx": `${comment}\nexport function App(){ const loading=false; const error=null; return <main>{loading ? "Loading" : error ? "Error" : "Ready"}</main>; }`,
+    };
+    expect(() =>
+      validateCoderTaskOutput({ contract, task: plan.tasks[0], files }),
+    ).toThrow(/TODO marker/);
+    expect(
+      validateGeneratedCodeArtifact({ contract, plan, files }).some((problem) =>
+        problem.includes("TODO marker"),
+      ),
+    ).toBe(true);
+  });
+
   it("requires coder-owned runtime entrypoints, environment examples and documentation", () => {
     const { contract } = fixture();
     const problems = validateCoderOwnedArtifact({
