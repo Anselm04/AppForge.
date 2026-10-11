@@ -469,6 +469,9 @@
         contract: productContract,
         plan: coordinationContext!.productPlan,
       });
+      if (validationMode === "full") {
+        prepareGeneratedTestDependencies(generatedFiles, techStack);
+      }
       const codeGenerationProblems = validateGeneratedCodeArtifact({
         files: generatedFiles,
         contract: productContract,

@@ -159,6 +159,7 @@ export default defineConfig({
 
 const HARNESS_DEV_DEPENDENCIES: Record<TestHarness, Record<string, string>> = {
   react: {
+    supertest: "^7.3.1",
     vite: "^5.4.21",
     "@vitejs/plugin-react": "^4.2.1",
     vitest: "^3.2.7",
@@ -167,7 +168,7 @@ const HARNESS_DEV_DEPENDENCIES: Record<TestHarness, Record<string, string>> = {
     "@testing-library/jest-dom": "^6.4.0",
   },
   dom: { vitest: "^3.2.7", jsdom: "^24.0.0" },
-  node: { vitest: "^3.2.7" },
+  node: { vitest: "^3.2.7", supertest: "^7.3.1" },
 };
 
 /**
@@ -185,6 +186,7 @@ function ensureGeneratedTestDependencies(
     const pkg = JSON.parse(raw) as {
       scripts?: unknown;
       devDependencies?: unknown;
+      dependencies?: unknown;
     };
     const scripts =
       typeof pkg.scripts === "object" &&
@@ -199,18 +201,37 @@ function ensureGeneratedTestDependencies(
         ? (pkg.devDependencies as Record<string, string>)
         : {};
 
+    const dependencies =
+      typeof pkg.dependencies === "object" &&
+      pkg.dependencies !== null &&
+      !Array.isArray(pkg.dependencies)
+        ? (pkg.dependencies as Record<string, string>)
+        : {};
     pkg.scripts = scripts;
     pkg.devDependencies = devDependencies;
     scripts.test = scripts.test ?? "vitest run";
     for (const [name, version] of Object.entries(
       HARNESS_DEV_DEPENDENCIES[harness],
     )) {
-      devDependencies[name] = devDependencies[name] ?? version;
+      if (dependencies[name] === undefined) {
+        devDependencies[name] = devDependencies[name] ?? version;
+      }
     }
     generatedFiles["package.json"] = JSON.stringify(pkg, null, 2);
   } catch {
     // The build validator will fail invalid package.json explicitly.
   }
+}
+
+/** Prepare the allowlisted harness before the code-generation dependency gate. */
+export function prepareGeneratedTestDependencies(
+  generatedFiles: Record<string, string>,
+  techStack: string,
+): void {
+  ensureGeneratedTestDependencies(
+    generatedFiles,
+    testHarnessForStack(techStack),
+  );
 }
 
 const VITEST_SETUP: Record<"react" | "dom", string> = {

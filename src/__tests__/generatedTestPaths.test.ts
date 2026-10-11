@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../_core/llm.js", () => ({ invokeLLM: vi.fn() }));
 import { invokeLLM } from "../_core/llm.js";
-import { attachGeneratedTests } from "../agents/testingAgent.js";
+import {
+  attachGeneratedTests,
+  prepareGeneratedTestDependencies,
+} from "../agents/testingAgent.js";
+import { validateGeneratedProjectStructure } from "../lib/generatedProjectStructure.js";
 import { assertSurgicalPatchScope } from "../lib/surgicalFix.js";
 
 describe("generated test artifact paths", () => {
@@ -146,4 +150,56 @@ describe("generated test artifact paths", () => {
       ),
     ).toThrow("outside the approved artifact");
   });
+});
+
+describe("saved API test dependencies", () => {
+  it("declares the HTTP test dependency without replacing saved assertions", async () => {
+    vi.mocked(invokeLLM).mockClear();
+    const saved =
+      "import request from 'supertest'; import { it, expect } from 'vitest'; it('denies anonymous access', async () => expect((await request(app).get('/tasks')).status).toBe(401));";
+    const files: Record<string, string> = {
+      "package.json": JSON.stringify({
+        scripts: { test: "vitest run --reporter=verbose" },
+      }),
+      "server/index.test.js": saved,
+    };
+    expect(
+      validateGeneratedProjectStructure(files, "react-node").join("\n"),
+    ).toContain("undeclared development dependency supertest");
+    await attachGeneratedTests(files, "react-node");
+    expect(
+      validateGeneratedProjectStructure(files, "react-node").join("\n"),
+    ).not.toContain("undeclared development dependency supertest");
+    expect(files["server/index.test.js"]).toBe(saved);
+    expect(JSON.parse(files["package.json"]).scripts.test).toBe(
+      "vitest run --reporter=verbose",
+    );
+    expect(invokeLLM).not.toHaveBeenCalled();
+  });
+
+  it("preserves dependencies already declared for the runtime", async () => {
+    const files = {
+      "package.json": JSON.stringify({
+        dependencies: { supertest: "7.3.1", vitest: "3.2.7" },
+      }),
+    };
+    await attachGeneratedTests(files, "react-node");
+    const pkg = JSON.parse(files["package.json"]);
+    expect(pkg.dependencies).toEqual({ supertest: "7.3.1", vitest: "3.2.7" });
+    expect(pkg.devDependencies.supertest).toBeUndefined();
+    expect(pkg.devDependencies.vitest).toBeUndefined();
+  });
+});
+
+it("prepares saved HTTP tests before generation validation without using model quota", () => {
+  vi.mocked(invokeLLM).mockClear();
+  const files: Record<string, string> = {
+    "package.json": "{}",
+    "server/api.test.ts": "import request from 'supertest';",
+  };
+  prepareGeneratedTestDependencies(files, "react-node");
+  expect(
+    validateGeneratedProjectStructure(files, "react-node").join("\n"),
+  ).not.toContain("undeclared development dependency supertest");
+  expect(invokeLLM).not.toHaveBeenCalled();
 });
