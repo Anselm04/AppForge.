@@ -280,6 +280,7 @@ async function inspectHost(payload) {
     const proof = JSON.parse(line.slice("CONTROLLER_PROOF ".length));
     result.controller = {
       passed: proof.passed,
+      negativeTestsStop: proof.negativeTestsStop,
       steps: proof.steps,
       stage: proof.stage,
       durationMs: proof.durationMs,

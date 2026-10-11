@@ -249,6 +249,7 @@ function startSandbox(job, args, options = {}) {
   closeSync(filterFd);
   let output = "";
   let overflow = false;
+  let timedOut = false;
   let bytes = 0;
   for (const stream of [child.stdout, child.stderr])
     stream.on("data", (chunk) => {
@@ -260,6 +261,7 @@ function startSandbox(job, args, options = {}) {
       }
     });
   const timer = setTimeout(() => {
+    timedOut = true;
     void killGroups(job.groups);
   }, options.timeout ?? 120000);
   const finished = new Promise((resolve) => {
@@ -269,7 +271,11 @@ function startSandbox(job, args, options = {}) {
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve({ passed: code === 0 && !overflow, error: output });
+      resolve({
+        passed: code === 0 && !overflow && !timedOut,
+        error: output,
+        unavailable: overflow || timedOut,
+      });
     });
   });
   return { child, finished };
@@ -426,7 +432,28 @@ export async function validateExistingHost(
       proof.stage = stage;
       const result = await startSandbox(job, args, options).finished;
       proof.steps[stage] = { passed: result.passed };
-      if (!result.passed) throw Error(result.error || stage + " failed");
+      if (!result.passed) {
+        const memoryFailures = Number(
+          await readFile(job.groups[0] + "/memory.failcnt", "utf8").catch(
+            () => "0",
+          ),
+        );
+        const pidEvents = await readFile(
+          job.groups[2] + "/pids.events",
+          "utf8",
+        ).catch(() => "");
+        if (
+          result.unavailable ||
+          memoryFailures > 0 ||
+          /max\s+[1-9]\d*/.test(pidEvents)
+        ) {
+          proof.stage = "isolation";
+          throw Error(
+            "Isolated execution exceeded its bounded resource allowance",
+          );
+        }
+        throw Error(result.error || stage + " failed");
+      }
     };
     await run(
       "install",
@@ -455,6 +482,14 @@ export async function validateExistingHost(
     );
     await gateway.close();
     gateway = null;
+    // Lifecycle scripts run only after audit, with all registry access revoked.
+    await run("install", [
+      "npm",
+      "rebuild",
+      "--offline",
+      "--no-audit",
+      "--no-fund",
+    ]);
     await run("tests", ["npm", "test"]);
     await run("build", ["npm", "run", "build"]);
     proof.stage = "runtime";
