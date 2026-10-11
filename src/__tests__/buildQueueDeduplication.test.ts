@@ -34,25 +34,23 @@ describe("build queue duplicate-start protection", () => {
     );
   });
 
-  it("uses the same duplicate-refund identity if the duplicate reaches a worker", () => {
-    expect(worker).toContain("if (activeJobs.has(job.projectId))");
-    expect(worker).toContain("await refundActiveDuplicateReservation(job)");
-    expect(worker).toContain(
-      "build-duplicate-refund-${job.projectId}-${job.createdAt}",
-    );
+  it("joins a redelivery of the same worker attempt without inventing a second reservation", () => {
+    expect(worker).toContain("existing?.createdAt === job.createdAt");
+    expect(worker).toContain("return existing.completion");
+    expect(worker).not.toContain("active_duplicate_build_refunded");
   });
 });
 
 describe("build event reconnect protection", () => {
   it("persists each worker event before publishing it", () => {
     const persistIndex = worker.indexOf(
-      "await appendBuildEvent(projectId, event, data)",
+      "await appendBuildEvent(projectId, event, payload)",
     );
     const runtimeIndex = worker.indexOf(
-      "publishRuntimeBuildEvent(projectId, event, data)",
+      "publishRuntimeBuildEvent(projectId, event, payload)",
     );
     const redisIndex = worker.indexOf(
-      "await publishBuildEvent(projectId, event, data)",
+      "await publishBuildEvent(projectId, event, payload)",
     );
 
     expect(persistIndex).toBeGreaterThan(-1);
@@ -74,7 +72,10 @@ describe("build event reconnect protection", () => {
     expect(queue).toContain(
       "if (isTerminalEvent(parsed.event)) void closeSubscription()",
     );
-    expect(queue).toContain("if (active && terminal)");
+    expect(queue).toContain("active &&");
+    expect(queue).toContain(
+      "buildEventMatchesAttempt(terminal.payload, claimedAt)",
+    );
     expect(queue).toContain("await closeSubscription()");
   });
 });

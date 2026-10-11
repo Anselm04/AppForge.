@@ -4,8 +4,14 @@ import * as schema from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import { deployProject } from "../services/deployer.js";
 import { watchProject } from "../agents/selfHealing.js";
-import { getBuildEventsSince } from "../services/build-event-store.js";
-import { currentBuildAttemptEvents } from "../lib/buildRecovery.js";
+import {
+  getBuildEventsSince,
+  getLatestBuildClaimAt,
+} from "../services/build-event-store.js";
+import {
+  currentBuildAttemptEvents,
+  buildEventMatchesAttempt,
+} from "../lib/buildRecovery.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
 import { subscribeBuildEvents } from "../services/build-queue.js";
 import {
@@ -156,6 +162,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 
+  const claimedAt = await getLatestBuildClaimAt(projectId);
   let closed = false;
   const heartbeat = setInterval(() => {
     if (!res.writableEnded) {
@@ -164,10 +171,12 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   }, 15000);
 
   const write = (event: string, data: unknown) => {
+    if (!buildEventMatchesAttempt(data, claimedAt)) return false;
     if (!closed && !res.writableEnded) {
       res.write(`event: ${event}\n`);
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     }
+    return true;
   };
 
   const lastEventIdHeader = req.get("Last-Event-ID");
@@ -180,7 +189,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   );
   let sawTerminal = false;
   for (const row of historical) {
-    write(row.event, row.payload);
+    if (!write(row.event, row.payload)) continue;
     if (row.event === "done" || row.event === "error") sawTerminal = true;
   }
 
@@ -193,7 +202,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   const unsubRuntime = subscribeRuntimeBuildEvents(
     projectId,
     ({ event, data }) => {
-      write(event, data);
+      if (!write(event, data)) return;
       if (event === "done" || event === "error") {
         closed = true;
         clearInterval(heartbeat);
@@ -203,7 +212,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   );
 
   const unsubRedis = await subscribeBuildEvents(projectId, (event, data) => {
-    write(event, data);
+    if (!write(event, data)) return;
     if (event === "done" || event === "error") {
       closed = true;
       clearInterval(heartbeat);

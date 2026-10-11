@@ -1,3 +1,15 @@
+import type { BuildJob as LeaseTestJob } from "../lib/buildJob.js";
+vi.mock("../services/buildExecutionLease.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../services/buildExecutionLease.js")
+  >()),
+  withBuildExecutionLease: async (
+    _job: LeaseTestJob,
+    operation: () => Promise<unknown>,
+  ) => operation(),
+  assertCurrentBuildLease: async () => undefined,
+  registerBuildLeaseAbort: () => undefined,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
@@ -319,5 +331,132 @@ describe("build worker typed contract enforcement", () => {
     expect(pipeline.runAgentPipeline).toHaveBeenCalledTimes(1);
     expect(classifier.calls).toBe(0);
     expect(errorEvents()).not.toContain("build_contract_invalid");
+  });
+  it("does not refund or mark failure after another worker takes ownership", async () => {
+    const { BuildExecutionLeaseLostError } =
+      await import("../services/buildExecutionLease.js");
+    const job = validJob();
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    pipeline.runAgentPipeline.mockRejectedValueOnce(
+      new BuildExecutionLeaseLostError(),
+    );
+    await runBuildJob(job);
+    expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce();
+    expect(db.addCredits).not.toHaveBeenCalled();
+    expect(db.updateProjectStatus).not.toHaveBeenCalledWith(
+      job.projectId,
+      "failed",
+      expect.anything(),
+    );
+    expect(stats.recordBuildOutcome).not.toHaveBeenCalledWith(
+      job.userId,
+      false,
+      0,
+    );
+  });
+  it("does not publish a terminal message before its durable write completes", async () => {
+    const { BuildRuntimeUnavailableError } =
+      await import("../services/buildExecutionReadiness.js");
+    const { publishRuntimeBuildEvent } =
+      await import("../services/build-runtime.js");
+    const { publishBuildEvent } = await import("../services/build-queue.js");
+    const job = validJob();
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    readiness.assertBuildExecutionReady.mockRejectedValueOnce(
+      new BuildRuntimeUnavailableError(),
+    );
+    let persist!: () => void;
+    events.appendBuildEvent.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          persist = resolve;
+        }),
+    );
+    const running = runBuildJob(job);
+    await vi.waitFor(() =>
+      expect(events.appendBuildEvent).toHaveBeenCalledOnce(),
+    );
+    expect(publishRuntimeBuildEvent).not.toHaveBeenCalled();
+    expect(publishBuildEvent).not.toHaveBeenCalled();
+    persist();
+    await running;
+    expect(publishRuntimeBuildEvent).toHaveBeenCalledOnce();
+    expect(publishBuildEvent).toHaveBeenCalledOnce();
+  });
+  it("joins redelivery of the same queued attempt without refunding its active reservation", async () => {
+    const job = validJob({ reservationCharged: true });
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    let finish!: () => void;
+    pipeline.runAgentPipeline.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const first = runBuildJob(job);
+    await vi.waitFor(() =>
+      expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce(),
+    );
+    let secondFinished = false;
+    const second = runBuildJob(job).then(() => {
+      secondFinished = true;
+    });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(db.addCredits).not.toHaveBeenCalled();
+      expect(secondFinished).toBe(false);
+      expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce();
+    } finally {
+      finish();
+      await Promise.all([first, second]);
+    }
+  });
+  it("runs a newer retry on the same host and keeps it active after the obsolete worker exits", async () => {
+    const { BuildExecutionLeaseLostError } =
+      await import("../services/buildExecutionLease.js");
+    const { isBuildActive } = await import("../services/build-worker.js");
+    const firstJob = validJob({
+      reservationCharged: false,
+      createdAt: "2026-10-04T00:00:00Z",
+    });
+    const retry = { ...firstJob, createdAt: "2026-10-04T00:02:00Z" };
+    db.getProjectById.mockResolvedValue(projectFor(firstJob));
+    let finishOld!: () => void;
+    let finishNew: (() => void) | undefined;
+    pipeline.runAgentPipeline
+      .mockImplementationOnce(async (...args) => {
+        const signal = args[4] as AbortSignal;
+        await new Promise<void>((resolve, reject) => {
+          finishOld = resolve;
+          signal.addEventListener(
+            "abort",
+            () => reject(new BuildExecutionLeaseLostError()),
+            { once: true },
+          );
+        });
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishNew = resolve;
+          }),
+      );
+    const old = runBuildJob(firstJob);
+    await vi.waitFor(() =>
+      expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce(),
+    );
+    const replacement = runBuildJob(retry);
+    try {
+      await vi.waitFor(() =>
+        expect(pipeline.runAgentPipeline).toHaveBeenCalledTimes(2),
+      );
+      await old;
+      expect(isBuildActive(retry.projectId)).toBe(true);
+      expect(db.addCredits).not.toHaveBeenCalled();
+    } finally {
+      finishOld();
+      finishNew?.();
+      await Promise.all([old, replacement]);
+    }
   });
 });

@@ -44,6 +44,8 @@ export async function getLatestTerminalBuildEvent(
     FROM build_events
     WHERE project_id = ${projectId}
       AND event IN ('done', 'error')
+      AND id > COALESCE((SELECT MAX(id) FROM build_events
+        WHERE project_id = ${projectId} AND event = 'build_claim'), 0)
     ORDER BY id DESC
     LIMIT 1
   `);
@@ -55,4 +57,17 @@ export async function clearBuildEvents(projectId: number): Promise<void> {
   await db.execute(
     sql`DELETE FROM build_events WHERE project_id = ${projectId}`,
   );
+}
+
+/** New build claims are recorded atomically with their running-state transition. */
+export async function getLatestBuildClaimAt(
+  projectId: number,
+): Promise<string | null> {
+  const rows = await db.execute<{ claimedAt: string }>(sql`
+    SELECT payload->>'claimedAt' AS "claimedAt" FROM build_events
+    WHERE project_id = ${projectId} AND event = 'build_claim'
+    ORDER BY id DESC LIMIT 1
+  `);
+  const result = rows as unknown as { claimedAt: string }[];
+  return result[0]?.claimedAt ?? null;
 }

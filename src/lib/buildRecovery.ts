@@ -43,3 +43,20 @@ export function currentBuildAttemptEvents<T extends { event: string }>(
   }
   return events;
 }
+
+/** Discard late messages from an earlier queue attempt while streaming a retry. */
+export function buildEventMatchesAttempt(
+  payload: unknown,
+  claimedAt: string | null,
+): boolean {
+  if (!claimedAt || !payload || typeof payload !== "object") return true;
+  const createdAt = (payload as { attemptCreatedAt?: unknown })
+    .attemptCreatedAt;
+  if (createdAt === undefined) return true; // Existing pre-fence audit records.
+  return (
+    typeof createdAt === "string" &&
+    Number.isFinite(Date.parse(createdAt)) &&
+    Number.isFinite(Date.parse(claimedAt)) &&
+    Date.parse(createdAt) >= Date.parse(claimedAt)
+  );
+}

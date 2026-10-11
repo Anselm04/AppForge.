@@ -242,6 +242,20 @@ A successful claim persists a `build_resume` event before queue admission. Recon
 
 Recovery verification must exercise the pause allowlist and cancellation exclusions, latest-attempt replay, duplicate admission and credit recovery, then a real saved-plan retry across the production workers. Source tests alone do not certify a complete generated-product journey.
 
+### Terminal queue-worker interruption recovery — 2026-10-12
+
+A durable BullMQ job can fail after its worker loses the lock repeatedly without entering the application worker's exception handler. Such a failure must not leave the project indefinitely marked running. The queue failure handler checks recovery automatically; the owner can also use **Check build worker** on an existing running build. This action never starts a build or accepts new approvals.
+
+Recovery requires a retained **failed** queue attempt with a valid canonical job contract and timestamp, matching project and owner, no locally active execution, no newer atomic build claim, and an unchanged queue attempt on recheck. Active, waiting, delayed, completed, missing, mismatched or replaced jobs cannot authorize a pause. Elapsed time alone is not evidence of a stopped worker.
+
+Successful build claims now persist a `build_claim` event with their timestamp in the same database transaction as the running-state transition. Recovery refuses a newer claim before credit settlement, and its conditional database update independently checks owner, running status, the inspected update timestamp and absence of a newer claim. This protects a new starter racing with recovery of a retained old failure. Claim events use the existing event table; no schema migration is required.
+
+A charged attempt uses `build-refund-<projectId>-<createdAt>`, identical to normal worker failure recovery. Failed refund settlement prevents the pause. Unlimited attempts do not create credit grants. A successful conditional transition sets `paused` / `retry_after_error`, clears its reservation/spend bookkeeping and records a terminal error; approved plan, contract, coordination, saved files and artifact version remain intact. Retrying still follows the existing owner, canonical intent, approvals, credits and queue-admission controls.
+
+Each worker also records a monotonic `build_execution_claim` under the project row lock. The shared database adapter checks the current execution and starter claim in a short transaction before build mutations, including snapshots, evidence, refunds and status. Recovery atomically inserts a revocation claim with the pause. Same-host redelivery joins its existing attempt without refunding the active reservation. A newer retry acquires durable ownership and aborts the old execution; obsolete cleanup cannot erase the replacement’s active state or runtime events. A worker that loses ownership aborts its pipeline and skips normal failure/refund handling; deployment checks ownership immediately before provider work. Audit-only agent text avoids per-token row locking and carries its attempt identity. Live streams discard messages from older attempts, including late terminal recovery messages. Ordinary owner database actions retain their existing behavior. Artifact edits, snapshots and recovery checkpoints acquire the project row before their existing advisory lock, matching the worker fence and preventing inverted lock order during a concurrent retry.
+
+Verification must cover terminal worker failures, original refund identity, unlimited reservations, wrong ownership, nonfailed and replaced jobs, invalid timestamps, newer claims, failed refund settlement and lost conditional-update races. Claim timestamp insertion and the guarded SQL predicate are checked through the actual persistence seam. Full release checks and a live owner build recovery/retry are required before claiming customer-flow readiness.
+
 ## Stripe
 
 Must be recoverable:

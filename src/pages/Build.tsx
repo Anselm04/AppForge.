@@ -68,6 +68,9 @@ export function Build() {
   const [hasPartialFiles, setHasPartialFiles] = useState(false);
   const [planRevision, setPlanRevision] = useState("");
   const [approvalBusy, setApprovalBusy] = useState(false);
+  const [workerCheckMessage, setWorkerCheckMessage] = useState<string | null>(
+    null,
+  );
   const [streamRevision, setStreamRevision] = useState(0);
 
   const {
@@ -431,6 +434,24 @@ export function Build() {
     }
   };
 
+  const handleCheckWorker = async () => {
+    setApprovalBusy(true);
+    setError(null);
+    try {
+      const result = await trpc.projects.recoverInterruptedBuild.mutate({
+        projectId: pid,
+      });
+      setWorkerCheckMessage(result.message);
+      await refreshApprovalState();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not check the build worker",
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
   const handleResumeApprovedBuild = async () => {
     setApprovalBusy(true);
     setError(null);
@@ -638,6 +659,18 @@ export function Build() {
                 ? new Date(project.updatedAt).toLocaleString()
                 : "Not available"}
             </p>
+            {project.status === "running" && (
+              <button
+                className="mt-3 forge-gold-btn px-4 py-2"
+                disabled={approvalBusy}
+                onClick={handleCheckWorker}
+              >
+                {approvalBusy ? "Checking worker…" : "Check build worker"}
+              </button>
+            )}
+            {workerCheckMessage && (
+              <p className="mt-2 text-sm">{workerCheckMessage}</p>
+            )}
             {project.status === "paused" && (
               <p className="mt-2 text-sm break-words">
                 Pause reason: {project.pauseReason ?? "Not supplied"}

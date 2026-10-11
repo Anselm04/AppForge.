@@ -1,3 +1,4 @@
+import { createBuildExecutionDatabase } from "./services/buildExecutionLease.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./db/schema.js";
@@ -38,7 +39,7 @@ const client = postgres(ENV.databaseUrl, {
   prepare: false, // Disable prepared statements for connection poolers (e.g., Supabase, PgBouncer)
 });
 
-export const db = drizzle(client, { schema });
+export const db = createBuildExecutionDatabase(drizzle(client, { schema }));
 
 // Graceful DB connection cleanup
 export async function closeDbConnection(): Promise<void> {
@@ -596,6 +597,7 @@ export async function updateProjectFiles(
 ) {
   const normalized = validateArtifactFiles(files);
   return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM projects WHERE id = ${id} FOR UPDATE`);
     await tx.execute(sql`select pg_advisory_xact_lock(${id})`);
     const rows = await tx
       .select({
@@ -1210,6 +1212,9 @@ export async function createBuildSnapshot(data: {
     );
   }
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${data.projectId} FOR UPDATE`,
+    );
     await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
     const projects = await tx
       .select({
@@ -1288,6 +1293,9 @@ export async function createAndActivateBuildSnapshot(data: {
   }
 
   const result = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${data.projectId} FOR UPDATE`,
+    );
     await tx.execute(sql`select pg_advisory_xact_lock(${data.projectId})`);
 
     const projects = await tx
@@ -1555,6 +1563,9 @@ export async function getEditableProjectFiles(
 
 export async function markSnapshotAsCurrent(id: number, projectId: number) {
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE`,
+    );
     await tx.execute(sql`select pg_advisory_xact_lock(${projectId})`);
     const snapshots = await tx
       .select({
@@ -1637,6 +1648,9 @@ export async function appendArtifactToCurrentSnapshot(input: {
   integrity: ArtifactIntegrity;
 }> {
   const result = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${input.projectId} FOR UPDATE`,
+    );
     await tx.execute(sql`select pg_advisory_xact_lock(${input.projectId})`);
 
     const projects = await tx
