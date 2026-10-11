@@ -1,3 +1,4 @@
+import { validateWithExistingHost } from "./existingHostBuildRunner.js";
 import { createHash } from "node:crypto";
 import {
   isolatedRuntimeConfig,
@@ -76,7 +77,7 @@ export async function validateWithIsolatedBuildRunner(
   techStack: string,
 ): Promise<IsolatedBuildResult | null> {
   const config = isolatedRuntimeConfig("build");
-  if (!config) return null;
+  if (!config) return validateWithExistingHost(files, techStack);
   const endpoint = new URL(config.url);
   assertRuntimeProviderAllowed(endpoint);
   if (endpoint.username || endpoint.password) {

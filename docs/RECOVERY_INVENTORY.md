@@ -812,3 +812,8 @@ Generated source security scanning rejects user, tenant, organization and worksp
 ### Mixed frontend/backend JavaScript import preservation
 
 The generated-project reliability pass preserves explicit relative `.js` imports, including Node backend imports in React + Node artifacts. Removing these extensions breaks native Node ESM resolution even when the target file exists. TypeScript/JSX frontend import cleanup remains supported. A reviewed fixture runs the hardened backend with the real Node executable and also verifies the frontend normalization. No artifact snapshot, selected stack, dependencies or product requirements are substituted. Existing saved working sources require fresh full validation; this correction does not certify or deploy them or trigger AI retries.
+
+
+## Existing-host build runtime startup integration — 11 October 2026
+
+The production image now carries the reviewed namespace controller and startup preparation. Startup drops to UID 1001 before launching the web server. Build execution remains disabled unless EXISTING_HOST_SANDBOX_ENABLED is explicitly true and tmpfs, delegated aggregate resource limits, seccomp and Bubblewrap qualify. Preparation failure preserves the web service and refuses builds. Roll back to main release 76ef53c2299c9b397526a0da6bbd960afbae946c or disable the flag to restore the prior build pause. No new Fly machines, tokens, external runtimes or paid services are required by the integration. Customer preview and deployment remain separate qualification requirements.

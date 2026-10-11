@@ -202,6 +202,15 @@ const RULES: SecurityRule[] = [
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
+    id: "auth.client-controlled-identity",
+    severity: "high",
+    message:
+      "Server principal is constructed from unverified request identity fields.",
+    pattern:
+      /(?:req|request)\.user(?:\.(?:id|tenantId|organizationId|orgId|workspaceId))?\s*=\s*(?:\{[^}]*\b(?:id|tenantId|organizationId|orgId|workspaceId)\s*:\s*)?(?:req|request)\.(?:headers\b|body\b|query\b|params\b|get\s*\(|header\s*\()/i,
+    paths: /\.(?:js|ts|mjs|cjs)$/i,
+  },
+  {
     id: "auth.insecure-cookie",
     severity: "high",
     message:

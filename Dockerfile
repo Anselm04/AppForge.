@@ -38,7 +38,7 @@ RUN npm run build \
   && test -f /app/dist/client/index.html
 
 FROM node:22-alpine AS production
-RUN apk add --no-cache dumb-init curl bash chromium \
+RUN apk add --no-cache dumb-init curl bash chromium bubblewrap su-exec \
   && curl -L https://fly.io/install.sh | sh \
   && mv /root/.fly/bin/flyctl /usr/local/bin/flyctl \
   && flyctl version \
@@ -53,16 +53,19 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/.env.schema.json ./.env.schema.json
 COPY --from=builder /app/supabase/migrations ./supabase/migrations
+COPY --from=builder /app/scripts/runtime ./scripts/runtime
 
 RUN addgroup -g 1001 -S appforge && \
     adduser -S appforge -u 1001 -G appforge && \
     chown -R appforge:appforge /app
-USER appforge
+# Startup prepares bounded isolation as root, then drops to appforge before
+# launching the server. Customer processes never receive root or host secrets.
+RUN chown -R root:root /app/scripts/runtime && chmod 755 /app/scripts/runtime/bootstrap.sh
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/api/health/live', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))" || exit 1
 
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["dumb-init", "--", "/app/scripts/runtime/bootstrap.sh"]
 CMD ["node", "dist/server.js"]

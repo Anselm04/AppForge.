@@ -230,6 +230,23 @@ jobs:
           cleanup
           trap - EXIT
           echo "Built production server booted and liveness responded."
+      - name: Verify production image drops privileges and fails closed without cgroup delegation
+        run: |
+          docker build --target production -t appforge-startup-check .
+          docker run --rm appforge-startup-check node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { statSync } from "node:fs";
+            import { existingHostReady } from "./scripts/runtime/existing-host-controller.mjs";
+            assert.equal(process.getuid(), 1001);
+            assert.equal(statSync("/app/scripts/runtime").uid, 0);
+            assert.equal(existingHostReady(), false);
+            console.log("Production startup drops privileges and preserves immutable tooling");'
+          docker run --rm -e EXISTING_HOST_SANDBOX_ENABLED=true appforge-startup-check node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { existingHostReady } from "./scripts/runtime/existing-host-controller.mjs";
+            assert.equal(process.getuid(), 1001);
+            assert.equal(existingHostReady(), false);
+            console.log("Missing production isolation preparation refuses execution without breaking startup");'
       - name: Verify build does not mutate tracked source
         shell: bash
         run: |

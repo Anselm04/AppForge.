@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+const host = vi.hoisted(() => ({ existingHostBuildReady: vi.fn() }));
+vi.mock("../services/existingHostBuildRunner.js", () => host);
 const docker = vi.hoisted(() => ({ dockerBuildAvailable: vi.fn() }));
 vi.mock("../lib/dockerValidator.js", () => docker);
 import {
@@ -20,6 +22,7 @@ beforeEach(() => {
   ])
     vi.stubEnv(name, "");
   vi.stubEnv("SPRITES_DISABLED", "true");
+  host.existingHostBuildReady.mockReset().mockResolvedValue(false);
   docker.dockerBuildAvailable.mockReset().mockResolvedValue(false);
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -56,6 +59,11 @@ describe("build execution preflight", () => {
     await expect(assertBuildExecutionReady()).rejects.toBeInstanceOf(
       BuildRuntimeUnavailableError,
     );
+  });
+  it("allows a startup-qualified existing host without external execution", async () => {
+    host.existingHostBuildReady.mockResolvedValue(true);
+    await expect(assertBuildExecutionReady()).resolves.toBeUndefined();
+    expect(docker.dockerBuildAvailable).not.toHaveBeenCalled();
   });
   it("allows verified local Docker availability", async () => {
     docker.dockerBuildAvailable.mockResolvedValue(true);
