@@ -34,12 +34,10 @@ describe("build queue duplicate-start protection", () => {
     );
   });
 
-  it("uses the same duplicate-refund identity if the duplicate reaches a worker", () => {
-    expect(worker).toContain("if (activeJobs.has(job.projectId))");
-    expect(worker).toContain("await refundActiveDuplicateReservation(job)");
-    expect(worker).toContain(
-      "build-duplicate-refund-${job.projectId}-${job.createdAt}",
-    );
+  it("joins a redelivery of the same worker attempt without inventing a second reservation", () => {
+    expect(worker).toContain("existing?.createdAt === job.createdAt");
+    expect(worker).toContain("return existing.completion");
+    expect(worker).not.toContain("active_duplicate_build_refunded");
   });
 });
 

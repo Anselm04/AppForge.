@@ -70,7 +70,13 @@ import {
   BuildRuntimeUnavailableError,
 } from "./buildExecutionReadiness.js";
 
-const activeJobs = new Set<number>();
+type ActiveBuild = {
+  createdAt: string;
+  completion: Promise<void>;
+  finished: boolean;
+  abort?: (error: Error) => void;
+};
+const activeJobs = new Map<number, ActiveBuild>();
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_BASE_MS = 1_000;
 
@@ -222,31 +228,6 @@ export async function deployValidatedProjectWithRetry(input: {
     : new Error("Validated project deployment failed after retries");
 }
 
-async function refundActiveDuplicateReservation(job: BuildJob): Promise<void> {
-  if (!job.reservationCharged) return;
-
-  const refundKey = `build-duplicate-refund-${job.projectId}-${job.createdAt}`;
-  try {
-    await addCredits(
-      job.userId,
-      BUILD_CREDIT_COST,
-      "build_refund",
-      `Duplicate build reservation refund for project ${job.projectId}`,
-      refundKey,
-    );
-    logger.warn(
-      { projectId: job.projectId, refundKey },
-      "active_duplicate_build_refunded",
-    );
-  } catch (error: unknown) {
-    logger.error(
-      { projectId: job.projectId, refundKey, error },
-      "active_duplicate_build_refund_failed",
-    );
-    throw error;
-  }
-}
-
 /**
  * A queued build whose typed context (prompt, intent, contract, stack) is
  * missing, invalid, or disagrees with the persisted project. The worker never
@@ -383,22 +364,47 @@ export async function runBuildJob(input: unknown): Promise<void> {
     return;
   }
   const job = parsedJob.job;
-  if (activeJobs.has(job.projectId)) {
-    await refundActiveDuplicateReservation(job);
+  const existing = activeJobs.get(job.projectId);
+  // BullMQ redelivery represents the same reserved attempt, not a new charge.
+  if (existing?.createdAt === job.createdAt) return existing.completion;
+  if (existing && Date.parse(job.createdAt) < Date.parse(existing.createdAt))
     return;
-  }
-  activeJobs.add(job.projectId);
-  try {
-    await withBuildExecutionLease(job, () => runOwnedBuildJob(job));
-  } catch (error) {
-    if (!(error instanceof BuildExecutionLeaseLostError)) throw error;
-    logger.info({ projectId: job.projectId }, "obsolete_build_worker_stopped");
-  } finally {
-    activeJobs.delete(job.projectId);
-  }
+  const entry: ActiveBuild = {
+    createdAt: job.createdAt,
+    completion: Promise.resolve(),
+    finished: false,
+  };
+  activeJobs.set(job.projectId, entry);
+  let acquired = false;
+  entry.completion = (async () => {
+    try {
+      await withBuildExecutionLease(job, () => {
+        acquired = true;
+        existing?.abort?.(new BuildExecutionLeaseLostError());
+        return runOwnedBuildJob(job, entry);
+      });
+    } catch (error) {
+      if (!(error instanceof BuildExecutionLeaseLostError)) throw error;
+      logger.info(
+        { projectId: job.projectId },
+        "obsolete_build_worker_stopped",
+      );
+    } finally {
+      entry.finished = true;
+      if (activeJobs.get(job.projectId) === entry) {
+        if (!acquired && existing && !existing.finished)
+          activeJobs.set(job.projectId, existing);
+        else activeJobs.delete(job.projectId);
+      }
+    }
+  })();
+  return entry.completion;
 }
 
-async function runOwnedBuildJob(job: BuildJob): Promise<void> {
+async function runOwnedBuildJob(
+  job: BuildJob,
+  entry: ActiveBuild,
+): Promise<void> {
   const buildTrace = startOperationalTrace({
     component: "build",
     operation: "run_build_job",
@@ -419,7 +425,8 @@ async function runOwnedBuildJob(job: BuildJob): Promise<void> {
     reservationCharged,
   } = job;
   const controller = new AbortController();
-  registerBuildLeaseAbort((error) => controller.abort(error));
+  entry.abort = (error) => controller.abort(error);
+  registerBuildLeaseAbort(entry.abort);
   const timeoutMs = resolveBuildTimeoutMs();
   const timeout =
     timeoutMs > 0
@@ -935,7 +942,7 @@ async function runOwnedBuildJob(job: BuildJob): Promise<void> {
       incrementOperationalMetric("appforge_builds_total", { status: "error" });
     }
     if (timeout) clearTimeout(timeout);
-    clearRuntimeBuild(projectId);
+    if (activeJobs.get(projectId) === entry) clearRuntimeBuild(projectId);
   }
 }
 
