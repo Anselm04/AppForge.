@@ -8,7 +8,7 @@ export function publicRegistryAddress(value) {
   const parts = value.split(".");
   if (
     parts.length !== 4 ||
-    parts.some((p) => !/^\d{1,3}$/.test(p) || Number(p) > 255)
+    parts.some((p) => !/^(0|[1-9]\d{0,2})$/.test(p) || Number(p) > 255)
   )
     return false;
   const [a, b, c] = parts.map(Number);

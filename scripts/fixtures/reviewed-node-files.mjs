@@ -3,6 +3,7 @@ const files = {
     name: "reviewed-appforge-fixture",
     version: "1.0.0",
     private: true,
+    dependencies: { "is-number": "7.0.0" },
     scripts: {
       test: "node --test test.cjs",
       build: "node build.cjs",
@@ -12,7 +13,7 @@ const files = {
   "model.cjs":
     'exports.add=(items,text)=>{if(!text.trim())throw Error("empty task");const item={id:items.length+1,text};items.push(item);return item;}',
   "test.cjs":
-    'const {test}=require("node:test");const assert=require("node:assert/strict");const {add}=require("./model.cjs");test("task is added and retained",()=>{const items=[];assert.deepEqual(add(items,"first task"),{id:1,text:"first task"});assert.equal(items[0].text,"first task");});test("empty tasks are rejected",()=>assert.throws(()=>add([]," ")));',
+    'const fs=require("node:fs");if(process.getuid()===0||process.env.APPFORGE_HOST_SENTINEL!==undefined||fs.existsSync("/root")||fs.existsSync("/app/dist/server.js"))throw Error("Host isolation failed");const isNumber=require("is-number");if(!isNumber(42))throw Error("Registry dependency did not load");const {test}=require("node:test");const assert=require("node:assert/strict");const {add}=require("./model.cjs");test("task is added and retained",()=>{const items=[];assert.deepEqual(add(items,"first task"),{id:1,text:"first task"});assert.equal(items[0].text,"first task");});test("empty tasks are rejected",()=>assert.throws(()=>add([]," ")));',
   "build.cjs":
     'const fs=require("node:fs");const {Script}=require("node:vm");const source=fs.readFileSync("server.cjs","utf8");new Script(source);fs.mkdirSync("dist");fs.writeFileSync("dist/server.cjs",source);fs.copyFileSync("model.cjs","dist/model.cjs");',
   "server.cjs":

@@ -241,9 +241,9 @@ async function inspectHost(payload) {
       "registry-relay.cjs": payload.relay,
       "runtime-relay.cjs": payload.runtimeRelay,
       "runner.mjs":
-        'import {validateExistingHost} from "./existing-host-controller.mjs";const proof=await validateExistingHost(' +
+        'import assert from "node:assert/strict";import {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";const files=' +
         JSON.stringify(payload.files) +
-        ',"node-service",{sourceSecurityVerified:true});console.log("CONTROLLER_PROOF "+JSON.stringify(proof));if(!proof.passed)process.exitCode=1;',
+        ';const proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});assert.equal(proof.passed,true,JSON.stringify(proof));const negative={...files,"test.cjs":"process.exit(1)"};const rejected=await validateExistingHost(negative,"node-service",{sourceSecurityVerified:true});assert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);console.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true}));',
     }))
       fs.writeFileSync(controllerDirectory + "/" + name, content, {
         mode: 0o444,
@@ -285,6 +285,7 @@ async function inspectHost(payload) {
       durationMs: proof.durationMs,
     };
     if (
+      !proof.negativeTestsStop ||
       !proof.passed ||
       !proof.isolationId ||
       !["install", "security", "tests", "build", "runtime"].every(
