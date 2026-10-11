@@ -240,6 +240,8 @@ async function inspectHost(payload) {
       "registry-gateway.mjs": payload.gateway,
       "registry-relay.cjs": payload.relay,
       "runtime-relay.cjs": payload.runtimeRelay,
+      "sandbox-hosts": payload.hosts,
+      "sandbox-nsswitch.conf": payload.nsswitch,
       "runner.mjs":
         'import assert from "node:assert/strict";\nimport {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\nconst files=' +
         JSON.stringify(payload.files) +
@@ -396,6 +398,14 @@ async function inspectHost(payload) {
 
 const payload = {
   files: reviewedFiles,
+  hosts: readFileSync(
+    new URL("./runtime/sandbox-hosts", import.meta.url),
+    "utf8",
+  ),
+  nsswitch: readFileSync(
+    new URL("./runtime/sandbox-nsswitch.conf", import.meta.url),
+    "utf8",
+  ),
   controller: readFileSync(
     new URL("./runtime/existing-host-controller.mjs", import.meta.url),
     "utf8",

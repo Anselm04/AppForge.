@@ -208,7 +208,7 @@ async function killGroups(groups) {
   }
 }
 
-function sandboxArgs(job, args, gateway = false, channel = false) {
+export function sandboxArgs(job, args, gateway = false, channel = false) {
   const result = [
     "--unshare-all",
     "--die-with-parent",
@@ -234,6 +234,15 @@ function sandboxArgs(job, args, gateway = false, channel = false) {
     "/proc",
     "--dev",
     "/dev",
+  );
+  // Static controller-owned loopback names only; never expose host resolver files.
+  result.push(
+    "--ro-bind",
+    TOOLING + "sandbox-hosts",
+    "/etc/hosts",
+    "--ro-bind",
+    TOOLING + "sandbox-nsswitch.conf",
+    "/etc/nsswitch.conf",
   );
   if (gateway) result.push("--ro-bind", job.gateway, "/gateway");
   if (channel) result.push("--bind", job.channel, "/channel");
