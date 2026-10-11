@@ -20,6 +20,7 @@ import {
   buildActivityLabel,
   buildStageLabel,
   outputMaturityLabel,
+  isProjectArtifactReady,
 } from "../lib/buildStatus.js";
 import {
   canRetryPlanning,
@@ -497,14 +498,14 @@ export function Build() {
   const recoverablePause = project
     ? isRecoverableBuildPause(project.status, project.pauseReason)
     : false;
-  const awaitingApproval =
-    project?.status === "paused" &&
-    (project?.pauseReason === "approval_required" ||
-      (recoverablePause && !!project.productPlan));
   const approvalsReady =
     project?.planStatus === "approved" &&
     (!monetizationRequired || project?.monetizationApproved === true) &&
     (!integrationsRequired || project?.integrationsApproved === true);
+  const awaitingApproval =
+    project?.status === "paused" &&
+    (project.pauseReason === "approval_required" ||
+      (recoverablePause && !!project.productPlan && !approvalsReady));
   const unresolvedDecisions = [
     project?.planStatus !== "approved" ? "Plan approval" : null,
     monetizationRequired && project?.monetizationApproved !== true
@@ -666,7 +667,9 @@ export function Build() {
                   ? "Validation is unavailable. Retry after the build runner is restored; your approved plan and saved edits will be reused."
                   : retryPlanning
                     ? "Retry research and planning first; a plan will be presented for approval before generation."
-                    : "Complete the approvals below before continuing with the same saved decisions."}
+                    : approvalsReady
+                      ? "Retry using your approved plan and saved edits. No further approval is needed."
+                      : "Complete the approvals below before continuing with the same saved decisions."}
               </p>
               <button
                 className="mt-3 forge-gold-btn px-4 py-2"
@@ -951,13 +954,20 @@ export function Build() {
           </section>
         )}
 
-        {tab === "preview" && pid > 0 && (
-          <BuildLivePreview
-            projectId={pid}
-            deployUrl={deployUrl}
-            enabled={canUseWorkspace}
-          />
-        )}
+        {tab === "preview" &&
+          pid > 0 &&
+          (isProjectArtifactReady(project?.status) ? (
+            <BuildLivePreview
+              projectId={pid}
+              deployUrl={deployUrl}
+              enabled={canUseWorkspace}
+            />
+          ) : (
+            <p role="status" className="mb-6 text-slate-300">
+              Full build validation is required before preview. Your working
+              edits are saved; check Logs and Evidence for the blocked step.
+            </p>
+          ))}
 
         {tab === "code" && pid > 0 && (
           <ProjectCodeEditor projectId={pid} enabled={canUseWorkspace} />
