@@ -388,10 +388,12 @@ function ensureNextEntrypoints(files: Record<string, string>): void {
 }
 
 function fixBrokenRelativeImports(files: Record<string, string>): void {
+  // A mixed frontend/backend artifact can execute JavaScript directly in Node.
+  // Node ESM requires explicit .js paths; bundler cleanup must preserve them.
   for (const [path, content] of Object.entries(files)) {
     if (!/\.(tsx?|jsx?)$/.test(path)) continue;
     files[path] = content.replace(
-      /(from\s+["'])(\.[^"']+)\.(tsx?|jsx?)(["'])/g,
+      /(from\s+["'])(\.[^"']+)\.(tsx?|jsx)(["'])/g,
       "$1$2$4",
     );
   }

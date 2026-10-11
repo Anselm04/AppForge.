@@ -807,3 +807,8 @@ Recovery procedure: keep production builds closed unless a complete qualified ru
 ### Generated authorization identity header boundary
 
 Generated source security scanning rejects user, tenant, organization and workspace identities assigned directly from unverified request headers, including standard Request headers and Express identity-header accessors. This extends the existing body/query/parameter prohibition. Request-controlled identity cannot establish authentication or tenant ownership. Verified session/principal identity remains supported. The gate runs before generated source execution and again before production deployment; no migration or customer retry is needed. Existing saved artifacts remain intact and must pass fresh security and behavioral checks before release.
+
+
+### Mixed frontend/backend JavaScript import preservation
+
+The generated-project reliability pass preserves explicit relative `.js` imports, including Node backend imports in React + Node artifacts. Removing these extensions breaks native Node ESM resolution even when the target file exists. TypeScript/JSX frontend import cleanup remains supported. A reviewed fixture runs the hardened backend with the real Node executable and also verifies the frontend normalization. No artifact snapshot, selected stack, dependencies or product requirements are substituted. Existing saved working sources require fresh full validation; this correction does not certify or deploy them or trigger AI retries.

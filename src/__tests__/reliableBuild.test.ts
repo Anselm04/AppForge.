@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GOLDEN_STACKS,
@@ -14,6 +18,39 @@ import {
 } from "../services/stackScaffolds.js";
 
 describe("P0 reliable builds", () => {
+  it("preserves executable Node ESM imports in a mixed React and Node artifact", () => {
+    const files = hardenGeneratedProject(
+      {
+        "package.json": JSON.stringify({
+          type: "module",
+          scripts: { start: "node server/main.js" },
+        }),
+        "server/main.js":
+          'import {answer} from "./value.js";console.log(answer);',
+        "server/value.js": "export const answer=42;",
+        "src/main.tsx": 'import App from "./App.tsx";',
+        "src/App.tsx": "export default function App(){return null;}",
+      },
+      "react-node",
+    );
+    const directory = mkdtempSync(join(tmpdir(), "appforge-esm-fixture-"));
+    try {
+      mkdirSync(join(directory, "server"));
+      for (const path of ["package.json", "server/main.js", "server/value.js"])
+        writeFileSync(join(directory, path), files[path]);
+      expect(
+        execFileSync(process.execPath, [join(directory, "server/main.js")], {
+          encoding: "utf8",
+          timeout: 3000,
+        }).trim(),
+      ).toBe("42");
+      expect(files["server/main.js"]).toContain('from "./value.js"');
+      expect(files["src/main.tsx"]).toContain('from "./App"');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("classifies golden stacks", () => {
     expect(isGoldenStack("react-node")).toBe(true);
     expect(isGoldenStack("next-node")).toBe(true);
