@@ -295,6 +295,60 @@ describe("agent coordination", () => {
     expect(resumed.taskStates.T2.status).toBe("blocked");
   });
 
+  it("reopens rejected completed output for repair without losing files, ownership or attempts", () => {
+    const { record, context, plan } = fixture();
+    let completed = record;
+    const files: Record<string, string> = {};
+    for (const [id, state] of Object.entries(record.taskStates)) {
+      for (const file of state.ownedFiles) files[file] = "export {};";
+      completed = updateTaskCoordinationState(completed, id, {
+        status: "completed",
+        outputFiles: state.ownedFiles,
+        attempts: 2,
+      });
+    }
+    const originalFiles = { ...files };
+    const ordinary = reconcileCoordinationResume({
+      record: completed,
+      generatedFiles: files,
+    });
+    expect(coordinationStatusSummary(ordinary).completed).toBe(3);
+    const repaired = reconcileCoordinationResume({
+      record: completed,
+      generatedFiles: files,
+      repairReason: "Missing persistence behavior",
+    });
+    expect(coordinationStatusSummary(repaired).completed).toBe(0);
+    expect(repaired.taskStates.T1.status).toBe("pending");
+    expect(repaired.taskStates.T2.status).toBe("blocked");
+    expect(repaired.taskStates.T1.attempts).toBe(2);
+    expect(repaired.taskStates.T1.outputFiles).toEqual(
+      completed.taskStates.T1.outputFiles,
+    );
+    expect(repaired.taskStates.T1.lastError).toBe(
+      "Missing persistence behavior",
+    );
+    expect(repaired.fileOwners).toEqual(completed.fileOwners);
+    expect(files).toEqual(originalFiles);
+    expect(completed.taskStates.T1.status).toBe("completed");
+    expect(() =>
+      validateTaskHandoff({
+        context,
+        record: repaired,
+        task: plan.tasks[1],
+        completedTaskIds: new Set(),
+      }),
+    ).toThrow();
+    expect(() =>
+      validateTaskHandoff({
+        context,
+        record: repaired,
+        task: plan.tasks[0],
+        completedTaskIds: new Set(),
+      }),
+    ).not.toThrow();
+  });
+
   it("summarizes user-visible coordination status", () => {
     const { record } = fixture();
     const summary = coordinationStatusSummary(record);

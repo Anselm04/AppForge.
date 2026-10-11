@@ -370,6 +370,7 @@
       coordinationRecord = reconcileCoordinationResume({
         record: existingCoordination.data,
         generatedFiles: resumedGeneratedFiles,
+        repairReason: redesignBrief || undefined,
       });
       await recordCoordinationEvent({
         agent: "System",
