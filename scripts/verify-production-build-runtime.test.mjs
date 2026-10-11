@@ -6,8 +6,10 @@ import { remote } from "./verify-production-build-runtime.mjs";
 function inspect(prepared = true) {
   const calls = [];
   const fs = {
-    readdirSync: () => ["123", "456", "self"],
+    readdirSync: () => ["123", "456", "789", "self"],
     readFileSync: (path) => {
+      if (path.includes("/789/") && path.endsWith("/cmdline"))
+        return "dumb-init\0--\0/app/scripts/runtime/bootstrap.sh\0node\0dist/server.js\0";
       if (path.endsWith("/cmdline"))
         return path.includes("/123/")
           ? "node\0dist/server.js\0"

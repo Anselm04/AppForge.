@@ -9,7 +9,10 @@ const { execFileSync } = require("node:child_process");
 const assert = require("node:assert/strict");
 const servers = fs.readdirSync("/proc").filter(pid => {
   if (!/^\\d+$/.test(pid)) return false;
-  try { return fs.readFileSync("/proc/"+pid+"/cmdline","utf8").split("\\0").includes("dist/server.js"); } catch { return false; }
+  try {
+    const args = fs.readFileSync("/proc/"+pid+"/cmdline","utf8").split("\\0");
+    return /(?:^|\\/)node$/.test(args[0]) && args.slice(1).some(arg => arg === "dist/server.js" || arg === "/app/dist/server.js");
+  } catch { return false; }
 });
 assert.equal(servers.length, 1, "Expected one serving AppForge process");
 const entries = fs.readFileSync("/proc/"+servers[0]+"/environ","utf8").split("\\0");
