@@ -443,7 +443,21 @@ export async function recoverFailedQueuedBuild(
     };
   }
   const job = parsed.job;
+  if (!Number.isFinite(Date.parse(job.createdAt))) {
+    return {
+      recovered: false,
+      message:
+        "The failed queue attempt has no valid timestamp. No build state was changed.",
+    };
+  }
   const latestClaim = await getLatestBuildClaimAt(projectId);
+  if (latestClaim && !Number.isFinite(Date.parse(latestClaim))) {
+    return {
+      recovered: false,
+      message:
+        "The build claim timestamp is unavailable. No build state was changed.",
+    };
+  }
   if (latestClaim && Date.parse(latestClaim) > Date.parse(job.createdAt)) {
     return {
       recovered: false,

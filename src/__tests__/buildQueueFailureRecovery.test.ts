@@ -233,3 +233,29 @@ it("recovers an unlimited build without creating a credit grant", async () => {
   expect(mocks.refund).not.toHaveBeenCalled();
   expect(mocks.pause).toHaveBeenCalledOnce();
 });
+
+it("does not settle an attempt with an invalid timestamp", async () => {
+  mocks.getJob.mockResolvedValue({
+    data: { ...attempt(), createdAt: "invalid" },
+    getState: async () => "failed",
+  });
+  const { queue, stop } = await recoveryQueue();
+  try {
+    expect((await queue.recoverFailedQueuedBuild(41, 7)).recovered).toBe(false);
+  } finally {
+    stop();
+  }
+  expect(mocks.refund).not.toHaveBeenCalled();
+  expect(mocks.pause).not.toHaveBeenCalled();
+});
+it("fails closed when the latest atomic claim timestamp is corrupted", async () => {
+  mocks.claimAt.mockResolvedValue("invalid");
+  const { queue, stop } = await recoveryQueue();
+  try {
+    expect((await queue.recoverFailedQueuedBuild(41, 7)).recovered).toBe(false);
+  } finally {
+    stop();
+  }
+  expect(mocks.refund).not.toHaveBeenCalled();
+  expect(mocks.pause).not.toHaveBeenCalled();
+});
