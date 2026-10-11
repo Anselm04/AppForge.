@@ -10,6 +10,9 @@ export interface BuildLogEntry {
     text?: string;
     spent?: number;
     creditsSpent?: number;
+    stage?: string;
+    passed?: boolean;
+    errors?: string[];
   };
 }
 
@@ -38,4 +41,28 @@ export function appendVisibleBuildLog(
     );
   }
   return [...previous, incoming].slice(-MAX_VISIBLE_LOGS);
+}
+
+/** Show validation diagnostics that otherwise had an empty expandable row. */
+export function buildLogDetails(log: BuildLogEntry): string {
+  if (log.payload?.text) return log.payload.text;
+  const errors = log.payload?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return "";
+  return errors
+    .filter((error): error is string => typeof error === "string")
+    .slice(0, 8)
+    .map((error) => error.slice(0, 2000))
+    .join("\n\n");
+}
+
+export function buildLogSummary(log: BuildLogEntry): string {
+  return (
+    log.payload?.message ||
+    log.payload?.type ||
+    (log.payload?.passed === false
+      ? `Validation failed${log.payload.stage ? ` (${log.payload.stage})` : ""}`
+      : log.payload?.passed === true
+        ? "Validation passed"
+        : log.type.replaceAll("_", " "))
+  );
 }

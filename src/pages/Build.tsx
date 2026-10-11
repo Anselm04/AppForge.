@@ -30,6 +30,8 @@ import { buildPollingInterval } from "../lib/buildPolling.js";
 
 import {
   appendVisibleBuildLog,
+  buildLogDetails,
+  buildLogSummary,
   type BuildLogEntry as BuildLog,
 } from "../lib/buildLogView.js";
 
@@ -1148,6 +1150,7 @@ function ApprovalItem({
 
 function AgentLogItem({ log }: { log: BuildLog }) {
   const [expanded, setExpanded] = useState(false);
+  const details = buildLogDetails(log);
   const isSystem = log.agent === "System";
   const isError = log.type === "error";
   const isPause = log.type === "pause";
@@ -1165,15 +1168,13 @@ function AgentLogItem({ log }: { log: BuildLog }) {
           <p className="font-semibold text-white">
             {isSystem ? "System" : log.agent}
           </p>
-          <p className="text-sm text-slate-300">
-            {log.payload?.message || log.payload?.type}
-          </p>
+          <p className="text-sm text-slate-300">{buildLogSummary(log)}</p>
         </div>
         <span className="text-slate-400">{expanded ? "▼" : "▶"}</span>
       </button>
-      {expanded && log.payload?.text && (
+      {expanded && details && (
         <div className="mt-4 bg-slate-800 p-3 rounded-sm text-slate-300 text-sm font-mono overflow-auto max-h-64 whitespace-pre-wrap">
-          {log.payload.text}
+          {details}
         </div>
       )}
     </div>
