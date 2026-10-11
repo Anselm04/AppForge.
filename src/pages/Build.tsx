@@ -497,14 +497,14 @@ export function Build() {
   const recoverablePause = project
     ? isRecoverableBuildPause(project.status, project.pauseReason)
     : false;
-  const awaitingApproval =
-    project?.status === "paused" &&
-    (project?.pauseReason === "approval_required" ||
-      (recoverablePause && !!project.productPlan));
   const approvalsReady =
     project?.planStatus === "approved" &&
     (!monetizationRequired || project?.monetizationApproved === true) &&
     (!integrationsRequired || project?.integrationsApproved === true);
+  const awaitingApproval =
+    project?.status === "paused" &&
+    (project.pauseReason === "approval_required" ||
+      (recoverablePause && !!project.productPlan && !approvalsReady));
   const unresolvedDecisions = [
     project?.planStatus !== "approved" ? "Plan approval" : null,
     monetizationRequired && project?.monetizationApproved !== true
@@ -666,7 +666,9 @@ export function Build() {
                   ? "Validation is unavailable. Retry after the build runner is restored; your approved plan and saved edits will be reused."
                   : retryPlanning
                     ? "Retry research and planning first; a plan will be presented for approval before generation."
-                    : "Complete the approvals below before continuing with the same saved decisions."}
+                    : approvalsReady
+                      ? "Retry using your approved plan and saved edits. No further approval is needed."
+                      : "Complete the approvals below before continuing with the same saved decisions."}
               </p>
               <button
                 className="mt-3 forge-gold-btn px-4 py-2"
