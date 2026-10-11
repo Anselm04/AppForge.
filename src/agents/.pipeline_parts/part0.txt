@@ -34,7 +34,7 @@ import {
 } from "../lib/buildCapabilities.js";
 import { capabilityHintsForPipeline } from "./capabilityHints.js";
 import { runResearchAgent } from "./researchAgent.js";
-import { attachGeneratedTests } from "./testingAgent.js";
+import { attachGeneratedTests, prepareGeneratedTestDependencies } from "./testingAgent.js";
 import { plannerLocaleHint } from "../lib/localePlanner.js";
 import { detectIncomeIntent } from "../lib/revenueReadiness.js";
 import {

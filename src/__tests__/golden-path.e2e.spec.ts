@@ -82,7 +82,22 @@ test("production proof requires generated tests before deploy certification", as
   expect(testingAgent).toContain('scripts.test = scripts.test ?? "vitest run"');
   // Every stack's harness installs vitest; only React stacks get RTL.
   expect(testingAgent).toContain("HARNESS_DEV_DEPENDENCIES[harness]");
-  expect(testingAgent).toContain('node: { vitest: "^3.2.7" }');
+  const { prepareGeneratedTestDependencies } =
+    await import("../agents/testingAgent.js");
+  const nodeFiles = { "package.json": "{}" };
+  prepareGeneratedTestDependencies(nodeFiles, "api-service");
+  const nodeDependencies = JSON.parse(
+    nodeFiles["package.json"],
+  ).devDependencies;
+  expect(nodeDependencies.vitest).toBe("^3.2.7");
+  expect(nodeDependencies.supertest).toBe("^7.3.1");
+  expect(nodeDependencies["@testing-library/react"]).toBeUndefined();
+  const preparation = pipeline.indexOf("prepareGeneratedTestDependencies(");
+  const dependencyGate = pipeline.indexOf(
+    "const codeGenerationProblems = validateGeneratedCodeArtifact",
+  );
+  expect(preparation).toBeGreaterThan(-1);
+  expect(dependencyGate).toBeGreaterThan(preparation);
   expect(testingAgent).toContain('"@testing-library/react": "^14.2.0"');
   expect(canary).toContain("done.validationPassed !== true");
   expect(canary).toContain("done.testGateRequired !== true");
