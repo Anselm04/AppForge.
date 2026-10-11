@@ -4,6 +4,14 @@ import ts from "typescript";
 /** Repair native ESM only when one existing artifact target proves the path. */
 export function repairNativeNodeImports(files: Record<string, string>): void {
   const isModule = (path: string): boolean => {
+    if (
+      posix.isAbsolute(path) ||
+      posix.normalize(path) !== path ||
+      path.includes("\\") ||
+      path === ".." ||
+      path.startsWith("../")
+    )
+      return false;
     if (path.endsWith(".mjs")) return true;
     if (!path.endsWith(".js")) return false;
     let directory = posix.dirname(path);

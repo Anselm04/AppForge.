@@ -7,6 +7,23 @@ import { repairNativeNodeImports } from "../lib/nativeNodeImports.js";
 import { hardenGeneratedProject } from "../lib/reliableBuild.js";
 
 describe("native Node recovery imports", () => {
+  it("does not traverse outside the artifact or hang on an absolute source path", () => {
+    const script = `import { repairNativeNodeImports } from "./src/lib/nativeNodeImports.ts";
+      const files = {"/outside/main.js": "import './value';", "../outside/main.js": "import './value';"};
+      repairNativeNodeImports(files); console.log(JSON.stringify(files));`;
+    expect(
+      JSON.parse(
+        execFileSync(
+          process.execPath,
+          ["--import", "tsx", "--input-type=module", "-e", script],
+          { encoding: "utf8", timeout: 3000 },
+        ),
+      ),
+    ).toEqual({
+      "/outside/main.js": "import './value';",
+      "../outside/main.js": "import './value';",
+    });
+  });
   it("preserves ambiguous, missing, explicit and non-module imports", () => {
     const source = `// import "./found";
 const example = 'import "./found";';
