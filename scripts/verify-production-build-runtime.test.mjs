@@ -39,7 +39,7 @@ function inspect(prepared = true) {
 }
 test("production startup probe finds the server and forwards only approved public flags", () => {
   const [call] = inspect();
-  assert.equal(call.command, "su-exec");
+  assert.equal(call.command, "/sbin/su-exec");
   assert.equal(call.args[0], "1001:1001");
   assert.deepEqual(Object.keys(call.options.env).sort(), [
     "APPFORGE_SANDBOX_PREPARED",
