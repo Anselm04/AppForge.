@@ -1,9 +1,17 @@
 import { execFileSync } from "node:child_process";
 import { Script } from "node:vm";
+import { randomUUID } from "node:crypto";
+import { gzipSync } from "node:zlib";
+import { readFileSync } from "node:fs";
+import reviewedFiles from "./fixtures/reviewed-node-files.mjs";
+import { namespaceFilter } from "./runtime/namespace-filter.mjs";
 
-function inspectHost() {
+async function inspectHost(payload) {
+  const reviewedFixture = payload.fixture;
   const fs = require("node:fs");
-  const { execFileSync } = require("node:child_process");
+  const execFile = require("node:util").promisify(
+    require("node:child_process").execFile,
+  );
   const exists = (p) => fs.existsSync(p);
   const result = {
     uid: process.getuid(),
@@ -24,7 +32,10 @@ function inspectHost() {
   };
   const groups = [];
   for (const [controller, settings] of [
-    ["memory", { "memory.limit_in_bytes": "268435456" }],
+    [
+      "memory",
+      { "memory.use_hierarchy": "1", "memory.limit_in_bytes": "268435456" },
+    ],
     [
       "cpu,cpuacct",
       { "cpu.cfs_period_us": "100000", "cpu.cfs_quota_us": "50000" },
@@ -49,15 +60,65 @@ function inspectHost() {
     for (const group of groups) fs.rmdirSync(group);
     throw new Error("Required resource controls are unavailable");
   }
-  const fixture = [
-    "const fs=require('node:fs');const assert=require('node:assert/strict');const net=require('node:net');",
-    "assert.equal(process.env.APPFORGE_HOST_SENTINEL,undefined);assert.notEqual(process.getuid(),0);",
-    "for(const p of ['/app','/root','/proc/1/environ']) assert.equal(fs.existsSync(p),false);",
-    "const socket=net.connect({host:'1.1.1.1',port:443});",
-    "socket.once('connect',()=>{console.error('Network escaped sandbox');socket.destroy();process.exit(1)});",
-    "socket.once('error',error=>{assert.ok(['ENETUNREACH','EHOSTUNREACH'].includes(error.code));console.log('SANDBOX_QUALIFIED');});",
-    "socket.setTimeout(1000,()=>{socket.destroy();process.exit(1)});",
-  ].join("");
+  result.delegation = false;
+  const delegatedGroups = [];
+  for (const group of groups) fs.chownSync(group, 1001, 1001);
+  const delegatedScript =
+    "const fs=require('node:fs');for(const group of " +
+    JSON.stringify(groups) +
+    "){const child=group+'/delegated';fs.mkdirSync(child);fs.writeFileSync(child+'/cgroup.procs',String(process.pid));}console.log('DELEGATED_CGROUPS_READY');";
+  try {
+    const { stdout } = await execFile(
+      "/bin/su",
+      [
+        "-s",
+        "/bin/sh",
+        "appforge",
+        "-c",
+        "exec node --max-old-space-size=64 -e '" +
+          delegatedScript.replaceAll("'", "'\\''") +
+          "'",
+      ],
+      {
+        encoding: "utf8",
+        timeout: 3000,
+        maxBuffer: 32768,
+        env: { PATH: "/usr/local/bin:/usr/bin:/bin" },
+      },
+    );
+    result.delegation = stdout.includes("DELEGATED_CGROUPS_READY");
+  } catch (error) {
+    result.delegationError = String(error.stderr ?? error.message).slice(
+      0,
+      300,
+    );
+  }
+  for (const group of groups)
+    if (fs.existsSync(group + "/delegated"))
+      delegatedGroups.push(group + "/delegated");
+  const fixture = reviewedFixture;
+  const gatewayDirectory = fs.mkdtempSync(
+    "/tmp/appforge-qualification-gateway-",
+  );
+  fs.chownSync(gatewayDirectory, 1001, 1001);
+  fs.chmodSync(gatewayDirectory, 0o700);
+  fs.writeFileSync(gatewayDirectory + "/registry-relay.cjs", payload.relay, {
+    mode: 0o444,
+  });
+  const { createRegistryGateway } = await import(
+    "data:text/javascript;base64," +
+      Buffer.from(payload.gateway).toString("base64")
+  );
+  const gateway = await createRegistryGateway(
+    gatewayDirectory + "/registry.sock",
+  );
+  fs.chownSync(gatewayDirectory + "/registry.sock", 1001, 1001);
+  fs.chmodSync(gatewayDirectory + "/registry.sock", 0o600);
+  fs.writeFileSync(
+    gatewayDirectory + "/namespace-seccomp.bpf",
+    Buffer.from(payload.filter, "base64"),
+    { mode: 0o444 },
+  );
   const sandboxArgs = [
     "/usr/bin/bwrap",
     "--unshare-all",
@@ -66,6 +127,8 @@ function inspectHost() {
     "--cap-drop",
     "ALL",
     "--clearenv",
+    "--seccomp",
+    "3",
     "--ro-bind",
     "/usr",
     "/usr",
@@ -75,6 +138,9 @@ function inspectHost() {
     "--ro-bind",
     "/lib",
     "/lib",
+    "--ro-bind",
+    gatewayDirectory,
+    "/gateway",
     "--tmpfs",
     "/tmp",
     "--tmpfs",
@@ -95,13 +161,16 @@ function inspectHost() {
     fixture,
   ];
   try {
-    const output = execFileSync(
+    const { stdout: output } = await execFile(
       "/bin/sh",
       [
         "-c",
         groups
           .map((group) => "echo $$ > " + group + "/cgroup.procs")
-          .join(" && ") + ' && exec "$@"',
+          .join(" && ") +
+          " && exec 3< " +
+          gatewayDirectory +
+          '/namespace-seccomp.bpf && exec "$@"',
         "appforge-qualification",
         "/bin/su",
         "-s",
@@ -115,7 +184,7 @@ function inspectHost() {
       ],
       {
         encoding: "utf8",
-        timeout: 8000,
+        timeout: 28000,
         maxBuffer: 32768,
         env: {
           PATH: "/usr/local/bin:/usr/bin:/bin",
@@ -136,6 +205,138 @@ function inspectHost() {
     result.sandbox = false;
     result.sandboxError = String(error.stderr ?? error.message).slice(0, 1000);
   }
+  await gateway.close();
+  fs.rmSync(gatewayDirectory, { recursive: true, force: true });
+  // Exercise the actual controller with reviewed fixture sources only.
+  const controllerDirectory = fs.mkdtempSync("/tmp/af-ctl-");
+  fs.chmodSync(controllerDirectory, 0o755);
+  const workspace = controllerDirectory + "/w";
+  fs.mkdirSync(workspace);
+  let mounted = false;
+  try {
+    await execFile("/bin/mount", [
+      "-t",
+      "tmpfs",
+      "-o",
+      "size=64m,nosuid,nodev,mode=700",
+      "tmpfs",
+      workspace,
+    ]);
+    mounted = true;
+    fs.chownSync(workspace, 1001, 1001);
+    const controller = payload.controller
+      .replace(
+        'const WORKSPACE = "/var/lib/appforge-builds";',
+        "const WORKSPACE = " + JSON.stringify(workspace) + ";",
+      )
+      .replace(
+        'const ROOTS = CONTROLLERS.map(\n  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\n);',
+        "const ROOTS = " + JSON.stringify(groups) + ";",
+      );
+    if (controller.includes("const ROOTS = CONTROLLERS.map"))
+      throw Error("Qualification controller path substitution failed");
+    for (const [name, content] of Object.entries({
+      "existing-host-controller.mjs": controller,
+      "registry-gateway.mjs": payload.gateway,
+      "registry-relay.cjs": payload.relay,
+      "runtime-relay.cjs": payload.runtimeRelay,
+      "runner.mjs":
+        'import assert from "node:assert/strict";\nimport {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\nconst files=' +
+        JSON.stringify(payload.files) +
+        ';\nconst proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});\nassert.equal(proof.passed,true,JSON.stringify(proof));\nconst rejected=await validateExistingHost({...files,"test.cjs":"process.exit(1)"},"node-service",{sourceSecurityVerified:true});\nassert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);\nconst resourceStops={};\nfor(const [name,source] of Object.entries({\n timeout:"while(true){}",\n memory:"const buffers=[];setInterval(()=>buffers.push(Buffer.alloc(8*1024*1024,1)),1)",\n output:"while(true)process.stdout.write(\'x\'.repeat(8192))",\n})) {\n const fixture={...files,"package.json":JSON.stringify({...JSON.parse(files["package.json"]),dependencies:{}}),"test.cjs":source};\n const result=await validateExistingHost(fixture,"node-service",{sourceSecurityVerified:true,commandTimeoutMs:4000});\n assert.equal(result.passed,false,name+JSON.stringify(result));assert.equal(result.stage,"isolation",name+JSON.stringify(result));assert.equal(result.steps.build,undefined);assert.equal(result.steps.runtime,undefined);assert.equal(existingHostReady(),true,name+" cleanup unavailable");resourceStops[name]=true;\n}\nconsole.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,resourceStops}));\n',
+    }))
+      fs.writeFileSync(controllerDirectory + "/" + name, content, {
+        mode: 0o444,
+      });
+    fs.writeFileSync(
+      controllerDirectory + "/namespace-seccomp.bpf",
+      Buffer.from(payload.filter, "base64"),
+      { mode: 0o444 },
+    );
+    const { stdout } = await execFile(
+      "/bin/su",
+      [
+        "-s",
+        "/bin/sh",
+        "appforge",
+        "-c",
+        "exec node " + controllerDirectory + "/runner.mjs",
+      ],
+      {
+        encoding: "utf8",
+        timeout: 65000,
+        maxBuffer: 32768,
+        env: {
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+          EXISTING_HOST_SANDBOX_ENABLED: "true",
+          APPFORGE_SANDBOX_PREPARED: "true",
+        },
+      },
+    );
+    const line = stdout
+      .split("\n")
+      .find((line) => line.startsWith("CONTROLLER_PROOF "));
+    if (!line) throw Error("Controller proof missing");
+    const proof = JSON.parse(line.slice("CONTROLLER_PROOF ".length));
+    result.controller = {
+      passed: proof.passed,
+      negativeTestsStop: proof.negativeTestsStop,
+      resourceStops: proof.resourceStops,
+      steps: proof.steps,
+      stage: proof.stage,
+      durationMs: proof.durationMs,
+    };
+    if (
+      !proof.negativeTestsStop ||
+      !["timeout", "memory", "output"].every(
+        (name) => proof.resourceStops?.[name],
+      ) ||
+      !proof.passed ||
+      !proof.isolationId ||
+      proof.techStack !== "node-service" ||
+      proof.artifactSha256 !==
+        require("node:crypto")
+          .createHash("sha256")
+          .update(JSON.stringify(payload.files))
+          .digest("hex") ||
+      !["install", "security", "tests", "build", "runtime"].every(
+        (stage) => proof.steps[stage]?.passed,
+      )
+    )
+      throw Error("Controller qualification failed");
+  } catch (error) {
+    result.controller = {
+      passed: false,
+      error: String(error.stderr ?? error.message).slice(-1800),
+    };
+  } finally {
+    for (const group of groups)
+      for (const name of fs.readdirSync(group)) {
+        if (!/^appforge-build-[a-f0-9-]+$/.test(name)) continue;
+        const child = group + "/" + name;
+        for (const pid of fs
+          .readFileSync(child + "/cgroup.procs", "utf8")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean))
+          try {
+            process.kill(Number(pid), "SIGKILL");
+          } catch {}
+        for (let retry = 0; retry < 20; retry++)
+          try {
+            if (child.includes("/memory/"))
+              try {
+                fs.writeFileSync(child + "/memory.force_empty", "0");
+              } catch {}
+            fs.rmdirSync(child);
+            break;
+          } catch {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+      }
+    if (mounted) await execFile("/bin/umount", [workspace]);
+    fs.rmSync(controllerDirectory, { recursive: true, force: true });
+  }
   result.cleanup = true;
   const staleGroups = [];
   for (const controller of ["memory", "cpu,cpuacct", "pids"]) {
@@ -145,7 +346,9 @@ function inspectHost() {
         staleGroups.push(root + "/" + name);
     }
   }
-  for (const group of [...new Set([...groups, ...staleGroups])]) {
+  for (const group of [
+    ...new Set([...delegatedGroups, ...groups, ...staleGroups]),
+  ]) {
     const readPids = () =>
       fs
         .readFileSync(group + "/cgroup.procs", "utf8")
@@ -154,7 +357,12 @@ function inspectHost() {
         .filter(Boolean);
     // Stale groups are removed only when empty; only this run's groups may
     // have their reviewed fixture processes terminated.
-    if (!groups.includes(group) && readPids().length) continue;
+    if (
+      !groups.includes(group) &&
+      !delegatedGroups.includes(group) &&
+      readPids().length
+    )
+      continue;
     for (const pid of readPids()) {
       try {
         process.kill(Number(pid), "SIGKILL");
@@ -186,7 +394,38 @@ function inspectHost() {
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
 }
 
-const probe = "(" + inspectHost.toString() + ")()";
+const payload = {
+  files: reviewedFiles,
+  controller: readFileSync(
+    new URL("./runtime/existing-host-controller.mjs", import.meta.url),
+    "utf8",
+  ),
+  runtimeRelay: readFileSync(
+    new URL("./runtime/runtime-relay.cjs", import.meta.url),
+    "utf8",
+  ),
+  filter: namespaceFilter().toString("base64"),
+  fixture: readFileSync(
+    new URL("./fixtures/existing-host-node.cjs", import.meta.url),
+    "utf8",
+  ),
+  gateway: readFileSync(
+    new URL("./runtime/registry-gateway.mjs", import.meta.url),
+    "utf8",
+  ),
+  relay: readFileSync(
+    new URL("./runtime/registry-relay.cjs", import.meta.url),
+    "utf8",
+  ),
+};
+new Script(payload.fixture);
+new Script(payload.relay);
+const probe =
+  "(" +
+  inspectHost.toString() +
+  ")(" +
+  JSON.stringify(payload) +
+  ").catch(error => {console.error(error.message);process.exitCode=1})";
 new Script(probe);
 if (process.argv.includes("--syntax-only")) process.exit(0);
 const app = "appforge-unfurling-moon-9058";
@@ -212,23 +451,67 @@ console.log(
     })),
   ),
 );
-const encoded = Buffer.from(probe).toString("base64");
-const command =
-  "node -e 'eval(Buffer.from(\"" + encoded + '","base64").toString())\'';
-const output = execFileSync(
-  "flyctl",
-  ["machine", "exec", started[0].id, command, "--app", app, "--timeout", "20"],
-  { encoding: "utf8", timeout: 30000 },
-);
+const encoded = gzipSync(Buffer.from(probe)).toString("base64");
+// Machine exec has a small request limit; transfer controlled public fixture
+// bytes in bounded chunks. No token, customer code or environment is included.
+const transferPath = "/tmp/af-probe-" + randomUUID();
+const execute = (code, timeout = 10) =>
+  execFileSync(
+    "flyctl",
+    [
+      "machine",
+      "exec",
+      started[0].id,
+      "node -e '" + code.replaceAll("'", "'\\''") + "'",
+      "--app",
+      app,
+      "--timeout",
+      String(timeout),
+    ],
+    { encoding: "utf8", timeout: (timeout + 10) * 1000 },
+  );
+let output;
+try {
+  execute(
+    'require("node:fs").writeFileSync(' +
+      JSON.stringify(transferPath) +
+      ',"",{flag:"wx",mode:384});',
+  );
+  for (let offset = 0; offset < encoded.length; offset += 3000)
+    execute(
+      'require("node:fs").appendFileSync(' +
+        JSON.stringify(transferPath) +
+        "," +
+        JSON.stringify(encoded.slice(offset, offset + 3000)) +
+        ");",
+    );
+  output = execute(
+    'const fs=require("node:fs");const path=' +
+      JSON.stringify(transferPath) +
+      ';const data=fs.readFileSync(path,"utf8");fs.unlinkSync(path);eval(require("node:zlib").gunzipSync(Buffer.from(data,"base64")).toString());',
+    110,
+  );
+} finally {
+  execute(
+    'require("node:fs").rmSync(' +
+      JSON.stringify(transferPath) +
+      ",{force:true});",
+  );
+}
 const marker = "APPFORGE_HOST_PROBE ";
 const line = output.split("\n").find((line) => line.startsWith(marker));
-if (!line) throw new Error("Remote probe did not produce its required result");
+if (!line)
+  throw new Error(
+    "Remote probe did not produce its required result: " + output.slice(-600),
+  );
 const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
   throw new Error("Incomplete remote probe");
 console.log(JSON.stringify(result));
 
 if (
+  !result.controller?.passed ||
+  !result.delegation ||
   !result.cleanup ||
   !result.sandbox ||
   !Object.values(result.resourceControls).every(Boolean) ||
