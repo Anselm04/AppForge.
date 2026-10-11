@@ -8,15 +8,13 @@ import { validateGeneratedBuild } from "../agents/buildValidator.js";
 import { getStackScaffold } from "../services/stackScaffolds.js";
 beforeEach(() => {
   vi.stubEnv("NODE_ENV", "production");
-  runner.validateWithIsolatedBuildRunner
-    .mockReset()
-    .mockResolvedValue({
-      passed: true,
-      stage: "complete",
-      errors: [],
-      durationMs: 1,
-      isolationId: "reviewed-fixture",
-    });
+  runner.validateWithIsolatedBuildRunner.mockReset().mockResolvedValue({
+    passed: true,
+    stage: "complete",
+    errors: [],
+    durationMs: 1,
+    isolationId: "reviewed-fixture",
+  });
 });
 afterEach(() => vi.unstubAllEnvs());
 const manifest = JSON.stringify({
