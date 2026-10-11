@@ -347,6 +347,45 @@ export async function validateGeneratedBuild(
       };
     }
 
+    // Acceptance coverage must pass before either local or isolated execution.
+    const generatedTestFiles = Object.keys(files).filter((file) =>
+      /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:[cm]?js|jsx|ts|tsx)$/i.test(
+        file,
+      ),
+    );
+    if (options.testsBlocking && generatedTestFiles.length === 0) {
+      errors.push(
+        "Full-validation build generated no executable unit/integration tests.",
+      );
+      return {
+        passed: false,
+        stage: "tests",
+        errors,
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "A production-capable full-validation build must include executable tests before deployment.",
+      };
+    }
+
+    if (options.testsBlocking) {
+      const requirementCoverageErrors = validateRequirementTestCoverage(
+        files,
+        generatedTestFiles,
+      );
+      if (requirementCoverageErrors.length > 0) {
+        return {
+          passed: false,
+          stage: "requirements",
+          errors: requirementCoverageErrors,
+          durationMs: Date.now() - start,
+          fileCount: Object.keys(files).length,
+          warning:
+            "Every product requirement must be linked to an executable behavioral test before deployment.",
+        };
+      }
+    }
+
     // Production must never execute generated customer code on the AppForge host.
     // Run every stack through an isolated runtime boundary before any
     // local syntax, package, build, or runtime command can execute.
@@ -541,44 +580,6 @@ export async function validateGeneratedBuild(
         }
       } catch {
         /* fall through */
-      }
-    }
-
-    const generatedTestFiles = Object.keys(files).filter((file) =>
-      /(?:^|\/)(?:__tests__\/.*|.*\.(?:test|spec))\.(?:js|jsx|ts|tsx)$/i.test(
-        file,
-      ),
-    );
-    if (options.testsBlocking && generatedTestFiles.length === 0) {
-      errors.push(
-        "Full-validation build generated no executable unit/integration tests.",
-      );
-      return {
-        passed: false,
-        stage: "tests",
-        errors,
-        durationMs: Date.now() - start,
-        fileCount: Object.keys(files).length,
-        warning:
-          "A production-capable full-validation build must include executable tests before deployment.",
-      };
-    }
-
-    if (options.testsBlocking) {
-      const requirementCoverageErrors = validateRequirementTestCoverage(
-        files,
-        generatedTestFiles,
-      );
-      if (requirementCoverageErrors.length > 0) {
-        return {
-          passed: false,
-          stage: "requirements",
-          errors: requirementCoverageErrors,
-          durationMs: Date.now() - start,
-          fileCount: Object.keys(files).length,
-          warning:
-            "Every product requirement must be linked to an executable behavioral test before deployment.",
-        };
       }
     }
 
