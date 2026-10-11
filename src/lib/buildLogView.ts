@@ -63,6 +63,6 @@ export function buildLogSummary(log: BuildLogEntry): string {
       ? `Validation failed${log.payload.stage ? ` (${log.payload.stage})` : ""}`
       : log.payload?.passed === true
         ? "Validation passed"
-        : log.type.replaceAll("_", " "))
+        : log.type.replace(/_/g, " "))
   );
 }
