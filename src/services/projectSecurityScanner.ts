@@ -198,7 +198,7 @@ const RULES: SecurityRule[] = [
     message:
       "Authorization identity appears to be accepted directly from request-controlled user/tenant fields.",
     pattern:
-      /(?:const|let|var)\s+(?:userId|tenantId|organizationId|orgId)\s*=\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+      /(?:const|let|var)\s+(?:userId|tenantId|organizationId|orgId|workspaceId)\s*=\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.|(?:req|request)\.headers\b|(?:req|request)\.(?:get|header)\s*\(\s*["']x-(?:user|tenant|organization|org|workspace)-id["'])/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {

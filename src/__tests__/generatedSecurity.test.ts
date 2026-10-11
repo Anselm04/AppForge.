@@ -47,6 +47,27 @@ describe("#16 generated security", () => {
     );
   });
 
+  it("blocks authorization identities accepted directly from unverified request headers", () => {
+    for (const source of [
+      "const userId = req.headers['x-user-id'];",
+      'const tenantId = request.headers.get("x-tenant-id");',
+      'const workspaceId = req.get("X-Workspace-ID");',
+    ]) {
+      const scan = scanProjectFiles({ "server/auth.js": source });
+      expect(scan.passed).toBe(false);
+      expect(scan.findings.map((item) => item.ruleId)).toContain(
+        "auth.client-controlled-identity",
+      );
+    }
+    const verified = scanProjectFiles({
+      "server/auth.js":
+        "const userId = req.user.id; const tenantId = verifiedSession.tenantId;",
+    });
+    expect(verified.findings.map((item) => item.ruleId)).not.toContain(
+      "auth.client-controlled-identity",
+    );
+  });
+
   it("blocks direct request-controlled process execution", () => {
     const scan = scanProjectFiles({
       "src/server.ts": [
