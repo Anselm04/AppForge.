@@ -90,31 +90,46 @@ export async function pauseFailedQueueAttempt(
   expectedUpdatedAt: Date,
   attemptCreatedAt: string,
 ): Promise<boolean> {
-  const paused = await db
-    .update(schema.projects)
-    .set({
-      status: "paused",
-      pauseReason: "retry_after_error",
-      errorMessage:
-        "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue.",
-      failureStage: "worker_interruption",
-      creditsSpent: 0,
-      creditsReserved: 0,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(schema.projects.id, projectId),
-        eq(schema.projects.userId, userId),
-        eq(schema.projects.status, "running"),
-        eq(schema.projects.updatedAt, expectedUpdatedAt),
-        sql`NOT EXISTS (
+  return db.transaction(async (tx) => {
+    const paused = await tx
+      .update(schema.projects)
+      .set({
+        status: "paused",
+        pauseReason: "retry_after_error",
+        errorMessage:
+          "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue.",
+        failureStage: "worker_interruption",
+        creditsSpent: 0,
+        creditsReserved: 0,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.projects.id, projectId),
+          eq(schema.projects.userId, userId),
+          eq(schema.projects.status, "running"),
+          eq(schema.projects.updatedAt, expectedUpdatedAt),
+          sql`NOT EXISTS (
           SELECT 1 FROM build_events
           WHERE project_id = ${projectId} AND event = 'build_claim'
           AND (payload->>'claimedAt')::timestamptz > ${attemptCreatedAt}::timestamptz
         )`,
-      ),
-    )
-    .returning({ id: schema.projects.id });
-  return paused.length === 1;
+        ),
+      )
+      .returning({ id: schema.projects.id });
+    if (paused.length === 1) {
+      await tx
+        .insert(schema.buildEvents)
+        .values({
+          projectId,
+          event: "build_execution_claim",
+          payload: {
+            revoked: true,
+            createdAt: attemptCreatedAt,
+            reason: "worker_interruption",
+          },
+        });
+    }
+    return paused.length === 1;
+  });
 }

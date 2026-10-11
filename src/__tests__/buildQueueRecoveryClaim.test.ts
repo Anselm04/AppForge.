@@ -47,6 +47,16 @@ it("conditionally pauses the owner and inspected state while excluding every new
   expect(
     await pauseFailedQueueAttempt(41, 7, updated, "2026-10-04T00:00:00Z"),
   ).toBe(true);
+  expect(io.transaction).toHaveBeenCalledOnce();
+  expect(io.values).toHaveBeenCalledWith({
+    projectId: 41,
+    event: "build_execution_claim",
+    payload: {
+      revoked: true,
+      createdAt: "2026-10-04T00:00:00Z",
+      reason: "worker_interruption",
+    },
+  });
   const query = new PgDialect().sqlToQuery(io.where.mock.calls[0][0]);
   expect(query.sql).toContain('"projects"."user_id" =');
   expect(query.sql).toContain('"projects"."status" =');
@@ -82,4 +92,5 @@ it("reports a lost conditional recovery race without updating saved build fields
   expect(
     await pauseFailedQueueAttempt(41, 7, new Date(), "2026-10-04T00:00:00Z"),
   ).toBe(false);
+  expect(io.values).not.toHaveBeenCalled();
 });

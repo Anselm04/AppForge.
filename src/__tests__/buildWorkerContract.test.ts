@@ -1,3 +1,15 @@
+import type { BuildJob as LeaseTestJob } from "../lib/buildJob.js";
+vi.mock("../services/buildExecutionLease.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../services/buildExecutionLease.js")
+  >()),
+  withBuildExecutionLease: async (
+    _job: LeaseTestJob,
+    operation: () => Promise<unknown>,
+  ) => operation(),
+  assertCurrentBuildLease: async () => undefined,
+  registerBuildLeaseAbort: () => undefined,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
@@ -319,5 +331,56 @@ describe("build worker typed contract enforcement", () => {
     expect(pipeline.runAgentPipeline).toHaveBeenCalledTimes(1);
     expect(classifier.calls).toBe(0);
     expect(errorEvents()).not.toContain("build_contract_invalid");
+  });
+  it("does not refund or mark failure after another worker takes ownership", async () => {
+    const { BuildExecutionLeaseLostError } =
+      await import("../services/buildExecutionLease.js");
+    const job = validJob();
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    pipeline.runAgentPipeline.mockRejectedValueOnce(
+      new BuildExecutionLeaseLostError(),
+    );
+    await runBuildJob(job);
+    expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce();
+    expect(db.addCredits).not.toHaveBeenCalled();
+    expect(db.updateProjectStatus).not.toHaveBeenCalledWith(
+      job.projectId,
+      "failed",
+      expect.anything(),
+    );
+    expect(stats.recordBuildOutcome).not.toHaveBeenCalledWith(
+      job.userId,
+      false,
+      0,
+    );
+  });
+  it("does not publish a terminal message before its durable write completes", async () => {
+    const { BuildRuntimeUnavailableError } =
+      await import("../services/buildExecutionReadiness.js");
+    const { publishRuntimeBuildEvent } =
+      await import("../services/build-runtime.js");
+    const { publishBuildEvent } = await import("../services/build-queue.js");
+    const job = validJob();
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    readiness.assertBuildExecutionReady.mockRejectedValueOnce(
+      new BuildRuntimeUnavailableError(),
+    );
+    let persist!: () => void;
+    events.appendBuildEvent.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          persist = resolve;
+        }),
+    );
+    const running = runBuildJob(job);
+    await vi.waitFor(() =>
+      expect(events.appendBuildEvent).toHaveBeenCalledOnce(),
+    );
+    expect(publishRuntimeBuildEvent).not.toHaveBeenCalled();
+    expect(publishBuildEvent).not.toHaveBeenCalled();
+    persist();
+    await running;
+    expect(publishRuntimeBuildEvent).toHaveBeenCalledOnce();
+    expect(publishBuildEvent).toHaveBeenCalledOnce();
   });
 });

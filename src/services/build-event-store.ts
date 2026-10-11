@@ -44,6 +44,8 @@ export async function getLatestTerminalBuildEvent(
     FROM build_events
     WHERE project_id = ${projectId}
       AND event IN ('done', 'error')
+      AND id > COALESCE((SELECT MAX(id) FROM build_events
+        WHERE project_id = ${projectId} AND event = 'build_claim'), 0)
     ORDER BY id DESC
     LIMIT 1
   `);

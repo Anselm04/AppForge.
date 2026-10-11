@@ -49,3 +49,23 @@ describe("saved build recovery", () => {
     );
   });
 });
+
+it("rejects late terminal messages from a prior queue attempt without dropping current messages", async () => {
+  const { buildEventMatchesAttempt } = await import("../buildRecovery.js");
+  const claim = "2026-10-04T00:02:00Z";
+  expect(
+    buildEventMatchesAttempt(
+      { attemptCreatedAt: "2026-10-04T00:01:00Z", error: "old" },
+      claim,
+    ),
+  ).toBe(false);
+  expect(buildEventMatchesAttempt({ attemptCreatedAt: claim }, claim)).toBe(
+    true,
+  );
+  expect(buildEventMatchesAttempt({ attemptCreatedAt: "invalid" }, claim)).toBe(
+    false,
+  );
+  expect(buildEventMatchesAttempt({ message: "legacy audit" }, claim)).toBe(
+    true,
+  );
+});

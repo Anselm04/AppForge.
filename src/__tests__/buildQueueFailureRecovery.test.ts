@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   active: vi.fn(() => false),
   event: vi.fn(),
   publish: vi.fn(),
+  terminal: vi.fn(),
+  subscribed: vi.fn(),
+  unsubscribed: vi.fn(),
+  quit: vi.fn(),
 }));
 vi.mock("../_core/env.js", () => ({
   ENV: { redisUrl: "redis://test", isProduction: true },
@@ -28,7 +32,7 @@ vi.mock("../services/build-worker.js", () => ({
 vi.mock("../services/build-event-store.js", () => ({
   appendBuildEvent: mocks.event,
   getLatestBuildClaimAt: mocks.claimAt,
-  getLatestTerminalBuildEvent: vi.fn(),
+  getLatestTerminalBuildEvent: mocks.terminal,
 }));
 vi.mock("../services/build-runtime.js", () => ({
   publishRuntimeBuildEvent: mocks.publish,
@@ -38,6 +42,13 @@ vi.mock("redis", () => ({
     on() {},
     connect: async () => {},
     publish: async () => {},
+    duplicate: () => ({
+      connect: async () => {},
+      isOpen: true,
+      subscribe: mocks.subscribed,
+      unsubscribe: mocks.unsubscribed,
+      quit: mocks.quit,
+    }),
   }),
 }));
 vi.mock("bullmq", () => ({
@@ -71,6 +82,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.handlers.clear();
   mocks.claimAt.mockResolvedValue(null);
+  mocks.terminal.mockResolvedValue(null);
   mocks.active.mockReturnValue(false);
   mocks.pause.mockResolvedValue(true);
   mocks.getProject.mockResolvedValue({
@@ -258,4 +270,36 @@ it("fails closed when the latest atomic claim timestamp is corrupted", async () 
   }
   expect(mocks.refund).not.toHaveBeenCalled();
   expect(mocks.pause).not.toHaveBeenCalled();
+});
+
+it("keeps a retry Redis subscription open when an older worker publishes a terminal event", async () => {
+  mocks.claimAt.mockResolvedValue("2026-10-04T00:02:00Z");
+  mocks.terminal.mockResolvedValue({
+    event: "error",
+    payload: { attemptCreatedAt: "2026-10-04T00:00:00Z" },
+  });
+  const { subscribeBuildEvents } = await import("../services/build-queue.js");
+  const receive = vi.fn();
+  const close = await subscribeBuildEvents(41, receive);
+  expect(receive).not.toHaveBeenCalled();
+  expect(mocks.unsubscribed).not.toHaveBeenCalled();
+  const onMessage = mocks.subscribed.mock.calls[0][1];
+  onMessage(
+    JSON.stringify({
+      event: "error",
+      data: { attemptCreatedAt: "2026-10-04T00:00:00Z" },
+    }),
+  );
+  expect(receive).not.toHaveBeenCalled();
+  expect(mocks.unsubscribed).not.toHaveBeenCalled();
+  onMessage(
+    JSON.stringify({
+      event: "done",
+      data: { attemptCreatedAt: "2026-10-04T00:02:01Z" },
+    }),
+  );
+  expect(receive).toHaveBeenCalledOnce();
+  await close();
+  expect(mocks.unsubscribed).toHaveBeenCalledOnce();
+  expect(mocks.quit).toHaveBeenCalledOnce();
 });

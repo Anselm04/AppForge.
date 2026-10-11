@@ -1,3 +1,4 @@
+import { buildEventMatchesAttempt } from "../lib/buildRecovery.js";
 import { createClient, type RedisClientType } from "redis";
 import type { Queue, Worker } from "bullmq";
 import { logger } from "../_core/logger.js";
@@ -501,6 +502,7 @@ export async function recoverFailedQueuedBuild(
       error: "retry_after_error",
       message,
       recoveredAfterWorkerFailure: true,
+      attemptCreatedAt: job.createdAt,
     };
     await appendBuildEvent(projectId, "error", payload);
     publishRuntimeBuildEvent(projectId, "error", payload);
@@ -587,6 +589,7 @@ export async function subscribeBuildEvents(
   const redis = await getRedis();
   if (!redis) return () => {};
 
+  const claimedAt = await getLatestBuildClaimAt(projectId);
   const sub = redis.duplicate() as RedisClientType;
   let active = true;
   let closing: Promise<void> | null = null;
@@ -611,6 +614,7 @@ export async function subscribeBuildEvents(
     if (!active) return;
     try {
       const parsed = JSON.parse(message) as { event: string; data: unknown };
+      if (!buildEventMatchesAttempt(parsed.data, claimedAt)) return;
       handler(parsed.event, parsed.data);
       if (isTerminalEvent(parsed.event)) void closeSubscription();
     } catch {
@@ -624,7 +628,11 @@ export async function subscribeBuildEvents(
   // terminal result self-closes so route-level close timing cannot leak a sub.
   try {
     const terminal = await getLatestTerminalBuildEvent(projectId);
-    if (active && terminal) {
+    if (
+      active &&
+      terminal &&
+      buildEventMatchesAttempt(terminal.payload, claimedAt)
+    ) {
       handler(terminal.event, terminal.payload);
       await closeSubscription();
     }

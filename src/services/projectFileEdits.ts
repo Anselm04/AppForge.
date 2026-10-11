@@ -31,6 +31,9 @@ async function commitProjectFilesSnapshot(input: {
   validationResult?: unknown;
 }) {
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${input.projectId} FOR UPDATE`,
+    );
     await tx.execute(sql`select pg_advisory_xact_lock(${input.projectId})`);
     const rows = await tx
       .select()

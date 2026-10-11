@@ -1,3 +1,11 @@
+import {
+  withBuildExecutionLease,
+  currentBuildExecutionLease,
+  appendBuildAgentLog,
+  registerBuildLeaseAbort,
+  assertCurrentBuildLease,
+  BuildExecutionLeaseLostError,
+} from "./buildExecutionLease.js";
 import { runAgentPipeline } from "../agents/pipeline.js";
 import { resolveBuildTimeoutMs } from "../lib/neverGiveUp.js";
 import {
@@ -119,10 +127,26 @@ async function verifiedMonetizationEvidence(
   });
 }
 
+async function assertCurrentBuildLeaseIfTerminal(event: string): Promise<void> {
+  if (event === "done" || event === "error" || event === "pause")
+    await assertCurrentBuildLease();
+}
+
 async function emit(projectId: number, event: string, data: unknown) {
-  await appendBuildEvent(projectId, event, data);
-  publishRuntimeBuildEvent(projectId, event, data);
-  await publishBuildEvent(projectId, event, data);
+  const lease = currentBuildExecutionLease();
+  const payload =
+    lease && data && typeof data === "object"
+      ? {
+          ...data,
+          attemptCreatedAt: lease.createdAt,
+          executionId: lease.executionId,
+        }
+      : data;
+  if (event === "agent" && lease) await appendBuildAgentLog(projectId, payload);
+  else await appendBuildEvent(projectId, event, payload);
+  await assertCurrentBuildLeaseIfTerminal(event);
+  publishRuntimeBuildEvent(projectId, event, payload);
+  await publishBuildEvent(projectId, event, payload);
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -151,6 +175,7 @@ export async function deployValidatedProjectWithRetry(input: {
   });
   for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
     try {
+      await assertCurrentBuildLease();
       const result = await deployValidatedProject(input);
       deploymentTrace.end("ok", { attempt });
       incrementOperationalMetric("appforge_deployments_total", {
@@ -158,6 +183,7 @@ export async function deployValidatedProjectWithRetry(input: {
       });
       return result;
     } catch (error) {
+      if (error instanceof BuildExecutionLeaseLostError) throw error;
       lastError = error;
       const message =
         error instanceof Error ? error.message : "Unknown deployment error";
@@ -362,6 +388,17 @@ export async function runBuildJob(input: unknown): Promise<void> {
     return;
   }
   activeJobs.add(job.projectId);
+  try {
+    await withBuildExecutionLease(job, () => runOwnedBuildJob(job));
+  } catch (error) {
+    if (!(error instanceof BuildExecutionLeaseLostError)) throw error;
+    logger.info({ projectId: job.projectId }, "obsolete_build_worker_stopped");
+  } finally {
+    activeJobs.delete(job.projectId);
+  }
+}
+
+async function runOwnedBuildJob(job: BuildJob): Promise<void> {
   const buildTrace = startOperationalTrace({
     component: "build",
     operation: "run_build_job",
@@ -382,6 +419,7 @@ export async function runBuildJob(input: unknown): Promise<void> {
     reservationCharged,
   } = job;
   const controller = new AbortController();
+  registerBuildLeaseAbort((error) => controller.abort(error));
   const timeoutMs = resolveBuildTimeoutMs();
   const timeout =
     timeoutMs > 0
@@ -400,7 +438,10 @@ export async function runBuildJob(input: unknown): Promise<void> {
       pendingDone = data;
       return;
     }
-    void emit(projectId, event, data);
+    void emit(projectId, event, data).catch((error: unknown) => {
+      if (!(error instanceof BuildExecutionLeaseLostError))
+        logger.error({ projectId, error }, "build_event_persistence_failed");
+    });
   };
 
   // Admission already reserved the full build price. Pipeline phases are not
@@ -844,6 +885,8 @@ export async function runBuildJob(input: unknown): Promise<void> {
       }
     }
   } catch (err: unknown) {
+    if (err instanceof BuildExecutionLeaseLostError) throw err;
+    await assertCurrentBuildLease();
     logger.error({ projectId, error: err }, "background_build_failed");
 
     // Refund based on what happened at reservation time, not the user's current
@@ -892,7 +935,6 @@ export async function runBuildJob(input: unknown): Promise<void> {
       incrementOperationalMetric("appforge_builds_total", { status: "error" });
     }
     if (timeout) clearTimeout(timeout);
-    activeJobs.delete(projectId);
     clearRuntimeBuild(projectId);
   }
 }

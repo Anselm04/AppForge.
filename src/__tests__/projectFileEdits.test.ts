@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertArtifactIntegrity,
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   finalFiles: vi.fn(),
   transaction: vi.fn(),
   invalidate: vi.fn(),
+  execute: vi.fn(),
 }));
 vi.mock("../db.js", () => ({
   getEditableProjectFiles: mocks.editable,
@@ -36,6 +38,7 @@ describe("working file edits", () => {
   let snapshots: Record<string, unknown>[];
   let updates: Record<string, unknown>[];
   beforeEach(() => {
+    mocks.execute.mockReset().mockResolvedValue([]);
     snapshots = [];
     updates = [];
     project = {
@@ -56,7 +59,7 @@ describe("working file edits", () => {
     mocks.editable.mockResolvedValue({ ...files });
     mocks.finalFiles.mockResolvedValue({});
     const tx = {
-      execute: vi.fn(),
+      execute: mocks.execute,
       select: (fields?: unknown) => ({
         from: () => ({
           where: () => ({
@@ -162,4 +165,22 @@ describe("working file edits", () => {
       expect(updates).toEqual([]);
     },
   );
+  it("rechecks the running state after locking against a concurrent build starter", async () => {
+    mocks.execute.mockImplementation(async (query) => {
+      if (new PgDialect().sqlToQuery(query).sql.includes("FOR UPDATE"))
+        project.status = "running";
+      return [];
+    });
+    await expect(
+      commitValidatedProjectFileEdit({
+        project,
+        userId: 1,
+        path: "README.md",
+        content: "Owner edit",
+        label: "Manual edit: README",
+      }),
+    ).rejects.toThrow("Pause the build before editing saved files");
+    expect(snapshots).toEqual([]);
+    expect(updates).toEqual([]);
+  });
 });

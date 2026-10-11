@@ -1,3 +1,4 @@
+import { assertCurrentBuildLease } from "./buildExecutionLease.js";
 import { createHash } from "node:crypto";
 import { logger } from "../_core/logger.js";
 import { verifyGeneratedAppInBrowser } from "./browserVerification.js";
@@ -268,6 +269,7 @@ export async function deployValidatedProject(opts: {
   });
 
   await opts.onStage?.("deployment");
+  await assertCurrentBuildLease();
   const deployed = await deployProject({
     destination: "fly",
     projectName: opts.projectName,

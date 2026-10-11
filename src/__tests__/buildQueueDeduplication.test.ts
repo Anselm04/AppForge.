@@ -46,13 +46,13 @@ describe("build queue duplicate-start protection", () => {
 describe("build event reconnect protection", () => {
   it("persists each worker event before publishing it", () => {
     const persistIndex = worker.indexOf(
-      "await appendBuildEvent(projectId, event, data)",
+      "await appendBuildEvent(projectId, event, payload)",
     );
     const runtimeIndex = worker.indexOf(
-      "publishRuntimeBuildEvent(projectId, event, data)",
+      "publishRuntimeBuildEvent(projectId, event, payload)",
     );
     const redisIndex = worker.indexOf(
-      "await publishBuildEvent(projectId, event, data)",
+      "await publishBuildEvent(projectId, event, payload)",
     );
 
     expect(persistIndex).toBeGreaterThan(-1);
@@ -74,7 +74,10 @@ describe("build event reconnect protection", () => {
     expect(queue).toContain(
       "if (isTerminalEvent(parsed.event)) void closeSubscription()",
     );
-    expect(queue).toContain("if (active && terminal)");
+    expect(queue).toContain("active &&");
+    expect(queue).toContain(
+      "buildEventMatchesAttempt(terminal.payload, claimedAt)",
+    );
     expect(queue).toContain("await closeSubscription()");
   });
 });

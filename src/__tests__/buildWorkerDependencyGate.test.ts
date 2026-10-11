@@ -1,3 +1,15 @@
+import type { BuildJob as LeaseTestJob } from "../lib/buildJob.js";
+vi.mock("../services/buildExecutionLease.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../services/buildExecutionLease.js")
+  >()),
+  withBuildExecutionLease: async (
+    _job: LeaseTestJob,
+    operation: () => Promise<unknown>,
+  ) => operation(),
+  assertCurrentBuildLease: async () => undefined,
+  registerBuildLeaseAbort: () => undefined,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
