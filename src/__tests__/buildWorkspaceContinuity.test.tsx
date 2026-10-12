@@ -70,18 +70,14 @@ describe("actual Build tab lifetime", () => {
     workspace.exits = 0;
     const page = render(<Build />);
     await waitFor(() => expect(workspace.mounts).toBe(1));
-    fireEvent.click(
-      screen.getByRole("button", { name: "terminal", exact: true }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "terminal" }));
     expect(screen.getByText("Running workspace terminal")).toBeVisible();
-    fireEvent.click(
-      screen.getByRole("button", { name: "preview", exact: true }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "preview" }));
     expect(screen.getByTestId("workspace-preview")).toHaveTextContent(
       "https://workspace.webcontainer-api.io",
     );
     expect(workspace.exits).toBe(0);
-    fireEvent.click(screen.getByRole("button", { name: "code", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "code" }));
     expect(screen.getByText("Saved code editor")).toBeVisible();
     expect(workspace.mounts).toBe(1);
     expect(workspace.exits).toBe(0);
