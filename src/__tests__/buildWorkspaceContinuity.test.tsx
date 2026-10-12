@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 const workspace = vi.hoisted(() => ({
   mounts: 0,
   exits: 0,
+  exportCall: vi.fn(),
   project: {
     id: 68,
     status: "validated",
@@ -32,7 +33,16 @@ vi.mock("@tanstack/react-query", () => ({
     isError: false,
   }),
 }));
-vi.mock("../utils/trpc.js", () => ({ trpc: {} }));
+vi.mock("../utils/trpc.js", () => ({
+  trpc: {
+    github: {
+      connectionStatus: {
+        query: vi.fn().mockResolvedValue({ connected: true }),
+      },
+      pushToRepo: { mutate: workspace.exportCall },
+    },
+  },
+}));
 vi.mock("../lib/authedSse.js", () => ({ consumeAuthedSse: async () => {} }));
 vi.mock("../components/ProjectCodeEditor.js", () => ({
   ProjectCodeEditor: () => <div>Saved code editor</div>,
@@ -83,5 +93,37 @@ describe("actual Build tab lifetime", () => {
     expect(workspace.exits).toBe(0);
     page.unmount();
     expect(workspace.exits).toBe(1);
+  });
+  it("offers private/public repository choices before any export, even after page reload", async () => {
+    workspace.exportCall
+      .mockReset()
+      .mockResolvedValue({
+        repoUrl: "https://github.com/owner/chosen-product",
+      });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<Build />);
+    fireEvent.click(screen.getByRole("button", { name: "Export to GitHub" }));
+    expect(workspace.exportCall).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Repository visibility")).toHaveValue(
+      "private",
+    );
+    fireEvent.change(screen.getByLabelText("Repository name"), {
+      target: { value: "chosen-product" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Export to my GitHub account" }),
+    );
+    await waitFor(() =>
+      expect(workspace.exportCall).toHaveBeenCalledWith({
+        projectId: 68,
+        repoName: "chosen-product",
+        visibility: "private",
+      }),
+    );
+    expect(open).toHaveBeenCalledWith(
+      "https://github.com/owner/chosen-product",
+      "_blank",
+    );
+    open.mockRestore();
   });
 });
