@@ -23,6 +23,12 @@ const db = vi.hoisted(() => ({
   updateProjectCreditsSpent: vi.fn(),
   updateProjectStatus: vi.fn(),
 }));
+vi.mock("../services/buildExecutionReadiness.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../services/buildExecutionReadiness.js")
+  >()),
+  assertBuildExecutionReady: vi.fn(),
+}));
 const pipeline = vi.hoisted(() => ({ runAgentPipeline: vi.fn() }));
 const events = vi.hoisted(() => ({ appendBuildEvent: vi.fn() }));
 const stats = vi.hoisted(() => ({ recordBuildOutcome: vi.fn() }));
@@ -62,6 +68,8 @@ vi.mock("../lib/stackDependencyResolver.js", async (importOriginal) => {
   };
 });
 
+import { syncComplianceToVanta } from "../services/vantaSync.js";
+import { deployValidatedProject } from "../services/productionAutoDeploy.js";
 import { runBuildJob } from "../services/build-worker.js";
 import { resolveIntakeContract } from "../lib/productContract.js";
 import type { BuildJob } from "../lib/buildJob.js";
@@ -152,6 +160,45 @@ beforeEach(() => {
 });
 
 describe("build worker pre-build dependency gate", () => {
+  it("returns a validated build for customer destination choice without deploying or requiring hosting credentials", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("FLY_API_TOKEN", "");
+    const job = validJob();
+    resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    pipeline.runAgentPipeline.mockImplementation(async () => {
+      db.getProjectById.mockResolvedValue(
+        projectFor(job, { status: "validated" }),
+      );
+    });
+    try {
+      await runBuildJob(JSON.parse(JSON.stringify(job)));
+      expect(deployValidatedProject).not.toHaveBeenCalled();
+      expect(syncComplianceToVanta).not.toHaveBeenCalled();
+      expect(errorEvents()).toEqual([]);
+      expect(db.updateProjectStatus).toHaveBeenCalledWith(
+        job.projectId,
+        "validated",
+      );
+      expect(events.appendBuildEvent).toHaveBeenCalledWith(
+        job.projectId,
+        "done",
+        expect.objectContaining({
+          deployment: "awaiting_customer_choice",
+          productionReady: false,
+        }),
+      );
+      expect(recovery.recordKnownGoodCheckpoint).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "validated_artifact" }),
+      );
+      expect(recovery.recordKnownGoodCheckpoint).not.toHaveBeenCalledWith(
+        expect.objectContaining({ source: "production_verified" }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("resolves the dependency graph for the selected stack and product type before anything else runs", async () => {
     const job = validJob();
     resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());

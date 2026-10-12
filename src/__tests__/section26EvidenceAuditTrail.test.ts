@@ -127,7 +127,8 @@ describe("Section 26 evidence and audit trail", () => {
     expect(projects).toContain("integrations: contract.integrations");
     expect(projects).toContain('kind: "deployment"');
     expect(projects).toContain("smokeTest: smoke");
-    expect(worker).toContain("retryable: attempt < DEPLOY_MAX_ATTEMPTS");
+    expect(worker).not.toContain("DEPLOY_MAX_ATTEMPTS");
+    expect(worker).toContain("deploymentVerified: false");
     expect(production).toContain(
       'payload: { success: true, destination: "fly", ...certification }',
     );
@@ -185,8 +186,9 @@ describe("Section 26 evidence and audit trail", () => {
     const healing = source("src/agents/selfHealing.ts");
 
     expect(db).toContain(".insert(schema.projectEvidence)");
-    expect(worker).toContain("attempt,");
-    expect(worker).toContain('kind: "deployment"');
+    expect(worker).toContain('kind: "certification"');
+    expect(worker).toContain("snapshotId: artifact.snapshotId");
+    expect(worker).not.toContain('kind: "deployment"');
     expect(healing).toContain('source: "self_healing"');
     expect(healing).toContain('kind: "repair"');
     expect(healing).toContain('kind: "certification"');

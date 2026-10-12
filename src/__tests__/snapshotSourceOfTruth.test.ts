@@ -38,14 +38,14 @@ describe("snapshot source-of-truth integrity", () => {
     );
   });
 
-  it("binds production deployment to the same persisted snapshot used as source-of-truth", () => {
+  it("binds build completion and recovery to the persisted snapshot without deployment", () => {
     const workerSource = readFileSync("src/services/build-worker.ts", "utf8");
     const deploySource = readFileSync(
       "src/services/productionAutoDeploy.ts",
       "utf8",
     );
-    expect(workerSource).toContain("snapshot: {");
-    expect(workerSource).toContain("id: artifact.snapshotId");
+    expect(workerSource).toContain("snapshotId: artifact.snapshotId");
+    expect(workerSource).not.toContain("deployValidatedProjectWithRetry(");
     expect(workerSource).toContain("version: artifact.version");
     expect(workerSource).toContain("integrity: artifact.integrity");
     expect(deploySource).toContain("assertArtifactIntegrity");

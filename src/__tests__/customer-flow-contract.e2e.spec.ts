@@ -202,15 +202,17 @@ describe("critical customer flow contract", () => {
     );
   });
 
-  it("requires agent completion before production deploy and emits done only after deploy", () => {
+  it("returns the saved validated artifact before customer-controlled export or deployment", () => {
     const worker = source("../services/build-worker.ts");
 
     expectInOrder(worker, [
       "await runAgentPipeline(",
       'updated?.status === "validated"',
-      "const deployed = await deployValidatedProjectWithRetry({",
+      'source: "validated_artifact"',
       'await emit(projectId, "done", donePayload);',
     ]);
+    expect(worker).not.toContain("deployValidatedProjectWithRetry(");
+    expect(worker).not.toContain("syncComplianceToVanta(");
     expect(worker).toContain('if (event === "done") {');
     expect(worker).toContain("pendingDone = data;");
     expect(worker).toContain('await refundReservation("Failed build")');

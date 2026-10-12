@@ -12,7 +12,6 @@ import {
   addCredits,
   getCurrentArtifact,
   getProjectById,
-  getProjectEvidence,
   recordProjectEvidence,
   resumeProject,
   updateProjectBuildStage,
@@ -27,13 +26,10 @@ import {
   publishRuntimeBuildEvent,
 } from "./build-runtime.js";
 import { publishBuildEvent } from "./build-queue.js";
-import { syncComplianceToVanta } from "./vantaSync.js";
 import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
-import { deployValidatedProject } from "./productionAutoDeploy.js";
 import { buildDeploymentDecision } from "../lib/stackDeployment.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
-import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
 import {
   productContractSchema,
   renderProductContractForAgents,
@@ -77,8 +73,6 @@ type ActiveBuild = {
   abort?: (error: Error) => void;
 };
 const activeJobs = new Map<number, ActiveBuild>();
-const DEPLOY_MAX_ATTEMPTS = 3;
-const DEPLOY_RETRY_BASE_MS = 1_000;
 
 function validationPassed(value: unknown): boolean {
   return (
@@ -110,29 +104,6 @@ function securityAuditPassed(value: unknown): boolean {
   );
 }
 
-async function verifiedMonetizationEvidence(
-  projectId: number,
-  artifactVersion: number,
-): Promise<boolean> {
-  const events = await getProjectEvidence(projectId);
-  return events.some((event) => {
-    if (
-      event.kind !== "monetization" ||
-      event.artifactVersion !== artifactVersion ||
-      !event.payload ||
-      typeof event.payload !== "object"
-    ) {
-      return false;
-    }
-    const payload = event.payload as Record<string, unknown>;
-    return (
-      payload.verified === true ||
-      payload.status === "verified" ||
-      payload.state === "verified"
-    );
-  });
-}
-
 async function assertCurrentBuildLeaseIfTerminal(event: string): Promise<void> {
   if (event === "done" || event === "error" || event === "pause")
     await assertCurrentBuildLease();
@@ -155,84 +126,6 @@ async function emit(projectId: number, event: string, data: unknown) {
   await publishBuildEvent(projectId, event, payload);
 }
 
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function deployValidatedProjectWithRetry(input: {
-  projectId: number;
-  projectName: string;
-  files: Record<string, string>;
-  productContract: ProductContract;
-  snapshot?: {
-    id: number;
-    version: number;
-    integrity: ArtifactIntegrity;
-  };
-  onStage?: (
-    stage: import("../lib/buildStatus.js").BuildStage,
-  ) => Promise<void> | void;
-}) {
-  let lastError: unknown;
-  const deploymentTrace = startOperationalTrace({
-    component: "deployment",
-    operation: "deploy_validated_project",
-    metadata: { projectId: input.projectId },
-  });
-  for (let attempt = 1; attempt <= DEPLOY_MAX_ATTEMPTS; attempt += 1) {
-    try {
-      await assertCurrentBuildLease();
-      const result = await deployValidatedProject(input);
-      deploymentTrace.end("ok", { attempt });
-      incrementOperationalMetric("appforge_deployments_total", {
-        status: "ok",
-      });
-      return result;
-    } catch (error) {
-      if (error instanceof BuildExecutionLeaseLostError) throw error;
-      lastError = error;
-      const message =
-        error instanceof Error ? error.message : "Unknown deployment error";
-      await recordProjectEvidence({
-        projectId: input.projectId,
-        kind: "deployment",
-        attempt,
-        artifactVersion: input.snapshot?.version ?? null,
-        payload: {
-          success: false,
-          destination: "fly",
-          snapshotId: input.snapshot?.id ?? null,
-          artifactSha256: input.snapshot?.integrity.sha256 ?? null,
-          error: message,
-          retryable: attempt < DEPLOY_MAX_ATTEMPTS,
-        },
-      }).catch(() => undefined);
-      logger.warn(
-        {
-          error,
-          projectId: input.projectId,
-          attempt,
-          maxAttempts: DEPLOY_MAX_ATTEMPTS,
-        },
-        "validated_project_deploy_attempt_failed",
-      );
-      if (attempt < DEPLOY_MAX_ATTEMPTS) {
-        await sleep(DEPLOY_RETRY_BASE_MS * 2 ** (attempt - 1));
-      }
-    }
-  }
-  deploymentTrace.end("error", { attempts: DEPLOY_MAX_ATTEMPTS });
-  incrementOperationalMetric("appforge_deployments_total", { status: "error" });
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Validated project deployment failed after retries");
-}
-
-/**
- * A queued build whose typed context (prompt, intent, contract, stack) is
- * missing, invalid, or disagrees with the persisted project. The worker never
- * repairs or re-derives that context; it fails the build clearly instead.
- */
 export class BuildContractError extends Error {
   constructor(message: string) {
     super(message);
@@ -438,7 +331,7 @@ async function runOwnedBuildJob(
   let pendingDone: unknown = null;
 
   const write = (event: string, data: unknown) => {
-    // The pipeline may finish generation before production deployment is proven.
+    // Pipeline completion is captured until the validated artifact is saved.
     // Hold the terminal done event until Fly is live and smoke-tested so the UI
     // cannot claim customer success early.
     if (event === "done") {
@@ -581,35 +474,8 @@ async function runOwnedBuildJob(
       updated?.status === "production-certified";
 
     if (passed) {
-      let liveUrl: string | undefined;
-      let productionCertification:
-        | {
-            artifactSha256: string;
-            snapshotId?: number;
-            artifactVersion?: number;
-            persistedArtifactSha256?: string;
-            httpVerified: true;
-            securityVerified: true;
-            operationalVerified: true;
-            assetsVerified: number;
-            browserVerified: boolean;
-            verification: string;
-            healthPathsVerified: string[];
-            deploymentVersion: 2;
-            deploymentManifestSha256: string;
-            certificationDecision: CertificationDecision;
-            deploymentAudit: {
-              id: string;
-              event: "production_deployment_verified";
-              destination: string;
-              stack: string;
-              artifactSha256: string;
-              artifactVersion: number | null;
-              verifiedAt: string;
-              liveUrl: string;
-            };
-          }
-        | undefined;
+      const liveUrl = undefined;
+      const productionCertification = undefined;
       // A completed pipeline must have an immutable validated snapshot before
       // AppForge records any customer success or recovery checkpoint.
       const artifact = await getCurrentArtifact(projectId);
@@ -626,10 +492,8 @@ async function runOwnedBuildJob(
         source: "validated_artifact",
       });
 
-      // Structural-only stacks finish as source deliverables: no deploy, no
-      // live URL, and the done event says so explicitly. Deployable stacks are
-      // promoted to a production-verified recovery checkpoint only after all
-      // live deployment verification has passed.
+      // Building never chooses a hosting provider. The owner receives the
+      // validated artifact and explicitly chooses export, preview or deployment.
       const deploymentDecision = buildDeploymentDecision(
         techStack,
         process.env.NODE_ENV,
@@ -650,180 +514,59 @@ async function runOwnedBuildJob(
       let certificationDecision: CertificationDecision;
       let finalProductFactoryFlow: FinalProductFactoryFlowReport;
 
-      if (deploymentDecision.action === "deploy") {
-        const deployed = await deployValidatedProjectWithRetry({
-          projectId,
-          projectName: updated.title || `appforge-${projectId}`,
-          files: artifact.files,
-          productContract: queuedContract,
-          snapshot: {
-            id: artifact.snapshotId,
-            version: artifact.version,
-            integrity: artifact.integrity,
-          },
-          onStage: async (stage) => {
-            await updateProjectBuildStage(projectId, stage);
-          },
-        });
-        liveUrl = deployed.liveUrl;
-        await recordKnownGoodCheckpoint({
-          projectId,
-          snapshotId: artifact.snapshotId,
-          artifactVersion: artifact.version,
-          artifactSha256: artifact.integrity.sha256,
-          source: "production_verified",
-          deploymentVersion: deployed.deploymentVersion,
-          deploymentManifestSha256: deployed.deploymentManifestSha256,
-          liveUrl: deployed.liveUrl,
-        });
-
-        const monetizationVerified = await verifiedMonetizationEvidence(
-          projectId,
-          artifact.version,
-        );
-        certificationDecision = evaluateCertification({
-          productContract: queuedContract,
-          dependencyGraph,
-          evidence: {
-            artifactPresent: true,
-            generatedFileCount: Object.keys(artifact.files).length,
-            requirementsResolved: currentRequirementsResolved,
-            behavioralTestsVerified,
-            runtimeVerified,
-            securityVerified: deployed.securityVerified,
-            deploymentVerified: deployed.httpVerified,
-            browserVerified: deployed.browserVerified,
-            healthVerified:
-              deployed.verification === "http_health"
-                ? deployed.healthPathsVerified.length > 0
-                : undefined,
-            monetizationVerified,
-            operationalVerified: deployed.operationalVerified,
-            recoveryVerified: true,
-          },
-        });
-        finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
-          project: updated,
-          artifact: {
-            version: artifact.version,
-            integrity: artifact.integrity,
-            files: artifact.files,
-            validationResult: artifact.validationResult,
-            requirementManifest: artifact.requirementManifest,
-          },
-          certificationDecision,
-          deployment: deployed,
-          monetizationVerified,
-          recoveryVerified: true,
-        });
-
-        if (finalProductFactoryFlow.productionReady) {
-          await updateProjectStatus(projectId, "production-certified");
-          await updateProjectBuildStage(projectId, "production-certified", {
-            outputMaturity: "certified",
-          });
-        } else {
-          await updateProjectStatus(projectId, "validated");
-          await updateProjectBuildStage(projectId, "production-candidate", {
-            outputMaturity: "verified",
-          });
-        }
-
-        await recordProjectEvidence({
-          projectId,
-          kind: "certification",
-          artifactVersion: artifact.version,
-          payload: {
-            ...certificationDecision,
-            snapshotId: artifact.snapshotId,
-            artifactSha256: artifact.integrity.sha256,
-            liveUrl: deployed.liveUrl,
-            verification: deployed.verification,
-            httpVerified: deployed.httpVerified,
-            securityVerified: deployed.securityVerified,
-            operationalVerified: deployed.operationalVerified,
-            browserVerified: deployed.browserVerified,
-            assetsVerified: deployed.assetsVerified,
-            healthPathsVerified: deployed.healthPathsVerified,
-            deploymentManifestSha256: deployed.deploymentManifestSha256,
-            deploymentAudit: deployed.deploymentAudit,
-            productionReady: finalProductFactoryFlow.productionReady,
-            finalProductFactoryFlow,
-            limitations: finalProductFactoryFlow.limitations,
-          },
-        });
-        productionCertification = {
-          artifactSha256: deployed.artifactSha256,
-          snapshotId: artifact.snapshotId,
-          artifactVersion: artifact.version,
-          persistedArtifactSha256: artifact.integrity.sha256,
-          httpVerified: deployed.httpVerified,
-          securityVerified: deployed.securityVerified,
-          operationalVerified: deployed.operationalVerified,
-          assetsVerified: deployed.assetsVerified,
-          browserVerified: deployed.browserVerified,
-          verification: deployed.verification,
-          healthPathsVerified: deployed.healthPathsVerified,
-          deploymentVersion: deployed.deploymentVersion,
-          deploymentManifestSha256: deployed.deploymentManifestSha256,
-          certificationDecision,
-          deploymentAudit: deployed.deploymentAudit,
-        };
-      } else {
-        certificationDecision = evaluateCertification({
-          productContract: queuedContract,
-          dependencyGraph,
-          evidence: {
-            artifactPresent: true,
-            generatedFileCount: Object.keys(artifact.files).length,
-            requirementsResolved: currentRequirementsResolved,
-            behavioralTestsVerified,
-            runtimeVerified,
-            securityVerified: snapshotSecurityVerified,
-            deploymentVerified: false,
-            monetizationVerified: false,
-            operationalVerified: false,
-            recoveryVerified: true,
-          },
-        });
-        finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
-          project: updated,
-          artifact: {
-            version: artifact.version,
-            integrity: artifact.integrity,
-            files: artifact.files,
-            validationResult: artifact.validationResult,
-            requirementManifest: artifact.requirementManifest,
-          },
-          certificationDecision,
-          deployment: null,
+      certificationDecision = evaluateCertification({
+        productContract: queuedContract,
+        dependencyGraph,
+        evidence: {
+          artifactPresent: true,
+          generatedFileCount: Object.keys(artifact.files).length,
+          requirementsResolved: currentRequirementsResolved,
+          behavioralTestsVerified,
+          runtimeVerified,
+          securityVerified: snapshotSecurityVerified,
+          deploymentVerified: false,
           monetizationVerified: false,
+          operationalVerified: false,
           recoveryVerified: true,
-        });
-        await updateProjectStatus(projectId, "validated");
-        await updateProjectBuildStage(projectId, certificationDecision.status, {
-          outputMaturity:
-            stackAdapter.generationMode === "structural"
-              ? "structural"
-              : runtimeVerified
-                ? "runnable"
-                : "structural",
-        });
-        await recordProjectEvidence({
-          projectId,
-          kind: "certification",
-          artifactVersion: artifact.version,
-          payload: {
-            ...certificationDecision,
-            snapshotId: artifact.snapshotId,
-            artifactSha256: artifact.integrity.sha256,
-            reason: deploymentDecision.deployment,
-            productionReady: false,
-            finalProductFactoryFlow,
-            limitations: finalProductFactoryFlow.limitations,
-          },
-        });
-      }
+        },
+      });
+      finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
+        project: updated,
+        artifact: {
+          version: artifact.version,
+          integrity: artifact.integrity,
+          files: artifact.files,
+          validationResult: artifact.validationResult,
+          requirementManifest: artifact.requirementManifest,
+        },
+        certificationDecision,
+        deployment: null,
+        monetizationVerified: false,
+        recoveryVerified: true,
+      });
+      await updateProjectStatus(projectId, "validated");
+      await updateProjectBuildStage(projectId, certificationDecision.status, {
+        outputMaturity:
+          stackAdapter.generationMode === "structural"
+            ? "structural"
+            : runtimeVerified
+              ? "runnable"
+              : "structural",
+      });
+      await recordProjectEvidence({
+        projectId,
+        kind: "certification",
+        artifactVersion: artifact.version,
+        payload: {
+          ...certificationDecision,
+          snapshotId: artifact.snapshotId,
+          artifactSha256: artifact.integrity.sha256,
+          reason: deploymentDecision.deployment,
+          productionReady: false,
+          finalProductFactoryFlow,
+          limitations: finalProductFactoryFlow.limitations,
+        },
+      });
 
       const stackDelivery = {
         stack: stackAdapter.id,
@@ -837,11 +580,6 @@ async function runOwnedBuildJob(
 
       await updateProjectCreditsSpent(projectId, BUILD_CREDIT_COST);
       await recordBuildOutcome(userId, true, BUILD_CREDIT_COST);
-      void syncComplianceToVanta(projectId, {
-        techStack,
-        productContract: queuedContract,
-        exportedAt: new Date().toISOString(),
-      });
 
       const donePayload =
         pendingDone && typeof pendingDone === "object"
