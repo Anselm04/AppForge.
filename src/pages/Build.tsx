@@ -457,6 +457,7 @@ export function Build() {
     setError(null);
     try {
       await trpc.projects.resumeApprovedBuild.mutate({ projectId: pid });
+      setWorkerCheckMessage(null);
       setIsPaused(false);
       await refreshApprovalState();
       setLogs([]);

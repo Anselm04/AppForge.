@@ -836,3 +836,7 @@ The production image now carries the reviewed namespace controller and startup p
 ### Serving-process readiness probe correction — 11 October 2026
 
 The production readiness probe now identifies the Node executable and exact relative/absolute server entrypoint, excluding the dumb-init supervisor that retains the same server argument. The prepared public isolation flags and compiled UID-1001 adapter check remain mandatory. The existing-fleet qualification workflow runs this corrected read-only check against both serving machines before this correction is merged. It never provisions resources, changes runtime credentials or forwards the host environment.
+
+## Offline localhost resolution — 12 October 2026
+
+Generated Vitest execution exposed EAI_AGAIN for localhost in the isolated runtime. The controller now mounts its own static loopback hosts file and files-only name-service configuration read-only. Host resolver files, credentials and network access remain excluded. The reviewed runtime fixture requires real IPv4 localhost resolution inside isolation. Rollback removes these two mounts and their fixture check; validation must continue to fail honestly when execution fails.

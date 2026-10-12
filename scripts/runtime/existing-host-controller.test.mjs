@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   aggregateLimitsQualified,
+  sandboxArgs,
   existingHostReady,
   inspectSandboxInput,
   validateExistingHost,
@@ -187,4 +188,36 @@ test("unlimited, absent, zero and enlarged aggregate budgets cannot enable execu
       false,
       JSON.stringify(changes),
     );
+});
+
+test("sandbox resolver mounts only reviewed loopback files and keeps network isolation", () => {
+  const args = sandboxArgs({ source: "/fixture", input: { prefix: "" } }, [
+    "node",
+  ]);
+  assert.ok(args.includes("--unshare-all"));
+  assert.ok(!args.includes("--share-net"));
+  const mounts = [];
+  for (let i = 0; i < args.length; i++)
+    if (args[i] === "--ro-bind") mounts.push(args.slice(i + 1, i + 3));
+  assert.ok(
+    mounts.some(
+      ([source, target]) =>
+        source.endsWith("/sandbox-hosts") && target === "/etc/hosts",
+    ),
+  );
+  assert.ok(
+    mounts.some(
+      ([source, target]) =>
+        source.endsWith("/sandbox-nsswitch.conf") &&
+        target === "/etc/nsswitch.conf",
+    ),
+  );
+  assert.ok(
+    !mounts.some(
+      ([source]) =>
+        source === "/etc" ||
+        source === "/etc/hosts" ||
+        source === "/etc/resolv.conf",
+    ),
+  );
 });

@@ -1,3 +1,4 @@
+import { sessionRetryLink } from "../lib/sessionRetryLink.js";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { rejectRateLimitedResponse } from "../lib/buildPolling.js";
 import type { AppRouter } from "../routers/index.js";
@@ -15,6 +16,7 @@ function bearerHeaders(): Record<string, string> {
 
 export const trpc = createTRPCProxyClient<AppRouter>({
   links: [
+    sessionRetryLink<AppRouter>(),
     httpBatchLink({
       url: "/api/trpc",
       methodOverride: "POST",
