@@ -95,11 +95,9 @@ describe("actual Build tab lifetime", () => {
     expect(workspace.exits).toBe(1);
   });
   it("offers private/public repository choices before any export, even after page reload", async () => {
-    workspace.exportCall
-      .mockReset()
-      .mockResolvedValue({
-        repoUrl: "https://github.com/owner/chosen-product",
-      });
+    workspace.exportCall.mockReset().mockResolvedValue({
+      repoUrl: "https://github.com/owner/chosen-product",
+    });
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     render(<Build />);
     fireEvent.click(screen.getByRole("button", { name: "Export to GitHub" }));
