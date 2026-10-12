@@ -130,7 +130,13 @@ export const githubRouter = router({
   }),
 
   pushToRepo: protectedProcedure
-    .input(z.object({ projectId: z.number(), repoName: z.string().min(1) }))
+    .input(
+      z.object({
+        projectId: z.number().int().positive(),
+        repoName: z.string().regex(/^[a-zA-Z0-9._-]{1,100}$/),
+        visibility: z.enum(["private", "public"]).default("private"),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const conn = await getGithubConnection(ctx.user.id);
       const token = githubTokenOrThrow(conn?.accessToken);
@@ -159,6 +165,7 @@ export const githubRouter = router({
         token,
         owner,
         repoName: input.repoName,
+        private: input.visibility === "private",
         files,
         description: (project.description ?? "").slice(0, 200),
       });

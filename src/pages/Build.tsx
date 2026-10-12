@@ -61,6 +61,12 @@ export function Build() {
   const [creditsSpent, setCreditsSpent] = useState(0);
   const [deploying, setDeploying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [githubExportOpen, setGithubExportOpen] = useState(false);
+  const [githubRepoName, setGithubRepoName] = useState("");
+  const [githubVisibility, setGithubVisibility] = useState<
+    "private" | "public"
+  >("private");
+  const [githubExportBusy, setGithubExportBusy] = useState(false);
   const [browserPreview, setBrowserPreview] = useState<{
     projectId: number;
     url: string;
@@ -483,6 +489,8 @@ export function Build() {
 
   const handleGitHubExport = async () => {
     if (!projectId || !project?.title) return;
+    setGithubExportBusy(true);
+    setError(null);
     try {
       const conn = await trpc.github.connectionStatus.query();
       if (!conn.connected) {
@@ -494,17 +502,17 @@ export function Build() {
         window.location.href = url;
         return;
       }
-      const repoName = `appforge-${project.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "-")
-        .slice(0, 30)}`;
       const result = await trpc.github.pushToRepo.mutate({
         projectId: pid,
-        repoName,
+        repoName: githubRepoName.trim(),
+        visibility: githubVisibility,
       });
+      setGithubExportOpen(false);
       window.open(result.repoUrl, "_blank");
     } catch (err) {
       setError(err instanceof Error ? err.message : "GitHub export failed");
+    } finally {
+      setGithubExportBusy(false);
     }
   };
 
@@ -1057,109 +1065,195 @@ export function Build() {
           </div>
         )}
 
-        {isComplete && !error && !isPaused && !awaitingApproval && (
-          <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
-            <p className="font-semibold text-lg">
-              {structuralOnly
-                ? "Source generation complete (not deployed)"
-                : project?.status === "production-certified"
-                  ? "Production certification complete!"
-                  : "Build complete — choose your next step"}
-            </p>
-            <p className="mt-2">
-              {structuralOnly
-                ? (stack?.notice ??
-                  "This stack is structural-only: download or export the source; it has not been deployed.")
-                : project?.status === "production-certified"
-                  ? "The deployed product passed the configured production verification gates."
-                  : "Your build passed validation. Edit it, download it, export it to GitHub, or choose where to deploy it. Nothing is deployed automatically."}
-            </p>
-            <p className="mt-2 text-sm">
-              Hosting is provided by your chosen host, using your own account.
-              AppForge does not host customer products.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {!structuralOnly && (
-                <label className="text-sm text-green-200/80">
-                  Destination{" "}
-                  <select
-                    value={destination}
-                    onChange={(e) =>
-                      setDestination(e.target.value as DeployDestination)
-                    }
-                    className="ml-2 bg-slate-800 border border-slate-600 text-white rounded-sm px-2 py-1"
+        {isProjectArtifactReady(project?.status) &&
+          !isPaused &&
+          !awaitingApproval && (
+            <div className="mt-8 bg-green-900/30 border border-green-800 rounded-lg p-4 text-green-300">
+              <p className="font-semibold text-lg">
+                {structuralOnly
+                  ? "Source generation complete (not deployed)"
+                  : project?.status === "production-certified"
+                    ? "Production certification complete!"
+                    : "Build complete — choose your next step"}
+              </p>
+              <p className="mt-2">
+                {structuralOnly
+                  ? (stack?.notice ??
+                    "This stack is structural-only: download or export the source; it has not been deployed.")
+                  : project?.status === "production-certified"
+                    ? "The deployed product passed the configured production verification gates."
+                    : "Your build passed validation. Edit it, download it, export it to GitHub, or choose where to deploy it. Nothing is deployed automatically."}
+              </p>
+              <p className="mt-2 text-sm">
+                Hosting is provided by your chosen host, using your own account.
+                AppForge does not host customer products.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {!structuralOnly && (
+                  <label className="text-sm text-green-200/80">
+                    Destination{" "}
+                    <select
+                      value={destination}
+                      onChange={(e) =>
+                        setDestination(e.target.value as DeployDestination)
+                      }
+                      className="ml-2 bg-slate-800 border border-slate-600 text-white rounded-sm px-2 py-1"
+                    >
+                      <option value="preview">Preview</option>
+                      <option
+                        value="vercel"
+                        disabled={destinationDisabled("vercel")}
+                      >
+                        Vercel (your own account)
+                      </option>
+                      <option
+                        value="netlify"
+                        disabled={destinationDisabled("netlify")}
+                      >
+                        Netlify (your own account)
+                      </option>
+                      <option value="fly" disabled={destinationDisabled("fly")}>
+                        Fly.io (your own account)
+                      </option>
+                      <option
+                        value="github-pages"
+                        disabled={destinationDisabled("github-pages")}
+                      >
+                        GitHub Pages
+                      </option>
+                    </select>
+                  </label>
+                )}
+                {structuralOnly ? null : deployUrl ? (
+                  <a
+                    href={deployUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
                   >
-                    <option value="preview">Preview</option>
-                    <option
-                      value="vercel"
-                      disabled={destinationDisabled("vercel")}
-                    >
-                      Vercel (your own account)
-                    </option>
-                    <option
-                      value="netlify"
-                      disabled={destinationDisabled("netlify")}
-                    >
-                      Netlify (your own account)
-                    </option>
-                    <option value="fly" disabled={destinationDisabled("fly")}>
-                      Fly.io (your own account)
-                    </option>
-                    <option
-                      value="github-pages"
-                      disabled={destinationDisabled("github-pages")}
-                    >
-                      GitHub Pages
-                    </option>
-                  </select>
-                </label>
-              )}
-              {structuralOnly ? null : deployUrl ? (
-                <a
-                  href={deployUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
-                >
-                  View Live App
-                </a>
-              ) : (
+                    View Live App
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleDeploy}
+                    disabled={deploying || destinationDisabled(destination)}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
+                  >
+                    {deploying
+                      ? "Opening…"
+                      : destination === "preview"
+                        ? "Open preview"
+                        : "Deploy to my account"}
+                  </button>
+                )}
                 <button
-                  onClick={handleDeploy}
-                  disabled={deploying || destinationDisabled(destination)}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
+                  onClick={handleDownloadZip}
+                  disabled={downloading}
+                  className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying
-                    ? "Opening…"
-                    : destination === "preview"
-                      ? "Open preview"
-                      : "Deploy to my account"}
+                  {downloading ? "Preparing ZIP…" : "Download ZIP"}
                 </button>
+                <button
+                  onClick={() => {
+                    setGithubRepoName(
+                      `appforge-${(project?.title ?? "product")
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/g, "-")
+                        .slice(0, 30)}`,
+                    );
+                    setGithubVisibility("private");
+                    setGithubExportOpen(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+                >
+                  Export to GitHub
+                </button>
+              </div>
+              {githubExportOpen && (
+                <form
+                  aria-label="Export to GitHub"
+                  className="mt-4 space-y-3 rounded-lg border border-slate-600 p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleGitHubExport();
+                  }}
+                >
+                  <p>
+                    Export through your connected GitHub account. Existing
+                    repository visibility is never changed, and existing files
+                    and history are preserved.
+                  </p>
+                  <label className="block">
+                    Repository name
+                    <input
+                      required
+                      pattern="[a-zA-Z0-9._-]{1,100}"
+                      value={githubRepoName}
+                      onChange={(event) =>
+                        setGithubRepoName(event.target.value)
+                      }
+                      className="mt-1 block rounded bg-slate-800 p-2 text-white"
+                    />
+                  </label>
+                  <label className="block">
+                    Repository visibility
+                    <select
+                      value={githubVisibility}
+                      onChange={(event) =>
+                        setGithubVisibility(
+                          event.target.value as "private" | "public",
+                        )
+                      }
+                      className="ml-2 rounded bg-slate-800 p-2 text-white"
+                    >
+                      <option value="private">
+                        Private — only people you authorize
+                      </option>
+                      <option value="public">
+                        Public — anyone can read the exported code
+                      </option>
+                    </select>
+                  </label>
+                  {githubVisibility === "public" && (
+                    <p>
+                      Exporting makes your code readable by anyone. Choose
+                      Private if you want to keep it private.
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={githubExportBusy}
+                    className="rounded bg-blue-600 px-4 py-2 text-white"
+                  >
+                    {githubExportBusy
+                      ? "Exporting…"
+                      : "Export to my GitHub account"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={githubExportBusy}
+                    onClick={() => setGithubExportOpen(false)}
+                    className="ml-2 rounded bg-slate-600 px-4 py-2"
+                  >
+                    Cancel
+                  </button>
+                </form>
               )}
-              <button
-                onClick={handleDownloadZip}
-                disabled={downloading}
-                className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg"
-              >
-                {downloading ? "Preparing ZIP…" : "Download ZIP"}
-              </button>
-              <button
-                onClick={handleGitHubExport}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-              >
-                Export to GitHub
-              </button>
+              <DeployWizard
+                projectId={pid}
+                deployUrl={structuralOnly ? null : deployUrl}
+                deployGuide={deployGuide}
+                techStack={stack?.label ?? project?.techStack}
+                structuralNotice={
+                  structuralOnly ? (stack?.notice ?? null) : null
+                }
+              />
+              <RevenueReadinessPanel
+                projectId={pid}
+                enabled={canUseWorkspace}
+              />
             </div>
-            <DeployWizard
-              projectId={pid}
-              deployUrl={structuralOnly ? null : deployUrl}
-              deployGuide={deployGuide}
-              techStack={stack?.label ?? project?.techStack}
-              structuralNotice={structuralOnly ? (stack?.notice ?? null) : null}
-            />
-            <RevenueReadinessPanel projectId={pid} enabled={canUseWorkspace} />
-          </div>
-        )}
+          )}
       </div>
     </div>
   );
