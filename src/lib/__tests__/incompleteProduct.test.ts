@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   assertProductComplete,
   attachCompletenessEvidence,
@@ -12,6 +12,8 @@ import { getStackAdapter } from "../stackAdapters.js";
 import { getRuntimeArchitecture } from "../runtimeArchitecture.js";
 import {
   deployProject,
+  deployToVercel,
+  listDeployDestinations,
   type DeployDestination,
 } from "../../services/deployer.js";
 
@@ -293,5 +295,46 @@ describe("placeholder and incomplete-product protection", () => {
         productContract: c,
       }),
     ).rejects.toThrow(/Deployment completeness gate failed/);
+  });
+  it("never offers platform hosting credentials as customer connections", async () => {
+    vi.stubEnv("FLY_API_TOKEN", "platform-fly-token");
+    vi.stubEnv("VERCEL_TOKEN", "platform-vercel-token");
+    vi.stubEnv("NETLIFY_AUTH_TOKEN", "platform-netlify-token");
+    const fetch = vi.spyOn(globalThis, "fetch").mockReset();
+    try {
+      for (const destination of [
+        "fly",
+        "vercel",
+        "netlify",
+        "github-pages",
+      ] as const) {
+        expect(listDeployDestinations()[destination].configured).toBe(false);
+      }
+      const c = contract();
+      const files = completeFiles(c);
+      const adapter = getStackAdapter(c.selectedTechnologyStack);
+      for (const destination of adapter.deploymentTargets.filter((d) =>
+        ["fly", "vercel", "netlify", "github-pages"].includes(d),
+      )) {
+        await expect(
+          deployProject({
+            destination: destination as DeployDestination,
+            projectName: "customer-product",
+            files,
+            techStack: adapter.id,
+            productContract: c,
+          }),
+        ).rejects.toThrow(
+          "Customer hosting requires your own provider account",
+        );
+      }
+      await expect(deployToVercel("customer-product", files)).rejects.toThrow(
+        "Customer hosting requires your own provider account",
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      fetch.mockRestore();
+    }
   });
 });

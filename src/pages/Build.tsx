@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
@@ -61,6 +61,18 @@ export function Build() {
   const [creditsSpent, setCreditsSpent] = useState(0);
   const [deploying, setDeploying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [browserPreview, setBrowserPreview] = useState<{
+    projectId: number;
+    url: string;
+  } | null>(null);
+  const browserPreviewUrl =
+    browserPreview?.projectId === pid ? browserPreview.url : null;
+  const setBrowserPreviewUrl = useCallback(
+    (url: string) => {
+      setBrowserPreview({ projectId: pid, url });
+    },
+    [pid],
+  );
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
   const [structuralDone, setStructuralDone] = useState(false);
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
@@ -996,6 +1008,7 @@ export function Build() {
             <BuildLivePreview
               projectId={pid}
               deployUrl={deployUrl}
+              browserPreviewUrl={browserPreviewUrl}
               enabled={canUseWorkspace}
             />
           ) : (
@@ -1011,8 +1024,15 @@ export function Build() {
 
         {tab === "chat" && pid > 0 && <ProjectChat projectId={pid} />}
 
-        {tab === "terminal" && pid > 0 && (
-          <AgentTerminal projectId={pid} enabled={canUseWorkspace} />
+        {pid > 0 && (
+          <div hidden={tab !== "terminal"}>
+            <AgentTerminal
+              key={pid}
+              projectId={pid}
+              enabled={canUseWorkspace}
+              onPreviewReady={setBrowserPreviewUrl}
+            />
+          </div>
         )}
 
         {creditsSpent > 0 && (
@@ -1044,7 +1064,7 @@ export function Build() {
                 ? "Source generation complete (not deployed)"
                 : project?.status === "production-certified"
                   ? "Production certification complete!"
-                  : "Validated production candidate"}
+                  : "Build complete — choose your next step"}
             </p>
             <p className="mt-2">
               {structuralOnly
@@ -1052,7 +1072,11 @@ export function Build() {
                   "This stack is structural-only: download or export the source; it has not been deployed.")
                 : project?.status === "production-certified"
                   ? "The deployed product passed the configured production verification gates."
-                  : "The artifact is validated but is not production-certified. You can edit, export, preview, or deploy it."}
+                  : "Your build passed validation. Edit it, download it, export it to GitHub, or choose where to deploy it. Nothing is deployed automatically."}
+            </p>
+            <p className="mt-2 text-sm">
+              Hosting is provided by your chosen host, using your own account.
+              AppForge does not host customer products.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {!structuralOnly && (
@@ -1070,16 +1094,16 @@ export function Build() {
                       value="vercel"
                       disabled={destinationDisabled("vercel")}
                     >
-                      Vercel
+                      Vercel (your own account)
                     </option>
                     <option
                       value="netlify"
                       disabled={destinationDisabled("netlify")}
                     >
-                      Netlify
+                      Netlify (your own account)
                     </option>
                     <option value="fly" disabled={destinationDisabled("fly")}>
-                      Fly.io
+                      Fly.io (your own account)
                     </option>
                     <option
                       value="github-pages"
@@ -1105,7 +1129,11 @@ export function Build() {
                   disabled={deploying || destinationDisabled(destination)}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                 >
-                  {deploying ? "Deploying…" : "Deploy"}
+                  {deploying
+                    ? "Opening…"
+                    : destination === "preview"
+                      ? "Open preview"
+                      : "Deploy to my account"}
                 </button>
               )}
               <button

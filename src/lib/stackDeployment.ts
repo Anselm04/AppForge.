@@ -173,26 +173,24 @@ export function productionPlanForStack(
   throw new Error(`No production packaging is defined for stack ${adapter.id}`);
 }
 
-export type BuildDeploymentDecision =
-  | { action: "deploy" }
-  | { action: "skip"; deployment: "structural_source_only" | "not_production" };
+export type BuildDeploymentDecision = {
+  action: "skip";
+  deployment: "structural_source_only" | "awaiting_customer_choice";
+};
 
-/**
- * What the build worker does after a validated build. Structural-only stacks
- * complete as source deliverables and are never deployed or given a live URL.
- */
+/** A validated build is handed back to its owner; hosting requires their choice. */
 export function buildDeploymentDecision(
   techStack: string,
-  nodeEnv: string | undefined,
+  _nodeEnv: string | undefined,
 ): BuildDeploymentDecision {
   const adapter = getStackAdapter(techStack);
-  if (adapter.generationMode === "structural") {
-    return { action: "skip", deployment: "structural_source_only" };
-  }
-  if (nodeEnv !== "production") {
-    return { action: "skip", deployment: "not_production" };
-  }
-  return { action: "deploy" };
+  return {
+    action: "skip",
+    deployment:
+      adapter.generationMode === "structural"
+        ? "structural_source_only"
+        : "awaiting_customer_choice",
+  };
 }
 
 export type ManualDeployPreflight =

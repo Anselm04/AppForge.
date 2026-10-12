@@ -7,6 +7,7 @@ import { useWebContainerSandbox } from "../hooks/useWebContainerSandbox.js";
 type Props = {
   projectId: number;
   enabled?: boolean;
+  onPreviewReady?: (url: string) => void;
 };
 
 type TerminalLine = {
@@ -15,11 +16,15 @@ type TerminalLine = {
   kind: "info" | "cmd" | "out" | "err";
 };
 
-export function AgentTerminal({ projectId, enabled = true }: Props) {
+export function AgentTerminal({
+  projectId,
+  enabled = true,
+  onPreviewReady,
+}: Props) {
   const [lines, setLines] = useState<TerminalLine[]>([
     {
       id: 0,
-      text: "AppForge sandbox — WebContainer (browser) + server micro-VM fallback",
+      text: "AppForge workspace — browser runtime; server execution requires explicit selection",
       kind: "info",
     },
   ]);
@@ -43,20 +48,23 @@ export function AgentTerminal({ projectId, enabled = true }: Props) {
     ready: wcReady,
     supported: wcSupported,
     exec: wcExec,
-  } = useWebContainerSandbox(projectId, files, (text, kind) =>
-    appendLine(text, kind),
-  );
+  } = useWebContainerSandbox(projectId, files, appendLine, onPreviewReady);
 
   useEffect(() => {
-    if (!enabled || projectId <= 0) return;
-    void trpc.sandbox.ensure.mutate({ projectId });
-  }, [enabled, projectId]);
+    if (!enabled || projectId <= 0 || mode !== "server") return;
+    void trpc.sandbox.ensure.mutate({ projectId }).catch((error) => {
+      appendLine(
+        error instanceof Error ? error.message : "Server sandbox unavailable",
+        "err",
+      );
+    });
+  }, [enabled, projectId, mode, appendLine]);
 
   const { data: streamLogs } = useQuery({
     queryKey: ["sandbox", projectId, "logs"],
     queryFn: () =>
       trpc.sandbox.logs.query({ projectId, sinceId: lastLogId.current }),
-    enabled: enabled && projectId > 0 && mode !== "browser",
+    enabled: enabled && projectId > 0 && mode === "server",
     refetchInterval: 1500,
   });
 
@@ -106,6 +114,13 @@ export function AgentTerminal({ projectId, enabled = true }: Props) {
       }
     }
 
+    if (mode !== "server") {
+      appendLine(
+        "Browser runtime is not ready. Choose Server only explicitly to use a configured server runtime.",
+        "err",
+      );
+      return;
+    }
     exec.mutate(trimmed);
     setInput("");
   };
@@ -134,7 +149,7 @@ export function AgentTerminal({ projectId, enabled = true }: Props) {
             setMode(e.target.value as "auto" | "browser" | "server")
           }
         >
-          <option value="auto">Auto (browser → server)</option>
+          <option value="auto">Auto (browser workspace)</option>
           <option value="browser">Browser only</option>
           <option value="server">Server only</option>
         </select>

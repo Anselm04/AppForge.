@@ -28,19 +28,14 @@ describe("#24 Recovery and Rollback", () => {
     expect(recovery).toContain('source === "production_verified"');
   });
 
-  it("records validated and production-verified recovery points only after success", () => {
+  it("records validated recovery without an automatic production deployment", () => {
     const worker = source("src/services/build-worker.ts");
-    const validated = worker.indexOf('source: "validated_artifact"');
-    const deploy = worker.indexOf("await deployValidatedProjectWithRetry({");
-    const production = worker.indexOf('source: "production_verified"');
-
-    expect(validated).toBeGreaterThan(-1);
-    expect(deploy).toBeGreaterThan(validated);
-    expect(production).toBeGreaterThan(deploy);
-    expect(worker).toContain(
-      "deploymentManifestSha256: deployed.deploymentManifestSha256",
-    );
-    expect(worker).toContain("liveUrl: deployed.liveUrl");
+    expect(worker).toContain('source: "validated_artifact"');
+    expect(worker).not.toContain("deployValidatedProjectWithRetry(");
+    expect(worker).not.toContain('source: "production_verified"');
+    const recovery = source("src/services/recovery.ts");
+    expect(recovery).toContain('input.source === "production_verified"');
+    expect(recovery).toContain("deploymentManifestSha256");
   });
 
   it("restores the latest known-good snapshot through atomic activation", () => {

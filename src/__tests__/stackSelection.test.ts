@@ -554,11 +554,12 @@ describe("section 4: structural-only stacks are never presented as deployed", ()
       ).toBeNull();
     }
     expect(buildDeploymentDecision("react-node", "production")).toEqual({
-      action: "deploy",
+      action: "skip",
+      deployment: "awaiting_customer_choice",
     });
     expect(buildDeploymentDecision("react-node", "development")).toEqual({
       action: "skip",
-      deployment: "not_production",
+      deployment: "awaiting_customer_choice",
     });
     expect(
       completedBuildUrl({ liveUrl: null, projectId: 7, structuralOnly: false }),

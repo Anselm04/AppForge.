@@ -158,16 +158,16 @@ describe("#23 Operations and Observability", () => {
     expect(health).toContain("appforge_redis_connected");
   });
 
-  it("traces builds, deployment and planner/coder/validator/research execution", () => {
+  it("traces builds and agent execution without automatic deployment", () => {
     const worker = source("src/services/build-worker.ts");
     const part0 = source("src/agents/.pipeline_parts/part0.txt");
     const part1 = source("src/agents/.pipeline_parts/part1.txt");
     const llm = source("src/_core/llm.ts");
 
     expect(worker).toContain('component: "build"');
-    expect(worker).toContain('component: "deployment"');
+    expect(worker).not.toContain('component: "deployment"');
     expect(worker).toContain("appforge_builds_total");
-    expect(worker).toContain("appforge_deployments_total");
+    expect(worker).not.toContain("appforge_deployments_total");
     expect(part0).toContain("recordPipelineTraceEvent");
     expect(part1).toContain("recordPipelineTraceEvent(agent, type, projectId)");
     expect(llm).toContain("recordModelUsage({");

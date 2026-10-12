@@ -91,7 +91,7 @@ describe("#30 Final Product-Factory Flow", () => {
       "limitations: finalProductFactoryFlow.limitations",
     );
     expect(worker).toContain(
-      'updateProjectBuildStage(projectId, "production-candidate"',
+      "updateProjectBuildStage(projectId, certificationDecision.status",
     );
     expect(worker).not.toContain('updated?.status === "completed"');
   });

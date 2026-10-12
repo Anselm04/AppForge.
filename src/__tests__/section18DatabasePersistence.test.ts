@@ -136,12 +136,13 @@ describe("Section 18 AppForge database and persistence boundaries", () => {
 
     expect(isolatedBuild).toContain("noHostCredentials: true");
 
-    const flyEnvStart = deployer.indexOf("const safeEnv = {");
-    const flyEnvEnd = deployer.indexOf("};", flyEnvStart);
-    const flyEnv = deployer.slice(flyEnvStart, flyEnvEnd);
-    expect(flyEnv).toContain("FLY_API_TOKEN");
-    expect(flyEnv).not.toContain("DATABASE_URL");
-    expect(flyEnv).not.toContain("SUPABASE");
+    expect(deployer).not.toContain("process.env.FLY_API_TOKEN");
+    expect(deployer).not.toContain("process.env.VERCEL_TOKEN");
+    expect(deployer).not.toContain("process.env.NETLIFY_AUTH_TOKEN");
+    expect(deployer).not.toContain("ensureFlyApp(");
+    expect(deployer).toContain(
+      "Customer hosting requires your own provider account",
+    );
   });
 
   it("keeps the standalone database agent contract-derived instead of inventing generic tables", () => {

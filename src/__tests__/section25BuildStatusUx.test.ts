@@ -70,21 +70,13 @@ describe("#25 Build Status and User Experience", () => {
     expect(finalSnapshot).not.toContain('status: "completed"');
   });
 
-  it("certifies production only after verified deployment and preserves candidates otherwise", () => {
+  it("finishes at a validated artifact without claiming deployment certification", () => {
     const worker = source("src/services/build-worker.ts");
-    const deploy = worker.indexOf("await deployValidatedProjectWithRetry({");
-    const checkpoint = worker.indexOf('source: "production_verified"');
-    const certification = worker.indexOf("evaluateCertification({");
-    const finalFlow = worker.indexOf("evaluateFinalProductFactoryFlow({");
-    const certifiedGate = worker.indexOf(
-      "if (finalProductFactoryFlow.productionReady)",
-    );
-    expect(deploy).toBeGreaterThan(-1);
-    expect(checkpoint).toBeGreaterThan(deploy);
-    expect(certification).toBeGreaterThan(checkpoint);
-    expect(finalFlow).toBeGreaterThan(certification);
-    expect(certifiedGate).toBeGreaterThan(finalFlow);
-    expect(worker).toContain(
+    expect(worker).not.toContain("deployValidatedProjectWithRetry(");
+    expect(worker).toContain("deploymentVerified: false");
+    expect(worker).toContain("deployment: null");
+    expect(worker).toContain('updateProjectStatus(projectId, "validated")');
+    expect(worker).not.toContain(
       'updateProjectStatus(projectId, "production-certified")',
     );
     expect(worker).toContain("certificationDecision.status");

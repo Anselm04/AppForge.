@@ -80,11 +80,11 @@ describe("product hardening guardrails", () => {
     ).not.toThrow();
   });
 
-  it("protects autonomous builds from ownership drift and retries deployment", () => {
+  it("protects builds from ownership drift and avoids automatic external actions", () => {
     expect(buildWorkerSource).toContain("project.userId !== userId");
     expect(buildWorkerSource).toContain("updated.userId !== userId");
-    expect(buildWorkerSource).toContain("DEPLOY_MAX_ATTEMPTS = 3");
-    expect(buildWorkerSource).toContain("deployValidatedProjectWithRetry");
+    expect(buildWorkerSource).not.toContain("deployValidatedProjectWithRetry(");
+    expect(buildWorkerSource).not.toContain("syncComplianceToVanta(");
   });
 
   it("protects visual-editor assets from traversal and active SVG content", () => {

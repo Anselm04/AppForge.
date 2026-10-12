@@ -9,12 +9,14 @@ type Props = {
   projectId: number;
   deployUrl?: string | null;
   enabled?: boolean;
+  browserPreviewUrl?: string | null;
 };
 
 export function BuildLivePreview({
   projectId,
   deployUrl,
   enabled = true,
+  browserPreviewUrl,
 }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [hmrFlash, setHmrFlash] = useState(false);
@@ -24,11 +26,11 @@ export function BuildLivePreview({
   const { data: devStatus } = useQuery({
     queryKey: ["sandbox", "devStatus", projectId],
     queryFn: () => trpc.sandbox.devStatus.query({ projectId }),
-    enabled: enabled && projectId > 0,
+    enabled: enabled && projectId > 0 && !browserPreviewUrl,
     refetchInterval: 5000,
   });
 
-  const useDevServer = !!devStatus?.running && !deployUrl;
+  const useDevServer = !!devStatus?.running && !deployUrl && !browserPreviewUrl;
 
   const {
     data: previewAuthReady,
@@ -89,9 +91,11 @@ export function BuildLivePreview({
 
   const previewSrc = deployUrl
     ? deployUrl
-    : useDevServer && previewAuthReady
-      ? `/sandbox-dev/${projectId}/`
-      : `/apps/${projectId}?v=${refreshKey}`;
+    : browserPreviewUrl
+      ? browserPreviewUrl
+      : useDevServer && previewAuthReady
+        ? `/sandbox-dev/${projectId}/`
+        : `/apps/${projectId}?v=${refreshKey}`;
 
   return (
     <div className="flex flex-col gap-3 min-h-[420px]">
@@ -99,15 +103,17 @@ export function BuildLivePreview({
         <p className="text-sm text-slate-400">
           {deployUrl
             ? "Deployed preview"
-            : useDevServer
-              ? "Live dev server — connected to sandbox npm run dev (HMR when running)"
-              : "Static preview — auto-refreshes when Monaco, chat, or sandbox edits files"}
+            : browserPreviewUrl
+              ? "Live workspace preview — running in your browser"
+              : useDevServer
+                ? "Live dev server — connected to sandbox npm run dev (HMR when running)"
+                : "Static preview — auto-refreshes when Monaco, chat, or sandbox edits files"}
           {hmrFlash && (
             <span className="ml-2 text-green-400 animate-pulse">● live</span>
           )}
         </p>
         <div className="flex gap-2">
-          {!deployUrl && !useDevServer && (
+          {!deployUrl && !useDevServer && !browserPreviewUrl && (
             <button
               type="button"
               onClick={() => setDesignMode((value) => !value)}
@@ -135,13 +141,14 @@ export function BuildLivePreview({
           </a>
         </div>
       </div>
-      {designMode && !deployUrl && !useDevServer ? (
+      {designMode && !deployUrl && !useDevServer && !browserPreviewUrl ? (
         <VisualProjectEditor projectId={projectId} enabled={enabled} />
       ) : (
         <iframe
           key={previewSrc}
           src={previewSrc}
           title="App preview"
+          referrerPolicy="no-referrer"
           className="flex-1 w-full min-h-[380px] rounded-lg border border-slate-700 bg-white"
           sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
         />
