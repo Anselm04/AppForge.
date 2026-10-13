@@ -28,6 +28,13 @@ describe("AppForge launch bar release contract", () => {
     expect(workflow).toContain("DATABASE_URL");
     expect(workflow).toContain("pg_dump");
     expect(workflow).toContain("pg_restore");
+    expect(workflow).toContain("--no-large-objects");
+    expect(workflow).toContain("Capture source recovery invariants");
+    expect(workflow).toContain("Compare restored recovery invariants");
+    expect(workflow).toContain("public.profiles");
+    expect(workflow).toContain("public.projects");
+    expect(workflow).toContain("public.appforge_entitlements");
+    expect(workflow).toContain("auth.users");
     expect(workflow).toContain("OFFSITE_BACKUP_PASSPHRASE");
     expect(workflow).toContain("aes-256-cbc");
     expect(workflow).toContain("sha256sum");
