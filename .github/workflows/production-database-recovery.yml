@@ -56,7 +56,7 @@ jobs:
           test -n "${DATABASE_URL:-}" || { echo 'DATABASE_URL production secret is required for recoverable database backups.'; exit 1; }
           test -n "${OFFSITE_BACKUP_PASSPHRASE:-}" || { echo 'OFFSITE_BACKUP_PASSPHRASE is required so database backups are never persisted in plaintext.'; exit 1; }
 
-      - name: Create logical production backup
+      - name: Capture source recovery invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -64,7 +64,26 @@ jobs:
           docker run --rm \
             -e DATABASE_URL \
             postgres:17-alpine \
-            sh -ec 'pg_dump --format=custom --compress=9 --no-owner --no-privileges "$DATABASE_URL"' \
+            psql -Atv ON_ERROR_STOP=1 "$DATABASE_URL" \
+              -c "select
+                    (select count(*) from public.profiles)::text || '|' ||
+                    (select count(*) from public.projects)::text || '|' ||
+                    (select count(*) from public.appforge_entitlements)::text || '|' ||
+                    (select count(*) from public.build_runs)::text || '|' ||
+                    (select count(*) from public.stripe_webhook_events)::text || '|' ||
+                    (select count(*) from auth.users)::text;" \
+            > database-recovery/source-critical-counts.txt
+          test -s database-recovery/source-critical-counts.txt
+          echo 'Captured source row-count invariants for AppForge customer, project, entitlement, build, webhook, and auth records.'
+
+      - name: Create logical production backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e DATABASE_URL \
+            postgres:17-alpine \
+            sh -ec 'pg_dump --format=custom --compress=9 --no-owner --no-privileges --no-large-objects "$DATABASE_URL"' \
             > database-recovery/appforge-production.dump
           test -s database-recovery/appforge-production.dump
           sha256sum database-recovery/appforge-production.dump > database-recovery/appforge-production.dump.sha256
@@ -88,16 +107,33 @@ jobs:
           tables="$(docker run --rm --network host \
             -e PGPASSWORD=restore-only \
             postgres:17-alpine \
-            psql -At postgresql://postgres@127.0.0.1:5432/postgres \
+            psql -Atv ON_ERROR_STOP=1 postgresql://postgres@127.0.0.1:5432/postgres \
               -c "select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE';")"
           test "${tables:-0}" -gt 0 || { echo 'Restored database contains no public base tables.'; exit 1; }
-          migrations="$(docker run --rm --network host \
+          echo "Restore contains ${tables} public base tables."
+
+      - name: Compare restored recovery invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
             -e PGPASSWORD=restore-only \
             postgres:17-alpine \
-            psql -At postgresql://postgres@127.0.0.1:5432/postgres \
-              -c "select count(*) from information_schema.tables where table_schema='public';")"
-          test "${migrations:-0}" -gt 0
-          echo "Restore rehearsal passed with ${tables} public base tables."
+            psql -Atv ON_ERROR_STOP=1 postgresql://postgres@127.0.0.1:5432/postgres \
+              -c "select
+                    (select count(*) from public.profiles)::text || '|' ||
+                    (select count(*) from public.projects)::text || '|' ||
+                    (select count(*) from public.appforge_entitlements)::text || '|' ||
+                    (select count(*) from public.build_runs)::text || '|' ||
+                    (select count(*) from public.stripe_webhook_events)::text || '|' ||
+                    (select count(*) from auth.users)::text;" \
+            > database-recovery/restored-critical-counts.txt
+          test -s database-recovery/restored-critical-counts.txt
+          cmp --silent database-recovery/source-critical-counts.txt database-recovery/restored-critical-counts.txt || {
+            echo 'Restored critical AppForge row counts do not match the production source.'
+            exit 1
+          }
+          echo 'Restored AppForge critical row counts exactly match the production source.'
 
       - name: Build encrypted recovery package
         shell: bash
@@ -110,9 +146,10 @@ jobs:
           workflow_attempt=${GITHUB_RUN_ATTEMPT}
           created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           restore_rehearsal=passed
+          critical_row_counts=matched
           EOF
           tar -C database-recovery -czf /tmp/appforge-production-database.tar.gz \
-            appforge-production.dump appforge-production.dump.sha256 RECOVERY-MANIFEST.txt
+            appforge-production.dump appforge-production.dump.sha256 RECOVERY-MANIFEST.txt source-critical-counts.txt restored-critical-counts.txt
           printf '%s' "$OFFSITE_BACKUP_PASSPHRASE" | \
             openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -md sha256 \
               -pass stdin \
@@ -135,6 +172,8 @@ jobs:
               -in database-recovery/appforge-production-database.enc \
               -out /tmp/database-verify.tar.gz
           tar -tzf /tmp/database-verify.tar.gz | grep -Fq 'appforge-production.dump'
+          tar -tzf /tmp/database-verify.tar.gz | grep -Fq 'source-critical-counts.txt'
+          tar -tzf /tmp/database-verify.tar.gz | grep -Fq 'restored-critical-counts.txt'
           rm -f /tmp/database-verify.tar.gz
 
       - name: Upload encrypted recovery artifact
@@ -180,6 +219,7 @@ jobs:
       - name: Database recovery evidence summary
         shell: bash
         run: |
-          echo 'Production PostgreSQL logical backup created.'
-          echo 'Backup restored into an isolated PostgreSQL 17 service and schema invariants verified.'
+          echo 'Production PostgreSQL logical backup created with a dedicated read-only backup credential.'
+          echo 'Backup restored into an isolated PostgreSQL 17 service.'
+          echo 'Critical AppForge customer/auth row counts matched source to restore.'
           echo 'Only encrypted backup material is persisted after the restore rehearsal.'
