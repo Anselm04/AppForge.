@@ -56,6 +56,20 @@ export const taskCoordinationStateSchema = z.object({
 
 export type TaskCoordinationState = z.infer<typeof taskCoordinationStateSchema>;
 
+const builderResourceUsageSchema = z.object({
+  resourceId: nonEmpty,
+  version: nonEmpty,
+  evidenceLedgerIds: z.array(nonEmpty),
+});
+
+const builderResourceDecisionSchema = z.object({
+  capability: nonEmpty,
+  resourceId: nonEmpty,
+  version: nonEmpty,
+  rationale: z.array(nonEmpty),
+  evidenceLedgerIds: z.array(nonEmpty),
+});
+
 export const agentCoordinationRecordSchema = z.object({
   version: z.literal(1),
   projectId: z.number().int().positive(),
@@ -64,6 +78,10 @@ export const agentCoordinationRecordSchema = z.object({
   planTitle: nonEmpty,
   requirementIds: z.array(nonEmpty),
   researchDecisionIds: z.array(nonEmpty),
+  builderResourceUsage: z.array(builderResourceUsageSchema).default([]),
+  builderResourceDecisionEvidence: z
+    .array(builderResourceDecisionSchema)
+    .default([]),
   taskStates: z.record(z.string(), taskCoordinationStateSchema),
   fileOwners: z.record(z.string(), nonEmpty),
   events: z.array(coordinationEventSchema),
@@ -177,6 +195,9 @@ export function createAgentCoordinationRecord(input: {
     planTitle: input.context.productPlan.title,
     requirementIds: input.context.requirementIds,
     researchDecisionIds: input.context.productPlan.researchDecisionIds,
+    builderResourceUsage: input.context.builderResourcePlan.usageRecords,
+    builderResourceDecisionEvidence:
+      input.context.builderResourcePlan.decisionEvidence,
     taskStates,
     fileOwners,
     events: [],
