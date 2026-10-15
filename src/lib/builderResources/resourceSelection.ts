@@ -56,6 +56,28 @@ function includesOrWildcard(
   return values.includes(requested) || values.includes("*");
 }
 
+function canonicalResourceIds(
+  capability: BuilderResourceCapabilityId,
+): Set<string> {
+  const dashed = capability.replaceAll("_", "-");
+  return new Set([
+    `core.${capability}`,
+    `core.${dashed}`,
+    `capability.${capability}`,
+    `capability.${dashed}`,
+  ]);
+}
+
+function isCanonicalCapabilityResource(
+  resource: BuilderResourceManifest,
+  requiredCapabilities: readonly BuilderResourceCapabilityId[],
+): boolean {
+  if (requiredCapabilities.length !== 1) return false;
+  return canonicalResourceIds(requiredCapabilities[0]).has(
+    resource.identity.resourceId,
+  );
+}
+
 function daysBetween(olderIso: string, newerIso: string): number {
   const older = Date.parse(olderIso);
   const newer = Date.parse(newerIso);
@@ -234,11 +256,19 @@ function candidateScore(
   score -= resource.capabilities.dependencies.length * 5;
 
   const required = input.requiredCapabilities ?? [];
+  if (isCanonicalCapabilityResource(resource, required)) {
+    // Requirement fit is the first selection criterion. A canonical reusable
+    // module/domain resource should beat a narrower component that happens to
+    // advertise the same capability, provided it passed all safety and
+    // compatibility gates above.
+    score += 1_000;
+  }
+
   if (
     required.length === 1 &&
-    resource.identity.resourceId === `core.${required[0]}`
+    resource.identity.resourceType === "component"
   ) {
-    score += 25;
+    score -= 50;
   }
 
   return score;
@@ -313,11 +343,8 @@ export function selectBuilderResources(
       rationale.push(`requirements:${requirementIds.join(",")}`);
     }
     const required = input.requiredCapabilities ?? [];
-    if (
-      required.length === 1 &&
-      resource.identity.resourceId === `core.${required[0]}`
-    ) {
-      rationale.push("canonical-core-resource");
+    if (isCanonicalCapabilityResource(resource, required)) {
+      rationale.push("capability-role:canonical");
     }
 
     selected.push({
