@@ -146,6 +146,76 @@ export function deriveRequiredBuilderCapabilities(input: {
   return [...required].sort();
 }
 
+function supportsOrWildcard(
+  supported: readonly string[],
+  requested: string | undefined,
+): boolean {
+  if (!requested) return true;
+  return supported.includes(requested) || supported.includes("*");
+}
+
+function addDeclaredDependencies(input: {
+  registry: ReturnType<typeof createBuilderResourceLibraryRegistry>;
+  selectedById: Map<string, ReturnType<typeof input.registry.list>[number]>;
+  productContract: ProductContract;
+  targetPlatform?: string;
+}): void {
+  const all = input.registry.list();
+  const selectedResourceIds = new Set(
+    [...input.selectedById.values()].map(
+      (resource) => resource.identity.resourceId,
+    ),
+  );
+  const queue = [...input.selectedById.values()];
+  const processed = new Set<string>();
+
+  while (queue.length > 0) {
+    const resource = queue.shift();
+    if (!resource) break;
+    const resourceKey = `${resource.identity.resourceId}@${resource.identity.version}`;
+    if (processed.has(resourceKey)) continue;
+    processed.add(resourceKey);
+
+    for (const dependencyId of resource.capabilities.dependencies) {
+      if (selectedResourceIds.has(dependencyId)) continue;
+
+      const dependency = all
+        .filter(
+          (candidate) =>
+            candidate.identity.resourceId === dependencyId &&
+            candidate.governance.deprecationStatus === "active" &&
+            !candidate.governance.quarantine?.quarantined &&
+            supportsOrWildcard(
+              candidate.compatibility.supportedProductTypes,
+              input.productContract.productType,
+            ) &&
+            supportsOrWildcard(
+              candidate.compatibility.supportedTechnologyStacks,
+              input.productContract.selectedTechnologyStack,
+            ) &&
+            supportsOrWildcard(
+              candidate.compatibility.supportedPlatforms,
+              input.targetPlatform,
+            ),
+        )
+        .sort((left, right) =>
+          right.identity.version.localeCompare(
+            left.identity.version,
+            undefined,
+            { numeric: true, sensitivity: "base" },
+          ),
+        )[0];
+
+      if (!dependency) continue;
+
+      const dependencyKey = `${dependency.identity.resourceId}@${dependency.identity.version}`;
+      input.selectedById.set(dependencyKey, dependency);
+      selectedResourceIds.add(dependency.identity.resourceId);
+      queue.push(dependency);
+    }
+  }
+}
+
 export function createBuilderResourcePlan(input: {
   productContract: ProductContract;
   productPlan: ProductPlan;
@@ -189,6 +259,13 @@ export function createBuilderResourcePlan(input: {
       evidenceLedgerIds: candidate.decision.evidenceLedgerIds,
     });
   }
+
+  addDeclaredDependencies({
+    registry,
+    selectedById,
+    productContract: input.productContract,
+    targetPlatform: input.targetPlatform,
+  });
 
   const selected = [...selectedById.values()];
   const composition = composeBuilderResources(selected);
