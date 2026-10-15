@@ -14,6 +14,16 @@ import {
 } from "../productContract.js";
 
 describe("prompt understanding", () => {
+  it("selects the composite for explicit Flutter and Node intent without changing ordinary mobile defaults", () => {
+    expect(
+      selectProductStack("Build a Flutter mobile app with a Node.js backend"),
+    ).toBe("flutter-node");
+    expect(selectProductStack("Build a mobile app")).toBe("react-native-expo");
+    expect(selectProductStack("Build a Flutter mobile app")).toBe(
+      "flutter-firebase",
+    );
+  });
+
   it("returns a controlled intake rejection rather than truncating an oversized contract", () => {
     const clauses = Array.from(
       { length: 1000 },

@@ -1,4 +1,8 @@
 import {
+  flutterNodeScaffold,
+  mergeFlutterNodeManifest,
+} from "./flutterNodeScaffold.js";
+import {
   assertStackSupportsProduct,
   getStackAdapter,
 } from "../lib/stackAdapters.js";
@@ -849,6 +853,9 @@ export function getStackScaffold(
     case "react-native-expo":
       files = reactNativeShell();
       break;
+    case "flutter-node":
+      files = flutterNodeScaffold();
+      break;
     case "flutter-firebase":
       files = flutterShell();
       break;
@@ -1015,6 +1022,16 @@ export function mergeScaffoldWithGenerated(
   const out: ScaffoldFiles = { ...generated };
 
   for (const [filePath, content] of Object.entries(scaffold)) {
+    if (
+      techStack &&
+      getStackAdapter(techStack).id === "flutter-node" &&
+      filePath === "pubspec.yaml" &&
+      typeof generated[filePath] === "string"
+    ) {
+      out[filePath] = mergeFlutterNodeManifest(content, generated[filePath]);
+      continue;
+    }
+
     if (
       filePath === "package.json" &&
       typeof generated[filePath] === "string"

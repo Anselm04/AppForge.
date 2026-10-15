@@ -40,6 +40,23 @@ const doc = (
 ): OfficialDocTarget => ({ url, label, category });
 
 export const STACK_RESEARCH_TARGETS: Record<string, StackResearchTarget> = {
+  "flutter-node": {
+    framework:
+      "Flutter client with Node.js backend and shared JSON API contract",
+    packages: [
+      { ecosystem: "Pub", name: "http" },
+      npm("typescript"),
+      npm("vitest"),
+    ],
+    repositories: ["flutter/flutter", "nodejs/node"],
+    docs: [
+      doc(
+        "https://docs.flutter.dev/cookbook/networking/fetch-data",
+        "Flutter networking",
+      ),
+      doc("https://nodejs.org/api/http.html", "Node HTTP server"),
+    ],
+  },
   "react-node": {
     framework: "React with Vite and Node.js",
     packages: [npm("react"), npm("vite"), npm("express")],

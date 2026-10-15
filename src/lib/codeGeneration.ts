@@ -133,8 +133,13 @@ function wrongStackProblems(
 
     if (
       adapter.runtime === "mobile" &&
-      adapter.id === "flutter-firebase" &&
-      (/\.(?:tsx?|jsx?)$/i.test(path) ||
+      ["flutter-firebase", "flutter-node"].includes(adapter.id) &&
+      ((/\.(?:[cm]?[jt]sx?)$/i.test(path) &&
+        !(
+          adapter.id === "flutter-node" &&
+          path.startsWith("server/") &&
+          /\.[cm]?ts$/i.test(path)
+        )) ||
         /from\s+["']react["']|react-dom/i.test(source))
     ) {
       problems.push(`${path}: React output does not match Flutter stack`);
@@ -242,6 +247,15 @@ export function coderTaskInstruction(input: {
     `Runtime health: ${runtime.health.mode}${runtime.health.livenessPath ? " " + runtime.health.livenessPath : ""}${runtime.health.readinessPath ? " " + runtime.health.readinessPath : ""}`,
     `Runtime port: ${runtime.port.mode}${runtime.port.environmentVariable ? " via " + runtime.port.environmentVariable : ""}`,
     `Runtime shutdown: ${runtime.shutdown.mode}${runtime.shutdown.signals.length ? " " + runtime.shutdown.signals.join(",") : ""}`,
+    ...(runtime.backend
+      ? [
+          `Backend runtime: ${runtime.backend.runtime}; start with ${runtime.backend.startupCommand}; read PORT from server environment.`,
+          `Backend HTTP health: ${runtime.backend.health.livenessPath} and ${runtime.backend.health.readinessPath}; serve the shared/contracts/product-api.json health contract through server/src/api-contract.ts.`,
+          "Backend shutdown: handle SIGTERM and SIGINT and close the server gracefully.",
+          "Backend owns secrets, external persistence, and workers under server/src/. Flutter client uses public API configuration only; never bundle server credentials.",
+          "Flutter and Node structural checks do not prove mobile runtime, packaging, deployment or production certification.",
+        ]
+      : []),
     `Runtime entrypoints: ${adapter.entrypoints.join(", ")}`,
     `Environment files: ${adapter.environmentFiles.join(", ") || "none"}`,
     `Task ID: ${task.id}`,

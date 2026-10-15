@@ -62,6 +62,17 @@ export function detectStackFromFiles(
 ): StackDetection {
   const has = (path: string) => typeof files[path] === "string";
 
+  if (
+    has("pubspec.yaml") &&
+    has("server/src/server.ts") &&
+    parseJson(files["package.json"])
+  ) {
+    return {
+      ok: true,
+      stack: "flutter-node",
+      reason: "Flutter manifest and Node backend",
+    };
+  }
   if (has("pubspec.yaml")) {
     return { ok: true, stack: "flutter-firebase", reason: "pubspec.yaml" };
   }
