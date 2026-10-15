@@ -14,8 +14,9 @@ jobs:
         with:
           ref: feat/flutter-android-qualification
       - name: Patch emulator acceleration handling
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
           path = Path('.github/workflows/flutter-node-qualification.yml')
           text = path.read_text()
@@ -23,7 +24,7 @@ jobs:
             -avd appforge-ci-api35 \\
             -no-window -no-audio -no-boot-anim -no-snapshot -accel off -gpu swiftshader_indirect \\
             > "$EVIDENCE/android-emulator.log" 2>&1 &
-'''
+          '''
           new = '''          ACCEL_MODE=off
           if [ -e /dev/kvm ]; then
             sudo chmod a+rw /dev/kvm
@@ -38,10 +39,11 @@ jobs:
             -avd appforge-ci-api35 \\
             -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \\
             > "$EVIDENCE/android-emulator.log" 2>&1 &
-'''
+          '''
           if old not in text:
               raise SystemExit('expected emulator launch block not found')
           path.write_text(text.replace(old, new, 1))
+          PY
       - name: Commit patch
         shell: bash
         run: |
