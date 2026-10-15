@@ -18,9 +18,12 @@ export const CORE_BUILDER_RESOURCE_CAPABILITY_IDS = [
   "monetization",
 ] as const;
 
+export const DOMAIN_UTILITY_RESOURCE_CAPABILITY_IDS = ["booking"] as const;
+
 export const BUILDER_RESOURCE_CAPABILITY_IDS = [
   ...BUILD_CAPABILITY_IDS,
   ...CORE_BUILDER_RESOURCE_CAPABILITY_IDS,
+  ...DOMAIN_UTILITY_RESOURCE_CAPABILITY_IDS,
 ] as const;
 
 export type CoreBuilderResourceCapabilityId =
