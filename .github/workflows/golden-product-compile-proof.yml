@@ -1,0 +1,56 @@
+name: Golden Product generated compile proof
+on:
+  push:
+    branches: [test/golden-product-combined-support]
+    paths:
+      - "scripts/fixtures/golden-product-support/materialize.ts"
+      - ".github/workflows/golden-product-compile-proof.yml"
+permissions:
+  contents: read
+env:
+  FLUTTER_VERSION: "3.47.7"
+  FLUTTER_COMMIT: abaf9c523780a608bd46686fd5e53740a07077f8
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: test/golden-product-combined-support
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install pinned official Flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C "$RUNNER_TEMP" clone --filter=blob:none --no-checkout https://github.com/flutter/flutter.git flutter-sdk
+          git -C "$RUNNER_TEMP/flutter-sdk" fetch --depth=1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$RUNNER_TEMP/flutter-sdk" checkout --detach "refs/tags/$FLUTTER_VERSION"
+          test "$(git -C "$RUNNER_TEMP/flutter-sdk" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          echo "$RUNNER_TEMP/flutter-sdk/bin" >> "$GITHUB_PATH"
+      - name: Materialize normal Golden Product generated support
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/golden-generated"
+          mkdir -p "$DEST"
+          node --import tsx scripts/fixtures/golden-product-support/materialize.ts "$DEST"
+          echo "DEST=$DEST" >> "$GITHUB_ENV"
+      - name: Resolve Flutter dependencies and analyze generated Dart
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEST"
+          flutter pub get
+          flutter analyze lib
+      - name: Build generated Node backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEST"
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
