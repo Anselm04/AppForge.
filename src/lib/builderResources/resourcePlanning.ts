@@ -2,7 +2,7 @@ import type { BuildCapabilityId } from "../buildCapabilities.js";
 import type { ProductContract } from "../productContract.js";
 import type { ProductPlan } from "../productPlan.js";
 import type { RequirementManifest } from "../requirementManifest.js";
-import { createBuiltinBuilderResourceRegistry } from "./builtinResourceCatalog.js";
+import { createBuilderResourceLibraryRegistry } from "./builderResourceLibrary.js";
 import type { BuilderResourceCapabilityId } from "./resourceCapabilities.js";
 import { composeBuilderResources } from "./resourceComposition.js";
 import { usageRecordForResource } from "./resourceGovernance.js";
@@ -10,7 +10,10 @@ import { compactResourcePromptContext } from "./resourceRetrieval.js";
 import { selectBuilderResources } from "./resourceSelection.js";
 
 const SECONDARY_CAPABILITY_MAP: Partial<
-  Record<ProductContract["secondaryCapabilities"][number], BuilderResourceCapabilityId[]>
+  Record<
+    ProductContract["secondaryCapabilities"][number],
+    BuilderResourceCapabilityId[]
+  >
 > = {
   authentication: ["authentication", "authorization"],
   database: ["database"],
@@ -95,9 +98,12 @@ export function createBuilderResourcePlan(input: {
   targetPlatform?: string;
   now?: string;
 }): BuilderResourcePlan {
-  const registry = createBuiltinBuilderResourceRegistry();
+  const registry = createBuilderResourceLibraryRegistry();
   const requiredCapabilities = deriveRequiredBuilderCapabilities(input);
-  const selectedById = new Map<string, ReturnType<typeof registry.list>[number]>();
+  const selectedById = new Map<
+    string,
+    ReturnType<typeof registry.list>[number]
+  >();
   const missingCapabilities: BuilderResourceCapabilityId[] = [];
   const decisionEvidence: BuilderResourcePlan["decisionEvidence"] = [];
 
@@ -134,7 +140,8 @@ export function createBuilderResourcePlan(input: {
   return {
     requiredCapabilities,
     selectedResourceIds: selected.map(
-      (resource) => `${resource.identity.resourceId}@${resource.identity.version}`,
+      (resource) =>
+        `${resource.identity.resourceId}@${resource.identity.version}`,
     ),
     usageRecords: selected.map(usageRecordForResource),
     missingCapabilities,
