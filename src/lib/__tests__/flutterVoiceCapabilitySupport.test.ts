@@ -71,7 +71,9 @@ function plan(): ProductPlan {
         description: "Implement speech recognition and spoken responses.",
         sequence: 1,
         dependencies: [],
-        acceptanceCriteria: ["Voice input and TTS fail closed on permission or runtime failure."],
+        acceptanceCriteria: [
+          "Voice input and TTS fail closed on permission or runtime failure.",
+        ],
         requirementIds: ["REQ-001"],
         files: ["lib/platform/voice_interaction.dart"],
         agent: "frontend",
@@ -93,7 +95,10 @@ describe("generated Flutter voice interaction support", () => {
         "lib/main.dart": "void main() {}",
         "pubspec.yaml":
           "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true }),
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+        }),
       },
       contract: contract(
         "Build an iPhone and Android app with hands-free voice commands and spoken replies.",
@@ -141,9 +146,14 @@ describe("generated Flutter voice interaction support", () => {
         "lib/main.dart": "void main() {}",
         "pubspec.yaml":
           "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true }),
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+        }),
       },
-      contract: contract("Build a mobile product with a dashboard and saved settings."),
+      contract: contract(
+        "Build a mobile product with a dashboard and saved settings.",
+      ),
       plan: plan(),
     });
 
