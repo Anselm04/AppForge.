@@ -7,12 +7,95 @@ import {
   renderCanonicalPromptContext,
   renderProductContractForAgents,
   selectProductStack,
+  resolveIntakeContract,
   validateProductContract,
   withSelectedTechnologyStack,
   type ProductType,
 } from "../productContract.js";
 
 describe("prompt understanding", () => {
+  it("returns a controlled intake rejection rather than truncating an oversized contract", () => {
+    const clauses = Array.from(
+      { length: 1000 },
+      (_, index) => `Must ${index + 1}.`,
+    );
+    const result = resolveIntakeContract(`Build an app. ${clauses.join(" ")}`);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "contract_limit_exceeded",
+    });
+  });
+
+  it("preserves a hosting budget without treating it as a customer price", () => {
+    const contract = buildProductContract(
+      "Build a website. Hosting must cost less than $10 per month.",
+    );
+    expect(contract.functionalRequirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: "Hosting must cost less than $10 per month.",
+          category: "workflow",
+          priority: "must",
+        }),
+      ]),
+    );
+  });
+
+  it("preserves explicit consent constraints after a long feature list", () => {
+    const contract = buildProductContract(
+      "Build an iPhone and Android application where users can enter restaurants, preferred dates, time ranges, party sizes, saved searches and availability watches. Include login, billing, analytics, notifications and database persistence. A reservation must only happen after the required user confirmation.",
+    );
+    expect(contract.functionalRequirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: "A reservation must only happen after the required user confirmation.",
+          priority: "must",
+        }),
+      ]),
+    );
+  });
+
+  it("preserves the requested price clause verbatim", () => {
+    const contract = buildProductContract(
+      "Build a mobile app with secure accounts and payments. Include $9.99 monetization according to the configured business model.",
+    );
+    expect(contract.functionalRequirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: "Include $9.99 monetization according to the configured business model.",
+          category: "monetization",
+          priority: "must",
+        }),
+      ]),
+    );
+  });
+
+  it("does not silently truncate explicit must requirements or runtime verification", () => {
+    const clauses = Array.from(
+      { length: 25 },
+      (_, index) =>
+        `The application must preserve customer field ${index + 1}.`,
+    );
+    const contract = buildProductContract(
+      `Build a mobile application. ${clauses.join(" ")}`,
+    );
+    for (const text of clauses) {
+      expect(contract.functionalRequirements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ text, priority: "must" }),
+        ]),
+      );
+    }
+    expect(
+      contract.functionalRequirements.some(
+        (requirement) =>
+          requirement.category === "operations" &&
+          requirement.text.startsWith("Build, start, health-check"),
+      ),
+    ).toBe(true);
+    expect(validateProductContract(contract)).toEqual(contract);
+  });
+
   const cases: Array<[string, ProductType]> = [
     ["Create a public marketing website for a carving studio", "website"],
     [

@@ -126,6 +126,37 @@ beforeEach(() => {
 });
 
 describe("build worker typed contract enforcement", () => {
+  it("delivers a validated artifact without claiming its checkpoint proves recovery", async () => {
+    const job = validJob();
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    pipeline.runAgentPipeline.mockImplementation(async () => {
+      db.getProjectById.mockResolvedValue(
+        projectFor(job, { status: "validated" }),
+      );
+    });
+
+    await runBuildJob(job);
+
+    const certification = db.recordProjectEvidence.mock.calls
+      .map(([entry]) => entry)
+      .find((entry) => entry.kind === "certification");
+    expect(certification).toBeDefined();
+    expect(certification.payload.missingEvidence).toContain("recovery");
+    expect(
+      certification.payload.finalProductFactoryFlow.incompleteSteps,
+    ).toContain("recovery_verified");
+
+    const done = events.appendBuildEvent.mock.calls.find(
+      ([, event]) => event === "done",
+    )?.[2];
+    expect(done).toBeDefined();
+    expect(done.finalProductFactoryFlow.incompleteSteps).toContain(
+      "recovery_verified",
+    );
+    expect(done.productionReady).toBe(false);
+    expect(errorEvents()).toEqual([]);
+  });
+
   it("pauses and refunds a queued job if the runtime disappeared before execution", async () => {
     const { BuildRuntimeUnavailableError } =
       await import("../services/buildExecutionReadiness.js");
