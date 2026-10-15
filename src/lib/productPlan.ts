@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { deriveRequestedProductCapabilities } from "./nativeCapabilitySelection.js";
+import {
+  deriveRequestedProductCapabilities,
+} from "./nativeCapabilitySelection.js";
 import { PRODUCT_CAPABILITY_IDS } from "./productCapabilityAdapters.js";
 import type { ProductContract } from "./productContract.js";
 import {
