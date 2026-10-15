@@ -103,7 +103,10 @@ function candidateScore(
       score += 1_000;
       reasons.push("capability-role:canonical");
     }
-    if (required.length === 1 && resource.identity.resourceType === "component") {
+    if (
+      required.length === 1 &&
+      resource.identity.resourceType === "component"
+    ) {
       score -= 50;
     }
   }
