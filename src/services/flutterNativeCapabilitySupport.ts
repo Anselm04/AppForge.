@@ -216,7 +216,9 @@ export function applyFlutterNativeCapabilitySupport(
     return { ...generatedFiles };
   }
 
-  const requested = new Set(deriveRequestedProductCapabilities(productContract));
+  const requested = new Set(
+    deriveRequestedProductCapabilities(productContract),
+  );
   const deepLinks = requested.has("deep_links");
   const pushNotifications = requested.has("push_notifications");
   if (!deepLinks && !pushNotifications) return { ...generatedFiles };

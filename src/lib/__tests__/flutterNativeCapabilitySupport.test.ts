@@ -4,7 +4,10 @@ import { ensureCodeGenerationSupportFiles } from "../codeGeneration.js";
 import type { ProductContract } from "../productContract.js";
 import type { ProductPlan } from "../productPlan.js";
 
-function contract(prompt: string, productType: ProductContract["productType"] = "mobile_app"): ProductContract {
+function contract(
+  prompt: string,
+  productType: ProductContract["productType"] = "mobile_app",
+): ProductContract {
   return {
     version: 2,
     originalPrompt: prompt,
@@ -35,14 +38,19 @@ function contract(prompt: string, productType: ProductContract["productType"] = 
       productType === "mobile_app" ? "flutter-node" : "react-node",
     researchRequirements: [],
     runtimeRequirements:
-      productType === "mobile_app" ? ["Flutter client", "Node backend"] : ["web"],
+      productType === "mobile_app"
+        ? ["Flutter client", "Node backend"]
+        : ["web"],
     secondaryCapabilities: [],
     intentConfidence: 1,
     canonicalInterpretation: prompt,
   };
 }
 
-function plan(productType: ProductPlan["productType"], stack: string): ProductPlan {
+function plan(
+  productType: ProductPlan["productType"],
+  stack: string,
+): ProductPlan {
   return {
     version: 1,
     title: "Capability product",
@@ -72,10 +80,13 @@ function plan(productType: ProductPlan["productType"], stack: string): ProductPl
       {
         id: "T1",
         module: "Mobile notifications",
-        description: "Receive push notifications and route validated deep links.",
+        description:
+          "Receive push notifications and route validated deep links.",
         sequence: 1,
         dependencies: [],
-        acceptanceCriteria: ["Notification taps route only through validated links."],
+        acceptanceCriteria: [
+          "Notification taps route only through validated links.",
+        ],
         requirementIds: ["REQ-001"],
         files: ["lib/main.dart"],
         agent: "frontend",
@@ -100,7 +111,10 @@ describe("Flutter native push and deep-link generation support", () => {
         "lib/main.dart": "void main() {}",
         "pubspec.yaml":
           "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true }),
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+        }),
       },
       contract: mobileContract,
       plan: plan("mobile_app", "flutter-node"),
