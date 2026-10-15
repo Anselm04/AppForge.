@@ -1,0 +1,151 @@
+import type { BuildCapabilityId } from "../buildCapabilities.js";
+import type { ProductContract } from "../productContract.js";
+import type { ProductPlan } from "../productPlan.js";
+import type { RequirementManifest } from "../requirementManifest.js";
+import { createBuiltinBuilderResourceRegistry } from "./builtinResourceCatalog.js";
+import type { BuilderResourceCapabilityId } from "./resourceCapabilities.js";
+import { composeBuilderResources } from "./resourceComposition.js";
+import { usageRecordForResource } from "./resourceGovernance.js";
+import { compactResourcePromptContext } from "./resourceRetrieval.js";
+import { selectBuilderResources } from "./resourceSelection.js";
+
+const SECONDARY_CAPABILITY_MAP: Partial<
+  Record<ProductContract["secondaryCapabilities"][number], BuilderResourceCapabilityId[]>
+> = {
+  authentication: ["authentication", "authorization"],
+  database: ["database"],
+  billing: ["billing", "monetization"],
+  ai: ["api", "security", "observability"],
+  analytics: ["analytics"],
+  administration: ["authorization", "observability"],
+  teams: ["collab", "authorization"],
+  notifications: ["notifications"],
+  search: ["search"],
+  file_uploads: ["storage"],
+  external_integrations: ["api", "webhooks"],
+  deployment: ["observability", "security"],
+};
+
+export type BuilderResourcePlan = {
+  requiredCapabilities: BuilderResourceCapabilityId[];
+  selectedResourceIds: string[];
+  usageRecords: ReturnType<typeof usageRecordForResource>[];
+  missingCapabilities: BuilderResourceCapabilityId[];
+  conflicts: ReturnType<typeof composeBuilderResources>["conflicts"];
+  viable: boolean;
+  promptContext: string;
+  decisionEvidence: Array<{
+    capability: BuilderResourceCapabilityId;
+    resourceId: string;
+    version: string;
+    rationale: string[];
+    evidenceLedgerIds: string[];
+  }>;
+  retrievalMetrics: {
+    catalogSize: number;
+    metadataQueries: number;
+    selectedCount: number;
+  };
+};
+
+export function deriveRequiredBuilderCapabilities(input: {
+  productContract: ProductContract;
+  activeBuildCapabilities?: BuildCapabilityId[];
+}): BuilderResourceCapabilityId[] {
+  const required = new Set<BuilderResourceCapabilityId>(
+    input.activeBuildCapabilities ?? [],
+  );
+  for (const secondary of input.productContract.secondaryCapabilities) {
+    for (const capability of SECONDARY_CAPABILITY_MAP[secondary] ?? []) {
+      required.add(capability);
+    }
+  }
+  for (const family of input.productContract.productFamilies) {
+    if (family === "auth") required.add("authentication");
+    if (family === "database") required.add("database");
+    if (family === "billing") {
+      required.add("billing");
+      required.add("monetization");
+    }
+    if (family === "analytics") required.add("analytics");
+    if (family === "mobile") required.add("mobile");
+    if (family === "integrations") {
+      required.add("api");
+      required.add("webhooks");
+    }
+  }
+  if (input.productContract.monetizationRequirements.length > 0) {
+    required.add("billing");
+    required.add("monetization");
+  }
+  if (input.productContract.securityRequirements.length > 0) {
+    required.add("security");
+  }
+  if (input.productContract.dataModels.length > 0) {
+    required.add("database");
+  }
+  return [...required].sort();
+}
+
+export function createBuilderResourcePlan(input: {
+  productContract: ProductContract;
+  productPlan: ProductPlan;
+  requirementManifest: RequirementManifest;
+  activeBuildCapabilities?: BuildCapabilityId[];
+  targetPlatform?: string;
+  now?: string;
+}): BuilderResourcePlan {
+  const registry = createBuiltinBuilderResourceRegistry();
+  const requiredCapabilities = deriveRequiredBuilderCapabilities(input);
+  const selectedById = new Map<string, ReturnType<typeof registry.list>[number]>();
+  const missingCapabilities: BuilderResourceCapabilityId[] = [];
+  const decisionEvidence: BuilderResourcePlan["decisionEvidence"] = [];
+
+  for (const capability of requiredCapabilities) {
+    const selection = selectBuilderResources({
+      registry,
+      productContract: input.productContract,
+      productPlan: input.productPlan,
+      requirementManifest: input.requirementManifest,
+      targetPlatform: input.targetPlatform,
+      requiredCapabilities: [capability],
+      requiredAllowedUse: "internal-generation",
+      now: input.now,
+    });
+    const candidate = selection.selected[0];
+    if (!candidate) {
+      missingCapabilities.push(capability);
+      continue;
+    }
+    const key = `${candidate.resource.identity.resourceId}@${candidate.resource.identity.version}`;
+    selectedById.set(key, candidate.resource);
+    decisionEvidence.push({
+      capability,
+      resourceId: candidate.resource.identity.resourceId,
+      version: candidate.resource.identity.version,
+      rationale: candidate.decision.rationale,
+      evidenceLedgerIds: candidate.decision.evidenceLedgerIds,
+    });
+  }
+
+  const selected = [...selectedById.values()];
+  const composition = composeBuilderResources(selected);
+
+  return {
+    requiredCapabilities,
+    selectedResourceIds: selected.map(
+      (resource) => `${resource.identity.resourceId}@${resource.identity.version}`,
+    ),
+    usageRecords: selected.map(usageRecordForResource),
+    missingCapabilities,
+    conflicts: composition.conflicts,
+    viable: missingCapabilities.length === 0 && composition.ok,
+    promptContext: compactResourcePromptContext(selected),
+    decisionEvidence,
+    retrievalMetrics: {
+      catalogSize: registry.list().length,
+      metadataQueries: requiredCapabilities.length,
+      selectedCount: selected.length,
+    },
+  };
+}
