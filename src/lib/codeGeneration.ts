@@ -30,6 +30,7 @@ import {
 } from "./monetizationImplementation.js";
 import { applyFlutterNodeContractSupport } from "../services/flutterNodeScaffold.js";
 import { applyFlutterNativeCapabilitySupport } from "../services/flutterNativeCapabilitySupport.js";
+import { applyReservationProviderSupport } from "../services/reservationProviderSupport.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/, "TODO marker"],
@@ -543,6 +544,7 @@ export function ensureCodeGenerationSupportFiles(input: {
 
   files = applyFlutterNodeContractSupport(files, input.contract);
   files = applyFlutterNativeCapabilitySupport(files, input.contract);
+  files = applyReservationProviderSupport(files, input.contract);
 
   return ensureGeneratedProjectStructure(
     files,

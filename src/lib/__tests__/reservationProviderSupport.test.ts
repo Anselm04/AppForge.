@@ -71,7 +71,9 @@ function plan(): ProductPlan {
         description: "Implement authorized provider boundary.",
         sequence: 1,
         dependencies: [],
-        acceptanceCriteria: ["No booking occurs without explicit confirmation."],
+        acceptanceCriteria: [
+          "No booking occurs without explicit confirmation.",
+        ],
         requirementIds: ["REQ-001"],
         files: ["server/src/reservations/provider.ts"],
         agent: "integration",
@@ -92,8 +94,12 @@ describe("generated authorized reservation-provider support", () => {
       files: {
         "lib/main.dart": "void main() {}",
         "server/src/server.ts": "export const app = true;",
-        "pubspec.yaml": "name: reservation_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "reservation-backend", private: true }),
+        "pubspec.yaml":
+          "name: reservation_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
+        "package.json": JSON.stringify({
+          name: "reservation-backend",
+          private: true,
+        }),
       },
       contract: contract(
         "Build an iPhone and Android restaurant availability app using an authorized reservation provider. Monitor table availability and only book after the user explicitly confirms.",
@@ -113,8 +119,12 @@ describe("generated authorized reservation-provider support", () => {
     expect(sandbox).toContain("confirmedByUser");
     expect(registry).toContain("RESERVATION_PROVIDER_MODE");
     expect(registry).toContain("sandbox");
-    expect(registry).toContain("Production reservation provider is not configured");
-    expect(Object.values(files).join("\n")).not.toMatch(/puppeteer|playwright|cheerio|scrape|web.?crawl/i);
+    expect(registry).toContain(
+      "Production reservation provider is not configured",
+    );
+    expect(Object.values(files).join("\n")).not.toMatch(
+      /puppeteer|playwright|cheerio|scrape|web.?crawl/i,
+    );
     expect(apiContract.reservationProvider).toMatchObject({
       sandboxImplemented: true,
       productionProviderConfigured: false,
@@ -125,14 +135,20 @@ describe("generated authorized reservation-provider support", () => {
   });
 
   it("does not add reservation-provider files to an unrelated mobile product", () => {
-    const unrelated = contract("Build a mobile habit tracker with reminders and saved streaks.");
+    const unrelated = contract(
+      "Build a mobile habit tracker with reminders and saved streaks.",
+    );
     unrelated.integrations = [];
     unrelated.researchRequirements = [];
     const files = ensureCodeGenerationSupportFiles({
       files: {
         "lib/main.dart": "void main() {}",
-        "pubspec.yaml": "name: habit_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "habit-backend", private: true }),
+        "pubspec.yaml":
+          "name: habit_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
+        "package.json": JSON.stringify({
+          name: "habit-backend",
+          private: true,
+        }),
       },
       contract: unrelated,
       plan: plan(),

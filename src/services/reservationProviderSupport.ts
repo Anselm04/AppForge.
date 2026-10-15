@@ -22,8 +22,14 @@ function contractText(contract: ProductContract): string {
 function reservationRequested(contract: ProductContract): boolean {
   if (contract.selectedTechnologyStack !== "flutter-node") return false;
   const text = contractText(contract);
-  return /\b(?:restaurant|table)\b[^\n]{0,100}\b(?:reservation|booking|availability)\b/.test(text) ||
-    /\b(?:reservation|booking|availability)\b[^\n]{0,100}\b(?:restaurant|table)\b/.test(text);
+  return (
+    /\b(?:restaurant|table)\b[^\n]{0,100}\b(?:reservation|booking|availability)\b/.test(
+      text,
+    ) ||
+    /\b(?:reservation|booking|availability)\b[^\n]{0,100}\b(?:restaurant|table)\b/.test(
+      text,
+    )
+  );
 }
 
 function providerSource(): string {
@@ -199,7 +205,9 @@ export function applyReservationProviderSupport(
   const serverEnv = (files["server/.env.example"] ?? "")
     .split("\n")
     .filter((line) => line.trim());
-  if (!serverEnv.some((line) => line.startsWith("RESERVATION_PROVIDER_MODE="))) {
+  if (
+    !serverEnv.some((line) => line.startsWith("RESERVATION_PROVIDER_MODE="))
+  ) {
     serverEnv.push("RESERVATION_PROVIDER_MODE=sandbox");
   }
   files["server/.env.example"] = `${serverEnv.join("\n")}\n`;
