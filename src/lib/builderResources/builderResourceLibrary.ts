@@ -2,11 +2,13 @@ import {
   BUILTIN_BUILDER_RESOURCES,
   builtinResourceCounts,
 } from "./builtinResourceCatalog.js";
+import { SUBSTANTIAL_CORE_RESOURCES } from "./substantialCoreResources.js";
 import { SUBSTANTIAL_DOMAIN_RESOURCES } from "./substantialDomainResources.js";
 import { BuilderResourceRegistry } from "./resourceRegistry.js";
 
 export const ALL_BUILDER_RESOURCES = [
   ...BUILTIN_BUILDER_RESOURCES,
+  ...SUBSTANTIAL_CORE_RESOURCES,
   ...SUBSTANTIAL_DOMAIN_RESOURCES,
 ];
 
@@ -24,7 +26,10 @@ export function builderResourceLibraryCounts(): {
   const byType: Record<string, number> = {};
   const byMaturity: Record<string, number> = {};
 
-  for (const resource of SUBSTANTIAL_DOMAIN_RESOURCES) {
+  for (const resource of [
+    ...SUBSTANTIAL_CORE_RESOURCES,
+    ...SUBSTANTIAL_DOMAIN_RESOURCES,
+  ]) {
     byCategory[resource.identity.category] =
       (byCategory[resource.identity.category] ?? 0) + 1;
   }
