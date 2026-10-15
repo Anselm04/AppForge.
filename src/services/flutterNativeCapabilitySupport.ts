@@ -30,6 +30,28 @@ function mergeEnvironmentExample(
   return lines.length ? `${lines.join("\n")}\n` : required;
 }
 
+function mergeNodeDependencies(
+  current: string | undefined,
+  required: Record<string, string>,
+): string {
+  try {
+    const parsed = current ? record(JSON.parse(current)) : {};
+    return JSON.stringify(
+      {
+        ...parsed,
+        dependencies: {
+          ...record(parsed.dependencies),
+          ...required,
+        },
+      },
+      null,
+      2,
+    );
+  } catch {
+    return JSON.stringify({ dependencies: required }, null, 2);
+  }
+}
+
 function deepLinkSupportFiles(): Record<string, string> {
   return {
     "lib/platform/deep_links.dart": `import 'dart:async';
@@ -203,10 +225,155 @@ class PushNotificationService {
   };
 }
 
+function backgroundSupportFiles(): Record<string, string> {
+  return {
+    "server/src/background/queue.ts": `import { createHash } from 'node:crypto';
+import { Queue, Worker, type Job } from 'bullmq';
+
+export type BackgroundTaskPayload = {
+  kind: string;
+  payload: Record<string, unknown>;
+  idempotencyKey: string;
+};
+
+export type BackgroundExecutionContext = {
+  executionId: string;
+  attempt: number;
+};
+
+export type BackgroundTaskHandler = (
+  task: BackgroundTaskPayload,
+  context: BackgroundExecutionContext,
+) => Promise<void>;
+
+function redisConnection() {
+  const url = process.env.REDIS_URL?.trim();
+  if (!url) throw new Error('REDIS_URL is required for durable background jobs');
+  return { url };
+}
+
+function queueName(): string {
+  return process.env.BACKGROUND_QUEUE_NAME?.trim() || 'product-background-jobs';
+}
+
+function workerConcurrency(): number {
+  const value = Number(process.env.BACKGROUND_WORKER_CONCURRENCY ?? 2);
+  if (!Number.isInteger(value) || value < 1 || value > 32) {
+    throw new Error('BACKGROUND_WORKER_CONCURRENCY must be an integer from 1 to 32');
+  }
+  return value;
+}
+
+function stableJobId(idempotencyKey: string): string {
+  const normalized = idempotencyKey.trim();
+  if (!normalized) throw new Error('idempotencyKey is required');
+  return createHash('sha256').update(normalized).digest('hex');
+}
+
+export function createBackgroundQueue(): Queue<BackgroundTaskPayload> {
+  return new Queue<BackgroundTaskPayload>(queueName(), {
+    connection: redisConnection(),
+  });
+}
+
+export async function enqueueBackgroundTask(
+  queue: Queue<BackgroundTaskPayload>,
+  task: BackgroundTaskPayload,
+) {
+  const idempotencyKey = task.idempotencyKey.trim();
+  const jobId = stableJobId(idempotencyKey);
+  return queue.add(
+    task.kind,
+    { ...task, idempotencyKey },
+    {
+      jobId,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 1_000 },
+      removeOnComplete: 100,
+      removeOnFail: 500,
+    },
+  );
+}
+
+export async function upsertRecurringTask(
+  queue: Queue<BackgroundTaskPayload>,
+  input: {
+    schedulerId: string;
+    name: string;
+    payload: Record<string, unknown>;
+    pattern?: string;
+    everyMs?: number;
+  },
+) {
+  const schedulerId = input.schedulerId.trim();
+  if (!schedulerId) throw new Error('schedulerId is required');
+  const pattern = input.pattern?.trim();
+  const everyMs = input.everyMs;
+  const usesPattern = Boolean(pattern);
+  const usesInterval = Number.isFinite(everyMs) && Number(everyMs) > 0;
+  if (usesPattern === usesInterval) {
+    throw new Error('Provide exactly one recurring schedule: pattern or everyMs');
+  }
+
+  const repeat = usesPattern
+    ? { pattern: pattern as string, tz: 'UTC' }
+    : { every: Number(everyMs) };
+  return queue.upsertJobScheduler(
+    schedulerId,
+    repeat,
+    {
+      name: input.name,
+      data: {
+        kind: input.name,
+        payload: input.payload,
+        idempotencyKey: 'scheduler-' + schedulerId,
+      },
+      opts: {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1_000 },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    },
+  );
+}
+
+export function createBackgroundWorker(
+  handler: BackgroundTaskHandler,
+): Worker<BackgroundTaskPayload> {
+  return new Worker<BackgroundTaskPayload>(
+    queueName(),
+    async (job: Job<BackgroundTaskPayload>) => {
+      if (!job.id) throw new Error('Background job is missing an execution id');
+      await handler(job.data, {
+        executionId: String(job.id),
+        attempt: job.attemptsMade + 1,
+      });
+    },
+    {
+      connection: redisConnection(),
+      concurrency: workerConcurrency(),
+      maxStalledCount: 2,
+    },
+  );
+}
+
+export async function closeBackgroundRuntime(
+  queue: Queue<BackgroundTaskPayload>,
+  worker: Worker<BackgroundTaskPayload>,
+): Promise<void> {
+  await worker.close();
+  await queue.close();
+}
+`,
+  };
+}
+
 /**
- * Adds reusable Flutter client support only for native capabilities selected
- * from the canonical ProductContract. Provider sending credentials stay
- * server-side; this layer never certifies provider delivery by itself.
+ * Adds reusable Flutter client and Node backend support only for native
+ * capabilities selected from the canonical ProductContract. Provider sending
+ * credentials stay server-side; this layer never certifies runtime delivery
+ * merely because support files exist.
  */
 export function applyFlutterNativeCapabilitySupport(
   generatedFiles: Record<string, string>,
@@ -221,7 +388,12 @@ export function applyFlutterNativeCapabilitySupport(
   );
   const deepLinks = requested.has("deep_links");
   const pushNotifications = requested.has("push_notifications");
-  if (!deepLinks && !pushNotifications) return { ...generatedFiles };
+  const backgroundJobs = requested.has("background_jobs");
+  const scheduling = requested.has("scheduling");
+  const backgroundRuntime = backgroundJobs || scheduling;
+  if (!deepLinks && !pushNotifications && !backgroundRuntime) {
+    return { ...generatedFiles };
+  }
 
   const files = { ...generatedFiles };
   const supportManifest = [
@@ -242,7 +414,13 @@ export function applyFlutterNativeCapabilitySupport(
     ? mergeFlutterNodeManifest(supportManifest, files["pubspec.yaml"])
     : supportManifest;
 
-  const environment = [
+  if (backgroundRuntime) {
+    files["package.json"] = mergeNodeDependencies(files["package.json"], {
+      bullmq: "^5.81.4",
+    });
+  }
+
+  const clientEnvironment = [
     ...(deepLinks ? ["APP_LINK_HOST=", "APP_LINK_SCHEME="] : []),
     ...(pushNotifications
       ? [
@@ -256,12 +434,20 @@ export function applyFlutterNativeCapabilitySupport(
   ].join("\n");
   files[".env.example"] = mergeEnvironmentExample(
     files[".env.example"],
-    environment,
+    clientEnvironment,
   );
+
+  if (backgroundRuntime) {
+    files["server/.env.example"] = mergeEnvironmentExample(
+      files["server/.env.example"],
+      "REDIS_URL=\nBACKGROUND_QUEUE_NAME=product-background-jobs\nBACKGROUND_WORKER_CONCURRENCY=2\n",
+    );
+  }
 
   for (const [path, source] of Object.entries({
     ...(deepLinks ? deepLinkSupportFiles() : {}),
     ...(pushNotifications ? pushSupportFiles() : {}),
+    ...(backgroundRuntime ? backgroundSupportFiles() : {}),
   })) {
     if (!files[path]?.trim()) files[path] = source;
   }
@@ -302,6 +488,28 @@ export function applyFlutterNativeCapabilitySupport(
               },
             }
           : {}),
+        ...(backgroundJobs
+          ? {
+              backgroundJobs: {
+                serverImplemented: true,
+                durableQueue: true,
+                provider: "bullmq-redis",
+                idempotencyRequired: true,
+                retryBackoff: true,
+                runtimeVerified: false,
+              },
+            }
+          : {}),
+        ...(scheduling
+          ? {
+              scheduling: {
+                serverImplemented: true,
+                schedulerApi: "bullmq-upsertJobScheduler",
+                timezone: "UTC",
+                runtimeVerified: false,
+              },
+            }
+          : {}),
       },
     },
     null,
@@ -333,6 +541,22 @@ export function applyFlutterNativeCapabilitySupport(
               requiresRemoteNotificationBackgroundMode: true,
               requiresApnsProviderCredential: true,
             },
+          }
+        : null,
+      backgroundJobs: backgroundJobs
+        ? {
+            runtime: "node-bullmq-redis",
+            requiresRedis: true,
+            retries: 5,
+            idempotency: "required",
+            gracefulShutdown: true,
+          }
+        : null,
+      scheduling: scheduling
+        ? {
+            schedulerApi: "bullmq-upsertJobScheduler",
+            timezone: "UTC",
+            requiresRedis: true,
           }
         : null,
     },

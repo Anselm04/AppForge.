@@ -144,10 +144,10 @@ export function deriveRequestedProductCapabilities(
   }
 
   const backgroundMonitoring =
-    /\bbackground\b[^\n]{0,100}\b(?:monitor|monitoring|watch|job|task|sync|poll|tracking|availability)\b/.test(
+    /\bbackground\b[^\n]{0,100}\b(?:monitor(?:s|ing)?|watch(?:es|ing)?|job|task|sync|poll(?:s|ing)?|tracking|availability)\b/.test(
       text,
     ) ||
-    /\b(?:monitor|monitoring|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(
+    /\b(?:monitor(?:s|ing)?|watch(?:es|ing)?|poll(?:s|ing)?)\b[^\n]{0,100}\bbackground\b/.test(
       text,
     );
   if (backgroundMonitoring) {
@@ -155,7 +155,7 @@ export function deriveRequestedProductCapabilities(
   }
 
   if (
-    /\b(?:scheduled tasks?|scheduler|cron|recurring job|recurring task|run every|check every)\b/.test(
+    /\b(?:scheduled tasks?|scheduler|cron|recurring (?:job|task|schedule)|run(?:s)? every|check(?:s)? every)\b/.test(
       text,
     )
   ) {
