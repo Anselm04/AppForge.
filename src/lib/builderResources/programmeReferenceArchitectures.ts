@@ -16,6 +16,8 @@ const BASE_REFERENCE_ARCHITECTURES = REFERENCE_ARCHITECTURES.map(
           recommendedResourceIds: [
             ...new Set([
               ...architecture.recommendedResourceIds,
+              "core.database",
+              "core.api",
               "module.booking",
             ]),
           ],
