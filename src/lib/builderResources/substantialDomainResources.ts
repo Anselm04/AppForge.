@@ -115,6 +115,7 @@ function domainResource(
       apiContract: null,
       dataContract: {
         schemaExport: `CAPABILITY_DOMAIN_CONTRACTS.${capability}`,
+        featurePackExport: `DOMAIN_FEATURE_CONTRACTS.${capability}`,
       },
       eventsEmitted: [],
       eventsConsumed: [],
@@ -153,10 +154,12 @@ function domainResource(
     implementation: {
       sourcePaths: [
         "src/lib/builderResources/domainResourceContracts.ts",
+        "src/lib/builderResources/domainFeatureContracts.ts",
         ...EXISTING_DOMAIN_SOURCES[capability],
       ],
       testPaths: [
         "src/lib/builderResources/__tests__/domainResourceContracts.test.ts",
+        "src/lib/builderResources/__tests__/domainFeatureContracts.test.ts",
       ],
       exportPolicy: "compose",
       requiresLiveLibraryAtRuntime: false,
@@ -164,6 +167,7 @@ function domainResource(
     evidence: {
       unitTests: [
         "src/lib/builderResources/__tests__/domainResourceContracts.test.ts",
+        "src/lib/builderResources/__tests__/domainFeatureContracts.test.ts",
       ],
       integrationTests: [],
       behavioralTests: [],
