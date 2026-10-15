@@ -38,6 +38,19 @@ const adapterEvidenceSchema = z.object({
   evidenceLedgerIds: stringList.optional(),
 });
 
+export const builderResourceCompositionSchema = z.object({
+  routes: stringList,
+  databaseMigrations: stringList,
+  environmentVariables: stringList,
+  packages: z.record(nonEmptyString),
+  stateNamespaces: stringList,
+  navigationKeys: stringList,
+  permissions: stringList,
+  stylingTokens: stringList,
+  platformCapabilities: stringList,
+  deploymentRequirements: stringList,
+});
+
 export const builderResourceManifestSchema = z.object({
   identity: z.object({
     resourceId: nonEmptyString,
@@ -81,6 +94,18 @@ export const builderResourceManifestSchema = z.object({
     authorizationHooks: stringList,
     databaseHooks: stringList,
     extensionPoints: stringList,
+  }),
+  composition: builderResourceCompositionSchema.default({
+    routes: [],
+    databaseMigrations: [],
+    environmentVariables: [],
+    packages: {},
+    stateNamespaces: [],
+    navigationKeys: [],
+    permissions: [],
+    stylingTokens: [],
+    platformCapabilities: [],
+    deploymentRequirements: [],
   }),
   evidence: z.object({
     unitTests: stringList,
