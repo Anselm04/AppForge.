@@ -29,7 +29,9 @@ function contract(
     nonFunctionalRequirements: ["reliable", "durable"],
     dataModels: [],
     integrations: [],
-    securityRequirements: ["Do not expose infrastructure credentials to clients"],
+    securityRequirements: [
+      "Do not expose infrastructure credentials to clients",
+    ],
     deploymentRequirements:
       productType === "mobile_app" ? ["iOS", "Android", "backend"] : ["web"],
     monetizationRequirements: [],
@@ -46,7 +48,10 @@ function contract(
   };
 }
 
-function plan(productType: ProductPlan["productType"], stack: string): ProductPlan {
+function plan(
+  productType: ProductPlan["productType"],
+  stack: string,
+): ProductPlan {
   return {
     version: 1,
     title: "Background capability product",
