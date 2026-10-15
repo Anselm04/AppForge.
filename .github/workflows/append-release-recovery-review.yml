@@ -1,0 +1,35 @@
+name: Append release qualification recovery review
+on:
+  push:
+    branches: [feat/flutter-node-release-proof]
+    paths:
+      - ".github/workflows/append-release-recovery-review.yml"
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/flutter-node-release-proof
+      - name: Record release qualification recovery invariant
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('docs/RECOVERY_INVENTORY.md')
+          source = path.read_text()
+          heading = '## Flutter + Node release-package qualification recovery invariant — 16 October 2026'
+          if heading not in source:
+              source = source.rstrip() + '''\n\n## Flutter + Node release-package qualification recovery invariant — 16 October 2026\n\nRecovery invariant:\n- Trusted Flutter + Node qualification now records hashes for the compiled backend package, Android release AAB, and unsigned iOS release application in addition to the existing runtime interaction evidence.\n- These artifacts are evidence that a trusted fixture can be compiled and packaged reproducibly; they do not replace production signing identities, provisioning profiles, Play Console/App Store access, provider credentials, or store certification.\n- If a release-package qualification change breaks a trusted platform lane, recovery is to revert to the last known-good qualification workflow SHA, preserve the failed evidence artifact/logs, correct the workflow or generated fixture in source, and rerun the complete qualification. Never bypass a failed package/hash step to certify a release.\n- iOS recovery remains explicitly unsigned until legitimate Apple signing/provisioning credentials and agreements are supplied. Android release evidence remains compilation/package evidence until legitimate production signing and store submission are separately proven.\n\nVerification target:\n- Require non-empty backend release archive, Android release AAB, and unsigned iOS release archive plus SHA-256 evidence from the trusted fixture.\n- Require the existing Ubuntu/Android and macOS/iOS runtime interaction gates to remain green in the same qualification run.\n- Confirm release-scope evidence continues to state that store signing/submission and arbitrary generated-product production certification are not implied.\n'''
+              path.write_text(source)
+      - name: Commit recovery review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/RECOVERY_INVENTORY.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Document release qualification recovery invariant"
+          git push origin HEAD:feat/flutter-node-release-proof
