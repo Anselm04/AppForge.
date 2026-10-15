@@ -85,6 +85,13 @@ jobs:
           npm run build 2>&1 | tee "$EVIDENCE/backend-build.log"
           flutter pub get 2>&1 | tee "$EVIDENCE/flutter-pub.log"
           flutter test test/qualification_test.dart 2>&1 | tee "$EVIDENCE/widget-test.log"
+          tar -C "$FIXTURE" -czf "$EVIDENCE/backend-release.tgz" build server package.json package-lock.json shared
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$EVIDENCE/backend-release.tgz" > "$EVIDENCE/backend-release.sha256"
+          else
+            shasum -a 256 "$EVIDENCE/backend-release.tgz" > "$EVIDENCE/backend-release.sha256"
+          fi
+          printf 'Backend compiled package evidence only; production deployment credentials and environment remain external.\n' > "$EVIDENCE/backend-release-scope.txt"
       - name: Compile web target on Ubuntu
         if: runner.os == 'Linux'
         shell: bash
@@ -121,6 +128,12 @@ jobs:
           APK="$FIXTURE/build/app/outputs/flutter-apk/app-debug.apk"
           test -s "$APK"
           sha256sum "$APK" > "$EVIDENCE/android-apk.sha256"
+
+          flutter build appbundle --release 2>&1 | tee "$EVIDENCE/android-release-aab-build.log"
+          RELEASE_AAB="$FIXTURE/build/app/outputs/bundle/release/app-release.aab"
+          test -s "$RELEASE_AAB"
+          sha256sum "$RELEASE_AAB" > "$EVIDENCE/android-release-aab.sha256"
+          printf 'Release compilation/package evidence only. No Play Console upload, production signing identity, store certification, or arbitrary generated-product certification claimed.\n' > "$EVIDENCE/android-release-scope.txt"
 
           if ! "$SDKMANAGER" --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
             "$SDKMANAGER" "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
@@ -250,6 +263,11 @@ jobs:
           flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
           flutter test integration_test/qualification_test.dart -d "$DEVICE" --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-interaction.log"
           xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
+          flutter build ios --release --no-codesign 2>&1 | tee "$EVIDENCE/ios-release-build.log"
+          test -d "$FIXTURE/build/ios/iphoneos/Runner.app"
+          tar -C "$FIXTURE/build/ios/iphoneos" -czf "$EVIDENCE/ios-release-unsigned.tgz" Runner.app
+          shasum -a 256 "$EVIDENCE/ios-release-unsigned.tgz" > "$EVIDENCE/ios-release-unsigned.sha256"
+          printf 'Unsigned iOS release compilation/package evidence only. Apple signing, provisioning, TestFlight/App Store submission and production certification require external Apple credentials and agreements.\n' > "$EVIDENCE/ios-release-scope.txt"
       - name: Upload qualification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
