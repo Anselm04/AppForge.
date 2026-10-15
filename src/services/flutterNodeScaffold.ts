@@ -68,10 +68,10 @@ export function flutterNodeScaffold(): Record<string, string> {
         devDependencies: {
           typescript: "^5.3.3",
           "@types/node": "^22.0.0",
-          // npm 10.9.x can crash in Arborist while resolving Vitest 4.1.4–4.1.9's
-          // optional Vite devtools peer graph. Keep generated installs on the
-          // fixed Vitest boundary instead of bypassing peer validation globally.
-          vitest: "^4.1.11",
+          // Fresh npm 10.9.x installs currently crash in Arborist on Vitest 4.1.x's
+          // optional peer graph. Generated projects must remain installable on the
+          // supported Node 22/npm 10 runner without disabling peer validation.
+          vitest: "^3.2.7",
         },
       },
       null,
