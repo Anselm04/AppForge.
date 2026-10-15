@@ -23,3 +23,4 @@ jobs:
       - run: npx prettier --check src/lib/__tests__/goldenProductCombinedSupport.test.ts
       - run: npx vitest run src/lib/__tests__/goldenProductCombinedSupport.test.ts
       - run: npm run typecheck
+# Focused throwaway acceptance proof only; this workflow is not intended for main.
