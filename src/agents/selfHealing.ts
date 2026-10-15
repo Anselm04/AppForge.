@@ -477,7 +477,8 @@ async function createAutonomousFixTask(
             : undefined,
         monetizationVerified,
         operationalVerified: deployment.operationalVerified,
-        recoveryVerified: true,
+        // Deployment and checkpoints do not prove restore/reopen recovery.
+        recoveryVerified: false,
       },
     });
     const finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
@@ -492,7 +493,7 @@ async function createAutonomousFixTask(
       certificationDecision,
       deployment,
       monetizationVerified,
-      recoveryVerified: true,
+      recoveryVerified: false,
     });
 
     await db
@@ -501,9 +502,7 @@ async function createAutonomousFixTask(
         status: finalProductFactoryFlow.productionReady
           ? "production-certified"
           : "validated",
-        buildStage: finalProductFactoryFlow.productionReady
-          ? "production-certified"
-          : "production-candidate",
+        buildStage: certificationDecision.status,
         outputMaturity: finalProductFactoryFlow.productionReady
           ? "certified"
           : "verified",

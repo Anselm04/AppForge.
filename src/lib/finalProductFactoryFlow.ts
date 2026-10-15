@@ -430,7 +430,7 @@ export function evaluateFinalProductFactoryFlow(input: {
       complete: input.recoveryVerified,
       applicable: true,
       detail:
-        "Known-good recovery checkpoint must be recorded for the exact artifact.",
+        "Recovery must be verified by restoring and reopening the exact artifact; recording a checkpoint alone is insufficient.",
     },
     {
       id: "honest_certification",

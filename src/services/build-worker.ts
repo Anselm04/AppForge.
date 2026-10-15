@@ -527,7 +527,9 @@ async function runOwnedBuildJob(
           deploymentVerified: false,
           monetizationVerified: false,
           operationalVerified: false,
-          recoveryVerified: true,
+          // A saved checkpoint is recovery material, not proof that restoring
+          // and reopening this artifact succeeds.
+          recoveryVerified: false,
         },
       });
       finalProductFactoryFlow = evaluateFinalProductFactoryFlow({
@@ -542,7 +544,7 @@ async function runOwnedBuildJob(
         certificationDecision,
         deployment: null,
         monetizationVerified: false,
-        recoveryVerified: true,
+        recoveryVerified: false,
       });
       await updateProjectStatus(projectId, "validated");
       await updateProjectBuildStage(projectId, certificationDecision.status, {

@@ -12,6 +12,15 @@ import type {
   SecondaryCapability,
 } from "./productContract.js";
 
+export class ProductRequirementLimitError extends Error {
+  constructor() {
+    super(
+      "This request exceeds the supported limit of 999 acceptance requirements. Choose a smaller initial product scope; no requirements were discarded.",
+    );
+    this.name = "ProductRequirementLimitError";
+  }
+}
+
 export type PromptFacts = {
   /** Short noun phrase naming what is being built, in the user's words. */
   subject: string;
@@ -689,6 +698,26 @@ export function buildPromptRequirements(input: {
     priority: "must",
   });
 
+  // Feature summaries are deliberately short, but explicit customer constraints
+  // and prices must survive as acceptance requirements in their own words.
+  // Splitting only after punctuation followed by whitespace preserves decimals.
+  for (const clause of prompt.split(/(?<=[.!?])\s+|\r?\n+/)) {
+    const text = normalizeWhitespace(clause);
+    const priced =
+      /(?:[$£€]\s*\d|\b(?:USD|NZD|AUD|EUR|GBP)\s*\d|\d\s*(?:USD|NZD|AUD|EUR|GBP)\b)/i.test(
+        text,
+      );
+    const mandatory =
+      /\b(?:must|shall|never|required|only\s+(?:after|if))\b/i.test(text);
+    if (!text || (!mandatory && !priced)) continue;
+    items.push({
+      text,
+      category:
+        priced && facts.monetization.requested ? "monetization" : "workflow",
+      priority: "must",
+    });
+  }
+
   const oneTime =
     facts.monetization.model === "one_time_purchase" ||
     type === "ecommerce_product";
@@ -805,7 +834,9 @@ export function buildPromptRequirements(input: {
     priority: "must",
   });
 
-  const unique = dedupeRequirements(items).slice(0, 20);
+  // Never turn a large request into an apparently complete smaller contract.
+  const unique = dedupeRequirements(items);
+  if (unique.length > 999) throw new ProductRequirementLimitError();
   return unique.map((item, index) => ({
     id: `REQ-${String(index + 1).padStart(3, "0")}`,
     ...item,

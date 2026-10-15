@@ -12,6 +12,7 @@ import {
   buildPromptTargetUsers,
   buildPromptWorkflows,
   extractPromptFacts,
+  ProductRequirementLimitError,
 } from "./promptContractExtraction.js";
 
 export type ProductType =
@@ -1156,6 +1157,14 @@ export type IntakeResolution =
     }
   | {
       ok: false;
+      reason: "contract_limit_exceeded";
+      message: string;
+      promptIntent: PromptIntent;
+      clarificationQuestions: string[];
+      compatibleStack?: string;
+    }
+  | {
+      ok: false;
       reason: "unsupported_stack";
       message: string;
       promptIntent: PromptIntent;
@@ -1197,10 +1206,22 @@ export function resolveIntakeContract(
 
   // Only a user-chosen type is passed through; an auto-classified prompt keeps
   // its classifier confidence and interpretation in the contract.
-  const baseContract = buildProductContract(
-    description,
-    options.productType ? { productType: options.productType } : {},
-  );
+  let baseContract: ProductContract;
+  try {
+    baseContract = buildProductContract(
+      description,
+      options.productType ? { productType: options.productType } : {},
+    );
+  } catch (error) {
+    if (!(error instanceof ProductRequirementLimitError)) throw error;
+    return {
+      ok: false,
+      reason: "contract_limit_exceeded",
+      message: error.message,
+      promptIntent,
+      clarificationQuestions: [],
+    };
+  }
   const explicitStack = requestedStack?.trim();
   if (
     !explicitStack ||
