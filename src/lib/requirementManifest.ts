@@ -5,9 +5,7 @@ import {
   isAtLeast,
   type AdapterCapabilityState,
 } from "./adapterSdk.js";
-import {
-  deriveRequestedProductCapabilities,
-} from "./nativeCapabilitySelection.js";
+import { deriveRequestedProductCapabilities } from "./nativeCapabilitySelection.js";
 import {
   getProductCapabilityAdapter,
   PRODUCT_CAPABILITY_IDS,
