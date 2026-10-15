@@ -12,7 +12,7 @@ function contract(prompt: string, productType: ProductContract["productType"] = 
     productFamilies:
       productType === "mobile_app"
         ? ["frontend", "backend", "mobile"]
-        : ["frontend", "web"],
+        : ["frontend"],
     targetUsers: ["customers"],
     userRoles: ["user"],
     coreWorkflows: [prompt],
@@ -20,7 +20,7 @@ function contract(prompt: string, productType: ProductContract["productType"] = 
       {
         id: "REQ-001",
         text: prompt,
-        category: "integration",
+        category: "workflow",
         priority: "must",
       },
     ],
