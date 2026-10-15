@@ -141,6 +141,11 @@ describe("generated Flutter voice interaction support", () => {
   });
 
   it("does not add voice dependencies to a mobile product that never requests voice", () => {
+    const noVoiceContract = contract(
+      "Build a mobile product with a dashboard and saved settings.",
+    );
+    noVoiceContract.securityRequirements = [];
+
     const files = ensureCodeGenerationSupportFiles({
       files: {
         "lib/main.dart": "void main() {}",
@@ -151,9 +156,7 @@ describe("generated Flutter voice interaction support", () => {
           private: true,
         }),
       },
-      contract: contract(
-        "Build a mobile product with a dashboard and saved settings.",
-      ),
+      contract: noVoiceContract,
       plan: plan(),
     });
 
