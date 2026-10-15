@@ -44,7 +44,8 @@ function planFor(contract: ProductContract): ProductPlan {
   return {
     version: 1,
     title: "Golden reservation application",
-    overview: "Contract-derived Golden Product plan used to exercise normal resource selection.",
+    overview:
+      "Contract-derived Golden Product plan used to exercise normal resource selection.",
     productType: contract.productType,
     selectedTechnologyStack: contract.selectedTechnologyStack,
     architecture: {
@@ -54,7 +55,10 @@ function planFor(contract: ProductContract): ProductPlan {
       roles: contract.userRoles,
       frontendModules: ["mobile client"],
       backendModules: ["API", "background monitoring", "billing"],
-      databaseModules: contract.dataModels.length > 0 ? contract.dataModels : ["Application data"],
+      databaseModules:
+        contract.dataModels.length > 0
+          ? contract.dataModels
+          : ["Application data"],
       aiModules: [],
       integrationModules: contract.integrations,
       authenticationDesign: "Contract-driven authenticated access",
@@ -63,7 +67,8 @@ function planFor(contract: ProductContract): ProductPlan {
       deploymentDesign: "Mobile packages plus backend deployment",
       operationsDesign: "Observable background work and provider failures",
       recoveryDesign: "Idempotent retries and durable persistence",
-      monetizationPlan: contract.monetizationRequirements.join("; ") || "none",
+      monetizationPlan:
+        contract.monetizationRequirements.join("; ") || "none",
     },
     implementationSequence: tasks.map((task) => task.id),
     tasks,
@@ -113,6 +118,7 @@ describe("Golden Product Builder Resource Library validation", () => {
         expect.stringMatching(/^core\.notifications@/),
         expect.stringMatching(/^capability\.mobile@/),
         expect.stringMatching(/^capability\.voice@/),
+        expect.stringMatching(/^module\.booking@/),
       ]),
     );
 
@@ -126,7 +132,9 @@ describe("Golden Product Builder Resource Library validation", () => {
     );
     expect(result.improvement.generatorCallReductionPercent).toBe(100);
     expect(result.improvement.generatedCodeBytesAvoided).toBeGreaterThan(0);
-    expect(result.resourceAware.selectedResourceVersions.length).toBeGreaterThan(0);
+    expect(
+      result.resourceAware.selectedResourceVersions.length,
+    ).toBeGreaterThan(0);
   });
 
   it("does not present the controlled harness as live provider, store or runtime certification", () => {
