@@ -49,7 +49,10 @@ export type ResearchClaimConflict = {
 function claimKey(claim: string): string {
   return claim
     .toLowerCase()
-    .replace(/\b(?:not|no|never|unsupported|supported|supports?)\b/g, "")
+    .replace(
+      /\b(?:does|do|did|is|are|was|were|not|no|never|unsupported|supported|supports?|supporting|support)\b/g,
+      "",
+    )
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
