@@ -1,0 +1,278 @@
+name: Flutter Node scaffold qualification
+on:
+  push:
+    branches: [feat/flutter-node-contract]
+    paths:
+      [
+        "src/lib/**",
+        "src/services/stackScaffolds.ts",
+        "src/services/flutterNodeScaffold.ts",
+        "scripts/fixtures/flutter-node-qualification/**",
+        ".github/workflows/flutter-node-qualification.yml",
+        "package-lock.json",
+      ]
+  pull_request:
+    paths:
+      [
+        "src/lib/**",
+        "src/services/stackScaffolds.ts",
+        "src/services/flutterNodeScaffold.ts",
+        "scripts/fixtures/flutter-node-qualification/**",
+        ".github/workflows/flutter-node-qualification.yml",
+        "package-lock.json",
+      ]
+permissions:
+  contents: read
+concurrency:
+  group: flutter-node-qualification-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  FLUTTER_VERSION: "3.47.7"
+  FLUTTER_COMMIT: abaf9c523780a608bd46686fd5e53740a07077f8
+  ANDROID_API: "35"
+  ANDROID_SYSTEM_IMAGE: "system-images;android-35;google_apis;x86_64"
+jobs:
+  fixture:
+    name: Trusted shell fixture (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - name: Set qualification directories
+        shell: bash
+        run: |
+          echo "FIXTURE=$RUNNER_TEMP/flutter-node-qualification" >> "$GITHUB_ENV"
+          echo "EVIDENCE=$RUNNER_TEMP/flutter-node-evidence" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install pinned official Flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" init
+          git -C "$RUNNER_TEMP/flutter" remote add origin https://github.com/flutter/flutter.git
+          git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$RUNNER_TEMP/flutter" checkout --detach "refs/tags/$FLUTTER_VERSION"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version > "$EVIDENCE/flutter-bootstrap.log" 2>&1
+          "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
+          node -e 'const f=require(process.env.EVIDENCE+"/flutter-version.json"); if(f.frameworkVersion!==process.env.FLUTTER_VERSION) { console.error(`Expected Flutter ${process.env.FLUTTER_VERSION}, got ${f.frameworkVersion}`); process.exit(1); }'
+      - name: Generate native platform wrapper and preserve actual scaffold
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --platforms=ios,android,web --project-name appforge_mobile --no-pub "$FIXTURE"
+          node --import tsx scripts/fixtures/flutter-node-qualification/materialize.ts "$FIXTURE"
+          cp "$FIXTURE/QUALIFICATION_SCOPE.txt" "$FIXTURE/scaffold-hashes.json" "$EVIDENCE/"
+          git rev-parse HEAD > "$EVIDENCE/source-commit.txt"
+      - name: Build backend and run widget shell test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FIXTURE"
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build 2>&1 | tee "$EVIDENCE/backend-build.log"
+          flutter pub get 2>&1 | tee "$EVIDENCE/flutter-pub.log"
+          flutter test test/qualification_test.dart 2>&1 | tee "$EVIDENCE/widget-test.log"
+          tar -C "$FIXTURE" -czf "$EVIDENCE/backend-release.tgz" build server package.json package-lock.json shared
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$EVIDENCE/backend-release.tgz" > "$EVIDENCE/backend-release.sha256"
+          else
+            shasum -a 256 "$EVIDENCE/backend-release.tgz" > "$EVIDENCE/backend-release.sha256"
+          fi
+          printf 'Backend compiled package evidence only; production deployment credentials and environment remain external.\n' > "$EVIDENCE/backend-release-scope.txt"
+      - name: Compile web target on Ubuntu
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FIXTURE"
+          flutter build web --debug 2>&1 | tee "$EVIDENCE/web-build.log"
+          printf 'Web compilation and widget shell only; no Android or web browser behavior claimed.\n' > "$EVIDENCE/linux-scope.txt"
+          if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/licenses" ]; then
+            ls "$ANDROID_HOME/licenses" > "$EVIDENCE/preinstalled-android-license-files.txt"
+          fi
+          # No sdkmanager --licenses, Android image install, or agreement acceptance.
+      - name: Build Android APK and test actual backend interaction
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_HOME:-}"
+          test -d "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x | sort | tail -1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -perm -u+x | sort | tail -1)"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          printf '%s\n' "$SDKMANAGER" > "$EVIDENCE/sdkmanager-path.txt"
+          printf '%s\n' "$AVDMANAGER" > "$EVIDENCE/avdmanager-path.txt"
+          java -version > "$EVIDENCE/java-version.txt" 2>&1
+          "$SDKMANAGER" --list_installed > "$EVIDENCE/android-sdk-installed.txt"
+          flutter doctor -v > "$EVIDENCE/flutter-doctor.txt" 2>&1
+
+          cd "$FIXTURE"
+          flutter build apk --debug 2>&1 | tee "$EVIDENCE/android-apk-build.log"
+          APK="$FIXTURE/build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK"
+          sha256sum "$APK" > "$EVIDENCE/android-apk.sha256"
+
+          flutter build appbundle --release 2>&1 | tee "$EVIDENCE/android-release-aab-build.log"
+          RELEASE_AAB="$FIXTURE/build/app/outputs/bundle/release/app-release.aab"
+          test -s "$RELEASE_AAB"
+          sha256sum "$RELEASE_AAB" > "$EVIDENCE/android-release-aab.sha256"
+          printf 'Release compilation/package evidence only. No Play Console upload, production signing identity, store certification, or arbitrary generated-product certification claimed.\n' > "$EVIDENCE/android-release-scope.txt"
+
+          if ! "$SDKMANAGER" --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
+            "$SDKMANAGER" "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
+          fi
+          test -x "$EMULATOR"
+          test -x "$ADB"
+
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf '%s\n' "$ANDROID_AVD_HOME" > "$EVIDENCE/android-avd-home.txt"
+          printf 'no\n' | "$AVDMANAGER" create avd --force \
+            --name appforge-ci-api35 \
+            --package "$ANDROID_SYSTEM_IMAGE" \
+            --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
+          "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
+          grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
+
+          ACCEL_MODE=off
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+              ACCEL_MODE=on
+            fi
+          fi
+          printf '%s\n' "$ACCEL_MODE" > "$EVIDENCE/android-acceleration.txt"
+          ls -l /dev/kvm > "$EVIDENCE/android-kvm.txt" 2>&1 || true
+
+          "$EMULATOR" \
+            -avd appforge-ci-api35 \
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \
+            > "$EVIDENCE/android-emulator.log" 2>&1 &
+          EMULATOR_PID=$!
+          BACKEND_PID=''
+          cleanup() {
+            if [ -n "$BACKEND_PID" ]; then kill "$BACKEND_PID" 2>/dev/null || true; fi
+            "$ADB" emu kill >/dev/null 2>&1 || true
+            kill "$EMULATOR_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          "$ADB" start-server
+          DEVICE_READY=false
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before ADB became ready" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              DEVICE_READY=true
+              break
+            fi
+            sleep 2
+          done
+          test "$DEVICE_READY" = true
+
+          BOOT_COMPLETE=false
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before boot completed" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT_COMPLETE=true
+              break
+            fi
+            sleep 2
+          done
+          test "$BOOT_COMPLETE" = true
+          "$ADB" shell getprop > "$EVIDENCE/android-device-properties.txt"
+
+          "$ADB" install -r "$APK" > "$EVIDENCE/android-apk-install.log" 2>&1
+          "$ADB" shell monkey -p com.example.appforge_mobile 1 > "$EVIDENCE/android-launch.log" 2>&1
+          APP_STARTED=false
+          for attempt in $(seq 1 30); do
+            "$ADB" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt" 2>/dev/null || true
+            if [ -s "$EVIDENCE/android-app-pid.txt" ]; then
+              APP_STARTED=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$APP_STARTED" != true ]; then
+            "$ADB" shell dumpsys activity processes > "$EVIDENCE/android-activity-processes.txt" 2>&1 || true
+            "$ADB" logcat -d > "$EVIDENCE/android-logcat.txt" 2>&1 || true
+            echo "Android app process did not remain running after launch" >&2
+            exit 1
+          fi
+
+          PORT=3217 HOST=0.0.0.0 npm start > "$EVIDENCE/android-backend-runtime.log" 2>&1 &
+          BACKEND_PID=$!
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/android-backend-health.json" && break
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/android-backend-ready.json"
+          "$ADB" reverse tcp:3217 tcp:3217
+          ANDROID_DEVICE="$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+          test -n "$ANDROID_DEVICE"
+          printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
+
+          flutter test integration_test/qualification_test.dart \
+            -d "$ANDROID_DEVICE" \
+            --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
+            2>&1 | tee "$EVIDENCE/android-interaction.log"
+          "$ADB" exec-out screencap -p > "$EVIDENCE/android-harness.png"
+          printf 'Trusted debug fixture only; no release signing, Play deployment, push, deep-link, or arbitrary generated-product certification claimed.\n' > "$EVIDENCE/android-scope.txt"
+      - name: Compile iOS simulator and test actual backend interaction
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          xcodebuild -version > "$EVIDENCE/xcode-version.txt"
+          xcrun simctl list devices available --json > "$EVIDENCE/simulators.json"
+          DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
+          xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
+          xcrun simctl bootstatus "$DEVICE" -b
+          cd "$FIXTURE"
+          PORT=3217 HOST=127.0.0.1 npm start > "$EVIDENCE/backend-runtime.log" 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/backend-health.json" && break; sleep 1; done
+          curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
+          flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
+          flutter test integration_test/qualification_test.dart -d "$DEVICE" --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-interaction.log"
+          xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
+          flutter build ios --release --no-codesign 2>&1 | tee "$EVIDENCE/ios-release-build.log"
+          test -d "$FIXTURE/build/ios/iphoneos/Runner.app"
+          tar -C "$FIXTURE/build/ios/iphoneos" -czf "$EVIDENCE/ios-release-unsigned.tgz" Runner.app
+          shasum -a 256 "$EVIDENCE/ios-release-unsigned.tgz" > "$EVIDENCE/ios-release-unsigned.sha256"
+          printf 'Unsigned iOS release compilation/package evidence only. Apple signing, provisioning, TestFlight/App Store submission and production certification require external Apple credentials and agreements.\n' > "$EVIDENCE/ios-release-scope.txt"
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: flutter-node-shell-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/flutter-node-evidence
+          retention-days: 7
+          if-no-files-found: warn
