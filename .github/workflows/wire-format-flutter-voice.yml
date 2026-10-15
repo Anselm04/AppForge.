@@ -37,6 +37,16 @@ jobs:
                   raise SystemExit("Expected native support call not found")
               source = source.replace(old_call, new_call, 1)
           path.write_text(source)
+
+          voice = Path("src/services/flutterVoiceCapabilitySupport.ts")
+          voice_source = voice.read_text()
+          needle = "                explicitPermissionRequired: true,\n                runtimeVerified: false,"
+          replacement = "                explicitPermissionRequired: true,\n                microphonePermissionRequired: true,\n                runtimeVerified: false,"
+          if "microphonePermissionRequired: true" not in voice_source:
+              if needle not in voice_source:
+                  raise SystemExit("Expected speech recognition permission evidence block not found")
+              voice_source = voice_source.replace(needle, replacement, 1)
+              voice.write_text(voice_source)
       - run: npx prettier --write src/services/flutterVoiceCapabilitySupport.ts src/lib/__tests__/flutterVoiceCapabilitySupport.test.ts src/lib/codeGeneration.ts
       - name: Commit wiring and formatting
         shell: bash
@@ -46,5 +56,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/services/flutterVoiceCapabilitySupport.ts src/lib/__tests__/flutterVoiceCapabilitySupport.test.ts src/lib/codeGeneration.ts
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Wire Flutter voice capability into generation"
+          git commit -m "Align Flutter voice capability evidence"
           git push origin HEAD:feat/flutter-voice-capability
