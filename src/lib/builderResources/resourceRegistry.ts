@@ -3,7 +3,7 @@ import {
   stateRank,
   type AdapterCapabilityState,
 } from "../adapterSdk.js";
-import type { BuildCapabilityId } from "../buildCapabilities.js";
+import type { BuilderResourceCapabilityId } from "./resourceCapabilities.js";
 import {
   resourceProvidesCapabilities,
   type BuilderResourceManifest,
@@ -14,7 +14,7 @@ export type BuilderResourceQuery = {
   technologyStack?: string;
   platform?: string;
   runtime?: string;
-  requiredCapabilities?: BuildCapabilityId[];
+  requiredCapabilities?: BuilderResourceCapabilityId[];
   minimumMaturity?: AdapterCapabilityState;
   includeDeprecated?: boolean;
   includeQuarantined?: boolean;
@@ -50,7 +50,6 @@ function candidateScore(
     score += 30;
     reasons.push("stack:exact");
   }
-
   if (
     query.platform &&
     resource.compatibility.supportedPlatforms.includes(query.platform)
@@ -58,7 +57,6 @@ function candidateScore(
     score += 20;
     reasons.push(`platform:${query.platform}`);
   }
-
   if (
     query.productType &&
     resource.compatibility.supportedProductTypes.includes(query.productType)
@@ -66,7 +64,6 @@ function candidateScore(
     score += 15;
     reasons.push(`product:${query.productType}`);
   }
-
   if (
     query.runtime &&
     resource.compatibility.supportedRuntimes.includes(query.runtime)
@@ -115,14 +112,12 @@ export class BuilderResourceRegistry {
         ) {
           return false;
         }
-
         if (
           !query.includeDeprecated &&
           resource.governance.deprecationStatus !== "active"
         ) {
           return false;
         }
-
         if (!isAtLeast(resource.governance.maturityState, floor)) return false;
         if (
           !matchesExactOrWildcard(
