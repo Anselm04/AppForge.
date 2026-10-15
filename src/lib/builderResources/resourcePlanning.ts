@@ -1,4 +1,5 @@
 import type { BuildCapabilityId } from "../buildCapabilities.js";
+import { deriveRequestedProductCapabilities } from "../nativeCapabilitySelection.js";
 import type { ProductContract } from "../productContract.js";
 import type { ProductPlan } from "../productPlan.js";
 import type { RequirementManifest } from "../requirementManifest.js";
@@ -27,6 +28,27 @@ const SECONDARY_CAPABILITY_MAP: Partial<
   file_uploads: ["storage"],
   external_integrations: ["api", "webhooks"],
   deployment: ["observability", "security"],
+};
+
+const NATIVE_CAPABILITY_MAP: Record<string, BuilderResourceCapabilityId[]> = {
+  push_notifications: ["notifications", "mobile"],
+  local_notifications: ["notifications", "mobile"],
+  deep_links: ["mobile"],
+  universal_links: ["mobile"],
+  app_links: ["mobile"],
+  speech_recognition: ["voice", "mobile"],
+  text_to_speech: ["voice", "mobile"],
+  microphone: ["voice", "mobile"],
+  background_jobs: ["background_jobs", "mobile"],
+  scheduling: ["background_jobs"],
+  camera: ["mobile"],
+  photos: ["mobile"],
+  location: ["mobile"],
+  background_location: ["mobile"],
+  biometrics: ["authentication", "mobile"],
+  sharing: ["mobile"],
+  contacts: ["mobile"],
+  calendar: ["mobile"],
 };
 
 export type BuilderResourcePlan = {
@@ -75,6 +97,13 @@ export function deriveRequiredBuilderCapabilities(input: {
     if (family === "integrations") {
       required.add("api");
       required.add("webhooks");
+    }
+  }
+  for (const nativeCapability of deriveRequestedProductCapabilities(
+    input.productContract,
+  )) {
+    for (const capability of NATIVE_CAPABILITY_MAP[nativeCapability] ?? []) {
+      required.add(capability);
     }
   }
   if (input.productContract.monetizationRequirements.length > 0) {
