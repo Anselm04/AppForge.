@@ -5,7 +5,15 @@ export type ResourceCompositionConflictKind =
   | "database-migration"
   | "package-version"
   | "state-namespace"
-  | "navigation";
+  | "navigation"
+  | "missing-dependency"
+  | "environment-kind"
+  | "api-contract"
+  | "event-producer"
+  | "permission-policy"
+  | "styling-token"
+  | "platform-capability"
+  | "deployment-policy";
 
 export type ResourceCompositionConflict = {
   kind: ResourceCompositionConflictKind;
@@ -27,10 +35,15 @@ export type ResourceCompositionPlan = {
   stylingTokens: string[];
   platformCapabilities: string[];
   deploymentRequirements: string[];
+  eventsProduced: string[];
+  eventsConsumed: string[];
+  apiContracts: Record<string, string>;
   conflicts: ResourceCompositionConflict[];
 };
 
 type Ownership = Map<string, string[]>;
+
+type ValueOwnership = Map<string, Map<string, string[]>>;
 
 function identity(resource: BuilderResourceManifest): string {
   return `${resource.identity.resourceId}@${resource.identity.version}`;
@@ -69,30 +82,79 @@ function collisions(
     }));
 }
 
+function valueOwnershipOf(
+  resources: readonly BuilderResourceManifest[],
+  values: (resource: BuilderResourceManifest) => Record<string, string>,
+): ValueOwnership {
+  const ownership: ValueOwnership = new Map();
+  for (const resource of resources) {
+    for (const [key, value] of Object.entries(values(resource))) {
+      const byValue = ownership.get(key) ?? new Map<string, string[]>();
+      const owners = byValue.get(value) ?? [];
+      owners.push(identity(resource));
+      byValue.set(value, owners);
+      ownership.set(key, byValue);
+    }
+  }
+  return ownership;
+}
+
+function incompatibleValues(
+  kind: ResourceCompositionConflictKind,
+  ownership: ValueOwnership,
+): ResourceCompositionConflict[] {
+  return [...ownership.entries()]
+    .filter(([, byValue]) => byValue.size > 1)
+    .map(([key, byValue]) => ({
+      kind,
+      key,
+      resources: sortedUnique([...byValue.values()].flat()),
+      values: [...byValue.keys()].sort((left, right) => left.localeCompare(right)),
+    }));
+}
+
 function packageConflicts(
   resources: readonly BuilderResourceManifest[],
 ): ResourceCompositionConflict[] {
-  const versions = new Map<string, Map<string, string[]>>();
+  return incompatibleValues(
+    "package-version",
+    valueOwnershipOf(resources, (resource) => resource.composition.packages),
+  );
+}
+
+function missingDependencyConflicts(
+  resources: readonly BuilderResourceManifest[],
+): ResourceCompositionConflict[] {
+  const available = new Set(resources.map((resource) => resource.identity.resourceId));
+  const conflicts: ResourceCompositionConflict[] = [];
   for (const resource of resources) {
-    for (const [packageName, version] of Object.entries(
-      resource.composition.packages,
-    )) {
-      const byVersion = versions.get(packageName) ?? new Map<string, string[]>();
-      const owners = byVersion.get(version) ?? [];
-      owners.push(identity(resource));
-      byVersion.set(version, owners);
-      versions.set(packageName, byVersion);
+    for (const dependency of resource.capabilities.dependencies) {
+      if (!available.has(dependency)) {
+        conflicts.push({
+          kind: "missing-dependency",
+          key: dependency,
+          resources: [identity(resource)],
+          values: [dependency],
+        });
+      }
     }
   }
+  return conflicts;
+}
 
-  return [...versions.entries()]
-    .filter(([, byVersion]) => byVersion.size > 1)
-    .map(([packageName, byVersion]) => ({
-      kind: "package-version" as const,
-      key: packageName,
-      resources: sortedUnique([...byVersion.values()].flat()),
-      values: [...byVersion.keys()].sort((left, right) => left.localeCompare(right)),
-    }));
+function mergedRecord(
+  resources: readonly BuilderResourceManifest[],
+  values: (resource: BuilderResourceManifest) => Record<string, string>,
+): Record<string, string> {
+  const merged: Record<string, string> = {};
+  for (const resource of resources) {
+    for (const [key, value] of Object.entries(values(resource))) {
+      merged[key] ??= value;
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(merged).sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 export function composeBuilderResources(
@@ -101,6 +163,7 @@ export function composeBuilderResources(
   const ordered = [...resources].sort((left, right) =>
     identity(left).localeCompare(identity(right)),
   );
+
   const conflicts = [
     ...collisions(
       "route",
@@ -122,33 +185,68 @@ export function composeBuilderResources(
       "navigation",
       ownershipOf(ordered, (resource) => resource.composition.navigationKeys),
     ),
+    ...missingDependencyConflicts(ordered),
+    ...incompatibleValues(
+      "environment-kind",
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.environmentVariableKinds,
+      ),
+    ),
+    ...incompatibleValues(
+      "api-contract",
+      valueOwnershipOf(ordered, (resource) => resource.composition.apiContracts),
+    ),
+    ...collisions(
+      "event-producer",
+      ownershipOf(ordered, (resource) => resource.composition.eventsProduced),
+    ),
+    ...incompatibleValues(
+      "permission-policy",
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.permissionPolicies,
+      ),
+    ),
+    ...incompatibleValues(
+      "styling-token",
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.stylingAssignments,
+      ),
+    ),
+    ...incompatibleValues(
+      "platform-capability",
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.platformCapabilityPolicies,
+      ),
+    ),
+    ...incompatibleValues(
+      "deployment-policy",
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.deploymentPolicies,
+      ),
+    ),
   ].sort((left, right) => {
     const kind = left.kind.localeCompare(right.kind);
     return kind !== 0 ? kind : left.key.localeCompare(right.key);
   });
 
-  const packages: Record<string, string> = {};
-  for (const resource of ordered) {
-    for (const [packageName, version] of Object.entries(
-      resource.composition.packages,
-    )) {
-      packages[packageName] ??= version;
-    }
-  }
-
   return {
     ok: conflicts.length === 0,
     resources: ordered.map(identity),
-    routes: sortedUnique(ordered.flatMap((resource) => resource.composition.routes)),
+    routes: sortedUnique(
+      ordered.flatMap((resource) => resource.composition.routes),
+    ),
     databaseMigrations: sortedUnique(
       ordered.flatMap((resource) => resource.composition.databaseMigrations),
     ),
     environmentVariables: sortedUnique(
       ordered.flatMap((resource) => resource.composition.environmentVariables),
     ),
-    packages: Object.fromEntries(
-      Object.entries(packages).sort(([left], [right]) => left.localeCompare(right)),
-    ),
+    packages: mergedRecord(ordered, (resource) => resource.composition.packages),
     stateNamespaces: sortedUnique(
       ordered.flatMap((resource) => resource.composition.stateNamespaces),
     ),
@@ -166,6 +264,16 @@ export function composeBuilderResources(
     ),
     deploymentRequirements: sortedUnique(
       ordered.flatMap((resource) => resource.composition.deploymentRequirements),
+    ),
+    eventsProduced: sortedUnique(
+      ordered.flatMap((resource) => resource.composition.eventsProduced),
+    ),
+    eventsConsumed: sortedUnique(
+      ordered.flatMap((resource) => resource.composition.eventsConsumed),
+    ),
+    apiContracts: mergedRecord(
+      ordered,
+      (resource) => resource.composition.apiContracts,
     ),
     conflicts,
   };
