@@ -118,9 +118,7 @@ describe("generated Stripe test-mode billing and entitlements", () => {
       "client_reference_id",
     );
     expect(files["server/src/billing/entitlements.ts"]).toContain("BEGIN");
-    expect(files["server/src/billing/entitlements.ts"]).toContain(
-      "ON CONFLICT",
-    );
+    expect(files["server/src/billing/entitlements.ts"]).toMatch(/on conflict/i);
     expect(files["database/migrations/002_billing_entitlements.sql"]).toContain(
       "stripe_webhook_events",
     );
