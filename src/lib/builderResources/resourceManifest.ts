@@ -6,9 +6,9 @@ import {
   type AdapterEvidence,
 } from "../adapterSdk.js";
 import {
-  BUILD_CAPABILITY_IDS,
-  type BuildCapabilityId,
-} from "../buildCapabilities.js";
+  BUILDER_RESOURCE_CAPABILITY_IDS,
+  type BuilderResourceCapabilityId,
+} from "./resourceCapabilities.js";
 
 export const BUILDER_RESOURCE_TYPES = [
   "atom",
@@ -71,8 +71,8 @@ export const builderResourceManifestSchema = z.object({
     minimumRuntimeToolVersions: z.record(nonEmptyString),
   }),
   capabilities: z.object({
-    capabilitiesProvided: z.array(z.enum(BUILD_CAPABILITY_IDS)),
-    optionalCapabilities: z.array(z.enum(BUILD_CAPABILITY_IDS)),
+    capabilitiesProvided: z.array(z.enum(BUILDER_RESOURCE_CAPABILITY_IDS)),
+    optionalCapabilities: z.array(z.enum(BUILDER_RESOURCE_CAPABILITY_IDS)),
     dependencies: stringList,
     integrationPoints: stringList,
   }),
@@ -107,6 +107,19 @@ export const builderResourceManifestSchema = z.object({
     platformCapabilities: [],
     deploymentRequirements: [],
   }),
+  implementation: z
+    .object({
+      sourcePaths: stringList,
+      testPaths: stringList,
+      exportPolicy: z.enum(["copy-adapt", "compose", "reference-only"]),
+      requiresLiveLibraryAtRuntime: z.boolean(),
+    })
+    .default({
+      sourcePaths: [],
+      testPaths: [],
+      exportPolicy: "compose",
+      requiresLiveLibraryAtRuntime: false,
+    }),
   evidence: z.object({
     unitTests: stringList,
     integrationTests: stringList,
@@ -174,13 +187,18 @@ export function parseBuilderResourceManifest(
   ) {
     throw new Error("A deprecated resource cannot replace itself");
   }
+  if (parsed.implementation.requiresLiveLibraryAtRuntime) {
+    throw new Error(
+      "Internal Builder Resources cannot require a live library connection at exported-product runtime",
+    );
+  }
 
   return parsed;
 }
 
 export function resourceProvidesCapabilities(
   resource: BuilderResourceManifest,
-  required: readonly BuildCapabilityId[],
+  required: readonly BuilderResourceCapabilityId[],
 ): boolean {
   const provided = new Set(resource.capabilities.capabilitiesProvided);
   return required.every((capability) => provided.has(capability));
