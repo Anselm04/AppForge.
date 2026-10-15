@@ -1,0 +1,44 @@
+name: Wire Flutter native support
+on:
+  push:
+    branches: [feat/flutter-push-deeplink-support]
+    paths:
+      - ".github/workflows/wire-flutter-native-support.yml"
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/flutter-push-deeplink-support
+      - name: Wire native support into normal generation hook
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("src/lib/codeGeneration.ts")
+          source = path.read_text()
+          old_import = 'import { applyFlutterNodeContractSupport } from "../services/flutterNodeScaffold.js";\n'
+          new_import = old_import + 'import { applyFlutterNativeCapabilitySupport } from "../services/flutterNativeCapabilitySupport.js";\n'
+          if 'flutterNativeCapabilitySupport.js' not in source:
+              if old_import not in source:
+                  raise SystemExit("Expected Flutter Node support import not found")
+              source = source.replace(old_import, new_import, 1)
+          old_call = '  files = applyFlutterNodeContractSupport(files, input.contract);\n\n  return ensureGeneratedProjectStructure('
+          new_call = '  files = applyFlutterNodeContractSupport(files, input.contract);\n  files = applyFlutterNativeCapabilitySupport(files, input.contract);\n\n  return ensureGeneratedProjectStructure('
+          if 'applyFlutterNativeCapabilitySupport(files, input.contract)' not in source:
+              if old_call not in source:
+                  raise SystemExit("Expected Flutter Node support call not found")
+              source = source.replace(old_call, new_call, 1)
+          path.write_text(source)
+      - name: Commit wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/lib/codeGeneration.ts; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/codeGeneration.ts
+          git commit -m "Wire Flutter native capability support into generation"
+          git push origin HEAD:feat/flutter-push-deeplink-support
