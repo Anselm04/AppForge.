@@ -5,7 +5,9 @@ import {
   isAtLeast,
   type AdapterCapabilityState,
 } from "./adapterSdk.js";
-import { deriveRequestedProductCapabilities } from "./nativeCapabilitySelection.js";
+import {
+  deriveRequestedProductCapabilities,
+} from "./nativeCapabilitySelection.js";
 import {
   getProductCapabilityAdapter,
   PRODUCT_CAPABILITY_IDS,
@@ -96,7 +98,9 @@ export const requirementManifestSchema = z.object({
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
   requirements: z.array(requirementManifestEntrySchema).min(1),
-  capabilityDependencies: z.array(productCapabilityDependencySchema).default([]),
+  capabilityDependencies: z
+    .array(productCapabilityDependencySchema)
+    .default([]),
   changes: z.array(requirementChangeSchema),
   unresolvedMustHaveIds: z.array(z.string().regex(/^REQ-\d{3}$/)),
 });
@@ -606,7 +610,9 @@ export function validateRequirementManifest(
     (dependency) => dependency.id,
   );
   if (new Set(capabilityIds).size !== capabilityIds.length) {
-    throw new Error("Requirement manifest contains duplicate capability dependencies");
+    throw new Error(
+      "Requirement manifest contains duplicate capability dependencies",
+    );
   }
 
   const calculated = unresolvedMustHaveIds(manifest.requirements);
