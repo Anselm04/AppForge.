@@ -10,7 +10,9 @@ import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
 } from "../../services/stackScaffolds.js";
+import { applyFlutterNodeContractSupport } from "../../services/flutterNodeScaffold.js";
 import { validateGeneratedProjectStructure } from "../generatedProjectStructure.js";
+import type { ProductContract } from "../productContract.js";
 
 function request(
   url: string,
@@ -56,6 +58,75 @@ describe("connected Flutter Node scaffold", () => {
       [],
     );
   });
+
+  it("adds real Supabase auth and owner-scoped persistence only when the canonical contract requires them", () => {
+    const contract: ProductContract = {
+      version: 2,
+      originalPrompt:
+        "Build a mobile app with secure accounts and saved watches",
+      productType: "mobile_app",
+      productFamilies: ["frontend", "backend", "database", "mobile", "auth"],
+      targetUsers: ["customers"],
+      userRoles: ["user"],
+      coreWorkflows: ["sign up and save a watch"],
+      functionalRequirements: [
+        {
+          id: "REQ-001",
+          text: "Users must create secure accounts",
+          category: "security",
+          priority: "must",
+        },
+        {
+          id: "REQ-002",
+          text: "Users must persist saved watches",
+          category: "workflow",
+          priority: "must",
+        },
+      ],
+      nonFunctionalRequirements: ["secure"],
+      dataModels: ["Watch"],
+      integrations: ["Supabase"],
+      securityRequirements: ["owner scoped records"],
+      deploymentRequirements: ["mobile and backend"],
+      monetizationRequirements: [],
+      selectedTechnologyStack: "flutter-node",
+      researchRequirements: [],
+      runtimeRequirements: ["Flutter client", "Node backend"],
+      secondaryCapabilities: ["authentication", "database"],
+      intentConfidence: 1,
+      canonicalInterpretation:
+        "Authenticated mobile app with persisted user watches",
+    };
+    const files = applyFlutterNodeContractSupport(
+      getStackScaffold("flutter-node", "mobile_app"),
+      contract,
+    );
+    const apiContract = JSON.parse(files["shared/contracts/product-api.json"]);
+    const manifest = parse(files["pubspec.yaml"]);
+
+    expect(apiContract.authentication).toMatchObject({
+      provider: "supabase",
+      implemented: true,
+      verification: "backend",
+    });
+    expect(manifest.dependencies).toHaveProperty("supabase_flutter");
+    expect(files["lib/auth/session.dart"]).toContain("signUp");
+    expect(files["lib/auth/session.dart"]).toContain("signInWithPassword");
+    expect(files["server/src/auth.ts"]).toContain("getClaims");
+    expect(files["database/migrations/001_user_data.sql"]).toContain(
+      "enable row level security",
+    );
+    expect(files["database/migrations/001_user_data.sql"]).toContain(
+      "grant select, insert, update, delete to authenticated",
+    );
+    expect(files["database/migrations/001_user_data.sql"]).toContain(
+      "(select auth.uid()) = user_id",
+    );
+    expect(
+      [files["lib/auth/session.dart"], files["lib/main.dart"]].join("\n"),
+    ).not.toMatch(/service_role|SUPABASE_SERVICE_ROLE/i);
+  });
+
   it("merges mandatory Flutter dependencies and assets without dropping product configuration", () => {
     const files = mergeScaffoldWithGenerated(
       getStackScaffold("flutter-node"),
