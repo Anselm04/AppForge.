@@ -63,6 +63,7 @@ jobs:
           git -C "$RUNNER_TEMP/flutter" checkout --detach "refs/tags/$FLUTTER_VERSION"
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version > "$EVIDENCE/flutter-bootstrap.log" 2>&1
           "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
           node -e 'const f=require(process.env.EVIDENCE+"/flutter-version.json"); if(f.frameworkVersion!==process.env.FLUTTER_VERSION) { console.error(`Expected Flutter ${process.env.FLUTTER_VERSION}, got ${f.frameworkVersion}`); process.exit(1); }'
       - name: Generate native platform wrapper and preserve actual scaffold
