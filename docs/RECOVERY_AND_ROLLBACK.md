@@ -145,6 +145,22 @@ declaring the worker fleet recovered.
 - A retry must never promote partial working files or silently create a second
   paid build.
 
+### Validated checkpoint truth — 15 October 2026
+
+A successful generated-product validation may record a `validated_artifact`
+checkpoint, but that checkpoint is recovery material only. The build worker must
+keep `recoveryVerified` false until AppForge has fresh evidence that the exact
+artifact can be restored/reopened and the required recovery verification passes.
+Creating or persisting a snapshot is not itself restore proof and must never
+promote the final product factory flow to a recovered or production-ready state.
+
+Recovery verification target:
+- select the exact stored checkpoint and verify project/snapshot/version/hash identity;
+- restore or reopen the artifact through the supported recovery path;
+- rerun applicable runtime, health, authorization, and customer-flow checks;
+- record recovery as verified only after those checks succeed;
+- preserve the prior known-good checkpoint if restore/reopen verification fails.
+
 ## Production account-lifecycle recovery
 
 The production account-lifecycle gate is itself a recovery-critical control.
