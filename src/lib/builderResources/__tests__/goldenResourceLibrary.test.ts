@@ -104,6 +104,29 @@ describe("Golden Product Builder Resource Library validation", () => {
             10,
           ),
       }),
+      measureReusableResourceBytes: () => 256,
+      observations: {
+        baseline: {
+          repairCycles: 3,
+          testsPassed: 18,
+          testsFailed: 2,
+          defects: 4,
+          requirementsSatisfied: 8,
+          requirementsTotal: 10,
+          runtimeSucceeded: true,
+          outputQualityScore: 72,
+        },
+        resourceAware: {
+          repairCycles: 1,
+          testsPassed: 20,
+          testsFailed: 0,
+          defects: 1,
+          requirementsSatisfied: 10,
+          requirementsTotal: 10,
+          runtimeSucceeded: true,
+          outputQualityScore: 92,
+        },
+      },
       now: () => tick++,
     });
 
@@ -122,15 +145,28 @@ describe("Golden Product Builder Resource Library validation", () => {
     );
 
     expect(result.baseline.generatorCalls).toBeGreaterThan(0);
+    expect(result.baseline.aiToolCalls).toBe(result.baseline.generatorCalls);
     expect(result.resourceAware.generatorCalls).toBe(0);
     expect(result.resourceAware.reusableCapabilities).toBe(
       result.baseline.requestedCapabilities,
     );
+    expect(result.resourceAware.reusedCodeBytes).toBe(
+      result.resourcePlan.selectedResourceIds.length * 256,
+    );
+    expect(result.resourceAware.repairCycles).toBe(1);
+    expect(result.resourceAware.testPassRatePercent).toBe(100);
+    expect(result.resourceAware.defects).toBe(1);
+    expect(result.resourceAware.requirementCoveragePercent).toBe(100);
+    expect(result.resourceAware.runtimeSucceeded).toBe(true);
+    expect(result.resourceAware.outputQualityScore).toBe(92);
     expect(result.improvement.generatorCallsAvoided).toBe(
       result.baseline.generatorCalls,
     );
     expect(result.improvement.generatorCallReductionPercent).toBe(100);
     expect(result.improvement.generatedCodeBytesAvoided).toBeGreaterThan(0);
+    expect(result.improvement.repairCyclesAvoided).toBe(2);
+    expect(result.improvement.defectsAvoided).toBe(3);
+    expect(result.improvement.outputQualityDelta).toBe(20);
     expect(
       result.resourceAware.selectedResourceVersions.length,
     ).toBeGreaterThan(0);
