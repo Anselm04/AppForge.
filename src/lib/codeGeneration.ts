@@ -28,6 +28,7 @@ import {
   monetizationPolicy,
   validateMonetizationArtifact,
 } from "./monetizationImplementation.js";
+import { applyFlutterNodeContractSupport } from "../services/flutterNodeScaffold.js";
 
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/\bTODO\b/, "TODO marker"],
@@ -491,7 +492,7 @@ export function ensureCodeGenerationSupportFiles(input: {
   contract: ProductContract;
   plan: ProductPlan;
 }): Record<string, string> {
-  const files = { ...input.files };
+  let files = { ...input.files };
   const adapter = getStackAdapter(input.contract.selectedTechnologyStack);
 
   files["appforge.implementation.json"] = buildImplementationEvidence({
@@ -538,6 +539,8 @@ export function ensureCodeGenerationSupportFiles(input: {
       "",
     ].join("\n");
   }
+
+  files = applyFlutterNodeContractSupport(files, input.contract);
 
   return ensureGeneratedProjectStructure(
     files,
