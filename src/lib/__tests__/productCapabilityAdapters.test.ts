@@ -66,7 +66,9 @@ describe("product capability adapters", () => {
       expect(adapter.failureDetection.length, adapter.id).toBeGreaterThan(0);
       expect(adapter.securityBoundaries.length, adapter.id).toBeGreaterThan(0);
       expect(adapter.limitations.length, adapter.id).toBeGreaterThan(0);
-      expect(adapter.evidenceRequirements.length, adapter.id).toBeGreaterThan(0);
+      expect(adapter.evidenceRequirements.length, adapter.id).toBeGreaterThan(
+        0,
+      );
     }
   });
 
