@@ -38,7 +38,8 @@ describe("Flutter Node contract-driven generation support", () => {
     const plan: ProductPlan = {
       version: 1,
       title: "Authenticated mobile product",
-      overview: "Flutter client with Node backend and owner-scoped persistence.",
+      overview:
+        "Flutter client with Node backend and owner-scoped persistence.",
       productType: "mobile_app",
       selectedTechnologyStack: "flutter-node",
       architecture: {
@@ -51,7 +52,8 @@ describe("Flutter Node contract-driven generation support", () => {
         databaseModules: ["Owner records"],
         aiModules: [],
         integrationModules: ["Supabase"],
-        authenticationDesign: "Supabase publishable-key client with backend JWT verification.",
+        authenticationDesign:
+          "Supabase publishable-key client with backend JWT verification.",
         authorizationDesign: "RLS owner checks.",
         billingDesign: "Not required.",
         deploymentDesign: "Mobile and backend deployment.",
@@ -67,7 +69,9 @@ describe("Flutter Node contract-driven generation support", () => {
           description: "Implement authentication and owner-scoped persistence.",
           sequence: 1,
           dependencies: [],
-          acceptanceCriteria: ["Auth and persistence are real and owner-scoped."],
+          acceptanceCriteria: [
+            "Auth and persistence are real and owner-scoped.",
+          ],
           requirementIds: ["REQ-001"],
           files: ["lib/main.dart", "server/src/server.ts"],
           agent: "backend",
@@ -87,7 +91,10 @@ describe("Flutter Node contract-driven generation support", () => {
         "server/src/server.ts": "export const app = true;",
         "pubspec.yaml":
           "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true }),
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+        }),
       },
       contract,
       plan,
