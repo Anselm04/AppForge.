@@ -94,8 +94,13 @@ describe("generated Stripe test-mode billing and entitlements", () => {
       files: {
         "lib/main.dart": "void main() {}",
         "server/src/server.ts": "export const app = true;",
-        "pubspec.yaml": "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true, dependencies: {} }),
+        "pubspec.yaml":
+          "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+          dependencies: {},
+        }),
       },
       contract: contract(true),
       plan: plan(),
@@ -109,12 +114,22 @@ describe("generated Stripe test-mode billing and entitlements", () => {
     expect(files["server/.env.example"]).toContain("STRIPE_WEBHOOK_SECRET=");
     expect(files["server/src/billing/stripe.ts"]).toContain("sk_test_");
     expect(files["server/src/billing/stripe.ts"]).toContain("constructEvent");
-    expect(files["server/src/billing/stripe.ts"]).toContain("client_reference_id");
+    expect(files["server/src/billing/stripe.ts"]).toContain(
+      "client_reference_id",
+    );
     expect(files["server/src/billing/entitlements.ts"]).toContain("BEGIN");
-    expect(files["server/src/billing/entitlements.ts"]).toContain("ON CONFLICT");
-    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain("stripe_webhook_events");
-    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain("billing_entitlements");
-    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain("revoke all");
+    expect(files["server/src/billing/entitlements.ts"]).toContain(
+      "ON CONFLICT",
+    );
+    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain(
+      "stripe_webhook_events",
+    );
+    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain(
+      "billing_entitlements",
+    );
+    expect(files["database/migrations/002_billing_entitlements.sql"]).toContain(
+      "revoke all",
+    );
     expect(files["docs/BILLING.md"]).toContain("test mode");
     expect(files["lib/main.dart"]).not.toContain("STRIPE_SECRET_KEY");
     expect(apiContract.billing).toMatchObject({
@@ -130,8 +145,13 @@ describe("generated Stripe test-mode billing and entitlements", () => {
     const files = ensureCodeGenerationSupportFiles({
       files: {
         "lib/main.dart": "void main() {}",
-        "pubspec.yaml": "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
-        "package.json": JSON.stringify({ name: "customer-backend", private: true, dependencies: {} }),
+        "pubspec.yaml":
+          "name: customer_app\ndependencies:\n  flutter:\n    sdk: flutter\n",
+        "package.json": JSON.stringify({
+          name: "customer-backend",
+          private: true,
+          dependencies: {},
+        }),
       },
       contract: contract(false),
       plan: plan(),

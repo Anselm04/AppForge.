@@ -32,7 +32,10 @@ function mergeNodeDependencies(
   }
 }
 
-function mergeEnvironmentExample(current: string | undefined, required: string): string {
+function mergeEnvironmentExample(
+  current: string | undefined,
+  required: string,
+): string {
   const lines = (current ?? "").split("\n").filter((line) => line.trim());
   const keys = new Set(
     lines
@@ -206,12 +209,15 @@ export function applyFlutterStripeTestBillingSupport(
   generatedFiles: Record<string, string>,
   productContract: ProductContract,
 ): Record<string, string> {
-  if (productContract.selectedTechnologyStack !== "flutter-node") return { ...generatedFiles };
+  if (productContract.selectedTechnologyStack !== "flutter-node")
+    return { ...generatedFiles };
   const policy = monetizationPolicy(productContract);
-  const stripeRequested = policy.required && (
-    /stripe/i.test(policy.provider ?? "") ||
-    productContract.integrations.some((integration) => /stripe/i.test(integration))
-  );
+  const stripeRequested =
+    policy.required &&
+    (/stripe/i.test(policy.provider ?? "") ||
+      productContract.integrations.some((integration) =>
+        /stripe/i.test(integration),
+      ));
   if (!stripeRequested) return { ...generatedFiles };
 
   const files = { ...generatedFiles };
@@ -233,13 +239,16 @@ export function applyFlutterStripeTestBillingSupport(
     ].join("\n"),
   );
   if (!files["server/src/billing/stripe.ts"]?.trim()) {
-    files["server/src/billing/stripe.ts"] = stripeSource(policy.models.includes("subscription"));
+    files["server/src/billing/stripe.ts"] = stripeSource(
+      policy.models.includes("subscription"),
+    );
   }
   if (!files["server/src/billing/entitlements.ts"]?.trim()) {
     files["server/src/billing/entitlements.ts"] = entitlementSource();
   }
   if (!files["database/migrations/002_billing_entitlements.sql"]?.trim()) {
-    files["database/migrations/002_billing_entitlements.sql"] = migrationSource();
+    files["database/migrations/002_billing_entitlements.sql"] =
+      migrationSource();
   }
   if (!files["docs/BILLING.md"]?.trim()) {
     files["docs/BILLING.md"] = [
