@@ -1,0 +1,53 @@
+name: Patch Android KVM qualification
+on:
+  push:
+    branches: [feat/flutter-android-qualification]
+    paths:
+      - ".github/workflows/patch-android-kvm.yml"
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/flutter-android-qualification
+      - name: Patch emulator acceleration handling
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('.github/workflows/flutter-node-qualification.yml')
+          text = path.read_text()
+          old = '''          "$EMULATOR" \\
+            -avd appforge-ci-api35 \\
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel off -gpu swiftshader_indirect \\
+            > "$EVIDENCE/android-emulator.log" 2>&1 &
+'''
+          new = '''          ACCEL_MODE=off
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+              ACCEL_MODE=on
+            fi
+          fi
+          printf '%s\\n' "$ACCEL_MODE" > "$EVIDENCE/android-acceleration.txt"
+          ls -l /dev/kvm > "$EVIDENCE/android-kvm.txt" 2>&1 || true
+
+          "$EMULATOR" \\
+            -avd appforge-ci-api35 \\
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \\
+            > "$EVIDENCE/android-emulator.log" 2>&1 &
+'''
+          if old not in text:
+              raise SystemExit('expected emulator launch block not found')
+          path.write_text(text.replace(old, new, 1))
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/flutter-node-qualification.yml
+          git commit -m "Use KVM acceleration when available for Android qualification"
+          git push origin HEAD:feat/flutter-android-qualification
