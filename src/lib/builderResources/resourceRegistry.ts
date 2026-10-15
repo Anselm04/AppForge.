@@ -76,7 +76,17 @@ function candidateScore(
   if (required.length > 0) {
     score += required.length * 10;
     reasons.push(...required.map((capability) => `capability:${capability}`));
+
+    if (
+      required.length === 1 &&
+      resource.identity.resourceId === `core.${required[0]}`
+    ) {
+      score += 25;
+      reasons.push("canonical-core-resource");
+    }
   }
+
+  score -= resource.capabilities.dependencies.length * 5;
 
   return { resource, score, reasons };
 }
