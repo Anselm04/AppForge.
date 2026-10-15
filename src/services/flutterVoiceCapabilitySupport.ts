@@ -174,6 +174,7 @@ export function applyFlutterVoiceCapabilitySupport(
                 clientImplemented: true,
                 shortCommandMode: true,
                 explicitPermissionRequired: true,
+                microphonePermissionRequired: true,
                 runtimeVerified: false,
               },
             }
