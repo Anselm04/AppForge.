@@ -155,9 +155,9 @@ describe("Builder Resource registry", () => {
       minimumMaturity: "verified",
     });
 
-    expect(results.map((candidate) => candidate.resource.identity.resourceId)).toEqual([
-      "core.auth.flutter-node",
-    ]);
+    expect(
+      results.map((candidate) => candidate.resource.identity.resourceId),
+    ).toEqual(["core.auth.flutter-node"]);
     expect(results[0]?.reasons).toContain("stack:exact");
     expect(results[0]?.reasons).toContain("platform:android");
   });
