@@ -3,6 +3,7 @@ import {
   builtinResourceCounts,
 } from "./builtinResourceCatalog.js";
 import { DESIGN_FAMILY_RESOURCES } from "./designFamilies.js";
+import { REFERENCE_ARCHITECTURE_RESOURCES } from "./referenceArchitectureResources.js";
 import { SUBSTANTIAL_CORE_RESOURCES } from "./substantialCoreResources.js";
 import { SUBSTANTIAL_DOMAIN_RESOURCES } from "./substantialDomainResources.js";
 import { BuilderResourceRegistry } from "./resourceRegistry.js";
@@ -12,6 +13,7 @@ export const ALL_BUILDER_RESOURCES = [
   ...SUBSTANTIAL_CORE_RESOURCES,
   ...SUBSTANTIAL_DOMAIN_RESOURCES,
   ...DESIGN_FAMILY_RESOURCES,
+  ...REFERENCE_ARCHITECTURE_RESOURCES,
 ];
 
 export function createBuilderResourceLibraryRegistry(): BuilderResourceRegistry {
@@ -32,6 +34,7 @@ export function builderResourceLibraryCounts(): {
     ...SUBSTANTIAL_CORE_RESOURCES,
     ...SUBSTANTIAL_DOMAIN_RESOURCES,
     ...DESIGN_FAMILY_RESOURCES,
+    ...REFERENCE_ARCHITECTURE_RESOURCES,
   ]) {
     byCategory[resource.identity.category] =
       (byCategory[resource.identity.category] ?? 0) + 1;
