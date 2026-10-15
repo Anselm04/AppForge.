@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { ProductContract } from "../../productContract.js";
 import { resolveIntakeContract } from "../../productContract.js";
 import type { ProductPlan } from "../../productPlan.js";
 import { createRequirementManifest } from "../../requirementManifest.js";
+import { createBuilderResourceLibraryRegistry } from "../builderResourceLibrary.js";
 import { compareBaselineAndResourceAwareBuild } from "../resourceBuildHarness.js";
 
 const GOLDEN_PRODUCT_PROMPT = [
@@ -92,6 +94,17 @@ describe("Golden Product Builder Resource Library validation", () => {
       productPlan: plan,
     });
 
+    const registry = createBuilderResourceLibraryRegistry();
+    const resourcesByVersion = new Map(
+      registry
+        .list()
+        .map((resource) => [
+          `${resource.identity.resourceId}@${resource.identity.version}`,
+          resource,
+        ]),
+    );
+    const measuredPaths = new Set<string>();
+
     let tick = 0;
     const result = await compareBaselineAndResourceAwareBuild({
       productContract: contract,
@@ -104,7 +117,15 @@ describe("Golden Product Builder Resource Library validation", () => {
             10,
           ),
       }),
-      measureReusableResourceBytes: () => 256,
+      measureReusableResourceBytes: (resourceVersionId) => {
+        const resource = resourcesByVersion.get(resourceVersionId);
+        if (!resource) return 0;
+        return resource.implementation.sourcePaths.reduce((total, path) => {
+          if (measuredPaths.has(path)) return total;
+          measuredPaths.add(path);
+          return total + Buffer.byteLength(readFileSync(path, "utf8"), "utf8");
+        }, 0);
+      },
       observations: {
         baseline: {
           repairCycles: 3,
@@ -150,9 +171,7 @@ describe("Golden Product Builder Resource Library validation", () => {
     expect(result.resourceAware.reusableCapabilities).toBe(
       result.baseline.requestedCapabilities,
     );
-    expect(result.resourceAware.reusedCodeBytes).toBe(
-      result.resourcePlan.selectedResourceIds.length * 256,
-    );
+    expect(result.resourceAware.reusedCodeBytes).toBeGreaterThan(0);
     expect(result.resourceAware.repairCycles).toBe(1);
     expect(result.resourceAware.testPassRatePercent).toBe(100);
     expect(result.resourceAware.defects).toBe(1);
