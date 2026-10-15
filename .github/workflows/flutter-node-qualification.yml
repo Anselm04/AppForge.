@@ -190,8 +190,21 @@ jobs:
 
           "$ADB" install -r "$APK" > "$EVIDENCE/android-apk-install.log" 2>&1
           "$ADB" shell monkey -p com.example.appforge_mobile 1 > "$EVIDENCE/android-launch.log" 2>&1
-          "$ADB" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt"
-          test -s "$EVIDENCE/android-app-pid.txt"
+          APP_STARTED=false
+          for attempt in $(seq 1 30); do
+            "$ADB" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt" 2>/dev/null || true
+            if [ -s "$EVIDENCE/android-app-pid.txt" ]; then
+              APP_STARTED=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$APP_STARTED" != true ]; then
+            "$ADB" shell dumpsys activity processes > "$EVIDENCE/android-activity-processes.txt" 2>&1 || true
+            "$ADB" logcat -d > "$EVIDENCE/android-logcat.txt" 2>&1 || true
+            echo "Android app process did not remain running after launch" >&2
+            exit 1
+          fi
 
           PORT=3217 HOST=0.0.0.0 npm start > "$EVIDENCE/android-backend-runtime.log" 2>&1 &
           BACKEND_PID=$!
