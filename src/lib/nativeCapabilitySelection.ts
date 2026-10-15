@@ -144,10 +144,10 @@ export function deriveRequestedProductCapabilities(
   }
 
   const backgroundMonitoring =
-    /\bbackground\b[^\n]{0,100}\b(?:monitor|monitoring|watch|job|task|sync|poll|tracking|availability)\b/.test(
+    /\bbackground\b[^\n]{0,100}\b(?:monitor(?:s|ing)?|watch|job|task|sync|poll|tracking|availability)\b/.test(
       text,
     ) ||
-    /\b(?:monitor|monitoring|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(
+    /\b(?:monitor(?:s|ing)?|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(
       text,
     );
   if (backgroundMonitoring) {
