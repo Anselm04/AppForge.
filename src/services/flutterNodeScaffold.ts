@@ -20,9 +20,7 @@ function mergeJsonObject(
 ): string {
   try {
     const base = record(JSON.parse(baseSource));
-    const current = generatedSource
-      ? record(JSON.parse(generatedSource))
-      : {};
+    const current = generatedSource ? record(JSON.parse(generatedSource)) : {};
     return JSON.stringify(
       {
         ...current,
