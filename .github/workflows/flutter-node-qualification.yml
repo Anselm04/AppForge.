@@ -135,7 +135,7 @@ jobs:
 
           "$EMULATOR" \
             -avd appforge-ci-api35 \
-            -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel off -gpu swiftshader_indirect \
             > "$EVIDENCE/android-emulator.log" 2>&1 &
           EMULATOR_PID=$!
           BACKEND_PID=''
