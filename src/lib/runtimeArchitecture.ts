@@ -6,6 +6,15 @@ export type RuntimeArchitecture = {
   version: 1;
   stack: string;
   runtime: StackAdapter["runtime"];
+  backend?: {
+    runtime: "node";
+    startupCommand: string;
+    health: { mode: "http"; livenessPath: string; readinessPath: string };
+    secretsOwner: "backend";
+    persistence: "external_service";
+    portEnvironmentVariable: "PORT";
+    backgroundWorkers: "conditional";
+  };
   startup: {
     command: string | null;
     entrypoints: string[];
@@ -92,9 +101,10 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
   const frameworkServer = adapter.previewMode === "next";
   const serverCapable = service || frameworkServer;
   const reactNode = adapter.id === "react-node";
+  const composite = adapter.id === "flutter-node";
 
   const persistence: RuntimeArchitecture["persistence"]["mode"] =
-    serverCapable || reactNode
+    serverCapable || reactNode || composite
       ? "external_service"
       : browser ||
           adapter.previewMode === "vite" ||
@@ -131,6 +141,23 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     version: 1,
     stack: adapter.id,
     runtime: adapter.runtime,
+    ...(composite
+      ? {
+          backend: {
+            runtime: "node" as const,
+            startupCommand: "npm run start",
+            health: {
+              mode: "http" as const,
+              livenessPath: "/health/live",
+              readinessPath: "/health/ready",
+            },
+            secretsOwner: "backend" as const,
+            persistence: "external_service" as const,
+            portEnvironmentVariable: "PORT" as const,
+            backgroundWorkers: "conditional" as const,
+          },
+        }
+      : {}),
     startup: {
       command: adapter.startCommand,
       entrypoints: adapter.entrypoints,
@@ -160,7 +187,7 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
     },
     environment: {
       files: adapter.environmentFiles,
-      secretsServerSide: serverCapable || reactNode,
+      secretsServerSide: serverCapable || reactNode || composite,
       failClosedWhenMissing: true,
     },
     port: {
@@ -182,21 +209,22 @@ export function getRuntimeArchitecture(stackId: string): RuntimeArchitecture {
       mode: persistence,
       isolateFromAppForge: true,
     },
-    backgroundWorkers: serverCapable ? "conditional" : "unsupported",
+    backgroundWorkers:
+      serverCapable || composite ? "conditional" : "unsupported",
     scheduledTasks:
-      adapter.artifactKind === "automation" || serverCapable
+      adapter.artifactKind === "automation" || serverCapable || composite
         ? "conditional"
         : "unsupported",
     streaming: webCapability,
     webSockets: webCapability,
     fileUploads:
-      serverCapable || reactNode
+      serverCapable || reactNode || composite
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
           : "unsupported",
     externalServices:
-      serverCapable || reactNode
+      serverCapable || reactNode || composite
         ? "conditional"
         : nativeLifecycle
           ? "conditional"
@@ -271,6 +299,52 @@ export function validateRuntimeImplementation(
     /\.(?:[cm]?[jt]sx?|py|dart|rs)$/i.test(path),
   );
   const combined = runtimeSources.map(([, source]) => source).join("\n");
+
+  if (runtime.backend) {
+    // Structural checks only: mobile source cannot satisfy backend contracts.
+    const backendSources = Object.fromEntries(
+      Object.entries(files).filter(
+        ([path]) =>
+          path.startsWith("server/") &&
+          /\.[cm]?[jt]s$/i.test(path) &&
+          !/\.(?:test|spec)\./i.test(path),
+      ),
+    );
+    const backend = Object.values(backendSources).join("\n");
+    if (!readsEnvironmentPort(backendSources, stackId, backend)) {
+      problems.push("backend runtime must read port from PORT");
+    }
+    for (const signal of ["SIGTERM", "SIGINT"]) {
+      if (
+        !backend.includes(signal) ||
+        !/process\.(?:on|once)\s*\(/.test(backend)
+      ) {
+        problems.push(
+          "missing backend graceful shutdown handler for " + signal,
+        );
+      }
+    }
+    if (!/\.close\s*\(/.test(backend))
+      problems.push("backend must close its server during shutdown");
+    const entry = files["server/src/server.ts"] ?? "";
+    const health = runtime.backend.health;
+    const sharedContractHealth =
+      /contract\.health\.live/.test(entry) &&
+      /contract\.health\.ready/.test(entry) &&
+      /loadContract\s*\(/.test(entry) &&
+      /readFileSync|readFile/.test(backend) &&
+      backend.includes("shared/contracts/product-api.json");
+    const literalHealth =
+      backend.includes(health.livenessPath) &&
+      backend.includes(health.readinessPath);
+    if (
+      (!literalHealth && !sharedContractHealth) ||
+      !/createServer\s*\(|\.(?:get|route)\s*\(/.test(entry) ||
+      !/\.(?:end|json|send)\s*\(/.test(entry)
+    ) {
+      problems.push("missing backend HTTP health handling");
+    }
+  }
 
   if (runtime.health.mode === "http") {
     if (

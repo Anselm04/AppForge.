@@ -1,3 +1,4 @@
+import { parse as parseYaml } from "yaml";
 import { isBuiltin } from "node:module";
 import { posix } from "node:path";
 import { getStackAdapter } from "./stackAdapters.js";
@@ -99,6 +100,14 @@ function requiredConfigFiles(stack: string): string[] {
     files.add("src-tauri/Cargo.toml");
     files.add("src-tauri/tauri.conf.json");
   }
+  if (adapter.id === "flutter-node") {
+    for (const path of [
+      "package.json",
+      "server/tsconfig.json",
+      "shared/contracts/product-api.json",
+    ])
+      files.add(path);
+  }
   return [...files];
 }
 
@@ -114,7 +123,7 @@ export function getGeneratedProjectStructurePolicy(
       : adapter.runtime === "browser"
         ? "/"
         : adapter.runtime === "mobile"
-          ? adapter.id === "flutter-firebase"
+          ? ["flutter-firebase", "flutter-node"].includes(adapter.id)
             ? "lib/"
             : "src/"
           : adapter.runtime === "extension"
@@ -124,38 +133,39 @@ export function getGeneratedProjectStructurePolicy(
               : "none";
 
   const apiBoundary =
-    adapter.runtime === "node"
-      ? ["react-node", "next-node"].includes(adapter.id)
-        ? "src/server/"
-        : "src/"
-      : adapter.runtime === "python"
-        ? "app/"
+    adapter.id === "flutter-node"
+      ? "server/src/"
+      : adapter.runtime === "node"
+        ? ["react-node", "next-node"].includes(adapter.id)
+          ? "src/server/"
+          : "src/"
+        : adapter.runtime === "python"
+          ? "app/"
+          : null;
+
+  const databaseBoundary =
+    adapter.id === "flutter-node"
+      ? "server/src/db/"
+      : ["saas_application", "api", "automation_tool", "data_product"].some(
+            (type) => adapter.productTypes.includes(type as never),
+          )
+        ? adapter.runtime === "python"
+          ? "app/db/"
+          : adapter.runtime === "node"
+            ? "src/db/"
+            : null
         : null;
 
-  const databaseBoundary = [
-    "saas_application",
-    "api",
-    "automation_tool",
-    "data_product",
-  ].some((type) => adapter.productTypes.includes(type as never))
-    ? adapter.runtime === "python"
-      ? "app/db/"
-      : adapter.runtime === "node"
-        ? "src/db/"
-        : null
-    : null;
-
-  const assetRoots =
-    adapter.id === "flutter-firebase"
+  const assetRoots = ["flutter-firebase", "flutter-node"].includes(adapter.id)
+    ? ["assets/"]
+    : adapter.id === "react-native-expo"
       ? ["assets/"]
-      : adapter.id === "react-native-expo"
-        ? ["assets/"]
-        : ["web", "static", "game", "data"].includes(adapter.artifactKind) ||
-            adapter.id === "next-node"
-          ? ["public/", "assets/", "src/assets/"]
-          : adapter.runtime === "extension"
-            ? ["icons/", "assets/"]
-            : ["assets/"];
+      : ["web", "static", "game", "data"].includes(adapter.artifactKind) ||
+          adapter.id === "next-node"
+        ? ["public/", "assets/", "src/assets/"]
+        : adapter.runtime === "extension"
+          ? ["icons/", "assets/"]
+          : ["assets/"];
 
   return {
     version: 1,
@@ -567,6 +577,52 @@ export function validateGeneratedProjectStructure(
   }
   if (!files["appforge.structure.json"]?.trim()) {
     problems.push("missing appforge.structure.json");
+  }
+
+  if (adapter.id === "flutter-node") {
+    try {
+      const manifest = parseYaml(files["pubspec.yaml"] ?? "") as {
+        dependencies?: { http?: unknown; flutter?: { sdk?: unknown } };
+        flutter?: { assets?: unknown };
+      } | null;
+      if (
+        !manifest?.dependencies?.http ||
+        manifest.dependencies.flutter?.sdk !== "flutter" ||
+        !Array.isArray(manifest.flutter?.assets) ||
+        !manifest.flutter.assets.includes("shared/contracts/product-api.json")
+      ) {
+        problems.push(
+          "Flutter manifest must declare http and the shared API contract asset",
+        );
+      }
+    } catch {
+      problems.push("invalid Flutter dependency manifest pubspec.yaml");
+    }
+    try {
+      const contract = JSON.parse(
+        files["shared/contracts/product-api.json"] ?? "null",
+      );
+      if (
+        contract?.version !== 1 ||
+        contract?.health?.live !== "/health/live" ||
+        contract?.health?.ready !== "/health/ready" ||
+        contract?.authentication?.transport !== "bearer" ||
+        contract?.authentication?.verification !== "backend" ||
+        contract?.authentication?.tokenStorage !== "platform-secure-storage" ||
+        !Array.isArray(contract?.error?.fields) ||
+        !["code", "message"].every((field) =>
+          contract.error.fields.includes(field),
+        )
+      ) {
+        problems.push(
+          "invalid shared API contract shared/contracts/product-api.json",
+        );
+      }
+    } catch {
+      problems.push(
+        "invalid shared API contract shared/contracts/product-api.json",
+      );
+    }
   }
 
   problems.push(...conflictingEntrypointProblems(files, adapter.id));

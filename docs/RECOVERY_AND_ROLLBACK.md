@@ -192,6 +192,23 @@ Recovery verification target:
 - logout with anonymous protected-route denial;
 - repeated relogin and fresh-browser-context recovery.
 
+## Flutter qualification evidence boundary
+
+The Flutter + Node qualification workflow is a recovery-critical evidence gate
+for mobile runtime maturity. It must pin an official Flutter release identity,
+verify that identity against the expected commit, preserve qualification logs and
+artifacts, and fail closed when dependency, build, runtime, or interaction proof
+cannot be produced.
+
+A green trusted-shell qualification is evidence only for the exact scaffold,
+runner, Flutter/Xcode/Android tooling, and interaction path exercised by that run.
+It does not by itself promote arbitrary generated mobile products, authentication,
+persistence, notifications, voice, background work, signing, deployment, store
+release, or Golden Product behavior to verified or production-certified status.
+If the qualification workflow regresses, keep the last known-good product/runtime
+classification and repair/re-run the evidence gate before promoting mobile
+maturity.
+
 ## Data-recovery verification checklist
 
 Before declaring recovery complete:

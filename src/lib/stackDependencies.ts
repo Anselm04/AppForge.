@@ -60,6 +60,32 @@ export const STACK_EXTERNAL_DEPENDENCIES: Record<
       purpose: "ios_target",
     },
   ],
+  "flutter-node": [
+    {
+      adapterId: "node-runtime",
+      versionConstraint: "any",
+      minimumCapabilityLevel: "runnable",
+      purpose: "backend_runtime",
+    },
+    {
+      adapterId: "flutter-sdk",
+      versionConstraint: "any",
+      minimumCapabilityLevel: "discovered",
+      purpose: "client_sdk",
+    },
+    {
+      adapterId: "android-sdk-gradle",
+      versionConstraint: "any",
+      minimumCapabilityLevel: "discovered",
+      purpose: "android_target",
+    },
+    {
+      adapterId: "xcode-apple-toolchain",
+      versionConstraint: "any",
+      minimumCapabilityLevel: "discovered",
+      purpose: "ios_target",
+    },
+  ],
   "flutter-firebase": [
     {
       adapterId: "flutter-sdk",

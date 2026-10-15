@@ -45,7 +45,9 @@ describe("technology stack adapters", () => {
       expect(adapter.previewMode.length).toBeGreaterThan(0);
       expect(adapter.runtime.length).toBeGreaterThan(0);
       expect(adapter.artifactKind.length).toBeGreaterThan(0);
-      expect(adapter.deploymentTargets.length).toBeGreaterThan(0);
+      if (adapter.id === "flutter-node")
+        expect(adapter.deploymentTargets).toEqual([]);
+      else expect(adapter.deploymentTargets.length).toBeGreaterThan(0);
     }
   });
 

@@ -462,3 +462,47 @@ describe("code generation guard", () => {
     );
   });
 });
+
+describe("Flutter and Node wrong-stack boundaries", () => {
+  it("permits backend TypeScript but rejects frontend React and misplaced TypeScript", () => {
+    const { contract, plan } = fixture();
+    contract.selectedTechnologyStack = "flutter-node";
+    const problems = validateGeneratedCodeArtifact({
+      contract,
+      plan,
+      files: {
+        "server/src/server.ts": "export const backend = true;",
+        "lib/main.dart": "void main() {}",
+        "lib/App.tsx": "export const App = () => <main/>;",
+        "shared/unowned.ts": "export const x = 1;",
+      },
+    });
+    expect(
+      problems.some((p) => p.includes("server/src/server.ts: React output")),
+    ).toBe(false);
+    expect(problems).toContain(
+      "lib/App.tsx: React output does not match Flutter stack",
+    );
+    expect(problems).toContain(
+      "shared/unowned.ts: React output does not match Flutter stack",
+    );
+  });
+});
+
+it("instructs composite coders about the backend without certifying the mobile client", () => {
+  const { contract, plan } = fixture();
+  contract.selectedTechnologyStack = "flutter-node";
+  const instruction = coderTaskInstruction({
+    contract,
+    plan,
+    task: plan.tasks[0],
+    researchDecisions: [],
+  });
+  expect(instruction).toContain(
+    "Backend HTTP health: /health/live and /health/ready",
+  );
+  expect(instruction).toContain("read PORT from server environment");
+  expect(instruction).toContain("handle SIGTERM and SIGINT");
+  expect(instruction).toContain("Backend owns secrets");
+  expect(instruction).toContain("do not prove mobile runtime");
+});

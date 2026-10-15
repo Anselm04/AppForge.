@@ -918,8 +918,11 @@ export function selectProductStack(
 
   if (productType === "browser_extension") return "chrome-extension";
 
-  if (productType === "mobile_app")
+  if (productType === "mobile_app") {
+    if (/\bflutter\b/.test(text) && /\bnode(?:\.js|js)?\b/.test(text))
+      return "flutter-node";
     return /\bflutter\b/.test(text) ? "flutter-firebase" : "react-native-expo";
+  }
 
   if (productType === "desktop_app")
     return /\btauri\b/.test(text) ? "tauri-rust" : "electron-react";
