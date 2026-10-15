@@ -59,7 +59,7 @@ function includesOrWildcard(
 function canonicalResourceIds(
   capability: BuilderResourceCapabilityId,
 ): Set<string> {
-  const dashed = capability.replaceAll("_", "-");
+  const dashed = capability.replace(/_/g, "-");
   return new Set([
     `core.${capability}`,
     `core.${dashed}`,
