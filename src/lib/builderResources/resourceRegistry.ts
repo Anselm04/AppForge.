@@ -34,6 +34,28 @@ function matchesExactOrWildcard(
   return supported.includes(requested) || supported.includes("*");
 }
 
+function canonicalResourceIds(
+  capability: BuilderResourceCapabilityId,
+): Set<string> {
+  const dashed = capability.replaceAll("_", "-");
+  return new Set([
+    `core.${capability}`,
+    `core.${dashed}`,
+    `capability.${capability}`,
+    `capability.${dashed}`,
+  ]);
+}
+
+function isCanonicalCapabilityResource(
+  resource: BuilderResourceManifest,
+  requiredCapabilities: readonly BuilderResourceCapabilityId[],
+): boolean {
+  if (requiredCapabilities.length !== 1) return false;
+  return canonicalResourceIds(requiredCapabilities[0]).has(
+    resource.identity.resourceId,
+  );
+}
+
 function candidateScore(
   resource: BuilderResourceManifest,
   query: BuilderResourceQuery,
@@ -77,12 +99,12 @@ function candidateScore(
     score += required.length * 10;
     reasons.push(...required.map((capability) => `capability:${capability}`));
 
-    if (
-      required.length === 1 &&
-      resource.identity.resourceId === `core.${required[0]}`
-    ) {
-      score += 25;
-      reasons.push("canonical-core-resource");
+    if (isCanonicalCapabilityResource(resource, required)) {
+      score += 1_000;
+      reasons.push("capability-role:canonical");
+    }
+    if (required.length === 1 && resource.identity.resourceType === "component") {
+      score -= 50;
     }
   }
 
