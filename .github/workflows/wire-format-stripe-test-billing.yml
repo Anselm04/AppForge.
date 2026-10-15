@@ -1,0 +1,50 @@
+name: Wire and format Stripe test billing support
+on:
+  push:
+    branches: [feat/generated-stripe-test-entitlements]
+    paths:
+      - ".github/workflows/wire-format-stripe-test-billing.yml"
+permissions:
+  contents: write
+jobs:
+  wire-format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/generated-stripe-test-entitlements
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Wire Stripe test billing into normal generation hook
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("src/lib/codeGeneration.ts")
+          source = path.read_text()
+          old_import = 'import { applyFlutterNativeCapabilitySupport } from "../services/flutterNativeCapabilitySupport.js";\n'
+          new_import = old_import + 'import { applyFlutterStripeTestBillingSupport } from "../services/flutterStripeTestBillingSupport.js";\n'
+          if 'flutterStripeTestBillingSupport.js' not in source:
+              if old_import not in source:
+                  raise SystemExit("Expected native support import not found")
+              source = source.replace(old_import, new_import, 1)
+          old_call = '  files = applyFlutterNativeCapabilitySupport(files, input.contract);\n\n  return ensureGeneratedProjectStructure('
+          new_call = '  files = applyFlutterNativeCapabilitySupport(files, input.contract);\n  files = applyFlutterStripeTestBillingSupport(files, input.contract);\n\n  return ensureGeneratedProjectStructure('
+          if 'applyFlutterStripeTestBillingSupport(files, input.contract)' not in source:
+              if old_call not in source:
+                  raise SystemExit("Expected native support call not found")
+              source = source.replace(old_call, new_call, 1)
+          path.write_text(source)
+      - run: npx prettier --write src/services/flutterStripeTestBillingSupport.ts src/lib/__tests__/flutterStripeTestBillingSupport.test.ts src/lib/codeGeneration.ts
+      - name: Commit wiring and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/flutterStripeTestBillingSupport.ts src/lib/__tests__/flutterStripeTestBillingSupport.test.ts src/lib/codeGeneration.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Wire Stripe test billing into generation"
+          git push origin HEAD:feat/generated-stripe-test-entitlements
