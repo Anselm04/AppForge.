@@ -143,13 +143,12 @@ export function deriveRequestedProductCapabilities(
     add(selected, "live_activities");
   }
 
+  const backgroundBeforeActivity =
+    /\bbackground\b[^\n]{0,100}\b(?:monitor(?:s|ing)?|watch|job|task|sync|poll|tracking|availability)\b/;
+  const activityBeforeBackground =
+    /\b(?:monitor(?:s|ing)?|watch|poll)\b[^\n]{0,100}\bbackground\b/;
   const backgroundMonitoring =
-    /\bbackground\b[^\n]{0,100}\b(?:monitor|monitoring|watch|job|task|sync|poll|tracking|availability)\b/.test(
-      text,
-    ) ||
-    /\b(?:monitor|monitoring|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(
-      text,
-    );
+    backgroundBeforeActivity.test(text) || activityBeforeBackground.test(text);
   if (backgroundMonitoring) {
     add(selected, "background_jobs", "scheduling");
   }
