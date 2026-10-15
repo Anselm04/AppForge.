@@ -33,20 +33,23 @@ export function deriveRequestedProductCapabilities(
   contract: ProductContract,
 ): ProductCapabilityId[] {
   const text = contractText(contract);
-  const selected = new Set<ProductCapabilityId>();
-
   const mobileProduct =
     contract.productType === "mobile_app" ||
     contract.productFamilies.includes("mobile") ||
     /\b(?:iphone|ipad|ios|android|mobile app|mobile application)\b/.test(text);
 
+  // These adapters currently describe iOS/Android native execution. Do not
+  // infer device permissions merely because a web/desktop product mentions a
+  // normal concept such as a contact form, calendar page, photo, or sharing.
+  if (!mobileProduct) return [];
+
+  const selected = new Set<ProductCapabilityId>();
+
   const pushRequested =
     /\bpush[- ]?notifications?\b/.test(text) ||
     /\bnotification\b[^\n]{0,60}\b(?:phone|device|mobile)\b/.test(text);
   if (pushRequested) {
-    add(selected, "push_notifications");
-    // Actionable mobile push must have a deterministic in-app destination.
-    if (mobileProduct) add(selected, "deep_links");
+    add(selected, "push_notifications", "deep_links");
   }
 
   const voiceInteraction =
@@ -75,7 +78,7 @@ export function deriveRequestedProductCapabilities(
   if (/\bcamera\b|\btake (?:a )?(?:photo|picture)\b/.test(text)) {
     add(selected, "camera");
   }
-  if (/\b(?:photo library|photo picker|photos?|images?)\b/.test(text)) {
+  if (/\b(?:photo library|photo picker|photos? access|images? access)\b/.test(text)) {
     add(selected, "photos");
   }
   if (/\bmicrophone\b|\brecord (?:audio|voice)\b/.test(text)) {
@@ -101,16 +104,28 @@ export function deriveRequestedProductCapabilities(
   if (/\b(?:deep links?|deep[- ]link|universal links?|app links?)\b/.test(text)) {
     add(selected, "deep_links");
   }
-  if (/\b(?:file picker|document picker|file access|select (?:a )?file)\b/.test(text)) {
+  if (
+    /\b(?:file picker|document picker|file access|select (?:a )?file)\b/.test(
+      text,
+    )
+  ) {
     add(selected, "file_access");
   }
-  if (/\b(?:share sheet|system share|sharing extension|share (?:a )?(?:file|link|image))\b/.test(text)) {
+  if (
+    /\b(?:share sheet|system share|sharing extension|share (?:a )?(?:file|link|image))\b/.test(
+      text,
+    )
+  ) {
     add(selected, "sharing");
   }
-  if (/\b(?:contacts?|address book)\b/.test(text)) {
+  if (
+    /\b(?:contacts? access|address book|import contacts?|sync contacts?)\b/.test(
+      text,
+    )
+  ) {
     add(selected, "contacts");
   }
-  if (/\b(?:calendar|eventkit)\b/.test(text)) {
+  if (/\b(?:calendar access|calendar events?|eventkit)\b/.test(text)) {
     add(selected, "calendar");
   }
   if (/\b(?:home[- ]screen widget|lock[- ]screen widget|widgets?)\b/.test(text)) {
