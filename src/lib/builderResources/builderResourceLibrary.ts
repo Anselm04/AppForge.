@@ -7,6 +7,7 @@ import { COMPONENT_RESOURCES } from "./componentResources.js";
 import { DESIGN_FAMILY_RESOURCES } from "./designFamilies.js";
 import { REFERENCE_ARCHITECTURE_RESOURCES } from "./referenceArchitectureResources.js";
 import { BUILDER_RESOURCE_ATOMS } from "./resourceAtoms.js";
+import { RESEARCH_EVIDENCE_RESOURCE } from "./researchResourceManifest.js";
 import { SUBSTANTIAL_CORE_RESOURCES } from "./substantialCoreResources.js";
 import { SUBSTANTIAL_DOMAIN_RESOURCES } from "./substantialDomainResources.js";
 import { BuilderResourceRegistry } from "./resourceRegistry.js";
@@ -16,6 +17,7 @@ export const ALL_BUILDER_RESOURCES = [
   ...BUILDER_RESOURCE_ATOMS,
   ...COMPONENT_RESOURCES,
   BOOKING_RESOURCE,
+  RESEARCH_EVIDENCE_RESOURCE,
   ...SUBSTANTIAL_CORE_RESOURCES,
   ...SUBSTANTIAL_DOMAIN_RESOURCES,
   ...DESIGN_FAMILY_RESOURCES,
@@ -40,6 +42,7 @@ export function builderResourceLibraryCounts(): {
     ...BUILDER_RESOURCE_ATOMS,
     ...COMPONENT_RESOURCES,
     BOOKING_RESOURCE,
+    RESEARCH_EVIDENCE_RESOURCE,
     ...SUBSTANTIAL_CORE_RESOURCES,
     ...SUBSTANTIAL_DOMAIN_RESOURCES,
     ...DESIGN_FAMILY_RESOURCES,
