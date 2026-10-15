@@ -133,9 +133,19 @@ jobs:
           "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
           grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
 
+          ACCEL_MODE=off
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+              ACCEL_MODE=on
+            fi
+          fi
+          printf '%s\n' "$ACCEL_MODE" > "$EVIDENCE/android-acceleration.txt"
+          ls -l /dev/kvm > "$EVIDENCE/android-kvm.txt" 2>&1 || true
+
           "$EMULATOR" \
             -avd appforge-ci-api35 \
-            -no-window -no-audio -no-boot-anim -no-snapshot -accel off -gpu swiftshader_indirect \
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \
             > "$EVIDENCE/android-emulator.log" 2>&1 &
           EMULATOR_PID=$!
           BACKEND_PID=''
