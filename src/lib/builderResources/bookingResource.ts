@@ -38,7 +38,10 @@ export const bookingResourceSchema = z.object({
     modificationSupported: z.boolean(),
     idempotencyRequired: z.boolean(),
   }),
-  authorization: z.object({ ownerScoped: z.boolean(), providerActionServerSide: z.boolean() }),
+  authorization: z.object({
+    ownerScoped: z.boolean(),
+    providerActionServerSide: z.boolean(),
+  }),
   provider: z.object({
     kind: z.enum(["authorized-api", "partner", "sandbox", "internal"]),
     scrapingAllowed: z.literal(false),
@@ -122,7 +125,7 @@ export const BOOKING_RESOURCE: BuilderResourceManifest =
       minimumRuntimeToolVersions: {},
     },
     capabilities: {
-      capabilitiesProvided: ["database", "api"],
+      capabilitiesProvided: ["booking", "database", "api"],
       optionalCapabilities: ["notifications", "background_jobs", "billing"],
       dependencies: ["core.database", "core.api"],
       integrationPoints: ["booking", "availability", "authorized-provider"],
@@ -136,7 +139,11 @@ export const BOOKING_RESOURCE: BuilderResourceManifest =
       dataContract: {
         entities: ["BookingPreference", "Availability", "Booking"],
       },
-      eventsEmitted: ["booking.requested", "booking.confirmed", "booking.cancelled"],
+      eventsEmitted: [
+        "booking.requested",
+        "booking.confirmed",
+        "booking.cancelled",
+      ],
       eventsConsumed: ["availability.updated"],
       requiredEnvironmentVariables: [],
       secretRequirements: [],
