@@ -1,8 +1,8 @@
 import { isAtLeast, stateRank } from "../adapterSdk.js";
-import type { BuildCapabilityId } from "../buildCapabilities.js";
 import type { ProductContract } from "../productContract.js";
 import type { ProductPlan } from "../productPlan.js";
 import type { RequirementManifest } from "../requirementManifest.js";
+import type { BuilderResourceCapabilityId } from "./resourceCapabilities.js";
 import {
   resourceProvidesCapabilities,
   type BuilderResourceManifest,
@@ -18,7 +18,7 @@ export type BuilderResourceSelectionInput = {
   productPlan: ProductPlan;
   requirementManifest: RequirementManifest;
   targetPlatform?: string;
-  requiredCapabilities?: BuildCapabilityId[];
+  requiredCapabilities?: BuilderResourceCapabilityId[];
   minimumMaturity?: BuilderResourceManifest["governance"]["maturityState"];
   maximumVerificationAgeDays?: number;
   requiredAllowedUse?: string;
@@ -48,7 +48,10 @@ export type BuilderResourceSelection = {
   rejected: RejectedBuilderResource[];
 };
 
-function includesOrWildcard(values: readonly string[], requested?: string): boolean {
+function includesOrWildcard(
+  values: readonly string[],
+  requested?: string,
+): boolean {
   if (!requested) return true;
   return values.includes(requested) || values.includes("*");
 }
@@ -56,7 +59,9 @@ function includesOrWildcard(values: readonly string[], requested?: string): bool
 function daysBetween(olderIso: string, newerIso: string): number {
   const older = Date.parse(olderIso);
   const newer = Date.parse(newerIso);
-  if (!Number.isFinite(older) || !Number.isFinite(newer)) return Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(older) || !Number.isFinite(newer)) {
+    return Number.POSITIVE_INFINITY;
+  }
   return Math.max(0, (newer - older) / 86_400_000);
 }
 
@@ -100,9 +105,11 @@ function applicableRequirementIds(
 
   if (matched.length > 0) return matched;
 
-  const secondary = new Set(contract.secondaryCapabilities.map((value) => value.toLowerCase()));
-  const integrationMatch = resource.capabilities.integrationPoints.some((value) =>
-    secondary.has(value.toLowerCase()),
+  const secondary = new Set(
+    contract.secondaryCapabilities.map((value) => value.toLowerCase()),
+  );
+  const integrationMatch = resource.capabilities.integrationPoints.some(
+    (value) => secondary.has(value.toLowerCase()),
   );
   if (integrationMatch) {
     return manifest.requirements
@@ -150,19 +157,15 @@ function rejectReasons(
   ) {
     reasons.push("platform-incompatible");
   }
-  if (
-    !resourceProvidesCapabilities(resource, input.requiredCapabilities ?? [])
-  ) {
+  if (!resourceProvidesCapabilities(resource, input.requiredCapabilities ?? [])) {
     reasons.push("capability-mismatch");
   }
-
   if (
     input.requiredAllowedUse &&
     !resource.governance.allowedUse.includes(input.requiredAllowedUse)
   ) {
     reasons.push(`allowed-use-missing:${input.requiredAllowedUse}`);
   }
-
   if (input.maximumVerificationAgeDays !== undefined) {
     const lastVerifiedAt = resource.evidence.lastVerifiedAt;
     if (
@@ -172,16 +175,19 @@ function rejectReasons(
       reasons.push("verification-stale");
     }
   }
-
   if (
     resource.governance.securityNotes.some((note) =>
-      /\b(?:critical|unsafe|blocked|known vulnerability|compromised)\b/i.test(note),
+      /\b(?:critical|unsafe|blocked|known vulnerability|compromised)\b/i.test(
+        note,
+      ),
     )
   ) {
     reasons.push("security-blocked");
   }
 
-  const knownIds = new Set(input.registry.list().map((candidate) => candidate.identity.resourceId));
+  const knownIds = new Set(
+    input.registry.list().map((candidate) => candidate.identity.resourceId),
+  );
   const missingDependencies = resource.capabilities.dependencies.filter(
     (dependency) => !knownIds.has(dependency),
   );
@@ -230,20 +236,26 @@ export function selectBuilderResources(
   input: BuilderResourceSelectionInput,
 ): BuilderResourceSelection {
   if (input.productPlan.productType !== input.productContract.productType) {
-    throw new Error("Builder Resource selection requires ProductPlan/ProductContract product-type agreement");
+    throw new Error(
+      "Builder Resource selection requires ProductPlan/ProductContract product-type agreement",
+    );
   }
   if (
     input.productPlan.selectedTechnologyStack !==
     input.productContract.selectedTechnologyStack
   ) {
-    throw new Error("Builder Resource selection requires ProductPlan/ProductContract stack agreement");
+    throw new Error(
+      "Builder Resource selection requires ProductPlan/ProductContract stack agreement",
+    );
   }
   if (
     input.requirementManifest.productType !== input.productContract.productType ||
     input.requirementManifest.selectedTechnologyStack !==
       input.productContract.selectedTechnologyStack
   ) {
-    throw new Error("Builder Resource selection requires requirement-manifest contract agreement");
+    throw new Error(
+      "Builder Resource selection requires requirement-manifest contract agreement",
+    );
   }
 
   const now = input.now ?? new Date().toISOString();
