@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { deriveRequestedProductCapabilities } from "./nativeCapabilitySelection.js";
+import { PRODUCT_CAPABILITY_IDS } from "./productCapabilityAdapters.js";
 import type { ProductContract } from "./productContract.js";
 import {
   databasePersistencePolicy,
@@ -74,6 +76,9 @@ export const productPlanSchema = z.object({
   overview: nonEmptyString,
   productType: nonEmptyString,
   selectedTechnologyStack: nonEmptyString,
+  requiredProductCapabilityIds: z
+    .array(z.enum(PRODUCT_CAPABILITY_IDS))
+    .optional(),
   architecture: z.object({
     summary: nonEmptyString,
     workflows: stringArray.min(1),
@@ -183,6 +188,11 @@ export function validateProductPlan(
   if (plan.selectedTechnologyStack !== contract.selectedTechnologyStack) {
     throw new Error("Planner stack does not match canonical product contract");
   }
+
+  plan = {
+    ...plan,
+    requiredProductCapabilityIds: deriveRequestedProductCapabilities(contract),
+  };
 
   if (
     contract.productFamilies.includes("frontend") &&
