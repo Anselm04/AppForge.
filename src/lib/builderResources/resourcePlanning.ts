@@ -52,6 +52,9 @@ const NATIVE_CAPABILITY_MAP: Record<string, BuilderResourceCapabilityId[]> = {
   calendar: ["mobile"],
 };
 
+const BOOKING_INTENT =
+  /\b(?:booking|reservation|reserve|appointment|availability|table availability|class booking|accommodation|vehicle rental|event tickets?)\b/i;
+
 export type BuilderResourcePlan = {
   requiredCapabilities: BuilderResourceCapabilityId[];
   selectedResourceIds: string[];
@@ -93,6 +96,16 @@ export function deriveRequiredBuilderCapabilities(input: {
       }
     }
   }
+
+  const bookingEvidence = [
+    input.productContract.originalPrompt,
+    input.productContract.canonicalInterpretation,
+    ...input.productContract.coreWorkflows,
+    ...input.productContract.functionalRequirements.map(
+      (requirement) => requirement.text,
+    ),
+  ].join("\n");
+  if (BOOKING_INTENT.test(bookingEvidence)) required.add("booking");
 
   for (const secondary of input.productContract.secondaryCapabilities) {
     for (const capability of SECONDARY_CAPABILITY_MAP[secondary] ?? []) {
