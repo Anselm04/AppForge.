@@ -78,7 +78,11 @@ export function deriveRequestedProductCapabilities(
   if (/\bcamera\b|\btake (?:a )?(?:photo|picture)\b/.test(text)) {
     add(selected, "camera");
   }
-  if (/\b(?:photo library|photo picker|photos? access|images? access)\b/.test(text)) {
+  if (
+    /\b(?:photo library|photo picker|photos? access|images? access)\b/.test(
+      text,
+    )
+  ) {
     add(selected, "photos");
   }
   if (/\bmicrophone\b|\brecord (?:audio|voice)\b/.test(text)) {
@@ -101,7 +105,9 @@ export function deriveRequestedProductCapabilities(
     add(selected, "biometrics");
   }
 
-  if (/\b(?:deep links?|deep[- ]link|universal links?|app links?)\b/.test(text)) {
+  if (
+    /\b(?:deep links?|deep[- ]link|universal links?|app links?)\b/.test(text)
+  ) {
     add(selected, "deep_links");
   }
   if (
@@ -128,7 +134,9 @@ export function deriveRequestedProductCapabilities(
   if (/\b(?:calendar access|calendar events?|eventkit)\b/.test(text)) {
     add(selected, "calendar");
   }
-  if (/\b(?:home[- ]screen widget|lock[- ]screen widget|widgets?)\b/.test(text)) {
+  if (
+    /\b(?:home[- ]screen widget|lock[- ]screen widget|widgets?)\b/.test(text)
+  ) {
     add(selected, "widgets");
   }
   if (/\blive activit(?:y|ies)\b|\bdynamic island\b/.test(text)) {
