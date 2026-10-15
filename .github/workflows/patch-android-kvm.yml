@@ -20,12 +20,8 @@ jobs:
           from pathlib import Path
           path = Path('.github/workflows/flutter-node-qualification.yml')
           text = path.read_text()
-          old = '''          "$EMULATOR" \\
-            -avd appforge-ci-api35 \\
-            -no-window -no-audio -no-boot-anim -no-snapshot -accel off -gpu swiftshader_indirect \\
-            > "$EVIDENCE/android-emulator.log" 2>&1 &
-          '''
-          new = '''          ACCEL_MODE=off
+          marker = '          "$EMULATOR" \\\n            -avd appforge-ci-api35 \\\n'
+          probe = '''          ACCEL_MODE=off
           if [ -e /dev/kvm ]; then
             sudo chmod a+rw /dev/kvm
             if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
@@ -35,14 +31,15 @@ jobs:
           printf '%s\\n' "$ACCEL_MODE" > "$EVIDENCE/android-acceleration.txt"
           ls -l /dev/kvm > "$EVIDENCE/android-kvm.txt" 2>&1 || true
 
-          "$EMULATOR" \\
-            -avd appforge-ci-api35 \\
-            -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \\
-            > "$EVIDENCE/android-emulator.log" 2>&1 &
-          '''
-          if old not in text:
-              raise SystemExit('expected emulator launch block not found')
-          path.write_text(text.replace(old, new, 1))
+'''
+          if marker not in text:
+              raise SystemExit('emulator launch marker not found')
+          if 'ACCEL_MODE=off' not in text:
+              text = text.replace(marker, probe + marker, 1)
+          if '-accel off -gpu swiftshader_indirect' not in text:
+              raise SystemExit('expected accel flag not found')
+          text = text.replace('-accel off -gpu swiftshader_indirect', '-accel "$ACCEL_MODE" -gpu swiftshader_indirect', 1)
+          path.write_text(text)
           PY
       - name: Commit patch
         shell: bash
