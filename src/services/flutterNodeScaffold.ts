@@ -14,6 +14,62 @@ function hasCapability(
   return contract?.secondaryCapabilities.includes(capability) ?? false;
 }
 
+function mergeJsonObject(
+  baseSource: string,
+  generatedSource: string | undefined,
+): string {
+  try {
+    const base = record(JSON.parse(baseSource));
+    const current = generatedSource
+      ? record(JSON.parse(generatedSource))
+      : {};
+    return JSON.stringify(
+      {
+        ...current,
+        ...base,
+        scripts: {
+          ...record(current.scripts),
+          ...record(base.scripts),
+        },
+        dependencies: {
+          ...record(current.dependencies),
+          ...record(base.dependencies),
+        },
+        devDependencies: {
+          ...record(current.devDependencies),
+          ...record(base.devDependencies),
+        },
+      },
+      null,
+      2,
+    );
+  } catch {
+    return generatedSource ?? baseSource;
+  }
+}
+
+function mergeEnvironmentExample(
+  current: string | undefined,
+  required: string,
+): string {
+  const lines = (current ?? "")
+    .split("\n")
+    .filter((line) => line.trim().length > 0);
+  const existingKeys = new Set(
+    lines
+      .map((line) => /^([A-Z0-9_]+)=/.exec(line)?.[1])
+      .filter((key): key is string => Boolean(key)),
+  );
+  for (const line of required.split("\n")) {
+    const key = /^([A-Z0-9_]+)=/.exec(line)?.[1];
+    if (key && !existingKeys.has(key)) {
+      lines.push(line);
+      existingKeys.add(key);
+    }
+  }
+  return lines.length ? `${lines.join("\n")}\n` : required;
+}
+
 /** Preserve product configuration while connecting mandatory infrastructure. Invalid YAML is left for validation. */
 export function mergeFlutterNodeManifest(
   baseSource: string,
@@ -32,12 +88,12 @@ export function mergeFlutterNodeManifest(
         ...record(current.environment),
       },
       dependencies: {
-        ...record(base.dependencies),
         ...record(current.dependencies),
+        ...record(base.dependencies),
       },
       dev_dependencies: {
-        ...record(base.dev_dependencies),
         ...record(current.dev_dependencies),
+        ...record(base.dev_dependencies),
       },
       flutter: {
         ...baseFlutter,
@@ -311,4 +367,82 @@ void main() => runApp(const MaterialApp(home: Scaffold(body: SizedBox.shrink()))
     ...(authentication ? authInfrastructureFiles() : {}),
     ...(ownerScopedPersistence ? ownerScopedPersistenceFiles() : {}),
   };
+}
+
+/**
+ * Augment a generated Flutter + Node product with mandatory contract-driven
+ * infrastructure while preserving substantive customer code. This is safe to
+ * run before or after the structural scaffold merge.
+ */
+export function applyFlutterNodeContractSupport(
+  generatedFiles: Record<string, string>,
+  productContract: ProductContract,
+): Record<string, string> {
+  if (productContract.selectedTechnologyStack !== "flutter-node") {
+    return { ...generatedFiles };
+  }
+  if (
+    !hasCapability(productContract, "authentication") &&
+    !hasCapability(productContract, "database")
+  ) {
+    return { ...generatedFiles };
+  }
+
+  const support = flutterNodeScaffold(productContract);
+  const files = { ...generatedFiles };
+
+  files["package.json"] = mergeJsonObject(
+    support["package.json"],
+    files["package.json"],
+  );
+  files["pubspec.yaml"] = files["pubspec.yaml"]
+    ? mergeFlutterNodeManifest(support["pubspec.yaml"], files["pubspec.yaml"])
+    : support["pubspec.yaml"];
+
+  try {
+    const currentApi = files["shared/contracts/product-api.json"]
+      ? record(JSON.parse(files["shared/contracts/product-api.json"]))
+      : {};
+    const supportApi = record(
+      JSON.parse(support["shared/contracts/product-api.json"]),
+    );
+    files["shared/contracts/product-api.json"] = JSON.stringify(
+      {
+        ...currentApi,
+        ...supportApi,
+        health: {
+          ...record(currentApi.health),
+          ...record(supportApi.health),
+        },
+        authentication: supportApi.authentication,
+        database: supportApi.database,
+      },
+      null,
+      2,
+    );
+  } catch {
+    files["shared/contracts/product-api.json"] =
+      support["shared/contracts/product-api.json"];
+  }
+
+  files[".env.example"] = mergeEnvironmentExample(
+    files[".env.example"],
+    support[".env.example"],
+  );
+  files["server/.env.example"] = mergeEnvironmentExample(
+    files["server/.env.example"],
+    support["server/.env.example"],
+  );
+
+  for (const path of [
+    "lib/auth/session.dart",
+    "server/src/auth.ts",
+    "database/migrations/001_user_data.sql",
+  ]) {
+    if (support[path] && !files[path]?.trim()) {
+      files[path] = support[path];
+    }
+  }
+
+  return files;
 }
