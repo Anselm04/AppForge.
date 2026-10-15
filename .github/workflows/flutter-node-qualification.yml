@@ -1,0 +1,121 @@
+name: Flutter Node scaffold qualification
+on:
+  push:
+    branches: [feat/flutter-node-contract]
+    paths:
+      [
+        "src/lib/**",
+        "src/services/stackScaffolds.ts",
+        "src/services/flutterNodeScaffold.ts",
+        "scripts/fixtures/flutter-node-qualification/**",
+        ".github/workflows/flutter-node-qualification.yml",
+        "package-lock.json",
+      ]
+  pull_request:
+    paths:
+      [
+        "src/lib/**",
+        "src/services/stackScaffolds.ts",
+        "src/services/flutterNodeScaffold.ts",
+        "scripts/fixtures/flutter-node-qualification/**",
+        ".github/workflows/flutter-node-qualification.yml",
+        "package-lock.json",
+      ]
+permissions:
+  contents: read
+concurrency:
+  group: flutter-node-qualification-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  FLUTTER_COMMIT: abaf9c523780a608bd46686fd5e53740a07077f8
+jobs:
+  fixture:
+    name: Trusted shell fixture (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      FIXTURE: ${{ runner.temp }}/flutter-node-qualification
+      EVIDENCE: ${{ runner.temp }}/flutter-node-evidence
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install pinned official Flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" init
+          git -C "$RUNNER_TEMP/flutter" remote add origin https://github.com/flutter/flutter.git
+          git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "$FLUTTER_COMMIT"
+          git -C "$RUNNER_TEMP/flutter" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
+      - name: Generate native platform wrapper and preserve actual scaffold
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --platforms=ios,android,web --project-name appforge_mobile --no-pub "$FIXTURE"
+          node --import tsx scripts/fixtures/flutter-node-qualification/materialize.ts "$FIXTURE"
+          cp "$FIXTURE/QUALIFICATION_SCOPE.txt" "$FIXTURE/scaffold-hashes.json" "$EVIDENCE/"
+          git rev-parse HEAD > "$EVIDENCE/source-commit.txt"
+      - name: Build backend and run widget shell test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FIXTURE"
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build 2>&1 | tee "$EVIDENCE/backend-build.log"
+          flutter pub get 2>&1 | tee "$EVIDENCE/flutter-pub.log"
+          flutter test test/qualification_test.dart 2>&1 | tee "$EVIDENCE/widget-test.log"
+      - name: Compile web target on Ubuntu
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FIXTURE"
+          flutter build web --debug 2>&1 | tee "$EVIDENCE/web-build.log"
+          printf 'Web compilation and widget shell only; no Android or web browser behavior claimed.\n' > "$EVIDENCE/linux-scope.txt"
+          if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/licenses" ]; then
+            ls "$ANDROID_HOME/licenses" > "$EVIDENCE/preinstalled-android-license-files.txt"
+          fi
+          # No sdkmanager --licenses, Android image install, or agreement acceptance.
+      - name: Compile iOS simulator and test actual backend interaction
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          xcodebuild -version > "$EVIDENCE/xcode-version.txt"
+          xcrun simctl list devices available --json > "$EVIDENCE/simulators.json"
+          DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
+          xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
+          xcrun simctl bootstatus "$DEVICE" -b
+          cd "$FIXTURE"
+          PORT=3217 HOST=127.0.0.1 npm start > "$EVIDENCE/backend-runtime.log" 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/backend-health.json" && break; sleep 1; done
+          curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
+          flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
+          flutter test integration_test/qualification_test.dart -d "$DEVICE" --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-interaction.log"
+          xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: flutter-node-shell-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/flutter-node-evidence
+          retention-days: 7
+          if-no-files-found: warn
