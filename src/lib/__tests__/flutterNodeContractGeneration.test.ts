@@ -76,6 +76,7 @@ describe("Flutter Node contract-driven generation support", () => {
       ],
       requirementToTasks: { "REQ-001": ["T1"] },
       taskToFiles: { T1: ["lib/main.dart", "server/src/server.ts"] },
+      taskToAgent: { T1: "backend" },
       taskToValidation: { T1: ["auth persistence validation"] },
       researchDecisionIds: [],
     };
