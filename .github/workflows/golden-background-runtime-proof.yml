@@ -1,0 +1,98 @@
+name: Golden Product background runtime proof
+on:
+  push:
+    branches: [test/golden-product-combined-support]
+    paths:
+      - ".github/workflows/golden-background-runtime-proof.yml"
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+    env:
+      REDIS_URL: redis://127.0.0.1:6379
+      BACKGROUND_QUEUE_NAME: golden-runtime-proof
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: test/golden-product-combined-support
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Materialize generated Golden Product support
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/golden-generated"
+          mkdir -p "$DEST"
+          node --import tsx scripts/fixtures/golden-product-support/materialize.ts "$DEST"
+          cd "$DEST"
+          npm install --ignore-scripts --no-audit --no-fund
+          echo "DEST=$DEST" >> "$GITHUB_ENV"
+      - name: Exercise durable queue, idempotency, worker and recurring scheduler
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$DEST/background-runtime-proof.ts" <<'EOF'
+          import {
+            closeBackgroundRuntime,
+            createBackgroundQueue,
+            createBackgroundWorker,
+            enqueueBackgroundTask,
+            upsertRecurringTask,
+          } from './server/src/background/queue.ts';
+
+          const queue = createBackgroundQueue();
+          let resolveProcessed: (() => void) | undefined;
+          const processed = new Promise<void>((resolve) => { resolveProcessed = resolve; });
+          const worker = createBackgroundWorker(async (task, context) => {
+            if (task.kind !== 'availability-check') throw new Error('unexpected task kind');
+            if (!context.executionId) throw new Error('missing execution id');
+            resolveProcessed?.();
+          });
+
+          try {
+            const task = {
+              kind: 'availability-check',
+              payload: { restaurantId: 'sandbox-restaurant' },
+              idempotencyKey: 'watch-user-1-restaurant-1',
+            };
+            const first = await enqueueBackgroundTask(queue, task);
+            const duplicate = await enqueueBackgroundTask(queue, task);
+            if (first.id !== duplicate.id) throw new Error('idempotent enqueue produced different job ids');
+
+            await Promise.race([
+              processed,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('worker did not process job')), 15000)),
+            ]);
+
+            const scheduler = await upsertRecurringTask(queue, {
+              schedulerId: 'availability-watch-1',
+              name: 'availability-check',
+              payload: { restaurantId: 'sandbox-restaurant' },
+              everyMs: 60000,
+            });
+            if (!scheduler) throw new Error('scheduler was not created');
+
+            const schedulers = await queue.getJobSchedulers(0, 20, true);
+            if (!schedulers.some((entry) => entry.key === 'availability-watch-1')) {
+              throw new Error('recurring scheduler not present in Redis');
+            }
+          } finally {
+            await closeBackgroundRuntime(queue, worker);
+          }
+          EOF
+          node --import tsx "$DEST/background-runtime-proof.ts"
