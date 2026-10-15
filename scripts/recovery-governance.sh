@@ -27,6 +27,13 @@ printf '%s\n' "$changed"
 # Physical-evidence workflows are also fail-closed recovery controls: requesting
 # an email/SMS challenge is not equivalent to completing the real auth or MFA
 # lifecycle, so only successful full/fresh evidence may satisfy certification.
+# Native mobile qualification follows the same rule. An Android fixture may only
+# claim the SDK/build/emulator/install/runtime/interaction evidence actually
+# produced by its run. Missing pre-accepted SDK license state, emulator support,
+# APK execution, or backend interaction must remain red; workflows must not
+# auto-accept external agreements to manufacture evidence. Debug emulator proof
+# is not release signing, AAB/Play deployment, push, deep-link, or arbitrary
+# generated-product production certification.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
