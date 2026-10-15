@@ -209,6 +209,18 @@ If the qualification workflow regresses, keep the last known-good product/runtim
 classification and repair/re-run the evidence gate before promoting mobile
 maturity.
 
+### Android trusted-fixture recovery review — 16 October 2026
+
+Android qualification must fail closed unless the exact trusted fixture builds a
+non-empty debug APK, boots an emulator to an ADB-ready and completed-boot state,
+installs and launches the app, reaches the real Node backend through ADB reverse,
+passes the Flutter integration test, and preserves the resulting evidence
+artifact. KVM permission may be enabled on the hosted runner when `/dev/kvm` is
+present and usable; otherwise the workflow may use its bounded software fallback.
+A failed or incomplete Android run must retain the previous known-good mobile
+maturity classification and must not be treated as runtime, release, signing, Play
+Store, or arbitrary generated-product certification.
+
 ## Data-recovery verification checklist
 
 Before declaring recovery complete:
