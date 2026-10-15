@@ -2,6 +2,7 @@ import {
   BUILTIN_BUILDER_RESOURCES,
   builtinResourceCounts,
 } from "./builtinResourceCatalog.js";
+import { BOOKING_RESOURCE } from "./bookingResource.js";
 import { COMPONENT_RESOURCES } from "./componentResources.js";
 import { DESIGN_FAMILY_RESOURCES } from "./designFamilies.js";
 import { REFERENCE_ARCHITECTURE_RESOURCES } from "./referenceArchitectureResources.js";
@@ -14,6 +15,7 @@ export const ALL_BUILDER_RESOURCES = [
   ...BUILTIN_BUILDER_RESOURCES,
   ...BUILDER_RESOURCE_ATOMS,
   ...COMPONENT_RESOURCES,
+  BOOKING_RESOURCE,
   ...SUBSTANTIAL_CORE_RESOURCES,
   ...SUBSTANTIAL_DOMAIN_RESOURCES,
   ...DESIGN_FAMILY_RESOURCES,
@@ -37,6 +39,7 @@ export function builderResourceLibraryCounts(): {
   for (const resource of [
     ...BUILDER_RESOURCE_ATOMS,
     ...COMPONENT_RESOURCES,
+    BOOKING_RESOURCE,
     ...SUBSTANTIAL_CORE_RESOURCES,
     ...SUBSTANTIAL_DOMAIN_RESOURCES,
     ...DESIGN_FAMILY_RESOURCES,
