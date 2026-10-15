@@ -54,6 +54,8 @@ const NATIVE_CAPABILITY_MAP: Record<string, BuilderResourceCapabilityId[]> = {
 
 const BOOKING_INTENT =
   /\b(?:booking|reservation|reserve|appointment|availability|table availability|class booking|accommodation|vehicle rental|event tickets?)\b/i;
+const ACCOUNT_INTENT =
+  /\b(?:account|profile|preferences|password change|change password|email change|change email|account deletion|delete account|data export)\b/i;
 
 export type BuilderResourcePlan = {
   requiredCapabilities: BuilderResourceCapabilityId[];
@@ -97,7 +99,7 @@ export function deriveRequiredBuilderCapabilities(input: {
     }
   }
 
-  const bookingEvidence = [
+  const productEvidence = [
     input.productContract.originalPrompt,
     input.productContract.canonicalInterpretation,
     ...input.productContract.coreWorkflows,
@@ -105,7 +107,8 @@ export function deriveRequiredBuilderCapabilities(input: {
       (requirement) => requirement.text,
     ),
   ].join("\n");
-  if (BOOKING_INTENT.test(bookingEvidence)) required.add("booking");
+  if (BOOKING_INTENT.test(productEvidence)) required.add("booking");
+  if (ACCOUNT_INTENT.test(productEvidence)) required.add("account");
 
   for (const secondary of input.productContract.secondaryCapabilities) {
     for (const capability of SECONDARY_CAPABILITY_MAP[secondary] ?? []) {
@@ -157,6 +160,7 @@ function supportsOrWildcard(
 function addDeclaredDependencies(input: {
   registry: ReturnType<typeof createBuilderResourceLibraryRegistry>;
   selectedById: Map<string, ReturnType<typeof input.registry.list>[number]>;
+  decisionEvidence: BuilderResourcePlan["decisionEvidence"];
   productContract: ProductContract;
   targetPlatform?: string;
 }): void {
@@ -212,6 +216,26 @@ function addDeclaredDependencies(input: {
       input.selectedById.set(dependencyKey, dependency);
       selectedResourceIds.add(dependency.identity.resourceId);
       queue.push(dependency);
+
+      const capability = dependency.capabilities.capabilitiesProvided[0];
+      const alreadyRecorded = input.decisionEvidence.some(
+        (decision) =>
+          decision.resourceId === dependency.identity.resourceId &&
+          decision.version === dependency.identity.version,
+      );
+      if (capability && !alreadyRecorded) {
+        input.decisionEvidence.push({
+          capability,
+          resourceId: dependency.identity.resourceId,
+          version: dependency.identity.version,
+          rationale: [
+            `dependency-of:${resourceKey}`,
+            `maturity:${dependency.governance.maturityState}`,
+            `dependency:${dependencyId}`,
+          ],
+          evidenceLedgerIds: dependency.evidence.evidenceLedgerIds,
+        });
+      }
     }
   }
 }
@@ -263,6 +287,7 @@ export function createBuilderResourcePlan(input: {
   addDeclaredDependencies({
     registry,
     selectedById,
+    decisionEvidence,
     productContract: input.productContract,
     targetPlatform: input.targetPlatform,
   });
