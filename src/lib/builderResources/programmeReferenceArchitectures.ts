@@ -1,6 +1,28 @@
 import type { ReferenceArchitectureRecipe } from "./referenceArchitectures.js";
 import { REFERENCE_ARCHITECTURES } from "./referenceArchitectures.js";
 
+const BOOKING_ARCHITECTURE_IDS = new Set([
+  "booking",
+  "restaurant",
+  "travel",
+  "fitness",
+]);
+
+const BASE_REFERENCE_ARCHITECTURES = REFERENCE_ARCHITECTURES.map(
+  (architecture): ReferenceArchitectureRecipe =>
+    BOOKING_ARCHITECTURE_IDS.has(architecture.id)
+      ? {
+          ...architecture,
+          recommendedResourceIds: [
+            ...new Set([
+              ...architecture.recommendedResourceIds,
+              "module.booking",
+            ]),
+          ],
+        }
+      : architecture,
+);
+
 const ADDITIONAL_REFERENCE_ARCHITECTURES: ReferenceArchitectureRecipe[] = [
   {
     id: "realtime-collaboration",
@@ -31,7 +53,10 @@ const ADDITIONAL_REFERENCE_ARCHITECTURES: ReferenceArchitectureRecipe[] = [
       "permission isolation",
     ],
     securityConcerns: ["room isolation", "authorization", "audit history"],
-    deploymentCharacteristics: ["long-lived realtime connections", "horizontal fanout strategy"],
+    deploymentCharacteristics: [
+      "long-lived realtime connections",
+      "horizontal fanout strategy",
+    ],
   },
   {
     id: "data-application",
@@ -56,9 +81,21 @@ const ADDITIONAL_REFERENCE_ARCHITECTURES: ReferenceArchitectureRecipe[] = [
     authModel: "Role and row-owner scoped data access",
     monetizationOptions: ["subscription", "usage", "free"],
     externalIntegrations: ["data source connectors"],
-    criticalTests: ["import validation", "row ownership", "aggregation correctness", "accessible chart summaries"],
-    securityConcerns: ["data isolation", "export authorization", "sensitive event classification"],
-    deploymentCharacteristics: ["scheduled aggregation", "query performance monitoring"],
+    criticalTests: [
+      "import validation",
+      "row ownership",
+      "aggregation correctness",
+      "accessible chart summaries",
+    ],
+    securityConcerns: [
+      "data isolation",
+      "export authorization",
+      "sensitive event classification",
+    ],
+    deploymentCharacteristics: [
+      "scheduled aggregation",
+      "query performance monitoring",
+    ],
   },
   {
     id: "subscription-app",
@@ -79,17 +116,39 @@ const ADDITIONAL_REFERENCE_ARCHITECTURES: ReferenceArchitectureRecipe[] = [
       "core.observability",
     ],
     alternativeStacks: ["next-node", "react-node", "flutter-node"],
-    dataModel: ["User", "Product", "Price", "Subscription", "Entitlement", "BillingEvent"],
-    authModel: "Authenticated customer with server-authoritative entitlement checks",
+    dataModel: [
+      "User",
+      "Product",
+      "Price",
+      "Subscription",
+      "Entitlement",
+      "BillingEvent",
+    ],
+    authModel:
+      "Authenticated customer with server-authoritative entitlement checks",
     monetizationOptions: ["subscription"],
     externalIntegrations: ["payment provider"],
-    criticalTests: ["duplicate webhook", "delayed webhook", "failed payment", "cancel/downgrade", "entitlement persistence"],
-    securityConcerns: ["webhook signatures", "idempotency", "secret isolation", "client cannot grant entitlement"],
-    deploymentCharacteristics: ["public webhook endpoint", "durable billing event ledger"],
+    criticalTests: [
+      "duplicate webhook",
+      "delayed webhook",
+      "failed payment",
+      "cancel/downgrade",
+      "entitlement persistence",
+    ],
+    securityConcerns: [
+      "webhook signatures",
+      "idempotency",
+      "secret isolation",
+      "client cannot grant entitlement",
+    ],
+    deploymentCharacteristics: [
+      "public webhook endpoint",
+      "durable billing event ledger",
+    ],
   },
 ];
 
 export const PROGRAMME_REFERENCE_ARCHITECTURES: ReferenceArchitectureRecipe[] = [
-  ...REFERENCE_ARCHITECTURES,
+  ...BASE_REFERENCE_ARCHITECTURES,
   ...ADDITIONAL_REFERENCE_ARCHITECTURES,
 ];
