@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchRecord } from "./researchRecord.js";
+import { createRequirementManifest } from "./requirementManifest.js";
+import {
+  createBuilderResourcePlan,
+  type BuilderResourcePlan,
+} from "./builderResources/resourcePlanning.js";
 
 const nonEmpty = z.string().trim().min(1);
 
@@ -74,6 +79,7 @@ export type AgentCoordinationContext = {
   productPlan: ProductPlan;
   researchDecisions: ResearchRecord["decisions"];
   requirementIds: string[];
+  builderResourcePlan: BuilderResourcePlan;
 };
 
 export function createAgentCoordinationContext(input: {
@@ -111,11 +117,22 @@ export function createAgentCoordinationContext(input: {
     }
   }
 
+  const requirementManifest = createRequirementManifest({
+    productContract: input.productContract,
+    productPlan: input.productPlan,
+  });
+  const builderResourcePlan = createBuilderResourcePlan({
+    productContract: input.productContract,
+    productPlan: input.productPlan,
+    requirementManifest,
+  });
+
   return {
     productContract: input.productContract,
     productPlan: input.productPlan,
     researchDecisions,
     requirementIds,
+    builderResourcePlan,
   };
 }
 
@@ -328,12 +345,24 @@ export function buildAgentTaskContext(input: {
       task: input.task,
       requirements,
       researchDecisions,
+      builderResources: {
+        selectedResourceIds:
+          input.context.builderResourcePlan.selectedResourceIds,
+        usageRecords: input.context.builderResourcePlan.usageRecords,
+        decisionEvidence: input.context.builderResourcePlan.decisionEvidence,
+        conflicts: input.context.builderResourcePlan.conflicts,
+        missingCapabilities:
+          input.context.builderResourcePlan.missingCapabilities,
+        promptContext: input.context.builderResourcePlan.promptContext,
+      },
       coordinationRules: {
         scopeImmutable: true,
         ownedFilesOnly: true,
         dependenciesMustBeComplete: true,
         requirementsMayNotBeDropped: true,
         researchCannotChangePermissions: true,
+        resourceLibraryServesProductContract: true,
+        generateCustomCodeForUnmetRequirements: true,
       },
     },
     null,
@@ -351,8 +380,6 @@ export function reconcileCoordinationResume(input: {
   for (const [taskId, state] of Object.entries(record.taskStates)) {
     if (state.status !== "completed") continue;
 
-    // Completed generation is not completed validation. A failed repair burst
-    // must reopen owned tasks even when their old output files still exist.
     if (input.repairReason) {
       record = updateTaskCoordinationState(record, taskId, {
         status: state.dependencies.length > 0 ? "blocked" : "pending",
