@@ -3,6 +3,7 @@ import {
   BUILTIN_BUILDER_RESOURCES,
   createBuiltinBuilderResourceRegistry,
 } from "../builtinResourceCatalog.js";
+import { createBuilderResourceLibraryRegistry } from "../builderResourceLibrary.js";
 import {
   assertPromotionReviewComplete,
   createBuilderResourceVersion,
@@ -179,7 +180,7 @@ describe("reference architectures", () => {
   });
 
   it("does not reference missing internal resources", () => {
-    const registry = createBuiltinBuilderResourceRegistry();
+    const registry = createBuilderResourceLibraryRegistry();
     const results = REFERENCE_ARCHITECTURES.map((architecture) =>
       validateReferenceArchitecture(architecture, registry),
     );
