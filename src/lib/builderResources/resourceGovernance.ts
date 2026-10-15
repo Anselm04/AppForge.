@@ -26,6 +26,22 @@ export type ResourcePromotionReview = {
   manifestCreated: boolean;
 };
 
+function semanticVersionParts(version: string): [number, number, number] {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) throw new Error(`Invalid semantic version ${version}`);
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function isVersionAfter(candidate: string, current: string): boolean {
+  const left = semanticVersionParts(candidate);
+  const right = semanticVersionParts(current);
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] > right[index]) return true;
+    if (left[index] < right[index]) return false;
+  }
+  return false;
+}
+
 export function promoteBuilderResource(
   resource: BuilderResourceManifest,
   targetState: AdapterCapabilityState,
@@ -33,7 +49,9 @@ export function promoteBuilderResource(
   verifiedAt: string,
 ): BuilderResourceManifest {
   if (resource.governance.quarantine?.quarantined) {
-    throw new Error("Quarantined Builder Resources must be cleared before promotion");
+    throw new Error(
+      "Quarantined Builder Resources must be cleared before promotion",
+    );
   }
   const mergedEvidence = { ...resource.evidence.adapterEvidence, ...evidence };
   const result = evaluateAdapterPromotion(
@@ -124,7 +142,9 @@ export function deprecateBuilderResource(
 ): BuilderResourceManifest {
   const replacement = replacementResourceId.trim();
   if (!replacement || replacement === resource.identity.resourceId) {
-    throw new Error("Deprecated Builder Resources require a different replacement id");
+    throw new Error(
+      "Deprecated Builder Resources require a different replacement id",
+    );
   }
   return parseBuilderResourceManifest({
     ...resource,
@@ -140,8 +160,10 @@ export function createBuilderResourceVersion(
   resource: BuilderResourceManifest,
   version: string,
 ): BuilderResourceManifest {
-  if (version === resource.identity.version) {
-    throw new Error("A new Builder Resource version must change the semantic version");
+  if (!isVersionAfter(version, resource.identity.version)) {
+    throw new Error(
+      `New Builder Resource version ${version} must be greater than ${resource.identity.version}`,
+    );
   }
   return parseBuilderResourceManifest({
     ...resource,
