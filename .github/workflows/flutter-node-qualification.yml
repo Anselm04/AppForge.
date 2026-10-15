@@ -39,7 +39,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 55
+    timeout-minutes: 60
     steps:
       - name: Set qualification directories
         shell: bash
@@ -101,6 +101,8 @@ jobs:
           test -d "$ANDROID_HOME"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x | sort | tail -1)"
           AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -perm -u+x | sort | tail -1)"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
           test -x "$SDKMANAGER"
           test -x "$AVDMANAGER"
           printf '%s\n' "$SDKMANAGER" > "$EVIDENCE/sdkmanager-path.txt"
@@ -118,40 +120,67 @@ jobs:
           if ! "$SDKMANAGER" --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
             "$SDKMANAGER" "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
           fi
-          test -x "$ANDROID_HOME/emulator/emulator"
-          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -x "$EMULATOR"
+          test -x "$ADB"
 
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf '%s\n' "$ANDROID_AVD_HOME" > "$EVIDENCE/android-avd-home.txt"
           printf 'no\n' | "$AVDMANAGER" create avd --force \
             --name appforge-ci-api35 \
             --package "$ANDROID_SYSTEM_IMAGE" \
             --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
+          "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
+          grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
 
-          "$ANDROID_HOME/emulator/emulator" \
+          "$EMULATOR" \
             -avd appforge-ci-api35 \
-            -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect \
+            -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
             > "$EVIDENCE/android-emulator.log" 2>&1 &
           EMULATOR_PID=$!
           BACKEND_PID=''
           cleanup() {
             if [ -n "$BACKEND_PID" ]; then kill "$BACKEND_PID" 2>/dev/null || true; fi
-            "$ANDROID_HOME/platform-tools/adb" emu kill >/dev/null 2>&1 || true
+            "$ADB" emu kill >/dev/null 2>&1 || true
             kill "$EMULATOR_PID" 2>/dev/null || true
           }
           trap cleanup EXIT
 
-          "$ANDROID_HOME/platform-tools/adb" wait-for-device
+          "$ADB" start-server
+          DEVICE_READY=false
           for attempt in $(seq 1 90); do
-            if [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before ADB became ready" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              DEVICE_READY=true
               break
             fi
             sleep 2
           done
-          test "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed | tr -d '\r')" = "1"
-          "$ANDROID_HOME/platform-tools/adb" shell getprop > "$EVIDENCE/android-device-properties.txt"
+          test "$DEVICE_READY" = true
 
-          "$ANDROID_HOME/platform-tools/adb" install -r "$APK" > "$EVIDENCE/android-apk-install.log" 2>&1
-          "$ANDROID_HOME/platform-tools/adb" shell monkey -p com.example.appforge_mobile 1 > "$EVIDENCE/android-launch.log" 2>&1
-          "$ANDROID_HOME/platform-tools/adb" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt"
+          BOOT_COMPLETE=false
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before boot completed" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT_COMPLETE=true
+              break
+            fi
+            sleep 2
+          done
+          test "$BOOT_COMPLETE" = true
+          "$ADB" shell getprop > "$EVIDENCE/android-device-properties.txt"
+
+          "$ADB" install -r "$APK" > "$EVIDENCE/android-apk-install.log" 2>&1
+          "$ADB" shell monkey -p com.example.appforge_mobile 1 > "$EVIDENCE/android-launch.log" 2>&1
+          "$ADB" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt"
           test -s "$EVIDENCE/android-app-pid.txt"
 
           PORT=3217 HOST=0.0.0.0 npm start > "$EVIDENCE/android-backend-runtime.log" 2>&1 &
@@ -161,8 +190,8 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/android-backend-ready.json"
-          "$ANDROID_HOME/platform-tools/adb" reverse tcp:3217 tcp:3217
-          ANDROID_DEVICE="$("$ANDROID_HOME/platform-tools/adb" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+          "$ADB" reverse tcp:3217 tcp:3217
+          ANDROID_DEVICE="$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
           test -n "$ANDROID_DEVICE"
           printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
@@ -170,7 +199,7 @@ jobs:
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
-          "$ANDROID_HOME/platform-tools/adb" exec-out screencap -p > "$EVIDENCE/android-harness.png"
+          "$ADB" exec-out screencap -p > "$EVIDENCE/android-harness.png"
           printf 'Trusted debug fixture only; no release signing, Play deployment, push, deep-link, or arbitrary generated-product certification claimed.\n' > "$EVIDENCE/android-scope.txt"
       - name: Compile iOS simulator and test actual backend interaction
         if: runner.os == 'macOS'
