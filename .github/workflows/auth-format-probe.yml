@@ -1,0 +1,29 @@
+name: Auth capability format probe
+on:
+  push:
+    branches: [feat/flutter-node-auth-persistence]
+    paths:
+      - src/lib/__tests__/flutterNodeContractGeneration.test.ts
+      - src/services/flutterNodeScaffold.ts
+      - .github/workflows/auth-format-probe.yml
+permissions:
+  contents: read
+jobs:
+  format-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Print exact Prettier diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write src/lib/__tests__/flutterNodeContractGeneration.test.ts src/services/flutterNodeScaffold.ts
+          git diff -- src/lib/__tests__/flutterNodeContractGeneration.test.ts src/services/flutterNodeScaffold.ts
