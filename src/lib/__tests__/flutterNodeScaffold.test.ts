@@ -10,7 +10,9 @@ import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
 } from "../../services/stackScaffolds.js";
+import { applyFlutterNodeContractSupport } from "../../services/flutterNodeScaffold.js";
 import { validateGeneratedProjectStructure } from "../generatedProjectStructure.js";
+import type { ProductContract } from "../productContract.js";
 
 function request(
   url: string,
@@ -58,7 +60,7 @@ describe("connected Flutter Node scaffold", () => {
   });
 
   it("adds real Supabase auth and owner-scoped persistence only when the canonical contract requires them", () => {
-    const contract = {
+    const contract: ProductContract = {
       version: 2,
       originalPrompt:
         "Build a mobile app with secure accounts and saved watches",
@@ -95,12 +97,10 @@ describe("connected Flutter Node scaffold", () => {
       canonicalInterpretation:
         "Authenticated mobile app with persisted user watches",
     };
-    const contractAwareScaffold = getStackScaffold as unknown as (
-      stack: string,
-      productType: "mobile_app",
-      productContract: typeof contract,
-    ) => Record<string, string>;
-    const files = contractAwareScaffold("flutter-node", "mobile_app", contract);
+    const files = applyFlutterNodeContractSupport(
+      getStackScaffold("flutter-node", "mobile_app"),
+      contract,
+    );
     const apiContract = JSON.parse(files["shared/contracts/product-api.json"]);
     const manifest = parse(files["pubspec.yaml"]);
 
