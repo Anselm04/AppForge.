@@ -53,13 +53,17 @@ export function deriveRequestedProductCapabilities(
   }
 
   const voiceInteraction =
-    /\b(?:hands[- ]?free|voice interaction|voice command|voice reply|answer by voice|respond by voice|spoken command|speech recognition)\b/.test(text);
+    /\b(?:hands[- ]?free|voice interaction|voice command|voice reply|answer by voice|respond by voice|spoken command|speech recognition)\b/.test(
+      text,
+    );
   if (voiceInteraction) {
     add(selected, "speech_recognition", "text_to_speech", "microphone");
   }
 
   if (
-    /\b(?:text[- ]?to[- ]?speech|tts|read(?:s)? (?:the )?(?:response|message|result) aloud|speak(?:s|ing)? aloud)\b/.test(text)
+    /\b(?:text[- ]?to[- ]?speech|tts|read(?:s)? (?:the )?(?:response|message|result) aloud|speak(?:s|ing)? aloud)\b/.test(
+      text,
+    )
   ) {
     add(selected, "text_to_speech");
   }
@@ -75,7 +79,9 @@ export function deriveRequestedProductCapabilities(
     add(selected, "camera");
   }
   if (
-    /\b(?:photo library|photo picker|photos? access|images? access)\b/.test(text)
+    /\b(?:photo library|photo picker|photos? access|images? access)\b/.test(
+      text,
+    )
   ) {
     add(selected, "photos");
   }
@@ -105,17 +111,23 @@ export function deriveRequestedProductCapabilities(
     add(selected, "deep_links");
   }
   if (
-    /\b(?:file picker|document picker|file access|select (?:a )?file)\b/.test(text)
+    /\b(?:file picker|document picker|file access|select (?:a )?file)\b/.test(
+      text,
+    )
   ) {
     add(selected, "file_access");
   }
   if (
-    /\b(?:share sheet|system share|sharing extension|share (?:a )?(?:file|link|image))\b/.test(text)
+    /\b(?:share sheet|system share|sharing extension|share (?:a )?(?:file|link|image))\b/.test(
+      text,
+    )
   ) {
     add(selected, "sharing");
   }
   if (
-    /\b(?:contacts? access|address book|import contacts?|sync contacts?)\b/.test(text)
+    /\b(?:contacts? access|address book|import contacts?|sync contacts?)\b/.test(
+      text,
+    )
   ) {
     add(selected, "contacts");
   }
@@ -132,19 +144,27 @@ export function deriveRequestedProductCapabilities(
   }
 
   const backgroundMonitoring =
-    /\bbackground\b[^\n]{0,100}\b(?:monitor|monitoring|watch|job|task|sync|poll|tracking|availability)\b/.test(text) ||
-    /\b(?:monitor|monitoring|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(text);
+    /\bbackground\b[^\n]{0,100}\b(?:monitor|monitoring|watch|job|task|sync|poll|tracking|availability)\b/.test(
+      text,
+    ) ||
+    /\b(?:monitor|monitoring|watch|poll)\b[^\n]{0,100}\bbackground\b/.test(
+      text,
+    );
   if (backgroundMonitoring) {
     add(selected, "background_jobs", "scheduling");
   }
 
   if (
-    /\b(?:scheduled tasks?|scheduler|cron|recurring job|recurring task|run every|check every)\b/.test(text)
+    /\b(?:scheduled tasks?|scheduler|cron|recurring job|recurring task|run every|check every)\b/.test(
+      text,
+    )
   ) {
     add(selected, "scheduling");
   }
   if (
-    /\b(?:background jobs?|background task|background worker|durable worker|job queue)\b/.test(text)
+    /\b(?:background jobs?|background task|background worker|durable worker|job queue)\b/.test(
+      text,
+    )
   ) {
     add(selected, "background_jobs");
   }
