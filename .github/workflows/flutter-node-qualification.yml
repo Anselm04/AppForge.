@@ -27,6 +27,7 @@ concurrency:
   group: flutter-node-qualification-${{ github.ref }}
   cancel-in-progress: true
 env:
+  FLUTTER_VERSION: "3.47.7"
   FLUTTER_COMMIT: abaf9c523780a608bd46686fd5e53740a07077f8
 jobs:
   fixture:
@@ -58,11 +59,12 @@ jobs:
           mkdir -p "$EVIDENCE" "$RUNNER_TEMP/flutter"
           git -C "$RUNNER_TEMP/flutter" init
           git -C "$RUNNER_TEMP/flutter" remote add origin https://github.com/flutter/flutter.git
-          git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "$FLUTTER_COMMIT"
-          git -C "$RUNNER_TEMP/flutter" checkout --detach FETCH_HEAD
+          git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$RUNNER_TEMP/flutter" checkout --detach "refs/tags/$FLUTTER_VERSION"
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
+          node -e 'const f=require(process.env.EVIDENCE+"/flutter-version.json"); if(f.frameworkVersion!==process.env.FLUTTER_VERSION) { console.error(`Expected Flutter ${process.env.FLUTTER_VERSION}, got ${f.frameworkVersion}`); process.exit(1); }'
       - name: Generate native platform wrapper and preserve actual scaffold
         shell: bash
         run: |
