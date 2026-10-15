@@ -37,10 +37,12 @@ jobs:
         os: [ubuntu-24.04, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
-    env:
-      FIXTURE: ${{ runner.temp }}/flutter-node-qualification
-      EVIDENCE: ${{ runner.temp }}/flutter-node-evidence
     steps:
+      - name: Set qualification directories
+        shell: bash
+        run: |
+          echo "FIXTURE=$RUNNER_TEMP/flutter-node-qualification" >> "$GITHUB_ENV"
+          echo "EVIDENCE=$RUNNER_TEMP/flutter-node-evidence" >> "$GITHUB_ENV"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
