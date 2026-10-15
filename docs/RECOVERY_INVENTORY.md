@@ -854,3 +854,16 @@ The workspace retains its existing WebContainer terminal across Code/Preview/Ter
 ## Customer GitHub export choices and history — 12 October 2026
 
 The existing per-user encrypted GitHub connection and current validated artifact remain the source of export authorization and files. Users now select repository name and private/public visibility before export; private is the default. Existing repository visibility must match the choice and is never changed automatically. New repositories initialize their default branch. Empty repositories are initialized with an exported source file before Git-tree operations. Repeat exports use the default branch’s current commit as parent and current tree as base, preserving unrelated files and history. A concurrent branch update or provider failure rejects the export without force pushing or reporting success. No platform hosting token, new OAuth scope or automatic customer export is added. Rollback must preserve privacy selection and non-force updates; the former force-replace implementation is not a safe recovery path.
+
+## Flutter + Node release-package qualification recovery invariant — 16 October 2026
+
+Recovery invariant:
+- Trusted Flutter + Node qualification now records hashes for the compiled backend package, Android release AAB, and unsigned iOS release application in addition to the existing runtime interaction evidence.
+- These artifacts are evidence that a trusted fixture can be compiled and packaged reproducibly; they do not replace production signing identities, provisioning profiles, Play Console/App Store access, provider credentials, or store certification.
+- If a release-package qualification change breaks a trusted platform lane, recovery is to revert to the last known-good qualification workflow SHA, preserve the failed evidence artifact/logs, correct the workflow or generated fixture in source, and rerun the complete qualification. Never bypass a failed package/hash step to certify a release.
+- iOS recovery remains explicitly unsigned until legitimate Apple signing/provisioning credentials and agreements are supplied. Android release evidence remains compilation/package evidence until legitimate production signing and store submission are separately proven.
+
+Verification target:
+- Require non-empty backend release archive, Android release AAB, and unsigned iOS release archive plus SHA-256 evidence from the trusted fixture.
+- Require the existing Ubuntu/Android and macOS/iOS runtime interaction gates to remain green in the same qualification run.
+- Confirm release-scope evidence continues to state that store signing/submission and arbitrary generated-product production certification are not implied.

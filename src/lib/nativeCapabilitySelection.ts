@@ -143,19 +143,18 @@ export function deriveRequestedProductCapabilities(
     add(selected, "live_activities");
   }
 
+  const backgroundBeforeActivity =
+    /\bbackground\b[^\n]{0,100}\b(?:monitor(?:s|ing)?|watch|job|task|sync|poll|tracking|availability)\b/;
+  const activityBeforeBackground =
+    /\b(?:monitor(?:s|ing)?|watch|poll)\b[^\n]{0,100}\bbackground\b/;
   const backgroundMonitoring =
-    /\bbackground\b[^\n]{0,100}\b(?:monitor(?:s|ing)?|watch(?:es|ing)?|job|task|sync|poll(?:s|ing)?|tracking|availability)\b/.test(
-      text,
-    ) ||
-    /\b(?:monitor(?:s|ing)?|watch(?:es|ing)?|poll(?:s|ing)?)\b[^\n]{0,100}\bbackground\b/.test(
-      text,
-    );
+    backgroundBeforeActivity.test(text) || activityBeforeBackground.test(text);
   if (backgroundMonitoring) {
     add(selected, "background_jobs", "scheduling");
   }
 
   if (
-    /\b(?:scheduled tasks?|scheduler|cron|recurring (?:job|task|schedule)|run(?:s)? every|check(?:s)? every)\b/.test(
+    /\b(?:scheduled tasks?|scheduler|cron|recurring job|recurring task|run every|check every)\b/.test(
       text,
     )
   ) {

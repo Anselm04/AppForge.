@@ -921,7 +921,22 @@ export function selectProductStack(
   if (productType === "mobile_app") {
     if (/\bflutter\b/.test(text) && /\bnode(?:\.js|js)?\b/.test(text))
       return "flutter-node";
-    return /\bflutter\b/.test(text) ? "flutter-firebase" : "react-native-expo";
+    if (/\bflutter\b/.test(text)) return "flutter-firebase";
+
+    const mobileCapabilities = detectSecondaryCapabilities(prompt);
+    const backendHeavyMobile =
+      mobileCapabilities.some((capability) =>
+        [
+          "authentication",
+          "database",
+          "billing",
+          "external_integrations",
+        ].includes(capability),
+      ) ||
+      /\b(?:backend|server|api|database|postgres|postgresql|supabase|stripe|webhook)\b/.test(
+        text,
+      );
+    return backendHeavyMobile ? "flutter-node" : "react-native-expo";
   }
 
   if (productType === "desktop_app")

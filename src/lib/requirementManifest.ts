@@ -1,6 +1,16 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
+  ADAPTER_CAPABILITY_STATES,
+  isAtLeast,
+  type AdapterCapabilityState,
+} from "./adapterSdk.js";
+import { deriveRequestedProductCapabilities } from "./nativeCapabilitySelection.js";
+import {
+  getProductCapabilityAdapter,
+  PRODUCT_CAPABILITY_IDS,
+} from "./productCapabilityAdapters.js";
+import {
   validateProductContract,
   type ProductContract,
   type ProductRequirement,
@@ -41,6 +51,15 @@ const requirementChangeSchema = z.object({
   detail: z.string().min(1),
 });
 
+const productCapabilityDependencySchema = z.object({
+  id: z.enum(PRODUCT_CAPABILITY_IDS),
+  currentState: z.enum(ADAPTER_CAPABILITY_STATES),
+  executionReady: z.boolean(),
+  productionReady: z.boolean(),
+  evidenceLedgerIds: z.array(z.string().min(1)),
+  unresolvedReason: z.string().min(1).nullable(),
+});
+
 export const requirementManifestEntrySchema = z.object({
   id: z.string().regex(/^REQ-\d{3}$/),
   text: z.string().min(1),
@@ -77,6 +96,9 @@ export const requirementManifestSchema = z.object({
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
   requirements: z.array(requirementManifestEntrySchema).min(1),
+  capabilityDependencies: z
+    .array(productCapabilityDependencySchema)
+    .default([]),
   changes: z.array(requirementChangeSchema),
   unresolvedMustHaveIds: z.array(z.string().regex(/^REQ-\d{3}$/)),
 });
@@ -120,6 +142,30 @@ function mappingShape(entry: {
     taskIds: entry.taskIds,
     files: entry.files,
     validations: entry.validations,
+  });
+}
+
+function buildCapabilityDependencies(
+  contract: ProductContract,
+): RequirementManifest["capabilityDependencies"] {
+  return deriveRequestedProductCapabilities(contract).map((id) => {
+    const adapter = getProductCapabilityAdapter(id);
+    if (!adapter) {
+      throw new Error(`No product capability adapter is registered for ${id}`);
+    }
+
+    const executionReady = isAtLeast(adapter.state, "runnable");
+    const productionReady = isAtLeast(adapter.state, "production-certified");
+    return {
+      id,
+      currentState: adapter.state,
+      executionReady,
+      productionReady,
+      evidenceLedgerIds: adapter.evidence.evidenceLedgerIds ?? [],
+      unresolvedReason: executionReady
+        ? null
+        : `Capability ${id} is ${adapter.state}; runnable evidence is required before completion.`,
+    };
   });
 }
 
@@ -322,6 +368,7 @@ export function createRequirementManifest(input: {
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,
     requirements,
+    capabilityDependencies: buildCapabilityDependencies(contract),
     changes: [
       ...(previous?.changes ?? []),
       ...changes.map((change) => ({ ...change, revision })),
@@ -557,12 +604,39 @@ export function validateRequirementManifest(
     throw new Error("Requirement manifest contains duplicate requirement IDs");
   }
 
+  const capabilityIds = manifest.capabilityDependencies.map(
+    (dependency) => dependency.id,
+  );
+  if (new Set(capabilityIds).size !== capabilityIds.length) {
+    throw new Error(
+      "Requirement manifest contains duplicate capability dependencies",
+    );
+  }
+
   const calculated = unresolvedMustHaveIds(manifest.requirements);
   if (
     JSON.stringify(calculated) !==
     JSON.stringify(manifest.unresolvedMustHaveIds)
   ) {
     throw new Error("Requirement manifest unresolved must-have index is stale");
+  }
+  return manifest;
+}
+
+export function assertProductCapabilityDependenciesReady(
+  input: unknown,
+  floor: AdapterCapabilityState = "runnable",
+): RequirementManifest {
+  const manifest = validateRequirementManifest(input);
+  const blocked = manifest.capabilityDependencies.filter(
+    (dependency) => !isAtLeast(dependency.currentState, floor),
+  );
+  if (blocked.length > 0) {
+    throw new Error(
+      `Unresolved product capability dependencies block completion at ${floor}: ${blocked
+        .map((dependency) => `${dependency.id} (${dependency.currentState})`)
+        .join(", ")}`,
+    );
   }
   return manifest;
 }
@@ -576,7 +650,7 @@ export function assertMustHaveRequirementsResolved(
       `Unresolved must-have requirements block completion: ${manifest.unresolvedMustHaveIds.join(", ")}`,
     );
   }
-  return manifest;
+  return assertProductCapabilityDependenciesReady(manifest);
 }
 
 export function serializeRequirementManifest(
