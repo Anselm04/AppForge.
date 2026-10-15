@@ -32,10 +32,12 @@ function planFor(requirementIds: string[]): ProductPlan {
       aiModules: [],
       integrationModules: ["Stripe", "Authorized reservation provider"],
       authenticationDesign: "Secure user accounts.",
-      authorizationDesign: "Owner-scoped records and server-side protected actions.",
+      authorizationDesign:
+        "Owner-scoped records and server-side protected actions.",
       billingDesign: "Stripe test-mode entitlements.",
       deploymentDesign: "iOS, Android and Node backend.",
-      operationsDesign: "Durable background scheduling and explicit failure handling.",
+      operationsDesign:
+        "Durable background scheduling and explicit failure handling.",
       recoveryDesign: "Idempotent jobs, webhooks and booking requests.",
       monetizationPlan: "$9.99 monthly subscription.",
     },
@@ -47,7 +49,9 @@ function planFor(requirementIds: string[]): ProductPlan {
         description: "Implement the canonical Golden Product requirements.",
         sequence: 1,
         dependencies: [],
-        acceptanceCriteria: ["All requested generated capability layers are present."],
+        acceptanceCriteria: [
+          "All requested generated capability layers are present.",
+        ],
         requirementIds,
         files: ["lib/main.dart", "server/src/server.ts"],
         agent: "integration",
@@ -96,7 +100,9 @@ describe("Golden Product combined normal-pipeline support", () => {
     const api = JSON.parse(files["shared/contracts/product-api.json"]);
 
     expect(files["lib/auth/session.dart"]).toContain("signInWithPassword");
-    expect(files["database/migrations/001_user_data.sql"]).toContain("auth.uid()");
+    expect(files["database/migrations/001_user_data.sql"]).toContain(
+      "auth.uid()",
+    );
 
     expect(files["lib/platform/deep_links.dart"]).toContain("allowedHost");
     expect(files["lib/platform/push_notifications.dart"]).toContain(
@@ -111,7 +117,9 @@ describe("Golden Product combined normal-pipeline support", () => {
     expect(files["lib/platform/voice_interaction.dart"]).toContain(
       "parseExplicitConfirmation",
     );
-    expect(files["lib/platform/voice_interaction.dart"]).not.toContain("book it");
+    expect(files["lib/platform/voice_interaction.dart"]).not.toContain(
+      "book it",
+    );
 
     expect(files["server/src/billing/stripe.ts"]).toContain("sk_test_");
     expect(files["server/src/billing/stripe.ts"]).toContain("constructEvent");
