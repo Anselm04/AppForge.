@@ -6,7 +6,9 @@ import {
   createRequirementManifest,
 } from "../requirementManifest.js";
 
-function minimalMappedPlan(contract: ReturnType<typeof buildProductContract>): ProductPlan {
+function minimalMappedPlan(
+  contract: ReturnType<typeof buildProductContract>,
+): ProductPlan {
   const requirementIds = contract.functionalRequirements.map(
     (requirement) => requirement.id,
   );
@@ -43,7 +45,8 @@ function minimalMappedPlan(contract: ReturnType<typeof buildProductContract>): P
       {
         id: "TASK-001",
         module: "Native capabilities",
-        description: "Implement the native capabilities required by the contract.",
+        description:
+          "Implement the native capabilities required by the contract.",
         sequence: 1,
         dependencies: [],
         acceptanceCriteria: ["Requested capabilities are proven at runtime."],
@@ -74,7 +77,9 @@ describe("native capability planning dependencies", () => {
       now: "2026-10-15T12:00:00.000Z",
     });
 
-    const ids = manifest.capabilityDependencies.map((dependency) => dependency.id);
+    const ids = manifest.capabilityDependencies.map(
+      (dependency) => dependency.id,
+    );
     expect(ids).toEqual(
       expect.arrayContaining([
         "push_notifications",
@@ -112,6 +117,8 @@ describe("native capability planning dependencies", () => {
     });
 
     expect(manifest.capabilityDependencies).toEqual([]);
-    expect(() => assertProductCapabilityDependenciesReady(manifest)).not.toThrow();
+    expect(() =>
+      assertProductCapabilityDependenciesReady(manifest),
+    ).not.toThrow();
   });
 });
