@@ -102,8 +102,8 @@ describe("Builder Resource composition conflict matrix", () => {
       deploymentPolicies: { https: "forbidden" },
     });
 
-    const kinds = composeBuilderResources([first, second]).conflicts
-      .map((conflict) => conflict.kind)
+    const kinds = composeBuilderResources([first, second])
+      .conflicts.map((conflict) => conflict.kind)
       .sort();
     expect(kinds).toEqual([
       "api-contract",

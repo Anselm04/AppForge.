@@ -20,7 +20,9 @@ export type ResourceAdaptationPlan = {
   adaptationFingerprint: string;
 };
 
-function allowedAdaptationPoints(resource: BuilderResourceManifest): Set<string> {
+function allowedAdaptationPoints(
+  resource: BuilderResourceManifest,
+): Set<string> {
   return new Set([
     ...resource.adaptation.configurableFields,
     ...resource.adaptation.replacementPoints,

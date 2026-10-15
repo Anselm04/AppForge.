@@ -1,4 +1,5 @@
-export type ResearchAuthority = "official" | "primary" | "secondary" | "community";
+export type ResearchAuthority =
+  "official" | "primary" | "secondary" | "community";
 
 export type ResearchSourceRecord = {
   url: string;
@@ -27,9 +28,10 @@ export function rankResearchSources(
       const published = source.publishedAt
         ? Date.parse(source.publishedAt)
         : Date.parse(source.retrievedAt);
-      const ageDays = Number.isFinite(published) && Number.isFinite(now)
-        ? Math.max(0, (now - published) / 86_400_000)
-        : 3650;
+      const ageDays =
+        Number.isFinite(published) && Number.isFinite(now)
+          ? Math.max(0, (now - published) / 86_400_000)
+          : 3650;
       const freshness = Math.max(0, 100 - Math.min(100, ageDays));
       return AUTHORITY_SCORE[source.authority] + freshness;
     };

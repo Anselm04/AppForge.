@@ -112,12 +112,14 @@ describe("Builder Resource coordination persistence", () => {
     const parsed = JSON.parse(
       buildAgentTaskContext({ context, task: plan.tasks[0] }),
     );
-    expect(parsed.builderResources.selectedResourceIds.length).toBeGreaterThan(0);
+    expect(parsed.builderResources.selectedResourceIds.length).toBeGreaterThan(
+      0,
+    );
     expect(parsed.coordinationRules.resourceLibraryServesProductContract).toBe(
       true,
     );
-    expect(parsed.coordinationRules.generateCustomCodeForUnmetRequirements).toBe(
-      true,
-    );
+    expect(
+      parsed.coordinationRules.generateCustomCodeForUnmetRequirements,
+    ).toBe(true);
   });
 });

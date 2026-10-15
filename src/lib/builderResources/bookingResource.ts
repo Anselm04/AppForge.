@@ -172,16 +172,12 @@ export const BOOKING_RESOURCE: BuilderResourceManifest =
         "src/lib/builderResources/bookingResource.ts",
         "src/services/reservationProviderSupport.ts",
       ],
-      testPaths: [
-        "src/lib/builderResources/__tests__/bookingResource.test.ts",
-      ],
+      testPaths: ["src/lib/builderResources/__tests__/bookingResource.test.ts"],
       exportPolicy: "compose",
       requiresLiveLibraryAtRuntime: false,
     },
     evidence: {
-      unitTests: [
-        "src/lib/builderResources/__tests__/bookingResource.test.ts",
-      ],
+      unitTests: ["src/lib/builderResources/__tests__/bookingResource.test.ts"],
       integrationTests: [
         "src/lib/__tests__/reservationProviderSupport.test.ts",
       ],

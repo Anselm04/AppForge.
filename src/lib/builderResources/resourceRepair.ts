@@ -22,7 +22,14 @@ export type ResourceFailureSignal = {
 
 export type ResourceRepairDecision = {
   kind: ResourceFailureKind;
-  repairScope: "resource" | "resource-version" | "adaptation" | "composition" | "dependency" | "platform-plan" | "custom-code";
+  repairScope:
+    | "resource"
+    | "resource-version"
+    | "adaptation"
+    | "composition"
+    | "dependency"
+    | "platform-plan"
+    | "custom-code";
   rationale: string;
   quarantineResource: boolean;
 };
@@ -32,7 +39,10 @@ export function diagnoseBuilderResourceFailure(
 ): ResourceRepairDecision {
   const message = signal.message.toLowerCase();
 
-  if (signal.missingDependency || /missing (?:dependency|package|module)/i.test(message)) {
+  if (
+    signal.missingDependency ||
+    /missing (?:dependency|package|module)/i.test(message)
+  ) {
     return {
       kind: "missing-dependency",
       repairScope: "dependency",
@@ -42,7 +52,10 @@ export function diagnoseBuilderResourceFailure(
       quarantineResource: false,
     };
   }
-  if (signal.conflictKind || /conflict|duplicate route|version collision/i.test(message)) {
+  if (
+    signal.conflictKind ||
+    /conflict|duplicate route|version collision/i.test(message)
+  ) {
     return {
       kind: "integration-conflict",
       repairScope: "composition",
@@ -58,7 +71,10 @@ export function diagnoseBuilderResourceFailure(
       quarantineResource: false,
     };
   }
-  if (signal.targetPlatform || /platform.*(?:unsupported|mismatch|unavailable)/i.test(message)) {
+  if (
+    signal.targetPlatform ||
+    /platform.*(?:unsupported|mismatch|unavailable)/i.test(message)
+  ) {
     return {
       kind: "platform-mismatch",
       repairScope: "platform-plan",
@@ -66,7 +82,11 @@ export function diagnoseBuilderResourceFailure(
       quarantineResource: false,
     };
   }
-  if (/version.*(?:incompatible|unsupported|mismatch)|peer dependency/i.test(message)) {
+  if (
+    /version.*(?:incompatible|unsupported|mismatch)|peer dependency/i.test(
+      message,
+    )
+  ) {
     return {
       kind: "resource-version-incompatibility",
       repairScope: "resource-version",
@@ -74,7 +94,10 @@ export function diagnoseBuilderResourceFailure(
       quarantineResource: false,
     };
   }
-  if (signal.customFile || /generated custom|customer-specific|custom code/i.test(message)) {
+  if (
+    signal.customFile ||
+    /generated custom|customer-specific|custom code/i.test(message)
+  ) {
     return {
       kind: "custom-code-defect",
       repairScope: "custom-code",

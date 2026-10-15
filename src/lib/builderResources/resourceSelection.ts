@@ -129,7 +129,8 @@ function rejectReasons(
   const floor = input.minimumMaturity ?? "discovered";
 
   if (resource.governance.quarantine?.quarantined) reasons.push("quarantined");
-  if (resource.governance.deprecationStatus !== "active") reasons.push("deprecated");
+  if (resource.governance.deprecationStatus !== "active")
+    reasons.push("deprecated");
   if (!isAtLeast(resource.governance.maturityState, floor)) {
     reasons.push(`maturity-below:${floor}`);
   }
@@ -157,7 +158,9 @@ function rejectReasons(
   ) {
     reasons.push("platform-incompatible");
   }
-  if (!resourceProvidesCapabilities(resource, input.requiredCapabilities ?? [])) {
+  if (
+    !resourceProvidesCapabilities(resource, input.requiredCapabilities ?? [])
+  ) {
     reasons.push("capability-mismatch");
   }
   if (
@@ -249,7 +252,8 @@ export function selectBuilderResources(
     );
   }
   if (
-    input.requirementManifest.productType !== input.productContract.productType ||
+    input.requirementManifest.productType !==
+      input.productContract.productType ||
     input.requirementManifest.selectedTechnologyStack !==
       input.productContract.selectedTechnologyStack
   ) {

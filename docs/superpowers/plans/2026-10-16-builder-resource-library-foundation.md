@@ -31,12 +31,14 @@
 ### Task 1: Resource Manifest and Registry
 
 **Files:**
+
 - Create: `src/lib/builderResources/resourceManifest.ts`
 - Create: `src/lib/builderResources/resourceRegistry.ts`
 - Create: `src/lib/builderResources/__tests__/resourceRegistry.test.ts`
 - Update: `programme-evidence/builder-resource-library.md`
 
 **Interfaces:**
+
 - Consumes: `BuildCapabilityId`, `AdapterCapabilityState`, `AdapterEvidence`.
 - Produces: `BuilderResourceManifest`, `parseBuilderResourceManifest`, `BuilderResourceRegistry`, `queryResources`.
 
@@ -49,10 +51,12 @@
 ### Task 2: ProductContract-Aware Selection
 
 **Files:**
+
 - Create: `src/lib/builderResources/resourceSelection.ts`
 - Create: `src/lib/builderResources/__tests__/resourceSelection.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 registry/query interfaces plus ProductContract/ProductPlan/requirement manifest metadata.
 - Produces: ranked candidate selections with internal rationale/evidence.
 
@@ -63,11 +67,13 @@
 ### Task 3: Adaptation and Composition Contracts
 
 **Files:**
+
 - Create: `src/lib/builderResources/resourceAdaptation.ts`
 - Create: `src/lib/builderResources/resourceComposition.ts`
 - Create tests under `src/lib/builderResources/__tests__/`.
 
 **Interfaces:**
+
 - Consumes: selected resource manifests.
 - Produces: adaptation plans and conflict reports for routes, migrations, env vars, packages, events, permissions and platform requirements.
 
@@ -78,6 +84,7 @@
 ### Task 4: Pipeline Integration
 
 **Files:**
+
 - Modify authoritative pipeline parts only after Tasks 1-3 are green.
 - Add regression tests proving ProductContract drives resource retrieval and that missing custom functionality still goes through normal generation.
 
@@ -88,6 +95,7 @@
 ### Task 5: Resource-Level Repair and Governance
 
 **Files:**
+
 - Add resource regression/quarantine/version tracking integrated with existing repair/evidence systems.
 
 - [ ] RED tests for resource defect vs adaptation/integration/custom-code defect classification.

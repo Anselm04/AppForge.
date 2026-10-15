@@ -42,16 +42,12 @@ export const builderResourceCompositionSchema = z.object({
   routes: stringList.default([]),
   databaseMigrations: stringList.default([]),
   environmentVariables: stringList.default([]),
-  environmentVariableKinds: z
-    .record(z.enum(["public", "secret"]))
-    .default({}),
+  environmentVariableKinds: z.record(z.enum(["public", "secret"])).default({}),
   packages: z.record(nonEmptyString).default({}),
   stateNamespaces: stringList.default([]),
   navigationKeys: stringList.default([]),
   permissions: stringList.default([]),
-  permissionPolicies: z
-    .record(z.enum(["required", "forbidden"]))
-    .default({}),
+  permissionPolicies: z.record(z.enum(["required", "forbidden"])).default({}),
   stylingTokens: stringList.default([]),
   stylingAssignments: z.record(nonEmptyString).default({}),
   platformCapabilities: stringList.default([]),
@@ -59,9 +55,7 @@ export const builderResourceCompositionSchema = z.object({
     .record(z.enum(["required", "forbidden"]))
     .default({}),
   deploymentRequirements: stringList.default([]),
-  deploymentPolicies: z
-    .record(z.enum(["required", "forbidden"]))
-    .default({}),
+  deploymentPolicies: z.record(z.enum(["required", "forbidden"])).default({}),
   apiContracts: z.record(nonEmptyString).default({}),
   eventsProduced: stringList.default([]),
   eventsConsumed: stringList.default([]),

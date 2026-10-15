@@ -77,7 +77,9 @@ export const RESEARCH_EVIDENCE_RESOURCE: BuilderResourceManifest =
       provenance: "AppForge-owned research evidence helpers",
       license: "UNLICENSED-INTERNAL",
       allowedUse: ["internal-generation"],
-      securityNotes: ["Retrieved source content must retain provenance and freshness metadata"],
+      securityNotes: [
+        "Retrieved source content must retain provenance and freshness metadata",
+      ],
       deprecationStatus: "active",
       replacementResourceId: null,
       maintainerInternalOwner: "appforge",

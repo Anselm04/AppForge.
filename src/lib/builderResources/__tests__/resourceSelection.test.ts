@@ -234,7 +234,9 @@ describe("Builder Resource selection", () => {
     expect(selection.selected[0]?.reasons).toContain("stack:exact");
     expect(selection.selected[0]?.reasons).toContain("platform:android");
     expect(selection.selected[0]?.decision.requirementIds).toEqual(["REQ-001"]);
-    expect(selection.selected[0]?.decision.evidenceLedgerIds).toContain("ledger");
+    expect(selection.selected[0]?.decision.evidenceLedgerIds).toContain(
+      "ledger",
+    );
   });
 
   it("rejects stale or unlicensed candidates when stricter constraints require it", () => {
@@ -271,9 +273,8 @@ describe("Builder Resource selection", () => {
     });
 
     expect(selection.selected).toEqual([]);
-    expect(selection.rejected.map((candidate) => candidate.resourceId).sort()).toEqual([
-      "core.auth.forbidden-license",
-      "core.auth.stale",
-    ]);
+    expect(
+      selection.rejected.map((candidate) => candidate.resourceId).sort(),
+    ).toEqual(["core.auth.forbidden-license", "core.auth.stale"]);
   });
 });

@@ -43,7 +43,9 @@ describe("Builder Resource Library programme", () => {
       if (resource.governance.maturityState === "production-certified") {
         expect(resource.evidence.adapterEvidence.reproducibleBuild).toBe(true);
         expect(resource.evidence.adapterEvidence.behavioralVerified).toBe(true);
-        expect(resource.evidence.adapterEvidence.securityScanVerified).toBe(true);
+        expect(resource.evidence.adapterEvidence.securityScanVerified).toBe(
+          true,
+        );
       }
     }
   });
@@ -91,26 +93,48 @@ describe("Builder Resource Library programme", () => {
 describe("required cross-resource compositions", () => {
   const combinations: Array<[string, string[]]> = [
     ["AUTH + BILLING", ["core.authentication", "core.billing"]],
-    ["AUTH + MULTITENANCY", ["core.authentication", "core.authorization", "core.database"]],
+    [
+      "AUTH + MULTITENANCY",
+      ["core.authentication", "core.authorization", "core.database"],
+    ],
     ["AUTH + REALTIME", ["core.authentication", "capability.collab"]],
     ["BILLING + WEBHOOKS", ["core.billing", "core.webhooks"]],
     ["MOBILE + PUSH", ["capability.mobile", "core.notifications"]],
     ["MOBILE + VOICE", ["capability.mobile", "capability.voice"]],
-    ["BOOKING + JOBS + PUSH", ["core.database", "core.background-jobs", "core.notifications"]],
-    ["EDUCATION + VIDEO + AR", ["capability.education", "capability.video", "capability.ar"]],
-    ["MARKETPLACE + PAYMENTS + MESSAGING", ["core.authentication", "core.billing", "capability.collab"]],
-    ["FINTECH + AUDIT + SECURITY", ["capability.fintech", "core.observability", "core.security"]],
-    ["HEALTHCARE + ACCESS + AUDIT", ["capability.healthcare", "core.authorization", "core.observability"]],
+    [
+      "BOOKING + JOBS + PUSH",
+      ["core.database", "core.background-jobs", "core.notifications"],
+    ],
+    [
+      "EDUCATION + VIDEO + AR",
+      ["capability.education", "capability.video", "capability.ar"],
+    ],
+    [
+      "MARKETPLACE + PAYMENTS + MESSAGING",
+      ["core.authentication", "core.billing", "capability.collab"],
+    ],
+    [
+      "FINTECH + AUDIT + SECURITY",
+      ["capability.fintech", "core.observability", "core.security"],
+    ],
+    [
+      "HEALTHCARE + ACCESS + AUDIT",
+      ["capability.healthcare", "core.authorization", "core.observability"],
+    ],
     ["GAME + INPUT + SAVE", ["capability.game", "core.storage"]],
-    ["LOCALIZATION + RTL + FORMS", ["capability.localization", "design.controls"]],
+    [
+      "LOCALIZATION + RTL + FORMS",
+      ["capability.localization", "design.controls"],
+    ],
   ];
 
   for (const [name, ids] of combinations) {
     it(`composes ${name} without hidden conflicts`, () => {
       const composition = composeBuilderResources(resources(ids));
-      expect(composition.conflicts, JSON.stringify(composition.conflicts)).toEqual(
-        [],
-      );
+      expect(
+        composition.conflicts,
+        JSON.stringify(composition.conflicts),
+      ).toEqual([]);
       expect(composition.ok).toBe(true);
     });
   }
@@ -138,7 +162,8 @@ describe("safe promotion from successful customer builds", () => {
     if (!template) throw new Error("catalog unexpectedly empty");
     const candidate = prepareResourcePromotionCandidate({
       generalizedFiles: {
-        "src/resource.ts": "export function validate(value: string) { return value.trim(); }",
+        "src/resource.ts":
+          "export function validate(value: string) { return value.trim(); }",
       },
       proposedManifest: template,
     });

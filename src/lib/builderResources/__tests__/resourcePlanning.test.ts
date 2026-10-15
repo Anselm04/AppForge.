@@ -41,7 +41,10 @@ const contract: ProductContract = {
   nonFunctionalRequirements: ["secure", "reliable"],
   dataModels: ["User", "ReservationPreference", "Entitlement"],
   integrations: ["reservation provider", "Stripe"],
-  securityRequirements: ["least privilege", "server-authoritative entitlements"],
+  securityRequirements: [
+    "least privilege",
+    "server-authoritative entitlements",
+  ],
   deploymentRequirements: ["iOS", "Android", "backend"],
   monetizationRequirements: ["monthly subscription"],
   selectedTechnologyStack: "flutter-node",
@@ -184,8 +187,12 @@ describe("Builder Resource planning", () => {
     expect(result.selectedResourceIds).toContain("core.authentication@1.0.0");
     expect(result.selectedResourceIds).toContain("core.billing@1.0.0");
     expect(result.selectedResourceIds).toContain("capability.voice@1.0.0");
-    expect(result.selectedResourceIds).toContain("capability.localization@1.0.0");
-    expect(result.decisionEvidence.length).toBe(result.requiredCapabilities.length);
+    expect(result.selectedResourceIds).toContain(
+      "capability.localization@1.0.0",
+    );
+    expect(result.decisionEvidence.length).toBe(
+      result.requiredCapabilities.length,
+    );
     expect(result.retrievalMetrics.metadataQueries).toBe(
       result.requiredCapabilities.length,
     );

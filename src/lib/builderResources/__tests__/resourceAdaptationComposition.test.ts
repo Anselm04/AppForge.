@@ -49,7 +49,9 @@ function resource(
       secretRequirements: [],
     },
     adaptation: {
-      configurableFields: options.configurableFields ?? ["branding.primaryColor"],
+      configurableFields: options.configurableFields ?? [
+        "branding.primaryColor",
+      ],
       replacementPoints: ["ui.header"],
       brandingHooks: ["branding.primaryColor"],
       localizationHooks: ["locale.default"],
@@ -57,19 +59,18 @@ function resource(
       databaseHooks: ["database.tablePrefix"],
       extensionPoints: ["feature.extra"],
     },
-    composition:
-      options.composition ?? {
-        routes: [],
-        databaseMigrations: [],
-        environmentVariables: [],
-        packages: {},
-        stateNamespaces: [],
-        navigationKeys: [],
-        permissions: [],
-        stylingTokens: [],
-        platformCapabilities: [],
-        deploymentRequirements: [],
-      },
+    composition: options.composition ?? {
+      routes: [],
+      databaseMigrations: [],
+      environmentVariables: [],
+      packages: {},
+      stateNamespaces: [],
+      navigationKeys: [],
+      permissions: [],
+      stylingTokens: [],
+      platformCapabilities: [],
+      deploymentRequirements: [],
+    },
     evidence: {
       unitTests: ["unit"],
       integrationTests: ["integration"],
@@ -189,7 +190,10 @@ describe("Builder Resource composition", () => {
 
     expect(composition.ok).toBe(true);
     expect(composition.conflicts).toEqual([]);
-    expect(composition.resources).toEqual(["core.auth@1.0.0", "core.billing@1.0.0"]);
+    expect(composition.resources).toEqual([
+      "core.auth@1.0.0",
+      "core.billing@1.0.0",
+    ]);
     expect(composition.environmentVariables).toEqual([
       "AUTH_ISSUER",
       "STRIPE_SECRET_KEY",
@@ -234,7 +238,9 @@ describe("Builder Resource composition", () => {
     const composition = composeBuilderResources([first, second]);
 
     expect(composition.ok).toBe(false);
-    expect(composition.conflicts.map((conflict) => conflict.kind).sort()).toEqual([
+    expect(
+      composition.conflicts.map((conflict) => conflict.kind).sort(),
+    ).toEqual([
       "database-migration",
       "navigation",
       "package-version",

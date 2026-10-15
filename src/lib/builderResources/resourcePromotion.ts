@@ -4,12 +4,18 @@ import type { BuilderResourceManifestInput } from "./resourceManifest.js";
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/\bsk_(?:live|test)_[A-Za-z0-9]+\b/, "stripe-key"],
   [/\bgh[pousr]_[A-Za-z0-9_]+\b/, "github-token"],
-  [/\b(?:api[_-]?key|secret|password|access[_-]?token)\s*[:=]\s*["'][^"']{8,}["']/i, "embedded-secret"],
+  [
+    /\b(?:api[_-]?key|secret|password|access[_-]?token)\s*[:=]\s*["'][^"']{8,}["']/i,
+    "embedded-secret",
+  ],
   [/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, "private-key"],
 ];
 
 const PRIVATE_DATA_PATTERNS: Array<[RegExp, string]> = [
-  [/\b(?:customer|tenant|patient|student)[_-]?(?:id|email|name)\s*[:=]/i, "customer-specific-field"],
+  [
+    /\b(?:customer|tenant|patient|student)[_-]?(?:id|email|name)\s*[:=]/i,
+    "customer-specific-field",
+  ],
   [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i, "email-address"],
 ];
 
@@ -28,7 +34,10 @@ export function scanResourcePromotionContent(
   );
 
   for (const [path, source] of ordered) {
-    for (const [pattern, kind] of [...SECRET_PATTERNS, ...PRIVATE_DATA_PATTERNS]) {
+    for (const [pattern, kind] of [
+      ...SECRET_PATTERNS,
+      ...PRIVATE_DATA_PATTERNS,
+    ]) {
       if (pattern.test(source)) findings.push({ path, kind });
       pattern.lastIndex = 0;
     }

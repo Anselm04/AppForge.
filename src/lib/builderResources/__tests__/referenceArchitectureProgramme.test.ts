@@ -64,10 +64,12 @@ describe("reference architecture programme", () => {
       validations.flatMap((validation) => validation.missingResourceIds),
     ).toEqual([]);
     expect(
-      validations.filter((validation) => !validation.ok).map((validation) => ({
-        id: validation.recipeId,
-        conflicts: validation.compositionConflictKinds,
-      })),
+      validations
+        .filter((validation) => !validation.ok)
+        .map((validation) => ({
+          id: validation.recipeId,
+          conflicts: validation.compositionConflictKinds,
+        })),
     ).toEqual([]);
   });
 });

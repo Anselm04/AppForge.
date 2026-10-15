@@ -51,7 +51,8 @@ export async function retrieveBuilderResources<T>(input: {
       metadataCandidates: candidates.length,
       contentLoads: resources.length,
       selectedResourceIds: resources.map(
-        (entry) => `${entry.resource.identity.resourceId}@${entry.resource.identity.version}`,
+        (entry) =>
+          `${entry.resource.identity.resourceId}@${entry.resource.identity.version}`,
       ),
     },
   };

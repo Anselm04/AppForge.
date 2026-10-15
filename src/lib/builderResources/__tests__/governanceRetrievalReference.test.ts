@@ -103,7 +103,8 @@ describe("Builder Resource repair diagnosis", () => {
       resourceId: auth.identity.resourceId,
     });
     expect(
-      applyResourceFailureDecision(auth, defect).governance.quarantine?.quarantined,
+      applyResourceFailureDecision(auth, defect).governance.quarantine
+        ?.quarantined,
     ).toBe(true);
   });
 });
@@ -170,9 +171,10 @@ describe("reference architectures", () => {
       "game",
       "iot",
     ]) {
-      expect(ids.has(expected), `missing reference architecture ${expected}`).toBe(
-        true,
-      );
+      expect(
+        ids.has(expected),
+        `missing reference architecture ${expected}`,
+      ).toBe(true);
     }
   });
 

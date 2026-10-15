@@ -61,11 +61,7 @@ describe("research Builder Resource", () => {
       expiresAt: "2026-10-17T00:00:00.000Z",
       sourceUrls: [official.url],
     };
-    expect(isResearchCacheFresh(entry, "2026-10-16T12:00:00.000Z")).toBe(
-      true,
-    );
-    expect(isResearchCacheFresh(entry, "2026-10-17T00:00:00.000Z")).toBe(
-      false,
-    );
+    expect(isResearchCacheFresh(entry, "2026-10-16T12:00:00.000Z")).toBe(true);
+    expect(isResearchCacheFresh(entry, "2026-10-17T00:00:00.000Z")).toBe(false);
   });
 });

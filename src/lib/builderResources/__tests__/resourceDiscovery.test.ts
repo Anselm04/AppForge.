@@ -43,7 +43,8 @@ describe("private Builder Resource discovery questions", () => {
       }).available,
     ).toBe(true);
     expect(
-      answerBuilderResourceDiscoveryQuestion({ capability: "collab" }).available,
+      answerBuilderResourceDiscoveryQuestion({ capability: "collab" })
+        .available,
     ).toBe(true);
     const education = answerBuilderResourceDiscoveryQuestion({
       capability: "education",

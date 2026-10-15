@@ -14,15 +14,32 @@ const SOURCE_MAP: Record<CoreBuilderResourceCapabilityId, string[]> = {
   database: ["src/db/schema.ts", "src/lib/databasePersistence.ts"],
   api: ["src/utils/trpc.ts", "src/routes/generate.ts"],
   storage: ["src/lib/codeGeneration.ts"],
-  notifications: ["src/lib/codeGeneration.ts", "src/lib/productCapabilityAdapters.ts"],
-  billing: ["src/services/stripeCheckout.ts", "src/webhooks/stripe.ts", "src/lib/codeGeneration.ts"],
+  notifications: [
+    "src/lib/codeGeneration.ts",
+    "src/lib/productCapabilityAdapters.ts",
+  ],
+  billing: [
+    "src/services/stripeCheckout.ts",
+    "src/webhooks/stripe.ts",
+    "src/lib/codeGeneration.ts",
+  ],
   webhooks: ["src/webhooks/stripe.ts", "src/lib/codeGeneration.ts"],
-  background_jobs: ["src/services/build-worker.ts", "src/lib/codeGeneration.ts"],
+  background_jobs: [
+    "src/services/build-worker.ts",
+    "src/lib/codeGeneration.ts",
+  ],
   search: ["src/services/webSearch.ts"],
   analytics: ["src/lib/buildCapabilities.ts", "src/agents/capabilityHints.ts"],
-  security: ["src/agents/buildValidator.ts", "src/lib/productCapabilityAdapters.ts"],
+  security: [
+    "src/agents/buildValidator.ts",
+    "src/lib/productCapabilityAdapters.ts",
+  ],
   observability: ["src/_core/logger.ts", "src/services/deployHealth.ts"],
-  monetization: ["src/services/stripeCheckout.ts", "src/webhooks/stripe.ts", "src/lib/codeGeneration.ts"],
+  monetization: [
+    "src/services/stripeCheckout.ts",
+    "src/webhooks/stripe.ts",
+    "src/lib/codeGeneration.ts",
+  ],
 };
 
 function resourceId(capability: CoreBuilderResourceCapabilityId): string {
@@ -31,7 +48,9 @@ function resourceId(capability: CoreBuilderResourceCapabilityId): string {
     : `corepack.${capability}.contract`;
 }
 
-function corePack(capability: CoreBuilderResourceCapabilityId): BuilderResourceManifest {
+function corePack(
+  capability: CoreBuilderResourceCapabilityId,
+): BuilderResourceManifest {
   return parseBuilderResourceManifest({
     identity: {
       resourceId: resourceId(capability),
@@ -51,8 +70,7 @@ function corePack(capability: CoreBuilderResourceCapabilityId): BuilderResourceM
     capabilities: {
       capabilitiesProvided: [capability],
       optionalCapabilities: [],
-      dependencies:
-        capability === "account" ? ["core.authentication"] : [],
+      dependencies: capability === "account" ? ["core.authentication"] : [],
       integrationPoints: [capability],
     },
     contracts: {

@@ -1,4 +1,7 @@
-import { BUILD_CAPABILITY_IDS, type BuildCapabilityId } from "../buildCapabilities.js";
+import {
+  BUILD_CAPABILITY_IDS,
+  type BuildCapabilityId,
+} from "../buildCapabilities.js";
 import {
   parseBuilderResourceManifest,
   type BuilderResourceManifest,
@@ -17,30 +20,73 @@ const EXISTING_DOMAIN_SOURCES: Record<BuildCapabilityId, string[]> = {
   ar: ["src/pages/ARStudio.tsx"],
   education: ["src/pages/EducationStudio.tsx"],
   patent: ["src/pages/PatentStudio.tsx"],
-  architecture: ["src/pages/ArchitectureStudio.tsx", "src/lib/architectureProcedures.ts"],
-  game: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  cad: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  legal: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  fintech: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  healthcare: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
+  architecture: [
+    "src/pages/ArchitectureStudio.tsx",
+    "src/lib/architectureProcedures.ts",
+  ],
+  game: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  cad: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  legal: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  fintech: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  healthcare: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
   mobile: ["src/lib/codeGeneration.ts", "src/lib/productCapabilityAdapters.ts"],
   voice: ["src/lib/codeGeneration.ts", "src/lib/productCapabilityAdapters.ts"],
-  data: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  localization: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
-  collab: ["src/lib/extensionCapabilities.ts", "src/routers/extensionProcedures.ts"],
+  data: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  localization: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
+  collab: [
+    "src/lib/extensionCapabilities.ts",
+    "src/routers/extensionProcedures.ts",
+  ],
 };
 
 const DOMAIN_SECURITY_NOTES: Partial<Record<BuildCapabilityId, string[]>> = {
-  music: ["Only licensed, owned, or otherwise lawful audio material may be ingested"],
-  patent: ["Prior-art workflow and drafting scaffolds do not guarantee patentability; qualified review is required"],
-  architecture: ["Regulated professional documents require qualified licensed professional review"],
-  legal: ["Legal scaffolds are editable engineering resources, not a substitute for qualified legal review"],
-  fintech: ["Financial and regulatory obligations require qualified review for the target jurisdiction"],
-  healthcare: ["Sensitive-data scaffolds are not by themselves a legal compliance certification"],
-  voice: ["Background/wake behavior must respect target-platform rules and user privacy"],
+  music: [
+    "Only licensed, owned, or otherwise lawful audio material may be ingested",
+  ],
+  patent: [
+    "Prior-art workflow and drafting scaffolds do not guarantee patentability; qualified review is required",
+  ],
+  architecture: [
+    "Regulated professional documents require qualified licensed professional review",
+  ],
+  legal: [
+    "Legal scaffolds are editable engineering resources, not a substitute for qualified legal review",
+  ],
+  fintech: [
+    "Financial and regulatory obligations require qualified review for the target jurisdiction",
+  ],
+  healthcare: [
+    "Sensitive-data scaffolds are not by themselves a legal compliance certification",
+  ],
+  voice: [
+    "Background/wake behavior must respect target-platform rules and user privacy",
+  ],
 };
 
-function domainResource(capability: BuildCapabilityId): BuilderResourceManifest {
+function domainResource(
+  capability: BuildCapabilityId,
+): BuilderResourceManifest {
   return parseBuilderResourceManifest({
     identity: {
       resourceId: `domain.${capability}.contract-pack`,
@@ -67,7 +113,9 @@ function domainResource(capability: BuildCapabilityId): BuilderResourceManifest 
       inputContract: { kind: `${capability}-domain-input` },
       outputContract: { kind: `${capability}-validated-domain-model` },
       apiContract: null,
-      dataContract: { schemaExport: `CAPABILITY_DOMAIN_CONTRACTS.${capability}` },
+      dataContract: {
+        schemaExport: `CAPABILITY_DOMAIN_CONTRACTS.${capability}`,
+      },
       eventsEmitted: [],
       eventsConsumed: [],
       requiredEnvironmentVariables: [],
@@ -76,7 +124,10 @@ function domainResource(capability: BuildCapabilityId): BuilderResourceManifest 
     adaptation: {
       configurableFields: [`${capability}.configuration`],
       replacementPoints: [],
-      brandingHooks: capability === "graphics" || capability === "marketing" ? [`${capability}.branding`] : [],
+      brandingHooks:
+        capability === "graphics" || capability === "marketing"
+          ? [`${capability}.branding`]
+          : [],
       localizationHooks: ["locale"],
       authorizationHooks: ["authorization.policy"],
       databaseHooks: ["database.mapping"],
@@ -89,7 +140,12 @@ function domainResource(capability: BuildCapabilityId): BuilderResourceManifest 
       packages: {},
       stateNamespaces: [],
       navigationKeys: [],
-      permissions: capability === "ar" ? ["camera"] : capability === "voice" ? ["microphone"] : [],
+      permissions:
+        capability === "ar"
+          ? ["camera"]
+          : capability === "voice"
+            ? ["microphone"]
+            : [],
       stylingTokens: capability === "graphics" ? ["design.tokens"] : [],
       platformCapabilities: capability === "ar" ? ["camera", "webxr"] : [],
       deploymentRequirements: [],
@@ -125,7 +181,8 @@ function domainResource(capability: BuildCapabilityId): BuilderResourceManifest 
       },
     },
     governance: {
-      provenance: "AppForge-owned reusable domain contracts plus existing capability implementation",
+      provenance:
+        "AppForge-owned reusable domain contracts plus existing capability implementation",
       license: "UNLICENSED-INTERNAL",
       allowedUse: ["internal-generation"],
       securityNotes: DOMAIN_SECURITY_NOTES[capability] ?? [],
@@ -138,4 +195,5 @@ function domainResource(capability: BuildCapabilityId): BuilderResourceManifest 
   });
 }
 
-export const SUBSTANTIAL_DOMAIN_RESOURCES = BUILD_CAPABILITY_IDS.map(domainResource);
+export const SUBSTANTIAL_DOMAIN_RESOURCES =
+  BUILD_CAPABILITY_IDS.map(domainResource);

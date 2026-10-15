@@ -1,7 +1,11 @@
 import type { BuilderResourceManifest } from "./resourceManifest.js";
 
 const FORBIDDEN_PACKAGE_SPECIFIERS = [
-  /^git\+/, /^git:/, /^https?:/, /^file:/, /^link:/,
+  /^git\+/,
+  /^git:/,
+  /^https?:/,
+  /^file:/,
+  /^link:/,
 ];
 
 const SECRET_VALUE_PATTERN =
@@ -59,7 +63,8 @@ export function reviewBuilderResourceSupplyChain(
     findings.push({
       severity: "error",
       code: "external-proprietary-copy",
-      detail: "External proprietary source cannot be copied into the private resource warehouse.",
+      detail:
+        "External proprietary source cannot be copied into the private resource warehouse.",
     });
   }
 

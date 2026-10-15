@@ -67,8 +67,7 @@ function planFor(contract: ProductContract): ProductPlan {
       deploymentDesign: "Mobile packages plus backend deployment",
       operationsDesign: "Observable background work and provider failures",
       recoveryDesign: "Idempotent retries and durable persistence",
-      monetizationPlan:
-        contract.monetizationRequirements.join("; ") || "none",
+      monetizationPlan: contract.monetizationRequirements.join("; ") || "none",
     },
     implementationSequence: tasks.map((task) => task.id),
     tasks,

@@ -7,7 +7,15 @@ import {
 export const validatedFieldAtomSchema = z.object({
   name: z.string().min(1),
   label: z.string().min(1),
-  type: z.enum(["text", "email", "password", "number", "date", "time", "search"]),
+  type: z.enum([
+    "text",
+    "email",
+    "password",
+    "number",
+    "date",
+    "time",
+    "search",
+  ]),
   required: z.boolean(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().positive().optional(),

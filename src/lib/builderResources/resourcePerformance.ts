@@ -29,7 +29,10 @@ export function benchmarkMetadataFirstRetrieval(input: {
   );
   const naiveContentLoads = catalogSize;
   const resourceContentLoads = selectedCount;
-  const avoidedContentLoads = Math.max(0, naiveContentLoads - resourceContentLoads);
+  const avoidedContentLoads = Math.max(
+    0,
+    naiveContentLoads - resourceContentLoads,
+  );
 
   return {
     catalogSize,
@@ -86,9 +89,11 @@ export function compareResourceAwareBuilds(input: {
     ...input,
     deltas: {
       generatedCodeUnits:
-        input.resourceAware.generatedCodeUnits - input.baseline.generatedCodeUnits,
+        input.resourceAware.generatedCodeUnits -
+        input.baseline.generatedCodeUnits,
       reusableCodeUnits:
-        input.resourceAware.reusableCodeUnits - input.baseline.reusableCodeUnits,
+        input.resourceAware.reusableCodeUnits -
+        input.baseline.reusableCodeUnits,
       repairCycles:
         input.resourceAware.repairCycles - input.baseline.repairCycles,
       defects: input.resourceAware.defects - input.baseline.defects,

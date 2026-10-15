@@ -13,13 +13,17 @@ describe("Builder Resource design families", () => {
       "editorial-content",
       "immersive-media",
     ]);
-    expect(new Set(DESIGN_FAMILIES.map((family) => family.density)).size).toBeGreaterThan(1);
+    expect(
+      new Set(DESIGN_FAMILIES.map((family) => family.density)).size,
+    ).toBeGreaterThan(1);
   });
 
   it("requires accessibility, responsive, light/dark and localization support in every family", () => {
     for (const family of DESIGN_FAMILIES) {
       expect(family.layout.minTouchTarget).toBeGreaterThanOrEqual(44);
-      expect(family.accessibility.minimumContrastRatio).toBeGreaterThanOrEqual(4.5);
+      expect(family.accessibility.minimumContrastRatio).toBeGreaterThanOrEqual(
+        4.5,
+      );
       expect(family.accessibility.keyboardNavigation).toBe(true);
       expect(family.accessibility.screenReaderSemantics).toBe(true);
       expect(family.themes.light).toBe(true);

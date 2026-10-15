@@ -205,7 +205,9 @@ export function promoteSanitizedBuildCandidate(
   review: ResourcePromotionReview,
 ): BuilderResourceManifest {
   assertPromotionReviewComplete(review);
-  if (stateRank(candidate.governance.maturityState) > stateRank("experimental")) {
+  if (
+    stateRank(candidate.governance.maturityState) > stateRank("experimental")
+  ) {
     throw new Error(
       "Newly promoted customer-build resources must enter at experimental or lower maturity",
     );

@@ -17,7 +17,8 @@ export const reusableComponentSchema = z.object({
 export const REUSABLE_COMPONENT_CONTRACTS = [
   {
     componentId: "login-form",
-    purpose: "Validated authentication form with error, loading and password visibility behavior.",
+    purpose:
+      "Validated authentication form with error, loading and password visibility behavior.",
     inputs: ["identifier", "password", "providerOptions"],
     outputs: ["authenticated-session", "auth-error"],
     asyncStates: ["loading", "success", "error"] as const,
@@ -28,7 +29,8 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "profile-editor",
-    purpose: "Owner-scoped account profile editor with validation and persistence state.",
+    purpose:
+      "Owner-scoped account profile editor with validation and persistence state.",
     inputs: ["profile", "editableFields"],
     outputs: ["updated-profile", "validation-error"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
@@ -39,7 +41,8 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "pricing-card",
-    purpose: "Plan and one-time purchase presentation wired to a server checkout boundary.",
+    purpose:
+      "Plan and one-time purchase presentation wired to a server checkout boundary.",
     inputs: ["product", "price", "entitlementSummary"],
     outputs: ["checkout-request"],
     asyncStates: ["loading", "success", "error"] as const,
@@ -50,7 +53,8 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "search-box",
-    purpose: "Debounced accessible search input with filters and explicit result state.",
+    purpose:
+      "Debounced accessible search input with filters and explicit result state.",
     inputs: ["query", "filters", "minimumLength"],
     outputs: ["search-request", "clear-request"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
@@ -61,7 +65,8 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "file-uploader",
-    purpose: "Validated file selection/upload component respecting MIME, size and ownership policies.",
+    purpose:
+      "Validated file selection/upload component respecting MIME, size and ownership policies.",
     inputs: ["allowedMimeTypes", "maxBytes", "multiple"],
     outputs: ["upload-request", "validation-error", "delete-request"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
@@ -72,7 +77,8 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "data-table",
-    purpose: "Accessible sortable/filterable/paginated table with row actions and ownership hooks.",
+    purpose:
+      "Accessible sortable/filterable/paginated table with row actions and ownership hooks.",
     inputs: ["columns", "rows", "sort", "filters", "pagination"],
     outputs: ["sort-change", "filter-change", "page-change", "row-action"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
@@ -83,18 +89,25 @@ export const REUSABLE_COMPONENT_CONTRACTS = [
   },
   {
     componentId: "booking-selector",
-    purpose: "Generic resource/date/time/party or quantity selection component adaptable across booking domains.",
+    purpose:
+      "Generic resource/date/time/party or quantity selection component adaptable across booking domains.",
     inputs: ["resource", "dateRange", "timeRange", "quantity"],
     outputs: ["booking-preference"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
     accessibility: ["date-labels", "time-labels", "validation-summary"],
-    adaptationPoints: ["resourceVocabulary", "constraints", "timezone", "localization"],
+    adaptationPoints: [
+      "resourceVocabulary",
+      "constraints",
+      "timezone",
+      "localization",
+    ],
     sourcePaths: ["src/lib/codeGeneration.ts"],
     capabilities: ["database"] as const,
   },
   {
     componentId: "data-chart",
-    purpose: "Chart wrapper requiring accessible summary and data-table fallback.",
+    purpose:
+      "Chart wrapper requiring accessible summary and data-table fallback.",
     inputs: ["series", "axes", "formatters"],
     outputs: ["selection", "filter-request"],
     asyncStates: ["loading", "empty", "success", "error"] as const,
@@ -154,15 +167,18 @@ export const COMPONENT_RESOURCES: BuilderResourceManifest[] =
         localizationHooks: contract.adaptationPoints.includes("localization")
           ? ["localization"]
           : [],
-        authorizationHooks: contract.adaptationPoints.includes("permissions") ||
+        authorizationHooks:
+          contract.adaptationPoints.includes("permissions") ||
           contract.adaptationPoints.includes("authorization")
-          ? ["authorization"]
-          : [],
+            ? ["authorization"]
+            : [],
         databaseHooks: [],
         extensionPoints: [],
       },
       evidence: {
-        unitTests: ["src/lib/builderResources/__tests__/resourceLevels.test.ts"],
+        unitTests: [
+          "src/lib/builderResources/__tests__/resourceLevels.test.ts",
+        ],
         integrationTests: [],
         behavioralTests: [],
         buildEvidence: [],
@@ -187,8 +203,13 @@ export const COMPONENT_RESOURCES: BuilderResourceManifest[] =
         quarantine: null,
       },
       implementation: {
-        sourcePaths: ["src/lib/builderResources/componentResources.ts", ...sourcePaths],
-        testPaths: ["src/lib/builderResources/__tests__/resourceLevels.test.ts"],
+        sourcePaths: [
+          "src/lib/builderResources/componentResources.ts",
+          ...sourcePaths,
+        ],
+        testPaths: [
+          "src/lib/builderResources/__tests__/resourceLevels.test.ts",
+        ],
         exportPolicy: "copy-adapt",
         requiresLiveLibraryAtRuntime: false,
       },

@@ -59,6 +59,7 @@ Confirmed baseline and authoritative integration points. No duplicate resource a
 **Status:** IN PROGRESS
 
 Target foundation:
+
 - machine-readable manifest
 - compatibility/dependency model
 - evidence/maturity binding

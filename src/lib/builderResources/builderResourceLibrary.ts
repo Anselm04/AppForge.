@@ -60,7 +60,9 @@ export function builderResourceLibraryCounts(): {
 
   const sortRecord = (value: Record<string, number>) =>
     Object.fromEntries(
-      Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
+      Object.entries(value).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
     );
 
   return {

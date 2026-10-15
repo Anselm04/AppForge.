@@ -109,7 +109,9 @@ function incompatibleValues(
       kind,
       key,
       resources: sortedUnique([...byValue.values()].flat()),
-      values: [...byValue.keys()].sort((left, right) => left.localeCompare(right)),
+      values: [...byValue.keys()].sort((left, right) =>
+        left.localeCompare(right),
+      ),
     }));
 }
 
@@ -125,7 +127,9 @@ function packageConflicts(
 function missingDependencyConflicts(
   resources: readonly BuilderResourceManifest[],
 ): ResourceCompositionConflict[] {
-  const available = new Set(resources.map((resource) => resource.identity.resourceId));
+  const available = new Set(
+    resources.map((resource) => resource.identity.resourceId),
+  );
   const conflicts: ResourceCompositionConflict[] = [];
   for (const resource of resources) {
     for (const dependency of resource.capabilities.dependencies) {
@@ -195,7 +199,10 @@ export function composeBuilderResources(
     ),
     ...incompatibleValues(
       "api-contract",
-      valueOwnershipOf(ordered, (resource) => resource.composition.apiContracts),
+      valueOwnershipOf(
+        ordered,
+        (resource) => resource.composition.apiContracts,
+      ),
     ),
     ...collisions(
       "event-producer",
@@ -246,7 +253,10 @@ export function composeBuilderResources(
     environmentVariables: sortedUnique(
       ordered.flatMap((resource) => resource.composition.environmentVariables),
     ),
-    packages: mergedRecord(ordered, (resource) => resource.composition.packages),
+    packages: mergedRecord(
+      ordered,
+      (resource) => resource.composition.packages,
+    ),
     stateNamespaces: sortedUnique(
       ordered.flatMap((resource) => resource.composition.stateNamespaces),
     ),
@@ -263,7 +273,9 @@ export function composeBuilderResources(
       ordered.flatMap((resource) => resource.composition.platformCapabilities),
     ),
     deploymentRequirements: sortedUnique(
-      ordered.flatMap((resource) => resource.composition.deploymentRequirements),
+      ordered.flatMap(
+        (resource) => resource.composition.deploymentRequirements,
+      ),
     ),
     eventsProduced: sortedUnique(
       ordered.flatMap((resource) => resource.composition.eventsProduced),

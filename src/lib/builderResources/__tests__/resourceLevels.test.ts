@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ALL_BUILDER_RESOURCES } from "../builderResourceLibrary.js";
 import { COMPONENT_RESOURCES } from "../componentResources.js";
-import { BUILDER_RESOURCE_ATOMS, dateRangeAtomSchema } from "../resourceAtoms.js";
+import {
+  BUILDER_RESOURCE_ATOMS,
+  dateRangeAtomSchema,
+} from "../resourceAtoms.js";
 
 describe("five-level Builder Resource Library", () => {
   it("contains real resources at atom, component, module, domain-pack and reference-architecture levels", () => {
@@ -31,7 +34,9 @@ describe("five-level Builder Resource Library", () => {
   });
 
   it("contains adaptable component contracts for common product workflows", () => {
-    const ids = COMPONENT_RESOURCES.map((resource) => resource.identity.resourceId);
+    const ids = COMPONENT_RESOURCES.map(
+      (resource) => resource.identity.resourceId,
+    );
     expect(ids).toEqual(
       expect.arrayContaining([
         "component.login-form",

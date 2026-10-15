@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CORE_BUILDER_RESOURCE_CAPABILITY_IDS } from "../resourceCapabilities.js";
-import { CORE_RESOURCE_CONTRACTS, authorizationResourceSchema, webhookResourceSchema } from "../coreResourceContracts.js";
+import {
+  CORE_RESOURCE_CONTRACTS,
+  authorizationResourceSchema,
+  webhookResourceSchema,
+} from "../coreResourceContracts.js";
 import { SUBSTANTIAL_CORE_RESOURCES } from "../substantialCoreResources.js";
 
 describe("substantive core Builder Resource packs", () => {
@@ -12,7 +16,9 @@ describe("substantive core Builder Resource packs", () => {
       CORE_BUILDER_RESOURCE_CAPABILITY_IDS.length,
     );
     for (const capability of CORE_BUILDER_RESOURCE_CAPABILITY_IDS) {
-      expect(CORE_RESOURCE_CONTRACTS[capability].safeParse({}).success).toBe(false);
+      expect(CORE_RESOURCE_CONTRACTS[capability].safeParse({}).success).toBe(
+        false,
+      );
       const resource = SUBSTANTIAL_CORE_RESOURCES.find((candidate) =>
         candidate.capabilities.capabilitiesProvided.includes(capability),
       );
@@ -26,9 +32,7 @@ describe("substantive core Builder Resource packs", () => {
   it("requires default-deny ownership-aware authorization", () => {
     expect(
       authorizationResourceSchema.safeParse({
-        roles: [
-          { id: "user", permissions: ["booking:read", "booking:write"] },
-        ],
+        roles: [{ id: "user", permissions: ["booking:read", "booking:write"] }],
         ownership: { enforced: true, ownerField: "userId" },
         tenancy: { enabled: false, tenantField: null },
         defaultDeny: true,

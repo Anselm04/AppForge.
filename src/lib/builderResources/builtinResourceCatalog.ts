@@ -42,7 +42,9 @@ type BuiltinResourceDefinition = {
 
 const BASE_VERIFIED_AT = "2026-10-15T21:27:02.000Z";
 
-function builtin(definition: BuiltinResourceDefinition): BuilderResourceManifest {
+function builtin(
+  definition: BuiltinResourceDefinition,
+): BuilderResourceManifest {
   const maturity = definition.maturity ?? "structural";
   return parseBuilderResourceManifest({
     identity: {
@@ -74,8 +76,8 @@ function builtin(definition: BuiltinResourceDefinition): BuilderResourceManifest
       eventsEmitted: [],
       eventsConsumed: [],
       requiredEnvironmentVariables: definition.environmentVariables ?? [],
-      secretRequirements: (definition.environmentVariables ?? []).filter((key) =>
-        /(?:secret|token|key|password)/i.test(key),
+      secretRequirements: (definition.environmentVariables ?? []).filter(
+        (key) => /(?:secret|token|key|password)/i.test(key),
       ),
     },
     adaptation: {
@@ -119,7 +121,8 @@ function builtin(definition: BuiltinResourceDefinition): BuilderResourceManifest
       evidenceLedgerIds: ["baseline-pr-192"],
       adapterEvidence: {
         discovered: true,
-        installVerified: maturity === "structural" || maturity === "experimental",
+        installVerified:
+          maturity === "structural" || maturity === "experimental",
         evidenceLedgerIds: ["baseline-pr-192"],
       },
     },
@@ -186,7 +189,11 @@ const CORE_RESOURCES: BuilderResourceManifest[] = [
     name: "Validated API and error boundary",
     category: "core",
     capabilities: ["api", "security"],
-    sourcePaths: ["src/utils/trpc.ts", "src/routes/generate.ts", "src/lib/codeGeneration.ts"],
+    sourcePaths: [
+      "src/utils/trpc.ts",
+      "src/routes/generate.ts",
+      "src/lib/codeGeneration.ts",
+    ],
     configurableFields: ["api.rateLimits", "api.validation"],
     authorizationHooks: ["api.authMiddleware"],
   }),
@@ -205,7 +212,10 @@ const CORE_RESOURCES: BuilderResourceManifest[] = [
     name: "Notification delivery abstraction",
     category: "core",
     capabilities: ["notifications", "mobile"],
-    sourcePaths: ["src/lib/codeGeneration.ts", "src/lib/productCapabilityAdapters.ts"],
+    sourcePaths: [
+      "src/lib/codeGeneration.ts",
+      "src/lib/productCapabilityAdapters.ts",
+    ],
     configurableFields: ["notifications.channels", "notifications.preferences"],
     extensionPoints: ["notifications.provider"],
     platformCapabilities: ["push-notifications", "local-notifications"],
@@ -261,7 +271,10 @@ const CORE_RESOURCES: BuilderResourceManifest[] = [
     name: "Analytics event and dashboard foundation",
     category: "core",
     capabilities: ["analytics", "data"],
-    sourcePaths: ["src/lib/buildCapabilities.ts", "src/agents/capabilityHints.ts"],
+    sourcePaths: [
+      "src/lib/buildCapabilities.ts",
+      "src/agents/capabilityHints.ts",
+    ],
     configurableFields: ["analytics.events", "analytics.consent"],
     extensionPoints: ["analytics.provider"],
   }),
@@ -270,7 +283,10 @@ const CORE_RESOURCES: BuilderResourceManifest[] = [
     name: "Security validation and authorization guardrails",
     category: "core",
     capabilities: ["security", "authorization"],
-    sourcePaths: ["src/agents/buildValidator.ts", "src/lib/productCapabilityAdapters.ts"],
+    sourcePaths: [
+      "src/agents/buildValidator.ts",
+      "src/lib/productCapabilityAdapters.ts",
+    ],
     configurableFields: ["security.rateLimits", "security.uploadPolicy"],
     authorizationHooks: ["security.roles", "security.ownership"],
   }),
@@ -311,7 +327,10 @@ const DESIGN_RESOURCES: BuilderResourceManifest[] = [
     category: "graphics",
     resourceType: "component",
     capabilities: ["graphics"],
-    sourcePaths: ["src/design-system/Section.tsx", "src/design-system/GlassCard.tsx"],
+    sourcePaths: [
+      "src/design-system/Section.tsx",
+      "src/design-system/GlassCard.tsx",
+    ],
     stacks: ["react-node", "next-node", "*"],
     configurableFields: ["layout.density", "layout.breakpoints"],
     brandingHooks: ["layout.surfaceTokens"],
@@ -346,7 +365,10 @@ const CAPABILITY_RESOURCES: BuilderResourceManifest[] = [
     name: "Graphics editor and asset pipeline",
     category: "graphics",
     capabilities: ["graphics"],
-    sourcePaths: ["src/pages/GraphicsEditor.tsx", "src/lib/graphicsEditorTypes.ts"],
+    sourcePaths: [
+      "src/pages/GraphicsEditor.tsx",
+      "src/lib/graphicsEditorTypes.ts",
+    ],
     configurableFields: ["graphics.designFamily", "graphics.assetPolicy"],
     brandingHooks: ["graphics.brandTokens"],
   }),
@@ -363,7 +385,10 @@ const CAPABILITY_RESOURCES: BuilderResourceManifest[] = [
     name: "Marketing and conversion architecture",
     category: "marketing",
     capabilities: ["marketing", "analytics"],
-    sourcePaths: ["src/pages/MarketingStudio.tsx", "src/agents/capabilityHints.ts"],
+    sourcePaths: [
+      "src/pages/MarketingStudio.tsx",
+      "src/agents/capabilityHints.ts",
+    ],
     configurableFields: ["marketing.funnel", "marketing.attribution"],
     brandingHooks: ["marketing.brand"],
   }),
@@ -382,7 +407,10 @@ const CAPABILITY_RESOURCES: BuilderResourceManifest[] = [
     name: "Education and LMS domain foundation",
     category: "education",
     capabilities: ["education", "notifications"],
-    sourcePaths: ["src/pages/EducationStudio.tsx", "src/agents/capabilityHints.ts"],
+    sourcePaths: [
+      "src/pages/EducationStudio.tsx",
+      "src/agents/capabilityHints.ts",
+    ],
     configurableFields: ["education.roles", "education.assessmentPolicy"],
     localizationHooks: ["education.curriculumLocale"],
   }),
@@ -391,7 +419,10 @@ const CAPABILITY_RESOURCES: BuilderResourceManifest[] = [
     name: "Invention and patent workspace",
     category: "patent",
     capabilities: ["patent", "web_search"],
-    sourcePaths: ["src/pages/PatentStudio.tsx", "src/agents/capabilityHints.ts"],
+    sourcePaths: [
+      "src/pages/PatentStudio.tsx",
+      "src/agents/capabilityHints.ts",
+    ],
     configurableFields: ["patent.jurisdiction", "patent.reviewCheckpoints"],
     securityNotes: ["Attorney review required; no patentability guarantee"],
   }),
@@ -406,7 +437,9 @@ const CAPABILITY_RESOURCES: BuilderResourceManifest[] = [
       "src/agents/capabilityHints.ts",
     ],
     configurableFields: ["architecture.jurisdiction", "architecture.units"],
-    securityNotes: ["Licensed professional review required for regulated documentation"],
+    securityNotes: [
+      "Licensed professional review required for regulated documentation",
+    ],
   }),
   ...(
     [
@@ -460,7 +493,8 @@ export function createBuiltinBuilderResourceRegistry(): BuilderResourceRegistry 
 export function builtinResourceCounts(): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const resource of BUILTIN_BUILDER_RESOURCES) {
-    counts[resource.identity.category] = (counts[resource.identity.category] ?? 0) + 1;
+    counts[resource.identity.category] =
+      (counts[resource.identity.category] ?? 0) + 1;
   }
   return Object.fromEntries(
     Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)),

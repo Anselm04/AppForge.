@@ -13,12 +13,16 @@ describe("built-in Builder Resource catalog", () => {
       BUILTIN_BUILDER_RESOURCES.map((resource) => resource.identity.category),
     );
     for (const capability of BUILD_CAPABILITY_IDS) {
-      expect(categories.has(capability), `missing category ${capability}`).toBe(true);
+      expect(categories.has(capability), `missing category ${capability}`).toBe(
+        true,
+      );
       const resources = BUILTIN_BUILDER_RESOURCES.filter(
         (resource) => resource.identity.category === capability,
       );
       expect(
-        resources.some((resource) => resource.implementation.sourcePaths.length > 0),
+        resources.some(
+          (resource) => resource.implementation.sourcePaths.length > 0,
+        ),
         `category ${capability} has no source-backed resource`,
       ).toBe(true);
     }
@@ -31,9 +35,10 @@ describe("built-in Builder Resource catalog", () => {
       ),
     );
     for (const capability of CORE_BUILDER_RESOURCE_CAPABILITY_IDS) {
-      expect(provided.has(capability), `missing core capability ${capability}`).toBe(
-        true,
-      );
+      expect(
+        provided.has(capability),
+        `missing core capability ${capability}`,
+      ).toBe(true);
     }
   });
 
