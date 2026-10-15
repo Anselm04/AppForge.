@@ -99,8 +99,14 @@ jobs:
           set -euo pipefail
           test -n "${ANDROID_HOME:-}"
           test -d "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x | sort | tail -1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -perm -u+x | sort | tail -1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          printf '%s\n' "$SDKMANAGER" > "$EVIDENCE/sdkmanager-path.txt"
+          printf '%s\n' "$AVDMANAGER" > "$EVIDENCE/avdmanager-path.txt"
           java -version > "$EVIDENCE/java-version.txt" 2>&1
-          sdkmanager --list_installed > "$EVIDENCE/android-sdk-installed.txt"
+          "$SDKMANAGER" --list_installed > "$EVIDENCE/android-sdk-installed.txt"
           flutter doctor -v > "$EVIDENCE/flutter-doctor.txt" 2>&1
 
           cd "$FIXTURE"
@@ -109,13 +115,13 @@ jobs:
           test -s "$APK"
           sha256sum "$APK" > "$EVIDENCE/android-apk.sha256"
 
-          if ! sdkmanager --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
-            sdkmanager "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
+          if ! "$SDKMANAGER" --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
+            "$SDKMANAGER" "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
           fi
           test -x "$ANDROID_HOME/emulator/emulator"
           test -x "$ANDROID_HOME/platform-tools/adb"
 
-          printf 'no\n' | avdmanager create avd --force \
+          printf 'no\n' | "$AVDMANAGER" create avd --force \
             --name appforge-ci-api35 \
             --package "$ANDROID_SYSTEM_IMAGE" \
             --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
@@ -156,9 +162,12 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/android-backend-ready.json"
           "$ANDROID_HOME/platform-tools/adb" reverse tcp:3217 tcp:3217
+          ANDROID_DEVICE="$("$ANDROID_HOME/platform-tools/adb" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+          test -n "$ANDROID_DEVICE"
+          printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
           flutter test integration_test/qualification_test.dart \
-            -d emulator-5554 \
+            -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
           "$ANDROID_HOME/platform-tools/adb" exec-out screencap -p > "$EVIDENCE/android-harness.png"
