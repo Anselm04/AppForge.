@@ -29,6 +29,8 @@ concurrency:
 env:
   FLUTTER_VERSION: "3.47.7"
   FLUTTER_COMMIT: abaf9c523780a608bd46686fd5e53740a07077f8
+  ANDROID_API: "35"
+  ANDROID_SYSTEM_IMAGE: "system-images;android-35;google_apis;x86_64"
 jobs:
   fixture:
     name: Trusted shell fixture (${{ matrix.os }})
@@ -95,6 +97,138 @@ jobs:
             ls "$ANDROID_HOME/licenses" > "$EVIDENCE/preinstalled-android-license-files.txt"
           fi
           # No sdkmanager --licenses, Android image install, or agreement acceptance.
+      - name: Build Android APK and test actual backend interaction
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_HOME:-}"
+          test -d "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x | sort | tail -1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -perm -u+x | sort | tail -1)"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          printf '%s\n' "$SDKMANAGER" > "$EVIDENCE/sdkmanager-path.txt"
+          printf '%s\n' "$AVDMANAGER" > "$EVIDENCE/avdmanager-path.txt"
+          java -version > "$EVIDENCE/java-version.txt" 2>&1
+          "$SDKMANAGER" --list_installed > "$EVIDENCE/android-sdk-installed.txt"
+          flutter doctor -v > "$EVIDENCE/flutter-doctor.txt" 2>&1
+
+          cd "$FIXTURE"
+          flutter build apk --debug 2>&1 | tee "$EVIDENCE/android-apk-build.log"
+          APK="$FIXTURE/build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK"
+          sha256sum "$APK" > "$EVIDENCE/android-apk.sha256"
+
+          if ! "$SDKMANAGER" --list_installed | grep -Fq "$ANDROID_SYSTEM_IMAGE"; then
+            "$SDKMANAGER" "$ANDROID_SYSTEM_IMAGE" "emulator" 2>&1 | tee "$EVIDENCE/android-emulator-provision.log"
+          fi
+          test -x "$EMULATOR"
+          test -x "$ADB"
+
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf '%s\n' "$ANDROID_AVD_HOME" > "$EVIDENCE/android-avd-home.txt"
+          printf 'no\n' | "$AVDMANAGER" create avd --force \
+            --name appforge-ci-api35 \
+            --package "$ANDROID_SYSTEM_IMAGE" \
+            --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
+          "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
+          grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
+
+          ACCEL_MODE=off
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+              ACCEL_MODE=on
+            fi
+          fi
+          printf '%s\n' "$ACCEL_MODE" > "$EVIDENCE/android-acceleration.txt"
+          ls -l /dev/kvm > "$EVIDENCE/android-kvm.txt" 2>&1 || true
+
+          "$EMULATOR" \
+            -avd appforge-ci-api35 \
+            -no-window -no-audio -no-boot-anim -no-snapshot -accel "$ACCEL_MODE" -gpu swiftshader_indirect \
+            > "$EVIDENCE/android-emulator.log" 2>&1 &
+          EMULATOR_PID=$!
+          BACKEND_PID=''
+          cleanup() {
+            if [ -n "$BACKEND_PID" ]; then kill "$BACKEND_PID" 2>/dev/null || true; fi
+            "$ADB" emu kill >/dev/null 2>&1 || true
+            kill "$EMULATOR_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          "$ADB" start-server
+          DEVICE_READY=false
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before ADB became ready" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              DEVICE_READY=true
+              break
+            fi
+            sleep 2
+          done
+          test "$DEVICE_READY" = true
+
+          BOOT_COMPLETE=false
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              cat "$EVIDENCE/android-emulator.log" >&2
+              echo "Android emulator exited before boot completed" >&2
+              exit 1
+            fi
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT_COMPLETE=true
+              break
+            fi
+            sleep 2
+          done
+          test "$BOOT_COMPLETE" = true
+          "$ADB" shell getprop > "$EVIDENCE/android-device-properties.txt"
+
+          "$ADB" install -r "$APK" > "$EVIDENCE/android-apk-install.log" 2>&1
+          "$ADB" shell monkey -p com.example.appforge_mobile 1 > "$EVIDENCE/android-launch.log" 2>&1
+          APP_STARTED=false
+          for attempt in $(seq 1 30); do
+            "$ADB" shell pidof com.example.appforge_mobile > "$EVIDENCE/android-app-pid.txt" 2>/dev/null || true
+            if [ -s "$EVIDENCE/android-app-pid.txt" ]; then
+              APP_STARTED=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$APP_STARTED" != true ]; then
+            "$ADB" shell dumpsys activity processes > "$EVIDENCE/android-activity-processes.txt" 2>&1 || true
+            "$ADB" logcat -d > "$EVIDENCE/android-logcat.txt" 2>&1 || true
+            echo "Android app process did not remain running after launch" >&2
+            exit 1
+          fi
+
+          PORT=3217 HOST=0.0.0.0 npm start > "$EVIDENCE/android-backend-runtime.log" 2>&1 &
+          BACKEND_PID=$!
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/android-backend-health.json" && break
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/android-backend-ready.json"
+          "$ADB" reverse tcp:3217 tcp:3217
+          ANDROID_DEVICE="$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+          test -n "$ANDROID_DEVICE"
+          printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
+
+          flutter test integration_test/qualification_test.dart \
+            -d "$ANDROID_DEVICE" \
+            --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
+            2>&1 | tee "$EVIDENCE/android-interaction.log"
+          "$ADB" exec-out screencap -p > "$EVIDENCE/android-harness.png"
+          printf 'Trusted debug fixture only; no release signing, Play deployment, push, deep-link, or arbitrary generated-product certification claimed.\n' > "$EVIDENCE/android-scope.txt"
       - name: Compile iOS simulator and test actual backend interaction
         if: runner.os == 'macOS'
         shell: bash
