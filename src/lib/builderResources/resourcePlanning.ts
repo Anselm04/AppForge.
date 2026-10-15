@@ -1,4 +1,5 @@
 import type { BuildCapabilityId } from "../buildCapabilities.js";
+import { planCreativeBuild } from "../creativeOrchestrator.js";
 import { deriveRequestedProductCapabilities } from "../nativeCapabilitySelection.js";
 import type { ProductContract } from "../productContract.js";
 import type { ProductPlan } from "../productPlan.js";
@@ -80,6 +81,19 @@ export function deriveRequiredBuilderCapabilities(input: {
   const required = new Set<BuilderResourceCapabilityId>(
     input.activeBuildCapabilities ?? [],
   );
+
+  if (!input.activeBuildCapabilities) {
+    const existingCreativePlan = planCreativeBuild(
+      input.productContract.originalPrompt,
+    );
+    if (existingCreativePlan.rationale.startsWith("Matched capabilities")) {
+      required.add(existingCreativePlan.primary);
+      for (const capability of existingCreativePlan.supporting) {
+        required.add(capability);
+      }
+    }
+  }
+
   for (const secondary of input.productContract.secondaryCapabilities) {
     for (const capability of SECONDARY_CAPABILITY_MAP[secondary] ?? []) {
       required.add(capability);
