@@ -231,7 +231,16 @@ function candidateScore(
   score += evidenceStrength(resource) * 5;
   score += requirementIds.length * 10;
   score -= resource.adaptation.replacementPoints.length * 2;
-  score -= resource.capabilities.dependencies.length;
+  score -= resource.capabilities.dependencies.length * 5;
+
+  const required = input.requiredCapabilities ?? [];
+  if (
+    required.length === 1 &&
+    resource.identity.resourceId === `core.${required[0]}`
+  ) {
+    score += 25;
+  }
+
   return score;
 }
 
@@ -302,6 +311,13 @@ export function selectBuilderResources(
     }
     if (requirementIds.length > 0) {
       rationale.push(`requirements:${requirementIds.join(",")}`);
+    }
+    const required = input.requiredCapabilities ?? [];
+    if (
+      required.length === 1 &&
+      resource.identity.resourceId === `core.${required[0]}`
+    ) {
+      rationale.push("canonical-core-resource");
     }
 
     selected.push({
