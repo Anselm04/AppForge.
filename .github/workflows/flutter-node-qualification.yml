@@ -109,6 +109,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub-hosted standard runners provide limited SSD space. The Flutter
+          # Android build plus an API 35 emulator image can exhaust that disk
+          # unless unrelated preinstalled SDKs are removed first.
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo apt-get clean
+          df -h /
           test -n "${ANDROID_HOME:-}"
           test -d "$ANDROID_HOME"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x | sort | tail -1)"
