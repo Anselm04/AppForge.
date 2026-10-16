@@ -174,7 +174,7 @@ describe("Builder Resource planning", () => {
     }
   });
 
-  it("selects versioned internal resources, records rationale, and remains metadata-first", () => {
+  it("selects versioned internal resources, supplements substantive domain packs, and remains metadata-first", () => {
     const result = createBuilderResourcePlan({
       productContract: contract,
       productPlan: plan,
@@ -190,9 +190,35 @@ describe("Builder Resource planning", () => {
     expect(result.selectedResourceIds).toContain(
       "capability.localization@1.0.0",
     );
-    expect(result.decisionEvidence.length).toBe(
+    expect(result.selectedResourceIds).toContain(
+      "domain.voice.contract-pack@1.0.0",
+    );
+    expect(result.selectedResourceIds).toContain(
+      "domain.localization.contract-pack@1.0.0",
+    );
+    expect(result.decisionEvidence.length).toBeGreaterThanOrEqual(
       result.requiredCapabilities.length,
     );
+
+    for (const selected of result.selectedResourceIds) {
+      const separator = selected.lastIndexOf("@");
+      const resourceId = selected.slice(0, separator);
+      const version = selected.slice(separator + 1);
+      expect(
+        result.decisionEvidence.some(
+          (decision) =>
+            decision.resourceId === resourceId && decision.version === version,
+        ),
+      ).toBe(true);
+    }
+
+    expect(
+      result.decisionEvidence.some(
+        (decision) =>
+          decision.resourceId === "domain.voice.contract-pack" &&
+          decision.rationale.includes("domain-pack-for:capability.voice@1.0.0"),
+      ),
+    ).toBe(true);
     expect(result.retrievalMetrics.metadataQueries).toBe(
       result.requiredCapabilities.length,
     );
