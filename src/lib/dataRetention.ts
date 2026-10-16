@@ -38,10 +38,12 @@ export const DATA_RETENTION_REGISTRY: Record<
     kind: "account_profile",
     owner: "AppForge account service",
     storage: "primary AppForge PostgreSQL users/account preference records",
-    retention: "while the account is active; removed or anonymized during completed account deletion",
+    retention:
+      "while the account is active; removed or anonymized during completed account deletion",
     deletionBehavior:
       "delete customer-facing profile values after deletion prerequisites complete; retain only detached audit references where separately required",
-    reason: "account operation, authentication linkage and customer preferences",
+    reason:
+      "account operation, authentication linkage and customer preferences",
     backupBehavior:
       "may remain in encrypted backups until the backup expires under the backup retention rule",
     anonymizationBehavior:
@@ -52,12 +54,14 @@ export const DATA_RETENTION_REGISTRY: Record<
   billing_records: {
     kind: "billing_records",
     owner: "AppForge billing service",
-    storage: "AppForge PostgreSQL billing/credit ledger plus Stripe customer records",
+    storage:
+      "AppForge PostgreSQL billing/credit ledger plus Stripe customer records",
     retention:
       "seven years after the relevant transaction by default, subject to qualified accounting/legal review and provider requirements",
     deletionBehavior:
       "do not destroy required transaction evidence; detach or anonymize customer profile references where lawful and operationally safe",
-    reason: "billing reconciliation, refunds, accounting, tax and dispute evidence",
+    reason:
+      "billing reconciliation, refunds, accounting, tax and dispute evidence",
     backupBehavior:
       "retained records follow encrypted backup expiry in addition to their primary-store retention",
     anonymizationBehavior:
@@ -99,12 +103,14 @@ export const DATA_RETENTION_REGISTRY: Record<
   generated_source_artifacts: {
     kind: "generated_source_artifacts",
     owner: "AppForge artifact/project services",
-    storage: "project file/artifact persistence and configured artifact storage",
+    storage:
+      "project file/artifact persistence and configured artifact storage",
     retention:
       "for the lifetime of the owning project/account unless the customer deletes the project/account or an explicit artifact expiry applies",
     deletionBehavior:
       "delete customer-owned source/artifacts with the owning project unless a customer-controlled transfer/export completes first",
-    reason: "source ownership, preview, deployment, export, update and rollback",
+    reason:
+      "source ownership, preview, deployment, export, update and rollback",
     backupBehavior:
       "deleted artifact content may remain in encrypted backups until backup expiry",
     anonymizationBehavior:
@@ -115,12 +121,14 @@ export const DATA_RETENTION_REGISTRY: Record<
   build_history: {
     kind: "build_history",
     owner: "AppForge build orchestration service",
-    storage: "PostgreSQL build runs/events/snapshots and bounded operational delivery stores",
+    storage:
+      "PostgreSQL build runs/events/snapshots and bounded operational delivery stores",
     retention:
       "customer-visible project build history follows the project lifecycle; transient delivery data expires under its queue/cache policy",
     deletionBehavior:
       "remove customer-owned build content with project/account deletion unless a minimal detached audit record is required",
-    reason: "resume, support, failure diagnosis, recovery and product-history integrity",
+    reason:
+      "resume, support, failure diagnosis, recovery and product-history integrity",
     backupBehavior:
       "primary-history deletions age out with encrypted backup expiry",
     anonymizationBehavior:
@@ -132,11 +140,13 @@ export const DATA_RETENTION_REGISTRY: Record<
     kind: "application_logs",
     owner: "AppForge operations",
     storage: "configured application logging/error-reporting providers",
-    retention: "30 days by default unless the configured provider uses a shorter period",
+    retention:
+      "30 days by default unless the configured provider uses a shorter period",
     deletionBehavior:
       "expire automatically; targeted deletion is performed where supported if a log contains unnecessary personal data",
     reason: "short-term reliability diagnostics and incident investigation",
-    backupBehavior: "logs are not intentionally copied into customer-data backups",
+    backupBehavior:
+      "logs are not intentionally copied into customer-data backups",
     anonymizationBehavior:
       "structured redaction must remove secrets and minimize direct identifiers before emission",
     customerExportEligible: false,
@@ -162,23 +172,33 @@ export const DATA_RETENTION_REGISTRY: Record<
     retention: "24 months after case closure by default",
     deletionBehavior:
       "remove attachments and unnecessary personal content at account deletion or case-retention expiry while preserving minimal resolution metrics if needed",
-    reason: "customer support continuity, dispute resolution and prevention actions",
+    reason:
+      "customer support continuity, dispute resolution and prevention actions",
     backupBehavior:
       "support records age out of encrypted backups with the normal backup cycle",
     anonymizationBehavior:
       "detach closed-case analytics from direct customer identifiers after the case no longer requires identity",
     customerExportEligible: true,
-    exportFields: ["caseId", "status", "category", "customerVisibleSummary", "resolution", "timestamps"],
+    exportFields: [
+      "caseId",
+      "status",
+      "category",
+      "customerVisibleSummary",
+      "resolution",
+      "timestamps",
+    ],
   },
   analytics: {
     kind: "analytics",
     owner: "AppForge product/operations",
     storage: "configured first-party/third-party analytics stores",
-    retention: "13 months by default for identifiable analytics; aggregated metrics may be retained longer",
+    retention:
+      "13 months by default for identifiable analytics; aggregated metrics may be retained longer",
     deletionBehavior:
       "delete or detach user-level analytics when supported during account deletion; aggregated non-identifying statistics can remain",
     reason: "product reliability, usage measurement and capacity planning",
-    backupBehavior: "analytics provider backup behavior follows provider configuration",
+    backupBehavior:
+      "analytics provider backup behavior follows provider configuration",
     anonymizationBehavior:
       "prefer aggregate or pseudonymous identifiers and remove direct profile fields",
     customerExportEligible: false,
@@ -186,8 +206,10 @@ export const DATA_RETENTION_REGISTRY: Record<
   backups: {
     kind: "backups",
     owner: "AppForge operations/recovery",
-    storage: "encrypted database/off-site recovery backups configured by AppForge",
-    retention: "35 days by default unless a shorter verified recovery policy is configured",
+    storage:
+      "encrypted database/off-site recovery backups configured by AppForge",
+    retention:
+      "35 days by default unless a shorter verified recovery policy is configured",
     deletionBehavior:
       "backups expire as immutable recovery units; individual records are not silently rewritten inside historical backup sets",
     reason: "disaster recovery and data-loss protection",
@@ -200,10 +222,13 @@ export const DATA_RETENTION_REGISTRY: Record<
     kind: "temporary_build_files",
     owner: "AppForge build/sandbox service",
     storage: "ephemeral build/sandbox workspace",
-    retention: "24 hours maximum after the build attempt finishes unless an active recovery process needs a shorter bounded extension",
-    deletionBehavior: "destroy workspace content after completion/failure/expiry",
+    retention:
+      "24 hours maximum after the build attempt finishes unless an active recovery process needs a shorter bounded extension",
+    deletionBehavior:
+      "destroy workspace content after completion/failure/expiry",
     reason: "temporary compilation, validation and packaging",
-    backupBehavior: "temporary build workspaces are not intentionally backed up",
+    backupBehavior:
+      "temporary build workspaces are not intentionally backed up",
     anonymizationBehavior: "not applicable; delete the workspace",
     customerExportEligible: false,
   },
@@ -220,23 +245,33 @@ export const DATA_RETENTION_REGISTRY: Record<
     anonymizationBehavior:
       "prefer deletion because assets can contain customer or end-user content",
     customerExportEligible: true,
-    exportFields: ["name", "type", "size", "projectId", "customerOwnedLocation"],
+    exportFields: [
+      "name",
+      "type",
+      "size",
+      "projectId",
+      "customerOwnedLocation",
+    ],
   },
   auth_tokens_sessions: {
     kind: "auth_tokens_sessions",
     owner: "Supabase Auth and AppForge session service",
     storage: "identity provider plus AppForge HttpOnly/session state",
-    retention: "until token/session expiry, explicit revocation, logout-all or account deletion",
-    deletionBehavior: "revoke and remove active session material during account deletion",
+    retention:
+      "until token/session expiry, explicit revocation, logout-all or account deletion",
+    deletionBehavior:
+      "revoke and remove active session material during account deletion",
     reason: "authentication and session security",
-    backupBehavior: "live authentication tokens must not be copied into customer exports or application backups",
+    backupBehavior:
+      "live authentication tokens must not be copied into customer exports or application backups",
     anonymizationBehavior: "not applicable; revoke/delete secret material",
     customerExportEligible: false,
   },
   oauth_connections: {
     kind: "oauth_connections",
     owner: "AppForge integration/auth services",
-    storage: "provider metadata plus encrypted credential storage where required",
+    storage:
+      "provider metadata plus encrypted credential storage where required",
     retention: "until disconnect, credential revocation or account deletion",
     deletionBehavior:
       "revoke provider authorization where supported and delete AppForge credential material",
@@ -246,7 +281,13 @@ export const DATA_RETENTION_REGISTRY: Record<
     anonymizationBehavior:
       "delete credentials; retained audit metadata should identify only provider/type and non-secret connection status",
     customerExportEligible: true,
-    exportFields: ["provider", "username", "connectedAt", "updatedAt", "status"],
+    exportFields: [
+      "provider",
+      "username",
+      "connectedAt",
+      "updatedAt",
+      "status",
+    ],
   },
 };
 
