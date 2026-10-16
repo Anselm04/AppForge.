@@ -117,13 +117,9 @@ export function validateChangeContract(contract: ChangeContract): {
   ) {
     errors.push("A safe rollback claim requires a concrete recovery strategy.");
   }
-  if (
-    contract.removals.length > 0 &&
-    contract.impacts.rollback.safe &&
-    contract.impacts.rollback.level !== "compatible"
-  ) {
+  if (contract.removals.length > 0 && contract.impacts.rollback.safe) {
     errors.push(
-      "Destructive removals cannot be marked rollback-safe without compatible evidence.",
+      "Destructive removals cannot be marked rollback-safe without recorded safety evidence.",
     );
   }
   return { valid: errors.length === 0, errors };
