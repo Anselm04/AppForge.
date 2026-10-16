@@ -31,6 +31,7 @@ describe("Builder Resource domain implementation linkage", () => {
         "src/lib/builderResources/__tests__/domainRuntimeResources.test.ts",
       );
 
+      // Domain packs prove substantive implementation; selection remains explicit and contract-driven.
       expect(capabilityResource, `missing ${canonicalResourceId}`).toBeTruthy();
       expect(capabilityResource?.capabilities.dependencies).not.toContain(
         domainResourceId,
