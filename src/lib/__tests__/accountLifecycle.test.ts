@@ -24,6 +24,7 @@ function deletionDeps(
     deleteProviderConnections: vi.fn(async () => undefined),
     anonymizeAccount: vi.fn(async () => undefined),
     recordAudit: vi.fn(async () => undefined),
+    revokeSessions: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -52,7 +53,7 @@ describe("account lifecycle", () => {
     });
   });
 
-  it("disables work and entitlements before revoking identity, then removes customer data and anonymizes", async () => {
+  it("cleans recoverable local data before revoking identity and revokes sessions last", async () => {
     const order: string[] = [];
     const deps = deletionDeps({
       beginDeletion: vi.fn(async () => void order.push("begin")),
@@ -60,15 +61,16 @@ describe("account lifecycle", () => {
       disableEntitlements: vi.fn(
         async () => void order.push("disable-entitlements"),
       ),
-      revokeIdentity: vi.fn(async () => void order.push("revoke-identity")),
       deleteCustomerProjects: vi.fn(
         async () => void order.push("delete-projects"),
       ),
       deleteProviderConnections: vi.fn(
         async () => void order.push("delete-connections"),
       ),
+      revokeIdentity: vi.fn(async () => void order.push("revoke-identity")),
       anonymizeAccount: vi.fn(async () => void order.push("anonymize")),
       recordAudit: vi.fn(async () => void order.push("audit")),
+      revokeSessions: vi.fn(async () => void order.push("revoke-sessions")),
     });
 
     await completeAccountDeletion(7, deps);
@@ -77,27 +79,39 @@ describe("account lifecycle", () => {
       "begin",
       "stop-work",
       "disable-entitlements",
-      "revoke-identity",
       "delete-projects",
       "delete-connections",
+      "revoke-identity",
       "anonymize",
       "audit",
+      "revoke-sessions",
     ]);
   });
 
-  it("fails closed before destructive cleanup when identity revocation fails", async () => {
+  it("keeps identity and sessions available when recoverable local cleanup fails", async () => {
     const deps = deletionDeps({
-      revokeIdentity: vi.fn(async () => {
-        throw new Error("provider unavailable");
+      deleteCustomerProjects: vi.fn(async () => {
+        throw new Error("project cleanup failed");
       }),
     });
 
     await expect(completeAccountDeletion(7, deps)).rejects.toThrow(
-      /provider unavailable/i,
+      /project cleanup failed/i,
     );
-    expect(deps.deleteCustomerProjects).not.toHaveBeenCalled();
-    expect(deps.deleteProviderConnections).not.toHaveBeenCalled();
+    expect(deps.revokeIdentity).not.toHaveBeenCalled();
+    expect(deps.revokeSessions).not.toHaveBeenCalled();
     expect(deps.anonymizeAccount).not.toHaveBeenCalled();
     expect(deps.recordAudit).not.toHaveBeenCalled();
+  });
+
+  it("can finish a retry after the external identity was already revoked", async () => {
+    const deps = deletionDeps({
+      loadUser: vi.fn(async () => ({ id: 7, openId: null })),
+    });
+
+    await expect(completeAccountDeletion(7, deps)).resolves.toBeUndefined();
+    expect(deps.revokeIdentity).not.toHaveBeenCalled();
+    expect(deps.recordAudit).toHaveBeenCalledWith(7);
+    expect(deps.revokeSessions).toHaveBeenCalledWith(7);
   });
 });
