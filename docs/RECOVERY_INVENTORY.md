@@ -7,6 +7,7 @@ This inventory defines what must be recoverable for AppForge to return to servic
 System: GitHub repository `Anselm04/AppForge.`
 
 Must be recoverable:
+
 - Full Git history, refs, branches, and tags.
 - Pull requests/issues/releases metadata backup.
 - CI/security/deployment workflows.
@@ -15,6 +16,7 @@ Must be recoverable:
 - Latest known-good production SHA.
 
 Recovery evidence:
+
 - Verified Git bundle.
 - SHA-256 checksums.
 - Clean restore rehearsal.
@@ -24,11 +26,13 @@ Recovery evidence:
 ## Off-site recovery storage
 
 Must be recoverable:
+
 - At least one independent encrypted repository backup.
 - Prefer two independent providers/credential boundaries.
 - Backup decryption key retained independently from GitHub.
 
 Required non-secret configuration names:
+
 - `OFFSITE_BACKUP_PASSPHRASE`
 - `OFFSITE_1_ENDPOINT`
 - `OFFSITE_1_REGION`
@@ -38,6 +42,7 @@ Required non-secret configuration names:
 - Optional equivalent `OFFSITE_2_*` values.
 
 Verification:
+
 - Upload.
 - Download.
 - SHA-256 validation.
@@ -49,6 +54,7 @@ Verification:
 ## Owner identity and privileged access
 
 Must be recoverable:
+
 - GitHub owner access.
 - Password-manager recovery.
 - At least two independent MFA/passkey/hardware-key paths.
@@ -59,18 +65,21 @@ Never store recovery codes or private keys here.
 ## Domain registrar and DNS
 
 Must be recoverable:
+
 - Registrar ownership.
 - Domain lock/unlock recovery procedure.
 - DNS zone/configuration inventory.
 - MFA and offline recovery path.
 
 Verification:
+
 - Confirm owner can access registrar independently of daily device.
 - Export or otherwise document DNS configuration after material DNS changes.
 
 ## Supabase
 
 Must be recoverable:
+
 - Database data and schema.
 - Migrations.
 - Auth configuration.
@@ -80,6 +89,7 @@ Must be recoverable:
 - Environment/configuration inventory without secret values.
 
 Verification target:
+
 - Periodic restore into an isolated recovery environment/project.
 - Authentication and authorization verification.
 - Critical database/RLS checks.
@@ -87,6 +97,7 @@ Verification target:
 ## Fly.io
 
 Must be recoverable:
+
 - App identity and configuration.
 - `fly.toml`.
 - Required secret-name inventory.
@@ -96,6 +107,7 @@ Must be recoverable:
 - Dependency manifest/lockfile parity required to reproduce the same production builder environment from a trusted SHA.
 
 Required production secret names include:
+
 - `DATABASE_URL`
 - `REDIS_URL`
 - `JWT_SECRET`
@@ -110,6 +122,7 @@ Required production secret names include:
 - At least one supported LLM-provider credential used by the runtime router, such as `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `BUILT_IN_FORGE_API_KEY`, `FORGE_API_KEY`, or `OPENAI_API_KEY`.
 
 Verification target:
+
 - Recreate/redeploy exact trusted SHA.
 - Rebuild the production Docker builder stage from the trusted SHA before deployment and require it to succeed without relying on developer-machine `node_modules` state.
 - Confirm the Docker build uses the repository dependency manifest and lockfile consistently before release.
@@ -125,6 +138,7 @@ The production Docker builder now bootstraps the Rollup musl native package with
 ## Shared Redis two-Machine coordination
 
 Recovery invariant reviewed 16 September 2026:
+
 - `REDIS_URL` is a production correctness dependency for the redundant Fly fleet, not an optional performance setting.
 - BullMQ jobs, Redis queue claims, build event pub/sub, distributed hard rate-limit buckets, and other cross-instance coordination must use shared Redis so a request routed to the second Machine does not receive unrelated local state.
 - Production environment validation fails closed when `REDIS_URL` is missing or malformed.
@@ -133,6 +147,7 @@ Recovery invariant reviewed 16 September 2026:
 - In-memory build queue/rate-limit behavior remains useful for local development and test/degraded-mode coverage, but it is not a certified substitute for shared Redis in two-Machine production.
 
 Verification target:
+
 - Confirm both started Fly Machines use the same production `REDIS_URL` secret name/configuration.
 - Confirm `/api/health/ready` returns 503 when shared Redis cannot be reached and returns 200 only after Redis and the database are ready.
 - Confirm hard rate limits use Redis-backed buckets in production so alternating requests between Machines cannot double the effective limit.
@@ -142,12 +157,14 @@ Verification target:
 ## Single-writer recurring side effects
 
 Recovery invariant reviewed 16 September 2026:
+
 - Both Fly Machines execute the same server bootstrap. Any recurring job that causes an external side effect must therefore be distributed-safe rather than assuming only one process exists.
 - The Vanta compliance heartbeat uses a Redis `SET NX` interval-slot claim (`appforge:vanta:heartbeat:<slot>`) so exactly one Machine emits heartbeat evidence for a given interval.
 - If shared Redis coordination is unavailable in production, the Vanta heartbeat fails closed and emits no uncoordinated duplicate evidence; it retries on the next scheduled interval.
 - Future cron/poller/background features that can charge money, mutate customer data, deploy code, send messages, create compliance evidence, or trigger autonomous work must use BullMQ, a database/Redis lock, an idempotency ledger, or an equivalent single-writer/deduplication mechanism before they are production-critical.
 
 Verification target:
+
 - Start both production Machines and confirm only one Vanta heartbeat is accepted per interval slot.
 - Confirm the slot claim is shared through production Redis, not process memory.
 - Confirm loss of Redis does not cause both Machines to emit the same recurring side effect.
@@ -156,6 +173,7 @@ Verification target:
 ## Production service availability invariant
 
 Recovery invariant reviewed 9 October 2026:
+
 - The normal steady-state fleet is exactly two started app Machines with passing health checks and the same immutable release SHA.
 - Production disables auto-stop, keeps auto-start enabled, and requires two minimum running Machines. Blue/green replacement retains the healthy fleet until the replacement passes health checks.
 - Deployment and scheduled verification share the non-cancelling `fly-production-runtime` concurrency group. Both use the read-only verifier; neither scales the fleet or revives historical stopped Machines.
@@ -163,6 +181,7 @@ Recovery invariant reviewed 9 October 2026:
 - Shared Redis, single-writer side effects, public readiness, authorization canaries and customer-route checks remain mandatory.
 
 Verification target:
+
 - Require exactly two started app Machines after convergence, passing health checks and identical `GH_SHA` labels. Deployment additionally requires the approved release SHA.
 - Run the Fly Production Capacity Guard to verify capacity; a failed guard does not automatically repair or certify the fleet.
 - Preserve `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 2`, liveness checks and blue/green deployment during recovery.
@@ -171,12 +190,14 @@ Verification target:
 ## Production CI boot-liveness invariant
 
 Recovery invariant reviewed 18 September 2026:
+
 - A trusted AppForge SHA is not release-ready merely because client/server bundles were created; the built production server must actually boot and answer `/api/health/live` before the CI release gate can pass.
 - The CI liveness probe starts the compiled `dist/server.js` with production settings, waits for the health endpoint, and then performs deterministic process cleanup before reporting success.
 - Process cleanup must not overwrite a verified liveness success with a shell/trap exit-code artifact. Conversely, cleanup hardening must never convert a failed or unreachable server into a passing build.
 - Any change to the production CI boot probe is recovery-impacting because restore/redeploy procedures depend on the same executable startup evidence before a SHA is treated as known-good.
 
 Verification target:
+
 - Build the production client/server artifacts from a clean dependency install.
 - Start `dist/server.js` and require HTTP success from `/api/health/live`.
 - Confirm the server process is terminated after the probe without changing the successful job exit status.
@@ -185,6 +206,7 @@ Verification target:
 ## Production deployment freshness invariant
 
 Recovery invariant reviewed 15 September 2026:
+
 - A queued production deployment must never roll AppForge backward after `main` has advanced to a newer release candidate.
 - Production deployment concurrency cancels an older in-progress deployment when the replacement release is ready to enter the same production deployment group.
 - Both release validation and the Fly deployment job must resolve `refs/heads/main` from the remote repository and require it to equal `RELEASE_SHA`.
@@ -192,6 +214,7 @@ Recovery invariant reviewed 15 September 2026:
 - If the current `main` SHA cannot be resolved, the deployment fails closed rather than guessing that a queued SHA is safe.
 
 Verification target:
+
 - Queue a newer `main` release while an older deployment exists and confirm the obsolete deployment cannot become the final production release.
 - Confirm a stale `RELEASE_SHA` fails before `flyctl deploy`.
 - Confirm the deployed SHA is the same SHA that passed the current CI release gate and remains the current `main` at deployment time.
@@ -199,6 +222,7 @@ Verification target:
 ## Production authorization canary
 
 Recovery invariant reviewed 16 September 2026:
+
 - A production release is not considered recovered merely because `/api/health/live` and `/api/health/ready` succeed.
 - Anonymous GET canaries for protected preview, build, project/app, and billing reads must receive HTTP 401.
 - Anonymous state-changing POST canaries for AI extraction, agent execution, generation, and checkout must fail closed with HTTP 401 or HTTP 403. A 403 is valid when CSRF protection rejects the request before authentication; neither status permits execution or data access.
@@ -206,6 +230,7 @@ Recovery invariant reviewed 16 September 2026:
 - If any anonymous authorization canary returns a successful or otherwise unexpected status after restore or redeploy, keep the release out of service, identify the routing/authentication regression, fix it in source, rerun CI/security/build, and deploy the corrected SHA. Do not bypass the canary to complete recovery.
 
 Verification target:
+
 - Confirm `/api/preview-auth/1` and `/api/build/1` return 401 to anonymous callers.
 - Confirm anonymous POST requests to AI extraction, agent build, generation, and checkout entry points are rejected with 401 or 403 before request execution.
 - Confirm anonymous project/app and billing compatibility reads return 401.
@@ -213,12 +238,14 @@ Verification target:
 ## Build queue and customer credit recovery
 
 Must be recoverable:
+
 - Build reservation state recorded in the credit ledger.
 - Attempt identity (`projectId` + queued `createdAt`) used by build refund idempotency keys.
 - Persisted build events required to replay terminal `done`/`error` state after reconnects or worker restarts.
 - BullMQ/Redis configuration needed for distributed builds, with Redis-list and in-memory degraded-mode behavior documented in source.
 
 Recovery invariants:
+
 - Every queued build carries a typed, runtime-validated canonical product contract alongside the original prompt; Redis, BullMQ, in-memory fallback, resumed execution, repair cycles, and deployment retries must preserve that exact contract rather than reconstructing it from free text.
 - Queue deserialization fails closed when the contract is missing or invalid, and worker admission rejects any job whose original prompt or selected stack disagrees with the persisted project contract before project state is mutated.
 - Production must use shared Redis; Redis-list and in-memory fallbacks are not certified as a two-Machine production steady state.
@@ -229,6 +256,7 @@ Recovery invariants:
 - Retry/recovery must never infer billing from the user's current entitlement; it must use the reservation state of the original attempt.
 
 Verification target:
+
 - Exercise duplicate admission through BullMQ, Redis-list fallback, and memory fallback in test/degraded environments and confirm one active build plus exactly-once duplicate refunds.
 - Exercise production BullMQ across multiple workers and confirm one logical project build is not executed twice when requests/workers are distributed across Machines.
 - Exercise worker failure and timeout and confirm a persisted terminal error plus exactly-once reservation refund.
@@ -259,6 +287,7 @@ Verification must cover terminal worker failures, original refund identity, unli
 ## Stripe
 
 Must be recoverable:
+
 - Product/price identifiers.
 - Webhook endpoint configuration.
 - Subscription/entitlement mapping logic.
@@ -267,11 +296,13 @@ Must be recoverable:
 - Shared PostgreSQL `stripe_webhook_events` replay ledger and advisory-lock behavior.
 
 Recovery invariant:
+
 - Stripe event processing is multi-Machine safe only when both Machines share the same PostgreSQL database. `processStripeEventOnce` takes a transaction-scoped PostgreSQL advisory lock derived from the Stripe event ID, checks the shared event ledger, runs the handler once, and records the event before releasing the transaction.
 - A delayed payment-failure notification reconciles the current Stripe subscription status rather than forcing `past_due`. A failed Stripe lookup returns a retryable webhook error without changing local status.
 - Subscription cancellation updates match both the user and canceled subscription ID so a late cancellation cannot revoke a replacement subscription.
 
 Verification target:
+
 - Deliver the same controlled test-mode webhook concurrently to both Machines and confirm only one handler execution/ledger insertion.
 - Controlled test-mode checkout/webhook path.
 - Deliver an old payment-failure event after a successful retry and confirm the subscription remains active; repeat with a temporary Stripe lookup failure and verify no local write until retry succeeds.
@@ -281,12 +312,14 @@ Verification target:
 ## Snapshot source-of-truth recovery
 
 Recovery invariant reviewed 15 September 2026:
+
 - A build snapshot selected as current and the canonical `projects.generatedFiles` copy must be synchronized in the same database transaction.
 - Snapshot activation must reject a snapshot that does not belong to the target project.
 - Successful snapshot activation must invalidate the live-preview cache so preview, rollback, download, and deployment reads converge on the newly active state.
 - A recovery or rollback procedure must use the same snapshot activation function rather than independently changing snapshot flags and project files.
 
 Verification target:
+
 - Activate a prior snapshot and confirm it becomes the sole current snapshot while `projects.generatedFiles` matches its file set.
 - Confirm a snapshot from another project cannot be activated.
 - Confirm the next preview/read after activation observes the restored snapshot rather than stale cached output.
@@ -294,6 +327,7 @@ Verification target:
 ## Generated-product certification recovery
 
 Recovery invariant reviewed 23 September 2026:
+
 - Technology-stack selection is governed by explicit stack adapters. Unknown explicit stacks must fail instead of being silently converted to React.
 - Structural-only adapters (mobile native, desktop native, browser extensions, and Python-native outputs where configured structural-only) must never be promoted to production-certified deployment until their native runtime/toolchain has been verified.
 - Production certification must read the canonical product contract's selected stack and enforce the adapter's runtime/deployment status before deployment.
@@ -322,7 +356,6 @@ Must be recoverable:
 - Generated requirement manifest, executable tests, source snapshot, and artifact SHA-256 certification evidence.
 - A Docker isolation runtime as an independently controlled alternative where the production architecture provides it.
 
-
 ## Browser authentication continuity recovery
 
 Recovery invariant reviewed 20 September 2026:
@@ -348,10 +381,10 @@ Must be recoverable:
 - The browser-session access-token continuity contract.
 - Canonical owner authorization logic and owner-only server procedures.
 
-
 ## AI providers and automation services
 
 Must be recoverable:
+
 - Provider account ownership.
 - Credential rotation path.
 - Quota/limits/configuration required for AppForge agents.
@@ -362,6 +395,7 @@ AI systems must never be the sole holder or chooser of recovery credentials or t
 ## Observability and incident evidence
 
 Must be recoverable or independently accessible:
+
 - Deployment logs.
 - Security workflow results.
 - CI status history where practical.
@@ -377,6 +411,7 @@ If a critical dependency cannot be independently recovered, it must be treated a
 ## Quarterly owner review
 
 Confirm:
+
 - Two independent owner recovery paths.
 - Independent backup decryption-key access.
 - At least one off-site backup restore succeeds.
@@ -393,21 +428,22 @@ This document contains no secret material by design.
 ## Live customer-shell browser recovery invariant
 
 Recovery invariant reviewed 21 September 2026:
+
 - A release is not fully certified by HTTP route availability alone; the deployed customer shell must remain interactable in a real mobile Chromium session.
 - The post-deploy gate must prove the landing prompt accepts text and enables Generate, the compact navigation opens, the language menu exposes more than 100 choices, selecting French changes the live document locale and translated controls, and both dark/light theme controls toggle successfully.
 - This browser check runs only after the exact release SHA has deployed, two-Machine reconciliation has passed, live/readiness checks are green, private API boundaries fail closed, and customer entry routes return non-empty HTTP 200 responses.
 - A browser-shell failure blocks release certification even when health endpoints remain green, because a reachable service with broken primary controls is not equivalent to a recoverable customer-ready release.
 
 Verification target:
+
 - Run the production deployment workflow for the exact trusted SHA.
 - Require the Chromium customer-shell step to pass against the public Fly production URL.
 - Treat missing prompt interaction, broken compact navigation, fewer than 100 language choices, failed French locale application, or non-functional theme toggles as a production regression requiring correction before the release is considered customer-ready.
 
-
-
 ## Generated-product deployment contract
 
 Recovery invariant reviewed 28 September 2026:
+
 - Production deployment must pass the canonical generated-product deployment contract before any provider action. The selected stack, runtime metadata, deployment metadata, required environment/config artifacts, database migration/schema evidence when required, and requested worker/scheduled-job support must agree with the canonical product contract.
 - Production destinations are fail-closed: only the trusted production destinations implemented by AppForge may be used, and the selected stack adapter must explicitly support the requested destination.
 - Every packaged production artifact carries `appforge.production.json` with the deployment version, startup and health contract, domain/TLS policy, asset handling, database requirements, worker/scheduled-job policy, scaling/resource limits, bounded deploy and health timeouts, and rollback policy.
@@ -416,10 +452,10 @@ Recovery invariant reviewed 28 September 2026:
 - Recovery uses the previous verified artifact/version as the rollback target. Operators must not mark an unverified artifact current merely because generation, provider upload, or container startup succeeded.
 - These invariants apply to generated customer products independently of the AppForge host deployment. They do not authorize direct execution of generated code on the AppForge host or reuse of AppForge production credentials.
 
-
 ## Operations and observability recovery invariants
 
 Section 23 observability is part of production recovery evidence:
+
 - Structured application logs must remain recursively redacted before console/Sentry emission; production diagnostics must never expose credentials or secret values.
 - `/api/health/live` remains process-only liveness. `/api/health/ready` remains dependency-aware readiness. The full health endpoint may report coarse database/Redis state, while detailed operational diagnostics remain authenticated.
 - `/metrics` is the Prometheus-compatible operational metric surface. It contains aggregate operational labels only and must not contain user prompts, email addresses, access tokens, cookies, API keys, or generated source.
@@ -432,6 +468,7 @@ Section 23 observability is part of production recovery evidence:
 ## Section 24 durable generated-product recovery checkpoints
 
 Recovery invariant reviewed 28 September 2026:
+
 - Every successfully validated final generated-product snapshot is recorded in `recovery_checkpoints` with its project ID, snapshot ID, artifact version, and the immutable snapshot SHA-256.
 - A production-verified recovery point additionally records deployment contract version, deployment-manifest SHA-256, verified live URL, and source `production_verified`.
 - Recovery checkpoint creation revalidates snapshot ownership, artifact version, and persisted artifact SHA-256 before storing or updating a checkpoint.
@@ -442,6 +479,7 @@ Recovery invariant reviewed 28 September 2026:
 - Queue interruption, duplicate attempts, failed/incomplete builds, credit refunds, paused builds, database/migration incidents, provider failures, preview failures, and partial generation follow the procedures in `docs/RECOVERY_AND_ROLLBACK.md`.
 
 Verification target:
+
 - Complete a validated build and confirm a `validated_artifact` checkpoint records the exact snapshot version and SHA-256.
 - Complete a production-certified build and confirm a `production_verified` checkpoint records deployment version, deployment-manifest SHA-256, and verified live URL.
 - Attempt to record a checkpoint with a mismatched snapshot, version, or artifact hash and confirm it fails closed.
@@ -449,11 +487,10 @@ Verification target:
 - Confirm failed/partial/deployment-error paths leave the prior known-good checkpoint unchanged.
 - Confirm recovery governance requires the Section 24 runbook whenever recovery-critical implementation changes.
 
-
-
 ## Section 25 build-status and approval recovery invariants
 
 Recovery invariant reviewed 29 September 2026:
+
 - Build lifecycle stage is durable state. Recovery must preserve the distinction between researching, planning, architecture, generating, persisting, validating, repairing, previewing, browser verification, deployment, monetization, production candidate, and production certified.
 - A validated artifact is not production-certified. Snapshot persistence or compile/test success may set project status to `validated`, but only verified production deployment may set `production-certified`.
 - Output maturity is independently recorded as structural, runnable, verified, or certified so recovery does not infer maturity from file presence or a generic completed flag.
@@ -465,6 +502,7 @@ Recovery invariant reviewed 29 September 2026:
 - A post-generation file edit invalidates any prior production certification and returns the project to validated production-candidate state until production verification is repeated.
 
 Verification target:
+
 - Confirm a newly created build exposes durable stage transitions and exact output maturity.
 - Confirm a validated snapshot is `validated` / `production-candidate`, not `completed` or `production-certified`.
 - Confirm production certification occurs only after deployment identity, runtime/HTTP checks, and applicable browser verification succeed.
@@ -473,10 +511,10 @@ Verification target:
 - Confirm failure state captures the exact failing stage.
 - Confirm no fallback live-product URL points to an AppForge application route when no verified generated-product URL exists.
 
-
 ## Section 26 evidence and audit-trail recovery invariants
 
 Recovery invariant reviewed 30 September 2026:
+
 - Project evidence is append-only at both application and database layers. Direct UPDATE/DELETE of evidence rows is rejected; FK cascade cleanup is permitted only as part of deleting the owning project. Recovery must restore prior evidence rows; retries, repairs, redeployments, and self-healing add new evidence and never overwrite earlier events.
 - Intake evidence preserves the original prompt, canonical product contract, resolved product intent, and selected technology stack.
 - Research evidence preserves the actual queries, accepted and rejected sources, decisions, uncertainty, conflicts, and provider failures used by planning.
@@ -489,6 +527,7 @@ Recovery invariant reviewed 30 September 2026:
 - Unresolved validation/security risks shown as current evidence must come from the active current snapshot, not merely the highest-version snapshot. This matters after rollback, when a newer failed snapshot may remain preserved for audit.
 
 Verification target:
+
 - Create a project and confirm intake evidence contains the unchanged prompt, contract, product intent, and selected stack.
 - Complete research/planning and confirm queries, sources, decisions, architecture, tasks, and requirement manifest are visible through the evidence bundle.
 - Force a validation/repair retry and confirm both the failed validation and repair attempt remain after the later successful validation.
@@ -500,10 +539,10 @@ Verification target:
 - Confirm project users can read only their own audit trail and the admin project-evidence endpoint remains owner-only.
 - Exercise self-healing/redeployment and confirm repair, failure, deployment, and certification evidence remains additive across recovery cycles.
 
-
 ## Section 27 certification-logic recovery invariants
 
 Recovery invariant reviewed 30 September 2026:
+
 - Certification is a fail-closed evidence decision, not a synonym for build completion or successful deployment.
 - The canonical certification ladder is: structured, generated, runnable, behaviorally verified, deployment verified, monetization verified, production candidate, production certified.
 - Structural-only or compile-only stacks may be preserved and recovered as source artifacts, but recovery must never upgrade them to runnable, production candidate, deployed, or production certified without a verified native runtime/toolchain.
@@ -515,6 +554,7 @@ Recovery invariant reviewed 30 September 2026:
 - Recovery must preserve the exact artifact version and SHA-256 associated with certification evidence. A rollback or repair invalidates certification until the restored/repaired artifact satisfies the certification decision again.
 
 Verification target:
+
 - Confirm a structural-only stack stops at generated/source maturity and cannot become production candidate or production certified.
 - Confirm a runnable product with resolved requirements and passing linked behavioral tests can become a production candidate before live deployment evidence exists.
 - Confirm browser products fail certification when browser verification is missing even if HTTP deployment succeeds.
@@ -524,10 +564,10 @@ Verification target:
 - Confirm a non-monetized runnable product reaches production certified only when all applicable requirement, behavioral, runtime, security, deployment, operational, and recovery evidence is present.
 - Confirm self-healing cannot restore production certified status unless the repaired artifact independently satisfies the same certification rules.
 
-
 ## Section 27 monetization-certification recovery review
 
 Recovery invariant reviewed 30 September 2026:
+
 - A monetized generated product is not production certified from billing-code generation or user approval alone.
 - Production monetization verification is tied to the exact current artifact version, snapshot identity, SHA-256, and verified live URL.
 - The deployed product must expose its server-side billing health endpoint and report `configured=true`, `verified=true`, and `state=connected` before monetization evidence can satisfy production certification.
@@ -536,16 +576,17 @@ Recovery invariant reviewed 30 September 2026:
 - Billing-health verification must never accept client-side state, configuration presence alone, route existence alone, or monetization approval as proof that the provider and configured price are working.
 
 Verification target:
+
 - Confirm approval-only monetization evidence cannot certify an artifact.
 - Confirm a monetized deployment with failed or unconfigured billing health remains a production candidate and records the failed evidence against that artifact version.
 - Confirm a deployed monetized artifact can satisfy the monetization gate only when its billing health reports configured, verified, and connected.
 - Confirm a new artifact version cannot reuse the prior version's monetization evidence.
 - Confirm self-healing and rollback re-enter the same fail-closed monetization verification path before production certification.
 
-
 ## Section 29 CI and release infrastructure recovery review
 
 Recovery invariant reviewed 1 October 2026:
+
 - Production release evidence is commit-specific. A release may proceed only when the exact current `main` SHA has a successful CI Pipeline run and a successful Security Scanning run.
 - Manual production dispatch is not a bypass. It must resolve to current `main`, prove exact-SHA CI/security evidence, and then rerun release validation before deployment.
 - Failed, cancelled, missing, stale, or still-running required evidence is not success. The deployment gate must fail closed rather than infer success from branch state or an earlier commit.
@@ -555,6 +596,7 @@ Recovery invariant reviewed 1 October 2026:
 - Production deployment must continue to verify that every started production Machine serves the exact release SHA after deployment.
 
 Verification target:
+
 - A failed exact-SHA Security Scanning run blocks both automatic and manual production release.
 - A missing exact-SHA CI run blocks manual production release.
 - A stale SHA cannot deploy after `main` advances.
@@ -563,10 +605,10 @@ Verification target:
 - Preview build/runtime failure fails the preview deployment gate.
 - Recovery checks remain mandatory and cannot be skipped by successful unrelated jobs.
 
-
 ## Section 30 Final Product-Factory Flow recovery review
 
 Recovery invariant reviewed 1 October 2026:
+
 - The final customer handoff is governed by one authoritative product-factory verdict, not by a legacy generic `completed` status or a deployment-only success.
 - Production readiness requires the validated contract, resolved intent, selected stack, live research, architecture/plan, completed specialist-agent outputs, real persisted source, requirement preservation, placeholder protection, requirement-linked evidence, isolated build/runtime verification, exact-artifact preview/deployment/live verification, requested monetization/entitlement proof, operational monitoring, and recovery evidence.
 - The final verdict is fail-closed: a lower-level certification decision cannot make `productionReady` true when an earlier product-factory stage is missing.
@@ -577,15 +619,16 @@ Recovery invariant reviewed 1 October 2026:
 - The final-flow report is bound to the current persisted artifact and exact deployment evidence, so stale artifacts cannot inherit readiness.
 
 Verification target:
+
 - Missing contract, research, plan, coordination, artifact, isolation, deployment, monitoring, monetization, or recovery evidence must keep `productionReady` false.
 - The final build event must carry `productionReady`, the full final-flow report, and explicit limitations.
 - Project evidence must expose the same report and limitations for customer/admin audit.
 - No final-flow code path may restore `completed` as a shortcut to production readiness.
 
-
 ## Production readiness convergence recovery review
 
 Recovery invariant reviewed 1 October 2026:
+
 - AppForge intentionally binds HTTP liveness before database/schema/Redis initialization completes so a dependency outage does not create a process restart loop.
 - `/api/health/live` proves only that the HTTP process is alive. It must never be treated as production readiness.
 - `/api/health/ready` remains the dependency-aware release gate and may legitimately return HTTP 503 while schema migrations, the application database, or shared Redis are still converging after a blue/green rollout.
@@ -594,15 +637,16 @@ Recovery invariant reviewed 1 October 2026:
 - The gate remains fail-closed: if readiness never reaches HTTP 200 within the bounded window, customer-flow verification, exact-SHA confirmation, and browser verification must not proceed.
 
 Verification target:
+
 - A newly started release may return transient readiness 503 responses without being falsely failed before its dependencies finish initialization.
 - A persistent startup/database/Redis failure still fails the deployment.
 - Readiness response bodies remain visible in deployment evidence for diagnosis.
 - Liveness success alone can never promote a release.
 
-
 ## Gate 1 production authentication lifecycle recovery review
 
 Recovery invariant reviewed 4 October 2026:
+
 - The production authentication lifecycle gate is a manual release-certification workflow, not a recovery mechanism and not a substitute for Supabase authentication backups or configuration recovery.
 - The gate intentionally uses fresh real mailboxes/aliases and real production email-confirmation URLs. It must never manufacture, bypass, or persist confirmation tokens in repository history, workflow artifacts, logs, or recovery backups.
 - Authentication reliability is not accepted from a single green pass. Each confirmed test account must survive ten logout/relogin cycles, hard reload/reopen checks, ten fresh-browser-context logins, and anonymous protected-route denials.
@@ -613,6 +657,7 @@ Recovery invariant reviewed 4 October 2026:
 - Failure of any required repetition is release-blocking evidence; recovery procedures must fix the underlying production authentication, session, queue, or persistence issue rather than weaken or skip the gate.
 
 Verification target:
+
 - Complete signup + real Gmail confirmation for ten independent fresh aliases/accounts.
 - For every confirmed account used in the browser certification, require ten logout/relogin cycles with anonymous state proven after each logout.
 - Require ten fresh browser-context logins plus hard reload continuity.
@@ -620,7 +665,6 @@ Verification target:
 - Reconnect to the original build stream and require production certification.
 - Start a second independent build with a different fresh hCaptcha token, require a different project ID, and confirm both products remain production-certified and independently reachable.
 - Confirm no confirmation URL, password, access token, refresh token, mailbox credential, or hCaptcha token is committed to Git, uploaded as an artifact, or added to recovery documentation.
-
 
 ## Owner admin SMS MFA recovery invariant — 4 October 2026
 
@@ -641,6 +685,7 @@ Verification target:
   MFA-cookie value.
 
 Verification target:
+
 - After recovery, an authenticated owner without SMS MFA receives no admin data.
 - A non-owner cannot request or verify the owner admin challenge.
 - A real Twilio Verify challenge goes only to the configured owner phone.
@@ -651,11 +696,11 @@ Verification target:
 - Production deployment refuses release when any required owner-MFA secret name
   is absent.
 
-
 ### Production admin MFA certification workflow
 
 The repository includes a production browser challenge gate for owner MFA.
 Recovery and release certification must preserve this behavior:
+
 - the automated challenge gate authenticates the owner, reaches the locked admin
   screen, and requests a real Twilio Verify SMS to the fixed server-side owner phone.
 - the real six-digit code is never accepted as a GitHub workflow input, secret,
@@ -665,7 +710,6 @@ Recovery and release certification must preserve this behavior:
 - that interactive proof must confirm admin data is unavailable before MFA,
   available after approval, remains available across a hard reload only within
   the short MFA lifetime, and becomes locked again after logout plus a new login.
-
 
 ### Durable queue and live certification recovery
 
@@ -689,7 +733,6 @@ APPFORGE_SENTRY_SOURCEMAPS_REQUIRED=true makes missing credentials block a main
 build. Without it, CI emits an explicit unverified-upload warning; such a build
 is not evidence of working monitoring or actionable production alerts.
 
-
 ### Dedicated AppForge payment recovery
 
 Recover the dedicated APPFORGE_STRIPE_ACCOUNT_ID, STRIPE_SECRET_KEY and
@@ -709,10 +752,10 @@ A dedicated account and live checkout/webhook/database/UI certification are
 required before this billing configuration is deployed. Do not treat unit tests
 as real-money certification or reuse another product's catalog as a shortcut.
 
-
 ### Shared Stripe account product isolation — 5 October 2026
 
 Recovery invariant:
+
 - AppForge uses the same Stripe account as other independent products; account-level isolation is not required and `APPFORGE_STRIPE_ACCOUNT_ID` must not be restored or reintroduced.
 - Recover `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and only the AppForge-owned subscription/credit Price IDs used by AppForge.
 - AppForge checkout metadata remains namespaced with `product_line=appforge`; AppForge entitlements and credit records must only be created from AppForge-owned prices and valid settled AppForge payments.
@@ -721,13 +764,14 @@ Recovery invariant:
 - The product-isolation repair/release gates must fail closed if obsolete account-level Stripe isolation or production-facing cross-product coupling is reintroduced.
 
 Verification target:
+
 - Verify all AppForge subscription and credit Price IDs resolve to the intended AppForge products before reopening paid traffic.
 - Exercise AppForge checkout, delayed/replayed webhook delivery, refund, cancellation, failed-payment reconciliation, and entitlement/credit idempotency.
 - Deliver representative unrelated-product Stripe events from the shared account and confirm AppForge acknowledges/ignores them without mutating AppForge billing state.
 - Confirm a deliberately AppForge-marked event with a non-AppForge price fails closed and grants nothing.
 
-
 ## 2026-10-08 authenticated build-entry hotfix
+
 - Signed-out visitors are blocked from the build entry routes and redirected to sign-in before the build UI mounts.
 - The server-authoritative owner identity bypasses customer CAPTCHA/moderation/credit gates only for the owner; customer gates remain fail-closed.
 - Recovery validation must confirm a restored release preserves both boundaries: unauthenticated build entry remains closed and the verified owner can start a build without a customer CAPTCHA token.
@@ -808,7 +852,6 @@ Provider-neutral build/preview/agent/health settings use ISOLATED_* configuratio
 
 Production creation and approval-resume requests now check that an allowed HTTPS isolated build endpoint or a working Docker daemon exists before enrichment, credit reservations, project creation or queue writes. This is configuration/availability preflight, not complete product certification. Invalid or forbidden generic configuration fails closed. Recheck dequeued jobs before changing their status or invoking agents; if execution disappeared, refund the attempt using its existing idempotent reservation key, emit validation_unavailable and preserve the recoverable paused project. The original plan/integration/monetization approvals and artifact boundaries still apply to subsequent retries. A failed refund is logged for recovery and is never represented as verified repayment. Owner retry entitlement is evaluated from server-authoritative identity independently of stored unlimited flags. Restore runtime configuration and retry through the approved queue path; never resume by executing generated code on the host or enabling a metered provider. Existing-host qualification now runs its bounded, dependency-free fixture under the non-root app user and verifies cleanup; this still does not establish a deployed customer build runner.
 
-
 ### Existing-host build isolation qualification
 
 The experimental `scripts/runtime/existing-host-controller.mjs` is not integrated into the production web server or enabled for customer builds. It is qualified only with reviewed public fixtures by the protected `Qualify Existing Build Host` workflow, using the existing Fly deployment credential and production deployment concurrency. The workflow expects two existing machines and creates temporary bounded cgroups and a 64MB workspace on one; it does not provision or resize resources, create credentials, or publish customer files. No Sprites calls are used.
@@ -817,21 +860,17 @@ Controller qualification requires real public npm installation, audit, offline l
 
 Recovery procedure: keep production builds closed unless a complete qualified runner and preview/deployment route exist. Leave `EXISTING_HOST_SANDBOX_ENABLED` unset; the production image does not invoke the prototype bootstrap. A failed qualification must not trigger customer retries or AI repair calls. Inspect its cleanup result and restore the existing two-machine healthy baseline before further qualification. Stale qualification cgroups are removable only when empty; only a run's own fixed fixture processes may be killed. Production deployments and qualifications use the same concurrency group. Saved project artifacts remain the source of recovery; fixture success does not certify their editing/saving/deploy/product-use journey.
 
-
 ### Generated authorization identity header boundary
 
 Generated source security scanning rejects user, tenant, organization and workspace identities assigned directly from unverified request headers, including standard Request headers and Express identity-header accessors. This extends the existing body/query/parameter prohibition. Request-controlled identity cannot establish authentication or tenant ownership. Verified session/principal identity remains supported. The gate runs before generated source execution and again before production deployment; no migration or customer retry is needed. Existing saved artifacts remain intact and must pass fresh security and behavioral checks before release.
-
 
 ### Mixed frontend/backend JavaScript import preservation
 
 The generated-project reliability pass preserves explicit relative `.js` imports, including Node backend imports in React + Node artifacts. Removing these extensions breaks native Node ESM resolution even when the target file exists. TypeScript/JSX frontend import cleanup remains supported. A reviewed fixture runs the hardened backend with the real Node executable and also verifies the frontend normalization. No artifact snapshot, selected stack, dependencies or product requirements are substituted. Existing saved working sources require fresh full validation; this correction does not certify or deploy them or trigger AI retries.
 
-
 ## Existing-host build runtime startup integration — 11 October 2026
 
 The production image now carries the reviewed namespace controller and startup preparation. Startup drops to UID 1001 before launching the web server. Build execution remains disabled unless EXISTING_HOST_SANDBOX_ENABLED is explicitly true and tmpfs, delegated aggregate resource limits, seccomp and Bubblewrap qualify. Preparation failure preserves the web service and refuses builds. Roll back to main release 76ef53c2299c9b397526a0da6bbd960afbae946c or disable the flag to restore the prior build pause. No new Fly machines, tokens, external runtimes or paid services are required by the integration. Customer preview and deployment remain separate qualification requirements.
-
 
 ### Serving-process readiness probe correction — 11 October 2026
 
@@ -858,12 +897,29 @@ The existing per-user encrypted GitHub connection and current validated artifact
 ## Flutter + Node release-package qualification recovery invariant — 16 October 2026
 
 Recovery invariant:
+
 - Trusted Flutter + Node qualification now records hashes for the compiled backend package, Android release AAB, and unsigned iOS release application in addition to the existing runtime interaction evidence.
 - These artifacts are evidence that a trusted fixture can be compiled and packaged reproducibly; they do not replace production signing identities, provisioning profiles, Play Console/App Store access, provider credentials, or store certification.
 - If a release-package qualification change breaks a trusted platform lane, recovery is to revert to the last known-good qualification workflow SHA, preserve the failed evidence artifact/logs, correct the workflow or generated fixture in source, and rerun the complete qualification. Never bypass a failed package/hash step to certify a release.
 - iOS recovery remains explicitly unsigned until legitimate Apple signing/provisioning credentials and agreements are supplied. Android release evidence remains compilation/package evidence until legitimate production signing and store submission are separately proven.
 
 Verification target:
+
 - Require non-empty backend release archive, Android release AAB, and unsigned iOS release archive plus SHA-256 evidence from the trusted fixture.
 - Require the existing Ubuntu/Android and macOS/iOS runtime interaction gates to remain green in the same qualification run.
 - Confirm release-scope evidence continues to state that store signing/submission and arbitrary generated-product production certification are not implied.
+
+### Account lifecycle and production-operations migrations (2026-10-16)
+
+- `drizzle/0007_account_lifecycle.sql` and immutable migration `20261016_008 account_lifecycle` create the account lifecycle preference/deletion state and PII-minimized lifecycle event records.
+- `drizzle/0008_production_operations.sql` adds change-contract/version, support-case, credit-settlement, and incident records used by the production-completeness programme.
+- Recovery requirement: restore the database using the existing verified production recovery process, verify lifecycle rows remain linked to retained user IDs, opaque lifecycle audit subjects contain no direct PII, and production-operation records retain their project/user references where those subjects still exist.
+- Account deletion anonymizes the retained user row instead of cascade-deleting financial/audit records; customer projects and provider connections are removed separately.
+- These migrations are additive. Once lifecycle or operations records are in use, recover forward or restore from a verified backup rather than dropping the tables.
+
+### Production operations migration (2026-10-16)
+
+- `20261016_009 production_operations` persists ChangeContracts, product-version records, support cases, credit settlements, and incidents.
+- Change/version records tied only to a deleted customer project are removed with that project. Support, credit-settlement and incident records retain minimized operational history with user/project references set null where applicable.
+- Recovery verification must preserve settlement idempotency keys, incident/support references, ChangeContract ownership and product-version uniqueness.
+- Do not claim rollback if customer data evolution makes the previous data shape unsafe; restore a verified checkpoint or recover forward from the recorded version evidence.
