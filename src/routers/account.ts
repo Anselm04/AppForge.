@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc.js";
+import { getUserById } from "../db.js";
 import {
   assertRecentSession,
   completeAccountDeletion,
@@ -11,6 +12,7 @@ import {
   productionAccountDeletionDependencies,
   updateAccountLifecycleProfile,
 } from "../services/accountLifecycleService.js";
+import { verifySupabaseAuthUser } from "../services/supabaseAccountAdmin.js";
 
 function asBadRequest(error: unknown): never {
   throw new TRPCError({
@@ -65,7 +67,16 @@ export const accountRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        const user = await getUserById(ctx.user.id);
+        if (!user?.openId) throw new Error("Account identity is unavailable");
+
+        // Do not trust a client-supplied JWT timestamp by itself. Supabase must
+        // first cryptographically validate the token and confirm it belongs to
+        // the same AppForge identity; only then is its issue time accepted as
+        // recent reauthentication evidence.
+        await verifySupabaseAuthUser(input.accessToken, user.openId);
         assertRecentSession(input.accessToken);
+
         await completeAccountDeletion(
           ctx.user.id,
           productionAccountDeletionDependencies(),
