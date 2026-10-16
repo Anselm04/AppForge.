@@ -8,7 +8,7 @@ export function capacityReady(machines, expectedSha) {
       machine.state === "started",
   );
   return (
-    started.length === 2 &&
+    started.length >= 2 &&
     started.every((machine) => {
       const sha = machine.image_ref?.labels?.GH_SHA;
       return (
@@ -42,7 +42,7 @@ if (process.argv[1]?.endsWith("verify-fly-capacity.mjs")) {
   }
   if (!ready) {
     console.error(
-      "Expected two healthy app machines on one verified release. Fleet left unchanged; deployment recovery is required.",
+      "Expected at least two healthy app machines on one verified release. Fleet left unchanged; deployment recovery is required.",
     );
     process.exitCode = 1;
   }
