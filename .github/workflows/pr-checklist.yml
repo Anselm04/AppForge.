@@ -6,64 +6,91 @@ on:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
-  format-production-completeness-once:
-    if: github.event.pull_request.head.ref == 'production-completeness-programme'
+  check-pr-template:
+    name: Check PR Template
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Check PR description
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
-          ref: production-completeness-programme
-          fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            const requiredSections = [
+              '## Description',
+              '## Type of change',
+              '## Testing',
+              '## Checklist'
+            ];
+            const missingSections = requiredSections.filter(section => !body.includes(section));
+            if (missingSections.length > 0) {
+              console.log('Missing PR template sections:', missingSections);
+              core.setFailed('PR description is missing required sections: ' + missingSections.join(', '));
+            } else {
+              console.log('All PR template sections present');
+            }
+
+  check-labels:
+    name: Check PR Labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check for required labels
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Apply Prettier to changed programme source
-        run: |
-          npx prettier --write \
-            src/__tests__/production-lifecycle-failure-paths.test.ts \
-            src/components/SiteFooter.tsx \
-            src/lib/__tests__/changeContract.test.ts \
-            src/lib/__tests__/creditSettlement.test.ts \
-            src/lib/__tests__/incidentResponse.test.ts \
-            src/lib/__tests__/versionRollback.test.ts \
-            src/lib/changeContract.ts \
-            src/lib/creditSettlement.ts \
-            src/lib/customerOperations.ts \
-            src/lib/incidentResponse.ts \
-            src/lib/migrationSafety.ts \
-            src/lib/platformFeatures.ts \
-            src/lib/publicCapabilityClaims.ts \
-            src/lib/versionRollback.ts \
-            src/pages/Account.tsx \
-            src/pages/FeatureDetail.tsx \
-            src/pages/HelpCenter.tsx \
-            src/pages/LandingPage.tsx \
-            src/pages/TrustPolicy.tsx \
-            src/routers/projectChat.ts \
-            src/services/accountLifecycleService.ts \
-            src/services/productionOperationsService.ts \
-            src/services/supabaseAccountAdmin.ts
-      - name: Restore checklist, remove temporary helper, and commit formatting
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(label => label.name);
+            const requiredLabels = ['bug', 'enhancement', 'documentation', 'dependencies'];
+            const hasRequiredLabel = labels.some(label => requiredLabels.includes(label));
+            if (!hasRequiredLabel) {
+              console.log('PR is missing a category label. Available labels:', requiredLabels);
+            } else {
+              console.log('PR has appropriate label');
+            }
+
+  check-changes:
+    name: Check File Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Get changed files
+        uses: tj-actions/changed-files@2d756ea4c53f7f6b397767d8723b3a10a9f35bf2
+        id: changed-files
+        with:
+          files: |
+            .env*
+            package-lock.json
+
+      - name: Block committed secret environment files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        shell: bash
         env:
-          HUSKY: "0"
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           set -euo pipefail
-          git fetch origin main --depth=1
-          git checkout FETCH_HEAD -- .github/workflows/pr-checklist.yml
-          git rm -f .github/workflows/one-shot-production-completeness-format.yml || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src .github/workflows/pr-checklist.yml
-          git add -u .github/workflows/one-shot-production-completeness-format.yml || true
-          if git diff --cached --quiet; then
-            exit 0
+          blocked=0
+          for file in $CHANGED_FILES; do
+            case "$file" in
+              .env|.env.local|.env.production|.env.preview|.env.*.local)
+                echo "Blocked secret-bearing environment file in PR: $file"
+                blocked=1
+                ;;
+            esac
+          done
+          if [ "$blocked" -ne 0 ]; then
+            echo "Use GitHub/Fly/Supabase secret managers. Example files with empty values remain allowed."
+            exit 1
           fi
-          git commit --no-verify -m "style: format production completeness changes"
-          git push origin HEAD:production-completeness-programme
+
+      - name: Check for lockfile changes
+        if: contains(steps.changed-files.outputs.all_changed_files, 'package-lock.json')
+        run: echo "package-lock.json changes detected"
