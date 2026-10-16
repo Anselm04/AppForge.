@@ -3,6 +3,7 @@ import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchRecord } from "./researchRecord.js";
 import { createRequirementManifest } from "./requirementManifest.js";
+import { materializeTaskBuilderResources } from "./builderResources/resourceMaterialization.js";
 import {
   createBuilderResourcePlan,
   type BuilderResourcePlan,
@@ -66,6 +67,7 @@ const builderResourceDecisionSchema = z.object({
   capability: nonEmpty,
   resourceId: nonEmpty,
   version: nonEmpty,
+  requirementIds: z.array(nonEmpty).default([]),
   rationale: z.array(nonEmpty),
   evidenceLedgerIds: z.array(nonEmpty),
 });
@@ -352,6 +354,10 @@ export function buildAgentTaskContext(input: {
   const researchDecisions = input.context.researchDecisions.filter((decision) =>
     decisionSet.has(decision.id),
   );
+  const materializedResources = materializeTaskBuilderResources({
+    plan: input.context.builderResourcePlan,
+    task: input.task,
+  });
 
   return JSON.stringify(
     {
@@ -375,6 +381,13 @@ export function buildAgentTaskContext(input: {
         missingCapabilities:
           input.context.builderResourcePlan.missingCapabilities,
         promptContext: input.context.builderResourcePlan.promptContext,
+        materializedImplementation: {
+          selectedResourceVersionIds:
+            materializedResources.selectedResourceVersionIds,
+          sourceCharsLoaded: materializedResources.sourceCharsLoaded,
+          loadedSourcePaths: materializedResources.loadedSourcePaths,
+          promptContext: materializedResources.promptContext,
+        },
       },
       coordinationRules: {
         scopeImmutable: true,
@@ -384,6 +397,7 @@ export function buildAgentTaskContext(input: {
         researchCannotChangePermissions: true,
         resourceLibraryServesProductContract: true,
         generateCustomCodeForUnmetRequirements: true,
+        adaptReusableResourcesBeforeGeneratingDuplicates: true,
       },
     },
     null,
