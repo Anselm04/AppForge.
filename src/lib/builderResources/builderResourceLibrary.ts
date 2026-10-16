@@ -1,0 +1,74 @@
+import {
+  BUILTIN_BUILDER_RESOURCES,
+  builtinResourceCounts,
+} from "./builtinResourceCatalog.js";
+import { BOOKING_RESOURCE } from "./bookingResource.js";
+import { COMPONENT_RESOURCES } from "./componentResources.js";
+import { DESIGN_FAMILY_RESOURCES } from "./designFamilies.js";
+import { REFERENCE_ARCHITECTURE_RESOURCES } from "./referenceArchitectureResources.js";
+import { BUILDER_RESOURCE_ATOMS } from "./resourceAtoms.js";
+import { RESEARCH_EVIDENCE_RESOURCE } from "./researchResourceManifest.js";
+import { SUBSTANTIAL_CORE_RESOURCES } from "./substantialCoreResources.js";
+import { SUBSTANTIAL_DOMAIN_RESOURCES } from "./substantialDomainResources.js";
+import { BuilderResourceRegistry } from "./resourceRegistry.js";
+
+export const ALL_BUILDER_RESOURCES = [
+  ...BUILTIN_BUILDER_RESOURCES,
+  ...BUILDER_RESOURCE_ATOMS,
+  ...COMPONENT_RESOURCES,
+  BOOKING_RESOURCE,
+  RESEARCH_EVIDENCE_RESOURCE,
+  ...SUBSTANTIAL_CORE_RESOURCES,
+  ...SUBSTANTIAL_DOMAIN_RESOURCES,
+  ...DESIGN_FAMILY_RESOURCES,
+  ...REFERENCE_ARCHITECTURE_RESOURCES,
+];
+
+export function createBuilderResourceLibraryRegistry(): BuilderResourceRegistry {
+  return new BuilderResourceRegistry(ALL_BUILDER_RESOURCES);
+}
+
+export function builderResourceLibraryCounts(): {
+  total: number;
+  byCategory: Record<string, number>;
+  byType: Record<string, number>;
+  byMaturity: Record<string, number>;
+} {
+  const byCategory = builtinResourceCounts();
+  const byType: Record<string, number> = {};
+  const byMaturity: Record<string, number> = {};
+
+  for (const resource of [
+    ...BUILDER_RESOURCE_ATOMS,
+    ...COMPONENT_RESOURCES,
+    BOOKING_RESOURCE,
+    RESEARCH_EVIDENCE_RESOURCE,
+    ...SUBSTANTIAL_CORE_RESOURCES,
+    ...SUBSTANTIAL_DOMAIN_RESOURCES,
+    ...DESIGN_FAMILY_RESOURCES,
+    ...REFERENCE_ARCHITECTURE_RESOURCES,
+  ]) {
+    byCategory[resource.identity.category] =
+      (byCategory[resource.identity.category] ?? 0) + 1;
+  }
+  for (const resource of ALL_BUILDER_RESOURCES) {
+    byType[resource.identity.resourceType] =
+      (byType[resource.identity.resourceType] ?? 0) + 1;
+    byMaturity[resource.governance.maturityState] =
+      (byMaturity[resource.governance.maturityState] ?? 0) + 1;
+  }
+
+  const sortRecord = (value: Record<string, number>) =>
+    Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    );
+
+  return {
+    total: ALL_BUILDER_RESOURCES.length,
+    byCategory: sortRecord(byCategory),
+    byType: sortRecord(byType),
+    byMaturity: sortRecord(byMaturity),
+  };
+}

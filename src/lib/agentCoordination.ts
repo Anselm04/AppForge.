@@ -2,6 +2,12 @@ import { z } from "zod";
 import type { ProductContract } from "./productContract.js";
 import type { ProductPlan, ProductPlanTask } from "./productPlan.js";
 import type { ResearchRecord } from "./researchRecord.js";
+import { createRequirementManifest } from "./requirementManifest.js";
+import { materializeTaskBuilderResources } from "./builderResources/resourceMaterialization.js";
+import {
+  createBuilderResourcePlan,
+  type BuilderResourcePlan,
+} from "./builderResources/resourcePlanning.js";
 
 const nonEmpty = z.string().trim().min(1);
 
@@ -51,6 +57,21 @@ export const taskCoordinationStateSchema = z.object({
 
 export type TaskCoordinationState = z.infer<typeof taskCoordinationStateSchema>;
 
+const builderResourceUsageSchema = z.object({
+  resourceId: nonEmpty,
+  version: nonEmpty,
+  evidenceLedgerIds: z.array(nonEmpty),
+});
+
+const builderResourceDecisionSchema = z.object({
+  capability: nonEmpty,
+  resourceId: nonEmpty,
+  version: nonEmpty,
+  requirementIds: z.array(nonEmpty).default([]),
+  rationale: z.array(nonEmpty),
+  evidenceLedgerIds: z.array(nonEmpty),
+});
+
 export const agentCoordinationRecordSchema = z.object({
   version: z.literal(1),
   projectId: z.number().int().positive(),
@@ -59,6 +80,10 @@ export const agentCoordinationRecordSchema = z.object({
   planTitle: nonEmpty,
   requirementIds: z.array(nonEmpty),
   researchDecisionIds: z.array(nonEmpty),
+  builderResourceUsage: z.array(builderResourceUsageSchema).default([]),
+  builderResourceDecisionEvidence: z
+    .array(builderResourceDecisionSchema)
+    .default([]),
   taskStates: z.record(z.string(), taskCoordinationStateSchema),
   fileOwners: z.record(z.string(), nonEmpty),
   events: z.array(coordinationEventSchema),
@@ -74,6 +99,7 @@ export type AgentCoordinationContext = {
   productPlan: ProductPlan;
   researchDecisions: ResearchRecord["decisions"];
   requirementIds: string[];
+  builderResourcePlan: BuilderResourcePlan;
 };
 
 export function createAgentCoordinationContext(input: {
@@ -111,11 +137,22 @@ export function createAgentCoordinationContext(input: {
     }
   }
 
+  const requirementManifest = createRequirementManifest({
+    productContract: input.productContract,
+    productPlan: input.productPlan,
+  });
+  const builderResourcePlan = createBuilderResourcePlan({
+    productContract: input.productContract,
+    productPlan: input.productPlan,
+    requirementManifest,
+  });
+
   return {
     productContract: input.productContract,
     productPlan: input.productPlan,
     researchDecisions,
     requirementIds,
+    builderResourcePlan,
   };
 }
 
@@ -160,6 +197,9 @@ export function createAgentCoordinationRecord(input: {
     planTitle: input.context.productPlan.title,
     requirementIds: input.context.requirementIds,
     researchDecisionIds: input.context.productPlan.researchDecisionIds,
+    builderResourceUsage: input.context.builderResourcePlan.usageRecords,
+    builderResourceDecisionEvidence:
+      input.context.builderResourcePlan.decisionEvidence,
     taskStates,
     fileOwners,
     events: [],
@@ -314,6 +354,10 @@ export function buildAgentTaskContext(input: {
   const researchDecisions = input.context.researchDecisions.filter((decision) =>
     decisionSet.has(decision.id),
   );
+  const materializedResources = materializeTaskBuilderResources({
+    plan: input.context.builderResourcePlan,
+    task: input.task,
+  });
 
   return JSON.stringify(
     {
@@ -328,12 +372,32 @@ export function buildAgentTaskContext(input: {
       task: input.task,
       requirements,
       researchDecisions,
+      builderResources: {
+        selectedResourceIds:
+          input.context.builderResourcePlan.selectedResourceIds,
+        usageRecords: input.context.builderResourcePlan.usageRecords,
+        decisionEvidence: input.context.builderResourcePlan.decisionEvidence,
+        conflicts: input.context.builderResourcePlan.conflicts,
+        missingCapabilities:
+          input.context.builderResourcePlan.missingCapabilities,
+        promptContext: input.context.builderResourcePlan.promptContext,
+        materializedImplementation: {
+          selectedResourceVersionIds:
+            materializedResources.selectedResourceVersionIds,
+          sourceCharsLoaded: materializedResources.sourceCharsLoaded,
+          loadedSourcePaths: materializedResources.loadedSourcePaths,
+          promptContext: materializedResources.promptContext,
+        },
+      },
       coordinationRules: {
         scopeImmutable: true,
         ownedFilesOnly: true,
         dependenciesMustBeComplete: true,
         requirementsMayNotBeDropped: true,
         researchCannotChangePermissions: true,
+        resourceLibraryServesProductContract: true,
+        generateCustomCodeForUnmetRequirements: true,
+        adaptReusableResourcesBeforeGeneratingDuplicates: true,
       },
     },
     null,
@@ -351,8 +415,6 @@ export function reconcileCoordinationResume(input: {
   for (const [taskId, state] of Object.entries(record.taskStates)) {
     if (state.status !== "completed") continue;
 
-    // Completed generation is not completed validation. A failed repair burst
-    // must reopen owned tasks even when their old output files still exist.
     if (input.repairReason) {
       record = updateTaskCoordinationState(record, taskId, {
         status: state.dependencies.length > 0 ? "blocked" : "pending",
