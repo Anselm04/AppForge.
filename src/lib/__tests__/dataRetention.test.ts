@@ -46,7 +46,9 @@ describe("DATA_RETENTION_REGISTRY", () => {
     expect(
       getRetentionRule("auth_tokens_sessions").customerExportEligible,
     ).toBe(false);
-    expect(getRetentionRule("oauth_connections").customerExportEligible).toBe(true);
+    expect(getRetentionRule("oauth_connections").customerExportEligible).toBe(
+      true,
+    );
     expect(getRetentionRule("oauth_connections").exportFields).not.toContain(
       "accessToken",
     );
