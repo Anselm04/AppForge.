@@ -1,6 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc.js";
+import {
+  accountDeletionProcedure,
+  protectedProcedure,
+  router,
+} from "../_core/trpc.js";
 import { getUserById } from "../db.js";
 import {
   assertRecentSession,
@@ -58,7 +62,7 @@ export const accountRouter = router({
     return buildCustomerDataExport(ctx.user.id);
   }),
 
-  deleteAccount: protectedProcedure
+  deleteAccount: accountDeletionProcedure
     .input(
       z.object({
         confirmation: z.literal("DELETE MY APPFORGE ACCOUNT"),
@@ -68,13 +72,21 @@ export const accountRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         const user = await getUserById(ctx.user.id);
-        if (!user?.openId) throw new Error("Account identity is unavailable");
+        if (!user) throw new Error("Account identity is unavailable");
 
-        // A client-supplied JWT timestamp is not sufficient reauthentication
-        // evidence. Supabase must cryptographically validate the token and
-        // bind it to this same AppForge identity before its issue time can be
-        // accepted as recent-session proof for irreversible deletion.
-        await verifySupabaseAuthUser(input.accessToken, user.openId);
+        if (ctx.accountDeletionState === "active") {
+          if (!user.openId) throw new Error("Account identity is unavailable");
+
+          // A client-supplied JWT timestamp is not sufficient reauthentication
+          // evidence. Supabase must cryptographically validate the token and
+          // bind it to this same AppForge identity before its issue time can be
+          // accepted as recent-session proof for irreversible deletion.
+          await verifySupabaseAuthUser(input.accessToken, user.openId);
+        }
+
+        // Pending deletion is a retry of an already-authorized destructive
+        // workflow. The provider identity may already be gone, but the caller
+        // must still hold an authenticated, recently-issued session.
         assertRecentSession(input.accessToken);
 
         await completeAccountDeletion(
