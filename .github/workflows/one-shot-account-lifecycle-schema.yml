@@ -61,27 +61,21 @@ jobs:
                   raise SystemExit("ensureSchema migration type marker missing")
               text = text.replace(type_marker, sql + type_marker, 1)
 
-          previous = '''  {
-            version: "20261001_007",
-            name: "recovery_checkpoints",
-            sql: RECOVERY_CHECKPOINTS_SQL,
-          },
-          ];'''
-          replacement = '''  {
-            version: "20261001_007",
-            name: "recovery_checkpoints",
-            sql: RECOVERY_CHECKPOINTS_SQL,
-          },
-          {
+          migration_end = "];\n\nfunction migrationChecksum"
+          migration_entry = '''  {
             version: "20261016_008",
             name: "account_lifecycle",
             sql: ACCOUNT_LIFECYCLE_SQL,
           },
-          ];'''
+          '''
           if 'version: "20261016_008"' not in text:
-              if previous not in text:
-                  raise SystemExit("ensureSchema recovery migration anchor missing")
-              text = text.replace(previous, replacement, 1)
+              if migration_end not in text:
+                  raise SystemExit("ensureSchema migration-list terminator missing")
+              text = text.replace(
+                  migration_end,
+                  migration_entry + "];\n\nfunction migrationChecksum",
+                  1,
+              )
           ensure.write_text(text)
 
           schema = Path("src/db/schema.ts")
