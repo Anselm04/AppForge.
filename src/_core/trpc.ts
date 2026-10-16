@@ -11,6 +11,16 @@ const t = initTRPC.context<Context>().create();
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
+async function requireAuthenticatedUser(user: Context["user"]) {
+  if (!user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Not authenticated",
+    });
+  }
+  return user;
+}
+
 async function requireActiveAccount(user: NonNullable<Context["user"]>) {
   const state = await getAccountLifecycleState(user.id);
   if (!accountLifecycleAllowsAccess(state)) {
@@ -23,13 +33,8 @@ async function requireActiveAccount(user: NonNullable<Context["user"]>) {
 }
 
 export const protectedProcedure = t.procedure.use(async (opts) => {
-  if (!opts.ctx.user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Not authenticated",
-    });
-  }
-  const user = await requireActiveAccount(opts.ctx.user);
+  const candidate = await requireAuthenticatedUser(opts.ctx.user);
+  const user = await requireActiveAccount(candidate);
   return opts.next({
     ctx: {
       ...opts.ctx,
@@ -38,11 +43,26 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
   });
 });
 
-export const ownerAuthenticatedProcedure = t.procedure.use(async (opts) => {
-  const candidate = opts.ctx.user;
-  if (!candidate) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+export const accountDeletionProcedure = t.procedure.use(async (opts) => {
+  const user = await requireAuthenticatedUser(opts.ctx.user);
+  const state = await getAccountLifecycleState(user.id);
+  if (state === "completed") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Account deletion is already complete",
+    });
   }
+  return opts.next({
+    ctx: {
+      ...opts.ctx,
+      user,
+      accountDeletionState: state,
+    },
+  });
+});
+
+export const ownerAuthenticatedProcedure = t.procedure.use(async (opts) => {
+  const candidate = await requireAuthenticatedUser(opts.ctx.user);
   const user = await requireActiveAccount(candidate);
   if (!isOwnerEmail(user.email)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Owner access only" });
