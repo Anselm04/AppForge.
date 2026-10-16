@@ -1,31 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { createBuilderResourceLibraryRegistry } from "../builderResourceLibrary.js";
 import { BUILD_CAPABILITY_IDS } from "../../buildCapabilities.js";
+import { createBuilderResourceLibraryRegistry } from "../builderResourceLibrary.js";
 
-describe("canonical capability domain dependencies", () => {
-  it("links every canonical capability resource to its substantive private domain pack", () => {
+function capabilityResourceId(capability: string): string {
+  return capability === "web_search"
+    ? "capability.web-search"
+    : `capability.${capability}`;
+}
+
+describe("Builder Resource domain implementation linkage", () => {
+  it("keeps every domain pack source-backed without hidden composition dependencies", () => {
     const resources = createBuilderResourceLibraryRegistry().list();
 
     for (const capability of BUILD_CAPABILITY_IDS) {
-      const canonical = resources.find(
-        (resource) =>
-          resource.identity.resourceId === `capability.${capability.replace(/_/g, "-")}` ||
-          resource.identity.resourceId === `capability.${capability}`,
+      const domainResourceId = `domain.${capability}.contract-pack`;
+      const domainResource = resources.find(
+        (resource) => resource.identity.resourceId === domainResourceId,
       );
-      expect(canonical, capability).toBeTruthy();
-      expect(canonical?.capabilities.dependencies).toContain(
-        `domain.${capability}.contract-pack`,
+      const canonicalResourceId = capabilityResourceId(capability);
+      const capabilityResource = resources.find(
+        (resource) => resource.identity.resourceId === canonicalResourceId,
       );
 
-      const domainPack = resources.find(
-        (resource) =>
-          resource.identity.resourceId === `domain.${capability}.contract-pack`,
-      );
-      expect(domainPack?.implementation.sourcePaths).toContain(
-        "src/lib/builderResources/domainRuntimeResources.ts",
-      );
-      expect(domainPack?.implementation.testPaths).toContain(
+      expect(domainResource, `missing ${domainResourceId}`).toBeTruthy();
+      expect(
+        domainResource?.implementation.sourcePaths,
+        `${domainResourceId} must have source-backed runtime implementation`,
+      ).toContain("src/lib/builderResources/domainRuntimeResources.ts");
+      expect(domainResource?.implementation.testPaths).toContain(
         "src/lib/builderResources/__tests__/domainRuntimeResources.test.ts",
+      );
+
+      expect(capabilityResource, `missing ${canonicalResourceId}`).toBeTruthy();
+      expect(capabilityResource?.capabilities.dependencies).not.toContain(
+        domainResourceId,
       );
     }
   });
