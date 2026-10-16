@@ -39,6 +39,9 @@ const reviewed = (
   runtime: state,
   platform: state,
   regressionHealthy: true,
+  evidenceFresh: true,
+  quarantined: false,
+  versionMatches: true,
 });
 
 /**
@@ -46,6 +49,9 @@ const reviewed = (
  * marketing promises: claim rendering takes the least mature evidence
  * dimension and fails closed if any required dimension is missing. Production
  * wording requires production-certified evidence, never mere route presence.
+ * reviewed() also records that the evidence is current, non-quarantined and
+ * belongs to the advertised version; claim resolution fails closed when those
+ * facts are absent or later regress.
  */
 export const PLATFORM_FEATURES: FeatureMeta[] = [
   {
@@ -118,27 +124,107 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     evidence: reviewed("experimental"),
     evidenceRef: "public feedback workflow not production-certified",
   },
+  {
+    id: "version-history",
+    icon: "🕘",
+    i18nKey: "features.versionHistory",
+    appRoute: "/dashboard",
+    category: "ship",
+    evidence: reviewed("verified"),
+    evidenceRef: "snapshot persistence and rollback tests",
+  },
+  {
+    id: "collaboration",
+    icon: "👥",
+    i18nKey: "features.collaboration",
+    category: "team",
+    evidence: reviewed("structural"),
+    evidenceRef: "collaboration structures present; public workflow not certified",
+  },
+  {
+    id: "analytics",
+    icon: "📈",
+    i18nKey: "features.analytics",
+    appRoute: "/dashboard",
+    category: "grow",
+    evidence: reviewed("structural"),
+    evidenceRef: "analytics integrations present; customer workflow not certified",
+  },
+  {
+    id: "billing",
+    icon: "💳",
+    i18nKey: "features.billing",
+    appRoute: "/pricing",
+    category: "grow",
+    evidence: reviewed("verified"),
+    evidenceRef: "Stripe entitlement and webhook contract tests",
+  },
+  {
+    id: "integrations",
+    icon: "🔌",
+    i18nKey: "features.integrations",
+    appRoute: "/dashboard",
+    category: "ship",
+    evidence: reviewed("structural"),
+    evidenceRef: "adapter registry; each integration keeps its own maturity",
+  },
+  {
+    id: "changelog",
+    icon: "📋",
+    i18nKey: "features.changelog",
+    category: "discover",
+    evidence: reviewed("structural"),
+    evidenceRef: "feature structure present; customer route not certified",
+  },
+  {
+    id: "shortcuts",
+    icon: "⌨️",
+    i18nKey: "features.shortcuts",
+    category: "discover",
+    evidence: reviewed("structural"),
+    evidenceRef: "feature structure present; customer route not certified",
+  },
+  {
+    id: "cost-forecast",
+    icon: "🧮",
+    i18nKey: "features.costForecast",
+    category: "grow",
+    evidence: reviewed("structural"),
+    evidenceRef: "cost estimation primitives present; public workflow not certified",
+  },
+  {
+    id: "template-suggest",
+    icon: "🧩",
+    i18nKey: "features.templateSuggest",
+    appRoute: "/templates",
+    category: "build",
+    evidence: reviewed("buildable"),
+    evidenceRef: "Builder Resource Library selector and template foundations",
+  },
+  {
+    id: "senior-dev",
+    icon: "🧑‍💻",
+    i18nKey: "features.seniorDev",
+    appRoute: "/dashboard",
+    category: "build",
+    evidence: reviewed("buildable"),
+    evidenceRef: "senior developer task model and agent workflow",
+  },
+  {
+    id: "revenue-readiness",
+    icon: "💰",
+    i18nKey: "features.revenueReadiness",
+    appRoute: "/dashboard",
+    category: "grow",
+    evidence: reviewed("buildable"),
+    evidenceRef: "revenue readiness checks and billing foundations",
+  },
 ];
 
 export function featurePath(id: FeatureId): string {
   return `/features/${id}`;
 }
 
-export function getFeature(id: FeatureId): FeatureMeta | undefined {
-  return PLATFORM_FEATURES.find((f) => f.id === id);
+export function getFeature(id: string): FeatureMeta | undefined {
+  return PLATFORM_FEATURES.find((feature) => feature.id === id);
 }
-
-export const SIDEBAR_GROUPS = [
-  {
-    key: "sidebar.build",
-    ids: ["orchestrator", "live-preview", "templates"] as FeatureId[],
-  },
-  {
-    key: "sidebar.discover",
-    ids: [
-      "onboarding-assistant",
-      "health-scanner",
-      "feedback-board",
-    ] as FeatureId[],
-  },
-];
