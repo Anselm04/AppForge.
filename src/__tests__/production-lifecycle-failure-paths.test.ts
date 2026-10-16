@@ -9,7 +9,7 @@ import { publicClaimForEvidence } from "../lib/publicCapabilityClaims.js";
 import { assessRollback } from "../lib/versionRollback.js";
 
 describe("production lifecycle failure paths", () => {
-  it("halts account cleanup when identity revocation cannot be proven", async () => {
+  it("halts irreversible finalization when identity revocation fails after recoverable cleanup", async () => {
     const deps: AccountDeletionDependencies = {
       loadUser: vi.fn(async () => ({ id: 3, openId: "identity-3" })),
       beginDeletion: vi.fn(async () => undefined),
@@ -22,12 +22,16 @@ describe("production lifecycle failure paths", () => {
       deleteProviderConnections: vi.fn(async () => undefined),
       anonymizeAccount: vi.fn(async () => undefined),
       recordAudit: vi.fn(async () => undefined),
+      revokeSessions: vi.fn(async () => undefined),
     };
     await expect(completeAccountDeletion(3, deps)).rejects.toThrow(
       /provider unavailable/i,
     );
-    expect(deps.deleteCustomerProjects).not.toHaveBeenCalled();
+    expect(deps.deleteCustomerProjects).toHaveBeenCalledWith(3);
+    expect(deps.deleteProviderConnections).toHaveBeenCalledWith(3);
     expect(deps.anonymizeAccount).not.toHaveBeenCalled();
+    expect(deps.recordAudit).not.toHaveBeenCalled();
+    expect(deps.revokeSessions).not.toHaveBeenCalled();
   });
 
   it("blocks destructive data migration when backup evidence disappears", () => {
