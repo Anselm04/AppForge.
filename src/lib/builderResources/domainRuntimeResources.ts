@@ -84,15 +84,22 @@ export type DesignTokens = {
   colors: Record<string, string>;
 };
 
+export type DesignTokenOverrides = {
+  spacing?: Record<string, number>;
+  typography?: Record<string, string>;
+  radius?: Record<string, number>;
+  colors?: Record<string, string>;
+};
+
 export function mergeDesignTokens(
   base: DesignTokens,
-  overrides: Partial<{ [K in keyof DesignTokens]: Partial<DesignTokens[K]> }>,
+  overrides: DesignTokenOverrides,
 ): DesignTokens {
   return {
-    spacing: { ...base.spacing, ...overrides.spacing },
-    typography: { ...base.typography, ...overrides.typography },
-    radius: { ...base.radius, ...overrides.radius },
-    colors: { ...base.colors, ...overrides.colors },
+    spacing: { ...base.spacing, ...(overrides.spacing ?? {}) },
+    typography: { ...base.typography, ...(overrides.typography ?? {}) },
+    radius: { ...base.radius, ...(overrides.radius ?? {}) },
+    colors: { ...base.colors, ...(overrides.colors ?? {}) },
   };
 }
 
