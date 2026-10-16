@@ -201,7 +201,10 @@ export async function compareBaselineAndResourceAwareBuild(input: {
     ? resourcePlan.selectedResourceIds.reduce(
         (total, resourceVersionId) =>
           total +
-          Math.max(0, input.measureReusableResourceBytes?.(resourceVersionId) ?? 0),
+          Math.max(
+            0,
+            input.measureReusableResourceBytes?.(resourceVersionId) ?? 0,
+          ),
         0,
       )
     : null;
