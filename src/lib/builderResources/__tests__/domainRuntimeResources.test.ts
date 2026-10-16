@@ -216,9 +216,9 @@ describe("substantive reusable domain runtime resources", () => {
       currency: "NZD",
     };
     const once = appendIdempotentLedgerEntry([], entry);
-    expect(appendIdempotentLedgerEntry(once, { ...entry, id: "ledger-2" })).toEqual(
-      once,
-    );
+    expect(
+      appendIdempotentLedgerEntry(once, { ...entry, id: "ledger-2" }),
+    ).toEqual(once);
   });
 
   it("enforces healthcare tenant boundaries and emits immutable audit events", () => {
@@ -302,10 +302,9 @@ describe("substantive reusable domain runtime resources", () => {
       { eventId: "e2", logicalClock: 2, actorId: "b", value: "second" },
       { eventId: "e1", logicalClock: 1, actorId: "a", value: "first" },
     ];
-    expect(orderCollaborationEvents(events).map((event) => event.eventId)).toEqual([
-      "e1",
-      "e2",
-    ]);
+    expect(
+      orderCollaborationEvents(events).map((event) => event.eventId),
+    ).toEqual(["e1", "e2"]);
     expect(resolveLastWriteWins(events)?.value).toBe("second");
   });
 });
