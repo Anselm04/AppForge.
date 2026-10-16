@@ -7,13 +7,38 @@ import { COMPONENT_RESOURCES } from "./componentResources.js";
 import { DESIGN_FAMILY_RESOURCES } from "./designFamilies.js";
 import { REFERENCE_ARCHITECTURE_RESOURCES } from "./referenceArchitectureResources.js";
 import { BUILDER_RESOURCE_ATOMS } from "./resourceAtoms.js";
+import { parseBuilderResourceManifest } from "./resourceManifest.js";
 import { RESEARCH_EVIDENCE_RESOURCE } from "./researchResourceManifest.js";
 import { SUBSTANTIAL_CORE_RESOURCES } from "./substantialCoreResources.js";
 import { SUBSTANTIAL_DOMAIN_RESOURCES } from "./substantialDomainResources.js";
 import { BuilderResourceRegistry } from "./resourceRegistry.js";
 
+const domainPackByCategory = new Map(
+  SUBSTANTIAL_DOMAIN_RESOURCES.map((resource) => [
+    resource.identity.category,
+    resource.identity.resourceId,
+  ]),
+);
+
+const BUILTIN_RESOURCES_WITH_DOMAIN_PACKS = BUILTIN_BUILDER_RESOURCES.map(
+  (resource) => {
+    if (!resource.identity.resourceId.startsWith("capability.")) return resource;
+    const domainPackId = domainPackByCategory.get(resource.identity.category);
+    if (!domainPackId) return resource;
+    if (resource.capabilities.dependencies.includes(domainPackId)) return resource;
+
+    return parseBuilderResourceManifest({
+      ...resource,
+      capabilities: {
+        ...resource.capabilities,
+        dependencies: [...resource.capabilities.dependencies, domainPackId],
+      },
+    });
+  },
+);
+
 export const ALL_BUILDER_RESOURCES = [
-  ...BUILTIN_BUILDER_RESOURCES,
+  ...BUILTIN_RESOURCES_WITH_DOMAIN_PACKS,
   ...BUILDER_RESOURCE_ATOMS,
   ...COMPONENT_RESOURCES,
   BOOKING_RESOURCE,
