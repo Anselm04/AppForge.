@@ -129,8 +129,8 @@ jobs:
 
           recovery = Path("docs/RECOVERY_INVENTORY.md")
           recovery_text = recovery.read_text()
-          note = '''\n### Account lifecycle migration (2026-10-16)\n\n- `20261016_008 account_lifecycle` is an additive migration creating account lifecycle preferences/deletion state and a PII-minimized lifecycle event log.\n- Recovery requirement: restore the database using the existing verified production recovery process, then verify `account_lifecycle` rows remain linked to the correct retained user IDs and that `account_lifecycle_events.subject_ref` contains only opaque deletion references.\n- Account deletion deliberately anonymizes the retained user row instead of deleting it so financial/audit records that require retention are not cascade-deleted. Customer projects and provider connections are removed separately.\n- Rollback is schema-safe only before lifecycle records are relied on. After customer deletion events exist, use forward recovery rather than dropping lifecycle tables.\n'''
-          if "### Account lifecycle migration (2026-10-16)" not in recovery_text:
+          note = '''\n### Account lifecycle and production-operations migrations (2026-10-16)\n\n- `drizzle/0007_account_lifecycle.sql` and immutable migration `20261016_008 account_lifecycle` create the account lifecycle preference/deletion state and PII-minimized lifecycle event records.\n- `drizzle/0008_production_operations.sql` adds change-contract/version, support-case, credit-settlement, and incident records used by the production-completeness programme.\n- Recovery requirement: restore the database using the existing verified production recovery process, verify lifecycle rows remain linked to retained user IDs, opaque lifecycle audit subjects contain no direct PII, and production-operation records retain their project/user references where those subjects still exist.\n- Account deletion anonymizes the retained user row instead of cascade-deleting financial/audit records; customer projects and provider connections are removed separately.\n- These migrations are additive. Once lifecycle or operations records are in use, recover forward or restore from a verified backup rather than dropping the tables.\n'''
+          if "### Account lifecycle and production-operations migrations (2026-10-16)" not in recovery_text:
               recovery.write_text(recovery_text.rstrip() + "\n" + note)
           PY
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -148,4 +148,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/db/ensureSchema.ts src/db/schema.ts docs/RECOVERY_INVENTORY.md src/lib/accountLifecycle.ts src/lib/__tests__/accountLifecycle.test.ts src/services/accountLifecycleService.ts src/services/supabaseAccountAdmin.ts
           git commit --no-verify -m "db: register account lifecycle migration"
+          git pull --rebase origin production-completeness-programme
           git push origin HEAD:production-completeness-programme
