@@ -166,11 +166,6 @@ export function createBuilderResourceVersion(
     );
   }
 
-  const versionMaturity: AdapterCapabilityState =
-    stateRank(resource.governance.maturityState) > stateRank("experimental")
-      ? "experimental"
-      : resource.governance.maturityState;
-
   return parseBuilderResourceManifest({
     ...resource,
     identity: { ...resource.identity, version },
@@ -188,7 +183,7 @@ export function createBuilderResourceVersion(
     },
     governance: {
       ...resource.governance,
-      maturityState: versionMaturity,
+      maturityState: "discovered",
       deprecationStatus: "active",
       replacementResourceId: null,
       quarantine: null,
