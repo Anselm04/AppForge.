@@ -867,3 +867,11 @@ Verification target:
 - Require non-empty backend release archive, Android release AAB, and unsigned iOS release archive plus SHA-256 evidence from the trusted fixture.
 - Require the existing Ubuntu/Android and macOS/iOS runtime interaction gates to remain green in the same qualification run.
 - Confirm release-scope evidence continues to state that store signing/submission and arbitrary generated-product production certification are not implied.
+
+### Account lifecycle and production-operations migrations (2026-10-16)
+
+- `drizzle/0007_account_lifecycle.sql` and immutable migration `20261016_008 account_lifecycle` create the account lifecycle preference/deletion state and PII-minimized lifecycle event records.
+- `drizzle/0008_production_operations.sql` adds change-contract/version, support-case, credit-settlement, and incident records used by the production-completeness programme.
+- Recovery requirement: restore the database using the existing verified production recovery process, verify lifecycle rows remain linked to retained user IDs, opaque lifecycle audit subjects contain no direct PII, and production-operation records retain their project/user references where those subjects still exist.
+- Account deletion anonymizes the retained user row instead of cascade-deleting financial/audit records; customer projects and provider connections are removed separately.
+- These migrations are additive. Once lifecycle or operations records are in use, recover forward or restore from a verified backup rather than dropping the tables.

@@ -57,10 +57,16 @@ describe("account lifecycle", () => {
     const deps = deletionDeps({
       beginDeletion: vi.fn(async () => void order.push("begin")),
       stopCustomerWork: vi.fn(async () => void order.push("stop-work")),
-      disableEntitlements: vi.fn(async () => void order.push("disable-entitlements")),
+      disableEntitlements: vi.fn(
+        async () => void order.push("disable-entitlements"),
+      ),
       revokeIdentity: vi.fn(async () => void order.push("revoke-identity")),
-      deleteCustomerProjects: vi.fn(async () => void order.push("delete-projects")),
-      deleteProviderConnections: vi.fn(async () => void order.push("delete-connections")),
+      deleteCustomerProjects: vi.fn(
+        async () => void order.push("delete-projects"),
+      ),
+      deleteProviderConnections: vi.fn(
+        async () => void order.push("delete-connections"),
+      ),
       anonymizeAccount: vi.fn(async () => void order.push("anonymize")),
       recordAudit: vi.fn(async () => void order.push("audit")),
     });

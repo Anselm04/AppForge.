@@ -88,7 +88,9 @@ export function assertRecentSession(
 }
 
 export type AccountDeletionDependencies = {
-  loadUser(userId: number): Promise<{ id: number; openId?: string | null } | undefined>;
+  loadUser(
+    userId: number,
+  ): Promise<{ id: number; openId?: string | null } | undefined>;
   beginDeletion(userId: number): Promise<void>;
   stopCustomerWork(userId: number): Promise<void>;
   disableEntitlements(userId: number): Promise<void>;

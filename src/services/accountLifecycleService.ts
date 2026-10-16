@@ -82,7 +82,9 @@ export async function updateAccountLifecycleProfile(
   const user = await getUserById(userId);
   if (!user) throw new Error("Account not found");
   if ((await getAccountLifecycleState(userId)) !== "active") {
-    throw new Error("Account changes are disabled while deletion is in progress");
+    throw new Error(
+      "Account changes are disabled while deletion is in progress",
+    );
   }
 
   const current = await getAccountLifecycleProfile(userId);
@@ -189,8 +191,12 @@ async function deleteCustomerProjects(userId: number): Promise<void> {
 
 async function deleteProviderConnections(userId: number): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.execute(sql`DELETE FROM github_connections WHERE user_id = ${userId}`);
-    await tx.execute(sql`DELETE FROM cosine_connections WHERE user_id = ${userId}`);
+    await tx.execute(
+      sql`DELETE FROM github_connections WHERE user_id = ${userId}`,
+    );
+    await tx.execute(
+      sql`DELETE FROM cosine_connections WHERE user_id = ${userId}`,
+    );
     await tx.execute(sql`DELETE FROM user_sessions WHERE user_id = ${userId}`);
   });
 }
