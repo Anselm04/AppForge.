@@ -6,130 +6,10 @@ on:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
-  account-lifecycle-schema-once:
-    if: github.event.pull_request.head.ref == 'production-completeness-programme'
-    name: Apply account lifecycle schema once
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout branch
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          ref: production-completeness-programme
-          fetch-depth: 0
-      - name: Patch schema registry and recovery inventory
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          ensure = Path('src/db/ensureSchema.ts')
-          text = ensure.read_text()
-          sql = '''const ACCOUNT_LIFECYCLE_SQL = `
-          CREATE TABLE IF NOT EXISTS "account_lifecycle" (
-            "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
-            "language" VARCHAR(32) NOT NULL DEFAULT 'en',
-            "communication_preferences" JSONB NOT NULL DEFAULT '{"product":true,"billing":true,"marketing":false}'::jsonb,
-            "accessibility_preferences" JSONB NOT NULL DEFAULT '{"reducedMotion":false,"highContrast":false}'::jsonb,
-            "deletion_state" VARCHAR(32) NOT NULL DEFAULT 'active',
-            "deletion_requested_at" TIMESTAMP,
-            "deleted_at" TIMESTAMP,
-            "deletion_subject_ref" VARCHAR(64),
-            "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),
-            CONSTRAINT "account_lifecycle_deletion_state_check" CHECK ("deletion_state" IN ('active', 'pending', 'completed'))
-          );
-          CREATE INDEX IF NOT EXISTS "account_lifecycle_deletion_state_idx" ON "account_lifecycle" ("deletion_state");
-          CREATE TABLE IF NOT EXISTS "account_lifecycle_events" (
-            "id" SERIAL PRIMARY KEY,
-            "subject_ref" VARCHAR(64) NOT NULL,
-            "event_type" VARCHAR(64) NOT NULL,
-            "details" JSONB NOT NULL DEFAULT '{}'::jsonb,
-            "created_at" TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-          CREATE INDEX IF NOT EXISTS "account_lifecycle_events_type_created_idx" ON "account_lifecycle_events" ("event_type", "created_at");
-          `;
-
-          '''
-          marker = 'type AppForgeSchemaMigration = {'
-          if 'const ACCOUNT_LIFECYCLE_SQL' not in text:
-              if marker not in text: raise SystemExit('migration type marker missing')
-              text = text.replace(marker, sql + marker, 1)
-          anchor = '''  {
-            version: "20261001_007",
-            name: "recovery_checkpoints",
-            sql: RECOVERY_CHECKPOINTS_SQL,
-          },
-          ];'''
-          replacement = '''  {
-            version: "20261001_007",
-            name: "recovery_checkpoints",
-            sql: RECOVERY_CHECKPOINTS_SQL,
-          },
-          {
-            version: "20261016_008",
-            name: "account_lifecycle",
-            sql: ACCOUNT_LIFECYCLE_SQL,
-          },
-          ];'''
-          if 'version: "20261016_008"' not in text:
-              if anchor not in text: raise SystemExit('recovery migration anchor missing')
-              text = text.replace(anchor, replacement, 1)
-          ensure.write_text(text)
-
-          schema = Path('src/db/schema.ts')
-          text = schema.read_text()
-          marker = 'export const subscriptions = pgTable("subscriptions", {'
-          models = '''export const accountLifecycle = pgTable("account_lifecycle", {
-            userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-            language: varchar("language", { length: 32 }).default("en").notNull(),
-            communicationPreferences: jsonb("communication_preferences").$type<{ product: boolean; billing: boolean; marketing: boolean }>().default({ product: true, billing: true, marketing: false }).notNull(),
-            accessibilityPreferences: jsonb("accessibility_preferences").$type<{ reducedMotion: boolean; highContrast: boolean }>().default({ reducedMotion: false, highContrast: false }).notNull(),
-            deletionState: varchar("deletion_state", { length: 32 }).default("active").notNull(),
-            deletionRequestedAt: timestamp("deletion_requested_at"),
-            deletedAt: timestamp("deleted_at"),
-            deletionSubjectRef: varchar("deletion_subject_ref", { length: 64 }),
-            updatedAt: timestamp("updated_at").defaultNow().notNull(),
-          });
-
-          export const accountLifecycleEvents = pgTable(
-            "account_lifecycle_events",
-            {
-              id: serial("id").primaryKey(),
-              subjectRef: varchar("subject_ref", { length: 64 }).notNull(),
-              eventType: varchar("event_type", { length: 64 }).notNull(),
-              details: jsonb("details").$type<Record<string, unknown>>().default({}).notNull(),
-              createdAt: timestamp("created_at").defaultNow().notNull(),
-            },
-            (table) => [index("account_lifecycle_events_type_created_idx").on(table.eventType, table.createdAt)],
-          );
-
-          '''
-          if 'export const accountLifecycle = pgTable' not in text:
-              if marker not in text: raise SystemExit('schema marker missing')
-              text = text.replace(marker, models + marker, 1)
-          schema.write_text(text)
-
-          recovery = Path('docs/RECOVERY_INVENTORY.md')
-          text = recovery.read_text()
-          note = '''\n### Account lifecycle migration (2026-10-16)\n\n- `20261016_008 account_lifecycle` is additive and records account preferences/deletion state plus a PII-minimized lifecycle event log.\n- Recovery verification must confirm lifecycle rows remain attached to the correct retained user IDs and event `subject_ref` values remain opaque.\n- Account deletion anonymizes the retained user row instead of hard-deleting it so required financial/audit records are not cascade-deleted. Customer projects and provider connections are removed separately.\n- Once deletion events exist, recover forward; do not drop the lifecycle tables as a rollback shortcut.\n'''
-          if '### Account lifecycle migration (2026-10-16)' not in text:
-              recovery.write_text(text.rstrip() + '\n' + note)
-          PY
-          rm -f .github/workflows/one-shot-account-lifecycle-schema.yml
-          git checkout origin/main -- .github/workflows/pr-checklist.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/db/ensureSchema.ts src/db/schema.ts docs/RECOVERY_INVENTORY.md .github/workflows/pr-checklist.yml
-          git add -u .github/workflows/one-shot-account-lifecycle-schema.yml || true
-          if git diff --cached --quiet; then exit 0; fi
-          git commit --no-verify -m "db: register account lifecycle migration"
-          git push origin HEAD:production-completeness-programme
-
   check-pr-template:
     name: Check PR Template
     runs-on: ubuntu-latest
@@ -141,9 +21,19 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const body = pr.body || '';
-            const requiredSections = ['## Description','## Type of change','## Testing','## Checklist'];
+            const requiredSections = [
+              '## Description',
+              '## Type of change',
+              '## Testing',
+              '## Checklist'
+            ];
             const missingSections = requiredSections.filter(section => !body.includes(section));
-            if (missingSections.length > 0) core.setFailed('PR description is missing required sections: ' + missingSections.join(', '));
+            if (missingSections.length > 0) {
+              console.log('Missing PR template sections:', missingSections);
+              core.setFailed('PR description is missing required sections: ' + missingSections.join(', '));
+            } else {
+              console.log('All PR template sections present');
+            }
 
   check-labels:
     name: Check PR Labels
@@ -154,9 +44,15 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
-            const labels = context.payload.pull_request.labels.map(label => label.name);
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(label => label.name);
             const requiredLabels = ['bug', 'enhancement', 'documentation', 'dependencies'];
-            if (!labels.some(label => requiredLabels.includes(label))) console.log('PR is missing a category label.');
+            const hasRequiredLabel = labels.some(label => requiredLabels.includes(label));
+            if (!hasRequiredLabel) {
+              console.log('PR is missing a category label. Available labels:', requiredLabels);
+            } else {
+              console.log('PR has appropriate label');
+            }
 
   check-changes:
     name: Check File Changes
@@ -165,6 +61,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
       - name: Get changed files
         uses: tj-actions/changed-files@2d756ea4c53f7f6b397767d8723b3a10a9f35bf2
         id: changed-files
@@ -172,6 +69,7 @@ jobs:
           files: |
             .env*
             package-lock.json
+
       - name: Block committed secret environment files
         if: steps.changed-files.outputs.any_changed == 'true'
         shell: bash
@@ -182,10 +80,17 @@ jobs:
           blocked=0
           for file in $CHANGED_FILES; do
             case "$file" in
-              .env|.env.local|.env.production|.env.preview|.env.*.local) echo "Blocked secret-bearing environment file in PR: $file"; blocked=1;;
+              .env|.env.local|.env.production|.env.preview|.env.*.local)
+                echo "Blocked secret-bearing environment file in PR: $file"
+                blocked=1
+                ;;
             esac
           done
-          test "$blocked" -eq 0
+          if [ "$blocked" -ne 0 ]; then
+            echo "Use GitHub/Fly/Supabase secret managers. Example files with empty values remain allowed."
+            exit 1
+          fi
+
       - name: Check for lockfile changes
         if: contains(steps.changed-files.outputs.all_changed_files, 'package-lock.json')
         run: echo "package-lock.json changes detected"
