@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
 
+# Temporary branch-only workflow; remove immediately after one successful format pass.
 jobs:
   format:
     runs-on: ubuntu-latest
