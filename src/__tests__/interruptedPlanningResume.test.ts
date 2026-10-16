@@ -12,6 +12,11 @@ const io = vi.hoisted(() => ({
   readiness: vi.fn(),
   entitlements: { unlimited: true, tier: "lifetime", balance: 0 },
 }));
+// Lifecycle persistence is independent I/O; keep the real protected procedure.
+vi.mock("../services/accountLifecycleService.js", () => ({
+  getAccountLifecycleState: vi.fn(async () => "active"),
+}));
+
 vi.mock("../db.js", () => ({
   getProjectById: vi.fn(async () => io.project),
   ensureUserCredits: vi.fn(async () => io.entitlements),

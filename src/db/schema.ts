@@ -32,6 +32,48 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const accountLifecycle = pgTable("account_lifecycle", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  language: varchar("language", { length: 32 }).default("en").notNull(),
+  communicationPreferences: jsonb("communication_preferences")
+    .$type<{ product: boolean; billing: boolean; marketing: boolean }>()
+    .default({ product: true, billing: true, marketing: false })
+    .notNull(),
+  accessibilityPreferences: jsonb("accessibility_preferences")
+    .$type<{ reducedMotion: boolean; highContrast: boolean }>()
+    .default({ reducedMotion: false, highContrast: false })
+    .notNull(),
+  deletionState: varchar("deletion_state", { length: 32 })
+    .default("active")
+    .notNull(),
+  deletionRequestedAt: timestamp("deletion_requested_at"),
+  deletedAt: timestamp("deleted_at"),
+  deletionSubjectRef: varchar("deletion_subject_ref", { length: 64 }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const accountLifecycleEvents = pgTable(
+  "account_lifecycle_events",
+  {
+    id: serial("id").primaryKey(),
+    subjectRef: varchar("subject_ref", { length: 64 }).notNull(),
+    eventType: varchar("event_type", { length: 64 }).notNull(),
+    details: jsonb("details")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("account_lifecycle_events_type_created_idx").on(
+      table.eventType,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
