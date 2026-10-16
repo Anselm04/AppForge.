@@ -60,4 +60,27 @@ describe("ChangeContract", () => {
     contract.impacts.rollback = { level: "breaking", safe: true, strategy: "" };
     expect(validateChangeContract(contract).valid).toBe(false);
   });
+
+  it("fails closed when a removal is marked rollback-safe without recorded safety evidence", () => {
+    const contract = createChangeContract({
+      projectId: 12,
+      originalProductContract: original,
+      request: "Remove a customer field",
+      additions: [],
+      changes: [],
+      removals: ["customer field"],
+    });
+    contract.impacts.rollback = {
+      level: "compatible",
+      safe: true,
+      strategy: "Restore the previous validated artifact.",
+    };
+
+    const result = validateChangeContract(contract);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "Destructive removals cannot be marked rollback-safe without recorded safety evidence.",
+    );
+  });
 });
