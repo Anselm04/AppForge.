@@ -1,0 +1,64 @@
+name: One-shot format production completeness
+
+on:
+  push:
+    branches: [production-completeness-programme]
+    paths:
+      - ".github/workflows/one-shot-format-production-completeness.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: production-completeness-programme
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Format production completeness source
+        run: |
+          npx prettier --write \
+            src/__tests__/production-lifecycle-failure-paths.test.ts \
+            src/components/SiteFooter.tsx \
+            src/lib/__tests__/changeContract.test.ts \
+            src/lib/__tests__/creditSettlement.test.ts \
+            src/lib/__tests__/incidentResponse.test.ts \
+            src/lib/__tests__/versionRollback.test.ts \
+            src/lib/changeContract.ts \
+            src/lib/creditSettlement.ts \
+            src/lib/customerOperations.ts \
+            src/lib/incidentResponse.ts \
+            src/lib/migrationSafety.ts \
+            src/lib/platformFeatures.ts \
+            src/lib/publicCapabilityClaims.ts \
+            src/lib/versionRollback.ts \
+            src/pages/Account.tsx \
+            src/pages/FeatureDetail.tsx \
+            src/pages/HelpCenter.tsx \
+            src/pages/LandingPage.tsx \
+            src/pages/TrustPolicy.tsx \
+            src/routers/account.ts \
+            src/routers/projectChat.ts \
+            src/services/accountLifecycleService.ts \
+            src/services/productionOperationsService.ts \
+            src/services/supabaseAccountAdmin.ts
+      - name: Commit formatting and remove helper
+        env:
+          HUSKY: "0"
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/one-shot-format-production-completeness.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          git commit --no-verify -m "style: format production completeness changes"
+          git pull --rebase origin production-completeness-programme
+          git push origin HEAD:production-completeness-programme
