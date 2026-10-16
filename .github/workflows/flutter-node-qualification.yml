@@ -113,7 +113,8 @@ jobs:
           # Android build plus an API 35 emulator image can exhaust that disk
           # unless unrelated preinstalled SDKs are removed first.
           df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           sudo apt-get clean
           df -h /
           test -n "${ANDROID_HOME:-}"
@@ -155,13 +156,19 @@ jobs:
             --name appforge-ci-api35 \
             --package "$ANDROID_SYSTEM_IMAGE" \
             --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
-          # pixel_6 defaults to a large userdata partition. Bound this disposable
-          # fixture to 2 GiB so the emulator fits the standard hosted runner.
+          # The API 35 image requires more userdata space than a smaller AVD
+          # setting can guarantee. Check actual capacity instead of assuming
+          # disk.dataPartition.size can shrink the system image's minimum.
           AVD_CONFIG="$ANDROID_AVD_HOME/appforge-ci-api35.avd/config.ini"
-          sed -i '/^disk.dataPartition.size=/d' "$AVD_CONFIG"
-          printf 'disk.dataPartition.size=2G\n' >> "$AVD_CONFIG"
           df -h / > "$EVIDENCE/android-emulator-disk.txt"
           cp "$AVD_CONFIG" "$EVIDENCE/android-avd-config.ini"
+          AVAILABLE_BYTES="$(df --output=avail -B1 "$ANDROID_AVD_HOME" | tail -1 | tr -d ' ')"
+          REQUIRED_BYTES=$((10 * 1024 * 1024 * 1024))
+          if [ "$AVAILABLE_BYTES" -lt "$REQUIRED_BYTES" ]; then
+            echo "Android qualification needs at least 10 GiB free before emulator boot; available: $AVAILABLE_BYTES bytes" >&2
+            cat "$EVIDENCE/android-emulator-disk.txt" >&2
+            exit 1
+          fi
           "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
           grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
 

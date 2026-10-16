@@ -926,10 +926,12 @@ Verification target:
 
 ### PR #194 qualification runner disk review
 
-The disposable Linux qualification AVD now uses a 2 GiB userdata partition rather
-than the Pixel 6 default that exhausted the standard GitHub runner. Its effective
-AVD configuration and available disk are retained with qualification artifacts.
-This affects CI fixture storage only; production databases, backup retention,
-restore procedures, deployment credentials and customer sandbox limits are unchanged.
-A passing Android boot/backend-interaction run is still required; configuration
-alone is not runtime evidence.
+At head `348dc0d`, the API 35 emulator still required 7,372.80 MB of userdata
+capacity with only 3,140.54 MB available. A 2 GiB AVD config did not reduce that
+minimum and is no longer treated as a solution. Linux qualification now removes
+unused preinstalled Haskell and CodeQL toolchains alongside the prior cleanup,
+and fails closed unless 10 GiB is actually available immediately before boot.
+The effective AVD configuration and disk availability remain evidence artifacts.
+These directories belong to the disposable GitHub runner; no production data,
+backup, credential, isolation limit or restore procedure changes.
+Android boot/backend-interaction still needs a passing run on the new head.
