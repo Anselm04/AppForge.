@@ -21,6 +21,12 @@ type LifecycleRow = {
   deletion_subject_ref: string | null;
 };
 
+type AccountPreferencesPatch = {
+  language?: string;
+  communications?: Partial<AccountPreferences["communications"]>;
+  accessibility?: Partial<AccountPreferences["accessibility"]>;
+};
+
 function rows<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -77,7 +83,7 @@ export async function getAccountLifecycleProfile(userId: number) {
 
 export async function updateAccountLifecycleProfile(
   userId: number,
-  input: { name?: string | null; preferences?: Partial<AccountPreferences> },
+  input: { name?: string | null; preferences?: AccountPreferencesPatch },
 ) {
   const user = await getUserById(userId);
   if (!user) throw new Error("Account not found");
@@ -179,7 +185,6 @@ async function disableEntitlements(userId: number): Promise<void> {
     SET balance = 0,
         monthly_allowance = 0,
         unlimited = FALSE,
-        tier = 'free',
         updated_at = NOW()
     WHERE user_id = ${userId}
   `);
@@ -189,63 +194,67 @@ async function deleteCustomerProjects(userId: number): Promise<void> {
   await db.execute(sql`DELETE FROM projects WHERE user_id = ${userId}`);
 }
 
-async function deleteProviderConnections(userId: number): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`DELETE FROM github_connections WHERE user_id = ${userId}`,
-    );
-    await tx.execute(
-      sql`DELETE FROM cosine_connections WHERE user_id = ${userId}`,
-    );
-    await tx.execute(sql`DELETE FROM user_sessions WHERE user_id = ${userId}`);
-  });
+async function deleteConnectionsAndSessions(userId: number): Promise<void> {
+  await db.execute(sql`DELETE FROM github_connections WHERE user_id = ${userId}`);
+  await db.execute(sql`DELETE FROM auth_sessions WHERE user_id = ${userId}`);
 }
 
-async function anonymizeAccount(userId: number): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`
-      UPDATE users
-      SET open_id = NULL,
-          email = NULL,
-          name = NULL,
-          picture = NULL,
-          updated_at = NOW()
-      WHERE id = ${userId}
-    `);
-    await tx.execute(sql`
-      UPDATE account_lifecycle
-      SET deletion_state = 'completed', deleted_at = NOW(), updated_at = NOW()
-      WHERE user_id = ${userId}
-    `);
-  });
+async function anonymizeRetainedUser(userId: number): Promise<void> {
+  await db.execute(sql`
+    UPDATE users
+    SET email = NULL,
+        name = NULL,
+        "openId" = NULL,
+        picture = NULL,
+        updated_at = NOW()
+    WHERE id = ${userId}
+  `);
 }
 
-async function recordDeletionAudit(userId: number): Promise<void> {
-  const result = await db.execute<{ deletion_subject_ref: string | null }>(sql`
+async function finishDeletion(userId: number): Promise<void> {
+  const result = await db.execute<Pick<LifecycleRow, "deletion_subject_ref">>(sql`
     SELECT deletion_subject_ref
     FROM account_lifecycle
     WHERE user_id = ${userId}
   `);
-  const subjectRef = rows<{ deletion_subject_ref: string | null }>(result)[0]
+  const subjectRef = rows<Pick<LifecycleRow, "deletion_subject_ref">>(result)[0]
     ?.deletion_subject_ref;
-  if (!subjectRef) throw new Error("Deletion audit subject is unavailable");
+  if (!subjectRef) throw new Error("Deletion audit subject is missing");
 
-  await db.execute(sql`
-    INSERT INTO account_lifecycle_events (subject_ref, event_type, details)
-    VALUES (${subjectRef}, 'account_deletion_completed', ${JSON.stringify({ version: 1 })}::jsonb)
-  `);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      UPDATE account_lifecycle
+      SET deletion_state = 'completed',
+          deleted_at = NOW(),
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+    `);
+    await tx.execute(sql`
+      INSERT INTO account_lifecycle_events (subject_ref, event_type, details)
+      VALUES (${subjectRef}, 'account_deleted', ${JSON.stringify({ retainedFinancialRecords: true })}::jsonb)
+    `);
+  });
 }
 
 export function productionAccountDeletionDependencies(): AccountDeletionDependencies {
   return {
-    loadUser: getUserById,
-    beginDeletion,
-    stopCustomerWork,
+    markDeletionPending: beginDeletion,
+    stopPendingWork: stopCustomerWork,
     disableEntitlements,
-    revokeIdentity: deleteSupabaseAuthUser,
+    deleteAuthIdentity: deleteSupabaseAuthUser,
     deleteCustomerProjects,
-    deleteProviderConnections,
-    anonymizeAccount,
-    recordAudit: recordDeletionAudit,
+    revokeProviderConnections: deleteConnectionsAndSessions,
+    anonymizeRetainedRecords: anonymizeRetainedUser,
+    markDeletionComplete: finishDeletion,
   };
+}
+
+export async function initializeAccountLifecycle(userId: number): Promise<void> {
+  await ensureLifecycleRow(userId);
+  await db.execute(sql`
+    UPDATE account_lifecycle
+    SET language = ${DEFAULT_ACCOUNT_PREFERENCES.language},
+        updated_at = NOW()
+    WHERE user_id = ${userId} AND language IS NULL
+  `);
 }
