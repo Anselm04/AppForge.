@@ -45,7 +45,10 @@ export function detectResearchClaimConflicts(
     normalized.set(subject, entries);
   }
   return [...normalized.values()]
-    .filter((entries) => new Set(entries.map((entry) => entry.claim.toLowerCase())).size > 1)
+    .filter(
+      (entries) =>
+        new Set(entries.map((entry) => entry.claim.toLowerCase())).size > 1,
+    )
     .map((entries) => ({
       urls: entries.map((entry) => entry.url).sort(),
       claims: [...new Set(entries.map((entry) => entry.claim))].sort(),
@@ -106,9 +109,9 @@ export type VideoScene = {
   caption?: string;
 };
 
-export function buildVideoTimeline(scenes: readonly VideoScene[]): Array<
-  VideoScene & { startMs: number; endMs: number }
-> {
+export function buildVideoTimeline(
+  scenes: readonly VideoScene[],
+): Array<VideoScene & { startMs: number; endMs: number }> {
   let cursor = 0;
   return scenes.map((scene) => {
     if (scene.durationMs <= 0) throw new Error("Scene duration must be positive");
@@ -147,7 +150,10 @@ export function sequenceAudioTracks(tracks: readonly AudioTrack[]) {
 }
 
 export function playlistDurationMs(tracks: readonly AudioTrack[]): number {
-  return tracks.reduce((total, track) => total + Math.max(0, track.durationMs), 0);
+  return tracks.reduce(
+    (total, track) => total + Math.max(0, track.durationMs),
+    0,
+  );
 }
 
 export type SeoMetadataInput = {
@@ -160,7 +166,9 @@ export type SeoMetadataInput = {
 export function buildSeoMetadata(input: SeoMetadataInput) {
   const title = input.title.trim();
   const description = input.description.trim();
-  if (!title || !description) throw new Error("SEO title and description are required");
+  if (!title || !description) {
+    throw new Error("SEO title and description are required");
+  }
   return {
     title,
     description,
@@ -215,7 +223,9 @@ export function gradeAssessment(input: {
   possiblePoints: number;
   passPercent: number;
 }) {
-  if (input.possiblePoints <= 0) throw new Error("Assessment must have possible points");
+  if (input.possiblePoints <= 0) {
+    throw new Error("Assessment must have possible points");
+  }
   const percent = Math.max(
     0,
     Math.min(100, (input.earnedPoints / input.possiblePoints) * 100),
@@ -233,7 +243,12 @@ export type PatentWorkspaceRevision = {
 
 export function revisePatentWorkspace(
   current: PatentWorkspaceRevision,
-  patch: Partial<Pick<PatentWorkspaceRevision, "specification" | "claims" | "figureReferences">>,
+  patch: Partial<
+    Pick<
+      PatentWorkspaceRevision,
+      "specification" | "claims" | "figureReferences"
+    >
+  >,
 ): PatentWorkspaceRevision {
   return {
     revision: current.revision + 1,
@@ -259,7 +274,11 @@ function boxesIntersect(left: Box3, right: Box3): boolean {
 export function detectBimClashes(boxes: readonly Box3[]) {
   const clashes: Array<{ leftId: string; rightId: string }> = [];
   for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < boxes.length;
+      rightIndex += 1
+    ) {
       if (boxesIntersect(boxes[leftIndex], boxes[rightIndex])) {
         clashes.push({
           leftId: boxes[leftIndex].id,
@@ -337,7 +356,9 @@ export function buildBillOfMaterials(
 ) {
   const quantities = new Map<string, number>();
   for (const component of components) {
-    if (component.quantity <= 0) throw new Error("BOM quantities must be positive");
+    if (component.quantity <= 0) {
+      throw new Error("BOM quantities must be positive");
+    }
     quantities.set(
       component.partNumber,
       (quantities.get(component.partNumber) ?? 0) + component.quantity,
@@ -476,7 +497,9 @@ export function paginateRows<T>(
   page: number,
   pageSize: number,
 ): { rows: T[]; page: number; pageSize: number; total: number; pages: number } {
-  if (page < 1 || pageSize < 1) throw new Error("Pagination values must be positive");
+  if (page < 1 || pageSize < 1) {
+    throw new Error("Pagination values must be positive");
+  }
   const start = (page - 1) * pageSize;
   return {
     rows: rows.slice(start, start + pageSize),
@@ -515,7 +538,10 @@ export function translateWithFallback(input: {
   );
 }
 
-export function isRtlLocale(locale: string, rtlLocales: readonly string[]): boolean {
+export function isRtlLocale(
+  locale: string,
+  rtlLocales: readonly string[],
+): boolean {
   const language = locale.toLowerCase().split("-")[0];
   return rtlLocales.some(
     (candidate) => candidate.toLowerCase().split("-")[0] === language,
@@ -545,5 +571,6 @@ export function orderCollaborationEvents<T>(
 export function resolveLastWriteWins<T>(
   events: readonly CollaborationEvent<T>[],
 ): CollaborationEvent<T> | null {
-  return orderCollaborationEvents(events).at(-1) ?? null;
+  const ordered = orderCollaborationEvents(events);
+  return ordered.length > 0 ? ordered[ordered.length - 1] : null;
 }
