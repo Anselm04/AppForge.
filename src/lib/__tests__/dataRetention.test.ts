@@ -43,9 +43,9 @@ describe("DATA_RETENTION_REGISTRY", () => {
   });
 
   it("never marks secrets or live authentication material as customer-exportable", () => {
-    expect(getRetentionRule("auth_tokens_sessions").customerExportEligible).toBe(
-      false,
-    );
+    expect(
+      getRetentionRule("auth_tokens_sessions").customerExportEligible,
+    ).toBe(false);
     expect(getRetentionRule("oauth_connections").customerExportEligible).toBe(
       true,
     );
