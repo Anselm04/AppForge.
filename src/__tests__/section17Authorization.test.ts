@@ -18,7 +18,10 @@ const rls = source(
 
 describe("Section 17 authentication and authorization boundaries", () => {
   it("fails closed for unauthenticated and non-owner administrative access", () => {
-    expect(trpc).toContain("if (!opts.ctx.user)");
+    expect(trpc).toContain("async function requireAuthenticatedUser(user:");
+    expect(trpc).toContain("if (!user)");
+    expect(trpc).toContain("await requireAuthenticatedUser(opts.ctx.user)");
+    expect(trpc).toContain("await requireActiveAccount(candidate)");
     expect(trpc).toContain('code: "UNAUTHORIZED"');
     expect(trpc).toContain("if (!isOwnerEmail(user.email))");
     expect(trpc).toContain('code: "FORBIDDEN"');

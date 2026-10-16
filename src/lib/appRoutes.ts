@@ -10,6 +10,7 @@
 export const APP_ROUTES = [
   "/",
   "/about",
+  "/acceptable-use",
   "/account",
   "/admin",
   "/ai-builder",
@@ -25,8 +26,11 @@ export const APP_ROUTES = [
   "/login",
   "/password-reset",
   "/pricing",
+  "/privacy",
   "/redeem",
+  "/refund-policy",
   "/resend-verification",
+  "/security",
   "/settings",
   "/settings/org",
   "/shortcuts",
@@ -50,6 +54,7 @@ export const APP_ROUTES = [
   "/studio/video",
   "/studio/voice",
   "/templates",
+  "/terms",
   "/tools",
 ] as const;
 

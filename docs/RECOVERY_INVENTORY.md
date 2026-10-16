@@ -923,3 +923,13 @@ Verification target:
 - Change/version records tied only to a deleted customer project are removed with that project. Support, credit-settlement and incident records retain minimized operational history with user/project references set null where applicable.
 - Recovery verification must preserve settlement idempotency keys, incident/support references, ChangeContract ownership and product-version uniqueness.
 - Do not claim rollback if customer data evolution makes the previous data shape unsafe; restore a verified checkpoint or recover forward from the recorded version evidence.
+
+### PR #194 qualification runner disk review
+
+The disposable Linux qualification AVD now uses a 2 GiB userdata partition rather
+than the Pixel 6 default that exhausted the standard GitHub runner. Its effective
+AVD configuration and available disk are retained with qualification artifacts.
+This affects CI fixture storage only; production databases, backup retention,
+restore procedures, deployment credentials and customer sandbox limits are unchanged.
+A passing Android boot/backend-interaction run is still required; configuration
+alone is not runtime evidence.

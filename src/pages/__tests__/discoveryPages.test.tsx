@@ -69,15 +69,16 @@ describe("discovery surfaces", () => {
     expect(primaryCta).toHaveAttribute("href", "/app/new");
   });
 
-  it("falls back to a real destination when a feature's app route is unbuilt", () => {
+  it("withholds customer-use links when a feature has no usable evidence", () => {
     renderAt("/features/onboarding-assistant");
 
     expect(
       screen.getByRole("heading", { name: "AI Onboarding Assistant" }),
     ).toBeInTheDocument();
-    // The feature declares /onboarding, which is not a shipped route yet.
-    const [primaryCta] = screen.getAllByRole("link", { name: "Try it now" });
-    expect(primaryCta).toHaveAttribute("href", "/app/new");
+    expect(screen.queryByRole("link", { name: "Try it now" })).toBeNull();
+    expect(
+      screen.getByText("Not available for customer use at this evidence level"),
+    ).toBeInTheDocument();
   });
 
   it("sends an unknown feature id back to discover", () => {

@@ -27,6 +27,11 @@ const navigateSpy = vi.fn();
 const readiness = vi.hoisted(() => ({ assertBuildExecutionReady: vi.fn() }));
 vi.mock("../services/buildExecutionReadiness.js", () => readiness);
 
+// Lifecycle persistence is independent I/O; keep the real protected procedure.
+vi.mock("../services/accountLifecycleService.js", () => ({
+  getAccountLifecycleState: vi.fn(async () => "active"),
+}));
+
 vi.mock("../db.js", () => ({
   createProject: vi.fn(async (data: Record<string, unknown>) => {
     created.push(data as never);

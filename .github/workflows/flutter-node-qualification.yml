@@ -155,6 +155,13 @@ jobs:
             --name appforge-ci-api35 \
             --package "$ANDROID_SYSTEM_IMAGE" \
             --device pixel_6 > "$EVIDENCE/android-avd-create.log" 2>&1
+          # pixel_6 defaults to a large userdata partition. Bound this disposable
+          # fixture to 2 GiB so the emulator fits the standard hosted runner.
+          AVD_CONFIG="$ANDROID_AVD_HOME/appforge-ci-api35.avd/config.ini"
+          sed -i '/^disk.dataPartition.size=/d' "$AVD_CONFIG"
+          printf 'disk.dataPartition.size=2G\n' >> "$AVD_CONFIG"
+          df -h / > "$EVIDENCE/android-emulator-disk.txt"
+          cp "$AVD_CONFIG" "$EVIDENCE/android-avd-config.ini"
           "$EMULATOR" -list-avds > "$EVIDENCE/android-avd-list.txt"
           grep -Fxq appforge-ci-api35 "$EVIDENCE/android-avd-list.txt"
 
