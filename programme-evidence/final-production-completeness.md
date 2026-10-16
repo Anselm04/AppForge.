@@ -1,3 +1,72 @@
+# Final Production Completeness – Evidence Ledger
+
+- **PR:** #194
+- **Branch:** `production-completeness-programme`
+- **Baseline SHA:** `d2fae207e103bac5f3bd9692bc6ca5ccafba29fb`
+- **Current head SHA (after final alignment):** `________________`
+- **Date of final verification:** `________________`
+
+## A. Repository Verification Checklist
+
+> Fill only from fresh evidence on the final aligned head. Do not inherit stale results from earlier SHAs.
+
+| Check | Command / Source | Result | Notes / Evidence link |
+| --- | --- | --- | --- |
+| Typecheck | `npm run typecheck` | ☐ Pass / ☐ Fail | |
+| Lint | `npm run lint` | ☐ Pass / ☐ Fail | |
+| Unit + focused tests | `npm test` including lifecycle / export / retention / failure-path tests | ☐ Pass / ☐ Fail | |
+| Build | `npm run build` | ☐ Pass / ☐ Fail | |
+| Security workflow | `.github/workflows/security.yml` | ☐ Pass / ☐ Fail | |
+| Recovery / governance workflows | Relevant recovery workflows | ☐ Pass / ☐ Fail | |
+| No open critical Dependabot alerts on this SHA | GitHub Security / Dependabot | ☐ Clear / ☐ Open issues | |
+
+## B. Programme Phase Status (repository level)
+
+| Phase | Area | Status | Evidence location |
+| --- | --- | --- | --- |
+| 0 | Current-state audit | COMPLETE | This document – Phase 0 |
+| 1 | Account + data lifecycle | IMPLEMENTED – awaiting final CI | `src/lib/accountLifecycle.ts`, `customerDataExport.ts`, `dataRetention.ts`, migrations `0007`/`0008`, related tests |
+| 2 | Public legal / trust surfaces | IMPLEMENTED – legal review still required | `/privacy`, `/terms`, `/acceptable-use`, `/refund-policy`, `/security` + footer |
+| 3 | Capability-claim truth | IMPLEMENTED | `src/lib/publicCapabilityClaims.ts` + public feature UI |
+| 4 | ChangeContract | IMPLEMENTED | `src/lib/changeContract.ts` + persistence |
+| 5 | Migration safety | IMPLEMENTED | Migration safety model + tests |
+| 6 | Version / rollback lifecycle | IMPLEMENTED | Rollback assessment + tests |
+| 7 | Support / failed-build UX | IMPLEMENTED | Support cases + Help Center |
+| 8 | Credits / failure settlement | IMPLEMENTED | Settlement rules + existing refund path |
+| 9 | Incident response / observability | IMPLEMENTED (repo level) | Incident model + redaction |
+| 10 | Full customer journey | HARNESS EXISTS – live run still required | `production-full-customer-journey.yml` |
+| 11 | Failure-path testing | IMPLEMENTED – final CI result required | `production-lifecycle-failure-paths.test.ts` + related unit tests |
+| 12 | Security / privacy / a11y / performance | AUDITED – live a11y & load evidence still partial | See Phase 12 notes |
+| 13 | Final-gap audit | COMPLETE | Listed external/live blockers below |
+| 14 | Production-readiness verdict | See below | See section D and Phase 14 |
+
+## C. External / Live Evidence Still Required
+
+These cannot be completed from source alone.
+
+| # | Evidence item | Status | Owner / next action |
+| --- | --- | --- | --- |
+| 1 | Controlled real email-confirmation inbox proof on final artifact | Pending | |
+| 2 | Fresh full ordinary-customer production canary on final artifact | Pending | |
+| 3 | Isolated production-database restore/recovery proof after new lifecycle migrations | Pending | |
+| 4 | External provider-console truth (OAuth / store / provider approvals) | Pending | |
+| 5 | Qualified legal review of public policy text + retention periods | Pending | |
+| 6 | Fresh automated accessibility (WCAG/axe) + assistive-technology evidence | Pending | |
+| 7 | Fresh production load / performance evidence against agreed targets | Pending | |
+
+## D. Final Verdict
+
+Fill only after section A is complete.
+
+- **Repository-level implementation:** ☐ Complete / ☐ Incomplete
+- **Production-certified for broad paid access:** ☐ Yes / ☐ No
+- **Reason / residual blockers:**
+  `_________________________________________________________________`
+- **Signed-off by:** `________________`
+- **Date:** `________________`
+
+---
+
 # AppForge Final Production Completeness Programme Evidence
 
 ## Scope lock
