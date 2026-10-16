@@ -158,6 +158,81 @@ function supportsOrWildcard(
   return supported.includes(requested) || supported.includes("*");
 }
 
+function resourceKey(resource: {
+  identity: { resourceId: string; version: string };
+}): string {
+  return `${resource.identity.resourceId}@${resource.identity.version}`;
+}
+
+function addSubstantiveDomainPacks(input: {
+  registry: ReturnType<typeof createBuilderResourceLibraryRegistry>;
+  selectedById: Map<string, ReturnType<typeof input.registry.list>[number]>;
+  decisionEvidence: BuilderResourcePlan["decisionEvidence"];
+  productContract: ProductContract;
+  targetPlatform?: string;
+}): void {
+  const all = input.registry.list();
+  const canonicalResources = [...input.selectedById.values()].filter(
+    (resource) => resource.identity.resourceId.startsWith("capability."),
+  );
+
+  for (const canonical of canonicalResources) {
+    const domainResourceId = `domain.${canonical.identity.category}.contract-pack`;
+    const domainPack = all
+      .filter(
+        (candidate) =>
+          candidate.identity.resourceId === domainResourceId &&
+          candidate.governance.deprecationStatus === "active" &&
+          !candidate.governance.quarantine?.quarantined &&
+          supportsOrWildcard(
+            candidate.compatibility.supportedProductTypes,
+            input.productContract.productType,
+          ) &&
+          supportsOrWildcard(
+            candidate.compatibility.supportedTechnologyStacks,
+            input.productContract.selectedTechnologyStack,
+          ) &&
+          supportsOrWildcard(
+            candidate.compatibility.supportedPlatforms,
+            input.targetPlatform,
+          ),
+      )
+      .sort((left, right) =>
+        right.identity.version.localeCompare(
+          left.identity.version,
+          undefined,
+          { numeric: true, sensitivity: "base" },
+        ),
+      )[0];
+
+    if (!domainPack) continue;
+    const key = resourceKey(domainPack);
+    if (input.selectedById.has(key)) continue;
+
+    input.selectedById.set(key, domainPack);
+    const parentDecision = input.decisionEvidence.find(
+      (decision) =>
+        decision.resourceId === canonical.identity.resourceId &&
+        decision.version === canonical.identity.version,
+    );
+    const capability = domainPack.capabilities.capabilitiesProvided[0];
+    if (!capability) continue;
+
+    input.decisionEvidence.push({
+      capability,
+      resourceId: domainPack.identity.resourceId,
+      version: domainPack.identity.version,
+      requirementIds: [...(parentDecision?.requirementIds ?? [])],
+      rationale: [
+        `domain-pack-for:${resourceKey(canonical)}`,
+        `maturity:${domainPack.governance.maturityState}`,
+        "substantive-runtime-pack",
+      ],
+      evidenceLedgerIds: domainPack.evidence.evidenceLedgerIds,
+    });
+  }
+}
+
 function addDeclaredDependencies(input: {
   registry: ReturnType<typeof createBuilderResourceLibraryRegistry>;
   selectedById: Map<string, ReturnType<typeof input.registry.list>[number]>;
@@ -177,9 +252,9 @@ function addDeclaredDependencies(input: {
   while (queue.length > 0) {
     const resource = queue.shift();
     if (!resource) break;
-    const resourceKey = `${resource.identity.resourceId}@${resource.identity.version}`;
-    if (processed.has(resourceKey)) continue;
-    processed.add(resourceKey);
+    const currentResourceKey = resourceKey(resource);
+    if (processed.has(currentResourceKey)) continue;
+    processed.add(currentResourceKey);
 
     for (const dependencyId of resource.capabilities.dependencies) {
       if (selectedResourceIds.has(dependencyId)) continue;
@@ -213,7 +288,7 @@ function addDeclaredDependencies(input: {
 
       if (!dependency) continue;
 
-      const dependencyKey = `${dependency.identity.resourceId}@${dependency.identity.version}`;
+      const dependencyKey = resourceKey(dependency);
       input.selectedById.set(dependencyKey, dependency);
       selectedResourceIds.add(dependency.identity.resourceId);
       queue.push(dependency);
@@ -236,7 +311,7 @@ function addDeclaredDependencies(input: {
           version: dependency.identity.version,
           requirementIds: [...(parentDecision?.requirementIds ?? [])],
           rationale: [
-            `dependency-of:${resourceKey}`,
+            `dependency-of:${currentResourceKey}`,
             `maturity:${dependency.governance.maturityState}`,
             `dependency:${dependencyId}`,
           ],
@@ -280,7 +355,7 @@ export function createBuilderResourcePlan(input: {
       missingCapabilities.push(capability);
       continue;
     }
-    const key = `${candidate.resource.identity.resourceId}@${candidate.resource.identity.version}`;
+    const key = resourceKey(candidate.resource);
     selectedById.set(key, candidate.resource);
     decisionEvidence.push({
       capability,
@@ -292,6 +367,13 @@ export function createBuilderResourcePlan(input: {
     });
   }
 
+  addSubstantiveDomainPacks({
+    registry,
+    selectedById,
+    decisionEvidence,
+    productContract: input.productContract,
+    targetPlatform: input.targetPlatform,
+  });
   addDeclaredDependencies({
     registry,
     selectedById,
@@ -305,10 +387,7 @@ export function createBuilderResourcePlan(input: {
 
   return {
     requiredCapabilities,
-    selectedResourceIds: selected.map(
-      (resource) =>
-        `${resource.identity.resourceId}@${resource.identity.version}`,
-    ),
+    selectedResourceIds: selected.map(resourceKey),
     usageRecords: selected.map(usageRecordForResource),
     missingCapabilities,
     conflicts: composition.conflicts,
