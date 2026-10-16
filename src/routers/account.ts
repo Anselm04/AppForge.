@@ -70,10 +70,10 @@ export const accountRouter = router({
         const user = await getUserById(ctx.user.id);
         if (!user?.openId) throw new Error("Account identity is unavailable");
 
-        // Do not trust a client-supplied JWT timestamp by itself. Supabase must
-        // first cryptographically validate the token and confirm it belongs to
-        // the same AppForge identity; only then is its issue time accepted as
-        // recent reauthentication evidence.
+        // A client-supplied JWT timestamp is not sufficient reauthentication
+        // evidence. Supabase must cryptographically validate the token and
+        // bind it to this same AppForge identity before its issue time can be
+        // accepted as recent-session proof for irreversible deletion.
         await verifySupabaseAuthUser(input.accessToken, user.openId);
         assertRecentSession(input.accessToken);
 
