@@ -1,6 +1,6 @@
 name: Fly Production Capacity Guard
 
-# Production invariant: AppForge must retain redundant Fly capacity (2 app Machines).
+# Production invariant: AppForge must retain redundant Fly capacity (at least 2 healthy app Machines).
 # This guard reports capacity loss without reviving historical blue/green machines.
 on:
   workflow_dispatch:
@@ -9,6 +9,8 @@ on:
     paths:
       - "fly.toml"
       - ".github/workflows/fly-capacity-guard.yml"
+      - "scripts/verify-fly-capacity.mjs"
+      - "scripts/verify-fly-capacity.test.mjs"
   schedule:
     - cron: "7 * * * *"
 
