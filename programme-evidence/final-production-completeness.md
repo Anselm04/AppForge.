@@ -3,8 +3,10 @@
 - **PR:** #194
 - **Branch:** `production-completeness-programme`
 - **Baseline SHA:** `d2fae207e103bac5f3bd9692bc6ca5ccafba29fb`
-- **Current head SHA (after final alignment):** `________________`
-- **Date of final verification:** `________________`
+- **Verified implementation head SHA:** `0919124d6bc6ce283c034dfc3174a507493c9364`
+- **Current main ancestry verified:** `467090a9268d65499e9733fbbbcdd17d22e721d4` is already an ancestor (GitHub compare: ahead 107, behind 0 at pre-fix head `d8528a7`). Current main was previously integrated by merge `12eb9dc`; no new rebase or conflict resolution was performed or claimed.
+- **Evidence commit relationship:** This ledger is committed after the implementation SHA above. Final-head GitHub checks must be evaluated on the resulting branch head; local implementation results are not a substitute for them.
+- **Verification date:** 2026-10-17 (Pacific/Auckland); final-head CI remains required.
 
 ## A. Repository Verification Checklist
 
@@ -12,13 +14,23 @@
 
 | Check | Command / Source | Result | Notes / Evidence link |
 | --- | --- | --- | --- |
-| Typecheck | `npm run typecheck` | ☐ Pass / ☐ Fail | |
-| Lint | `npm run lint` | ☐ Pass / ☐ Fail | |
-| Unit + focused tests | `npm test` including lifecycle / export / retention / failure-path tests | ☐ Pass / ☐ Fail | |
-| Build | `npm run build` | ☐ Pass / ☐ Fail | |
-| Security workflow | `.github/workflows/security.yml` | ☐ Pass / ☐ Fail | |
-| Recovery / governance workflows | Relevant recovery workflows | ☐ Pass / ☐ Fail | |
-| No open critical Dependabot alerts on this SHA | GitHub Security / Dependabot | ☐ Clear / ☐ Open issues | |
+| Typecheck | `npm run typecheck` | PASS locally | Exit 0; client and server. Local Node 24.19.0 / npm 11.9.0; CI pins Node 22. |
+| Lint | `npm run lint` | PASS locally | Exit 0; changed source formatted with Prettier. |
+| Unit + focused tests | `npm test -- --coverage --run` | PASS locally | Exit 0; 267 files, 1,593 tests. Enforced coverage: statements 94.44%, branches 97.82%, functions 88.88%, lines 95.12%. Coverage applies only to the existing configured release-critical subset, not all source. |
+| Focused regression files | Six previously failing files | PASS locally | 48 tests including pending/completed account rejection, lifecycle persistence outage and unauthenticated export rejection. |
+| Explicit golden path | `npm run test:e2e` | PASS locally | Exit 0; 2 files, 26 tests. Repository harness evidence, not a live production canary. |
+| Build | `npm run build` | PASS locally | Exit 0; server compilation, Vite production bundle and sourcemap injection. No deployment claimed. |
+| Production dependency audit | `npm audit --omit=dev --audit-level=moderate` | PASS locally | Exit 0; zero production vulnerabilities reported. Does not prove private Dependabot alert state. |
+| Recovery governance | `bash scripts/recovery-governance.sh HEAD~1 HEAD` against the local candidate diff | PASS locally | Exit 0; workflow change accompanied by recovery inventory review. Earlier full-PR Security Gate at `d8528a7` also passed. Final-head GitHub gate still required. |
+| Fly capacity/runtime safety | `node --test scripts/verify-fly-capacity.test.mjs scripts/verify-production-build-runtime.test.mjs` | PASS locally | Exit 0; 6 tests. |
+| Existing-host runtime tests | `node --test scripts/runtime/*.test.mjs` | BLOCKED locally | Unix-socket listener receives EPERM in this environment. No product boundary bypassed; GitHub runner result required. |
+| Final GitHub CI | [CI run 38963702689](https://github.com/Anselm04/AppForge./actions/runs/38963702689) on `0919124` | PENDING at ledger preparation | Re-evaluate on final branch head after this evidence update. No final-head pass claimed. |
+| Security workflow | [Prior security run 38933601269](https://github.com/Anselm04/AppForge./actions/runs/38933601269) / [candidate run 38963702586](https://github.com/Anselm04/AppForge./actions/runs/38963702586) | NOT GREEN | At prior head, npm audit, secret scan and immutable-action gate passed, but CodeQL upload failed because code scanning is disabled for this private repository. No paid feature enabled, failure suppressed or security gate weakened. Candidate/final head must independently pass. |
+| Native qualification | [Candidate run 38963702817](https://github.com/Anselm04/AppForge./actions/runs/38963702817) | PENDING | Prior Linux run exhausted disk allocating the default 7,372.80 MB userdata requirement with 3,140.39 MB free. Disposable AVD now requests 2 GiB and records config/disk artifacts. Boot/backend interaction must still pass. |
+| No open critical Dependabot alerts | GitHub Security / Dependabot | UNVERIFIED | A zero-vulnerability npm audit is not an alert inventory. |
+
+Local results were obtained against the code committed as `0919124d6bc6ce283c034dfc3174a507493c9364`. The checkout was materialized from immutable GitHub blobs and source hashes were checked; it is not evidence of executing a Git rebase. Local runtime restrictions are separated from repository defects. Changes preserve the fail-closed production lifecycle middleware, auth, billing, credits, schema/migrations and deployment/recovery logic.
+
 
 ## B. Programme Phase Status (repository level)
 
@@ -56,14 +68,12 @@ These cannot be completed from source alone.
 
 ## D. Final Verdict
 
-Fill only after section A is complete.
-
-- **Repository-level implementation:** ☐ Complete / ☐ Incomplete
-- **Production-certified for broad paid access:** ☐ Yes / ☐ No
-- **Reason / residual blockers:**
-  `_________________________________________________________________`
-- **Signed-off by:** `________________`
-- **Date:** `________________`
+- **Repository-level implementation:** Complete for the approved programme; final repository release verification remains blocked.
+- **Production-certified for broad paid access:** No.
+- **PR Ready / merge gate:** Not satisfied. Keep Draft until final-head CI, security (including CodeQL), native qualification and recovery-governance checks are green.
+- **Residual blockers:** CodeQL repository configuration; pending final-head GitHub verification; all seven live/external/legal evidence items in section C.
+- **Verification attribution:** Codex automated repository checks only; no owner, legal or production certification sign-off.
+- **Date:** 2026-10-17 (Pacific/Auckland).
 
 ---
 
