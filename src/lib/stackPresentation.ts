@@ -51,6 +51,57 @@ export function stackPresentation(
   };
 }
 
+/** Keep deployment choices aligned with the selected adapter, never its runtime hints. */
+export function filterDeployOptionsForStack<T extends Record<string, unknown>>(
+  techStack: string | null | undefined,
+  options: T,
+): Partial<T> {
+  let destinations = new Set(["zip"]);
+  try {
+    const adapter = getStackAdapter(techStack ?? "");
+    if (adapter.generationMode !== "structural") {
+      destinations = new Set(["zip", ...adapter.deploymentTargets]);
+    }
+  } catch {
+    // Unknown legacy stacks have no verified deployment adapter.
+  }
+  return Object.fromEntries(
+    Object.entries(options).filter(([destination]) =>
+      destinations.has(destination),
+    ),
+  ) as Partial<T>;
+}
+
+/** Correct stale readiness at the API boundary without rewriting stored history. */
+export function projectReadinessForApi<
+  T extends {
+    techStack: string | null;
+    status: string | null;
+    outputMaturity?: string | null;
+  },
+>(project: T) {
+  let generationMode: "structural" | "unknown" = "structural";
+  try {
+    if (
+      getStackAdapter(project.techStack ?? "").generationMode !== "structural"
+    ) {
+      return project;
+    }
+  } catch {
+    generationMode = "unknown";
+  }
+  return {
+    ...project,
+    status:
+      project.status === "production-certified"
+        ? ("validated" as const)
+        : project.status,
+    outputMaturity: "structural" as const,
+    generationMode,
+    sourceDeliverable: true as const,
+  };
+}
+
 /**
  * The URL the Build page may show after a completed build: a verified HTTPS
  * verified live URL only. AppForge workspace/preview routes are never treated

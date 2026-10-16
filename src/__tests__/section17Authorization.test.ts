@@ -29,7 +29,7 @@ describe("Section 17 authentication and authorization boundaries", () => {
 
   it("binds project reads and logs to the authenticated project owner", () => {
     expect(projects).toContain("list: protectedProcedure");
-    expect(projects).toContain("return getProjectsByUserId(ctx.user.id)");
+    expect(projects).toContain("getProjectsByUserId(ctx.user.id)");
     expect(projects).toContain("if (project.userId !== ctx.user.id)");
     expect(projects).toContain('message: "Access denied"');
   });
