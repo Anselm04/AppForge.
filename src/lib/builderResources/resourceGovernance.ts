@@ -165,11 +165,30 @@ export function createBuilderResourceVersion(
       `New Builder Resource version ${version} must be greater than ${resource.identity.version}`,
     );
   }
+
+  const versionMaturity: AdapterCapabilityState =
+    stateRank(resource.governance.maturityState) > stateRank("experimental")
+      ? "experimental"
+      : resource.governance.maturityState;
+
   return parseBuilderResourceManifest({
     ...resource,
     identity: { ...resource.identity, version },
+    evidence: {
+      ...resource.evidence,
+      buildEvidence: [],
+      runtimeEvidence: [],
+      securityEvidence: [],
+      accessibilityEvidence: [],
+      performanceEvidence: [],
+      reproducibilityEvidence: [],
+      lastVerifiedAt: null,
+      evidenceLedgerIds: [],
+      adapterEvidence: { discovered: true },
+    },
     governance: {
       ...resource.governance,
+      maturityState: versionMaturity,
       deprecationStatus: "active",
       replacementResourceId: null,
       quarantine: null,
