@@ -116,6 +116,7 @@ function domainResource(
       dataContract: {
         schemaExport: `CAPABILITY_DOMAIN_CONTRACTS.${capability}`,
         featurePackExport: `DOMAIN_FEATURE_CONTRACTS.${capability}`,
+        runtimeBuildingBlocks: "domainRuntimeResources",
       },
       eventsEmitted: [],
       eventsConsumed: [],
@@ -153,11 +154,13 @@ function domainResource(
     },
     implementation: {
       sourcePaths: [
+        "src/lib/builderResources/domainRuntimeResources.ts",
         "src/lib/builderResources/domainResourceContracts.ts",
         "src/lib/builderResources/domainFeatureContracts.ts",
         ...EXISTING_DOMAIN_SOURCES[capability],
       ],
       testPaths: [
+        "src/lib/builderResources/__tests__/domainRuntimeResources.test.ts",
         "src/lib/builderResources/__tests__/domainResourceContracts.test.ts",
         "src/lib/builderResources/__tests__/domainFeatureContracts.test.ts",
       ],
@@ -166,6 +169,7 @@ function domainResource(
     },
     evidence: {
       unitTests: [
+        "src/lib/builderResources/__tests__/domainRuntimeResources.test.ts",
         "src/lib/builderResources/__tests__/domainResourceContracts.test.ts",
         "src/lib/builderResources/__tests__/domainFeatureContracts.test.ts",
       ],
@@ -186,7 +190,7 @@ function domainResource(
     },
     governance: {
       provenance:
-        "AppForge-owned reusable domain contracts plus existing capability implementation",
+        "AppForge-owned reusable runtime/domain contracts plus existing capability implementation",
       license: "UNLICENSED-INTERNAL",
       allowedUse: ["internal-generation"],
       securityNotes: DOMAIN_SECURITY_NOTES[capability] ?? [],
