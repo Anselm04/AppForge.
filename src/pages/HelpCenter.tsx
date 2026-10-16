@@ -13,6 +13,13 @@ const TOPICS = [
   { id: "agents", to: "/features/orchestrator" },
 ] as const;
 
+type CustomerSupportCase = {
+  case_ref: string;
+  status: string;
+  customer_summary: string;
+  resolution: string | null;
+};
+
 export function HelpCenter() {
   const { t } = useLocale();
   const [query, setQuery] = useState("");
@@ -25,12 +32,10 @@ export function HelpCenter() {
     queryFn: () => trpc.auth.me.query(),
     staleTime: 0,
   });
-  const {
-    data: cases,
-    refetch: refetchCases,
-  } = useQuery({
+  const { data: cases, refetch: refetchCases } = useQuery({
     queryKey: ["operations", "mySupportCases"],
-    queryFn: () => trpc.operations.mySupportCases.query(),
+    queryFn: async (): Promise<CustomerSupportCase[]> =>
+      (await trpc.operations.mySupportCases.query()) as CustomerSupportCase[],
     enabled: Boolean(me),
     staleTime: 0,
   });
@@ -122,7 +127,10 @@ export function HelpCenter() {
           </div>
         )}
 
-        <section className="mt-12 max-w-2xl" aria-labelledby="support-cases-heading">
+        <section
+          className="mt-12 max-w-2xl"
+          aria-labelledby="support-cases-heading"
+        >
           <GlassCard hover={false} padding="lg">
             <h2 id="support-cases-heading" className="forge-h3 mb-3">
               Support cases
@@ -130,11 +138,15 @@ export function HelpCenter() {
             {me ? (
               <>
                 <p className="mb-5 text-sm text-forge-text-muted">
-                  Open a case without sending passwords, API keys or provider secrets.
+                  Open a case without sending passwords, API keys or provider
+                  secrets.
                 </p>
                 <form onSubmit={submitCase} className="space-y-4">
                   <div>
-                    <label htmlFor="support-category" className="mb-1 block text-sm font-medium">
+                    <label
+                      htmlFor="support-category"
+                      className="mb-1 block text-sm font-medium"
+                    >
                       Category
                     </label>
                     <select
@@ -147,11 +159,16 @@ export function HelpCenter() {
                       <option value="build-failure">Build failure</option>
                       <option value="billing">Billing or credits</option>
                       <option value="deployment">Deployment</option>
-                      <option value="account-security">Account or security</option>
+                      <option value="account-security">
+                        Account or security
+                      </option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="support-summary" className="mb-1 block text-sm font-medium">
+                    <label
+                      htmlFor="support-summary"
+                      className="mb-1 block text-sm font-medium"
+                    >
                       What happened?
                     </label>
                     <textarea
@@ -165,11 +182,18 @@ export function HelpCenter() {
                     />
                   </div>
                   {caseMessage && (
-                    <p role="status" className="text-sm text-forge-text-muted">
+                    <p
+                      role="status"
+                      className="text-sm text-forge-text-muted"
+                    >
                       {caseMessage}
                     </p>
                   )}
-                  <Button type="submit" loading={casePending} disabled={casePending || summary.trim().length < 3}>
+                  <Button
+                    type="submit"
+                    loading={casePending}
+                    disabled={casePending || summary.trim().length < 3}
+                  >
                     Open support case
                   </Button>
                 </form>
@@ -179,13 +203,22 @@ export function HelpCenter() {
                     <h3 className="mb-3 font-semibold">Your recent cases</h3>
                     <ul className="space-y-3">
                       {cases.map((supportCase) => (
-                        <li key={supportCase.case_ref} className="rounded-card border border-forge-border p-3 text-sm">
+                        <li
+                          key={supportCase.case_ref}
+                          className="rounded-card border border-forge-border p-3 text-sm"
+                        >
                           <div className="flex flex-wrap justify-between gap-2">
                             <strong>{supportCase.case_ref}</strong>
                             <span>{supportCase.status}</span>
                           </div>
-                          <p className="mt-1 text-forge-text-muted">{supportCase.customer_summary}</p>
-                          {supportCase.resolution && <p className="mt-2">Resolution: {supportCase.resolution}</p>}
+                          <p className="mt-1 text-forge-text-muted">
+                            {supportCase.customer_summary}
+                          </p>
+                          {supportCase.resolution && (
+                            <p className="mt-2">
+                              Resolution: {supportCase.resolution}
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -194,7 +227,11 @@ export function HelpCenter() {
               </>
             ) : (
               <p className="text-sm text-forge-text-muted">
-                <Link to="/login" className="text-forge-cyan hover:underline">Sign in</Link> to open and track an AppForge support case, or use the support email above if you cannot access your account.
+                <Link to="/login" className="text-forge-cyan hover:underline">
+                  Sign in
+                </Link>{" "}
+                to open and track an AppForge support case, or use the support
+                email above if you cannot access your account.
               </p>
             )}
           </GlassCard>
