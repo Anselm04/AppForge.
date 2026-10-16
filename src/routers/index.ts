@@ -5,6 +5,7 @@ import { publicProcedure, router } from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { clearAdminMfaCookie } from "../lib/adminMfa.js";
 import { accountRouter } from "./account.js";
+import { operationsRouter } from "./operations.js";
 import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
@@ -50,6 +51,7 @@ export const appRouter = router({
     }),
   }),
   account: accountRouter,
+  operations: operationsRouter,
   projects: projectsRouter,
   subscriptions: subscriptionsRouter,
   github: githubRouter,
