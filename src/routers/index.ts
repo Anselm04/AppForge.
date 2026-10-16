@@ -4,6 +4,7 @@ import { systemRouter } from "../_core/systemRouter.js";
 import { publicProcedure, router } from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { clearAdminMfaCookie } from "../lib/adminMfa.js";
+import { accountRouter } from "./account.js";
 import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
@@ -48,6 +49,7 @@ export const appRouter = router({
       return { success: true } as const;
     }),
   }),
+  account: accountRouter,
   projects: projectsRouter,
   subscriptions: subscriptionsRouter,
   github: githubRouter,
