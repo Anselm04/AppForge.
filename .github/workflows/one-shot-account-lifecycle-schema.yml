@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
 
+# Temporary branch-only helper; remove after one successful schema patch.
 jobs:
   patch:
     runs-on: ubuntu-latest
