@@ -194,10 +194,13 @@ async function deleteCustomerProjects(userId: number): Promise<void> {
   await db.execute(sql`DELETE FROM projects WHERE user_id = ${userId}`);
 }
 
-async function deleteConnectionsAndSessions(userId: number): Promise<void> {
+async function deleteProviderConnections(userId: number): Promise<void> {
   await db.execute(
     sql`DELETE FROM github_connections WHERE user_id = ${userId}`,
   );
+}
+
+async function revokeSessions(userId: number): Promise<void> {
   await db.execute(sql`DELETE FROM auth_sessions WHERE user_id = ${userId}`);
 }
 
@@ -230,13 +233,17 @@ async function finishDeletion(userId: number): Promise<void> {
     await tx.execute(sql`
       UPDATE account_lifecycle
       SET deletion_state = 'completed',
-          deleted_at = NOW(),
+          deleted_at = COALESCE(deleted_at, NOW()),
           updated_at = NOW()
       WHERE user_id = ${userId}
     `);
     await tx.execute(sql`
       INSERT INTO account_lifecycle_events (subject_ref, event_type, details)
-      VALUES (${subjectRef}, 'account_deleted', ${JSON.stringify({ retainedFinancialRecords: true })}::jsonb)
+      SELECT ${subjectRef}, 'account_deleted', ${JSON.stringify({ retainedFinancialRecords: true })}::jsonb
+      WHERE NOT EXISTS (
+        SELECT 1 FROM account_lifecycle_events
+        WHERE subject_ref = ${subjectRef} AND event_type = 'account_deleted'
+      )
     `);
   });
 }
@@ -249,9 +256,10 @@ export function productionAccountDeletionDependencies(): AccountDeletionDependen
     disableEntitlements,
     revokeIdentity: deleteSupabaseAuthUser,
     deleteCustomerProjects,
-    deleteProviderConnections: deleteConnectionsAndSessions,
+    deleteProviderConnections,
     anonymizeAccount: anonymizeRetainedUser,
     recordAudit: finishDeletion,
+    revokeSessions,
   };
 }
 
