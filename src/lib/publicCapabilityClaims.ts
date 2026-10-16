@@ -17,6 +17,12 @@ export type CapabilityEvidence = {
   runtime?: CapabilityMaturity;
   platform?: CapabilityMaturity;
   regressionHealthy: boolean;
+  /** True only while the evidence is still inside its accepted verification window. */
+  evidenceFresh?: boolean;
+  /** Quarantined evidence must never support a public capability claim. */
+  quarantined?: boolean;
+  /** True only when the evidence belongs to the capability/resource version being advertised. */
+  versionMatches?: boolean;
 };
 
 export type PublicCapabilityClaim = {
@@ -60,6 +66,24 @@ function rank(maturity: CapabilityMaturity): number {
   return CAPABILITY_MATURITY.indexOf(maturity);
 }
 
+function failClosed(explanation: string): PublicCapabilityClaim {
+  return {
+    maturity: "planned",
+    customerLabel: CUSTOMER_LABEL.planned,
+    canPromise: false,
+    explanation,
+  };
+}
+
+function downgrade(explanation: string): PublicCapabilityClaim {
+  return {
+    maturity: "experimental",
+    customerLabel: CUSTOMER_LABEL.experimental,
+    canPromise: false,
+    explanation,
+  };
+}
+
 export function publicClaimForEvidence(
   evidence: CapabilityEvidence,
 ): PublicCapabilityClaim {
@@ -71,22 +95,35 @@ export function publicClaimForEvidence(
   ];
 
   if (dimensions.some((value) => !value)) {
-    return {
-      maturity: "planned",
-      customerLabel: CUSTOMER_LABEL.planned,
-      canPromise: false,
-      explanation: EXPLANATION.planned,
-    };
+    return failClosed(EXPLANATION.planned);
   }
 
+  // A known regression is the most specific explanation and must immediately
+  // invalidate any stronger historic evidence.
   if (!evidence.regressionHealthy) {
-    return {
-      maturity: "experimental",
-      customerLabel: CUSTOMER_LABEL.experimental,
-      canPromise: false,
-      explanation:
-        "A regression invalidated the previous claim. AppForge has downgraded this capability until fresh evidence passes.",
-    };
+    return downgrade(
+      "A regression invalidated the previous claim. AppForge has downgraded this capability until fresh evidence passes.",
+    );
+  }
+
+  if (evidence.quarantined === true) {
+    return failClosed(
+      "Capability evidence is quarantined, so AppForge does not claim support until the quarantine is cleared by fresh verification.",
+    );
+  }
+
+  // Freshness/version metadata is itself required evidence. Treat unknown as
+  // unsafe instead of silently inheriting an old certification.
+  if (evidence.versionMatches !== true) {
+    return failClosed(
+      "Capability evidence does not match the advertised version, so AppForge does not inherit the previous claim.",
+    );
+  }
+
+  if (evidence.evidenceFresh !== true) {
+    return downgrade(
+      "Capability evidence is stale or its freshness is unknown. AppForge has downgraded the claim until fresh verification passes.",
+    );
   }
 
   const maturity = (dimensions as CapabilityMaturity[]).reduce(
