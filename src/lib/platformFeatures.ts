@@ -1,3 +1,5 @@
+import type { CapabilityEvidence } from "./publicCapabilityClaims.js";
+
 export type FeatureId =
   | "orchestrator"
   | "live-preview"
@@ -25,8 +27,29 @@ export type FeatureMeta = {
   i18nKey: string;
   appRoute?: string;
   category: "build" | "ship" | "team" | "grow" | "discover";
+  evidence: CapabilityEvidence;
+  evidenceRef: string;
 };
 
+const reviewed = (
+  state: NonNullable<CapabilityEvidence["runtime"]>,
+): CapabilityEvidence => ({
+  adapter: state,
+  resource: state,
+  runtime: state,
+  platform: state,
+  regressionHealthy: true,
+  evidenceFresh: true,
+  quarantined: false,
+  versionMatches: true,
+});
+
+/**
+ * Public feature evidence is deliberately conservative. These entries are not
+ * marketing promises: claim rendering takes the least mature evidence
+ * dimension and fails closed if any required dimension is missing. Production
+ * wording requires production-certified evidence, never mere route presence.
+ */
 export const PLATFORM_FEATURES: FeatureMeta[] = [
   {
     id: "orchestrator",
@@ -34,6 +57,8 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.orchestrator",
     appRoute: "/app/new",
     category: "build",
+    evidence: reviewed("verified"),
+    evidenceRef: "ProductContract/ProductPlan builder pipeline tests",
   },
   {
     id: "live-preview",
@@ -41,6 +66,8 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.livePreview",
     appRoute: "/build",
     category: "build",
+    evidence: reviewed("runnable"),
+    evidenceRef: "authenticated build runtime and preview path",
   },
   {
     id: "deploy",
@@ -48,6 +75,8 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.deploy",
     appRoute: "/dashboard",
     category: "ship",
+    evidence: reviewed("deployable"),
+    evidenceRef: "deployment workflows and deployment evidence model",
   },
   {
     id: "database-wizard",
@@ -55,6 +84,8 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.databaseWizard",
     appRoute: "/dashboard",
     category: "ship",
+    evidence: reviewed("buildable"),
+    evidenceRef: "database agent and migration safety foundation",
   },
   {
     id: "templates",
@@ -62,27 +93,33 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.templates",
     appRoute: "/templates",
     category: "build",
+    evidence: reviewed("verified"),
+    evidenceRef: "Builder Resource Library and template marketplace tests",
   },
   {
     id: "onboarding-assistant",
     icon: "✨",
     i18nKey: "features.onboardingAssistant",
-    appRoute: "/onboarding",
     category: "discover",
+    evidence: reviewed("structural"),
+    evidenceRef: "feature structure present; end-to-end route not certified",
   },
   {
     id: "health-scanner",
     icon: "🛡",
     i18nKey: "features.healthScanner",
-    appRoute: "/app/health",
     category: "discover",
+    evidence: reviewed("structural"),
+    evidenceRef:
+      "health/readiness primitives present; public workflow not certified",
   },
   {
     id: "feedback-board",
     icon: "💬",
     i18nKey: "features.feedbackBoard",
-    appRoute: "/feedback",
     category: "discover",
+    evidence: reviewed("experimental"),
+    evidenceRef: "public feedback workflow not production-certified",
   },
 ];
 

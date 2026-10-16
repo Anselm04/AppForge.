@@ -6,11 +6,10 @@ import { GlassCard } from "../design-system/GlassCard.js";
 import { Section } from "../design-system/Section.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { PLATFORM_FEATURES, featurePath } from "../lib/platformFeatures.js";
+import { publicClaimForEvidence } from "../lib/publicCapabilityClaims.js";
 
 export function LandingPage() {
   const { t } = useLocale();
-  const steps = [1, 2, 3] as const;
-  const faqKeys = ["q1", "q2", "q3"] as const;
   return (
     <>
       <PageMeta
@@ -45,19 +44,32 @@ export function LandingPage() {
         subtitle={t("landing.featuresSubtitle")}
       >
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {PLATFORM_FEATURES.slice(0, 9).map((f) => (
-            <Link key={f.id} to={featurePath(f.id)}>
-              <GlassCard className="h-full">
-                <span className="text-2xl">{f.icon}</span>
-                <h3 className="mt-3 font-semibold">
-                  {t(`${f.i18nKey}.title`)}
-                </h3>
-                <p className="mt-2 text-sm text-forge-text-muted">
-                  {t(`${f.i18nKey}.hero`)}
-                </p>
-              </GlassCard>
-            </Link>
-          ))}
+          {PLATFORM_FEATURES.slice(0, 9).map((f) => {
+            const claim = publicClaimForEvidence(f.evidence);
+            return (
+              <Link key={f.id} to={featurePath(f.id)}>
+                <GlassCard className="h-full">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-2xl">{f.icon}</span>
+                    <span className="forge-badge text-xs">
+                      {claim.customerLabel}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 font-semibold">
+                    {t(`${f.i18nKey}.title`)}
+                  </h3>
+                  <p className="mt-2 text-sm text-forge-text-muted">
+                    {t(`${f.i18nKey}.hero`)}
+                  </p>
+                  {!claim.canPromise && (
+                    <p className="mt-3 text-xs text-forge-text-muted">
+                      {claim.explanation}
+                    </p>
+                  )}
+                </GlassCard>
+              </Link>
+            );
+          })}
         </div>
       </Section>
     </>
