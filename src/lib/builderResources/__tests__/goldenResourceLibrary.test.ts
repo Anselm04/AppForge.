@@ -6,6 +6,7 @@ import type { ProductPlan } from "../../productPlan.js";
 import { createRequirementManifest } from "../../requirementManifest.js";
 import { createBuilderResourceLibraryRegistry } from "../builderResourceLibrary.js";
 import { compareBaselineAndResourceAwareBuild } from "../resourceBuildHarness.js";
+import type { BuilderResourceManifest } from "../resourceManifest.js";
 
 const GOLDEN_PRODUCT_PROMPT = [
   "Build an iPhone and Android restaurant table availability app.",
@@ -95,14 +96,11 @@ describe("Golden Product Builder Resource Library validation", () => {
     });
 
     const registry = createBuilderResourceLibraryRegistry();
-    const resourcesByVersion = new Map(
-      registry.list().map(
-        (resource) =>
-          [
-            `${resource.identity.resourceId}@${resource.identity.version}`,
-            resource,
-          ] as const,
-      ),
+    const resourcesByVersion = new Map<string, BuilderResourceManifest>(
+      registry.list().map((resource) => [
+        `${resource.identity.resourceId}@${resource.identity.version}`,
+        resource,
+      ]),
     );
     const measuredPaths = new Set<string>();
 
