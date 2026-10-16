@@ -5,6 +5,10 @@ import {
   type FeatureId,
   type FeatureMeta,
 } from "../lib/platformFeatures.js";
+import {
+  isPubliclyUsable,
+  publicClaimForEvidence,
+} from "../lib/publicCapabilityClaims.js";
 import { isKnownAppRoute } from "../lib/appRoutes.js";
 import { GlassCard } from "../design-system/GlassCard.js";
 
@@ -24,12 +28,14 @@ export function FeatureDetail() {
   if (!feature) return <Navigate to="/discover" replace />;
 
   const base = feature.i18nKey;
+  const claim = publicClaimForEvidence(feature.evidence);
+  const primaryDestination =
+    feature.appRoute &&
+    isKnownAppRoute(feature.appRoute) &&
+    isPubliclyUsable(claim.maturity)
+      ? feature.appRoute
+      : null;
 
-  /**
-   * Copy is authored per feature and some entries only define title/hero, so
-   * optional sections are rendered only when the translated string exists
-   * (the i18n lookup returns the key itself when a key is missing).
-   */
   const optional = (key: string, vars?: Record<string, string | number>) => {
     const value = t(key, vars);
     return value === key ? undefined : value;
@@ -50,11 +56,6 @@ export function FeatureDetail() {
       Boolean(persona.title && persona.body),
     );
 
-  const primaryDestination =
-    feature.appRoute && isKnownAppRoute(feature.appRoute)
-      ? feature.appRoute
-      : "/app/new";
-
   return (
     <div className="bg-forge-mesh">
       <div className="forge-container forge-section">
@@ -70,17 +71,26 @@ export function FeatureDetail() {
             <span className="text-base" aria-hidden="true">
               {feature.icon}
             </span>
-            {t("features.badge")}
+            {claim.customerLabel}
           </span>
           <h1 className="forge-h1 mb-4">{t(`${base}.title`)}</h1>
-          <p className="forge-body mb-8">{t(`${base}.hero`)}</p>
+          <p className="forge-body mb-4">{t(`${base}.hero`)}</p>
+          <p className="mb-8 text-sm text-forge-text-muted">
+            {claim.explanation}
+          </p>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to={primaryDestination}
-              className="forge-btn-gold inline-flex h-11 items-center px-5 text-sm"
-            >
-              {t("features.tryIt")}
-            </Link>
+            {primaryDestination ? (
+              <Link
+                to={primaryDestination}
+                className="forge-btn-gold inline-flex h-11 items-center px-5 text-sm"
+              >
+                {t("features.tryIt")}
+              </Link>
+            ) : (
+              <span className="rounded-md border border-forge-border px-4 py-2 text-sm text-forge-text-muted">
+                Not available for customer use at this evidence level
+              </span>
+            )}
             <Link
               to="/pricing"
               className="forge-ghost-btn inline-flex h-11 items-center px-5 text-sm"
@@ -125,13 +135,8 @@ export function FeatureDetail() {
               )}
               <ul className="space-y-3">
                 {bestPractices.map((tip) => (
-                  <li
-                    key={tip}
-                    className="flex gap-3 text-sm text-forge-text-primary"
-                  >
-                    <span aria-hidden="true" className="text-forge-cyan">
-                      ✓
-                    </span>
+                  <li key={tip} className="flex gap-3 text-sm text-forge-text-primary">
+                    <span aria-hidden="true" className="text-forge-cyan">✓</span>
                     {tip}
                   </li>
                 ))}
@@ -150,28 +155,21 @@ export function FeatureDetail() {
               <div className="space-y-4">
                 {personas.map((persona) => (
                   <div key={persona.title}>
-                    <p className="text-sm font-semibold text-forge-text-primary">
-                      {persona.title}
-                    </p>
-                    <p className="text-sm text-forge-text-muted">
-                      {persona.body}
-                    </p>
+                    <p className="text-sm font-semibold text-forge-text-primary">{persona.title}</p>
+                    <p className="text-sm text-forge-text-muted">{persona.body}</p>
                   </div>
                 ))}
               </div>
             </GlassCard>
           )}
 
-          {optional(`${base}.demoIntro`) && (
+          {optional(`${base}.demoIntro`) && primaryDestination && (
             <GlassCard hover={false} padding="lg">
               <h2 className="forge-h3 mb-3">{t("features.interactive")}</h2>
               <p className="mb-4 text-sm text-forge-text-muted">
                 {optional(`${base}.demoIntro`)}
               </p>
-              <Link
-                to="/templates"
-                className="text-sm font-medium text-forge-cyan hover:underline"
-              >
+              <Link to={primaryDestination} className="text-sm font-medium text-forge-cyan hover:underline">
                 {t("features.tryIt")}
               </Link>
             </GlassCard>
