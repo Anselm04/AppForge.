@@ -38,7 +38,7 @@ import { HelpCenter } from "./pages/HelpCenter.js";
 import { Settings } from "./pages/Settings.js";
 import { NotFound } from "./pages/NotFound.js";
 import { ShortcutsPage } from "./pages/ShortcutsPage.js";
-
+import { TrustPolicy } from "./pages/TrustPolicy.js";
 import { ResendVerification } from "./pages/ResendVerification.js";
 
 function AppShell() {
@@ -52,6 +52,11 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<PublicHome />} />
           <Route path="/about" element={<About />} />
+          <Route path="/privacy" element={<TrustPolicy policyId="privacy" />} />
+          <Route path="/terms" element={<TrustPolicy policyId="terms" />} />
+          <Route path="/acceptable-use" element={<TrustPolicy policyId="acceptable-use" />} />
+          <Route path="/refund-policy" element={<TrustPolicy policyId="refund-policy" />} />
+          <Route path="/security" element={<TrustPolicy policyId="security" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/sso/callback" element={<SsoCallback />} />
           <Route path="/signup" element={<Signup />} />
@@ -83,50 +88,17 @@ function AppShell() {
             <Route path="/studio/ar" element={<ARStudio />} />
             <Route path="/studio/education" element={<EducationStudio />} />
             <Route path="/studio/patent" element={<PatentStudio />} />
-            <Route
-              path="/studio/architecture"
-              element={<ArchitectureStudio />}
-            />
-            <Route
-              path="/studio/game"
-              element={<ExtensionStudio studioId="game" />}
-            />
-            <Route
-              path="/studio/cad"
-              element={<ExtensionStudio studioId="cad" />}
-            />
-            <Route
-              path="/studio/legal"
-              element={<ExtensionStudio studioId="legal" />}
-            />
-            <Route
-              path="/studio/fintech"
-              element={<ExtensionStudio studioId="fintech" />}
-            />
-            <Route
-              path="/studio/healthcare"
-              element={<ExtensionStudio studioId="healthcare" />}
-            />
-            <Route
-              path="/studio/mobile"
-              element={<ExtensionStudio studioId="mobile" />}
-            />
-            <Route
-              path="/studio/voice"
-              element={<ExtensionStudio studioId="voice" />}
-            />
-            <Route
-              path="/studio/data"
-              element={<ExtensionStudio studioId="data" />}
-            />
-            <Route
-              path="/studio/localization"
-              element={<ExtensionStudio studioId="localization" />}
-            />
-            <Route
-              path="/studio/collab"
-              element={<ExtensionStudio studioId="collab" />}
-            />
+            <Route path="/studio/architecture" element={<ArchitectureStudio />} />
+            <Route path="/studio/game" element={<ExtensionStudio studioId="game" />} />
+            <Route path="/studio/cad" element={<ExtensionStudio studioId="cad" />} />
+            <Route path="/studio/legal" element={<ExtensionStudio studioId="legal" />} />
+            <Route path="/studio/fintech" element={<ExtensionStudio studioId="fintech" />} />
+            <Route path="/studio/healthcare" element={<ExtensionStudio studioId="healthcare" />} />
+            <Route path="/studio/mobile" element={<ExtensionStudio studioId="mobile" />} />
+            <Route path="/studio/voice" element={<ExtensionStudio studioId="voice" />} />
+            <Route path="/studio/data" element={<ExtensionStudio studioId="data" />} />
+            <Route path="/studio/localization" element={<ExtensionStudio studioId="localization" />} />
+            <Route path="/studio/collab" element={<ExtensionStudio studioId="collab" />} />
             <Route
               path="/admin"
               element={

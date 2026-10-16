@@ -23,7 +23,6 @@ type AuthResponse = {
 function config() {
   const runtime =
     typeof window !== "undefined" ? window.__APPFORGE_CONFIG__ : undefined;
-  // Prefer runtime /config.js so a localhost VITE_* bake cannot override live Fly.
   const url =
     runtime?.supabaseUrl ||
     (import.meta.env.VITE_SUPABASE_URL as string | undefined);
@@ -88,11 +87,6 @@ async function requestAppForgeSignup(
 export const SOCIAL_SIGN_IN_PROVIDERS = ["google", "github"] as const;
 export type SocialSignInProvider = (typeof SOCIAL_SIGN_IN_PROVIDERS)[number];
 
-/**
- * Read the Supabase project's public auth settings so the UI can only offer
- * identity providers that are actually enabled server-side. Fails closed to
- * "no social providers" rather than rendering buttons that would error.
- */
 async function listAuthProviders(): Promise<SocialSignInProvider[]> {
   try {
     const { url, publishableKey } = config();
@@ -112,10 +106,6 @@ async function listAuthProviders(): Promise<SocialSignInProvider[]> {
   }
 }
 
-/**
- * Implicit-flow authorize URL: Supabase redirects back to `redirectTo` with
- * `#access_token=...`, which `completeAuthRedirect` already consumes.
- */
 function oauthAuthorizeUrl(
   provider: SocialSignInProvider,
   redirectTo: string,
@@ -168,6 +158,14 @@ export const supabaseClient = {
       method: "PUT",
       headers: { Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ password }),
+    });
+  },
+  /** Supabase secure email-change settings control confirmation of old/new addresses. */
+  updateEmail(accessToken: string, email: string) {
+    return request<AuthResponse>("/auth/v1/user", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
     });
   },
   listAuthProviders,
