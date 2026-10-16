@@ -13,10 +13,10 @@ describe("Builder Resource version evidence", () => {
 
     expect(current.identity.version).toBe("1.0.0");
     expect(next.identity.version).toBe("1.1.0");
-    expect(next.governance.maturityState).toBe("experimental");
+    expect(next.governance.maturityState).toBe("discovered");
     expect(next.evidence.lastVerifiedAt).toBeNull();
     expect(next.evidence.evidenceLedgerIds).toEqual([]);
-    expect(next.evidence.adapterEvidence).toMatchObject({ discovered: true });
+    expect(next.evidence.adapterEvidence).toEqual({ discovered: true });
     expect(next.evidence.adapterEvidence.testsVerified).not.toBe(true);
     expect(next.evidence.adapterEvidence.runtimeVerified).not.toBe(true);
     expect(next.evidence.adapterEvidence.deploymentVerified).not.toBe(true);
