@@ -238,14 +238,15 @@ async function finishDeletion(userId: number): Promise<void> {
 
 export function productionAccountDeletionDependencies(): AccountDeletionDependencies {
   return {
-    markDeletionPending: beginDeletion,
-    stopPendingWork: stopCustomerWork,
+    loadUser: getUserById,
+    beginDeletion,
+    stopCustomerWork,
     disableEntitlements,
-    deleteAuthIdentity: deleteSupabaseAuthUser,
+    revokeIdentity: deleteSupabaseAuthUser,
     deleteCustomerProjects,
-    revokeProviderConnections: deleteConnectionsAndSessions,
-    anonymizeRetainedRecords: anonymizeRetainedUser,
-    markDeletionComplete: finishDeletion,
+    deleteProviderConnections: deleteConnectionsAndSessions,
+    anonymizeAccount: anonymizeRetainedUser,
+    recordAudit: finishDeletion,
   };
 }
 
