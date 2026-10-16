@@ -1,0 +1,201 @@
+name: One-shot production operations schema
+
+on:
+  push:
+    branches: [production-completeness-programme]
+    paths:
+      - ".github/workflows/one-shot-production-operations-schema.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: production-completeness-programme
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Register immutable migration and Drizzle models
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          migration_sql = Path("drizzle/0008_production_operations.sql").read_text().rstrip()
+          ensure = Path("src/db/ensureSchema.ts")
+          text = ensure.read_text()
+          marker = "type AppForgeSchemaMigration = {"
+          if "const PRODUCTION_OPERATIONS_SQL" not in text:
+              if marker not in text:
+                  raise SystemExit("migration type marker missing")
+              block = f"const PRODUCTION_OPERATIONS_SQL = `\n{migration_sql}\n`;\n\n"
+              text = text.replace(marker, block + marker, 1)
+
+          anchor = '''  {
+            version: "20261016_008",
+            name: "account_lifecycle",
+            sql: ACCOUNT_LIFECYCLE_SQL,
+          },
+          ];'''
+          replacement = '''  {
+            version: "20261016_008",
+            name: "account_lifecycle",
+            sql: ACCOUNT_LIFECYCLE_SQL,
+          },
+          {
+            version: "20261016_009",
+            name: "production_operations",
+            sql: PRODUCTION_OPERATIONS_SQL,
+          },
+          ];'''
+          if 'version: "20261016_009"' not in text:
+              if anchor not in text:
+                  raise SystemExit("account lifecycle migration anchor missing")
+              text = text.replace(anchor, replacement, 1)
+          ensure.write_text(text)
+
+          schema = Path("src/db/schema.ts")
+          s = schema.read_text()
+          schema_marker = 'export const subscriptions = pgTable("subscriptions", {'
+          models = '''export const projectChangeContracts = pgTable(
+            "project_change_contracts",
+            {
+              id: serial("id").primaryKey(),
+              projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+              userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+              baseProductContractHash: varchar("base_product_contract_hash", { length: 64 }).notNull(),
+              contract: jsonb("contract").$type<Record<string, unknown>>().notNull(),
+              status: varchar("status", { length: 32 }).default("proposed").notNull(),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+              appliedAt: timestamp("applied_at"),
+            },
+            (table) => [index("project_change_contracts_project_created_idx").on(table.projectId, table.createdAt)],
+          );
+
+          export const productVersionRecords = pgTable(
+            "product_version_records",
+            {
+              id: serial("id").primaryKey(),
+              projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+              artifactVersion: integer("artifact_version").notNull(),
+              artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+              databaseVersion: varchar("database_version", { length: 128 }),
+              providerConfigVersion: varchar("provider_config_version", { length: 128 }),
+              webhookVersion: varchar("webhook_version", { length: 128 }),
+              jobVersion: varchar("job_version", { length: 128 }),
+              flagSnapshot: jsonb("flag_snapshot").$type<Record<string, unknown>>().default({}).notNull(),
+              resourceVersions: jsonb("resource_versions").$type<Record<string, string>>().default({}).notNull(),
+              recoveryCheckpointId: integer("recovery_checkpoint_id"),
+              evidenceState: varchar("evidence_state", { length: 32 }).default("structural").notNull(),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+            },
+            (table) => [
+              uniqueIndex("product_version_records_project_version_unique").on(table.projectId, table.artifactVersion),
+              index("product_version_records_project_idx").on(table.projectId, table.artifactVersion),
+            ],
+          );
+
+          export const supportCases = pgTable(
+            "support_cases",
+            {
+              id: serial("id").primaryKey(),
+              caseRef: varchar("case_ref", { length: 40 }).unique().notNull(),
+              userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+              projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+              buildRef: varchar("build_ref", { length: 128 }),
+              severity: varchar("severity", { length: 16 }).notNull(),
+              category: varchar("category", { length: 80 }).notNull(),
+              status: varchar("status", { length: 32 }).default("open").notNull(),
+              customerSummary: text("customer_summary").notNull(),
+              internalNotes: jsonb("internal_notes").$type<string[]>().default([]).notNull(),
+              logRefs: jsonb("log_refs").$type<string[]>().default([]).notNull(),
+              billingAdjustment: jsonb("billing_adjustment"),
+              resolution: text("resolution"),
+              rootCause: text("root_cause"),
+              prevention: text("prevention"),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+              updatedAt: timestamp("updated_at").defaultNow().notNull(),
+              resolvedAt: timestamp("resolved_at"),
+            },
+            (table) => [
+              index("support_cases_user_created_idx").on(table.userId, table.createdAt),
+              index("support_cases_status_severity_idx").on(table.status, table.severity),
+            ],
+          );
+
+          export const creditSettlements = pgTable(
+            "credit_settlements",
+            {
+              id: serial("id").primaryKey(),
+              idempotencyKey: varchar("idempotency_key", { length: 255 }).unique().notNull(),
+              userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+              projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+              buildRef: varchar("build_ref", { length: 128 }),
+              failureKind: varchar("failure_kind", { length: 64 }).notNull(),
+              outcome: varchar("outcome", { length: 32 }).notNull(),
+              amount: integer("amount").default(0).notNull(),
+              reason: text("reason").notNull(),
+              customerFault: boolean("customer_fault").default(false).notNull(),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+            },
+            (table) => [index("credit_settlements_user_created_idx").on(table.userId, table.createdAt)],
+          );
+
+          export const incidents = pgTable(
+            "incidents",
+            {
+              id: serial("id").primaryKey(),
+              incidentRef: varchar("incident_ref", { length: 40 }).unique().notNull(),
+              severity: varchar("severity", { length: 16 }).notNull(),
+              status: varchar("status", { length: 32 }).default("detected").notNull(),
+              summary: text("summary").notNull(),
+              affectedServices: jsonb("affected_services").$type<string[]>().default([]).notNull(),
+              customerImpact: text("customer_impact"),
+              evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
+              containment: text("containment"),
+              recovery: text("recovery"),
+              communications: jsonb("communications").$type<string[]>().default([]).notNull(),
+              rootCause: text("root_cause"),
+              correctiveActions: jsonb("corrective_actions").$type<string[]>().default([]).notNull(),
+              regressionEvidence: jsonb("regression_evidence").$type<string[]>().default([]).notNull(),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+              updatedAt: timestamp("updated_at").defaultNow().notNull(),
+              resolvedAt: timestamp("resolved_at"),
+            },
+            (table) => [index("incidents_status_severity_idx").on(table.status, table.severity)],
+          );
+
+          '''
+          if 'export const projectChangeContracts = pgTable' not in s:
+              if schema_marker not in s:
+                  raise SystemExit("schema marker missing")
+              s = s.replace(schema_marker, models + schema_marker, 1)
+          schema.write_text(s)
+
+          recovery = Path("docs/RECOVERY_INVENTORY.md")
+          r = recovery.read_text()
+          note = '''\n### Production operations migration (2026-10-16)\n\n- `20261016_009 production_operations` adds persisted ChangeContracts, product-version records, support cases, credit settlements, and incidents.\n- Change/version records tied only to a deleted customer project are removed with that project. Support, credit-settlement and incident records deliberately retain minimized operational history with user/project references set null where applicable.\n- Credit-settlement idempotency keys and incident/support references must remain unique after restore.\n- Recovery verification must test ChangeContract ownership, product-version uniqueness, support-case visibility, settlement idempotency and incident lifecycle records.\n- Do not claim rollback if customer data evolution makes the previous data shape unsafe; recover forward using the recorded version and recovery evidence.\n'''
+          if '### Production operations migration (2026-10-16)' not in r:
+              recovery.write_text(r.rstrip() + '\n' + note)
+          PY
+      - run: npx prettier --write src/db/ensureSchema.ts src/db/schema.ts docs/RECOVERY_INVENTORY.md
+      - name: Commit and remove helper
+        env:
+          HUSKY: "0"
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/one-shot-production-operations-schema.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/db/ensureSchema.ts src/db/schema.ts docs/RECOVERY_INVENTORY.md
+          git commit --no-verify -m "db: register production operations migration"
+          git push origin HEAD:production-completeness-programme
