@@ -1,0 +1,153 @@
+name: One-shot account lifecycle schema patch
+
+on:
+  push:
+    branches: [production-completeness-programme]
+    paths:
+      - ".github/workflows/one-shot-account-lifecycle-schema.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: production-completeness-programme
+      - name: Patch immutable migration chain and Drizzle model
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          ensure = Path('src/db/ensureSchema.ts')
+          text = ensure.read_text()
+          sql = '''const ACCOUNT_LIFECYCLE_SQL = `
+          CREATE TABLE IF NOT EXISTS "account_lifecycle" (
+            "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+            "language" VARCHAR(32) NOT NULL DEFAULT 'en',
+            "communication_preferences" JSONB NOT NULL DEFAULT '{"product":true,"billing":true,"marketing":false}'::jsonb,
+            "accessibility_preferences" JSONB NOT NULL DEFAULT '{"reducedMotion":false,"highContrast":false}'::jsonb,
+            "deletion_state" VARCHAR(32) NOT NULL DEFAULT 'active',
+            "deletion_requested_at" TIMESTAMP,
+            "deleted_at" TIMESTAMP,
+            "deletion_subject_ref" VARCHAR(64),
+            "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),
+            CONSTRAINT "account_lifecycle_deletion_state_check"
+              CHECK ("deletion_state" IN ('active', 'pending', 'completed'))
+          );
+          CREATE INDEX IF NOT EXISTS "account_lifecycle_deletion_state_idx"
+            ON "account_lifecycle" ("deletion_state");
+          CREATE TABLE IF NOT EXISTS "account_lifecycle_events" (
+            "id" SERIAL PRIMARY KEY,
+            "subject_ref" VARCHAR(64) NOT NULL,
+            "event_type" VARCHAR(64) NOT NULL,
+            "details" JSONB NOT NULL DEFAULT '{}'::jsonb,
+            "created_at" TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS "account_lifecycle_events_type_created_idx"
+            ON "account_lifecycle_events" ("event_type", "created_at");
+          `;
+
+          '''
+          marker = 'type AppForgeSchemaMigration = {'
+          if 'const ACCOUNT_LIFECYCLE_SQL' not in text:
+              if marker not in text:
+                  raise SystemExit('ensureSchema type marker missing')
+              text = text.replace(marker, sql + marker, 1)
+          migration_marker = '''  {
+            version: "20261001_007",
+            name: "recovery_checkpoints",
+            sql: RECOVERY_CHECKPOINTS_SQL,
+          },
+          ];'''
+          replacement = '''  {
+            version: "20261001_007",
+            name: "recovery_checkpoints",
+            sql: RECOVERY_CHECKPOINTS_SQL,
+          },
+          {
+            version: "20261016_008",
+            name: "account_lifecycle",
+            sql: ACCOUNT_LIFECYCLE_SQL,
+          },
+          ];'''
+          if 'version: "20261016_008"' not in text:
+              if migration_marker not in text:
+                  raise SystemExit('migration anchor missing')
+              text = text.replace(migration_marker, replacement, 1)
+          ensure.write_text(text)
+
+          schema = Path('src/db/schema.ts')
+          text = schema.read_text()
+          anchor = '''});
+
+          export const subscriptions = pgTable("subscriptions", {'''
+          models = '''});
+
+          export const accountLifecycle = pgTable("account_lifecycle", {
+            userId: integer("user_id")
+              .primaryKey()
+              .references(() => users.id, { onDelete: "cascade" }),
+            language: varchar("language", { length: 32 }).default("en").notNull(),
+            communicationPreferences: jsonb("communication_preferences")
+              .$type<{ product: boolean; billing: boolean; marketing: boolean }>()
+              .default({ product: true, billing: true, marketing: false })
+              .notNull(),
+            accessibilityPreferences: jsonb("accessibility_preferences")
+              .$type<{ reducedMotion: boolean; highContrast: boolean }>()
+              .default({ reducedMotion: false, highContrast: false })
+              .notNull(),
+            deletionState: varchar("deletion_state", { length: 32 })
+              .default("active")
+              .notNull(),
+            deletionRequestedAt: timestamp("deletion_requested_at"),
+            deletedAt: timestamp("deleted_at"),
+            deletionSubjectRef: varchar("deletion_subject_ref", { length: 64 }),
+            updatedAt: timestamp("updated_at").defaultNow().notNull(),
+          });
+
+          export const accountLifecycleEvents = pgTable(
+            "account_lifecycle_events",
+            {
+              id: serial("id").primaryKey(),
+              subjectRef: varchar("subject_ref", { length: 64 }).notNull(),
+              eventType: varchar("event_type", { length: 64 }).notNull(),
+              details: jsonb("details").$type<Record<string, unknown>>().default({}).notNull(),
+              createdAt: timestamp("created_at").defaultNow().notNull(),
+            },
+            (table) => [
+              index("account_lifecycle_events_type_created_idx").on(
+                table.eventType,
+                table.createdAt,
+              ),
+            ],
+          );
+
+          export const subscriptions = pgTable("subscriptions", {'''
+          if 'export const accountLifecycle = pgTable' not in text:
+              if anchor not in text:
+                  raise SystemExit('schema users anchor missing')
+              text = text.replace(anchor, models, 1)
+          schema.write_text(text)
+          PY
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prettier --write src/db/ensureSchema.ts src/db/schema.ts
+      - name: Commit patch
+        env:
+          HUSKY: "0"
+        run: |
+          if git diff --quiet; then
+            echo "No schema patch required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/db/ensureSchema.ts src/db/schema.ts
+          git commit --no-verify -m "db: register account lifecycle migration"
+          git push origin HEAD:production-completeness-programme
