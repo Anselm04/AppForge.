@@ -45,9 +45,10 @@ function resourceVersionId(resource: BuilderResourceManifest): string {
 }
 
 function safeRepositorySourcePath(sourcePath: string): boolean {
-  const normalized = path.normalize(sourcePath.replaceAll("\\", "/"));
+  const portableSourcePath = sourcePath.replace(/\\/g, "/");
+  const normalized = path.normalize(portableSourcePath);
   return (
-    normalized === sourcePath.replaceAll("\\", "/") &&
+    normalized === portableSourcePath &&
     normalized.startsWith("src/") &&
     !normalized.includes("../") &&
     !normalized.endsWith("/.env") &&
