@@ -18,11 +18,11 @@ test("healthy replacements ignore stopped historical machines", () => {
     true,
   );
 });
-test("missing and excess capacity fail closed", () => {
+test("missing capacity fails closed and healthy excess capacity is accepted", () => {
   assert.equal(capacityReady([machine("1")], sha), false);
   assert.equal(
     capacityReady([machine("1"), machine("2"), machine("3")], sha),
-    false,
+    true,
   );
 });
 test("mixed and unverified releases fail closed", () => {
@@ -31,6 +31,17 @@ test("mixed and unverified releases fail closed", () => {
       [
         machine("1"),
         { ...machine("2"), image_ref: { labels: { GH_SHA: "b".repeat(40) } } },
+      ],
+      sha,
+    ),
+    false,
+  );
+  assert.equal(
+    capacityReady(
+      [
+        machine("1"),
+        machine("2"),
+        { ...machine("3"), image_ref: { labels: { GH_SHA: "b".repeat(40) } } },
       ],
       sha,
     ),
