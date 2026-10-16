@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const exportData = vi.hoisted(() => vi.fn(async (userId: number) => ({ userId })));
+const exportData = vi.hoisted(() =>
+  vi.fn(async (userId: number) => ({ userId })),
+);
 
 vi.mock("../lib/customerDataExport.js", () => ({
   buildCustomerDataExport: exportData,
