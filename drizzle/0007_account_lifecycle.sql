@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS "account_lifecycle" (
   "deletion_state" VARCHAR(32) NOT NULL DEFAULT 'active',
   "deletion_requested_at" TIMESTAMP,
   "deleted_at" TIMESTAMP,
+  "deletion_subject_ref" VARCHAR(64),
   "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),
   CONSTRAINT "account_lifecycle_deletion_state_check"
     CHECK ("deletion_state" IN ('active', 'pending', 'completed'))
