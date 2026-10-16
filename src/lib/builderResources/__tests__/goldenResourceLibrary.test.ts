@@ -97,10 +97,12 @@ describe("Golden Product Builder Resource Library validation", () => {
 
     const registry = createBuilderResourceLibraryRegistry();
     const resourcesByVersion = new Map<string, BuilderResourceManifest>(
-      registry.list().map((resource) => [
-        `${resource.identity.resourceId}@${resource.identity.version}`,
-        resource,
-      ]),
+      registry
+        .list()
+        .map((resource) => [
+          `${resource.identity.resourceId}@${resource.identity.version}`,
+          resource,
+        ]),
     );
     const measuredPaths = new Set<string>();
 
