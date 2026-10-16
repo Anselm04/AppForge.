@@ -7,7 +7,13 @@ import {
 
 describe("incident response", () => {
   it("maps critical customer-wide security or data-loss impact to SEV-1", () => {
-    expect(severityForImpact({ customersAffected: "many", dataRisk: true, serviceDown: true })).toBe("SEV-1");
+    expect(
+      severityForImpact({
+        customersAffected: "many",
+        dataRisk: true,
+        serviceDown: true,
+      }),
+    ).toBe("SEV-1");
   });
 
   it("creates an incident with the full response lifecycle", () => {

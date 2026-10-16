@@ -51,7 +51,9 @@ export function LandingPage() {
                 <GlassCard className="h-full">
                   <div className="flex items-start justify-between gap-3">
                     <span className="text-2xl">{f.icon}</span>
-                    <span className="forge-badge text-xs">{claim.customerLabel}</span>
+                    <span className="forge-badge text-xs">
+                      {claim.customerLabel}
+                    </span>
                   </div>
                   <h3 className="mt-3 font-semibold">
                     {t(`${f.i18nKey}.title`)}

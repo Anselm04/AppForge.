@@ -16,7 +16,8 @@ function rows<T>(value: unknown): T[] {
 
 async function requireOwnedProject(userId: number, projectId: number) {
   const project = await getProjectById(projectId);
-  if (!project || project.userId !== userId) throw new Error("Project not found");
+  if (!project || project.userId !== userId)
+    throw new Error("Project not found");
   return project;
 }
 
@@ -29,7 +30,8 @@ export async function persistChangeContract(input: {
   removals: string[];
 }): Promise<ChangeContract> {
   const project = await requireOwnedProject(input.userId, input.projectId);
-  if (!project.productContract) throw new Error("Project has no ProductContract to evolve");
+  if (!project.productContract)
+    throw new Error("Project has no ProductContract to evolve");
 
   const contract = createChangeContract({
     projectId: input.projectId,
@@ -53,7 +55,10 @@ export async function persistChangeContract(input: {
   return contract;
 }
 
-export async function listProjectChangeContracts(userId: number, projectId: number) {
+export async function listProjectChangeContracts(
+  userId: number,
+  projectId: number,
+) {
   await requireOwnedProject(userId, projectId);
   const result = await db.execute<{
     id: number;

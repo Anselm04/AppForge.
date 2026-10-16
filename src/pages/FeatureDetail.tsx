@@ -135,8 +135,13 @@ export function FeatureDetail() {
               )}
               <ul className="space-y-3">
                 {bestPractices.map((tip) => (
-                  <li key={tip} className="flex gap-3 text-sm text-forge-text-primary">
-                    <span aria-hidden="true" className="text-forge-cyan">✓</span>
+                  <li
+                    key={tip}
+                    className="flex gap-3 text-sm text-forge-text-primary"
+                  >
+                    <span aria-hidden="true" className="text-forge-cyan">
+                      ✓
+                    </span>
                     {tip}
                   </li>
                 ))}
@@ -155,8 +160,12 @@ export function FeatureDetail() {
               <div className="space-y-4">
                 {personas.map((persona) => (
                   <div key={persona.title}>
-                    <p className="text-sm font-semibold text-forge-text-primary">{persona.title}</p>
-                    <p className="text-sm text-forge-text-muted">{persona.body}</p>
+                    <p className="text-sm font-semibold text-forge-text-primary">
+                      {persona.title}
+                    </p>
+                    <p className="text-sm text-forge-text-muted">
+                      {persona.body}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -169,7 +178,10 @@ export function FeatureDetail() {
               <p className="mb-4 text-sm text-forge-text-muted">
                 {optional(`${base}.demoIntro`)}
               </p>
-              <Link to={primaryDestination} className="text-sm font-medium text-forge-cyan hover:underline">
+              <Link
+                to={primaryDestination}
+                className="text-sm font-medium text-forge-cyan hover:underline"
+              >
                 {t("features.tryIt")}
               </Link>
             </GlassCard>

@@ -195,7 +195,9 @@ async function deleteCustomerProjects(userId: number): Promise<void> {
 }
 
 async function deleteConnectionsAndSessions(userId: number): Promise<void> {
-  await db.execute(sql`DELETE FROM github_connections WHERE user_id = ${userId}`);
+  await db.execute(
+    sql`DELETE FROM github_connections WHERE user_id = ${userId}`,
+  );
   await db.execute(sql`DELETE FROM auth_sessions WHERE user_id = ${userId}`);
 }
 
@@ -212,13 +214,16 @@ async function anonymizeRetainedUser(userId: number): Promise<void> {
 }
 
 async function finishDeletion(userId: number): Promise<void> {
-  const result = await db.execute<Pick<LifecycleRow, "deletion_subject_ref">>(sql`
+  const result = await db.execute<
+    Pick<LifecycleRow, "deletion_subject_ref">
+  >(sql`
     SELECT deletion_subject_ref
     FROM account_lifecycle
     WHERE user_id = ${userId}
   `);
-  const subjectRef = rows<Pick<LifecycleRow, "deletion_subject_ref">>(result)[0]
-    ?.deletion_subject_ref;
+  const subjectRef =
+    rows<Pick<LifecycleRow, "deletion_subject_ref">>(result)[0]
+      ?.deletion_subject_ref;
   if (!subjectRef) throw new Error("Deletion audit subject is missing");
 
   await db.transaction(async (tx) => {
@@ -250,7 +255,9 @@ export function productionAccountDeletionDependencies(): AccountDeletionDependen
   };
 }
 
-export async function initializeAccountLifecycle(userId: number): Promise<void> {
+export async function initializeAccountLifecycle(
+  userId: number,
+): Promise<void> {
   await ensureLifecycleRow(userId);
   await db.execute(sql`
     UPDATE account_lifecycle

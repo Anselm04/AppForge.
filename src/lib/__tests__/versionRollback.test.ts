@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  assessRollback,
-  createUpgradeCandidate,
-} from "../versionRollback.js";
+import { assessRollback, createUpgradeCandidate } from "../versionRollback.js";
 
 describe("version and rollback lifecycle", () => {
   it("never silently upgrades a resource version", () => {

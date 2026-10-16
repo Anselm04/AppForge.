@@ -5,7 +5,12 @@ export type UpgradeCandidate = {
   status: "pending-evidence" | "validated" | "rejected";
   productionEvidenceInherited: false;
   requiredEvidence: Array<
-    "impact-analysis" | "migration" | "tests" | "behavioral-comparison" | "deployment" | "recovery"
+    | "impact-analysis"
+    | "migration"
+    | "tests"
+    | "behavioral-comparison"
+    | "deployment"
+    | "recovery"
   >;
 };
 
@@ -57,11 +62,15 @@ export function assessRollback(surface: RollbackSurface): {
     ["flags", "feature flags"],
     ["resourceVersions", "resource versions"],
   ];
-  const missing = required.filter(([key]) => !surface[key]).map(([, label]) => label);
+  const missing = required
+    .filter(([key]) => !surface[key])
+    .map(([, label]) => label);
   const safe = missing.length === 0 && surface.dataRollbackSafe;
   return {
     safe,
     strategy: safe ? "rollback" : "forward-recovery",
-    missing: surface.dataRollbackSafe ? missing : [...missing, "data rollback safety"],
+    missing: surface.dataRollbackSafe
+      ? missing
+      : [...missing, "data rollback safety"],
   };
 }

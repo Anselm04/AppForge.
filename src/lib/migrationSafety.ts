@@ -41,7 +41,8 @@ export function assessDatabaseMigration(input: {
     DESTRUCTIVE.has(operation.kind),
   );
 
-  if (input.operations.length === 0) reasons.push("Migration has no declared operations.");
+  if (input.operations.length === 0)
+    reasons.push("Migration has no declared operations.");
   if (destructive && !input.backupEvidenceId?.trim()) {
     reasons.push("Destructive migration requires verified backup evidence.");
   }
@@ -80,7 +81,9 @@ export function assessApiChange(input: {
     input.removedEndpoints.length > 0;
   const reasons: string[] = [];
   if (breaking && !input.versionedReplacement?.trim()) {
-    reasons.push("Breaking API change requires an explicit versioned replacement or compatibility layer.");
+    reasons.push(
+      "Breaking API change requires an explicit versioned replacement or compatibility layer.",
+    );
   }
   return { breaking, safeToRelease: reasons.length === 0, reasons };
 }

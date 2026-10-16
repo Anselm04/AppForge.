@@ -78,7 +78,9 @@ export const projectChatRouter = router({
         userId: ctx.user.id,
         role: "user",
         content: input.content,
-        metadata: changeContractCreated ? { changeContractCreated: true } : undefined,
+        metadata: changeContractCreated
+          ? { changeContractCreated: true }
+          : undefined,
       });
 
       let seniorDevTaskId: number | null = null;

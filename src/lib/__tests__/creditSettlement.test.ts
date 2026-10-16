@@ -9,17 +9,22 @@ describe("build credit settlement", () => {
     "timeout",
     "interruption",
     "duplicate",
-  ] as const)("does not unfairly charge AppForge/provider failure: %s", (kind) => {
-    const decision = decideCreditSettlement({
-      kind,
-      usefulWorkDelivered: false,
-      creditsReserved: 4,
-      creditsCharged: 0,
-      customerCaused: false,
-    });
-    expect(["released", "refunded", "not_charged"]).toContain(decision.outcome);
-    expect(decision.customerFault).toBe(false);
-  });
+  ] as const)(
+    "does not unfairly charge AppForge/provider failure: %s",
+    (kind) => {
+      const decision = decideCreditSettlement({
+        kind,
+        usefulWorkDelivered: false,
+        creditsReserved: 4,
+        creditsCharged: 0,
+        customerCaused: false,
+      });
+      expect(["released", "refunded", "not_charged"]).toContain(
+        decision.outcome,
+      );
+      expect(decision.customerFault).toBe(false);
+    },
+  );
 
   it("does not automatically refund invalid customer credentials after material work", () => {
     const decision = decideCreditSettlement({

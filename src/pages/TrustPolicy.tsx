@@ -53,7 +53,8 @@ const POLICIES: Record<string, Policy> = {
   },
   terms: {
     title: "Terms of Service",
-    summary: "The operating terms for using AppForge and generated-product services.",
+    summary:
+      "The operating terms for using AppForge and generated-product services.",
     sections: [
       {
         heading: "Using AppForge",
@@ -91,7 +92,8 @@ const POLICIES: Record<string, Policy> = {
   },
   "acceptable-use": {
     title: "Acceptable Use",
-    summary: "Rules that protect customers, providers and AppForge infrastructure.",
+    summary:
+      "Rules that protect customers, providers and AppForge infrastructure.",
     sections: [
       {
         heading: "Prohibited use",
@@ -135,7 +137,8 @@ const POLICIES: Record<string, Policy> = {
   },
   security: {
     title: "Security",
-    summary: "AppForge's public security and responsible-reporting information.",
+    summary:
+      "AppForge's public security and responsible-reporting information.",
     sections: [
       {
         heading: "Security approach",
@@ -180,11 +183,16 @@ export function TrustPolicy({ policyId }: { policyId?: string }) {
   return (
     <main className="bg-forge-mesh">
       <article className="forge-container forge-section max-w-4xl">
-        <p className="text-sm text-forge-text-muted">Effective {EFFECTIVE_DATE}</p>
+        <p className="text-sm text-forge-text-muted">
+          Effective {EFFECTIVE_DATE}
+        </p>
         <h1 className="forge-h1 mt-2 mb-4">{policy.title}</h1>
         <p className="forge-body mb-4">{policy.summary}</p>
         <div className="mb-8 rounded-card border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-forge-text-muted">
-          This policy describes AppForge's intended product behaviour and current operating rules. It is version-controlled with the product and must receive qualified legal review before being treated as final legal advice or a regulatory certification.
+          This policy describes AppForge's intended product behaviour and
+          current operating rules. It is version-controlled with the product and
+          must receive qualified legal review before being treated as final
+          legal advice or a regulatory certification.
         </div>
         <div className="space-y-8">
           {policy.sections.map((section) => (
@@ -199,7 +207,18 @@ export function TrustPolicy({ policyId }: { policyId?: string }) {
           ))}
         </div>
         <footer className="mt-10 border-t border-forge-border pt-6 text-sm text-forge-text-muted">
-          Questions: <a className="text-forge-cyan hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. See also <Link className="text-forge-cyan hover:underline" to="/help">Support</Link>.
+          Questions:{" "}
+          <a
+            className="text-forge-cyan hover:underline"
+            href={`mailto:${SUPPORT_EMAIL}`}
+          >
+            {SUPPORT_EMAIL}
+          </a>
+          . See also{" "}
+          <Link className="text-forge-cyan hover:underline" to="/help">
+            Support
+          </Link>
+          .
         </footer>
       </article>
     </main>

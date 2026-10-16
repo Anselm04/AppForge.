@@ -38,14 +38,22 @@ const CUSTOMER_LABEL: Record<CapabilityMaturity, string> = {
 };
 
 const EXPLANATION: Record<CapabilityMaturity, string> = {
-  planned: "Required evidence is missing, so AppForge does not claim support yet.",
-  experimental: "Evidence exists, but this capability is not ready for a production promise.",
-  structural: "The required structure exists, but end-to-end build evidence is incomplete.",
-  buildable: "AppForge has build evidence, but runtime evidence is not yet complete.",
-  runnable: "The generated result has runtime evidence, but deployment evidence is not yet complete.",
-  deployable: "Deployment evidence exists, but full verification is not yet complete.",
-  verified: "The capability has current verification evidence, but is not production-certified.",
-  "production-certified": "Current adapter, resource, runtime and platform evidence is production-certified.",
+  planned:
+    "Required evidence is missing, so AppForge does not claim support yet.",
+  experimental:
+    "Evidence exists, but this capability is not ready for a production promise.",
+  structural:
+    "The required structure exists, but end-to-end build evidence is incomplete.",
+  buildable:
+    "AppForge has build evidence, but runtime evidence is not yet complete.",
+  runnable:
+    "The generated result has runtime evidence, but deployment evidence is not yet complete.",
+  deployable:
+    "Deployment evidence exists, but full verification is not yet complete.",
+  verified:
+    "The capability has current verification evidence, but is not production-certified.",
+  "production-certified":
+    "Current adapter, resource, runtime and platform evidence is production-certified.",
 };
 
 function rank(maturity: CapabilityMaturity): number {
@@ -81,8 +89,8 @@ export function publicClaimForEvidence(
     };
   }
 
-  const maturity = (dimensions as CapabilityMaturity[]).reduce((lowest, current) =>
-    rank(current) < rank(lowest) ? current : lowest,
+  const maturity = (dimensions as CapabilityMaturity[]).reduce(
+    (lowest, current) => (rank(current) < rank(lowest) ? current : lowest),
   );
 
   return {

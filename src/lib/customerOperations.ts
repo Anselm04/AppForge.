@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 
 export type SupportSeverity = "SEV-1" | "SEV-2" | "SEV-3" | "SEV-4";
-export type SupportStatus = "open" | "investigating" | "waiting-customer" | "resolved" | "closed";
+export type SupportStatus =
+  "open" | "investigating" | "waiting-customer" | "resolved" | "closed";
 
 export type SupportCase = {
   caseRef: string;
@@ -62,16 +63,20 @@ export type BuildFailureKind =
   | "duplicate"
   | "cancelled";
 
-export type CreditOutcome = "not_charged" | "released" | "refunded" | "charged" | "manual_review";
+export type CreditOutcome =
+  "not_charged" | "released" | "refunded" | "charged" | "manual_review";
 
 const FAILURE_COPY: Record<BuildFailureKind, string> = {
   early_failure: "The build stopped before useful generation work completed.",
-  provider_outage: "A required external provider was unavailable during this build.",
+  provider_outage:
+    "A required external provider was unavailable during this build.",
   internal_defect: "AppForge encountered an internal build defect.",
-  invalid_customer_credentials: "A connected service rejected the customer-provided credentials or permissions.",
+  invalid_customer_credentials:
+    "A connected service rejected the customer-provided credentials or permissions.",
   external_rejection: "An external platform rejected the requested operation.",
   timeout: "The build exceeded its safe execution window and was stopped.",
-  interruption: "The build was interrupted before it could be safely completed.",
+  interruption:
+    "The build was interrupted before it could be safely completed.",
   duplicate: "A duplicate build was detected and stopped.",
   cancelled: "The build was cancelled before completion.",
 };
@@ -80,8 +85,10 @@ const CREDIT_COPY: Record<CreditOutcome, string> = {
   not_charged: "No build credits were charged.",
   released: "Reserved build credits were released back to your balance.",
   refunded: "Charged build credits were restored to your balance.",
-  charged: "The completed work remains charged under the build settlement rules.",
-  manual_review: "Credit settlement requires support review; no duplicate adjustment will be applied.",
+  charged:
+    "The completed work remains charged under the build settlement rules.",
+  manual_review:
+    "Credit settlement requires support review; no duplicate adjustment will be applied.",
 };
 
 export function buildFailureExplanation(input: {

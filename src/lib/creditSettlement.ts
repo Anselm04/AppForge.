@@ -39,7 +39,8 @@ export function decideCreditSettlement(input: {
     } else if (reserved > 0) {
       outcome = "released";
       amount = reserved;
-      reason = "Reserved credits released because useful work was not delivered.";
+      reason =
+        "Reserved credits released because useful work was not delivered.";
     } else {
       outcome = "not_charged";
       reason = "Failure occurred before credits were consumed.";
@@ -47,18 +48,21 @@ export function decideCreditSettlement(input: {
   } else if (input.customerCaused && input.usefulWorkDelivered) {
     outcome = "charged";
     amount = charged;
-    reason = "Material work was delivered before a customer-controlled dependency failed.";
+    reason =
+      "Material work was delivered before a customer-controlled dependency failed.";
   } else if (input.kind === "cancelled" && input.usefulWorkDelivered) {
     outcome = "charged";
     amount = charged;
-    reason = "Customer cancellation occurred after material work was delivered.";
+    reason =
+      "Customer cancellation occurred after material work was delivered.";
   } else if (charged > 0 && !input.usefulWorkDelivered) {
     outcome = "refunded";
     amount = charged;
     reason = "No useful work was delivered.";
   } else {
     outcome = "manual_review";
-    reason = "Settlement requires evidence review to avoid an unfair or duplicate adjustment.";
+    reason =
+      "Settlement requires evidence review to avoid an unfair or duplicate adjustment.";
   }
 
   const buildRef = input.buildRef?.trim() || "unassigned-build";

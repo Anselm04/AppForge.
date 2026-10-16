@@ -23,7 +23,9 @@ describe("production lifecycle failure paths", () => {
       anonymizeAccount: vi.fn(async () => undefined),
       recordAudit: vi.fn(async () => undefined),
     };
-    await expect(completeAccountDeletion(3, deps)).rejects.toThrow(/provider unavailable/i);
+    await expect(completeAccountDeletion(3, deps)).rejects.toThrow(
+      /provider unavailable/i,
+    );
     expect(deps.deleteCustomerProjects).not.toHaveBeenCalled();
     expect(deps.anonymizeAccount).not.toHaveBeenCalled();
   });

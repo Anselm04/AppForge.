@@ -107,7 +107,8 @@ export const PLATFORM_FEATURES: FeatureMeta[] = [
     i18nKey: "features.healthScanner",
     category: "discover",
     evidence: reviewed("structural"),
-    evidenceRef: "health/readiness primitives present; public workflow not certified",
+    evidenceRef:
+      "health/readiness primitives present; public workflow not certified",
   },
   {
     id: "feedback-board",

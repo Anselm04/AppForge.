@@ -51,7 +51,11 @@ export function createIncident(input: {
     severity: input.severity,
     status: "detected",
     summary: input.summary.trim().slice(0, 4000),
-    affectedServices: [...new Set(input.affectedServices.map((value) => value.trim()).filter(Boolean))],
+    affectedServices: [
+      ...new Set(
+        input.affectedServices.map((value) => value.trim()).filter(Boolean),
+      ),
+    ],
     customerImpact: null,
     evidenceRefs: [],
     containment: null,
@@ -76,7 +80,8 @@ export function createIncident(input: {
   };
 }
 
-const SENSITIVE_KEY = /(?:password|passphrase|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|email|phone|address)/i;
+const SENSITIVE_KEY =
+  /(?:password|passphrase|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|email|phone|address)/i;
 
 export function redactOperationalContext(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactOperationalContext);

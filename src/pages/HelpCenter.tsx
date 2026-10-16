@@ -182,10 +182,7 @@ export function HelpCenter() {
                     />
                   </div>
                   {caseMessage && (
-                    <p
-                      role="status"
-                      className="text-sm text-forge-text-muted"
-                    >
+                    <p role="status" className="text-sm text-forge-text-muted">
                       {caseMessage}
                     </p>
                   )}

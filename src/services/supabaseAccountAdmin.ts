@@ -30,7 +30,10 @@ export async function deleteSupabaseAuthUser(userId: string): Promise<void> {
   const normalized = userId.trim();
   if (!normalized) throw new Error("Supabase user id is required");
 
-  const { error } = await adminClient().auth.admin.deleteUser(normalized, false);
+  const { error } = await adminClient().auth.admin.deleteUser(
+    normalized,
+    false,
+  );
   if (error) {
     throw new Error(`Unable to revoke account identity: ${error.message}`);
   }

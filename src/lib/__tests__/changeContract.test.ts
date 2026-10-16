@@ -34,7 +34,16 @@ describe("ChangeContract", () => {
       removals: [],
     });
     expect(Object.keys(contract.impacts).sort()).toEqual(
-      ["api", "billing", "data", "permissions", "platform", "rollback", "security", "ui"].sort(),
+      [
+        "api",
+        "billing",
+        "data",
+        "permissions",
+        "platform",
+        "rollback",
+        "security",
+        "ui",
+      ].sort(),
     );
     expect(validateChangeContract(contract).valid).toBe(true);
   });

@@ -20,15 +20,28 @@ export function SiteFooter() {
           </p>
           <p>{t("footer.ownerOf")}</p>
         </div>
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-4 gap-y-2 sm:justify-end sm:max-w-xl">
-          <Link to="/about" className="text-blue-600 hover:text-blue-700 font-medium">
+        <nav
+          aria-label="Footer"
+          className="flex flex-wrap gap-x-4 gap-y-2 sm:justify-end sm:max-w-xl"
+        >
+          <Link
+            to="/about"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
             {t("footer.about")}
           </Link>
-          <Link to="/help" className="hover:text-slate-900 dark:hover:text-white">
+          <Link
+            to="/help"
+            className="hover:text-slate-900 dark:hover:text-white"
+          >
             AppForge Support
           </Link>
           {TRUST_LINKS.map(([label, to]) => (
-            <Link key={to} to={to} className="hover:text-slate-900 dark:hover:text-white">
+            <Link
+              key={to}
+              to={to}
+              className="hover:text-slate-900 dark:hover:text-white"
+            >
               {label}
             </Link>
           ))}

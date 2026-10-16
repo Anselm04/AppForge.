@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
-export type ChangeImpactLevel = "none" | "compatible" | "migration" | "breaking";
+export type ChangeImpactLevel =
+  "none" | "compatible" | "migration" | "breaking";
 
 export type ChangeImpact = {
   level: ChangeImpactLevel;
@@ -61,7 +62,9 @@ export function createChangeContract(input: {
   return {
     version: 1,
     projectId: input.projectId,
-    originalProductContractHash: hashProductContract(input.originalProductContract),
+    originalProductContractHash: hashProductContract(
+      input.originalProductContract,
+    ),
     request: input.request.trim(),
     additions: [...input.additions],
     changes: [...input.changes],
@@ -108,7 +111,10 @@ export function validateChangeContract(contract: ChangeContract): {
   for (const key of impactKeys) {
     if (!contract.impacts[key]) errors.push(`Missing ${key} impact decision.`);
   }
-  if (contract.impacts.rollback.safe && !contract.impacts.rollback.strategy.trim()) {
+  if (
+    contract.impacts.rollback.safe &&
+    !contract.impacts.rollback.strategy.trim()
+  ) {
     errors.push("A safe rollback claim requires a concrete recovery strategy.");
   }
   if (
@@ -116,7 +122,9 @@ export function validateChangeContract(contract: ChangeContract): {
     contract.impacts.rollback.safe &&
     contract.impacts.rollback.level !== "compatible"
   ) {
-    errors.push("Destructive removals cannot be marked rollback-safe without compatible evidence.");
+    errors.push(
+      "Destructive removals cannot be marked rollback-safe without compatible evidence.",
+    );
   }
   return { valid: errors.length === 0, errors };
 }
