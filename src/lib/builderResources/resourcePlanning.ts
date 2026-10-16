@@ -69,6 +69,7 @@ export type BuilderResourcePlan = {
     capability: BuilderResourceCapabilityId;
     resourceId: string;
     version: string;
+    requirementIds: string[];
     rationale: string[];
     evidenceLedgerIds: string[];
   }>;
@@ -224,10 +225,16 @@ function addDeclaredDependencies(input: {
           decision.version === dependency.identity.version,
       );
       if (capability && !alreadyRecorded) {
+        const parentDecision = input.decisionEvidence.find(
+          (decision) =>
+            decision.resourceId === resource.identity.resourceId &&
+            decision.version === resource.identity.version,
+        );
         input.decisionEvidence.push({
           capability,
           resourceId: dependency.identity.resourceId,
           version: dependency.identity.version,
+          requirementIds: [...(parentDecision?.requirementIds ?? [])],
           rationale: [
             `dependency-of:${resourceKey}`,
             `maturity:${dependency.governance.maturityState}`,
@@ -279,6 +286,7 @@ export function createBuilderResourcePlan(input: {
       capability,
       resourceId: candidate.resource.identity.resourceId,
       version: candidate.resource.identity.version,
+      requirementIds: [...candidate.decision.requirementIds],
       rationale: candidate.decision.rationale,
       evidenceLedgerIds: candidate.decision.evidenceLedgerIds,
     });
