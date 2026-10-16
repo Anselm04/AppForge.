@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { GlassCard } from "../design-system/GlassCard.js";
+import { Button } from "../design-system/Button.js";
+import { trpc } from "../utils/trpc.js";
 
 const TOPICS = [
   { id: "gettingStarted", to: "/app/new" },
@@ -13,6 +16,24 @@ const TOPICS = [
 export function HelpCenter() {
   const { t } = useLocale();
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("general");
+  const [summary, setSummary] = useState("");
+  const [caseMessage, setCaseMessage] = useState<string | null>(null);
+  const [casePending, setCasePending] = useState(false);
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => trpc.auth.me.query(),
+    staleTime: 0,
+  });
+  const {
+    data: cases,
+    refetch: refetchCases,
+  } = useQuery({
+    queryKey: ["operations", "mySupportCases"],
+    queryFn: () => trpc.operations.mySupportCases.query(),
+    enabled: Boolean(me),
+    staleTime: 0,
+  });
 
   const needle = query.trim().toLowerCase();
   const topics = TOPICS.map((topic) => ({
@@ -25,6 +46,28 @@ export function HelpCenter() {
       topic.title.toLowerCase().includes(needle) ||
       topic.body.toLowerCase().includes(needle),
   );
+
+  const submitCase = async (event: FormEvent) => {
+    event.preventDefault();
+    setCasePending(true);
+    setCaseMessage(null);
+    try {
+      const created = await trpc.operations.createSupportCase.mutate({
+        severity: "SEV-3",
+        category,
+        customerSummary: summary,
+      });
+      setSummary("");
+      setCaseMessage(`Support case ${created.caseRef} opened.`);
+      await refetchCases();
+    } catch (error) {
+      setCaseMessage(
+        error instanceof Error ? error.message : "Unable to open support case.",
+      );
+    } finally {
+      setCasePending(false);
+    }
+  };
 
   return (
     <div className="bg-forge-mesh">
@@ -78,6 +121,84 @@ export function HelpCenter() {
             ))}
           </div>
         )}
+
+        <section className="mt-12 max-w-2xl" aria-labelledby="support-cases-heading">
+          <GlassCard hover={false} padding="lg">
+            <h2 id="support-cases-heading" className="forge-h3 mb-3">
+              Support cases
+            </h2>
+            {me ? (
+              <>
+                <p className="mb-5 text-sm text-forge-text-muted">
+                  Open a case without sending passwords, API keys or provider secrets.
+                </p>
+                <form onSubmit={submitCase} className="space-y-4">
+                  <div>
+                    <label htmlFor="support-category" className="mb-1 block text-sm font-medium">
+                      Category
+                    </label>
+                    <select
+                      id="support-category"
+                      value={category}
+                      onChange={(event) => setCategory(event.target.value)}
+                      className="forge-input w-full"
+                    >
+                      <option value="general">General</option>
+                      <option value="build-failure">Build failure</option>
+                      <option value="billing">Billing or credits</option>
+                      <option value="deployment">Deployment</option>
+                      <option value="account-security">Account or security</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="support-summary" className="mb-1 block text-sm font-medium">
+                      What happened?
+                    </label>
+                    <textarea
+                      id="support-summary"
+                      className="forge-input min-h-32 w-full"
+                      minLength={3}
+                      maxLength={4000}
+                      required
+                      value={summary}
+                      onChange={(event) => setSummary(event.target.value)}
+                    />
+                  </div>
+                  {caseMessage && (
+                    <p role="status" className="text-sm text-forge-text-muted">
+                      {caseMessage}
+                    </p>
+                  )}
+                  <Button type="submit" loading={casePending} disabled={casePending || summary.trim().length < 3}>
+                    Open support case
+                  </Button>
+                </form>
+
+                {cases && cases.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="mb-3 font-semibold">Your recent cases</h3>
+                    <ul className="space-y-3">
+                      {cases.map((supportCase) => (
+                        <li key={supportCase.case_ref} className="rounded-card border border-forge-border p-3 text-sm">
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <strong>{supportCase.case_ref}</strong>
+                            <span>{supportCase.status}</span>
+                          </div>
+                          <p className="mt-1 text-forge-text-muted">{supportCase.customer_summary}</p>
+                          {supportCase.resolution && <p className="mt-2">Resolution: {supportCase.resolution}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-forge-text-muted">
+                <Link to="/login" className="text-forge-cyan hover:underline">Sign in</Link> to open and track an AppForge support case, or use the support email above if you cannot access your account.
+              </p>
+            )}
+          </GlassCard>
+        </section>
 
         <div className="mt-12 flex flex-wrap gap-3">
           <Link
