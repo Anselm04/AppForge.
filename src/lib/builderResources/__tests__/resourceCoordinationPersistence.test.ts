@@ -85,7 +85,7 @@ const plan: ProductPlan = {
 };
 
 describe("Builder Resource coordination persistence", () => {
-  it("records exact resource ids/versions and selection evidence in durable coordination state", () => {
+  it("records exact resource ids/versions and requirement-linked selection evidence in durable coordination state", () => {
     const context = createAgentCoordinationContext({
       productContract: contract,
       productPlan: plan,
@@ -102,9 +102,14 @@ describe("Builder Resource coordination persistence", () => {
       ),
     ).toBe(true);
     expect(roundTrip.builderResourceDecisionEvidence.length).toBeGreaterThan(0);
+    expect(
+      roundTrip.builderResourceDecisionEvidence.some((decision) =>
+        decision.requirementIds.includes("REQ-001"),
+      ),
+    ).toBe(true);
   });
 
-  it("hands selected resource context to the specialist task without replacing custom-code scope", () => {
+  it("hands task-scoped reusable implementation content to the specialist without replacing custom-code scope", () => {
     const context = createAgentCoordinationContext({
       productContract: contract,
       productPlan: plan,
@@ -115,9 +120,22 @@ describe("Builder Resource coordination persistence", () => {
     expect(parsed.builderResources.selectedResourceIds.length).toBeGreaterThan(
       0,
     );
+    expect(
+      parsed.builderResources.materializedImplementation
+        .selectedResourceVersionIds.length,
+    ).toBeGreaterThan(0);
+    expect(
+      parsed.builderResources.materializedImplementation.sourceCharsLoaded,
+    ).toBeGreaterThan(0);
+    expect(
+      parsed.builderResources.materializedImplementation.promptContext,
+    ).toContain("PRIVATE INTERNAL AppForge");
     expect(parsed.coordinationRules.resourceLibraryServesProductContract).toBe(
       true,
     );
+    expect(
+      parsed.coordinationRules.adaptReusableResourcesBeforeGeneratingDuplicates,
+    ).toBe(true);
     expect(
       parsed.coordinationRules.generateCustomCodeForUnmetRequirements,
     ).toBe(true);
