@@ -9,7 +9,8 @@ on:
 permissions:
   contents: write
 
-# Temporary branch-only helper; remove after one successful schema patch.
+# Temporary branch-only helper. It patches the immutable migration registry,
+# updates the Drizzle model and recovery inventory, then removes itself.
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -17,12 +18,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: production-completeness-programme
+          fetch-depth: 0
       - name: Patch immutable migration chain and Drizzle model
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          ensure = Path('src/db/ensureSchema.ts')
+          ensure = Path("src/db/ensureSchema.ts")
           text = ensure.read_text()
           sql = '''const ACCOUNT_LIFECYCLE_SQL = `
           CREATE TABLE IF NOT EXISTS "account_lifecycle" (
@@ -40,6 +42,7 @@ jobs:
           );
           CREATE INDEX IF NOT EXISTS "account_lifecycle_deletion_state_idx"
             ON "account_lifecycle" ("deletion_state");
+
           CREATE TABLE IF NOT EXISTS "account_lifecycle_events" (
             "id" SERIAL PRIMARY KEY,
             "subject_ref" VARCHAR(64) NOT NULL,
@@ -52,12 +55,13 @@ jobs:
           `;
 
           '''
-          marker = 'type AppForgeSchemaMigration = {'
-          if 'const ACCOUNT_LIFECYCLE_SQL' not in text:
-              if marker not in text:
-                  raise SystemExit('ensureSchema type marker missing')
-              text = text.replace(marker, sql + marker, 1)
-          migration_marker = '''  {
+          type_marker = "type AppForgeSchemaMigration = {"
+          if "const ACCOUNT_LIFECYCLE_SQL" not in text:
+              if type_marker not in text:
+                  raise SystemExit("ensureSchema migration type marker missing")
+              text = text.replace(type_marker, sql + type_marker, 1)
+
+          previous = '''  {
             version: "20261001_007",
             name: "recovery_checkpoints",
             sql: RECOVERY_CHECKPOINTS_SQL,
@@ -75,19 +79,15 @@ jobs:
           },
           ];'''
           if 'version: "20261016_008"' not in text:
-              if migration_marker not in text:
-                  raise SystemExit('migration anchor missing')
-              text = text.replace(migration_marker, replacement, 1)
+              if previous not in text:
+                  raise SystemExit("ensureSchema recovery migration anchor missing")
+              text = text.replace(previous, replacement, 1)
           ensure.write_text(text)
 
-          schema = Path('src/db/schema.ts')
+          schema = Path("src/db/schema.ts")
           text = schema.read_text()
-          anchor = '''});
-
-          export const subscriptions = pgTable("subscriptions", {'''
-          models = '''});
-
-          export const accountLifecycle = pgTable("account_lifecycle", {
+          subscriptions = 'export const subscriptions = pgTable("subscriptions", {'
+          models = '''export const accountLifecycle = pgTable("account_lifecycle", {
             userId: integer("user_id")
               .primaryKey()
               .references(() => users.id, { onDelete: "cascade" }),
@@ -126,29 +126,32 @@ jobs:
             ],
           );
 
-          export const subscriptions = pgTable("subscriptions", {'''
-          if 'export const accountLifecycle = pgTable' not in text:
-              if anchor not in text:
-                  raise SystemExit('schema users anchor missing')
-              text = text.replace(anchor, models, 1)
+          '''
+          if "export const accountLifecycle = pgTable" not in text:
+              if subscriptions not in text:
+                  raise SystemExit("schema subscriptions anchor missing")
+              text = text.replace(subscriptions, models + subscriptions, 1)
           schema.write_text(text)
+
+          recovery = Path("docs/RECOVERY_INVENTORY.md")
+          recovery_text = recovery.read_text()
+          note = '''\n### Account lifecycle migration (2026-10-16)\n\n- `20261016_008 account_lifecycle` is an additive migration creating account lifecycle preferences/deletion state and a PII-minimized lifecycle event log.\n- Recovery requirement: restore the database using the existing verified production recovery process, then verify `account_lifecycle` rows remain linked to the correct retained user IDs and that `account_lifecycle_events.subject_ref` contains only opaque deletion references.\n- Account deletion deliberately anonymizes the retained user row instead of deleting it so financial/audit records that require retention are not cascade-deleted. Customer projects and provider connections are removed separately.\n- Rollback is schema-safe only before lifecycle records are relied on. After customer deletion events exist, use forward recovery rather than dropping lifecycle tables.\n'''
+          if "### Account lifecycle migration (2026-10-16)" not in recovery_text:
+              recovery.write_text(recovery_text.rstrip() + "\n" + note)
           PY
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npx prettier --write src/db/ensureSchema.ts src/db/schema.ts
-      - name: Commit patch
+      - run: npx prettier --write src/db/ensureSchema.ts src/db/schema.ts src/lib/accountLifecycle.ts src/lib/__tests__/accountLifecycle.test.ts src/services/accountLifecycleService.ts src/services/supabaseAccountAdmin.ts
+      - name: Commit patch and remove helper
         env:
           HUSKY: "0"
         run: |
-          if git diff --quiet; then
-            echo "No schema patch required."
-            exit 0
-          fi
+          git rm .github/workflows/one-shot-account-lifecycle-schema.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/db/ensureSchema.ts src/db/schema.ts
+          git add src/db/ensureSchema.ts src/db/schema.ts docs/RECOVERY_INVENTORY.md src/lib/accountLifecycle.ts src/lib/__tests__/accountLifecycle.test.ts src/services/accountLifecycleService.ts src/services/supabaseAccountAdmin.ts
           git commit --no-verify -m "db: register account lifecycle migration"
           git push origin HEAD:production-completeness-programme
