@@ -46,7 +46,9 @@ function feature(
   return domainFeatureContractSchema.parse({
     featureId,
     contractKind,
-    configurationKeys: options.configurationKeys ?? [`${featureId}.configuration`],
+    configurationKeys: options.configurationKeys ?? [
+      `${featureId}.configuration`,
+    ],
     adaptationHooks: options.adaptationHooks ?? [`${featureId}.adapter`],
     testObligations: options.testObligations ?? [
       `validate ${featureId} contract behavior`,
@@ -138,7 +140,9 @@ export const DOMAIN_FEATURE_CONTRACTS: Record<
     feature("playlists", "data-model"),
     feature("waveform-hooks", "ui"),
     feature("lyric-display", "ui", {
-      securityObligations: ["only render lyrics/content the product is entitled to use"],
+      securityObligations: [
+        "only render lyrics/content the product is entitled to use",
+      ],
     }),
     feature("timing", "data-model"),
     feature("bpm-key-metadata", "data-model"),
@@ -147,7 +151,9 @@ export const DOMAIN_FEATURE_CONTRACTS: Record<
     feature("narration-integration", "integration"),
     feature("audio-transcript-accessibility", "accessibility"),
     feature("rights-metadata", "security", {
-      securityObligations: ["reject unlicensed or unknown-rights commercial material"],
+      securityObligations: [
+        "reject unlicensed or unknown-rights commercial material",
+      ],
     }),
   ]),
   marketing: pack("marketing", [
@@ -343,7 +349,9 @@ export const DOMAIN_FEATURE_CONTRACTS: Record<
     feature("permission-boundaries", "security"),
     feature("audit-events", "security"),
     feature("kyc-field-structures", "data-model", {
-      securityObligations: ["KYC scaffolding does not assert regulatory certification"],
+      securityObligations: [
+        "KYC scaffolding does not assert regulatory certification",
+      ],
     }),
   ]),
   healthcare: pack("healthcare", [
@@ -418,7 +426,9 @@ export const DOMAIN_FEATURE_CONTRACTS: Record<
     feature("voice-privacy", "security"),
     feature("siri-app-intents", "platform"),
     feature("android-voice-actions", "platform", {
-      securityObligations: ["never assume unrestricted always-listening behavior"],
+      securityObligations: [
+        "never assume unrestricted always-listening behavior",
+      ],
     }),
   ]),
   data: pack("data", [
@@ -455,7 +465,9 @@ export const DOMAIN_FEATURE_CONTRACTS: Record<
     feature("locale-validation", "workflow"),
     feature("locale-persistence", "data-model"),
     feature("accessible-language-selection", "accessibility", {
-      securityObligations: ["translation quality is not claimed without evidence"],
+      securityObligations: [
+        "translation quality is not claimed without evidence",
+      ],
     }),
   ]),
   collab: pack("collab", [
@@ -493,9 +505,7 @@ export function validateDomainFeaturePack(
   return parsed;
 }
 
-export function domainFeatureIds(
-  capability: BuildCapabilityId,
-): string[] {
+export function domainFeatureIds(capability: BuildCapabilityId): string[] {
   return DOMAIN_FEATURE_CONTRACTS[capability].features.map(
     (item) => item.featureId,
   );

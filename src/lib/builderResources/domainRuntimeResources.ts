@@ -17,7 +17,8 @@ export function rankResearchSources(
   nowMs = Date.now(),
 ): ResearchSource[] {
   return [...sources].sort((left, right) => {
-    const authority = AUTHORITY_SCORE[right.authority] - AUTHORITY_SCORE[left.authority];
+    const authority =
+      AUTHORITY_SCORE[right.authority] - AUTHORITY_SCORE[left.authority];
     if (authority !== 0) return authority;
     const leftAge = left.publishedAt
       ? Math.max(0, nowMs - Date.parse(left.publishedAt))
@@ -37,7 +38,10 @@ export function detectResearchClaimConflicts(
   for (const source of sources) {
     const subject = source.claim
       .toLowerCase()
-      .replace(/\b(?:is|are|was|were|supports?|does|doesn't|not|yes|no)\b/g, " ")
+      .replace(
+        /\b(?:is|are|was|were|supports?|does|doesn't|not|yes|no)\b/g,
+        " ",
+      )
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
     const entries = normalized.get(subject) ?? [];
@@ -121,7 +125,8 @@ export function buildVideoTimeline(
 ): Array<VideoScene & { startMs: number; endMs: number }> {
   let cursor = 0;
   return scenes.map((scene) => {
-    if (scene.durationMs <= 0) throw new Error("Scene duration must be positive");
+    if (scene.durationMs <= 0)
+      throw new Error("Scene duration must be positive");
     const startMs = cursor;
     cursor += scene.durationMs;
     return { ...scene, startMs, endMs: cursor };
@@ -149,7 +154,8 @@ export type AudioTrack = {
 export function sequenceAudioTracks(tracks: readonly AudioTrack[]) {
   let cursor = 0;
   return tracks.map((track) => {
-    if (track.durationMs < 0) throw new Error("Track duration cannot be negative");
+    if (track.durationMs < 0)
+      throw new Error("Track duration cannot be negative");
     const startMs = cursor;
     cursor += track.durationMs;
     return { ...track, startMs, endMs: cursor };
@@ -274,7 +280,8 @@ export type Box3 = {
 
 function boxesIntersect(left: Box3, right: Box3): boolean {
   return left.min.every(
-    (value, axis) => value < right.max[axis] && left.max[axis] > right.min[axis],
+    (value, axis) =>
+      value < right.max[axis] && left.max[axis] > right.min[axis],
   );
 }
 
@@ -310,7 +317,10 @@ export type GameAction =
   | { type: "inventory-add"; item: string }
   | { type: "pause"; paused: boolean };
 
-export function reduceGameState(state: GameState, action: GameAction): GameState {
+export function reduceGameState(
+  state: GameState,
+  action: GameAction,
+): GameState {
   switch (action.type) {
     case "score":
       return { ...state, score: state.score + action.points };

@@ -124,7 +124,9 @@ export function materializeTaskBuilderResources(input: {
 
   const selected = input.plan.selectedResourceIds
     .map((versionId) => byVersionId.get(versionId))
-    .filter((resource): resource is BuilderResourceManifest => Boolean(resource))
+    .filter((resource): resource is BuilderResourceManifest =>
+      Boolean(resource),
+    )
     .filter((resource) => isRelevantToTask(input.plan, input.task, resource))
     .slice(0, maxResources);
 

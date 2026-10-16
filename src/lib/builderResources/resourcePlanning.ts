@@ -198,11 +198,10 @@ function addSubstantiveDomainPacks(input: {
           ),
       )
       .sort((left, right) =>
-        right.identity.version.localeCompare(
-          left.identity.version,
-          undefined,
-          { numeric: true, sensitivity: "base" },
-        ),
+        right.identity.version.localeCompare(left.identity.version, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
       )[0];
 
     if (!domainPack) continue;
