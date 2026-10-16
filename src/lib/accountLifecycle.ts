@@ -99,6 +99,7 @@ export type AccountDeletionDependencies = {
   deleteProviderConnections(userId: number): Promise<void>;
   anonymizeAccount(userId: number): Promise<void>;
   recordAudit(userId: number): Promise<void>;
+  revokeSessions(userId: number): Promise<void>;
 };
 
 export async function completeAccountDeletion(
@@ -107,18 +108,25 @@ export async function completeAccountDeletion(
 ): Promise<void> {
   const user = await dependencies.loadUser(userId);
   if (!user || user.id !== userId) throw new Error("Account not found");
-  if (!user.openId) throw new Error("Account identity is unavailable");
 
   await dependencies.beginDeletion(userId);
   await dependencies.stopCustomerWork(userId);
   await dependencies.disableEntitlements(userId);
 
-  // Identity revocation is the irreversible boundary. Fail closed before
-  // deleting project/provider data if the identity provider cannot confirm it.
-  await dependencies.revokeIdentity(user.openId);
-
+  // Keep the identity and current session available until retryable local
+  // cleanup has completed. That prevents a transient database failure from
+  // stranding a customer in a pending-deletion state they cannot resume.
   await dependencies.deleteCustomerProjects(userId);
   await dependencies.deleteProviderConnections(userId);
+
+  // A retry may arrive after the provider identity was already revoked and
+  // the retained AppForge user row was anonymized. In that case openId is
+  // intentionally null and the remaining idempotent cleanup may continue.
+  if (user.openId) {
+    await dependencies.revokeIdentity(user.openId);
+  }
+
   await dependencies.anonymizeAccount(userId);
   await dependencies.recordAudit(userId);
+  await dependencies.revokeSessions(userId);
 }
