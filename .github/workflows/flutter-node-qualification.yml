@@ -258,7 +258,7 @@ jobs:
           test -n "$ANDROID_DEVICE"
           printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
-          flutter test integration_test/qualification_test.dart \
+          timeout 15m flutter test integration_test/qualification_test.dart \
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
@@ -274,8 +274,35 @@ jobs:
           xcodebuild -version > "$EVIDENCE/xcode-version.txt"
           xcrun simctl list devices available --json > "$EVIDENCE/simulators.json"
           DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
+          printf '%s\n' "$DEVICE" > "$EVIDENCE/ios-simulator-udid.txt"
+
+          # Boot with a bounded readiness check. Unbounded bootstatus previously
+          # finished with Status=-1 and left the rest of the job exposed to hangs.
           xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
-          xcrun simctl bootstatus "$DEVICE" -b
+          SIM_READY=false
+          for attempt in $(seq 1 90); do
+            STATE=$(xcrun simctl list devices | awk -v id="$DEVICE" '$0 ~ id {print; exit}')
+            printf 'attempt=%s state=%s\n' "$attempt" "$STATE" >> "$EVIDENCE/ios-simulator-boot.log"
+            if echo "$STATE" | grep -q "Booted"; then
+              # Prefer a positive bootstatus when available; time-box it.
+              if timeout 30s xcrun simctl bootstatus "$DEVICE" -b >> "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
+                SIM_READY=true
+                break
+              fi
+              # Fall back to Booted listing if bootstatus is flaky on the runner image.
+              if [ "$attempt" -ge 5 ]; then
+                SIM_READY=true
+                break
+              fi
+            fi
+            sleep 2
+          done
+          if [ "$SIM_READY" != true ]; then
+            echo "iOS simulator did not become ready within the bounded window" >&2
+            cat "$EVIDENCE/ios-simulator-boot.log" >&2 || true
+            exit 1
+          fi
+
           cd "$FIXTURE"
           PORT=3217 HOST=127.0.0.1 npm start > "$EVIDENCE/backend-runtime.log" 2>&1 &
           BACKEND_PID=$!
@@ -283,7 +310,12 @@ jobs:
           for attempt in $(seq 1 30); do curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/backend-health.json" && break; sleep 1; done
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
           flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
-          flutter test integration_test/qualification_test.dart -d "$DEVICE" --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-interaction.log"
+          # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
+          # not by burning the entire 60-minute job budget.
+          timeout 15m flutter test integration_test/qualification_test.dart \
+            -d "$DEVICE" \
+            --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
+            2>&1 | tee "$EVIDENCE/ios-interaction.log"
           xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
           flutter build ios --release --no-codesign 2>&1 | tee "$EVIDENCE/ios-release-build.log"
           test -d "$FIXTURE/build/ios/iphoneos/Runner.app"
