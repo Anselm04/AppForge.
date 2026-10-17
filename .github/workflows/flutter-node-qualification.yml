@@ -52,6 +52,27 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
+      - name: Set up portable command timeouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # macOS does not ship GNU timeout. Use Coreutils' explicit gtimeout
+          # name instead of relying on Homebrew's optional gnubin PATH.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            if ! command -v gtimeout >/dev/null 2>&1; then
+              HOMEBREW_NO_AUTO_UPDATE=1 brew install coreutils
+            fi
+            QUALIFICATION_TIMEOUT="$(command -v gtimeout)"
+          else
+            QUALIFICATION_TIMEOUT="$(command -v timeout)"
+          fi
+          "$QUALIFICATION_TIMEOUT" --version
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 5s bash -c 'exit 0'
+          # Check real expiration on each runner before expensive builds begin.
+          status=0
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 1s bash -c 'sleep 30' || status=$?
+          test "$status" -eq 124
+          echo "QUALIFICATION_TIMEOUT=$QUALIFICATION_TIMEOUT" >> "$GITHUB_ENV"
       - name: Install repository dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install pinned official Flutter
@@ -258,7 +279,7 @@ jobs:
           test -n "$ANDROID_DEVICE"
           printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
-          timeout 15m flutter test integration_test/qualification_test.dart \
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
@@ -276,31 +297,16 @@ jobs:
           DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
           printf '%s\n' "$DEVICE" > "$EVIDENCE/ios-simulator-udid.txt"
 
-          # Boot with a bounded readiness check. Unbounded bootstatus previously
-          # finished with Status=-1 and left the rest of the job exposed to hangs.
+          # Require successful readiness, not just a Booted listing. A missing
+          # command, abnormal bootstatus, or expiration must fail qualification.
           xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
-          SIM_READY=false
-          for attempt in $(seq 1 90); do
-            STATE=$(xcrun simctl list devices | awk -v id="$DEVICE" '$0 ~ id {print; exit}')
-            printf 'attempt=%s state=%s\n' "$attempt" "$STATE" >> "$EVIDENCE/ios-simulator-boot.log"
-            if echo "$STATE" | grep -q "Booted"; then
-              # Prefer a positive bootstatus when available; time-box it.
-              if timeout 30s xcrun simctl bootstatus "$DEVICE" -b >> "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
-                SIM_READY=true
-                break
-              fi
-              # Fall back to Booted listing if bootstatus is flaky on the runner image.
-              if [ "$attempt" -ge 5 ]; then
-                SIM_READY=true
-                break
-              fi
-            fi
-            sleep 2
-          done
-          if [ "$SIM_READY" != true ]; then
-            echo "iOS simulator did not become ready within the bounded window" >&2
-            cat "$EVIDENCE/ios-simulator-boot.log" >&2 || true
-            exit 1
+          if "$QUALIFICATION_TIMEOUT" --kill-after=10s 180s xcrun simctl bootstatus "$DEVICE" -b > "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
+            cat "$EVIDENCE/ios-simulator-boot.log"
+          else
+            status=$?
+            echo "iOS simulator readiness failed (exit $status)" >&2
+            cat "$EVIDENCE/ios-simulator-boot.log" >&2
+            exit "$status"
           fi
 
           cd "$FIXTURE"
@@ -312,7 +318,7 @@ jobs:
           flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
           # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
           # not by burning the entire 60-minute job budget.
-          timeout 15m flutter test integration_test/qualification_test.dart \
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
             -d "$DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/ios-interaction.log"
