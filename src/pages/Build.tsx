@@ -113,8 +113,9 @@ export function Build() {
   });
 
   const { data: deployOptions } = useQuery({
-    queryKey: ["projects", "deployOptions"],
-    queryFn: () => trpc.projects.deployOptions.query(),
+    queryKey: ["projects", pid, "deployOptions", project?.techStack],
+    queryFn: () => trpc.projects.deployOptions.query({ id: pid }),
+    enabled: pid > 0 && !!project,
   });
 
   const { data: me } = useQuery({

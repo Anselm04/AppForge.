@@ -17,6 +17,10 @@ import {
   updateProjectCreditsReserved,
   ensureUserCredits,
 } from "../db.js";
+import {
+  filterDeployOptionsForStack,
+  projectReadinessForApi,
+} from "../lib/stackPresentation.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import {
   canRetryPlanning,
@@ -149,7 +153,7 @@ const projectCreateSchema = z.object({
 
 export const projectsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    return getProjectsByUserId(ctx.user.id);
+    return (await getProjectsByUserId(ctx.user.id)).map(projectReadinessForApi);
   }),
 
   get: protectedProcedure
@@ -163,7 +167,7 @@ export const projectsRouter = router({
         });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-      return project;
+      return projectReadinessForApi(project);
     }),
 
   getLogs: protectedProcedure
@@ -975,7 +979,10 @@ export const projectsRouter = router({
           smokeTest: smoke,
           billingSmokeTest: billingSmoke,
           databaseSetup: dbGuide,
-          options: listDeployDestinations(),
+          options: filterDeployOptionsForStack(
+            stackAdapter.id,
+            listDeployDestinations(),
+          ),
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Deploy failed";
@@ -995,10 +1002,25 @@ export const projectsRouter = router({
       }
     }),
 
-  deployOptions: protectedProcedure.query(async () => {
-    const { listDeployDestinations } = await import("../services/deployer.js");
-    return listDeployDestinations();
-  }),
+  deployOptions: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }).optional())
+    .query(async ({ ctx, input }) => {
+      const { listDeployDestinations } =
+        await import("../services/deployer.js");
+      if (!input) return listDeployDestinations();
+      const project = await getProjectById(input.id);
+      if (!project)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found",
+        });
+      if (project.userId !== ctx.user.id)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+      return filterDeployOptionsForStack(
+        project.techStack,
+        listDeployDestinations(),
+      );
+    }),
 
   download: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))

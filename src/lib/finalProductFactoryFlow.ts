@@ -230,6 +230,10 @@ export function evaluateFinalProductFactoryFlow(input: {
   const manifest = parsedManifest.success ? parsedManifest.data : null;
   const files = input.artifact?.files ?? {};
   const deployment = input.deployment ?? null;
+  const certificationMatchesContract =
+    contract !== null &&
+    input.certificationDecision.stack === contract.selectedTechnologyStack &&
+    input.certificationDecision.productType === contract.productType;
   const monetizationRequired =
     contract !== null &&
     (contract.monetizationRequirements.length > 0 ||
@@ -434,9 +438,11 @@ export function evaluateFinalProductFactoryFlow(input: {
     },
     {
       id: "honest_certification",
-      complete: input.certificationDecision.productionCertified
-        ? input.certificationDecision.missingEvidence.length === 0
-        : input.certificationDecision.missingEvidence.length > 0,
+      complete:
+        certificationMatchesContract &&
+        (input.certificationDecision.productionCertified
+          ? input.certificationDecision.missingEvidence.length === 0
+          : input.certificationDecision.missingEvidence.length > 0),
       applicable: true,
       detail:
         "Certification must reflect the evidence without upgrading missing proof.",
@@ -458,6 +464,7 @@ export function evaluateFinalProductFactoryFlow(input: {
     .map((step) => step.detail);
 
   const productionReady =
+    certificationMatchesContract &&
     input.certificationDecision.productionCertified &&
     incompleteSteps.length === 0;
 
