@@ -300,7 +300,7 @@ jobs:
           # Require successful readiness, not just a Booted listing. A missing
           # command, abnormal bootstatus, or expiration must fail qualification.
           xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
-          if "$QUALIFICATION_TIMEOUT" --kill-after=10s 180s xcrun simctl bootstatus "$DEVICE" -b > "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
+          if "$QUALIFICATION_TIMEOUT" --kill-after=10s 300s xcrun simctl bootstatus "$DEVICE" -b > "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
             cat "$EVIDENCE/ios-simulator-boot.log"
           else
             status=$?
