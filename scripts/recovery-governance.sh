@@ -42,6 +42,9 @@ printf '%s\n' "$changed"
 # The hosted bundle exceeds the new 2.20.7 minimum; both steps use the workspace
 # checkout. Scanning scope, permissions, failure gates and recovery evidence
 # requirements stay enforced. Matching versions prevent configuration rejection.
+# Recovery review (20 October 2026): github-script v9 runs on hosted Node 24.
+# Checklist scripts use only injected context/core; no removed require calls or
+# getOctokit redeclarations. Required template checks and file gates stay intact.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
