@@ -27,6 +27,19 @@ printf '%s\n' "$changed"
 # Physical-evidence workflows are also fail-closed recovery controls: requesting
 # an email/SMS challenge is not equivalent to completing the real auth or MFA
 # lifecycle, so only successful full/fresh evidence may satisfy certification.
+# Recovery review (19 October 2026): Flutter/Node qualification timeout and
+# simulator-readiness hardening preserves the existing fail-closed evidence
+# boundary. A hung or unhealthy Android/iOS qualification now fails within a
+# bounded interval; it does not weaken restore, release, credential, backup, or
+# production recovery assumptions and does not promote mobile maturity on failure.
+# Recovery review (19 October 2026): the qualification-only Flutter log-reader
+# backport is pinned to upstream c3ed85ef987759ee54a6bce275490cde2a238dc1,
+# applied before tool bootstrap and recorded with its diff/hash in evidence.
+# It synchronizes log readiness before launch; real Node ok:1, all execution
+# bounds, Android, unsigned iOS release evidence, and governance stay enforced.
+# Recovery review (20 October 2026): github-script v9 runs on hosted Node 24.
+# Checklist scripts use only injected context/core; no removed require calls or
+# getOctokit redeclarations. Required template checks and file gates stay intact.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
