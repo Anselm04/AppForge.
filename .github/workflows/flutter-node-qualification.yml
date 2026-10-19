@@ -52,6 +52,27 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
+      - name: Set up portable command timeouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # macOS does not ship GNU timeout. Use Coreutils' explicit gtimeout
+          # name instead of relying on Homebrew's optional gnubin PATH.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            if ! command -v gtimeout >/dev/null 2>&1; then
+              HOMEBREW_NO_AUTO_UPDATE=1 brew install coreutils
+            fi
+            QUALIFICATION_TIMEOUT="$(command -v gtimeout)"
+          else
+            QUALIFICATION_TIMEOUT="$(command -v timeout)"
+          fi
+          "$QUALIFICATION_TIMEOUT" --version
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 5s bash -c 'exit 0'
+          # Check real expiration on each runner before expensive builds begin.
+          status=0
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 1s bash -c 'sleep 30' || status=$?
+          test "$status" -eq 124
+          echo "QUALIFICATION_TIMEOUT=$QUALIFICATION_TIMEOUT" >> "$GITHUB_ENV"
       - name: Install repository dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install pinned official Flutter
@@ -64,10 +85,31 @@ jobs:
           git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
           git -C "$RUNNER_TEMP/flutter" checkout --detach "refs/tags/$FLUTTER_VERSION"
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          # Backport the official fix for flutter/flutter#181771 to the pinned
+          # SDK before its first tool snapshot is built; do not race log capture
+          # against simctl launch or retry away a genuine integration failure.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            PATCH="$GITHUB_WORKSPACE/scripts/fixtures/flutter-node-qualification/patches/flutter-ios-log-reader.patch"
+            git -C "$RUNNER_TEMP/flutter" apply --check "$PATCH"
+            git -C "$RUNNER_TEMP/flutter" apply "$PATCH"
+            shasum -a 256 "$PATCH" > "$EVIDENCE/flutter-ios-log-reader-patch.sha256"
+            git -C "$RUNNER_TEMP/flutter" diff > "$EVIDENCE/flutter-sdk-backport.diff"
+          fi
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/flutter/bin/flutter" --version > "$EVIDENCE/flutter-bootstrap.log" 2>&1
           "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
           node -e 'const f=require(process.env.EVIDENCE+"/flutter-version.json"); if(f.frameworkVersion!==process.env.FLUTTER_VERSION) { console.error(`Expected Flutter ${process.env.FLUTTER_VERSION}, got ${f.frameworkVersion}`); process.exit(1); }'
+      - name: Verify iOS log-stream launch ordering regression
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export FLUTTER_ROOT="$RUNNER_TEMP/flutter"
+          cd "$RUNNER_TEMP/flutter/packages/flutter_tools"
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 2m ../../bin/cache/dart-sdk/bin/dart test \
+            test/general.shard/ios/simulators_test.dart \
+            --name 'waiting for the log stream' \
+            2>&1 | tee "$EVIDENCE/ios-log-reader-regression.log"
       - name: Generate native platform wrapper and preserve actual scaffold
         shell: bash
         run: |
@@ -258,7 +300,7 @@ jobs:
           test -n "$ANDROID_DEVICE"
           printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
-          flutter test integration_test/qualification_test.dart \
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
@@ -274,8 +316,20 @@ jobs:
           xcodebuild -version > "$EVIDENCE/xcode-version.txt"
           xcrun simctl list devices available --json > "$EVIDENCE/simulators.json"
           DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
+          printf '%s\n' "$DEVICE" > "$EVIDENCE/ios-simulator-udid.txt"
+
+          # Require successful readiness, not just a Booted listing. A missing
+          # command, abnormal bootstatus, or expiration must fail qualification.
           xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
-          xcrun simctl bootstatus "$DEVICE" -b
+          if "$QUALIFICATION_TIMEOUT" --kill-after=10s 300s xcrun simctl bootstatus "$DEVICE" -b > "$EVIDENCE/ios-simulator-boot.log" 2>&1; then
+            cat "$EVIDENCE/ios-simulator-boot.log"
+          else
+            status=$?
+            echo "iOS simulator readiness failed (exit $status)" >&2
+            cat "$EVIDENCE/ios-simulator-boot.log" >&2
+            exit "$status"
+          fi
+
           cd "$FIXTURE"
           PORT=3217 HOST=127.0.0.1 npm start > "$EVIDENCE/backend-runtime.log" 2>&1 &
           BACKEND_PID=$!
@@ -283,7 +337,12 @@ jobs:
           for attempt in $(seq 1 30); do curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/backend-health.json" && break; sleep 1; done
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
           flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
-          flutter test integration_test/qualification_test.dart -d "$DEVICE" --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-interaction.log"
+          # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
+          # not by burning the entire 60-minute job budget.
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test --verbose integration_test/qualification_test.dart \
+            -d "$DEVICE" \
+            --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
+            2>&1 | tee "$EVIDENCE/ios-interaction.log"
           xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
           flutter build ios --release --no-codesign 2>&1 | tee "$EVIDENCE/ios-release-build.log"
           test -d "$FIXTURE/build/ios/iphoneos/Runner.app"
