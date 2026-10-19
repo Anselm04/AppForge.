@@ -37,10 +37,11 @@ printf '%s\n' "$changed"
 # applied before tool bootstrap and recorded with its diff/hash in evidence.
 # It synchronizes log readiness before launch; real Node ok:1, all execution
 # bounds, Android, unsigned iOS release evidence, and governance stay enforced.
-# Recovery review (20 October 2026): setup-node v7 retains selected Node 22.
-# Hosted runners support action Node 24; no registry-url/always-auth inputs or
-# token fallback consumers exist. Flutter keeps automatic npm caching disabled;
-# explicit caches elsewhere and exact-SHA release/MFA/recovery gates stay intact.
+# Recovery review (19 October 2026): CodeQL init/analyze are upgraded together
+# to immutable v4.39.0 commit 6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee.
+# The hosted bundle exceeds the new 2.20.7 minimum; both steps use the workspace
+# checkout. Scanning scope, permissions, failure gates and recovery evidence
+# requirements stay enforced. Matching versions prevent configuration rejection.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
@@ -62,3 +63,8 @@ fi
 
 echo "Recovery-impacting change includes recovery protocol review:"
 printf '%s\n' "$recovery_updates"
+
+# Recovery review (20 October 2026): setup-node v7 retains selected Node 22,
+# explicit npm caches and disabled automatic Flutter caching. Hosted Node 24 is
+# supported; removed token fallback/always-auth inputs are unused. All exact-SHA
+# release, MFA, auth and recovery requirements remain enforced.
