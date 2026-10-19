@@ -37,6 +37,11 @@ printf '%s\n' "$changed"
 # applied before tool bootstrap and recorded with its diff/hash in evidence.
 # It synchronizes log readiness before launch; real Node ok:1, all execution
 # bounds, Android, unsigned iOS release evidence, and governance stay enforced.
+# Recovery review (19 October 2026): CodeQL init/analyze are upgraded together
+# to immutable v4.39.0 commit 6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee.
+# The hosted bundle exceeds the new 2.20.7 minimum; both steps use the workspace
+# checkout. Scanning scope, permissions, failure gates and recovery evidence
+# requirements stay enforced. Matching versions prevent configuration rejection.
 # Recovery review (20 October 2026): github-script v9 runs on hosted Node 24.
 # Checklist scripts use only injected context/core; no removed require calls or
 # getOctokit redeclarations. Required template checks and file gates stay intact.
