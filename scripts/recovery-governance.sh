@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Recovery review (20 October 2026): upload-artifact v7 preserves default ZIP
+# archives, names, paths, retention, filtering and integrity manifests. Hosted
+# Node 24 is supported; recovery encryption and API ZIP consumers stay intact.
+
 base="${1:-}"
 head="${2:-HEAD}"
 
@@ -37,10 +41,11 @@ printf '%s\n' "$changed"
 # applied before tool bootstrap and recorded with its diff/hash in evidence.
 # It synchronizes log readiness before launch; real Node ok:1, all execution
 # bounds, Android, unsigned iOS release evidence, and governance stay enforced.
-# Recovery review (20 October 2026): upload-artifact v7 keeps zipped archives
-# by default, names/paths/retention/hidden-file filtering and integrity manifests.
-# Hosted runners support Node 24; recovery tar/encryption and REST ZIP consumers
-# retain their formats. Fail-on-missing inputs and evidence bounds stay intact.
+# Recovery review (19 October 2026): CodeQL init/analyze are upgraded together
+# to immutable v4.39.0 commit 6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee.
+# The hosted bundle exceeds the new 2.20.7 minimum; both steps use the workspace
+# checkout. Scanning scope, permissions, failure gates and recovery evidence
+# requirements stay enforced. Matching versions prevent configuration rejection.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
