@@ -37,6 +37,10 @@ printf '%s\n' "$changed"
 # applied before tool bootstrap and recorded with its diff/hash in evidence.
 # It synchronizes log readiness before launch; real Node ok:1, all execution
 # bounds, Android, unsigned iOS release evidence, and governance stay enforced.
+# Recovery review (20 October 2026): setup-node v7 retains selected Node 22.
+# Hosted runners support action Node 24; no registry-url/always-auth inputs or
+# token fallback consumers exist. Flutter keeps automatic npm caching disabled;
+# explicit caches elsewhere and exact-SHA release/MFA/recovery gates stay intact.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
