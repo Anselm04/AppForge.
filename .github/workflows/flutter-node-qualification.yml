@@ -85,10 +85,31 @@ jobs:
           git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
           git -C "$RUNNER_TEMP/flutter" checkout --detach "refs/tags/$FLUTTER_VERSION"
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          # Backport the official fix for flutter/flutter#181771 to the pinned
+          # SDK before its first tool snapshot is built; do not race log capture
+          # against simctl launch or retry away a genuine integration failure.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            PATCH="$GITHUB_WORKSPACE/scripts/fixtures/flutter-node-qualification/patches/flutter-ios-log-reader.patch"
+            git -C "$RUNNER_TEMP/flutter" apply --check "$PATCH"
+            git -C "$RUNNER_TEMP/flutter" apply "$PATCH"
+            shasum -a 256 "$PATCH" > "$EVIDENCE/flutter-ios-log-reader-patch.sha256"
+            git -C "$RUNNER_TEMP/flutter" diff > "$EVIDENCE/flutter-sdk-backport.diff"
+          fi
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/flutter/bin/flutter" --version > "$EVIDENCE/flutter-bootstrap.log" 2>&1
           "$RUNNER_TEMP/flutter/bin/flutter" --version --machine > "$EVIDENCE/flutter-version.json"
           node -e 'const f=require(process.env.EVIDENCE+"/flutter-version.json"); if(f.frameworkVersion!==process.env.FLUTTER_VERSION) { console.error(`Expected Flutter ${process.env.FLUTTER_VERSION}, got ${f.frameworkVersion}`); process.exit(1); }'
+      - name: Verify iOS log-stream launch ordering regression
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export FLUTTER_ROOT="$RUNNER_TEMP/flutter"
+          cd "$RUNNER_TEMP/flutter/packages/flutter_tools"
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 2m ../../bin/cache/dart-sdk/bin/dart test \
+            test/general.shard/ios/simulators_test.dart \
+            --name 'waiting for the log stream' \
+            2>&1 | tee "$EVIDENCE/ios-log-reader-regression.log"
       - name: Generate native platform wrapper and preserve actual scaffold
         shell: bash
         run: |
@@ -318,7 +339,7 @@ jobs:
           flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
           # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
           # not by burning the entire 60-minute job budget.
-          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test --verbose integration_test/qualification_test.dart \
             -d "$DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/ios-interaction.log"
