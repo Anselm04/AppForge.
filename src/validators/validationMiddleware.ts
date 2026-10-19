@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import { z, ZodSchema, ZodError } from "zod";
+import { ZodType, ZodError } from "zod";
 
 // Validation error response
 export interface ValidationError {
@@ -31,7 +31,7 @@ export interface ParsedRequest {
  * Format Zod errors into friendly validation errors
  */
 export function formatZodError(error: ZodError): ValidationError[] {
-  return error.errors.map((err) => ({
+  return error.issues.map((err) => ({
     field: err.path.join("."),
     message: err.message,
     code: err.code,
@@ -41,7 +41,9 @@ export function formatZodError(error: ZodError): ValidationError[] {
 /**
  * Validate request body
  */
-export function validateBody<T extends ZodSchema>(schema: T): RequestHandler {
+export function validateBody<T extends ZodType<any>>(
+  schema: T,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body);
 
@@ -64,7 +66,9 @@ export function validateBody<T extends ZodSchema>(schema: T): RequestHandler {
 /**
  * Validate query parameters
  */
-export function validateQuery<T extends ZodSchema>(schema: T): RequestHandler {
+export function validateQuery<T extends ZodType<any>>(
+  schema: T,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.query);
 
@@ -86,7 +90,9 @@ export function validateQuery<T extends ZodSchema>(schema: T): RequestHandler {
 /**
  * Validate route parameters
  */
-export function validateParams<T extends ZodSchema>(schema: T): RequestHandler {
+export function validateParams<T extends ZodType<any>>(
+  schema: T,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.params);
 
@@ -109,9 +115,9 @@ export function validateParams<T extends ZodSchema>(schema: T): RequestHandler {
  * Validate multiple parts of request at once
  */
 export function validateRequest<
-  BodySchema extends ZodSchema,
-  QuerySchema extends ZodSchema,
-  ParamsSchema extends ZodSchema,
+  BodySchema extends ZodType<any>,
+  QuerySchema extends ZodType<any>,
+  ParamsSchema extends ZodType<any>,
 >(schemas: {
   body?: BodySchema;
   query?: QuerySchema;
@@ -167,7 +173,7 @@ export function validateRequest<
 /**
  * Validate request headers
  */
-export function validateHeaders<T extends ZodSchema>(
+export function validateHeaders<T extends ZodType<any>>(
   schema: T,
 ): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {

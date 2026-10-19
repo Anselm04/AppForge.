@@ -22,7 +22,7 @@ export type BuilderResourceType = (typeof BUILDER_RESOURCE_TYPES)[number];
 
 const nonEmptyString = z.string().trim().min(1);
 const stringList = z.array(nonEmptyString);
-const nullableJsonContract = z.record(z.unknown()).nullable();
+const nullableJsonContract = z.record(z.string(), z.unknown()).nullable();
 
 const adapterEvidenceSchema = z.object({
   discovered: z.boolean().optional(),
@@ -42,21 +42,27 @@ export const builderResourceCompositionSchema = z.object({
   routes: stringList.default([]),
   databaseMigrations: stringList.default([]),
   environmentVariables: stringList.default([]),
-  environmentVariableKinds: z.record(z.enum(["public", "secret"])).default({}),
-  packages: z.record(nonEmptyString).default({}),
+  environmentVariableKinds: z
+    .record(z.string(), z.enum(["public", "secret"]))
+    .default({}),
+  packages: z.record(z.string(), nonEmptyString).default({}),
   stateNamespaces: stringList.default([]),
   navigationKeys: stringList.default([]),
   permissions: stringList.default([]),
-  permissionPolicies: z.record(z.enum(["required", "forbidden"])).default({}),
+  permissionPolicies: z
+    .record(z.string(), z.enum(["required", "forbidden"]))
+    .default({}),
   stylingTokens: stringList.default([]),
-  stylingAssignments: z.record(nonEmptyString).default({}),
+  stylingAssignments: z.record(z.string(), nonEmptyString).default({}),
   platformCapabilities: stringList.default([]),
   platformCapabilityPolicies: z
-    .record(z.enum(["required", "forbidden"]))
+    .record(z.string(), z.enum(["required", "forbidden"]))
     .default({}),
   deploymentRequirements: stringList.default([]),
-  deploymentPolicies: z.record(z.enum(["required", "forbidden"])).default({}),
-  apiContracts: z.record(nonEmptyString).default({}),
+  deploymentPolicies: z
+    .record(z.string(), z.enum(["required", "forbidden"]))
+    .default({}),
+  apiContracts: z.record(z.string(), nonEmptyString).default({}),
   eventsProduced: stringList.default([]),
   eventsConsumed: stringList.default([]),
 });
@@ -78,7 +84,7 @@ export const builderResourceManifestSchema = z.object({
     supportedRuntimes: stringList,
     supportedPlatforms: stringList,
     incompatibleCombinations: stringList,
-    minimumRuntimeToolVersions: z.record(nonEmptyString),
+    minimumRuntimeToolVersions: z.record(z.string(), nonEmptyString),
   }),
   capabilities: z.object({
     capabilitiesProvided: z.array(z.enum(BUILDER_RESOURCE_CAPABILITY_IDS)),
@@ -87,8 +93,8 @@ export const builderResourceManifestSchema = z.object({
     integrationPoints: stringList,
   }),
   contracts: z.object({
-    inputContract: z.record(z.unknown()),
-    outputContract: z.record(z.unknown()),
+    inputContract: z.record(z.string(), z.unknown()),
+    outputContract: z.record(z.string(), z.unknown()),
     apiContract: nullableJsonContract,
     dataContract: nullableJsonContract,
     eventsEmitted: stringList,
@@ -105,7 +111,7 @@ export const builderResourceManifestSchema = z.object({
     databaseHooks: stringList,
     extensionPoints: stringList,
   }),
-  composition: builderResourceCompositionSchema.default({}),
+  composition: builderResourceCompositionSchema.prefault({}),
   implementation: z
     .object({
       sourcePaths: stringList,

@@ -20,19 +20,19 @@ import {
 } from "../lib/externalPayloadGuard.js";
 
 const automationPayloadSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine((payload) => JSON.stringify(payload).length <= 50_000, {
     message: "Automation payload is too large",
   });
 
 const agentContextSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine((context) => JSON.stringify(context).length <= 50_000, {
     message: "Agent task context is too large",
   });
 
 const supportContextSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine((context) => JSON.stringify(context).length <= 25_000, {
     message: "Support context is too large",
   });

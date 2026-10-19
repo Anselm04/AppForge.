@@ -17,7 +17,7 @@ export const designFamilySchema = z.object({
   layout: z.object({
     maxContentWidth: z.number().int().positive(),
     minTouchTarget: z.number().int().min(44),
-    responsiveBreakpoints: z.record(z.number().int().positive()),
+    responsiveBreakpoints: z.record(z.string(), z.number().int().positive()),
     supportsDenseTables: z.boolean(),
   }),
   typography: z.object({
