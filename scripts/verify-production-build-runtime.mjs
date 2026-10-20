@@ -1,6 +1,10 @@
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 
+export function servingCapacityReady(count) {
+  return Number.isInteger(count) && count >= 2;
+}
+
 // Inspect only startup's two public isolation flags. Never print or transfer
 // the web process environment, credentials or customer project files.
 export const remote = `
@@ -41,10 +45,9 @@ if (process.argv[1]?.endsWith("verify-production-build-runtime.mjs")) {
       machine.state === "started" &&
       (machine.config?.metadata?.fly_process_group ?? "app") === "app",
   );
-  assert.equal(
-    started.length,
-    2,
-    "Expected exactly two existing serving machines",
+  assert.ok(
+    servingCapacityReady(started.length),
+    "Expected at least two existing serving machines",
   );
   for (const machine of started) {
     const command = "node -e '" + remote.replaceAll("'", "'\\''") + "'";
