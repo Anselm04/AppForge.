@@ -230,9 +230,7 @@ async function inspectHost(payload) {
         "const WORKSPACE = " + JSON.stringify(workspace) + ";",
       )
       .replace(
-        'const ROOTS = CONTROLLERS.map(\
-  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\
-);',
+        'const ROOTS = CONTROLLERS.map(\n  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\n);',
         "const ROOTS = " + JSON.stringify(groups) + ";",
       );
     if (controller.includes("const ROOTS = CONTROLLERS.map"))
@@ -245,27 +243,9 @@ async function inspectHost(payload) {
       "sandbox-hosts": payload.hosts,
       "sandbox-nsswitch.conf": payload.nsswitch,
       "runner.mjs":
-        'import assert from "node:assert/strict";\
-import {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\
-const files=' +
+        'import assert from "node:assert/strict";\nimport {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\nconst files=' +
         JSON.stringify(payload.files) +
-        ';\
-const proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});\
-assert.equal(proof.passed,true,JSON.stringify(proof));\
-const rejected=await validateExistingHost({...files,"test.cjs":"process.exit(1)"},"node-service",{sourceSecurityVerified:true});\
-assert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);\
-const resourceStops={};\
-for(const [name,source] of Object.entries({\
- timeout:"while(true){}",\
- memory:"const buffers=[];setInterval(()=>buffers.push(Buffer.alloc(8*1024*1024,1)),1)",\
- output:"while(true)process.stdout.write(\'x\'.repeat(8192))",\
-})) {\
- const fixture={...files,"package.json":JSON.stringify({...JSON.parse(files["package.json"]),dependencies:{}}),"test.cjs":source};\
- const result=await validateExistingHost(fixture,"node-service",{sourceSecurityVerified:true,commandTimeoutMs:4000});\
- assert.equal(result.passed,false,name+JSON.stringify(result));assert.equal(result.stage,"isolation",name+JSON.stringify(result));assert.equal(result.steps.build,undefined);assert.equal(result.steps.runtime,undefined);assert.equal(existingHostReady(),true,name+" cleanup unavailable");resourceStops[name]=true;\
-}\
-console.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,resourceStops}));\
-',
+        ';\nconst proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});\nassert.equal(proof.passed,true,JSON.stringify(proof));\nconst rejected=await validateExistingHost({...files,"test.cjs":"process.exit(1)"},"node-service",{sourceSecurityVerified:true});\nassert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);\nconst resourceStops={};\nfor(const [name,source] of Object.entries({\n timeout:"while(true){}",\n memory:"const buffers=[];setInterval(()=>buffers.push(Buffer.alloc(8*1024*1024,1)),1)",\n output:"while(true)process.stdout.write(\'x\'.repeat(8192))",\n})) {\n const fixture={...files,"package.json":JSON.stringify({...JSON.parse(files["package.json"]),dependencies:{}}),"test.cjs":source};\n const result=await validateExistingHost(fixture,"node-service",{sourceSecurityVerified:true,commandTimeoutMs:4000});\n assert.equal(result.passed,false,name+JSON.stringify(result));assert.equal(result.stage,"isolation",name+JSON.stringify(result));assert.equal(result.steps.build,undefined);assert.equal(result.steps.runtime,undefined);assert.equal(existingHostReady(),true,name+" cleanup unavailable");resourceStops[name]=true;\n}\nconsole.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,resourceStops}));\n',
     }))
       fs.writeFileSync(controllerDirectory + "/" + name, content, {
         mode: 0o444,
@@ -296,8 +276,7 @@ console.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,
       },
     );
     const line = stdout
-      .split("\
-")
+      .split("\n")
       .find((line) => line.startsWith("CONTROLLER_PROOF "));
     if (!line) throw Error("Controller proof missing");
     const proof = JSON.parse(line.slice("CONTROLLER_PROOF ".length));
@@ -526,12 +505,11 @@ try {
   execute(
     'require("node:fs").rmSync(' +
       JSON.stringify(transferPath) +
-      ",{force:true});",
+      ",{force:true});',
   );
 }
 const marker = "APPFORGE_HOST_PROBE ";
-const line = output.split("\
-").find((line) => line.startsWith(marker));
+const line = output.split("\n").find((line) => line.startsWith(marker));
 if (!line)
   throw new Error(
     "Remote probe did not produce its required result: " + output.slice(-600),
