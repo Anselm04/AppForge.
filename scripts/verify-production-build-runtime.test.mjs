@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Script } from "node:vm";
-import { remote } from "./verify-production-build-runtime.mjs";
+import {
+  remote,
+  servingCapacityReady,
+} from "./verify-production-build-runtime.mjs";
 
 function inspect(prepared = true) {
   const calls = [];
@@ -37,6 +40,13 @@ function inspect(prepared = true) {
   });
   return calls;
 }
+
+test("production runtime qualification accepts redundant healthy serving capacity", () => {
+  assert.equal(servingCapacityReady(1), false);
+  assert.equal(servingCapacityReady(2), true);
+  assert.equal(servingCapacityReady(3), true);
+});
+
 test("production startup probe finds the server and forwards only approved public flags", () => {
   const [call] = inspect();
   assert.equal(call.command, "/sbin/su-exec");
