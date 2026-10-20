@@ -450,8 +450,8 @@ const started = machines.filter(
     m.state === "started" &&
     (m.config?.metadata?.fly_process_group ?? "app") === "app",
 );
-if (started.length !== 2)
-  throw new Error("Expected exactly two running production machines");
+if (started.length < 2)
+  throw new Error("Expected at least two running production machines");
 console.log(
   JSON.stringify(
     started.map((m) => ({
