@@ -54,6 +54,8 @@ async function inspectHost(payload) {
       result.resourceControls[controller] = false;
     }
   }
+  // Reviewed fixture only. The trusted shell attaches itself before the
+  // sandbox starts; every descendant inherits all three resource limits.
   if (groups.length !== 3) {
     for (const group of groups) fs.rmdirSync(group);
     throw new Error("Required resource controls are unavailable");
@@ -86,19 +88,30 @@ async function inspectHost(payload) {
     );
     result.delegation = stdout.includes("DELEGATED_CGROUPS_READY");
   } catch (error) {
-    result.delegationError = String(error.stderr ?? error.message).slice(0, 300);
+    result.delegationError = String(error.stderr ?? error.message).slice(
+      0,
+      300,
+    );
   }
   for (const group of groups)
-    if (fs.existsSync(group + "/delegated")) delegatedGroups.push(group + "/delegated");
+    if (fs.existsSync(group + "/delegated"))
+      delegatedGroups.push(group + "/delegated");
   const fixture = reviewedFixture;
-  const gatewayDirectory = fs.mkdtempSync("/tmp/appforge-qualification-gateway-");
+  const gatewayDirectory = fs.mkdtempSync(
+    "/tmp/appforge-qualification-gateway-",
+  );
   fs.chownSync(gatewayDirectory, 1001, 1001);
   fs.chmodSync(gatewayDirectory, 0o700);
-  fs.writeFileSync(gatewayDirectory + "/registry-relay.cjs", payload.relay, { mode: 0o444 });
+  fs.writeFileSync(gatewayDirectory + "/registry-relay.cjs", payload.relay, {
+    mode: 0o444,
+  });
   const { createRegistryGateway } = await import(
-    "data:text/javascript;base64," + Buffer.from(payload.gateway).toString("base64")
+    "data:text/javascript;base64," +
+      Buffer.from(payload.gateway).toString("base64")
   );
-  const gateway = await createRegistryGateway(gatewayDirectory + "/registry.sock");
+  const gateway = await createRegistryGateway(
+    gatewayDirectory + "/registry.sock",
+  );
   fs.chownSync(gatewayDirectory + "/registry.sock", 1001, 1001);
   fs.chmodSync(gatewayDirectory + "/registry.sock", 0o600);
   fs.writeFileSync(
@@ -152,27 +165,41 @@ async function inspectHost(payload) {
       "/bin/sh",
       [
         "-c",
-        groups.map((group) => "echo $$ > " + group + "/cgroup.procs").join(" && ") +
-          " && exec 3< " + gatewayDirectory + '/namespace-seccomp.bpf && exec "$@"',
+        groups
+          .map((group) => "echo $$ > " + group + "/cgroup.procs")
+          .join(" && ") +
+          " && exec 3< " +
+          gatewayDirectory +
+          '/namespace-seccomp.bpf && exec "$@"',
         "appforge-qualification",
         "/bin/su",
         "-s",
         "/bin/sh",
         "appforge",
         "-c",
-        "exec " + sandboxArgs.map((argument) => "'" + argument.replaceAll("'", "'\\''") + "'").join(" "),
+        "exec " +
+          sandboxArgs
+            .map((argument) => "'" + argument.replaceAll("'", "'\\''") + "'")
+            .join(" "),
       ],
       {
         encoding: "utf8",
         timeout: 28000,
         maxBuffer: 32768,
-        env: { PATH: "/usr/local/bin:/usr/bin:/bin", APPFORGE_HOST_SENTINEL: "synthetic-only" },
+        env: {
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+          APPFORGE_HOST_SENTINEL: "synthetic-only",
+        },
       },
     );
     result.sandbox = output.includes("SANDBOX_QUALIFIED");
     result.resourceUsage = {
-      memoryPeakBytes: Number(fs.readFileSync(groups[0] + "/memory.max_usage_in_bytes", "utf8")),
-      cpuNanoseconds: Number(fs.readFileSync(groups[1] + "/cpuacct.usage", "utf8")),
+      memoryPeakBytes: Number(
+        fs.readFileSync(groups[0] + "/memory.max_usage_in_bytes", "utf8"),
+      ),
+      cpuNanoseconds: Number(
+        fs.readFileSync(groups[1] + "/cpuacct.usage", "utf8"),
+      ),
     };
   } catch (error) {
     result.sandbox = false;
@@ -180,13 +207,21 @@ async function inspectHost(payload) {
   }
   await gateway.close();
   fs.rmSync(gatewayDirectory, { recursive: true, force: true });
+  // Exercise the actual controller with reviewed fixture sources only.
   const controllerDirectory = fs.mkdtempSync("/tmp/af-ctl-");
   fs.chmodSync(controllerDirectory, 0o755);
   const workspace = controllerDirectory + "/w";
   fs.mkdirSync(workspace);
   let mounted = false;
   try {
-    await execFile("/bin/mount", ["-t", "tmpfs", "-o", "size=64m,nosuid,nodev,mode=700", "tmpfs", workspace]);
+    await execFile("/bin/mount", [
+      "-t",
+      "tmpfs",
+      "-o",
+      "size=64m,nosuid,nodev,mode=700",
+      "tmpfs",
+      workspace,
+    ]);
     mounted = true;
     fs.chownSync(workspace, 1001, 1001);
     const controller = payload.controller
@@ -195,7 +230,9 @@ async function inspectHost(payload) {
         "const WORKSPACE = " + JSON.stringify(workspace) + ";",
       )
       .replace(
-        'const ROOTS = CONTROLLERS.map(\n  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\n);',
+        'const ROOTS = CONTROLLERS.map(\
+  (name) => "/sys/fs/cgroup/" + name + "/appforge-builds",\
+);',
         "const ROOTS = " + JSON.stringify(groups) + ";",
       );
     if (controller.includes("const ROOTS = CONTROLLERS.map"))
@@ -208,15 +245,45 @@ async function inspectHost(payload) {
       "sandbox-hosts": payload.hosts,
       "sandbox-nsswitch.conf": payload.nsswitch,
       "runner.mjs":
-        'import assert from "node:assert/strict";\nimport {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\nconst files=' +
+        'import assert from "node:assert/strict";\
+import {validateExistingHost,existingHostReady} from "./existing-host-controller.mjs";\
+const files=' +
         JSON.stringify(payload.files) +
-        ';\nconst proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});\nassert.equal(proof.passed,true,JSON.stringify(proof));\nconst rejected=await validateExistingHost({...files,"test.cjs":"process.exit(1)"},"node-service",{sourceSecurityVerified:true});\nassert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);\nconst resourceStops={};\nfor(const [name,source] of Object.entries({\n timeout:"while(true){}",\n memory:"const buffers=[];setInterval(()=>buffers.push(Buffer.alloc(8*1024*1024,1)),1)",\n output:"while(true)process.stdout.write(\'x\'.repeat(8192))",\n})) {\n const fixture={...files,"package.json":JSON.stringify({...JSON.parse(files["package.json"]),dependencies:{}}),"test.cjs":source};\n const result=await validateExistingHost(fixture,"node-service",{sourceSecurityVerified:true,commandTimeoutMs:4000});\n assert.equal(result.passed,false,name+JSON.stringify(result));assert.equal(result.stage,"isolation",name+JSON.stringify(result));assert.equal(result.steps.build,undefined);assert.equal(result.steps.runtime,undefined);assert.equal(existingHostReady(),true,name+" cleanup unavailable");resourceStops[name]=true;\n}\nconsole.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,resourceStops}));\n',
+        ';\
+const proof=await validateExistingHost(files,"node-service",{sourceSecurityVerified:true});\
+assert.equal(proof.passed,true,JSON.stringify(proof));\
+const rejected=await validateExistingHost({...files,"test.cjs":"process.exit(1)"},"node-service",{sourceSecurityVerified:true});\
+assert.equal(rejected.passed,false);assert.equal(rejected.stage,"tests");assert.equal(rejected.steps.tests.passed,false);assert.equal(rejected.steps.build,undefined);assert.equal(rejected.steps.runtime,undefined);assert.equal(existingHostReady(),true);\
+const resourceStops={};\
+for(const [name,source] of Object.entries({\
+ timeout:"while(true){}",\
+ memory:"const buffers=[];setInterval(()=>buffers.push(Buffer.alloc(8*1024*1024,1)),1)",\
+ output:"while(true)process.stdout.write(\'x\'.repeat(8192))",\
+})) {\
+ const fixture={...files,"package.json":JSON.stringify({...JSON.parse(files["package.json"]),dependencies:{}}),"test.cjs":source};\
+ const result=await validateExistingHost(fixture,"node-service",{sourceSecurityVerified:true,commandTimeoutMs:4000});\
+ assert.equal(result.passed,false,name+JSON.stringify(result));assert.equal(result.stage,"isolation",name+JSON.stringify(result));assert.equal(result.steps.build,undefined);assert.equal(result.steps.runtime,undefined);assert.equal(existingHostReady(),true,name+" cleanup unavailable");resourceStops[name]=true;\
+}\
+console.log("CONTROLLER_PROOF "+JSON.stringify({...proof,negativeTestsStop:true,resourceStops}));\
+',
     }))
-      fs.writeFileSync(controllerDirectory + "/" + name, content, { mode: 0o444 });
-    fs.writeFileSync(controllerDirectory + "/namespace-seccomp.bpf", Buffer.from(payload.filter, "base64"), { mode: 0o444 });
+      fs.writeFileSync(controllerDirectory + "/" + name, content, {
+        mode: 0o444,
+      });
+    fs.writeFileSync(
+      controllerDirectory + "/namespace-seccomp.bpf",
+      Buffer.from(payload.filter, "base64"),
+      { mode: 0o444 },
+    );
     const { stdout } = await execFile(
       "/bin/su",
-      ["-s", "/bin/sh", "appforge", "-c", "exec node " + controllerDirectory + "/runner.mjs"],
+      [
+        "-s",
+        "/bin/sh",
+        "appforge",
+        "-c",
+        "exec node " + controllerDirectory + "/runner.mjs",
+      ],
       {
         encoding: "utf8",
         timeout: 65000,
@@ -228,7 +295,10 @@ async function inspectHost(payload) {
         },
       },
     );
-    const line = stdout.split("\n").find((line) => line.startsWith("CONTROLLER_PROOF "));
+    const line = stdout
+      .split("\
+")
+      .find((line) => line.startsWith("CONTROLLER_PROOF "));
     if (!line) throw Error("Controller proof missing");
     const proof = JSON.parse(line.slice("CONTROLLER_PROOF ".length));
     result.controller = {
@@ -241,28 +311,46 @@ async function inspectHost(payload) {
     };
     if (
       !proof.negativeTestsStop ||
-      !["timeout", "memory", "output"].every((name) => proof.resourceStops?.[name]) ||
+      !["timeout", "memory", "output"].every(
+        (name) => proof.resourceStops?.[name],
+      ) ||
       !proof.passed ||
       !proof.isolationId ||
       proof.techStack !== "node-service" ||
       proof.artifactSha256 !==
-        require("node:crypto").createHash("sha256").update(JSON.stringify(payload.files)).digest("hex") ||
-      !["install", "security", "tests", "build", "runtime"].every((stage) => proof.steps[stage]?.passed)
+        require("node:crypto")
+          .createHash("sha256")
+          .update(JSON.stringify(payload.files))
+          .digest("hex") ||
+      !["install", "security", "tests", "build", "runtime"].every(
+        (stage) => proof.steps[stage]?.passed,
+      )
     )
       throw Error("Controller qualification failed");
   } catch (error) {
-    result.controller = { passed: false, error: String(error.stderr ?? error.message).slice(-1800) };
+    result.controller = {
+      passed: false,
+      error: String(error.stderr ?? error.message).slice(-1800),
+    };
   } finally {
     for (const group of groups)
       for (const name of fs.readdirSync(group)) {
         if (!/^appforge-build-[a-f0-9-]+$/.test(name)) continue;
         const child = group + "/" + name;
-        for (const pid of fs.readFileSync(child + "/cgroup.procs", "utf8").trim().split(/\s+/).filter(Boolean))
-          try { process.kill(Number(pid), "SIGKILL"); } catch {}
+        for (const pid of fs
+          .readFileSync(child + "/cgroup.procs", "utf8")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean))
+          try {
+            process.kill(Number(pid), "SIGKILL");
+          } catch {}
         for (let retry = 0; retry < 20; retry++)
           try {
             if (child.includes("/memory/"))
-              try { fs.writeFileSync(child + "/memory.force_empty", "0"); } catch {}
+              try {
+                fs.writeFileSync(child + "/memory.force_empty", "0");
+              } catch {}
             fs.rmdirSync(child);
             break;
           } catch {
@@ -277,22 +365,39 @@ async function inspectHost(payload) {
   for (const controller of ["memory", "cpu,cpuacct", "pids"]) {
     const root = "/sys/fs/cgroup/" + controller;
     for (const name of fs.readdirSync(root)) {
-      if (/^appforge-qualification-\d+$/.test(name)) staleGroups.push(root + "/" + name);
+      if (/^appforge-qualification-\d+$/.test(name))
+        staleGroups.push(root + "/" + name);
     }
   }
-  for (const group of [...new Set([...delegatedGroups, ...groups, ...staleGroups])]) {
+  for (const group of [
+    ...new Set([...delegatedGroups, ...groups, ...staleGroups]),
+  ]) {
     const readPids = () =>
-      fs.readFileSync(group + "/cgroup.procs", "utf8").trim().split(/\s+/).filter(Boolean);
-    if (!groups.includes(group) && !delegatedGroups.includes(group) && readPids().length)
+      fs
+        .readFileSync(group + "/cgroup.procs", "utf8")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    // Stale groups are removed only when empty; only this run's groups may
+    // have their reviewed fixture processes terminated.
+    if (
+      !groups.includes(group) &&
+      !delegatedGroups.includes(group) &&
+      readPids().length
+    )
       continue;
     for (const pid of readPids()) {
-      try { process.kill(Number(pid), "SIGKILL"); } catch {}
+      try {
+        process.kill(Number(pid), "SIGKILL");
+      } catch {}
     }
     let removed = false;
     for (let retry = 0; retry < 20; retry++) {
       try {
         if (!readPids().length && group.includes("/memory/")) {
-          try { fs.writeFileSync(group + "/memory.force_empty", "0"); } catch {}
+          try {
+            fs.writeFileSync(group + "/memory.force_empty", "0");
+          } catch {}
         }
         fs.rmdirSync(group);
         removed = true;
@@ -304,7 +409,9 @@ async function inspectHost(payload) {
     if (!removed) {
       result.cleanup = false;
       result.cleanupProcesses = readPids().length;
-      result.cleanupChildren = fs.readdirSync(group).filter((name) => fs.statSync(group + "/" + name).isDirectory());
+      result.cleanupChildren = fs
+        .readdirSync(group)
+        .filter((name) => fs.statSync(group + "/" + name).isDirectory());
     }
   }
   console.log("APPFORGE_HOST_PROBE " + JSON.stringify(result));
@@ -312,19 +419,44 @@ async function inspectHost(payload) {
 
 const payload = {
   files: reviewedFiles,
-  hosts: readFileSync(new URL("./runtime/sandbox-hosts", import.meta.url), "utf8"),
-  nsswitch: readFileSync(new URL("./runtime/sandbox-nsswitch.conf", import.meta.url), "utf8"),
-  controller: readFileSync(new URL("./runtime/existing-host-controller.mjs", import.meta.url), "utf8"),
-  runtimeRelay: readFileSync(new URL("./runtime/runtime-relay.cjs", import.meta.url), "utf8"),
+  hosts: readFileSync(
+    new URL("./runtime/sandbox-hosts", import.meta.url),
+    "utf8",
+  ),
+  nsswitch: readFileSync(
+    new URL("./runtime/sandbox-nsswitch.conf", import.meta.url),
+    "utf8",
+  ),
+  controller: readFileSync(
+    new URL("./runtime/existing-host-controller.mjs", import.meta.url),
+    "utf8",
+  ),
+  runtimeRelay: readFileSync(
+    new URL("./runtime/runtime-relay.cjs", import.meta.url),
+    "utf8",
+  ),
   filter: namespaceFilter().toString("base64"),
-  fixture: readFileSync(new URL("./fixtures/existing-host-node.cjs", import.meta.url), "utf8"),
-  gateway: readFileSync(new URL("./runtime/registry-gateway.mjs", import.meta.url), "utf8"),
-  relay: readFileSync(new URL("./runtime/registry-relay.cjs", import.meta.url), "utf8"),
+  fixture: readFileSync(
+    new URL("./fixtures/existing-host-node.cjs", import.meta.url),
+    "utf8",
+  ),
+  gateway: readFileSync(
+    new URL("./runtime/registry-gateway.mjs", import.meta.url),
+    "utf8",
+  ),
+  relay: readFileSync(
+    new URL("./runtime/registry-relay.cjs", import.meta.url),
+    "utf8",
+  ),
 };
 new Script(payload.fixture);
 new Script(payload.relay);
 const probe =
-  "(" + inspectHost.toString() + ")(" + JSON.stringify(payload) + ").catch(error => {console.error(error.message);process.exitCode=1})";
+  "(" +
+  inspectHost.toString() +
+  ")(" +
+  JSON.stringify(payload) +
+  ").catch(error => {console.error(error.message);process.exitCode=1})";
 new Script(probe);
 if (process.argv.includes("--syntax-only")) process.exit(0);
 const app = "appforge-unfurling-moon-9058";
@@ -335,7 +467,9 @@ const machines = JSON.parse(
   }),
 );
 const started = machines.filter(
-  (m) => m.state === "started" && (m.config?.metadata?.fly_process_group ?? "app") === "app",
+  (m) =>
+    m.state === "started" &&
+    (m.config?.metadata?.fly_process_group ?? "app") === "app",
 );
 if (started.length < 2)
   throw new Error("Expected at least two running production machines");
@@ -349,6 +483,8 @@ console.log(
   ),
 );
 const encoded = gzipSync(Buffer.from(probe)).toString("base64");
+// Machine exec has a small request limit; transfer controlled public fixture
+// bytes in bounded chunks. No token, customer code or environment is included.
 const transferPath = "/tmp/af-probe-" + randomUUID();
 const execute = (code, timeout = 10) =>
   execFileSync(
@@ -367,7 +503,11 @@ const execute = (code, timeout = 10) =>
   );
 let output;
 try {
-  execute('require("node:fs").writeFileSync(' + JSON.stringify(transferPath) + ',"",{flag:"wx",mode:384});');
+  execute(
+    'require("node:fs").writeFileSync(' +
+      JSON.stringify(transferPath) +
+      ',"",{flag:"wx",mode:384});',
+  );
   for (let offset = 0; offset < encoded.length; offset += 3000)
     execute(
       'require("node:fs").appendFileSync(' +
@@ -383,12 +523,19 @@ try {
     110,
   );
 } finally {
-  execute('require("node:fs").rmSync(' + JSON.stringify(transferPath) + ',{force:true});');
+  execute(
+    'require("node:fs").rmSync(' +
+      JSON.stringify(transferPath) +
+      ",{force:true});",
+  );
 }
 const marker = "APPFORGE_HOST_PROBE ";
-const line = output.split("\n").find((line) => line.startsWith(marker));
+const line = output.split("\
+").find((line) => line.startsWith(marker));
 if (!line)
-  throw new Error("Remote probe did not produce its required result: " + output.slice(-600));
+  throw new Error(
+    "Remote probe did not produce its required result: " + output.slice(-600),
+  );
 const result = JSON.parse(line.slice(marker.length));
 if (!result.node || typeof result.uid !== "number")
   throw new Error("Incomplete remote probe");
