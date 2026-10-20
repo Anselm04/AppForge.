@@ -194,7 +194,7 @@ jobs:
           grep -Fq 'run: npm run test -- --run' "$file"
           grep -Fq 'run: npm run build' "$file"
 
-      - name: Verify exact two-machine production recovery contract
+      - name: Verify redundant Fly production recovery contract
         shell: bash
         run: |
           set -euo pipefail
@@ -222,11 +222,11 @@ jobs:
               exit 1
             fi
           done
-          grep -Fq 'started.length === 2' "$capacity"
+          grep -Fq 'started.length >= 2' "$capacity"
           grep -Fq 'process.env.RELEASE_SHA' "$capacity"
           grep -Fq 'machine.image_ref?.labels?.GH_SHA' "$capacity"
           grep -Fq 'check.status === "passing"' "$capacity"
-          node --test scripts/verify-fly-capacity.test.mjs
+          node --test scripts/verify-fly-capacity.test.mjs scripts/verify-production-build-runtime.test.mjs
 
           grep -Fq 'REDIS_URL' "$deploy"
           grep -Fq 'REDIS_URL is required in production for shared multi-machine coordination' src/utils/env-validator.ts
@@ -248,7 +248,7 @@ jobs:
           grep -Fq 'non-transient HTTP' "$smoke"
           grep -Fq 'Scheduled two-Machine production customer-flow and auth-boundary smoke passed' "$smoke"
 
-          grep -Fq 'exactly two started app Machines' "$runbook"
+          grep -Fq 'min_machines_running = 2' "$runbook"
           grep -Fq 'Fly Production Capacity Guard' "$runbook"
           grep -Fq 'shared Redis' "$runbook"
           grep -Fq 'single-writer' "$runbook"
@@ -287,6 +287,6 @@ jobs:
           echo 'Platinum owner-safe security protocol present and structurally verified.'
           echo 'Repository, encrypted production database, and metadata backup controls structurally verified.'
           echo 'Production deploy is bound to successful main CI (or owner dispatch on main), re-validated on the exact current main SHA.'
-          echo 'Exact two-Machine Fly recovery, shared Redis coordination, single-writer background side effects, capacity reconciliation, and resilient customer smoke controls are structurally verified.'
+          echo 'At-least-two healthy Fly recovery capacity, shared Redis coordination, single-writer background side effects, non-root runtime qualification, and resilient customer smoke controls are structurally verified.'
           echo 'Launch certification remains fail-closed until exact-SHA real provider evidence and repeated customer journeys exist.'
           echo 'Recovery governance remains active.'
