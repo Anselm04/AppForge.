@@ -128,7 +128,7 @@ Output JSON: {
   generateSustainabilityReport: protectedProcedure
     .input(
       z.object({
-        conceptDesign: z.record(z.unknown()),
+        conceptDesign: z.record(z.string(), z.unknown()),
         location: z.string().min(2).max(300),
         jurisdiction: jurisdictionEnum.default("OTHER"),
       }),
@@ -152,7 +152,7 @@ Output JSON: {
   generateBIMModel: protectedProcedure
     .input(
       z.object({
-        conceptDesign: z.record(z.unknown()),
+        conceptDesign: z.record(z.string(), z.unknown()),
         location: z.string().min(2).max(300),
         includeStructural: z.boolean().default(true),
         includeMEP: z.boolean().default(true),
@@ -177,7 +177,7 @@ Output JSON: {
   detectBIMClashes: protectedProcedure
     .input(
       z.object({
-        bimModel: z.record(z.unknown()),
+        bimModel: z.record(z.string(), z.unknown()),
       }),
     )
     .mutation(async ({ input }) => {
@@ -206,7 +206,7 @@ Output JSON: {
   generateConstructionDocuments: protectedProcedure
     .input(
       z.object({
-        bimModel: z.record(z.unknown()),
+        bimModel: z.record(z.string(), z.unknown()),
         jurisdiction: jurisdictionEnum.default("OTHER"),
         units: z.enum(["metric", "imperial"]).optional(),
       }),
@@ -234,7 +234,7 @@ Output JSON: {
   checkArchitectureAccessibility: protectedProcedure
     .input(
       z.object({
-        floorPlan: z.record(z.unknown()),
+        floorPlan: z.record(z.string(), z.unknown()),
       }),
     )
     .mutation(async ({ input }) => {
@@ -302,7 +302,7 @@ Output JSON: {
   generateInteriorLayout: protectedProcedure
     .input(
       z.object({
-        floorPlan: z.record(z.unknown()),
+        floorPlan: z.record(z.string(), z.unknown()),
         style: z.string().max(100).default("contemporary"),
         budgetTier: z.enum(["economy", "mid", "premium"]).default("mid"),
       }),
@@ -323,7 +323,7 @@ Output JSON: {
   generatePermitDrawings: protectedProcedure
     .input(
       z.object({
-        constructionDocs: z.record(z.unknown()),
+        constructionDocs: z.record(z.string(), z.unknown()),
         jurisdiction: jurisdictionEnum.default("OTHER"),
         councilName: z.string().max(200).optional(),
       }),
@@ -346,7 +346,7 @@ Output JSON: {
   generateBillOfQuantities: protectedProcedure
     .input(
       z.object({
-        bimModel: z.record(z.unknown()),
+        bimModel: z.record(z.string(), z.unknown()),
         units: z.enum(["metric", "imperial"]).optional(),
         currency: z.string().max(10).default("USD"),
       }),
@@ -370,7 +370,7 @@ Output JSON: {
   generateArchitectureSpecifications: protectedProcedure
     .input(
       z.object({
-        constructionDocs: z.record(z.unknown()),
+        constructionDocs: z.record(z.string(), z.unknown()),
         jurisdiction: jurisdictionEnum.default("OTHER"),
       }),
     )

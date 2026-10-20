@@ -441,7 +441,7 @@ Output JSON: {
   generatePatentSpecification: protectedProcedure
     .input(
       z.object({
-        inventionDesign: z.record(z.unknown()),
+        inventionDesign: z.record(z.string(), z.unknown()),
         jurisdiction: z
           .enum(["USPTO", "IPONZ", "EPO", "IP_AUSTRALIA", "UK_IPO", "CIPO"])
           .default("USPTO"),
@@ -496,7 +496,7 @@ Enable a skilled person to make and use the invention. ${meta.notes}`,
   generatePatentDrawings: protectedProcedure
     .input(
       z.object({
-        inventionDesign: z.record(z.unknown()),
+        inventionDesign: z.record(z.string(), z.unknown()),
         mode: z.enum(["informal", "formal"]).default("informal"),
         figureCount: z.number().int().min(1).max(12).default(4),
       }),

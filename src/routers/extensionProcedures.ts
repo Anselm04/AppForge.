@@ -13,7 +13,7 @@ import {
 const MAX_EXTENSION_PLAN_BYTES = 250_000;
 
 const nonEmptyPlanSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine((plan) => Object.keys(plan).length > 0, {
     message: "Extension plan must not be empty",
   });

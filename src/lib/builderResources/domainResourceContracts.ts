@@ -32,10 +32,10 @@ export const researchResourceSchema = z.object({
 export const graphicsResourceSchema = z.object({
   familyId: id,
   tokens: z.object({
-    spacing: z.record(z.number().nonnegative()),
-    radius: z.record(z.number().nonnegative()),
-    typography: z.record(nonEmpty),
-    semanticColors: z.record(nonEmpty),
+    spacing: z.record(z.string(), z.number().nonnegative()),
+    radius: z.record(z.string(), z.number().nonnegative()),
+    typography: z.record(z.string(), nonEmpty),
+    semanticColors: z.record(z.string(), nonEmpty),
   }),
   layouts: z.array(
     z.object({
@@ -260,7 +260,11 @@ export const patentResourceSchema = z.object({
     }),
   ),
   figures: z.array(
-    z.object({ id, file: nonEmpty, referenceNumerals: z.record(nonEmpty) }),
+    z.object({
+      id,
+      file: nonEmpty,
+      referenceNumerals: z.record(z.string(), nonEmpty),
+    }),
   ),
   jurisdiction: nonEmpty,
   revision: z.number().int().positive(),
@@ -343,7 +347,7 @@ export const gameResourceSchema = z.object({
     keyboard: z.boolean(),
     touch: z.boolean(),
     controllers: z.boolean(),
-    bindings: z.record(nonEmpty),
+    bindings: z.record(z.string(), nonEmpty),
   }),
   progression: z.object({
     score: z.boolean(),
@@ -373,13 +377,13 @@ export const cadResourceSchema = z.object({
     height: z.number().positive(),
     depth: z.number().positive(),
   }),
-  tolerances: z.record(z.number().nonnegative()),
+  tolerances: z.record(z.string(), z.number().nonnegative()),
   materials: z.array(
     z.object({
       id,
       name: nonEmpty,
       grade: z.string(),
-      properties: z.record(z.union([z.string(), z.number()])),
+      properties: z.record(z.string(), z.union([z.string(), z.number()])),
     }),
   ),
   components: z.array(
@@ -424,7 +428,7 @@ export const legalResourceSchema = z.object({
     )
     .min(1),
   consentRequirements: nonEmptyList,
-  variables: z.record(z.string()),
+  variables: z.record(z.string(), z.string()),
   qualifiedReviewRequired: z.literal(true),
 });
 
@@ -584,7 +588,7 @@ export const dataResourceSchema = z.object({
   events: z.array(
     z.object({
       name: id,
-      properties: z.record(nonEmpty),
+      properties: z.record(z.string(), nonEmpty),
       privacyClass: z.enum([
         "anonymous",
         "pseudonymous",
@@ -614,7 +618,7 @@ export const dataResourceSchema = z.object({
   ),
   access: z.object({
     rowOwnership: z.boolean(),
-    roles: z.record(z.array(nonEmpty)),
+    roles: z.record(z.string(), z.array(nonEmpty)),
   }),
 });
 
@@ -624,7 +628,7 @@ export const localizationResourceSchema = z.object({
   fallbackLocale: nonEmpty,
   rtlLocales: z.array(nonEmpty),
   namespaces: nonEmptyList,
-  keys: z.record(z.record(z.string())),
+  keys: z.record(z.string(), z.record(z.string(), z.string())),
   formatting: z.object({
     dates: z.boolean(),
     times: z.boolean(),
@@ -656,7 +660,7 @@ export const collaborationResourceSchema = z.object({
       sequence: z.number().int().nonnegative(),
       baseVersion: z.number().int().nonnegative(),
       kind: nonEmpty,
-      payload: z.record(z.unknown()),
+      payload: z.record(z.string(), z.unknown()),
     }),
   ),
   conflictStrategy: z.enum(["optimistic-version", "crdt", "ot"]),

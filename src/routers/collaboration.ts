@@ -31,7 +31,7 @@ const cursorSchema = z
   })
   .strict();
 const metadataSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine(
     (value) => Buffer.byteLength(JSON.stringify(value), "utf8") <= 20_000,
     {

@@ -46,7 +46,7 @@ function requireAuthenticatedUser(req: Request, res: Response): boolean {
   return true;
 }
 
-function validateInput(schema: z.ZodSchema, body: any) {
+function validateInput<T>(schema: z.ZodType<T>, body: unknown) {
   const result = schema.safeParse(body);
   if (!result.success) {
     return {
