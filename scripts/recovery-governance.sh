@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Recovery review (20 October 2026): upload-artifact v7 preserves default ZIP
+# archives, names, paths, retention, filtering and integrity manifests. Hosted
+# Node 24 is supported; recovery encryption and API ZIP consumers stay intact.
+
 base="${1:-}"
 head="${2:-HEAD}"
 
