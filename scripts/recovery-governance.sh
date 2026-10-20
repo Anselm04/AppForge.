@@ -70,3 +70,8 @@ fi
 
 echo "Recovery-impacting change includes recovery protocol review:"
 printf '%s\n' "$recovery_updates"
+
+# Recovery review (20 October 2026): setup-node v7 retains selected Node 22,
+# explicit npm caches and disabled automatic Flutter caching. Hosted Node 24 is
+# supported; removed token fallback/always-auth inputs are unused. All exact-SHA
+# release, MFA, auth and recovery requirements remain enforced.
