@@ -35,7 +35,7 @@ export const authenticationResourceSchema = z.object({
 
 export const accountResourceSchema = z.object({
   profileFields: stringList,
-  preferences: z.record(z.unknown()),
+  preferences: z.record(z.string(), z.unknown()),
   passwordChange: z.boolean(),
   emailChange: z.object({ enabled: z.boolean(), reverify: z.boolean() }),
   deletion: z.object({
@@ -226,7 +226,7 @@ export const analyticsResourceSchema = z.object({
   events: z.array(
     z.object({
       name: id,
-      properties: z.record(nonEmpty),
+      properties: z.record(z.string(), nonEmpty),
       privacyClass: z.enum([
         "anonymous",
         "pseudonymous",
