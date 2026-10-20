@@ -505,7 +505,7 @@ try {
   execute(
     'require("node:fs").rmSync(' +
       JSON.stringify(transferPath) +
-      ",{force:true});',
+      ",{force:true});",
   );
 }
 const marker = "APPFORGE_HOST_PROBE ";
