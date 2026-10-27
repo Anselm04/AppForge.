@@ -26,8 +26,19 @@ function storedPhone(user: {
   phone?: string | null;
   user_metadata?: Record<string, unknown> | null;
 }): string | undefined {
-  if (typeof user.phone === "string" && user.phone) return normalizePhone(user.phone);
   const metadataPhone = user.user_metadata?.["signup_phone"];
+  const metadataVerified = user.user_metadata?.["signup_phone_verified"] === true;
+
+  if (
+    typeof metadataPhone === "string" &&
+    metadataPhone &&
+    !metadataVerified
+  ) {
+    return normalizePhone(metadataPhone);
+  }
+  if (typeof user.phone === "string" && user.phone) {
+    return normalizePhone(user.phone);
+  }
   return typeof metadataPhone === "string" && metadataPhone
     ? normalizePhone(metadataPhone)
     : undefined;
@@ -50,12 +61,18 @@ export async function requestAccountPhoneVerification(input: {
     throw new Error("Enter a mobile number before requesting an SMS code.");
   }
 
-  if (current.user.phone_confirmed_at && existing === requested) {
+  if (
+    current.user.phone_confirmed_at &&
+    current.user.phone === requested
+  ) {
     return { phone: requested, alreadyVerified: true };
   }
 
   const existingMetadata = current.user.user_metadata ?? {};
-  if (existing !== requested || existingMetadata["signup_phone_verified"] === true) {
+  if (
+    existing !== requested ||
+    existingMetadata["signup_phone_verified"] === true
+  ) {
     const { error } = await supabase.auth.admin.updateUserById(input.supabaseUid, {
       user_metadata: {
         ...existingMetadata,
