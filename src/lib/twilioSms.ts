@@ -14,16 +14,16 @@ export class TwilioVerificationDeliveryError extends Error {
       (providerCode === 20003
         ? "Check the configured Twilio account credentials."
         : providerCode === 21608
-          ? "The configured owner phone is not yet a verified recipient for this Twilio account."
+          ? "This phone is not yet an approved recipient for the configured Twilio account."
           : providerCode === 60410
-            ? "Check Verify geographic permission for the owner phone's country."
+            ? "Check Twilio Verify geographic permission for this phone's country."
             : providerCode === 60212 || providerCode === 20404
               ? "Check the configured Twilio Verify Service SID."
               : providerCode === 60202
                 ? "Wait before requesting another code; the provider's send limit was reached."
                 : "Check the Verify service, account balance, and destination permissions.");
     super(
-      `SMS provider rejected the request (HTTP ${httpStatus}${providerCode ? `, code ${providerCode}` : ""}). ${hint} Admin remains locked.`,
+      `SMS provider rejected the request (HTTP ${httpStatus}${providerCode ? `, code ${providerCode}` : ""}). ${hint} Verification remains locked.`,
     );
     this.name = "TwilioVerificationDeliveryError";
   }
@@ -101,7 +101,7 @@ export function isTwilioVerifyConfigured(): boolean {
   );
 }
 
-async function startOwnerPhoneVerificationRecovery(
+async function startPhoneRecipientVerificationRecovery(
   to: string,
 ): Promise<string | null> {
   const res = await fetch(
@@ -116,7 +116,7 @@ async function startOwnerPhoneVerificationRecovery(
       },
       body: new URLSearchParams({
         PhoneNumber: to,
-        FriendlyName: "AppForge owner admin MFA",
+        FriendlyName: "AppForge phone verification",
       }),
       signal: AbortSignal.timeout(12_000),
     },
@@ -168,14 +168,14 @@ export async function requestTwilioVerification(to: string): Promise<void> {
         : undefined;
 
     if (providerCode === 21608) {
-      const validationCode = await startOwnerPhoneVerificationRecovery(to).catch(
-        () => null,
-      );
+      const validationCode = await startPhoneRecipientVerificationRecovery(
+        to,
+      ).catch(() => null);
       if (validationCode) {
         throw new TwilioVerificationDeliveryError(
           res.status,
           providerCode,
-          `Twilio has started a verification call to your registered owner phone. When the call asks for the verification code, enter ${validationCode}. After the call confirms the phone, press Send SMS code again.`,
+          `Twilio has started a verification call to this phone. When the call asks for the verification code, enter ${validationCode}. After the call confirms the phone, request the SMS code again.`,
         );
       }
     }

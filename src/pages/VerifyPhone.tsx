@@ -4,7 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AuthShell } from "../components/auth/AuthShell.js";
 import { Button } from "../design-system/Button.js";
 import { Input } from "../design-system/Input.js";
-import { loginPathWithReturn, safeAuthDestination } from "../lib/auth.js";
+import {
+  loginPathWithReturn,
+  normalizePhone,
+  safeAuthDestination,
+} from "../lib/auth.js";
 import { trpc } from "../utils/trpc.js";
 
 export function VerifyPhone() {
@@ -15,7 +19,10 @@ export function VerifyPhone() {
     () => safeAuthDestination(searchParams.get("next"), "/dashboard"),
     [searchParams],
   );
+  const [phone, setPhone] = useState("");
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requested = useRef(false);
 
@@ -27,14 +34,29 @@ export function VerifyPhone() {
   });
 
   const requestCode = useMutation({
-    mutationFn: () => trpc.auth.requestPhoneVerification.mutate(),
-    onSuccess: () => setError(null),
-    onError: (err) =>
+    mutationFn: (value?: string) =>
+      trpc.auth.requestPhoneVerification.mutate(
+        value ? { phone: normalizePhone(value) } : undefined,
+      ),
+    onSuccess: async (result) => {
+      setError(null);
+      if (result.alreadyVerified) {
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        navigate(next, { replace: true });
+        return;
+      }
+      setMaskedPhone(result.maskedPhone ?? null);
+      setCodeSent(true);
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+    },
+    onError: (err) => {
+      requested.current = false;
       setError(
         err instanceof Error
           ? err.message
           : "Unable to send the SMS verification code.",
-      ),
+      );
+    },
   });
 
   const verifyCode = useMutation({
@@ -63,15 +85,29 @@ export function VerifyPhone() {
       navigate(next, { replace: true });
       return;
     }
-    if (!me.phone) {
-      setError("No mobile number is attached to this account.");
+    if (me.phone && !requested.current && !codeSent) {
+      requested.current = true;
+      requestCode.mutate(undefined);
+    }
+  }, [codeSent, isFetched, me, navigate, next, requestCode]);
+
+  const requestForEnteredPhone = (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    let normalized: string;
+    try {
+      normalized = normalizePhone(phone);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Enter a valid mobile number in international format.",
+      );
       return;
     }
-    if (!requested.current) {
-      requested.current = true;
-      requestCode.mutate();
-    }
-  }, [isFetched, me, navigate, next, requestCode]);
+    requested.current = true;
+    requestCode.mutate(normalized);
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -84,10 +120,16 @@ export function VerifyPhone() {
     verifyCode.mutate(normalized);
   };
 
+  const destination = maskedPhone ?? me?.maskedPhone ?? "your mobile number";
+
   return (
     <AuthShell
       title="Verify your mobile number"
-      subtitle={`We sent a six-digit code to ${me?.maskedPhone ?? "your mobile number"}. This confirms the phone belongs to the same AppForge account as your email.`}
+      subtitle={
+        codeSent || me?.phone
+          ? `Enter the six-digit code sent to ${destination}. This phone is linked to the same AppForge account as your email.`
+          : "Add your mobile number to this AppForge account. We will send a six-digit SMS code before giving access to the app."
+      }
     >
       {error && (
         <p
@@ -98,40 +140,73 @@ export function VerifyPhone() {
         </p>
       )}
 
-      <form onSubmit={submit} className="space-y-5">
-        <Input
-          id="phone-verification-code"
-          label="Six-digit SMS code"
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          value={code}
-          onChange={(event) =>
-            setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          required
-        />
-        <Button
-          type="submit"
-          className="w-full"
-          loading={verifyCode.isPending}
-          disabled={verifyCode.isPending || code.length !== 6}
-        >
-          Verify mobile number
-        </Button>
-      </form>
+      {!me?.phone && !codeSent ? (
+        <form onSubmit={requestForEnteredPhone} className="space-y-5">
+          <Input
+            id="phone-enrollment-number"
+            label="Mobile number"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="+6421…"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            required
+          />
+          <p className="text-xs text-forge-text-muted">
+            Use international format including the country code. For New Zealand,
+            use +64 and omit the first 0 of the mobile number.
+          </p>
+          <Button
+            type="submit"
+            className="w-full"
+            loading={requestCode.isPending}
+            disabled={requestCode.isPending || !phone.trim()}
+          >
+            Send SMS verification code
+          </Button>
+        </form>
+      ) : (
+        <>
+          <form onSubmit={submit} className="space-y-5">
+            <Input
+              id="phone-verification-code"
+              label="Six-digit SMS code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(event) =>
+                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              required
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              loading={verifyCode.isPending}
+              disabled={verifyCode.isPending || code.length !== 6}
+            >
+              Verify mobile number
+            </Button>
+          </form>
 
-      <Button
-        type="button"
-        variant="secondary"
-        className="mt-3 w-full"
-        loading={requestCode.isPending}
-        disabled={requestCode.isPending}
-        onClick={() => requestCode.mutate()}
-      >
-        Send a new code
-      </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3 w-full"
+            loading={requestCode.isPending}
+            disabled={requestCode.isPending}
+            onClick={() => {
+              requested.current = true;
+              requestCode.mutate(undefined);
+            }}
+          >
+            Send a new code
+          </Button>
+        </>
+      )}
     </AuthShell>
   );
 }

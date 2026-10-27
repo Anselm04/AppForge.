@@ -45,7 +45,7 @@ export const authenticatedProcedure = t.procedure.use(async (opts) => {
 
 export const protectedProcedure = authenticatedProcedure.use(async (opts) => {
   const user = opts.ctx.user;
-  if (user.phone && !user.phoneVerified) {
+  if (!user.phoneVerified) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Phone verification required",
@@ -75,7 +75,7 @@ export const accountDeletionProcedure = t.procedure.use(async (opts) => {
 export const ownerAuthenticatedProcedure = authenticatedProcedure.use(
   async (opts) => {
     const user = opts.ctx.user;
-    if (user.phone && !user.phoneVerified) {
+    if (!user.phoneVerified) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Phone verification required",

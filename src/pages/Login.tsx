@@ -34,12 +34,12 @@ function describeSignInError(
 }
 
 function destinationForUser(
-  user: { phone?: string | null; phoneVerified?: boolean } | null | undefined,
+  user: { phoneVerified?: boolean } | null | undefined,
   next: string,
 ): string {
-  return user?.phone && user.phoneVerified === false
-    ? `/verify-phone?next=${encodeURIComponent(next)}`
-    : next;
+  return user?.phoneVerified === true
+    ? next
+    : `/verify-phone?next=${encodeURIComponent(next)}`;
 }
 
 export function Login() {

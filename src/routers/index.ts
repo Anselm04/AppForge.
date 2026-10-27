@@ -61,38 +61,44 @@ export const appRouter = router({
         phoneVerified: user.phoneVerified,
       };
     }),
-    requestPhoneVerification: authenticatedProcedure.mutation(async ({ ctx }) => {
-      if (!ctx.user.phone) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No mobile number is attached to this account.",
-        });
-      }
-      if (ctx.user.phoneVerified) {
-        return { sent: false, alreadyVerified: true } as const;
-      }
-      await requestAccountPhoneVerification(ctx.user.phone);
-      return {
-        sent: true,
-        alreadyVerified: false,
-        maskedPhone: maskPhone(ctx.user.phone),
-      } as const;
-    }),
+    requestPhoneVerification: authenticatedProcedure
+      .input(z.object({ phone: z.string().trim().min(1).optional() }).optional())
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.phoneVerified) {
+          return {
+            sent: false,
+            alreadyVerified: true,
+            maskedPhone: maskPhone(ctx.user.phone),
+          } as const;
+        }
+        try {
+          const result = await requestAccountPhoneVerification({
+            supabaseUid: ctx.user.supabaseUid,
+            phone: input?.phone,
+          });
+          return {
+            sent: !result.alreadyVerified,
+            alreadyVerified: result.alreadyVerified,
+            maskedPhone: maskPhone(result.phone),
+          } as const;
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unable to send the SMS verification code.",
+          });
+        }
+      }),
     verifyPhone: authenticatedProcedure
       .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user.phone) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "No mobile number is attached to this account.",
-          });
-        }
         if (ctx.user.phoneVerified) {
           return { verified: true } as const;
         }
         const verified = await verifyAccountPhone({
           supabaseUid: ctx.user.supabaseUid,
-          phone: ctx.user.phone,
           code: input.code,
         });
         if (!verified) {

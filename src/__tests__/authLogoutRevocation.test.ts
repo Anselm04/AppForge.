@@ -19,8 +19,11 @@ const account = readFileSync(
 describe("logout session revocation", () => {
   it("clears local state and revokes only the current Supabase session", () => {
     expect(auth).toContain("const session = getSession()");
+    expect(auth).toContain("const proofHeaders = browserSessionHeaders()");
     expect(auth).toContain("clearStoredUser()");
-    expect(auth).toContain("void clearServerSession(session?.accessToken)");
+    expect(auth).toContain(
+      "clearServerSessionWithHeaders(session?.accessToken, proofHeaders)",
+    );
     expect(auth).toContain("supabaseClient.signOut(session.accessToken)");
     expect(client).toContain(
       'request<Record<string, never>>("/auth/v1/logout?scope=local"',
@@ -68,12 +71,14 @@ describe("logout session revocation", () => {
 
   it("keeps refresh credentials out of browser-managed session storage", () => {
     expect(auth).toContain('const USER_KEY = "appforge.user"');
-    expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
+    expect(auth).toContain('const BROWSER_SESSION_KEY = "appforge.browser-session"');
     expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).not.toContain("refreshToken?: string;");
+    expect(middleware).toContain('const REFRESH_COOKIE = "sb-refresh-token"');
+    expect(middleware).toContain("httpOnly: true");
   });
 
-  it("drops an expired access token and falls back to the HttpOnly cookie session", () => {
+  it("drops an expired access token and falls back only to an active same-tab cookie session", () => {
     const ensureStart = auth.indexOf(
       "export async function ensureFreshSession(): Promise<AppForgeSession | null>",
     );
@@ -87,6 +92,7 @@ describe("logout session revocation", () => {
       "if (!session.accessToken || accessTokenExpired(session.accessToken))",
     );
     expect(ensureSource).toContain("return refreshSession()");
+    expect(auth).toContain("if (!hasBrowserSession()) return false;");
     expect(ensureSource).not.toContain("return session.accessToken");
   });
 
