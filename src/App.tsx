@@ -26,6 +26,7 @@ import { ExtensionStudio } from "./pages/ExtensionStudio.js";
 import { PluginWorkspace } from "./pages/PluginWorkspace.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
+import { VerifyPhone } from "./pages/VerifyPhone.js";
 import { OrgSettings } from "./pages/OrgSettings.js";
 import { SsoCallback } from "./pages/SsoCallback.js";
 import { Redeem } from "./pages/Redeem.js";
@@ -60,6 +61,7 @@ function AppShell() {
           <Route path="/login" element={<Login />} />
           <Route path="/auth/sso/callback" element={<SsoCallback />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/verify-phone" element={<VerifyPhone />} />
           <Route path="/resend-verification" element={<ResendVerification />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
