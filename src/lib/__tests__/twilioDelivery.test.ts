@@ -40,7 +40,10 @@ describe("SMS delivery diagnostics (unit tests; no live SMS)", () => {
       )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ validation_code: "unit-validation-code", call_sid: "unit-call" }),
+          JSON.stringify({
+            validation_code: "unit-validation-code",
+            call_sid: "unit-call",
+          }),
           { status: 201 },
         ),
       );
