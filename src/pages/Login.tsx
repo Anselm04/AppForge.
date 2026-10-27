@@ -16,11 +16,6 @@ import { Input } from "../design-system/Input.js";
 
 const MIN_PASSWORD_LENGTH_LOCAL = MIN_PASSWORD_LENGTH;
 
-/**
- * Turn a raw auth-provider failure into copy a person can act on. Verification
- * failures are called out explicitly so an unconfirmed account is never shown a
- * bare "sign-in failed" that hides the verification step.
- */
 function describeSignInError(
   error: unknown,
   t: (key: string) => string,
@@ -29,15 +24,22 @@ function describeSignInError(
   if (/not confirmed|confirm your email|email_not_confirmed/i.test(message)) {
     return t("login.emailNotConfirmed");
   }
-  if (
-    /invalid login credentials|invalid_grant|invalid password/i.test(message)
-  ) {
+  if (/invalid login credentials|invalid_grant|invalid password/i.test(message)) {
     return t("login.invalidCredentials");
   }
   if (/rate limit|too many requests/i.test(message)) {
     return t("login.rateLimited");
   }
   return message || t("login.failed");
+}
+
+function destinationForUser(
+  user: { phone?: string | null; phoneVerified?: boolean } | null | undefined,
+  next: string,
+): string {
+  return user?.phone && user.phoneVerified === false
+    ? `/verify-phone?next=${encodeURIComponent(next)}`
+    : next;
 }
 
 export function Login() {
@@ -56,8 +58,6 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
-  // Capture before completeAuthRedirect scrubs tokens from the address bar.
-  // Effect cleanup/restart must await the same attempt rather than lose it.
   const [hasAuthRedirect] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -66,14 +66,12 @@ export function Login() {
         window.location.hash.includes("error_description=") ||
         window.location.search.includes("error_description=")),
   );
-  const confirmationAttempt = useRef<ReturnType<
-    typeof completeAuthRedirect
-  > | null>(null);
-  const [completingConfirmation, setCompletingConfirmation] =
-    useState(hasAuthRedirect);
-  const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>(
-    { email: false, password: false },
-  );
+  const confirmationAttempt = useRef<ReturnType<typeof completeAuthRedirect> | null>(null);
+  const [completingConfirmation, setCompletingConfirmation] = useState(hasAuthRedirect);
+  const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>({
+    email: false,
+    password: false,
+  });
 
   const emailError =
     blurred.email && email.length > 0 && !isValidEmail(email)
@@ -101,8 +99,7 @@ export function Login() {
   useEffect(() => {
     let cancelled = false;
     const completeConfirmation = async () => {
-      if (typeof window === "undefined") return;
-      if (!hasAuthRedirect) return;
+      if (typeof window === "undefined" || !hasAuthRedirect) return;
 
       setCompletingConfirmation(true);
       setError(null);
@@ -114,11 +111,11 @@ export function Login() {
         if (cancelled) return;
         queryClient.setQueryData(["auth", "me"], meNow);
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
-        if (!cancelled) navigate(next, { replace: true });
-      } catch (err) {
         if (!cancelled) {
-          setError(describeSignInError(err, t));
+          navigate(destinationForUser(meNow, next), { replace: true });
         }
+      } catch (err) {
+        if (!cancelled) setError(describeSignInError(err, t));
       } finally {
         if (!cancelled) setCompletingConfirmation(false);
       }
@@ -131,7 +128,7 @@ export function Login() {
 
   useEffect(() => {
     if (me && !completingConfirmation) {
-      navigate(next, { replace: true });
+      navigate(destinationForUser(me, next), { replace: true });
     }
   }, [me, completingConfirmation, next, navigate]);
 
@@ -154,7 +151,7 @@ export function Login() {
       const meNow = await trpc.auth.me.query();
       queryClient.setQueryData(["auth", "me"], meNow);
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
-      navigate(next, { replace: true });
+      navigate(destinationForUser(meNow, next), { replace: true });
     } catch (err) {
       setError(describeSignInError(err, t));
     } finally {
@@ -195,20 +192,13 @@ export function Login() {
       }
     >
       {completingConfirmation && (
-        <p
-          role="status"
-          className="mb-5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-sm text-forge-cyan"
-        >
+        <p role="status" className="mb-5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-sm text-forge-cyan">
           {t("login.confirming")}
         </p>
       )}
 
       {alertMessage && (
-        <p
-          role="alert"
-          data-testid="login-error"
-          className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
-        >
+        <p role="alert" data-testid="login-error" className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
           {alertMessage}
         </p>
       )}
@@ -233,9 +223,7 @@ export function Login() {
           value={email}
           error={emailError}
           onChange={(e) => setEmail(e.target.value)}
-          onBlur={() =>
-            setBlurred((previous) => ({ ...previous, email: true }))
-          }
+          onBlur={() => setBlurred((previous) => ({ ...previous, email: true }))}
         />
         <Input
           id="login-password"
@@ -247,17 +235,12 @@ export function Login() {
           value={password}
           error={passwordError}
           onChange={(e) => setPassword(e.target.value)}
-          onBlur={() =>
-            setBlurred((previous) => ({ ...previous, password: true }))
-          }
+          onBlur={() => setBlurred((previous) => ({ ...previous, password: true }))}
           showPasswordLabel={t("common.showPassword")}
           hidePasswordLabel={t("common.hidePassword")}
         />
         <div className="flex justify-end">
-          <Link
-            to="/forgot-password"
-            className="text-sm font-medium text-forge-cyan hover:underline"
-          >
+          <Link to="/forgot-password" className="text-sm font-medium text-forge-cyan hover:underline">
             {t("login.forgot")}
           </Link>
         </div>
@@ -265,12 +248,7 @@ export function Login() {
           type="submit"
           className="w-full"
           loading={pending || completingConfirmation}
-          disabled={
-            pending ||
-            completingConfirmation ||
-            !email.trim() ||
-            password.length < MIN_PASSWORD_LENGTH_LOCAL
-          }
+          disabled={pending || completingConfirmation || !email.trim() || password.length < MIN_PASSWORD_LENGTH_LOCAL}
         >
           {pending ? t("login.pending") : t("login.submit")}
         </Button>
@@ -284,12 +262,7 @@ export function Login() {
               provider: ssoInfo.provider?.toUpperCase() ?? "",
             })}
           </p>
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            onClick={startSso}
-          >
+          <Button type="button" variant="secondary" className="w-full" onClick={startSso}>
             {t("login.signInWithSso")}
           </Button>
         </div>
