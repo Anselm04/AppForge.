@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
   const body = (await req.json()) as { plan?: string };
-  const sessionUserId = getUserIdFromRequest(req);
+  const sessionUserId = await getUserIdFromRequest(req);
   if (!sessionUserId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -114,8 +114,8 @@ export async function POST(req: Request) {
 }
 `
     : `import type { Request, Response } from "express";
-import { getUserIdFromRequest } from "../../lib/auth/session.js";
-import { resolveBillingPlan } from "../../lib/billing/catalog.js";
+import { getUserIdFromRequest } from "../../../lib/auth/session.js";
+import { resolveBillingPlan } from "../../../lib/billing/catalog.js";
 
 export async function createCheckoutSession(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -135,7 +135,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
     });
     return;
   }
-  const sessionUserId = getUserIdFromRequest(req);
+  const sessionUserId = await getUserIdFromRequest(req);
   if (!sessionUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
@@ -192,6 +192,8 @@ export async function createCheckoutSession(req: Request, res: Response) {
         "STRIPE_PRICE_ID=",
         "STRIPE_ENTERPRISE_PRICE_ID=",
         "APP_URL=",
+        "SUPABASE_URL=",
+        "SUPABASE_PUBLISHABLE_KEY=",
       ].join("\n") + "\n",
     "src/lib/billing/catalog.ts": billingCatalogModule(),
     "src/lib/billing/db.ts": billingDbModule(),

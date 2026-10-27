@@ -57,14 +57,10 @@ describe("public error sanitization", () => {
   });
 
   it("does not expose raw Senior Dev exceptions through SSE", () => {
-    expect(buildRoute).toContain('error: "senior_dev_failed"');
-    expect(buildRoute).toContain(
-      'message: "Senior Dev could not complete this task."',
-    );
-    expect(buildRoute).toContain('error: "senior_dev_resume_failed"');
-    expect(buildRoute).toContain(
-      'message: "Senior Dev could not resume this task."',
-    );
+    expect(buildRoute).toContain('"senior_dev_failed"');
+    expect(buildRoute).toContain('"Senior Dev could not complete this task."');
+    expect(buildRoute).toContain('"senior_dev_resume_failed"');
+    expect(buildRoute).toContain('"Senior Dev could not resume this task."');
     expect(buildRoute).not.toContain('write("error", { message: msg })');
   });
 });

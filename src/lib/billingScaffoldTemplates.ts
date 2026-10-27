@@ -83,7 +83,7 @@ export async function updateFromStripeSubscription(sub: {
   status: string;
   current_period_end?: number;
   metadata?: Record<string, string>;
-  items?: { data?: Array<{ price?: { id?: string } }> };
+  items?: { data?: Array<{ price?: { id?: string }; current_period_end?: number }> };
 }): Promise<void> {
   const sql = getBillingDb();
   if (!sql) return;
@@ -100,9 +100,8 @@ export async function updateFromStripeSubscription(sub: {
           : "pro"
         : configuredPlan
       : "free";
-  const periodEnd = sub.current_period_end
-    ? new Date(sub.current_period_end * 1000)
-    : null;
+  const periodEndSeconds = sub.current_period_end ?? Math.max(0, ...(sub.items?.data ?? []).map(item => item.current_period_end ?? 0));
+  const periodEnd = periodEndSeconds > 0 ? new Date(periodEndSeconds * 1000) : null;
 
   const updated = await sql<{ user_id: string }[]>\`
     UPDATE subscriptions
@@ -163,8 +162,8 @@ export type UserEntitlements = {
 
 function rowToEntitlements(row: SubscriptionRow): UserEntitlements {
   const active =
-    row.status === "active" ||
-    row.status === "trialing";
+    (row.status === "active" || row.status === "trialing")
+    && (!row.current_period_end || row.current_period_end.getTime() > Date.now());
   const plan: Plan =
     active && row.plan === "enterprise"
       ? "enterprise"
@@ -530,7 +529,7 @@ export async function POST(req: Request) {
   if (!stripeKey || !appUrl) {
     return NextResponse.json({ error: "Billing portal is unconfigured" }, { status: 503 });
   }
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const subscription = await getSubscriptionByUserId(userId);
   if (!subscription?.stripe_customer_id) {
@@ -547,8 +546,8 @@ export async function POST(req: Request) {
 `;
 
   const expressRoute = `import type { Request, Response } from "express";
-import { getUserIdFromRequest } from "../../lib/auth/session.js";
-import { getSubscriptionByUserId } from "../../lib/billing/subscriptions.js";
+import { getUserIdFromRequest } from "../../../lib/auth/session.js";
+import { getSubscriptionByUserId } from "../../../lib/billing/subscriptions.js";
 
 export async function createBillingPortal(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -557,7 +556,7 @@ export async function createBillingPortal(req: Request, res: Response) {
     res.status(503).json({ error: "Billing portal is unconfigured" });
     return;
   }
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
@@ -659,12 +658,12 @@ ${handlerBody}
 import {
   upsertFromCheckoutSession,
   updateFromStripeSubscription,
-} from "../../lib/billing/subscriptions.js";
+} from "../../../lib/billing/subscriptions.js";
 import {
   auditBillingAction,
   processBillingEventOnce,
-} from "../../lib/billing/audit.js";
-import { recordInvoiceState } from "../../lib/billing/invoices.js";
+} from "../../../lib/billing/audit.js";
+import { recordInvoiceState } from "../../../lib/billing/invoices.js";
 
 export async function stripeWebhook(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -736,6 +735,11 @@ CREATE TABLE IF NOT EXISTS billing_invoices (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_billing_events_status ON billing_events(status);
 CREATE INDEX IF NOT EXISTS idx_billing_audit_event ON billing_audit(event_id);
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billing_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billing_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billing_invoices ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON subscriptions, billing_events, billing_audit, billing_invoices FROM PUBLIC;
 `;
 }
 
@@ -769,6 +773,10 @@ Never put Stripe secret keys, webhook secrets, customer IDs, subscription state,
 10. Test a refund and confirm the billing audit/event ledger records the outcome.
 11. Replay a webhook event ID and verify duplicate processing is rejected by the billing event ledger.
 
+## Authentication
+
+The default session helper validates Supabase access tokens against the configured auth service. Set server-side SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_ANON_KEY). The application login flow must send a Bearer access token or set an HttpOnly, Secure, SameSite sb-access-token cookie after verified sign-in. A userId cookie never establishes identity. An existing custom server authentication module is preserved; its verification must pass the product authentication tests before release.
+
 ## Server authority
 
 The browser may display billing state returned by \`/api/billing/me\`, but it never decides entitlement. Paid server actions must call the server entitlement/access-limit helpers.
@@ -782,18 +790,36 @@ Billing webhooks are idempotent. Failed events are recorded as failed and may be
 }
 
 export function billingSessionModule(): string {
-  return `/** Minimal session helper — replace with Supabase/Clerk/NextAuth in production. */
-export function getUserIdFromCookie(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
-  const match = cookieHeader.match(/(?:^|;\\s*)userId=([^;]+)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
+  return `/** Server-verified Supabase sessions. Client-controlled identity cookies are never authorization. */
+type AuthRequest = { headers: { get?(name: string): string | null; authorization?: string | string[]; cookie?: string } };
+function header(req: AuthRequest, name: "authorization" | "cookie"): string | null {
+  const value = typeof req.headers.get === "function" ? req.headers.get(name) : req.headers[name];
+  return typeof value === "string" ? value : null;
 }
-
-export function getUserIdFromRequest(req: { headers: { get?(n: string): string | null; cookie?: string } }): string | null {
-  if (typeof req.headers.get === "function") {
-    return getUserIdFromCookie(req.headers.get("cookie"));
-  }
-  return getUserIdFromCookie(req.headers.cookie ?? null);
+function accessCookie(value: string | null): string | null {
+  try {
+    const part = value?.split(";").map(item => item.trim()).find(item => item.startsWith("sb-access-token="));
+    return part ? decodeURIComponent(part.slice("sb-access-token=".length)) : null;
+  } catch { return null; }
+}
+export async function getUserIdFromRequest(req: AuthRequest): Promise<string | null> {
+  const authorization = header(req, "authorization");
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : accessCookie(header(req, "cookie"));
+  if (!token || token.length > 8192 || /\\s/.test(token)) return null;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!key || !process.env.SUPABASE_URL) return null;
+  try {
+    const url = new URL(process.env.SUPABASE_URL);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") return null;
+    const response = await fetch(url.origin + "/auth/v1/user", {
+      headers: { authorization: "Bearer " + token, apikey: key },
+      redirect: "error",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return null;
+    const user = await response.json() as { id?: unknown };
+    return typeof user.id === "string" && /^[A-Za-z0-9-]{1,128}$/.test(user.id) ? user.id : null;
+  } catch { return null; }
 }
 `;
 }
@@ -805,7 +831,7 @@ import { getEntitlements } from "../../../../lib/billing/entitlements.js";
 import { getUserIdFromRequest } from "../../../../lib/auth/session.js";
 
 export async function GET(req: Request) {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -817,11 +843,11 @@ export async function GET(req: Request) {
 
 export function billingExpressMeRoute(): string {
   return `import type { Request, Response } from "express";
-import { getEntitlements } from "../../lib/billing/entitlements.js";
-import { getUserIdFromRequest } from "../../lib/auth/session.js";
+import { getEntitlements } from "../../../lib/billing/entitlements.js";
+import { getUserIdFromRequest } from "../../../lib/auth/session.js";
 
 export async function getBillingMe(req: Request, res: Response) {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;

@@ -19,7 +19,7 @@ describe("unlimited credit entitlement gates", () => {
 
   it("main build and Senior Dev start gates honor unlimited/lifetime accounts", () => {
     const createText = source("src/routers/projects.ts");
-    const streamText = source("src/routes/build.ts");
+    const streamText = source("src/services/seniorDevExecution.ts");
     expect(createText).toContain(
       'const unlimited = !!credits.unlimited || credits.tier === "lifetime";',
     );

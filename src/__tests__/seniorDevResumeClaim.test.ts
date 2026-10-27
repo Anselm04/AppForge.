@@ -7,7 +7,7 @@ const source = readFileSync(
   "utf8",
 );
 const route = readFileSync(
-  resolve(process.cwd(), "src/routes/build.ts"),
+  resolve(process.cwd(), "src/services/seniorDevExecution.ts"),
   "utf8",
 );
 
@@ -25,10 +25,7 @@ describe("Senior Dev execution claims", () => {
     const claimIndex = route.indexOf(
       "await claimSeniorDevStart(task.id, user.id)",
     );
-    const chargeIndex = route.indexOf(
-      "await deductCredits(\n        user.id,\n        SENIOR_DEV_BASE_COST",
-      claimIndex,
-    );
+    const chargeIndex = route.indexOf("await deductCredits(", claimIndex);
     expect(claimIndex).toBeGreaterThan(-1);
     expect(chargeIndex).toBeGreaterThan(claimIndex);
     expect(route).toContain(
@@ -46,13 +43,13 @@ describe("Senior Dev execution claims", () => {
   });
 
   it("requires the resume route to acquire the atomic claim before execution", () => {
-    expect(route).toContain('from "../services/senior-dev-claim.js"');
+    expect(route).toContain('from "./senior-dev-claim.js"');
     expect(route).toContain("await claimSeniorDevResume(task.id, user.id)");
-    expect(route).toContain('error: "senior_dev_task_active"');
+    expect(route).toContain('"senior_dev_task_active"');
   });
 
   it("derives failure and stale-recovery refunds from the reservation ledger", () => {
-    expect(route).toContain('from "../services/senior-dev-reservation.js"');
+    expect(route).toContain('from "./senior-dev-reservation.js"');
     expect(
       route.match(/await refundOutstandingSeniorDevReservation\(/g),
     ).toHaveLength(3);

@@ -1,3 +1,8 @@
+import {
+  startSeniorDevExecution,
+  resumeSeniorDevExecution,
+  SeniorDevExecutionError,
+} from "../services/seniorDevExecution.js";
 import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
@@ -14,99 +19,15 @@ import {
 } from "../lib/buildRecovery.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
 import { subscribeBuildEvents } from "../services/build-queue.js";
-import {
-  getProjectById,
-  pauseProject,
-  ensureUserCredits,
-  deductCredits,
-  addCredits,
-  getUserCredits,
-  updateProjectFiles,
-  getSeniorDevTaskById,
-  updateSeniorDevTask,
-  updateSeniorDevTaskStatus,
-} from "../db.js";
-import {
-  SENIOR_DEV_CREDIT_COST,
-  creditsExhaustedBody,
-} from "../lib/credits.js";
+import { getProjectById } from "../db.js";
 import {
   parsePositiveIntParam,
   parsePositiveSafeInteger,
 } from "../lib/httpParams.js";
-import {
-  runSeniorDevAgent,
-  resumeAfterApproval,
-  type ProgressEvent,
-} from "../agents/seniorDevAgent.js";
 import { logger } from "../_core/logger.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 import { manualDeployPreflight } from "../lib/stackDeployment.js";
-import {
-  claimSeniorDevResume,
-  claimSeniorDevStart,
-  failStaleSeniorDevExecution,
-  releaseSeniorDevStartClaim,
-  touchSeniorDevExecution,
-} from "../services/senior-dev-claim.js";
-import {
-  refundOutstandingSeniorDevReservation,
-  wasSeniorDevReservationCharged,
-} from "../services/senior-dev-reservation.js";
-
-/**
- * Senior Dev edits run against the project's canonical contract stack (or the
- * recorded stack for legacy projects), so manual changes cannot drift to
- * another stack. A project with no stack is rejected, never treated as React.
- */
-const seniorDevContext = resolveProjectStack;
-
 const router = Router();
-
-const SENIOR_DEV_BASE_COST = SENIOR_DEV_CREDIT_COST;
-const SENIOR_DEV_EXECUTION_HEARTBEAT_MS = 30_000;
-const SENIOR_DEV_STALE_AFTER_MS = 10 * 60 * 1000;
-
-function startSeniorDevExecutionHeartbeat(taskId: number, userId: number) {
-  return setInterval(() => {
-    void touchSeniorDevExecution(taskId, userId).catch((error: unknown) => {
-      logger.error(
-        { taskId, userId, error },
-        "senior_dev_execution_heartbeat_failed",
-      );
-    });
-  }, SENIOR_DEV_EXECUTION_HEARTBEAT_MS);
-}
-
-async function settleOutstandingSeniorDevReservation(
-  userId: number,
-  projectId: number,
-  taskId: number,
-  reason: string,
-): Promise<boolean> {
-  const outstanding = await wasSeniorDevReservationCharged(
-    userId,
-    projectId,
-    taskId,
-  );
-  if (!outstanding) return true;
-
-  try {
-    await refundOutstandingSeniorDevReservation(
-      userId,
-      projectId,
-      taskId,
-      reason,
-    );
-    return true;
-  } catch (error: unknown) {
-    logger.error(
-      { taskId, userId, projectId, error },
-      "senior_dev_reservation_settlement_failed",
-    );
-    return false;
-  }
-}
 
 /** SSE endpoint that only streams the existing multi-agent pipeline. */
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -228,417 +149,73 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   });
 });
 
-/** SSE endpoint for Senior Dev Agent: streams plan + execution + validation */
-router.get("/senior/:taskId", async (req: Request, res: Response) => {
+/** SSE is only a progress transport; the shared service owns execution and persisted heartbeats. */
+async function streamSeniorDev(req: Request, res: Response, resume: boolean) {
   const taskId = parsePositiveIntParam(req.params.taskId);
-  if (taskId === null) {
-    res.status(400).json({ error: "Invalid taskId" });
-    return;
-  }
-
-  const user = (req as any).user;
-  if (!user) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-
-  const task = await getSeniorDevTaskById(taskId);
-  if (!task || task.userId !== user.id) {
-    res.status(404).json({ error: "Task not found" });
-    return;
-  }
-
-  const project = await getProjectById(task.projectId);
-  if (!project) {
-    res.status(404).json({ error: "Project not found" });
-    return;
-  }
-
-  if (task.status === "completed") {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-    res.write(
-      `event: done\ndata: ${JSON.stringify({ status: "completed", summary: task.summary ?? "", creditsSpent: task.creditsSpent ?? 0, reused: true })}\n\n`,
-    );
-    res.end();
-    return;
-  }
-
-  if (task.status === "awaiting_approval") {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-    res.write(
-      `event: awaiting_approval\ndata: ${JSON.stringify({ status: "awaiting_approval", plan: task.plan, summary: task.summary ?? "", reused: true })}\n\n`,
-    );
-    res.end();
-    return;
-  }
-
-  if (task.status === "executing") {
-    const recovered = await failStaleSeniorDevExecution(
-      task.id,
-      user.id,
-      new Date(Date.now() - SENIOR_DEV_STALE_AFTER_MS),
-    );
-
-    if (recovered) {
-      const settled = await settleOutstandingSeniorDevReservation(
-        user.id,
-        task.projectId,
-        task.id,
-        `Senior Dev stale execution refund for task ${task.id}`,
-      );
-      res.status(settled ? 409 : 503).json({
-        error: settled
-          ? "senior_dev_stale_execution_recovered"
-          : "senior_dev_refund_pending",
-        message: settled
-          ? "A stale Senior Dev execution was recovered safely. Retry the task."
-          : "The stale execution was stopped, but its credit refund is still pending. Retry after the refund succeeds.",
-        retryable: settled,
-      });
-      return;
-    }
-
-    res.status(409).json({
-      error: "senior_dev_task_active",
-      message: "This Senior Dev task is already executing.",
-    });
-    return;
-  }
-
-  if (task.status === "failed") {
-    const settled = await settleOutstandingSeniorDevReservation(
-      user.id,
-      task.projectId,
-      task.id,
-      `Senior Dev retry preflight refund for task ${task.id}`,
-    );
-    if (!settled) {
-      res.status(503).json({
-        error: "senior_dev_refund_pending",
-        message:
-          "The previous Senior Dev reservation has not been refunded yet. Retry after the refund succeeds.",
-        retryable: false,
-      });
-      return;
-    }
-  }
-
-  const credits = await ensureUserCredits(user.id);
-  const seniorUnlimited = !!credits.unlimited || credits.tier === "lifetime";
-  if (!seniorUnlimited && credits.balance < SENIOR_DEV_BASE_COST) {
-    res
-      .status(402)
-      .json(
-        creditsExhaustedBody(
-          credits.balance,
-          SENIOR_DEV_BASE_COST,
-          "use the Senior Dev Agent",
-        ),
-      );
-    return;
-  }
-
-  const claimed = await claimSeniorDevStart(task.id, user.id);
-  if (!claimed) {
-    res.status(409).json({
-      error: "senior_dev_task_active",
-      message: "This Senior Dev task was already started by another request.",
-    });
-    return;
-  }
-
-  const reservationId = `senior-dev-${task.id}-${crypto.randomUUID()}`;
-  if (!seniorUnlimited) {
-    try {
-      await deductCredits(
-        user.id,
-        SENIOR_DEV_BASE_COST,
-        task.projectId,
-        `Senior Dev Agent reservation ${reservationId}`,
-      );
-    } catch (err: unknown) {
-      await releaseSeniorDevStartClaim(task.id, user.id, task.status);
-      logger.error(
-        { taskId: task.id, error: err },
-        "senior_dev_start_charge_failed",
-      );
-      res.status(500).json({ error: "senior_dev_start_failed" });
-      return;
-    }
-  }
-
-  const executionHeartbeat = startSeniorDevExecutionHeartbeat(task.id, user.id);
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders?.();
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
-  const heartbeat = setInterval(() => {
-    if (!res.writableEnded) {
-      res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
-    }
-  }, 15000);
-
-  req.on("close", () => {
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    controller.abort();
-  });
-
+  if (taskId === null)
+    return void res.status(400).json({ error: "Invalid taskId" });
+  if (!req.user)
+    return void res.status(401).json({ error: "Not authenticated" });
+  let disconnected = false;
+  let ping: ReturnType<typeof setInterval> | undefined;
   const write = (event: string, data: unknown) => {
-    if (!res.writableEnded) {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    }
+    if (!disconnected && !res.writableEnded)
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
-
-  const onProgress = (e: ProgressEvent) => {
-    if (controller.signal.aborted) return;
-    write("progress", e);
+  const started = () => {
+    if (disconnected || res.headersSent) return;
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+    ping = setInterval(() => write("ping", { t: Date.now() }), 15000);
   };
-
+  res.on("close", () => {
+    disconnected = true;
+    clearInterval(ping);
+  });
   try {
-    const files =
-      (project.generatedFiles as Record<string, string> | null) ?? {};
-    const context = seniorDevContext(project);
-
-    const agentTask = {
-      id: task.id,
-      projectId: task.projectId,
-      userId: task.userId,
-      request: task.request,
-      mode: task.mode as "collaborative" | "autonomous",
-      plan: task.plan as any,
-      planApproved: task.planApproved ?? false,
-      status: task.status as any,
-      changes: (task.changes as any) ?? [],
-      validationResults: (task.validationResult as any) ?? [],
-      summary: task.summary ?? "",
-      creditsSpent: task.creditsSpent ?? 0,
-      productContract: context.productContract,
+    const run = resume ? resumeSeniorDevExecution : startSeniorDevExecution;
+    const result = await run({
+      taskId,
+      userId: req.user.id,
+      onStarted: started,
+      onProgress: (event) => write("progress", event),
+    });
+    started();
+    write(
+      result.status === "awaiting_approval" ? "awaiting_approval" : "done",
+      result,
+    );
+  } catch (error) {
+    const code =
+      error instanceof SeniorDevExecutionError
+        ? error.code
+        : resume
+          ? "senior_dev_resume_failed"
+          : "senior_dev_failed";
+    const status =
+      error instanceof SeniorDevExecutionError ? error.status : 503;
+    const body = {
+      error: code,
+      message: resume
+        ? "Senior Dev could not resume this task."
+        : "Senior Dev could not complete this task.",
     };
-
-    const result = await runSeniorDevAgent(
-      agentTask,
-      { ...files },
-      context.techStack,
-      onProgress,
-    );
-
-    if (agentTask.status === "awaiting_approval") {
-      await updateSeniorDevTask(task.id, {
-        status: "awaiting_approval",
-        plan: agentTask.plan,
-        planApproved: false,
-        summary: result.summary,
-        creditsSpent: agentTask.creditsSpent,
-      });
-      write("awaiting_approval", {
-        status: "awaiting_approval",
-        plan: agentTask.plan,
-        summary: result.summary,
-      });
-      return;
+    if (!disconnected && !res.writableEnded) {
+      if (res.headersSent) write("error", body);
+      else res.status(status).json(body);
     }
-
-    if (Object.keys(result.files).length > 0) {
-      await updateProjectFiles(task.projectId, result.files);
-    }
-
-    await updateSeniorDevTask(task.id, {
-      status: agentTask.status === "failed" ? "failed" : "completed",
-      plan: agentTask.plan,
-      planApproved: agentTask.planApproved,
-      changes: result.changes,
-      validationResult: result.validations,
-      summary: result.summary,
-      creditsSpent: agentTask.creditsSpent,
-    });
-
-    write("done", {
-      status: agentTask.status === "failed" ? "failed" : "completed",
-      summary: result.summary,
-      filesChanged: result.changes.map((c) => c.path),
-      creditsSpent: agentTask.creditsSpent,
-    });
-  } catch (err: unknown) {
-    logger.error({ taskId: task.id, error: err }, "senior_dev_pipeline_error");
-    write("error", {
-      error: "senior_dev_failed",
-      message: "Senior Dev could not complete this task.",
-    });
-    try {
-      await refundOutstandingSeniorDevReservation(
-        user.id,
-        task.projectId,
-        task.id,
-        `Senior Dev Agent failed reservation refund for task ${task.id}`,
-      );
-    } catch (refundErr: unknown) {
-      logger.error(
-        { taskId: task.id, error: refundErr },
-        "senior_dev_refund_error",
-      );
-    }
-    await updateSeniorDevTaskStatus(task.id, "failed");
   } finally {
-    clearInterval(executionHeartbeat);
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    if (!res.writableEnded) res.end();
+    clearInterval(ping);
+    if (!disconnected && !res.writableEnded) res.end();
   }
+}
+router.get("/senior/:taskId", (req, res) => {
+  void streamSeniorDev(req, res, false);
 });
-
-/** Resume Senior Dev Agent after plan approval. The initial Senior Dev request already reserved the base credits, so resume must never require or deduct a second balance. */
-router.post("/senior/:taskId/resume", async (req: Request, res: Response) => {
-  const taskId = parsePositiveIntParam(req.params.taskId);
-  if (taskId === null) {
-    res.status(400).json({ error: "Invalid taskId" });
-    return;
-  }
-
-  const user = (req as any).user;
-  if (!user) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-
-  const task = await getSeniorDevTaskById(taskId);
-  if (!task || task.userId !== user.id) {
-    res.status(404).json({ error: "Task not found" });
-    return;
-  }
-
-  if (task.status !== "awaiting_approval") {
-    res.status(400).json({ error: "Task not awaiting approval" });
-    return;
-  }
-
-  const claimed = await claimSeniorDevResume(task.id, user.id);
-  if (!claimed) {
-    res.status(409).json({
-      error: "senior_dev_task_active",
-      message:
-        "This Senior Dev task has already been resumed or is no longer awaiting approval.",
-    });
-    return;
-  }
-
-  const executionHeartbeat = startSeniorDevExecutionHeartbeat(task.id, user.id);
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders?.();
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
-  const heartbeat = setInterval(() => {
-    if (!res.writableEnded) {
-      res.write(`event: ping\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`);
-    }
-  }, 15000);
-
-  req.on("close", () => {
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    controller.abort();
-  });
-
-  const write = (event: string, data: unknown) => {
-    if (!res.writableEnded) {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    }
-  };
-
-  const onProgress = (e: ProgressEvent) => {
-    if (controller.signal.aborted) return;
-    write("progress", e);
-  };
-
-  try {
-    const project = await getProjectById(task.projectId);
-    const files =
-      (project?.generatedFiles as Record<string, string> | null) ?? {};
-    const context = seniorDevContext(project ?? null);
-
-    const result = await resumeAfterApproval(
-      {
-        id: task.id,
-        projectId: task.projectId,
-        userId: task.userId,
-        request: task.request,
-        mode: task.mode as "collaborative" | "autonomous",
-        plan: task.plan as any,
-        planApproved: true,
-        status: "executing" as any,
-        changes: (task.changes as any) ?? [],
-        validationResults: (task.validationResult as any) ?? [],
-        summary: task.summary ?? "",
-        creditsSpent: task.creditsSpent ?? 0,
-        productContract: context.productContract,
-      },
-      { ...files },
-      context.techStack,
-      onProgress,
-    );
-
-    if (project) {
-      await updateProjectFiles(task.projectId, result.files);
-    }
-
-    await updateSeniorDevTask(task.id, {
-      status: "completed",
-      changes: result.changes,
-      validationResult: result.validations,
-      summary: result.summary,
-      creditsSpent: task.creditsSpent ?? 0,
-    });
-
-    write("done", {
-      status: "completed",
-      summary: result.summary,
-      filesChanged: result.changes.map((c) => c.path),
-    });
-  } catch (err: unknown) {
-    logger.error({ taskId: task.id, error: err }, "senior_dev_resume_error");
-    write("error", {
-      error: "senior_dev_resume_failed",
-      message: "Senior Dev could not resume this task.",
-    });
-    try {
-      await refundOutstandingSeniorDevReservation(
-        user.id,
-        task.projectId,
-        task.id,
-        `Senior Dev Agent resume failed reservation refund for task ${task.id}`,
-      );
-    } catch (refundErr: unknown) {
-      logger.error(
-        { taskId: task.id, error: refundErr },
-        "senior_dev_resume_refund_error",
-      );
-    }
-    await updateSeniorDevTask(task.id, {
-      status: "failed",
-      creditsSpent: 0,
-    });
-  } finally {
-    clearInterval(executionHeartbeat);
-    clearTimeout(timeout);
-    clearInterval(heartbeat);
-    if (!res.writableEnded) res.end();
-  }
+router.post("/senior/:taskId/resume", (req, res) => {
+  void streamSeniorDev(req, res, true);
 });
 
 router.post("/deploy", async (req: Request, res: Response) => {

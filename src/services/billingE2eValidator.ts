@@ -39,7 +39,7 @@ export function validateBillingGoldenPath(files: Files): BillingE2eReport {
         text.includes("client_reference_id") &&
         (text.includes("getuseridfromrequest") ||
           (text.includes("userid") && text.includes("session"))),
-      hint: "Login before checkout; set userId cookie",
+      hint: "Verify authentication server-side before checkout; never trust a userId cookie",
     },
     {
       id: "gate",

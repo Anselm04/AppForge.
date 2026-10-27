@@ -52,6 +52,8 @@ describe("#16 generated security", () => {
       "req.user = { id: req.headers['x-user-id'] || 'anonymous' };",
       "req.user.id = request.query.userId;",
       "const userId = req.headers['x-user-id'];",
+      "const userId = req.cookies.userId;",
+      "req.user = { id: request.cookies.userId };",
       'const tenantId = request.headers.get("x-tenant-id");',
       'const workspaceId = req.get("X-Workspace-ID");',
     ]) {

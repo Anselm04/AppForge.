@@ -87,7 +87,7 @@ const RULES: SecurityRule[] = [
     severity: "high",
     message: "Shell/process execution appears to use request-controlled input.",
     pattern:
-      /\b(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+      /\b(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(\s*(?:req\.(?:body|query|params|cookies)|request\.(?:body|query|params|cookies)|body\.|query\.|params\.)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -138,7 +138,7 @@ const RULES: SecurityRule[] = [
     message:
       "Server-side network request appears to use request-controlled input without an allowlist.",
     pattern:
-      /(?:fetch|axios\.(?:get|post|put|patch|delete)|new\s+URL)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+      /(?:fetch|axios\.(?:get|post|put|patch|delete)|new\s+URL)\s*\(\s*(?:req\.(?:body|query|params|cookies)|request\.(?:body|query|params|cookies)|body\.|query\.|params\.)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -147,7 +147,7 @@ const RULES: SecurityRule[] = [
     message:
       "Filesystem operation appears to use request-controlled input and may permit path traversal.",
     pattern:
-      /(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\s*\([^\n;]*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+      /(?:readFile|writeFile|appendFile|rm|unlink|sendFile|createReadStream|createWriteStream)\s*\([^\n;]*(?:req\.(?:body|query|params|cookies)|request\.(?:body|query|params|cookies)|body\.|query\.|params\.)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -171,7 +171,7 @@ const RULES: SecurityRule[] = [
     message:
       "Redirect target appears to come directly from request-controlled input.",
     pattern:
-      /(?:res\.redirect|redirect)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.)/i,
+      /(?:res\.redirect|redirect)\s*\(\s*(?:req\.(?:body|query|params|cookies)|request\.(?:body|query|params|cookies)|body\.|query\.|params\.)/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -198,7 +198,7 @@ const RULES: SecurityRule[] = [
     message:
       "Authorization identity appears to be accepted directly from request-controlled user/tenant fields.",
     pattern:
-      /(?:const|let|var)\s+(?:userId|tenantId|organizationId|orgId|workspaceId)\s*=\s*(?:req\.(?:body|query|params)|request\.(?:body|query|params)|body\.|query\.|params\.|(?:req|request)\.headers\b|(?:req|request)\.(?:get|header)\s*\(\s*["']x-(?:user|tenant|organization|org|workspace)-id["'])/i,
+      /(?:const|let|var)\s+(?:userId|tenantId|organizationId|orgId|workspaceId)\s*=\s*(?:req\.(?:body|query|params|cookies)|request\.(?:body|query|params|cookies)|body\.|query\.|params\.|(?:req|request)\.headers\b|(?:req|request)\.(?:get|header)\s*\(\s*["']x-(?:user|tenant|organization|org|workspace)-id["'])/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {
@@ -207,7 +207,7 @@ const RULES: SecurityRule[] = [
     message:
       "Server principal is constructed from unverified request identity fields.",
     pattern:
-      /(?:req|request)\.user(?:\.(?:id|tenantId|organizationId|orgId|workspaceId))?\s*=\s*(?:\{[^}]*\b(?:id|tenantId|organizationId|orgId|workspaceId)\s*:\s*)?(?:req|request)\.(?:headers\b|body\b|query\b|params\b|get\s*\(|header\s*\()/i,
+      /(?:req|request)\.user(?:\.(?:id|tenantId|organizationId|orgId|workspaceId))?\s*=\s*(?:\{[^}]*\b(?:id|tenantId|organizationId|orgId|workspaceId)\s*:\s*)?(?:req|request)\.(?:headers\b|body\b|query\b|params\b|cookies\b|get\s*\(|header\s*\()/i,
     paths: /\.(?:js|ts|mjs|cjs)$/i,
   },
   {

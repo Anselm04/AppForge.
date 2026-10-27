@@ -1,3 +1,4 @@
+import { MANAGER_COMMANDS_SQL } from "./managerCommandSchema.js";
 import { createHash } from "node:crypto";
 import postgres from "postgres";
 import { ENV } from "../_core/env.js";
@@ -752,6 +753,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20261016_009",
     name: "production_operations",
     sql: PRODUCTION_OPERATIONS_SQL,
+  },
+  {
+    version: "20261027_010",
+    name: "manager_command_ledger",
+    sql: MANAGER_COMMANDS_SQL,
   },
 ];
 

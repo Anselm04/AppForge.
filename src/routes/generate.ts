@@ -1,3 +1,8 @@
+import {
+  assertBuildExecutionReady,
+  BuildRuntimeUnavailableError,
+  BUILD_RUNTIME_UNAVAILABLE_MESSAGE,
+} from "../services/buildExecutionReadiness.js";
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import {
@@ -144,6 +149,8 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       }
     }
 
+    await assertBuildExecutionReady();
+
     // Optional model enrichment runs only after captcha, moderation, and
     // credit checks. It adds schema-valid items or falls back unchanged.
     const { contract } = await enrichProductContract(baseContract);
@@ -223,6 +230,13 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       secondaryCapabilities: promptIntent.secondaryCapabilities,
     });
   } catch (err: unknown) {
+    if (err instanceof BuildRuntimeUnavailableError) {
+      res.status(503).json({
+        error: "build_runtime_unavailable",
+        message: BUILD_RUNTIME_UNAVAILABLE_MESSAGE,
+      });
+      return;
+    }
     logger.error({ error: err }, "generate_failed");
     res.status(500).json({
       error: "generate_failed",

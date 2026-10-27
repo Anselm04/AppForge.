@@ -3,15 +3,15 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(
-  resolve(process.cwd(), "src/routes/build.ts"),
+  resolve(process.cwd(), "src/services/seniorDevExecution.ts"),
   "utf8",
 );
 
 describe("Senior Dev resume billing entitlement", () => {
   it("does not require a second credit balance after the initial reservation", () => {
-    const resumeStart = source.indexOf('router.post("/senior/:taskId/resume"');
-    const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
-    const resumeRoute = source.slice(resumeStart, deployStart);
+    const resumeRoute = source.slice(
+      source.indexOf("export async function resumeSeniorDevExecution"),
+    );
 
     expect(resumeRoute).not.toContain("ensureUserCredits(");
     expect(resumeRoute).not.toContain("resumeCredits.balance <");
@@ -20,7 +20,7 @@ describe("Senior Dev resume billing entitlement", () => {
       "await claimSeniorDevResume(task.id, user.id)",
     );
     expect(resumeRoute).toContain(
-      "await refundOutstandingSeniorDevReservation(",
+      "return executeClaimed(input, task, project, true)",
     );
   });
 });

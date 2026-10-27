@@ -5,13 +5,11 @@ import path from "node:path";
 describe("Senior Dev resume credit recovery", () => {
   it("refunds an outstanding paid reservation through the ledger primitive", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "src/routes/build.ts"),
+      path.join(process.cwd(), "src/services/seniorDevExecution.ts"),
       "utf8",
     );
 
-    const resumeStart = source.indexOf('router.post("/senior/:taskId/resume"');
-    const deployStart = source.indexOf('router.post("/deploy"', resumeStart);
-    const resumeRoute = source.slice(resumeStart, deployStart);
+    const resumeRoute = source;
 
     expect(resumeRoute).toContain(
       "await refundOutstandingSeniorDevReservation(",

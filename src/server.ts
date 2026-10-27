@@ -1,3 +1,5 @@
+import { managerIntegrationRouter } from "./routes/managerIntegration.js";
+import { closeManagerCommandLedger } from "./services/managerCommands.js";
 import express from "express";
 import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -277,6 +279,14 @@ app.use("/api/trpc/projects.create", buildLimiter);
 app.use("/api/generate", buildLimiter);
 app.use("/api/trpc", apiLimiter);
 
+// Dedicated bearer-only service boundary; browser cookies cannot authorize Manager operations.
+app.use(
+  "/integrations/manager",
+  apiLimiter,
+  express.json({ limit: "64kb" }),
+  managerIntegrationRouter,
+);
+
 app.use(csrfProtection);
 app.get("/api/csrf-token", csrfTokenHandler);
 app.use(express.json({ limit: "10mb" }));
@@ -377,6 +387,7 @@ if (ENV.isProduction) {
   app.get("*", (req, res, next) => {
     if (
       req.path.startsWith("/api") ||
+      req.path.startsWith("/integrations") ||
       req.path === "/config.js" ||
       req.path.startsWith("/live") ||
       req.path.startsWith("/apps")
@@ -428,10 +439,18 @@ let server: ReturnType<typeof app.listen> | undefined;
 let shuttingDown = false;
 let startupRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let runtimeServicesStarted = false;
+let stopManagerRepairs: (() => Promise<void>) | undefined;
 
 function startRuntimeServices() {
   if (runtimeServicesStarted) return;
   runtimeServicesStarted = true;
+  import("./services/managerRepairWorker.js")
+    .then(({ startManagerRepairWorker }) => {
+      stopManagerRepairs = startManagerRepairWorker();
+    })
+    .catch((error) =>
+      logger.error({ error }, "manager_repair_worker_start_failed"),
+    );
 
   import("./services/build-queue.js")
     .then(({ startBuildQueueWorker }) => {
@@ -533,6 +552,8 @@ function shutdown(signal: string, exitCode = 0) {
 
   const finish = async () => {
     try {
+      await stopManagerRepairs?.();
+      await closeManagerCommandLedger();
       await closeDbConnection();
       logger.info({}, "database_connection_closed");
     } catch (err) {
