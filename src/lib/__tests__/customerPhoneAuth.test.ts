@@ -18,6 +18,7 @@ vi.mock("../supabase", () => ({
 
 import {
   getCurrentSession,
+  getSession,
   logout,
   sendPhoneOtp,
   verifyPhoneOtp,
@@ -69,6 +70,21 @@ describe("customer phone authentication", () => {
       "appforge.access-token",
       "access",
     );
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(
+      "appforge.browser-session",
+      "active",
+    );
+  });
+
+  it("does not silently restore an account in a new browser tab from localStorage alone", () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+      key === "appforge.user"
+        ? JSON.stringify({ id: "user-1", phone: "+15551234567" })
+        : null,
+    );
+    vi.mocked(sessionStorage.getItem).mockReturnValue(null);
+
+    expect(getSession()).toBeNull();
   });
 
   it("returns the current AppForge session backed by the Supabase identity", async () => {
@@ -77,9 +93,11 @@ describe("customer phone authentication", () => {
         ? JSON.stringify({ id: "user-1", phone: "+15551234567" })
         : null,
     );
-    vi.mocked(sessionStorage.getItem).mockImplementation((key: string) =>
-      key === "appforge.access-token" ? "access" : null,
-    );
+    vi.mocked(sessionStorage.getItem).mockImplementation((key: string) => {
+      if (key === "appforge.access-token") return "access";
+      if (key === "appforge.browser-session") return "active";
+      return null;
+    });
 
     await expect(getCurrentSession()).resolves.toEqual({
       accessToken: "access",
