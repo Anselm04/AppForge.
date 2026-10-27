@@ -38,13 +38,17 @@ function requireTwilioEmailConfig() {
   return { from };
 }
 
+function serverAuthClient() {
+  requireServerAuthConfig();
+  return createClient(ENV.supabaseUrl, ENV.supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 async function generateSupabaseSignupLink(
   input: SignupConfirmationInput,
 ): Promise<ConfirmationLink> {
-  requireServerAuthConfig();
-  const supabase = createClient(ENV.supabaseUrl, ENV.supabaseServiceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const supabase = serverAuthClient();
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "signup",
@@ -71,9 +75,12 @@ async function generateSupabaseSignupLink(
   return { actionLink, userId };
 }
 
-async function sendTwilioConfirmationEmail(
-  input: ConfirmationEmail,
-): Promise<void> {
+async function sendTwilioActionEmail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<void> {
   const { from } = requireTwilioEmailConfig();
   const authorization = Buffer.from(
     `${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`,
@@ -91,8 +98,8 @@ async function sendTwilioConfirmationEmail(
       to: [{ address: input.to }],
       content: {
         subject: input.subject,
-        text: `Confirm your AppForge email address: ${input.confirmationUrl}`,
-        html: `<p>Confirm your AppForge email address to continue creating your account.</p><p><a href="${input.confirmationUrl}">Confirm email address</a></p><p>After email confirmation, AppForge will verify the mobile number you entered during signup.</p>`,
+        text: input.text,
+        html: input.html,
       },
     }),
   });
@@ -100,6 +107,17 @@ async function sendTwilioConfirmationEmail(
   if (response.status !== 202) {
     throw new Error(`Twilio email delivery failed (${response.status})`);
   }
+}
+
+async function sendTwilioConfirmationEmail(
+  input: ConfirmationEmail,
+): Promise<void> {
+  await sendTwilioActionEmail({
+    to: input.to,
+    subject: input.subject,
+    text: `Confirm your AppForge email address: ${input.confirmationUrl}`,
+    html: `<p>Confirm your AppForge email address to continue creating your account.</p><p><a href="${input.confirmationUrl}">Confirm email address</a></p><p>After email confirmation, AppForge will verify the mobile number you entered during signup.</p>`,
+  });
 }
 
 const productionDeps: SignupConfirmationDeps = {
@@ -124,6 +142,40 @@ export async function createSignupConfirmation(
   return { userId: link.userId, confirmationSent: true };
 }
 
+export async function sendPasswordRecovery(input: {
+  email: string;
+  redirectTo: string;
+}): Promise<void> {
+  const supabase = serverAuthClient();
+  requireTwilioEmailConfig();
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email: input.email,
+    options: { redirectTo: input.redirectTo },
+  });
+
+  if (error) {
+    const code = error.code || "";
+    if (["user_not_found", "email_not_found"].includes(code)) return;
+    if (/user.*not found|email.*not found/i.test(error.message || "")) return;
+    throw error;
+  }
+
+  const properties = data?.properties as
+    { action_link?: string; actionLink?: string } | undefined;
+  const actionLink = properties?.action_link || properties?.actionLink || "";
+  if (!actionLink) {
+    throw new Error("Supabase did not produce a password recovery link");
+  }
+
+  await sendTwilioActionEmail({
+    to: input.email,
+    subject: "Reset your AppForge password",
+    text: `Reset your AppForge password: ${actionLink}`,
+    html: `<p>A password reset was requested for your AppForge account.</p><p><a href="${actionLink}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
+  });
+}
+
 /** Supabase resend uses the existing signup identity; it never changes its password. */
 export async function resendSignupConfirmation(input: {
   email: string;
@@ -145,7 +197,6 @@ export async function resendSignupConfirmation(input: {
     email: input.email,
     options: { emailRedirectTo: input.redirectTo },
   });
-  // Preserve account privacy even when the provider reports an unknown address.
   if (
     error &&
     !["user_not_found", "email_not_found", "email_already_confirmed"].includes(
