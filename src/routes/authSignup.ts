@@ -2,9 +2,13 @@ import { Router, type RequestHandler } from "express";
 import {
   createSignupConfirmation,
   resendSignupConfirmation,
+  sendPasswordRecovery,
 } from "../services/authEmailDelivery.js";
 import { logger } from "../_core/logger.js";
-import { signupRedirect } from "../services/authRedirect.js";
+import {
+  passwordRecoveryRedirect,
+  signupRedirect,
+} from "../services/authRedirect.js";
 
 import {
   createLocalRateLimiter,
@@ -28,6 +32,18 @@ export const resendConfirmationHandler: RequestHandler = async (req, res) => {
     return;
   }
   try {
+    if (req.body?.purpose === "password_recovery") {
+      await sendPasswordRecovery({
+        email,
+        redirectTo: passwordRecoveryRedirect(),
+      });
+      res.status(202).json({
+        message:
+          "If this address belongs to an AppForge account, a password-reset email has been requested.",
+      });
+      return;
+    }
+
     await resendSignupConfirmation({
       email,
       redirectTo: signupRedirect(safeNext(req.body?.next)),
@@ -39,8 +55,13 @@ export const resendConfirmationHandler: RequestHandler = async (req, res) => {
   } catch {
     res.status(503).json({
       error:
-        "Unable to request a verification email. Please try again shortly.",
-      code: "CONFIRMATION_DELIVERY_FAILED",
+        req.body?.purpose === "password_recovery"
+          ? "Unable to request a password-reset email. Please try again shortly."
+          : "Unable to request a verification email. Please try again shortly.",
+      code:
+        req.body?.purpose === "password_recovery"
+          ? "PASSWORD_RECOVERY_DELIVERY_FAILED"
+          : "CONFIRMATION_DELIVERY_FAILED",
     });
   }
 };
