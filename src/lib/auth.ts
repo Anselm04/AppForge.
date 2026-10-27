@@ -5,6 +5,7 @@ import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
 const ACCESS_TOKEN_KEY = "appforge.access-token";
+const BROWSER_SESSION_KEY = "appforge.browser-session";
 const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
@@ -55,6 +56,30 @@ function storeUser(user: AppForgeSession["user"]) {
 function clearStoredUser() {
   try {
     globalThis.localStorage?.removeItem(USER_KEY);
+  } catch {
+    // ignore blocked storage
+  }
+}
+
+function hasBrowserSession(): boolean {
+  try {
+    return globalThis.sessionStorage?.getItem(BROWSER_SESSION_KEY) === "active";
+  } catch {
+    return false;
+  }
+}
+
+function markBrowserSession() {
+  try {
+    globalThis.sessionStorage?.setItem(BROWSER_SESSION_KEY, "active");
+  } catch {
+    // In-memory auth remains valid when storage is unavailable.
+  }
+}
+
+function clearBrowserSession() {
+  try {
+    globalThis.sessionStorage?.removeItem(BROWSER_SESSION_KEY);
   } catch {
     // ignore blocked storage
   }
@@ -111,6 +136,7 @@ function saveSession(session: AppForgeSession) {
   cachedSession = session;
   storeUser(session.user);
   storeAccessToken(session.accessToken);
+  markBrowserSession();
   emitSessionChange();
 }
 
@@ -222,7 +248,13 @@ export function getSession(): AppForgeSession | null {
   const user = readStoredUser();
   if (!user) return null;
   const accessToken = readStoredAccessToken();
-  cachedSession = accessToken ? { user, accessToken } : { user };
+  if (accessToken) {
+    markBrowserSession();
+    cachedSession = { user, accessToken };
+    return cachedSession;
+  }
+  if (!hasBrowserSession()) return null;
+  cachedSession = { user };
   return cachedSession;
 }
 
@@ -253,6 +285,7 @@ function clearLocalSessionState() {
   cachedSession = null;
   clearStoredUser();
   clearStoredAccessToken();
+  clearBrowserSession();
   refreshInFlight = null;
   emitSessionChange();
 }
@@ -318,9 +351,10 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const generation = sessionGeneration;
 
   refreshInFlight = (async () => {
-    // Refresh tokens are intentionally HttpOnly. Prove that the server can
-    // authenticate and rotate the cookie session before treating the local
-    // non-secret user marker as an authenticated browser session.
+    // Refresh tokens are intentionally HttpOnly. The per-tab browser-session
+    // marker proves this tab already completed a real sign-in before allowing
+    // the server cookie to refresh it. A new tab/window has no marker and must
+    // authenticate again instead of silently reviving a prior account.
     clearStoredAccessToken();
     const refreshed = await refreshServerCookieSession().catch(() => false);
 
@@ -329,6 +363,7 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       cachedSession = null;
       clearStoredUser();
       clearStoredAccessToken();
+      clearBrowserSession();
       emitSessionChange();
       return null;
     }
