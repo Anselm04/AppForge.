@@ -1,0 +1,41 @@
+name: Manager infrastructure readiness
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: manager-infrastructure
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.10.0'
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Inspect existing infrastructure without exposing credentials or changing systems
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$FLY_API_TOKEN" || { echo 'Missing production FLY_API_TOKEN'; exit 1; }
+          test -n "$DATABASE_URL" || { echo 'Missing production DATABASE_URL'; exit 1; }
+          flyctl apps list --json | jq '[.[] | {name:(.Name // .name),organization:(.Organization.Slug // .organization.slug)}]'
+          npm install --prefix "$RUNNER_TEMP/manager-probe" --ignore-scripts --no-audit --no-fund pg@8.16.3
+          cd "$RUNNER_TEMP/manager-probe"
+          node --input-type=module <<'JS'
+          import pg from 'pg';
+          const db=new pg.Client({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:10000,statement_timeout:10000});
+          try {
+            await db.connect();
+            const {rows}=await db.query("SELECT to_regclass('manager.state') IS NOT NULL AS manager_schema_present, (SELECT count(*)::int FROM auth.users WHERE lower(email)=lower($1) AND email_confirmed_at IS NOT NULL) AS verified_owner_count",[process.env.OWNER_EMAIL||'anselm.perkins@gmail.com']);
+            console.log(JSON.stringify(rows[0]));
+          } catch { console.error('Existing database connection or owner lookup unavailable');process.exitCode=1; }
+          finally {await db.end();}
+          JS
