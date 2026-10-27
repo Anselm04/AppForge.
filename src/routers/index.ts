@@ -3,7 +3,11 @@ import { z } from "zod";
 import { COOKIE_NAME } from "../_core/cookies.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
 import { systemRouter } from "../_core/systemRouter.js";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
+import {
+  authenticatedProcedure,
+  publicProcedure,
+  router,
+} from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { clearAdminMfaCookie } from "../lib/adminMfa.js";
 import {
@@ -57,7 +61,7 @@ export const appRouter = router({
         phoneVerified: user.phoneVerified,
       };
     }),
-    requestPhoneVerification: protectedProcedure.mutation(async ({ ctx }) => {
+    requestPhoneVerification: authenticatedProcedure.mutation(async ({ ctx }) => {
       if (!ctx.user.phone) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -74,7 +78,7 @@ export const appRouter = router({
         maskedPhone: maskPhone(ctx.user.phone),
       } as const;
     }),
-    verifyPhone: protectedProcedure
+    verifyPhone: authenticatedProcedure
       .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user.phone) {
