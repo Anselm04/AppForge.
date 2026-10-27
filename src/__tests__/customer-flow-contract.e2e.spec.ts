@@ -26,23 +26,18 @@ describe("critical customer flow contract", () => {
     const nav = source("../components/TopNav.tsx");
     const projects = source("../routers/projects.ts");
 
-    // Customer landing page stays prompt-only. Stack/capability choices remain
-    // internal to AppForge and must never be re-exposed by a branding change.
     expect(home).not.toContain("<select");
     expect(home).not.toContain("<CapabilityPicker");
     expect(home).not.toContain("BuildPurposeStatement");
-    // The stack comes from the canonical product contract, not a Home default.
     expect(home).not.toMatch(/techStack\s*:/);
     expect(home).toContain("Owner account · Unlimited lifetime access");
 
-    // Mobile tester controls are release-critical.
     expect(nav).toContain("<LanguageSwitcher");
     expect(nav).toContain("<ThemeToggle");
     expect(nav).toContain('go("/admin")');
     expect(nav).toContain('data-testid="mobile-nav-controls"');
     expect(nav).toContain("h-[100dvh]");
 
-    // Owner/lifetime access overrides customer subscription limits.
     expect(projects).toContain(
       'const tier = unlimited ? "lifetime" : subscriptionTier;',
     );
@@ -65,35 +60,47 @@ describe("critical customer flow contract", () => {
     );
   });
 
-  it("preserves signup destination through confirmation and login", () => {
+  it("preserves signup destination through email and phone verification", () => {
     const auth = source("../lib/auth.ts");
     const signup = source("../pages/Signup.tsx");
+    const app = source("../App.tsx");
 
     expect(auth).toContain('const USER_KEY = "appforge.user"');
     expect(auth).not.toContain('const SESSION_KEY = "appforge.session"');
     expect(auth).toContain("export async function completeAuthRedirect");
     expect(auth).toContain("saveSession(session);");
     expect(auth).toContain("export function loginPathWithReturn");
-    expect(signup).toContain("await signUp(email.trim(), password, next);");
+    expect(auth).toContain("export function normalizePhone");
     expect(signup).toContain(
-      "navigate(`/login?next=${encodeURIComponent(next)}`)",
+      "await signUp(email.trim(), normalizedPhone, password, next);",
     );
+    expect(signup).toContain('id="signup-phone"');
+    expect(signup).toContain("/verify-phone?next=");
+    expect(app).toContain('path="/verify-phone"');
   });
 
-  it("keeps confirmed users authenticated across refresh/reopen with token refresh", () => {
+  it("keeps same-tab refresh but rejects silent authentication in a new browser window", () => {
     const auth = source("../lib/auth.ts");
+    const trpc = source("../utils/trpc.ts");
+    const middleware = source("../middleware/supabaseAuth.ts");
 
-    expect(auth).toContain('const USER_KEY = "appforge.user"');
-    expect(auth).not.toContain("refreshToken?: string;");
+    expect(auth).toContain('const BROWSER_SESSION_KEY = "appforge.browser-session"');
+    expect(auth).toContain("export function browserSessionHeaders");
+    expect(auth).toContain("if (!hasBrowserSession()) return null;");
     expect(auth).toContain("export async function refreshSession");
-    expect(auth).toContain("Refresh tokens are intentionally HttpOnly.");
+    expect(auth).toContain("if (!hasBrowserSession()) return false;");
     expect(auth).toContain(
       "const refreshed = await refreshServerCookieSession()",
     );
-    expect(auth).toContain("clearStoredUser();");
+    expect(auth).toContain("clearBrowserSession();");
     expect(auth).toContain("export async function ensureFreshSession");
     expect(auth).toContain("return refreshSession();");
     expect(auth).not.toContain("localStorage?.setItem(SESSION_KEY");
+    expect(trpc).toContain("browserSessionHeaders");
+    expect(middleware).toContain(
+      'const BROWSER_SESSION_HEADER = "x-appforge-browser-session"',
+    );
+    expect(middleware).toContain("if (!hasBrowserSessionProof(req)) return undefined;");
   });
 
   it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {
