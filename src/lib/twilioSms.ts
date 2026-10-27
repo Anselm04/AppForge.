@@ -127,7 +127,8 @@ async function startOwnerPhoneVerificationRecovery(
   const body = (await res.json().catch(() => null)) as {
     validation_code?: unknown;
   } | null;
-  return typeof body?.validation_code === "string" && body.validation_code.length > 0
+  return typeof body?.validation_code === "string" &&
+    body.validation_code.length > 0
     ? body.validation_code
     : null;
 }
