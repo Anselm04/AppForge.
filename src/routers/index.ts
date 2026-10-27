@@ -1,9 +1,15 @@
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { COOKIE_NAME } from "../_core/cookies.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
 import { systemRouter } from "../_core/systemRouter.js";
-import { publicProcedure, router } from "../_core/trpc.js";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
 import { clearAdminMfaCookie } from "../lib/adminMfa.js";
+import {
+  requestAccountPhoneVerification,
+  verifyAccountPhone,
+} from "../services/accountPhoneVerification.js";
 import { accountRouter } from "./account.js";
 import { operationsRouter } from "./operations.js";
 import { projectsRouter } from "./projects.js";
@@ -28,6 +34,12 @@ import { collaborationRouter } from "./collaboration.js";
 import { visualEditorRouter } from "./visualEditor.js";
 import { versionedWritesRouter } from "./versionedWrites.js";
 
+function maskPhone(phone?: string): string | null {
+  if (!phone) return null;
+  const visible = phone.slice(-4);
+  return `${"•".repeat(Math.max(0, phone.length - 4))}${visible}`;
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -40,8 +52,53 @@ export const appRouter = router({
         email,
         name: user.name,
         isOwner: isOwnerEmail(email),
+        phone: user.phone ?? null,
+        maskedPhone: maskPhone(user.phone),
+        phoneVerified: user.phoneVerified,
       };
     }),
+    requestPhoneVerification: protectedProcedure.mutation(async ({ ctx }) => {
+      if (!ctx.user.phone) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No mobile number is attached to this account.",
+        });
+      }
+      if (ctx.user.phoneVerified) {
+        return { sent: false, alreadyVerified: true } as const;
+      }
+      await requestAccountPhoneVerification(ctx.user.phone);
+      return {
+        sent: true,
+        alreadyVerified: false,
+        maskedPhone: maskPhone(ctx.user.phone),
+      } as const;
+    }),
+    verifyPhone: protectedProcedure
+      .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.phone) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No mobile number is attached to this account.",
+          });
+        }
+        if (ctx.user.phoneVerified) {
+          return { verified: true } as const;
+        }
+        const verified = await verifyAccountPhone({
+          supabaseUid: ctx.user.supabaseUid,
+          phone: ctx.user.phone,
+          code: input.code,
+        });
+        if (!verified) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That SMS code is invalid or expired.",
+          });
+        }
+        return { verified: true } as const;
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
