@@ -35,7 +35,7 @@ export function RequireAuth({ children }: Props) {
     return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
   }
 
-  if (me.phone && !me.phoneVerified) {
+  if (!me.phoneVerified) {
     const next = `${location.pathname}${location.search}`;
     return (
       <Navigate
