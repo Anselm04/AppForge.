@@ -35,5 +35,15 @@ export function RequireAuth({ children }: Props) {
     return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
   }
 
+  if (me.phone && !me.phoneVerified) {
+    const next = `${location.pathname}${location.search}`;
+    return (
+      <Navigate
+        to={`/verify-phone?next=${encodeURIComponent(next)}`}
+        replace
+      />
+    );
+  }
+
   return children ? <>{children}</> : <Outlet />;
 }
