@@ -85,6 +85,28 @@ async function requestAppForgeSignup(
   return body as AuthResponse;
 }
 
+async function requestAppForgePasswordReset(email: string): Promise<void> {
+  const headers = await withCsrfHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  });
+  const response = await fetch("/api/health/auth-resend-verification", {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      purpose: "password_recovery",
+    }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      body?.error || `Unable to request password reset (${response.status})`,
+    );
+  }
+}
+
 export const SOCIAL_SIGN_IN_PROVIDERS = ["google", "github"] as const;
 export type SocialSignInProvider = (typeof SOCIAL_SIGN_IN_PROVIDERS)[number];
 
@@ -142,17 +164,7 @@ export const supabaseClient = {
     });
   },
   requestPasswordReset(email: string) {
-    const redirect =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/password-reset`
-        : undefined;
-    const path = redirect
-      ? `/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`
-      : "/auth/v1/recover";
-    return request<Record<string, unknown>>(path, {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
+    return requestAppForgePasswordReset(email);
   },
   updatePassword(accessToken: string, password: string) {
     return request<AuthResponse>("/auth/v1/user", {
