@@ -3,6 +3,7 @@ import { ENV } from "../_core/env.js";
 
 export type SignupConfirmationInput = {
   email: string;
+  phone: string;
   password: string;
   redirectTo: string;
 };
@@ -49,7 +50,13 @@ async function generateSupabaseSignupLink(
     type: "signup",
     email: input.email,
     password: input.password,
-    options: { redirectTo: input.redirectTo },
+    options: {
+      redirectTo: input.redirectTo,
+      data: {
+        signup_phone: input.phone,
+        signup_phone_verified: false,
+      },
+    },
   });
   if (error) throw error;
 
@@ -85,7 +92,7 @@ async function sendTwilioConfirmationEmail(
       content: {
         subject: input.subject,
         text: `Confirm your AppForge email address: ${input.confirmationUrl}`,
-        html: `<p>Confirm your AppForge email address to finish creating your account.</p><p><a href="${input.confirmationUrl}">Confirm email address</a></p>`,
+        html: `<p>Confirm your AppForge email address to continue creating your account.</p><p><a href="${input.confirmationUrl}">Confirm email address</a></p><p>After email confirmation, AppForge will verify the mobile number you entered during signup.</p>`,
       },
     }),
   });

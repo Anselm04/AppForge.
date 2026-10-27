@@ -15,6 +15,7 @@ const supabaseKey =
 const ACCESS_COOKIE = "sb-access-token";
 const REFRESH_COOKIE = "sb-refresh-token";
 const REFRESH_HEADER = "x-supabase-refresh-token";
+const BROWSER_SESSION_HEADER = "x-appforge-browser-session";
 const SESSION_PATH = "/api/auth/session";
 const REFRESH_GRACE_MS = 15_000;
 
@@ -27,6 +28,10 @@ function readSignOutScope(req: Request): SignOutScope | null {
       : "local";
   if (raw === "local" || raw === "others" || raw === "global") return raw;
   return null;
+}
+
+function hasBrowserSessionProof(req: Request): boolean {
+  return req.headers[BROWSER_SESSION_HEADER] === "active";
 }
 
 async function revokeSupabaseSession(
@@ -88,6 +93,8 @@ export type AuthUser = {
   email: string;
   name: string;
   supabaseUid: string;
+  phone?: string;
+  phoneVerified: boolean;
 };
 
 declare global {
@@ -105,6 +112,10 @@ function readAccessToken(req: Request): string | undefined {
     if (match?.[1]) return match[1].trim();
   }
 
+  // Cookies are intentionally insufficient by themselves. A new browser tab or
+  // window must have the per-tab proof header before an old cookie can restore
+  // an account. A direct bearer token from a fresh login remains authoritative.
+  if (!hasBrowserSessionProof(req)) return undefined;
   const cookie = req.cookies?.[ACCESS_COOKIE];
   if (typeof cookie === "string" && cookie.length > 0) return cookie;
 
@@ -117,6 +128,7 @@ function readRefreshToken(req: Request): string | undefined {
     if (typeof header === "string" && header.length > 0) return header.trim();
   }
 
+  if (!hasBrowserSessionProof(req)) return undefined;
   const cookie = req.cookies?.[REFRESH_COOKIE];
   if (typeof cookie === "string" && cookie.length > 0) return cookie;
 
@@ -150,9 +162,6 @@ function authCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    // Lax permits the normal same-site SPA navigation/auth flow on Safari and
-    // iPhone Chromium while retaining CSRF protection through the synchronizer
-    // token middleware for unsafe requests.
     sameSite: "lax" as const,
     path: "/",
   };
@@ -311,7 +320,6 @@ export async function supabaseAuthMiddleware(
         res.setHeader("x-appforge-session-refreshed", "1");
       }
     } catch (err) {
-      // Preserve a still-valid refresh cookie across transient Supabase failures.
       logger.warn({ error: err }, "supabase_auth_refresh_failed");
     }
   }
@@ -392,6 +400,13 @@ export async function supabaseAuthMiddleware(
       authUser.user_metadata?.["name"] ||
       (email ? email.split("@")[0] : "user");
     const picture = authUser.user_metadata?.["avatar_url"] ?? null;
+    const metadataPhone = authUser.user_metadata?.["signup_phone"];
+    const phone =
+      (typeof authUser.phone === "string" && authUser.phone) ||
+      (typeof metadataPhone === "string" ? metadataPhone : undefined);
+    const phoneVerified =
+      Boolean(authUser.phone_confirmed_at) ||
+      authUser.user_metadata?.["signup_phone_verified"] === true;
 
     const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
     const dbUser = await upsertUserFromAuth({
@@ -420,6 +435,8 @@ export async function supabaseAuthMiddleware(
       email: email || dbUser.email || "",
       name: dbUser.name ?? name,
       supabaseUid,
+      phone,
+      phoneVerified,
     };
 
     if (isSessionEndpoint(req) && req.method === "POST") {
@@ -428,9 +445,6 @@ export async function supabaseAuthMiddleware(
       return res.status(204).end();
     }
   } catch (err) {
-    // Authentication succeeded; a database/upsert failure is a server failure,
-    // not an authentication failure. Returning 401 here caused valid users to
-    // enter a login loop and hid the actual production fault.
     logger.error(
       { error: err, supabaseUid: authUser.id },
       "supabase_auth_session_persistence_failed",

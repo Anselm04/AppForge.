@@ -3,15 +3,19 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { rejectRateLimitedResponse } from "../lib/buildPolling.js";
 import type { AppRouter } from "../routers/index.js";
 import {
+  browserSessionHeaders,
   ensureFreshSession,
   getAccessToken,
   refreshSession,
 } from "../lib/auth.js";
 import { clearCsrfToken, withCsrfHeaders } from "../lib/csrf.js";
 
-function bearerHeaders(): Record<string, string> {
+function authHeaders(): Record<string, string> {
   const token = getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {
+    ...browserSessionHeaders(),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 export const trpc = createTRPCProxyClient<AppRouter>({
@@ -21,7 +25,7 @@ export const trpc = createTRPCProxyClient<AppRouter>({
       url: "/api/trpc",
       methodOverride: "POST",
       headers() {
-        return bearerHeaders();
+        return authHeaders();
       },
       fetch(url, options) {
         const run = async (retried: boolean): Promise<Response> => {
@@ -32,6 +36,12 @@ export const trpc = createTRPCProxyClient<AppRouter>({
           let headers = new Headers(options?.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
           else headers.delete("Authorization");
+          for (const [key, value] of Object.entries(browserSessionHeaders())) {
+            headers.set(key, value);
+          }
+          if (!browserSessionHeaders()["x-appforge-browser-session"]) {
+            headers.delete("x-appforge-browser-session");
+          }
           headers = await withCsrfHeaders(headers);
           const res = await fetch(url, {
             ...options,

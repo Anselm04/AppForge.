@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSignupConfirmation } from "../services/authEmailDelivery.js";
 
 describe("AppForge signup confirmation delivery", () => {
-  it("creates a Supabase confirmation link and sends it through Twilio Email without returning the secret link", async () => {
+  it("creates one pending account with email and phone metadata, then sends the email confirmation", async () => {
     const generateLink = vi.fn(async () => ({
       actionLink: "https://project.supabase.co/auth/v1/verify?token=secret",
       userId: "user-123",
@@ -12,6 +12,7 @@ describe("AppForge signup confirmation delivery", () => {
     const result = await createSignupConfirmation(
       {
         email: "customer@example.com",
+        phone: "+15551234567",
         password: "StrongPassword123!",
         redirectTo: "https://app.example.com/login?next=%2Faccount",
       },
@@ -20,6 +21,7 @@ describe("AppForge signup confirmation delivery", () => {
 
     expect(generateLink).toHaveBeenCalledWith({
       email: "customer@example.com",
+      phone: "+15551234567",
       password: "StrongPassword123!",
       redirectTo: "https://app.example.com/login?next=%2Faccount",
     });
@@ -46,6 +48,7 @@ describe("AppForge signup confirmation delivery", () => {
       createSignupConfirmation(
         {
           email: "customer@example.com",
+          phone: "+15551234567",
           password: "StrongPassword123!",
           redirectTo: "https://app.example.com/login?next=%2Faccount",
         },

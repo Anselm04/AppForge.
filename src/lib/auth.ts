@@ -5,6 +5,8 @@ import { clearCsrfToken, withCsrfHeaders } from "./csrf";
 
 const USER_KEY = "appforge.user";
 const ACCESS_TOKEN_KEY = "appforge.access-token";
+const BROWSER_SESSION_KEY = "appforge.browser-session";
+const BROWSER_SESSION_HEADER = "x-appforge-browser-session";
 const listeners = new Set<() => void>();
 
 export interface AppForgeSession {
@@ -55,6 +57,34 @@ function storeUser(user: AppForgeSession["user"]) {
 function clearStoredUser() {
   try {
     globalThis.localStorage?.removeItem(USER_KEY);
+  } catch {
+    // ignore blocked storage
+  }
+}
+
+function hasBrowserSession(): boolean {
+  try {
+    return globalThis.sessionStorage?.getItem(BROWSER_SESSION_KEY) === "active";
+  } catch {
+    return false;
+  }
+}
+
+export function browserSessionHeaders(): Record<string, string> {
+  return hasBrowserSession() ? { [BROWSER_SESSION_HEADER]: "active" } : {};
+}
+
+function markBrowserSession() {
+  try {
+    globalThis.sessionStorage?.setItem(BROWSER_SESSION_KEY, "active");
+  } catch {
+    // In-memory auth remains valid when storage is unavailable.
+  }
+}
+
+function clearBrowserSession() {
+  try {
+    globalThis.sessionStorage?.removeItem(BROWSER_SESSION_KEY);
   } catch {
     // ignore blocked storage
   }
@@ -111,6 +141,7 @@ function saveSession(session: AppForgeSession) {
   cachedSession = session;
   storeUser(session.user);
   storeAccessToken(session.accessToken);
+  markBrowserSession();
   emitSessionChange();
 }
 
@@ -142,6 +173,7 @@ async function syncServerSession(
     const headers = await withCsrfHeaders({
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
+      ...browserSessionHeaders(),
       ...(refreshToken ? { "x-supabase-refresh-token": refreshToken } : {}),
     });
     return fetch("/api/auth/session", {
@@ -183,9 +215,10 @@ async function revokeServerSessions(
   accessToken?: string,
 ): Promise<void> {
   const request = async (): Promise<Response> => {
-    const headers = await withCsrfHeaders(
-      accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-    );
+    const headers = await withCsrfHeaders({
+      ...browserSessionHeaders(),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    });
     return fetch(`/api/auth/session?scope=${encodeURIComponent(scope)}`, {
       method: "DELETE",
       credentials: "same-origin",
@@ -222,7 +255,13 @@ export function getSession(): AppForgeSession | null {
   const user = readStoredUser();
   if (!user) return null;
   const accessToken = readStoredAccessToken();
-  cachedSession = accessToken ? { user, accessToken } : { user };
+  if (accessToken) {
+    markBrowserSession();
+    cachedSession = { user, accessToken };
+    return cachedSession;
+  }
+  if (!hasBrowserSession()) return null;
+  cachedSession = { user };
   return cachedSession;
 }
 
@@ -233,7 +272,10 @@ export function getAccessToken(): string | null {
 
 export function authHeaders(): Record<string, string> {
   const token = getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {
+    ...browserSessionHeaders(),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 export function loginPathWithReturn(next = "/"): string {
@@ -253,27 +295,49 @@ function clearLocalSessionState() {
   cachedSession = null;
   clearStoredUser();
   clearStoredAccessToken();
+  clearBrowserSession();
   refreshInFlight = null;
   emitSessionChange();
 }
 
 export function signOut() {
   const session = getSession();
+  const proofHeaders = browserSessionHeaders();
   clearLocalSessionState();
 
-  void clearServerSession(session?.accessToken);
+  void clearServerSessionWithHeaders(session?.accessToken, proofHeaders);
   if (session?.accessToken) {
     void supabaseClient.signOut(session.accessToken).catch(() => undefined);
   }
   void supabase.auth.signOut().catch(() => undefined);
 }
 
+async function clearServerSessionWithHeaders(
+  accessToken: string | undefined,
+  proofHeaders: Record<string, string>,
+): Promise<void> {
+  try {
+    const headers = await withCsrfHeaders({
+      ...proofHeaders,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    });
+    await fetch("/api/auth/session?scope=local", {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers,
+    });
+  } catch {
+    // Local browser state is already cleared.
+  }
+}
+
 export async function logout(): Promise<void> {
   const session = getSession();
+  const proofHeaders = browserSessionHeaders();
   clearLocalSessionState();
 
   await Promise.allSettled([
-    clearServerSession(session?.accessToken),
+    clearServerSessionWithHeaders(session?.accessToken, proofHeaders),
     supabase.auth.signOut(),
     session?.accessToken
       ? supabaseClient.signOut(session.accessToken)
@@ -293,8 +357,12 @@ export async function signOutAllDevices(): Promise<void> {
 }
 
 async function refreshServerCookieSession(): Promise<boolean> {
+  if (!hasBrowserSession()) return false;
   const post = async (): Promise<Response> => {
-    const headers = await withCsrfHeaders({ Accept: "application/json" });
+    const headers = await withCsrfHeaders({
+      Accept: "application/json",
+      ...browserSessionHeaders(),
+    });
     return fetch("/api/auth/session", {
       method: "POST",
       credentials: "same-origin",
@@ -318,9 +386,6 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
   const generation = sessionGeneration;
 
   refreshInFlight = (async () => {
-    // Refresh tokens are intentionally HttpOnly. Prove that the server can
-    // authenticate and rotate the cookie session before treating the local
-    // non-secret user marker as an authenticated browser session.
     clearStoredAccessToken();
     const refreshed = await refreshServerCookieSession().catch(() => false);
 
@@ -329,6 +394,7 @@ export async function refreshSession(): Promise<AppForgeSession | null> {
       cachedSession = null;
       clearStoredUser();
       clearStoredAccessToken();
+      clearBrowserSession();
       emitSessionChange();
       return null;
     }
@@ -419,11 +485,6 @@ export function listSocialSignInProviders(): Promise<SocialSignInProvider[]> {
   return supabaseClient.listAuthProviders();
 }
 
-/**
- * Only same-origin app paths are safe post-sign-in destinations. Anything else
- * (protocol-relative `//host`, absolute URLs, backslash tricks) falls back to
- * `fallback` so a `next` value can never become an open redirect.
- */
 export function safeAuthDestination(
   value: string | null | undefined,
   fallback = "/",
@@ -439,10 +500,6 @@ export function safeAuthDestination(
   return fallback;
 }
 
-/**
- * Begin a Google/GitHub sign-in. The provider callback returns to /login with
- * tokens in the URL hash, which `completeAuthRedirect` then completes.
- */
 export function startSocialSignIn(
   provider: SocialSignInProvider,
   next = "/",
@@ -455,8 +512,26 @@ export function startSocialSignIn(
   );
 }
 
-export async function signUp(email: string, password: string, next = "/") {
-  const result = await supabaseClient.signUp(email, password, next);
+export function normalizePhone(phone: string): string {
+  const normalized = phone.trim().replace(/[\s()-]/g, "");
+  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+    throw new Error("Phone number must use international format, for example +6421…");
+  }
+  return normalized;
+}
+
+export async function signUp(
+  email: string,
+  phone: string,
+  password: string,
+  next = "/",
+) {
+  const result = await supabaseClient.signUp(
+    email,
+    normalizePhone(phone),
+    password,
+    next,
+  );
   if (result.error) throw new Error(result.error.message);
   const session = sessionFromAuth(result);
   if (session) {
@@ -489,14 +564,9 @@ export async function signIn(
 
 export const emailLogin = signIn;
 
-function normalizePhone(phone: string): string {
-  const normalized = phone.trim().replace(/[\s()-]/g, "");
-  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-    throw new Error("Phone number must use E.164 format.");
-  }
-  return normalized;
-}
-
+// Retained only for explicit phone-only auth flows. Account signup verification
+// uses the linked authenticated-account Twilio flow instead, so it cannot create
+// a second identity for the same person.
 export async function sendPhoneOtp(phone: string): Promise<void> {
   const normalizedPhone = normalizePhone(phone);
   const { error } = await supabase.auth.signInWithOtp({

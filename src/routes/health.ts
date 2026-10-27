@@ -164,10 +164,16 @@ function safeNext(value: unknown): string {
     : "/";
 }
 
+function normalizeSignupPhone(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const phone = value.trim().replace(/[\s()-]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : "";
+}
+
 // Public signup confirmation delivery lives on the only pre-authenticated API
 // router in the current server composition. CSRF/global abuse controls still run
 // before this router. The endpoint itself fails closed unless startup readiness,
-// Supabase service-role link generation and Twilio delivery all succeed.
+// Supabase service-role link generation and email delivery all succeed.
 router.post(
   "/auth-signup",
   signupAbuseLimiter,
@@ -185,14 +191,15 @@ router.post(
       typeof req.body?.email === "string"
         ? req.body.email.trim().toLowerCase()
         : "";
+    const phone = normalizeSignupPhone(req.body?.phone);
     const password =
       typeof req.body?.password === "string" ? req.body.password : "";
     const next = safeNext(req.body?.next);
 
-    if (!email || !email.includes("@") || password.length < 8) {
+    if (!email || !email.includes("@") || !phone || password.length < 8) {
       return res.status(400).json({
         error:
-          "A valid email and password of at least 8 characters are required.",
+          "A valid email, mobile number in international format, and password of at least 8 characters are required.",
         code: "INVALID_SIGNUP_INPUT",
       });
     }
@@ -201,12 +208,14 @@ router.post(
       const redirectTo = signupRedirect(next);
       const result = await createSignupConfirmation({
         email,
+        phone,
         password,
         redirectTo,
       });
       return res.status(202).json({
-        user: { id: result.userId, email },
+        user: { id: result.userId, email, phone },
         confirmationSent: true,
+        phoneVerificationRequired: true,
       });
     } catch (error) {
       logger.error({ error }, "signup_confirmation_delivery_failed");
@@ -215,7 +224,7 @@ router.post(
       );
       return res.status(503).json({
         error:
-          "We could not send your confirmation email. Please try again shortly.",
+          "We could not create and verify your account right now. Please try again shortly.",
         code: "CONFIRMATION_DELIVERY_FAILED",
       });
     }

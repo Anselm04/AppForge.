@@ -17,6 +17,7 @@ type FormProps = {
 
 export function EmailSignupForm({ disabled = false }: FormProps) {
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,8 +33,15 @@ export function EmailSignupForm({ disabled = false }: FormProps) {
 
     setBusy(true);
     try {
-      await emailSignUp(email.trim().toLowerCase(), password, "/account");
-      setMessage("Check your email to confirm your AppForge account.");
+      await emailSignUp(
+        email.trim().toLowerCase(),
+        phone.trim(),
+        password,
+        "/account",
+      );
+      setMessage(
+        "Check your email to confirm your AppForge account, then verify your mobile number.",
+      );
     } catch (error) {
       setMessage(authMessage(error));
     } finally {
@@ -52,6 +60,19 @@ export function EmailSignupForm({ disabled = false }: FormProps) {
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+        />
+      </label>
+      <label>
+        Mobile number
+        <input
+          type="tel"
+          name="phone"
+          autoComplete="tel"
+          inputMode="tel"
+          placeholder="+64221234567"
+          required
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
         />
       </label>
       <label>

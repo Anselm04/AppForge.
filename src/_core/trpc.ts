@@ -32,7 +32,7 @@ async function requireActiveAccount(user: NonNullable<Context["user"]>) {
   return user;
 }
 
-export const protectedProcedure = t.procedure.use(async (opts) => {
+export const authenticatedProcedure = t.procedure.use(async (opts) => {
   const candidate = await requireAuthenticatedUser(opts.ctx.user);
   const user = await requireActiveAccount(candidate);
   return opts.next({
@@ -41,6 +41,17 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
       user,
     },
   });
+});
+
+export const protectedProcedure = authenticatedProcedure.use(async (opts) => {
+  const user = opts.ctx.user;
+  if (user.phone && !user.phoneVerified) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Phone verification required",
+    });
+  }
+  return opts.next({ ctx: { ...opts.ctx, user } });
 });
 
 export const accountDeletionProcedure = t.procedure.use(async (opts) => {
@@ -61,14 +72,21 @@ export const accountDeletionProcedure = t.procedure.use(async (opts) => {
   });
 });
 
-export const ownerAuthenticatedProcedure = t.procedure.use(async (opts) => {
-  const candidate = await requireAuthenticatedUser(opts.ctx.user);
-  const user = await requireActiveAccount(candidate);
-  if (!isOwnerEmail(user.email)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Owner access only" });
-  }
-  return opts.next({ ctx: { ...opts.ctx, user } });
-});
+export const ownerAuthenticatedProcedure = authenticatedProcedure.use(
+  async (opts) => {
+    const user = opts.ctx.user;
+    if (user.phone && !user.phoneVerified) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Phone verification required",
+      });
+    }
+    if (!isOwnerEmail(user.email)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Owner access only" });
+    }
+    return opts.next({ ctx: { ...opts.ctx, user } });
+  },
+);
 
 export const ownerOnlyProcedure = ownerAuthenticatedProcedure.use(
   async (opts) => {

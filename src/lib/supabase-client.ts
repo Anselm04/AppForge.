@@ -16,7 +16,7 @@ declare global {
 type AuthResponse = {
   access_token?: string;
   refresh_token?: string;
-  user?: { id: string; email?: string };
+  user?: { id: string; email?: string; phone?: string };
   error?: { message: string };
 };
 
@@ -62,6 +62,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 async function requestAppForgeSignup(
   email: string,
+  phone: string,
   password: string,
   next: string,
 ): Promise<AuthResponse> {
@@ -73,7 +74,7 @@ async function requestAppForgeSignup(
     method: "POST",
     credentials: "same-origin",
     headers,
-    body: JSON.stringify({ email, password, next }),
+    body: JSON.stringify({ email, phone, password, next }),
   });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
@@ -119,8 +120,8 @@ function oauthAuthorizeUrl(
 }
 
 export const supabaseClient = {
-  signUp(email: string, password: string, next = "/") {
-    return requestAppForgeSignup(email, password, next);
+  signUp(email: string, phone: string, password: string, next = "/") {
+    return requestAppForgeSignup(email, phone, password, next);
   },
   signIn(email: string, password: string) {
     return request<AuthResponse>("/auth/v1/token?grant_type=password", {
@@ -160,7 +161,6 @@ export const supabaseClient = {
       body: JSON.stringify({ password }),
     });
   },
-  /** Supabase secure email-change settings control confirmation of old/new addresses. */
   updateEmail(accessToken: string, email: string) {
     return request<AuthResponse>("/auth/v1/user", {
       method: "PUT",
