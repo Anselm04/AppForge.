@@ -22,23 +22,60 @@ function serverAuthClient() {
   });
 }
 
-export async function requestAccountPhoneVerification(
-  phone: string,
-): Promise<void> {
-  await requestTwilioVerification(normalizePhone(phone));
+function storedPhone(user: {
+  phone?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+}): string | undefined {
+  if (typeof user.phone === "string" && user.phone) return normalizePhone(user.phone);
+  const metadataPhone = user.user_metadata?.["signup_phone"];
+  return typeof metadataPhone === "string" && metadataPhone
+    ? normalizePhone(metadataPhone)
+    : undefined;
+}
+
+export async function requestAccountPhoneVerification(input: {
+  supabaseUid: string;
+  phone?: string;
+}): Promise<{ phone: string; alreadyVerified: boolean }> {
+  const supabase = serverAuthClient();
+  const { data: current, error: readError } =
+    await supabase.auth.admin.getUserById(input.supabaseUid);
+  if (readError || !current.user) {
+    throw readError || new Error("Unable to load the authenticated account.");
+  }
+
+  const existing = storedPhone(current.user);
+  const requested = input.phone ? normalizePhone(input.phone) : existing;
+  if (!requested) {
+    throw new Error("Enter a mobile number before requesting an SMS code.");
+  }
+
+  if (current.user.phone_confirmed_at && existing === requested) {
+    return { phone: requested, alreadyVerified: true };
+  }
+
+  const existingMetadata = current.user.user_metadata ?? {};
+  if (existing !== requested || existingMetadata["signup_phone_verified"] === true) {
+    const { error } = await supabase.auth.admin.updateUserById(input.supabaseUid, {
+      user_metadata: {
+        ...existingMetadata,
+        signup_phone: requested,
+        signup_phone_verified: false,
+      },
+    });
+    if (error) throw error;
+  }
+
+  await requestTwilioVerification(requested);
+  return { phone: requested, alreadyVerified: false };
 }
 
 export async function verifyAccountPhone(input: {
   supabaseUid: string;
-  phone: string;
   code: string;
 }): Promise<boolean> {
-  const phone = normalizePhone(input.phone);
   const code = input.code.trim();
   if (!/^\d{6}$/.test(code)) return false;
-
-  const approved = await checkTwilioVerification(phone, code);
-  if (!approved) return false;
 
   const supabase = serverAuthClient();
   const { data: current, error: readError } =
@@ -46,6 +83,17 @@ export async function verifyAccountPhone(input: {
   if (readError || !current.user) {
     throw readError || new Error("Unable to load the authenticated account.");
   }
+
+  const phone = storedPhone(current.user);
+  if (!phone) {
+    throw new Error("No mobile number is attached to this account.");
+  }
+  if (current.user.phone_confirmed_at && current.user.phone === phone) {
+    return true;
+  }
+
+  const approved = await checkTwilioVerification(phone, code);
+  if (!approved) return false;
 
   const existingMetadata = current.user.user_metadata ?? {};
   const { error } = await supabase.auth.admin.updateUserById(input.supabaseUid, {
