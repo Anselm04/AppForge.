@@ -404,9 +404,11 @@ export async function supabaseAuthMiddleware(
     const phone =
       (typeof authUser.phone === "string" && authUser.phone) ||
       (typeof metadataPhone === "string" ? metadataPhone : undefined);
+    // Profile metadata is user-editable and cannot prove phone ownership.
+    // The SMS verification service confirms the canonical Auth phone only
+    // after Twilio approves the code.
     const phoneVerified =
-      Boolean(authUser.phone_confirmed_at) ||
-      authUser.user_metadata?.["signup_phone_verified"] === true;
+      Boolean(authUser.phone) && Boolean(authUser.phone_confirmed_at);
 
     const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
     const dbUser = await upsertUserFromAuth({
