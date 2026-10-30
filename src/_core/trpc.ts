@@ -51,12 +51,6 @@ export const protectedProcedure = authenticatedProcedure.use(async (opts) => {
       message: "Phone verification required",
     });
   }
-  if (isOwnerEmail(user.email) && !hasValidAdminMfa(opts.ctx.req, user.id)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Owner SMS verification required",
-    });
-  }
   return opts.next({ ctx: { ...opts.ctx, user } });
 });
 
