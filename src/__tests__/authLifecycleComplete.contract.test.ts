@@ -65,13 +65,19 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(middleware).toContain("if (!hasBrowserSessionProof(req)) return undefined;");
   });
 
-  it("keeps owner admin access behind a separate SMS MFA gate", () => {
+  it("keeps owner admin access behind a separate SMS MFA gate without blocking normal verified-account APIs", () => {
     const trpc = source("src/_core/trpc.ts");
     const admin = source("src/lib/adminMfa.ts");
+    const protectedBlock = trpc
+      .split("export const protectedProcedure", 2)[1]
+      ?.split("export const accountDeletionProcedure", 1)[0];
+    const ownerOnlyBlock = trpc.split("export const ownerOnlyProcedure", 2)[1];
 
-    expect(trpc).toContain("ownerOnlyProcedure");
-    expect(trpc).toContain("hasValidAdminMfa(opts.ctx.req, user.id)");
-    expect(trpc).toContain('message: "Admin SMS verification required"');
+    expect(protectedBlock).toBeTruthy();
+    expect(protectedBlock).not.toContain("hasValidAdminMfa");
+    expect(protectedBlock).toContain("if (!user.phoneVerified)");
+    expect(ownerOnlyBlock).toContain("hasValidAdminMfa(opts.ctx.req, user.id)");
+    expect(ownerOnlyBlock).toContain('message: "Admin SMS verification required"');
     expect(admin).toContain("admin");
   });
 });
