@@ -32,7 +32,7 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(gate).toContain("/verify-phone?next=");
     expect(trpc).toContain("if (!user.phoneVerified)");
     expect(trpc).toContain('message: "Phone verification required"');
-    expect(login).toContain("user?.phoneVerified === true");
+    expect(login).toContain("user?.phoneVerified !== true");
   });
 
   it("lets an authenticated account attach a phone without letting the browser choose the verification target later", () => {
@@ -68,6 +68,7 @@ describe("complete AppForge authentication lifecycle", () => {
   it("keeps owner admin access behind a separate SMS MFA gate without blocking normal verified-account APIs", () => {
     const trpc = source("src/_core/trpc.ts");
     const admin = source("src/lib/adminMfa.ts");
+    const login = source("src/pages/Login.tsx");
     const protectedBlock = trpc
       .split("export const protectedProcedure", 2)[1]
       ?.split("export const accountDeletionProcedure", 1)[0];
@@ -78,6 +79,9 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(protectedBlock).toContain("if (!user.phoneVerified)");
     expect(ownerOnlyBlock).toContain("hasValidAdminMfa(opts.ctx.req, user.id)");
     expect(ownerOnlyBlock).toContain('message: "Admin SMS verification required"');
+    expect(login).toContain("function isAdminDestination(next: string)");
+    expect(login).toContain("isAdminDestination(next)");
+    expect(login).toContain("return next;");
     expect(admin).toContain("admin");
   });
 });
