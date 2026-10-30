@@ -35,6 +35,10 @@ function describeSignInError(
   return message || t("login.failed");
 }
 
+function isAdminDestination(next: string): boolean {
+  return next === "/admin" || next.startsWith("/admin/") || next.startsWith("/admin?");
+}
+
 function destinationForUser(
   user:
     | { phoneVerified?: boolean; isOwner?: boolean; ownerMfaVerified?: boolean }
@@ -42,12 +46,13 @@ function destinationForUser(
     | undefined,
   next: string,
 ): string {
-  if (user?.isOwner && user.phoneVerified && !user.ownerMfaVerified) {
+  if (user?.phoneVerified !== true) {
+    return `/verify-phone?next=${encodeURIComponent(next)}`;
+  }
+  if (user?.isOwner && !user.ownerMfaVerified && isAdminDestination(next)) {
     return `/admin?next=${encodeURIComponent(next)}`;
   }
-  return user?.phoneVerified === true
-    ? next
-    : `/verify-phone?next=${encodeURIComponent(next)}`;
+  return next;
 }
 
 export function Login() {
