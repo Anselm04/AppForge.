@@ -84,7 +84,7 @@ primary_region = 'lhr'
   SENTRY_TRACES_SAMPLE_RATE = '0.1'
   APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
   PUBLIC_APP_URL = 'https://appforge-unfurling-moon-9058.fly.dev'
-  CORS_ORIGIN = 'https://appforge-unfurling-moon-9058.fly.dev'
+  CORS_ORIGIN = 'https://appforge-unfurling-moon-9058.fly.dev,https://appforge-dusky.vercel.app'
 
   # Verified production Supabase client configuration (public values)
   SUPABASE_URL = 'https://yihcwxmcvmcquvsulqkv.supabase.co'
