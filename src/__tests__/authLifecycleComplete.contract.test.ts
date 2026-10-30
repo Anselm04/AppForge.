@@ -69,6 +69,7 @@ describe("complete AppForge authentication lifecycle", () => {
     const trpc = source("src/_core/trpc.ts");
     const admin = source("src/lib/adminMfa.ts");
     const login = source("src/pages/Login.tsx");
+    const gate = source("src/components/auth/RequireAuth.tsx");
     const protectedBlock = trpc
       .split("export const protectedProcedure", 2)[1]
       ?.split("export const accountDeletionProcedure", 1)[0];
@@ -82,6 +83,8 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(login).toContain("function isAdminDestination(next: string)");
     expect(login).toContain("isAdminDestination(next)");
     expect(login).toContain("return next;");
+    expect(gate).not.toContain("ownerMfaVerified");
+    expect(gate).not.toContain("/admin?next=");
     expect(admin).toContain("admin");
   });
 });
