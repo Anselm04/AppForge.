@@ -201,6 +201,10 @@ jobs:
             TWILIO_ACCOUNT_SID
             TWILIO_AUTH_TOKEN
             TWILIO_VERIFY_SERVICE_SID
+            SUPABASE_SERVICE_ROLE_KEY
+            CLOUDFLARE_ACCOUNT_ID
+            APPFORGE_EMAIL_FROM
+            SUPABASE_SEND_EMAIL_HOOK_SECRET
           )
           missing=0
           for name in "${required[@]}"; do
@@ -209,6 +213,12 @@ jobs:
               missing=1
             fi
           done
+
+          if ! grep -Fxq "CLOUDFLARE_EMAIL_API_TOKEN" <<<"$SECRET_NAMES" &&
+             ! grep -Fxq "CLOUDFLARE_API_TOKEN" <<<"$SECRET_NAMES"; then
+            echo "Missing Cloudflare Email Sending credential; refusing an authentication release with broken outbound email."
+            missing=1
+          fi
 
           llm_provider_candidates=(
             GROQ_API_KEY

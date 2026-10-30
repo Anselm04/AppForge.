@@ -41,7 +41,11 @@ function mount() {
 
 describe("Tools uses verified server authentication", () => {
   it("renders cookie-authenticated users even without a local bearer session", async () => {
-    api.me.mockResolvedValue({ id: 7, email: "unit@example.com" });
+    api.me.mockResolvedValue({
+      id: 7,
+      email: "unit@example.com",
+      phoneVerified: true,
+    });
     api.projects.mockResolvedValue([]);
     api.health.mockResolvedValue({
       connected: 1,

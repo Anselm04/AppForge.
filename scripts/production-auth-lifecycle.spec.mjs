@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 const baseUrl = (
-  process.env.APPFORGE_URL ||
-  "https://appforge-unfurling-moon-9058.fly.dev"
+  process.env.APPFORGE_URL || "https://appforge-unfurling-moon-9058.fly.dev"
 ).replace(/\/$/, "");
 const phase = process.env.APPFORGE_AUTH_GATE_PHASE || "";
 const email = process.env.APPFORGE_AUTH_GATE_EMAIL || "";
 const password = process.env.APPFORGE_CANARY_PASSWORD || "";
+const phone = process.env.APPFORGE_AUTH_GATE_PHONE || "";
 
 function requireValue(name, value) {
   if (!value) throw new Error(`Missing required value: ${name}`);
@@ -14,7 +14,9 @@ function requireValue(name, value) {
 }
 
 async function openAccountNavIfNeeded(page) {
-  const account = page.getByRole("button", { name: "Account", exact: true }).first();
+  const account = page
+    .getByRole("button", { name: "Account", exact: true })
+    .first();
   if (await account.isVisible().catch(() => false)) return;
 
   const menu = page.getByRole("button", { name: /menu/i }).first();
@@ -83,7 +85,10 @@ async function logoutThroughUi(page, label) {
       logout = page.getByRole("button", { name: /log out|logout/i }).first();
     }
   }
-  await expect(logout, `${label}: logout control must be reachable`).toBeVisible({
+  await expect(
+    logout,
+    `${label}: logout control must be reachable`,
+  ).toBeVisible({
     timeout: 30_000,
   });
   await logout.click();
@@ -91,7 +96,9 @@ async function logoutThroughUi(page, label) {
   await expectLoggedOut(page);
 }
 
-test("requests a real production signup confirmation email", async ({ page }) => {
+test("requests a real production signup confirmation email", async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   test.skip(
     phase !== "request-confirmation",
@@ -100,6 +107,7 @@ test("requests a real production signup confirmation email", async ({ page }) =>
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
+  requireValue("APPFORGE_AUTH_GATE_PHONE", phone);
 
   await page.goto(`${baseUrl}/signup?next=%2Faccount`, {
     waitUntil: "networkidle",
@@ -108,6 +116,7 @@ test("requests a real production signup confirmation email", async ({ page }) =>
 
   const form = page.locator("form");
   await form.getByLabel(/email/i).fill(email);
+  await form.getByLabel("Mobile number").fill(phone);
   await form.getByLabel(/^password/i).fill(password);
   await form.getByLabel(/confirm/i).fill(password);
 
@@ -126,7 +135,10 @@ test("requests a real production signup confirmation email", async ({ page }) =>
     `AppForge signup confirmation delivery must be accepted; received HTTP ${signupResponse.status()}`,
   ).toBe(202);
 
-  await expect(form, "signup form must be replaced by the check-email state").toBeHidden({
+  await expect(
+    form,
+    "signup form must be replaced by the check-email state",
+  ).toBeHidden({
     timeout: 30_000,
   });
   await expect(
@@ -141,12 +153,47 @@ test("confirmed production account accepts normal login", async ({ page }) => {
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
-  await login(page, 30_000);
+  // Probe verification without opening the SMS screen. Repeated browser logins
+  // would automatically request a new SMS on every poll before the tester has
+  // completed the out-of-band confirmation journey.
+  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" });
+  const config = await page.evaluate(() => window.__APPFORGE_CONFIG__);
+  requireValue("Supabase runtime URL", config?.supabaseUrl);
+  requireValue(
+    "Supabase runtime publishable key",
+    config?.supabasePublishableKey,
+  );
+  const signInResponse = await page.request.post(
+    `${config.supabaseUrl}/auth/v1/token?grant_type=password`,
+    {
+      headers: { apikey: config.supabasePublishableKey },
+      data: { email, password },
+    },
+  );
+  expect(
+    signInResponse.ok(),
+    "Email confirmation must permit password sign-in",
+  ).toBe(true);
+  const session = await signInResponse.json();
+  const meResponse = await page.request.get(`${baseUrl}/api/trpc/auth.me`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  expect(meResponse.ok()).toBe(true);
+  const me = await meResponse.json();
+  expect(
+    me.result?.data?.phoneVerified,
+    "Complete the SMS step in the browser opened from the confirmation email",
+  ).toBe(true);
 });
 
-test("logs in, recovers the session, logs out, and relogs into the confirmed real production account", async ({ page }) => {
+test("logs in, recovers the session, logs out, and relogs into the confirmed real production account", async ({
+  page,
+}) => {
   test.setTimeout(10 * 60_000);
-  test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
+  test.skip(
+    phase !== "complete-lifecycle",
+    "Not the complete-lifecycle phase.",
+  );
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
@@ -167,15 +214,22 @@ test("logs in, recovers the session, logs out, and relogs into the confirmed rea
   }
 });
 
-test("confirmed account can authenticate and recover from completely fresh browser contexts ten times", async ({ browser }) => {
+test("confirmed account can authenticate and recover from completely fresh browser contexts ten times", async ({
+  browser,
+}) => {
   test.setTimeout(10 * 60_000);
-  test.skip(phase !== "complete-lifecycle", "Not the complete-lifecycle phase.");
+  test.skip(
+    phase !== "complete-lifecycle",
+    "Not the complete-lifecycle phase.",
+  );
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
   for (let cycle = 1; cycle <= 10; cycle += 1) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+    });
     const page = await context.newPage();
     try {
       await login(page);

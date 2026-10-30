@@ -8,7 +8,9 @@ import {
 function normalizePhone(phone: string): string {
   const normalized = phone.trim().replace(/[\s()-]/g, "");
   if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-    throw new Error("A valid mobile number in international format is required.");
+    throw new Error(
+      "A valid mobile number in international format is required.",
+    );
   }
   return normalized;
 }
@@ -25,15 +27,17 @@ function serverAuthClient() {
 function storedPhone(user: {
   phone?: string | null;
   user_metadata?: Record<string, unknown> | null;
+  app_metadata?: Record<string, unknown> | null;
 }): string | undefined {
+  const pendingPhone = user.app_metadata?.["pending_phone"];
+  if (typeof pendingPhone === "string" && pendingPhone) {
+    return normalizePhone(pendingPhone);
+  }
   const metadataPhone = user.user_metadata?.["signup_phone"];
-  const metadataVerified = user.user_metadata?.["signup_phone_verified"] === true;
+  const metadataVerified =
+    user.user_metadata?.["signup_phone_verified"] === true;
 
-  if (
-    typeof metadataPhone === "string" &&
-    metadataPhone &&
-    !metadataVerified
-  ) {
+  if (typeof metadataPhone === "string" && metadataPhone && !metadataVerified) {
     return normalizePhone(metadataPhone);
   }
   if (typeof user.phone === "string" && user.phone) {
@@ -61,27 +65,28 @@ export async function requestAccountPhoneVerification(input: {
     throw new Error("Enter a mobile number before requesting an SMS code.");
   }
 
-  if (
-    current.user.phone_confirmed_at &&
-    current.user.phone === requested
-  ) {
+  if (current.user.phone_confirmed_at && current.user.phone === requested) {
     return { phone: requested, alreadyVerified: true };
   }
 
-  const existingMetadata = current.user.user_metadata ?? {};
-  if (
-    existing !== requested ||
-    existingMetadata["signup_phone_verified"] === true
-  ) {
-    const { error } = await supabase.auth.admin.updateUserById(input.supabaseUid, {
+  // Bind verification to this account using metadata only the server can edit.
+  // The signup metadata is an input hint, never an authoritative challenge.
+  const { error } = await supabase.auth.admin.updateUserById(
+    input.supabaseUid,
+    {
+      app_metadata: {
+        ...current.user.app_metadata,
+        pending_phone: requested,
+        pending_phone_requested_at: Date.now(),
+      },
       user_metadata: {
-        ...existingMetadata,
+        ...current.user.user_metadata,
         signup_phone: requested,
         signup_phone_verified: false,
       },
-    });
-    if (error) throw error;
-  }
+    },
+  );
+  if (error) throw error;
 
   await requestTwilioVerification(requested);
   return { phone: requested, alreadyVerified: false };
@@ -109,19 +114,38 @@ export async function verifyAccountPhone(input: {
     return true;
   }
 
+  const requestedAt = current.user.app_metadata?.["pending_phone_requested_at"];
+  if (
+    current.user.app_metadata?.["pending_phone"] !== phone ||
+    typeof requestedAt !== "number" ||
+    !Number.isFinite(requestedAt) ||
+    requestedAt > Date.now() ||
+    Date.now() - requestedAt > 10 * 60_000
+  ) {
+    throw new Error("Request a new SMS code before verifying your phone.");
+  }
+
   const approved = await checkTwilioVerification(phone, code);
   if (!approved) return false;
 
   const existingMetadata = current.user.user_metadata ?? {};
-  const { error } = await supabase.auth.admin.updateUserById(input.supabaseUid, {
-    phone,
-    phone_confirm: true,
-    user_metadata: {
-      ...existingMetadata,
-      signup_phone: phone,
-      signup_phone_verified: true,
+  const { error } = await supabase.auth.admin.updateUserById(
+    input.supabaseUid,
+    {
+      phone,
+      phone_confirm: true,
+      app_metadata: {
+        ...current.user.app_metadata,
+        pending_phone: null,
+        pending_phone_requested_at: null,
+      },
+      user_metadata: {
+        ...existingMetadata,
+        signup_phone: phone,
+        signup_phone_verified: true,
+      },
     },
-  });
+  );
   if (error) throw error;
 
   return true;

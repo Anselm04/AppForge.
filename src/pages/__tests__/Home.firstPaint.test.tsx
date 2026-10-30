@@ -92,6 +92,10 @@ function renderHome() {
 describe("Home first paint", () => {
   beforeEach(() => {
     installStorage(memoryStorage());
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: memoryStorage(),
+    });
     signOut();
   });
 
@@ -149,12 +153,13 @@ describe("Home first paint", () => {
   it("getSnapshot is stable for a cookie-backed user marker without exposing tokens", () => {
     const user = { id: "u1", email: "a@b.c" };
     installStorage(memoryStorage({ "appforge.user": JSON.stringify(user) }));
+    window.sessionStorage.setItem("appforge.browser-session", "active");
     const a = getSession();
     const b = getSession();
     expect(a).toBe(b);
     expect(a?.user).toEqual(user);
     expect(a?.accessToken).toBeUndefined();
     expect(getAccessToken()).toBeNull();
-    expect(authHeaders()).toEqual({});
+    expect(authHeaders()).toEqual({ "x-appforge-browser-session": "active" });
   });
 });

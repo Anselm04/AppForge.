@@ -59,6 +59,7 @@ describe("signup and resend HTTP boundary", () => {
   it("ignores a spoofed Host when generating confirmation links", async () => {
     const response = await post("/signup", {
       email: "test@example.com",
+      phone: "+15551234567",
       password: "StrongPassword1!",
       next: "/account",
     });

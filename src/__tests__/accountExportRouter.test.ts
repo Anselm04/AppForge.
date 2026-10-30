@@ -23,7 +23,13 @@ describe("accountRouter.exportData", () => {
     const caller = accountRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: "customer@example.com", name: "Customer" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: "customer@example.com",
+        name: "Customer",
+      },
     });
 
     await expect(caller.exportData()).resolves.toEqual({ userId: 7 });
@@ -37,7 +43,13 @@ describe("accountRouter.exportData", () => {
       const caller = accountRouter.createCaller({
         req: {} as never,
         res: {} as never,
-        user: { id: 7, email: "customer@example.com", name: "Customer" },
+        user: {
+          id: 7,
+          supabaseUid: "test-identity-7",
+          phoneVerified: true,
+          email: "customer@example.com",
+          name: "Customer",
+        },
       });
       await expect(caller.exportData()).rejects.toMatchObject({
         code: "FORBIDDEN",
@@ -54,7 +66,13 @@ describe("accountRouter.exportData", () => {
     const caller = accountRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: "customer@example.com", name: "Customer" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: "customer@example.com",
+        name: "Customer",
+      },
     });
     await expect(caller.exportData()).rejects.toMatchObject({
       code: "INTERNAL_SERVER_ERROR",

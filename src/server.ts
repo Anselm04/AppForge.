@@ -20,6 +20,8 @@ import {
   sentryRequestLogging,
 } from "./middleware/sentryHandler.js";
 import { healthRouter } from "./routes/health.js";
+import { authEmailHookHandler } from "./routes/authEmailHook.js";
+import { adminMfaBatchGuard } from "./middleware/adminMfaBatchGuard.js";
 import { aiRouter } from "./routes/ai.js";
 import { agentsRouter } from "./routes/agents.js";
 import { buildRouter } from "./routes/build.js";
@@ -287,6 +289,13 @@ app.use(
   managerIntegrationRouter,
 );
 
+// Supabase calls this server-to-server hook. Its signed raw payload provides
+// authentication; browser CSRF and JSON parsing must run only after it.
+app.post(
+  "/api/auth/email-hook",
+  express.raw({ type: "application/json", limit: "64kb" }),
+  authEmailHookHandler,
+);
 app.use(csrfProtection);
 app.get("/api/csrf-token", csrfTokenHandler);
 app.use(express.json({ limit: "10mb" }));
@@ -301,38 +310,43 @@ app.use("/api", supabaseAuthMiddleware);
 // Admin MFA is deliberately stricter than the general API limiter. These
 // controls run after trusted authentication so the distributed limiter can key
 // on the authenticated owner user ID instead of caller-controlled headers.
+app.use("/api/trpc", adminMfaBatchGuard);
 app.use("/api/trpc/admin.requestMfa", adminMfaRequestLimiter);
 app.use("/api/trpc/admin.verifyMfa", adminMfaVerifyLimiter);
 
-app.get("/api/preview-auth/:projectId", async (req, res) => {
-  const authorization = req.headers.authorization;
-  const userId = req.user?.id;
-  const projectId = Number.parseInt(String(req.params.projectId), 10);
-  if (
-    !userId ||
-    !Number.isFinite(projectId) ||
-    typeof authorization !== "string" ||
-    !/^Bearer\s+\S+/i.test(authorization)
-  ) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+app.get(
+  "/api/preview-auth/:projectId",
+  requireAuthenticatedUser,
+  async (req, res) => {
+    const authorization = req.headers.authorization;
+    const userId = req.user?.id;
+    const projectId = Number.parseInt(String(req.params.projectId), 10);
+    if (
+      !userId ||
+      !Number.isFinite(projectId) ||
+      typeof authorization !== "string" ||
+      !/^Bearer\s+\S+/i.test(authorization)
+    ) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-  const project = await getProjectById(projectId);
-  if (!project || project.userId !== userId) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
+    const project = await getProjectById(projectId);
+    if (!project || project.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
-  res.cookie(`appforge-preview-${projectId}`, String(userId), {
-    httpOnly: true,
-    secure: ENV.isProduction,
-    sameSite: "strict",
-    signed: true,
-    path: `/sandbox-dev/${projectId}`,
-    maxAge: 10 * 60 * 1000,
-  });
-  res.setHeader("Cache-Control", "no-store");
-  return res.status(204).end();
-});
+    res.cookie(`appforge-preview-${projectId}`, String(userId), {
+      httpOnly: true,
+      secure: ENV.isProduction,
+      sameSite: "strict",
+      signed: true,
+      path: `/sandbox-dev/${projectId}`,
+      maxAge: 10 * 60 * 1000,
+    });
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(204).end();
+  },
+);
 
 app.use("/api/ai", requireAuthenticatedUser, aiRouter);
 app.use("/api/agents", requireAuthenticatedUser, agentsRouter);

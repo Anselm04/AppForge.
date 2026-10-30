@@ -88,7 +88,9 @@ export async function upsertUserFromAuth(data: {
         .update(schema.users)
         .set({
           email: data.email || existing.email,
-          name: data.name || existing.name,
+          // Profile edits belong to AppForge; identity metadata is only the
+          // initial default and must not overwrite a saved display name.
+          name: existing.name ?? data.name,
           picture: data.picture ?? existing.picture,
           updatedAt: new Date(),
         })

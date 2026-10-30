@@ -309,7 +309,7 @@ export function signOut() {
   if (session?.accessToken) {
     void supabaseClient.signOut(session.accessToken).catch(() => undefined);
   }
-  void supabase.auth.signOut().catch(() => undefined);
+  void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
 }
 
 async function clearServerSessionWithHeaders(
@@ -338,7 +338,7 @@ export async function logout(): Promise<void> {
 
   await Promise.allSettled([
     clearServerSessionWithHeaders(session?.accessToken, proofHeaders),
-    supabase.auth.signOut(),
+    supabase.auth.signOut({ scope: "local" }),
     session?.accessToken
       ? supabaseClient.signOut(session.accessToken)
       : Promise.resolve(),
@@ -449,9 +449,11 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
     throw new Error(errorDescription);
   }
 
-  const accessToken = hash.get("access_token");
-  const refreshToken = hash.get("refresh_token");
-  if (!accessToken) return null;
+  let accessToken = hash.get("access_token");
+  let refreshToken = hash.get("refresh_token");
+  const tokenHash = search.get("token_hash");
+  const verificationType = search.get("type");
+  if (!accessToken && !tokenHash) return null;
 
   for (const key of [
     "access_token",
@@ -460,12 +462,55 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
     "expires_in",
     "expires_at",
     "type",
+    "token_hash",
   ]) {
     search.delete(key);
   }
   const cleanQuery = search.toString();
   const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`;
   window.history.replaceState({}, document.title, cleanUrl || "/login");
+
+  if (tokenHash) {
+    if (
+      ![
+        "signup",
+        "recovery",
+        "email",
+        "email_change",
+        "invite",
+        "magiclink",
+      ].includes(verificationType || "")
+    ) {
+      throw new Error("This verification link is invalid. Request a new one.");
+    }
+    const result = await supabaseClient.verifyEmailTokenHash(
+      tokenHash,
+      verificationType as
+        | "signup"
+        | "recovery"
+        | "email"
+        | "email_change"
+        | "invite"
+        | "magiclink",
+    );
+    // Secure email change needs two approvals; the first may return success
+    // without a login session. It is not an expired-link error.
+    if (
+      !result.error &&
+      !result.access_token &&
+      verificationType === "email_change"
+    )
+      return null;
+    if (result.error || !result.access_token) {
+      throw new Error(
+        result.error?.message ||
+          "This verification link is expired. Request a new one.",
+      );
+    }
+    accessToken = result.access_token;
+    refreshToken = result.refresh_token || null;
+  }
+  if (!accessToken) return null;
 
   const user = jwtUser(accessToken);
   if (!user) throw new Error("Unable to read confirmed Supabase session.");
@@ -515,7 +560,9 @@ export function startSocialSignIn(
 export function normalizePhone(phone: string): string {
   const normalized = phone.trim().replace(/[\s()-]/g, "");
   if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-    throw new Error("Phone number must use international format, for example +6421…");
+    throw new Error(
+      "Phone number must use international format, for example +6421…",
+    );
   }
   return normalized;
 }

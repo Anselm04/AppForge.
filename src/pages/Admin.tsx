@@ -1,8 +1,12 @@
 import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { safeAuthDestination } from "../lib/auth.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 
 export function Admin() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<
     "analytics" | "operations" | "evidence" | "codes" | "moderation"
@@ -18,16 +22,23 @@ export function Admin() {
   const {
     data: mfaStatus,
     isError: mfaStatusError,
+    error: mfaStatusFailure,
     isLoading: mfaStatusLoading,
     refetch: refetchMfaStatus,
   } = useQuery({
     queryKey: ["admin", "mfaStatus"],
     queryFn: () => trpc.admin.mfaStatus.query(),
     retry: false,
+    staleTime: 0,
+    refetchInterval: 15_000,
   });
 
   const requestMfa = useMutation({
     mutationFn: () => trpc.admin.requestMfa.mutate(),
+    onMutate: () => {
+      setChallengeSent(false);
+      setMfaCode("");
+    },
     onSuccess: () => {
       setChallengeSent(true);
       setMfaCode("");
@@ -40,6 +51,12 @@ export function Admin() {
       setMfaCode("");
       await refetchMfaStatus();
       await queryClient.invalidateQueries({ queryKey: ["admin"] });
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      if (searchParams.has("next")) {
+        navigate(safeAuthDestination(searchParams.get("next")), {
+          replace: true,
+        });
+      }
     },
   });
 
@@ -57,7 +74,7 @@ export function Admin() {
   const { data: analytics } = useQuery({
     queryKey: ["admin", "analytics"],
     queryFn: () => trpc.admin.analytics.query(),
-    enabled: !!me,
+    enabled: mfaStatus?.verified === true && !!me,
   });
 
   const {
@@ -67,7 +84,7 @@ export function Admin() {
   } = useQuery({
     queryKey: ["admin", "operations"],
     queryFn: () => trpc.admin.operations.query(),
-    enabled: !!me && tab === "operations",
+    enabled: mfaStatus?.verified === true && !!me && tab === "operations",
     refetchInterval: 15_000,
   });
 
@@ -81,6 +98,7 @@ export function Admin() {
     queryFn: () =>
       trpc.admin.projectEvidence.query({ projectId: parsedEvidenceProjectId }),
     enabled:
+      mfaStatus?.verified === true &&
       !!me &&
       tab === "evidence" &&
       Number.isInteger(parsedEvidenceProjectId) &&
@@ -90,13 +108,13 @@ export function Admin() {
   const { data: codes } = useQuery({
     queryKey: ["admin", "listCodes"],
     queryFn: () => trpc.admin.listCodes.query(),
-    enabled: !!me && tab === "codes",
+    enabled: mfaStatus?.verified === true && !!me && tab === "codes",
   });
 
   const { data: moderationQueue, refetch: refetchModeration } = useQuery({
     queryKey: ["admin", "moderationQueue"],
     queryFn: () => trpc.admin.moderationQueue.query(),
-    enabled: !!me && tab === "moderation",
+    enabled: mfaStatus?.verified === true && !!me && tab === "moderation",
   });
 
   const reviewModeration = useMutation({
@@ -123,11 +141,17 @@ export function Admin() {
     },
   });
 
-  if (mfaStatusError || meError) {
+  if (mfaStatusError || (mfaStatus?.verified === true && meError)) {
     return (
       <div className="min-h-screen p-8 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
         <p>This dashboard requires the authenticated owner account.</p>
+        {mfaStatusFailure instanceof Error && (
+          <p role="alert">{mfaStatusFailure.message}</p>
+        )}
+        <button type="button" onClick={() => void refetchMfaStatus()}>
+          Refresh verification status
+        </button>
       </div>
     );
   }

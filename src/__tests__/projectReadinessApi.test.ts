@@ -21,7 +21,13 @@ const { projectsRouter } = await import("../routers/projects.js");
 const caller = projectsRouter.createCaller({
   req: {} as never,
   res: {} as never,
-  user: { id: 7, email: "maker@example.com", name: "Maker" },
+  user: {
+    id: 7,
+    supabaseUid: "test-identity-7",
+    phoneVerified: true,
+    email: "maker@example.com",
+    name: "Maker",
+  },
 });
 
 beforeEach(() => vi.resetAllMocks());

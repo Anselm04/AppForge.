@@ -3,6 +3,7 @@ const auth = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("../lib/auth.js", () => ({
   ensureFreshSession: vi.fn(),
   getAccessToken: () => null,
+  browserSessionHeaders: () => ({ "x-appforge-browser-session": "active" }),
   refreshSession: auth.refresh,
 }));
 vi.mock("../lib/csrf.js", () => ({

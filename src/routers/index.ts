@@ -9,7 +9,7 @@ import {
   router,
 } from "../_core/trpc.js";
 import { isOwnerEmail } from "../lib/owner.js";
-import { clearAdminMfaCookie } from "../lib/adminMfa.js";
+import { clearAdminMfaCookie, hasValidAdminMfa } from "../lib/adminMfa.js";
 import {
   requestAccountPhoneVerification,
   verifyAccountPhone,
@@ -56,13 +56,17 @@ export const appRouter = router({
         email,
         name: user.name,
         isOwner: isOwnerEmail(email),
+        ownerMfaVerified:
+          isOwnerEmail(email) && hasValidAdminMfa(opts.ctx.req, user.id),
         phone: user.phone ?? null,
         maskedPhone: maskPhone(user.phone),
         phoneVerified: user.phoneVerified,
       };
     }),
     requestPhoneVerification: authenticatedProcedure
-      .input(z.object({ phone: z.string().trim().min(1).optional() }).optional())
+      .input(
+        z.object({ phone: z.string().trim().min(1).optional() }).optional(),
+      )
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.phoneVerified) {
           return {

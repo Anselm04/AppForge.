@@ -16,6 +16,9 @@ export function PasswordReset() {
   const [confirm, setConfirm] = useState("");
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
+  const confirmationAttempt = useRef<ReturnType<
+    typeof completeAuthRedirect
+  > | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -23,7 +26,10 @@ export function PasswordReset() {
     let cancelled = false;
     void (async () => {
       try {
-        await completeAuthRedirect();
+        // React StrictMode replays effects. Reuse the exchange so the second
+        // effect cannot treat an already-scrubbed one-time link as invalid.
+        confirmationAttempt.current ??= completeAuthRedirect();
+        await confirmationAttempt.current;
         if (!cancelled) {
           const hasSession = Boolean(getAccessToken());
           setReady(hasSession);

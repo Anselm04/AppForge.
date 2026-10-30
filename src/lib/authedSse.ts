@@ -1,10 +1,18 @@
-import { ensureFreshSession, getAccessToken, refreshSession } from "./auth.js";
+import {
+  browserSessionHeaders,
+  ensureFreshSession,
+  getAccessToken,
+  refreshSession,
+} from "./auth.js";
 
 export type SseHandler = (event: string, data: string) => void;
 
 function applyAuthHeaders(headers: Headers) {
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  for (const [key, value] of Object.entries(browserSessionHeaders())) {
+    headers.set(key, value);
+  }
   headers.set("Accept", "text/event-stream");
   headers.set("Cache-Control", "no-cache");
   headers.set("X-No-Compression", "1");

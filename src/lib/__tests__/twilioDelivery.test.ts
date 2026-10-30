@@ -29,70 +29,25 @@ describe("SMS delivery diagnostics (unit tests; no live SMS)", () => {
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("starts phone-recipient verification recovery when Twilio returns 21608", async () => {
+  it("keeps SMS locked on a trial-recipient failure without initiating a voice call", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
+      .mockResolvedValue(
         new Response(
           JSON.stringify({ code: 21608, message: "private-unit-secret" }),
           { status: 403 },
         ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            validation_code: "unit-validation-code",
-            call_sid: "unit-call",
-          }),
-          { status: 201 },
-        ),
       );
     vi.stubGlobal("fetch", fetchMock);
-
-    const error = await requestTwilioVerification("configured-destination").catch(
-      (caught: unknown) => caught,
-    );
-
-    expect(error).toBeInstanceOf(TwilioVerificationDeliveryError);
-    expect(error).toMatchObject({ httpStatus: 403, providerCode: 21608 });
-    expect((error as Error).message).toContain("unit-validation-code");
-    expect((error as Error).message).toContain("verification call");
-    expect((error as Error).message).toContain("Verification remains locked");
-    expect((error as Error).message).not.toContain("private-unit-secret");
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [recoveryUrl, recoveryOptions] = fetchMock.mock.calls[1];
-    expect(recoveryUrl).toBe(
-      "https://api.twilio.com/2010-04-01/Accounts/unit-account/OutgoingCallerIds.json",
-    );
-    expect(recoveryOptions.body.get("PhoneNumber")).toBe(
+    const error = await requestTwilioVerification(
       "configured-destination",
-    );
-    expect(recoveryOptions.body.get("FriendlyName")).toBe(
-      "AppForge phone verification",
-    );
-  });
-
-  it("keeps the original 21608 failure when recovery cannot be started", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ code: 21608 }), { status: 403 }),
-        )
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ code: 20003 }), { status: 401 }),
-        ),
-    );
-
-    const error = await requestTwilioVerification("configured-destination").catch(
-      (caught: unknown) => caught,
-    );
+    ).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(TwilioVerificationDeliveryError);
     expect(error).toMatchObject({ httpStatus: 403, providerCode: 21608 });
     expect((error as Error).message).toContain("approved recipient");
     expect((error as Error).message).toContain("Verification remains locked");
+    expect((error as Error).message).not.toContain("private-unit-secret");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("handles non-JSON failures without exposing text as a provider code", async () => {

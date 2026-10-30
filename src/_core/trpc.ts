@@ -51,11 +51,23 @@ export const protectedProcedure = authenticatedProcedure.use(async (opts) => {
       message: "Phone verification required",
     });
   }
+  if (isOwnerEmail(user.email) && !hasValidAdminMfa(opts.ctx.req, user.id)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Owner SMS verification required",
+    });
+  }
   return opts.next({ ctx: { ...opts.ctx, user } });
 });
 
 export const accountDeletionProcedure = t.procedure.use(async (opts) => {
   const user = await requireAuthenticatedUser(opts.ctx.user);
+  if (isOwnerEmail(user.email) && !hasValidAdminMfa(opts.ctx.req, user.id)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Owner SMS verification required",
+    });
+  }
   const state = await getAccountLifecycleState(user.id);
   if (state === "completed") {
     throw new TRPCError({

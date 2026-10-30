@@ -74,7 +74,13 @@ vi.mock("../utils/trpc.js", async () => {
   const caller = projectsRouter.createCaller({
     req: {} as never,
     res: {} as never,
-    user: { id: 7, email: "maker@example.com", name: "Maker" },
+    user: {
+      id: 7,
+      supabaseUid: "test-identity-7",
+      phoneVerified: true,
+      email: "maker@example.com",
+      name: "Maker",
+    },
   });
   return {
     trpc: {
@@ -241,7 +247,13 @@ describe("Home → projects.create → contract → stack", () => {
       const caller = projectsRouter.createCaller({
         req: {} as never,
         res: {} as never,
-        user: { id: 7, email: "maker@example.com", name: "Maker" },
+        user: {
+          id: 7,
+          supabaseUid: "test-identity-7",
+          phoneVerified: true,
+          email: "maker@example.com",
+          name: "Maker",
+        },
       });
       await caller.create({ title: prompt.slice(0, 60), description: prompt });
     }
@@ -277,7 +289,13 @@ describe("Home → projects.create → contract → stack", () => {
     const caller = projectsRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: "maker@example.com", name: "Maker" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: "maker@example.com",
+        name: "Maker",
+      },
     });
     const result = await caller.create({
       title: "x",
@@ -297,7 +315,13 @@ describe("Home → projects.create → contract → stack", () => {
     const caller = projectsRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: "maker@example.com", name: "Maker" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: "maker@example.com",
+        name: "Maker",
+      },
     });
 
     await caller.create({
@@ -336,7 +360,13 @@ it("refuses create before reservations, project writes or enrichment when runtim
   const caller = projectsRouter.createCaller({
     req: {} as never,
     res: {} as never,
-    user: { id: 7, email: "maker@example.com", name: "Maker" },
+    user: {
+      id: 7,
+      supabaseUid: "test-identity-7",
+      phoneVerified: true,
+      email: "maker@example.com",
+      name: "Maker",
+    },
   });
   await expect(
     caller.create({

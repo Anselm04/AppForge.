@@ -24,7 +24,9 @@ function describeSignInError(
   if (/not confirmed|confirm your email|email_not_confirmed/i.test(message)) {
     return t("login.emailNotConfirmed");
   }
-  if (/invalid login credentials|invalid_grant|invalid password/i.test(message)) {
+  if (
+    /invalid login credentials|invalid_grant|invalid password/i.test(message)
+  ) {
     return t("login.invalidCredentials");
   }
   if (/rate limit|too many requests/i.test(message)) {
@@ -34,9 +36,15 @@ function describeSignInError(
 }
 
 function destinationForUser(
-  user: { phoneVerified?: boolean } | null | undefined,
+  user:
+    | { phoneVerified?: boolean; isOwner?: boolean; ownerMfaVerified?: boolean }
+    | null
+    | undefined,
   next: string,
 ): string {
+  if (user?.isOwner && user.phoneVerified && !user.ownerMfaVerified) {
+    return `/admin?next=${encodeURIComponent(next)}`;
+  }
   return user?.phoneVerified === true
     ? next
     : `/verify-phone?next=${encodeURIComponent(next)}`;
@@ -56,22 +64,31 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmationMessage, setConfirmationMessage] = useState<string | null>(
+    null,
+  );
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [hasAuthRedirect] = useState(
     () =>
       typeof window !== "undefined" &&
       (window.location.hash.includes("access_token=") ||
+        window.location.search.includes("token_hash=") ||
         window.location.search.includes("access_token=") ||
         window.location.hash.includes("error_description=") ||
         window.location.search.includes("error_description=")),
   );
-  const confirmationAttempt = useRef<ReturnType<typeof completeAuthRedirect> | null>(null);
-  const [completingConfirmation, setCompletingConfirmation] = useState(hasAuthRedirect);
-  const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>({
-    email: false,
-    password: false,
-  });
+  const confirmationAttempt = useRef<ReturnType<
+    typeof completeAuthRedirect
+  > | null>(null);
+  const [completingConfirmation, setCompletingConfirmation] =
+    useState(hasAuthRedirect);
+  const [blurred, setBlurred] = useState<{ email: boolean; password: boolean }>(
+    {
+      email: false,
+      password: false,
+    },
+  );
 
   const emailError =
     blurred.email && email.length > 0 && !isValidEmail(email)
@@ -106,7 +123,13 @@ export function Login() {
       try {
         confirmationAttempt.current ??= completeAuthRedirect();
         const session = await confirmationAttempt.current;
-        if (!session || cancelled) return;
+        if (cancelled) return;
+        if (!session) {
+          setConfirmationMessage(
+            "Verification recorded. For an email change, confirm both email messages, then sign in.",
+          );
+          return;
+        }
         const meNow = await trpc.auth.me.query();
         if (cancelled) return;
         queryClient.setQueryData(["auth", "me"], meNow);
@@ -191,14 +214,26 @@ export function Login() {
         </>
       }
     >
+      {confirmationMessage && (
+        <p role="status" className="mb-5 text-sm text-forge-cyan">
+          {confirmationMessage}
+        </p>
+      )}
       {completingConfirmation && (
-        <p role="status" className="mb-5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-sm text-forge-cyan">
+        <p
+          role="status"
+          className="mb-5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-sm text-forge-cyan"
+        >
           {t("login.confirming")}
         </p>
       )}
 
       {alertMessage && (
-        <p role="alert" data-testid="login-error" className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+        <p
+          role="alert"
+          data-testid="login-error"
+          className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+        >
           {alertMessage}
         </p>
       )}
@@ -223,7 +258,9 @@ export function Login() {
           value={email}
           error={emailError}
           onChange={(e) => setEmail(e.target.value)}
-          onBlur={() => setBlurred((previous) => ({ ...previous, email: true }))}
+          onBlur={() =>
+            setBlurred((previous) => ({ ...previous, email: true }))
+          }
         />
         <Input
           id="login-password"
@@ -235,12 +272,17 @@ export function Login() {
           value={password}
           error={passwordError}
           onChange={(e) => setPassword(e.target.value)}
-          onBlur={() => setBlurred((previous) => ({ ...previous, password: true }))}
+          onBlur={() =>
+            setBlurred((previous) => ({ ...previous, password: true }))
+          }
           showPasswordLabel={t("common.showPassword")}
           hidePasswordLabel={t("common.hidePassword")}
         />
         <div className="flex justify-end">
-          <Link to="/forgot-password" className="text-sm font-medium text-forge-cyan hover:underline">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-forge-cyan hover:underline"
+          >
             {t("login.forgot")}
           </Link>
         </div>
@@ -248,7 +290,12 @@ export function Login() {
           type="submit"
           className="w-full"
           loading={pending || completingConfirmation}
-          disabled={pending || completingConfirmation || !email.trim() || password.length < MIN_PASSWORD_LENGTH_LOCAL}
+          disabled={
+            pending ||
+            completingConfirmation ||
+            !email.trim() ||
+            password.length < MIN_PASSWORD_LENGTH_LOCAL
+          }
         >
           {pending ? t("login.pending") : t("login.submit")}
         </Button>
@@ -262,7 +309,12 @@ export function Login() {
               provider: ssoInfo.provider?.toUpperCase() ?? "",
             })}
           </p>
-          <Button type="button" variant="secondary" className="w-full" onClick={startSso}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={startSso}
+          >
             {t("login.signInWithSso")}
           </Button>
         </div>

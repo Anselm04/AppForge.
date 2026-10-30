@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { ENV } from "../_core/env.js";
+import {
+  requireCloudflareEmailConfig,
+  requireCloudflareAuthEmailHookConfig,
+  sendCloudflareEmail,
+} from "./cloudflareEmail.js";
 
 export type SignupConfirmationInput = {
   email: string;
@@ -30,19 +35,30 @@ function requireServerAuthConfig() {
   }
 }
 
-function requireTwilioEmailConfig() {
-  const from = (process.env.TWILIO_EMAIL_FROM || ENV.ownerEmail || "").trim();
-  if (!ENV.twilioAccountSid || !ENV.twilioAuthToken || !from) {
-    throw new Error("Twilio signup email delivery is not configured");
-  }
-  return { from };
-}
-
 function serverAuthClient() {
   requireServerAuthConfig();
   return createClient(ENV.supabaseUrl, ENV.supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+}
+
+export function appActionLink(
+  properties:
+    | { hashed_token?: string; action_link?: string; actionLink?: string }
+    | undefined,
+  redirectTo: string,
+  type:
+    "signup" | "recovery" | "email" | "email_change" | "invite" | "magiclink",
+): string {
+  // Exchange the one-time hash inside AppForge. This keeps confirmation and
+  // recovery on the intended app route even if the provider's Site URL differs.
+  if (properties?.hashed_token) {
+    const url = new URL(redirectTo);
+    url.searchParams.set("token_hash", properties.hashed_token);
+    url.searchParams.set("type", type);
+    return url.toString();
+  }
+  return properties?.action_link || properties?.actionLink || "";
 }
 
 async function generateSupabaseSignupLink(
@@ -65,8 +81,9 @@ async function generateSupabaseSignupLink(
   if (error) throw error;
 
   const properties = data?.properties as
-    { action_link?: string; actionLink?: string } | undefined;
-  const actionLink = properties?.action_link || properties?.actionLink || "";
+    | { hashed_token?: string; action_link?: string; actionLink?: string }
+    | undefined;
+  const actionLink = appActionLink(properties, input.redirectTo, "signup");
   const userId = data?.user?.id || "";
   if (!actionLink || !userId) {
     throw new Error("Supabase did not produce a signup confirmation link");
@@ -75,44 +92,10 @@ async function generateSupabaseSignupLink(
   return { actionLink, userId };
 }
 
-async function sendTwilioActionEmail(input: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}): Promise<void> {
-  const { from } = requireTwilioEmailConfig();
-  const authorization = Buffer.from(
-    `${ENV.twilioAccountSid}:${ENV.twilioAuthToken}`,
-  ).toString("base64");
-
-  const response = await fetch("https://comms.twilio.com/v1/Emails", {
-    method: "POST",
-    signal: AbortSignal.timeout(10_000),
-    headers: {
-      Authorization: `Basic ${authorization}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: { address: from, name: "AppForge" },
-      to: [{ address: input.to }],
-      content: {
-        subject: input.subject,
-        text: input.text,
-        html: input.html,
-      },
-    }),
-  });
-
-  if (response.status !== 202) {
-    throw new Error(`Twilio email delivery failed (${response.status})`);
-  }
-}
-
-async function sendTwilioConfirmationEmail(
+async function sendCloudflareConfirmationEmail(
   input: ConfirmationEmail,
 ): Promise<void> {
-  await sendTwilioActionEmail({
+  await sendCloudflareEmail({
     to: input.to,
     subject: input.subject,
     text: `Confirm your AppForge email address: ${input.confirmationUrl}`,
@@ -122,7 +105,7 @@ async function sendTwilioConfirmationEmail(
 
 const productionDeps: SignupConfirmationDeps = {
   generateLink: generateSupabaseSignupLink,
-  sendEmail: sendTwilioConfirmationEmail,
+  sendEmail: sendCloudflareConfirmationEmail,
 };
 
 export async function createSignupConfirmation(
@@ -131,7 +114,7 @@ export async function createSignupConfirmation(
 ): Promise<{ userId: string; confirmationSent: true }> {
   if (deps === productionDeps) {
     requireServerAuthConfig();
-    requireTwilioEmailConfig();
+    requireCloudflareEmailConfig();
   }
   const link = await deps.generateLink(input);
   await deps.sendEmail({
@@ -147,7 +130,7 @@ export async function sendPasswordRecovery(input: {
   redirectTo: string;
 }): Promise<void> {
   const supabase = serverAuthClient();
-  requireTwilioEmailConfig();
+  requireCloudflareEmailConfig();
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "recovery",
     email: input.email,
@@ -162,13 +145,14 @@ export async function sendPasswordRecovery(input: {
   }
 
   const properties = data?.properties as
-    { action_link?: string; actionLink?: string } | undefined;
-  const actionLink = properties?.action_link || properties?.actionLink || "";
+    | { hashed_token?: string; action_link?: string; actionLink?: string }
+    | undefined;
+  const actionLink = appActionLink(properties, input.redirectTo, "recovery");
   if (!actionLink) {
     throw new Error("Supabase did not produce a password recovery link");
   }
 
-  await sendTwilioActionEmail({
+  await sendCloudflareEmail({
     to: input.email,
     subject: "Reset your AppForge password",
     text: `Reset your AppForge password: ${actionLink}`,
@@ -181,6 +165,7 @@ export async function resendSignupConfirmation(input: {
   email: string;
   redirectTo: string;
 }): Promise<void> {
+  requireCloudflareAuthEmailHookConfig();
   const key =
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||

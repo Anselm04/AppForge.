@@ -56,6 +56,7 @@ export const APP_ROUTES = [
   "/templates",
   "/terms",
   "/tools",
+  "/verify-phone",
 ] as const;
 
 export type AppRoute = (typeof APP_ROUTES)[number];

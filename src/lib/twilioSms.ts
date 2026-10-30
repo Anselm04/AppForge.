@@ -101,38 +101,6 @@ export function isTwilioVerifyConfigured(): boolean {
   );
 }
 
-async function startPhoneRecipientVerificationRecovery(
-  to: string,
-): Promise<string | null> {
-  const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(
-      ENV.twilioAccountSid,
-    )}/OutgoingCallerIds.json`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: twilioAuthorization(),
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        PhoneNumber: to,
-        FriendlyName: "AppForge phone verification",
-      }),
-      signal: AbortSignal.timeout(12_000),
-    },
-  );
-
-  if (!res.ok) return null;
-
-  const body = (await res.json().catch(() => null)) as {
-    validation_code?: unknown;
-  } | null;
-  return typeof body?.validation_code === "string" &&
-    body.validation_code.length > 0
-    ? body.validation_code
-    : null;
-}
-
 export async function requestTwilioVerification(to: string): Promise<void> {
   if (!isTwilioVerifyConfigured()) {
     throw new Error("Twilio Verify is not configured on this server.");
@@ -167,19 +135,6 @@ export async function requestTwilioVerification(to: string): Promise<void> {
         ? code
         : undefined;
 
-    if (providerCode === 21608) {
-      const validationCode = await startPhoneRecipientVerificationRecovery(
-        to,
-      ).catch(() => null);
-      if (validationCode) {
-        throw new TwilioVerificationDeliveryError(
-          res.status,
-          providerCode,
-          `Twilio has started a verification call to this phone. When the call asks for the verification code, enter ${validationCode}. After the call confirms the phone, request the SMS code again.`,
-        );
-      }
-    }
-
     throw new TwilioVerificationDeliveryError(res.status, providerCode);
   }
 }
@@ -206,6 +161,7 @@ export async function checkTwilioVerification(
         To: to,
         Code: code,
       }),
+      signal: AbortSignal.timeout(12_000),
     },
   );
 

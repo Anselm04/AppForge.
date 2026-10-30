@@ -28,7 +28,9 @@ type PhoneOtpAuthFacade = {
     data: { session: PhoneSession | null };
     error: Error | null;
   }>;
-  signOut(): Promise<{ error: Error | null }>;
+  signOut(options?: {
+    scope: "local" | "others" | "global";
+  }): Promise<{ error: Error | null }>;
 };
 
 let client: SupabaseClient | null = null;
@@ -76,8 +78,8 @@ const auth: PhoneOtpAuthFacade = {
   async verifyOtp(credentials) {
     return getSupabaseClient().auth.verifyOtp(credentials);
   },
-  async signOut() {
-    return getSupabaseClient().auth.signOut();
+  async signOut(options = { scope: "local" }) {
+    return getSupabaseClient().auth.signOut(options);
   },
 };
 

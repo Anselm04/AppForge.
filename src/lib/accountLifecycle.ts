@@ -59,13 +59,17 @@ export function normalizeAccountPreferences(
   };
 }
 
-function decodeJwtPayload(token: string): { iat?: number } | null {
+type AuthenticationClaims = {
+  amr?: { method?: string; timestamp?: number }[];
+};
+
+function decodeJwtPayload(token: string): AuthenticationClaims | null {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      iat?: number;
-    };
+    return JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as AuthenticationClaims;
   } catch {
     return null;
   }
@@ -76,11 +80,21 @@ export function assertRecentSession(
   nowSeconds = Math.floor(Date.now() / 1000),
 ): void {
   const payload = decodeJwtPayload(accessToken);
-  if (
-    typeof payload?.iat !== "number" ||
-    payload.iat > nowSeconds + 60 ||
-    nowSeconds - payload.iat > RECENT_SESSION_SECONDS
-  ) {
+  // A refresh gives an old login a new iat. Require a recent authentication
+  // event from the provider-signed AMR claim instead of recent token issuance.
+  const recentAuthentication =
+    Array.isArray(payload?.amr) &&
+    payload.amr.some(
+      (event) =>
+        ["password", "otp", "oauth", "totp", "sso/saml"].includes(
+          event?.method ?? "",
+        ) &&
+        typeof event.timestamp === "number" &&
+        Number.isFinite(event.timestamp) &&
+        event.timestamp <= nowSeconds + 60 &&
+        nowSeconds - event.timestamp <= RECENT_SESSION_SECONDS,
+    );
+  if (!recentAuthentication) {
     throw new Error(
       "For security, sign in again before permanently deleting your account.",
     );

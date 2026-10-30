@@ -142,6 +142,16 @@ function oauthAuthorizeUrl(
 }
 
 export const supabaseClient = {
+  verifyEmailTokenHash(
+    tokenHash: string,
+    type:
+      "signup" | "recovery" | "email" | "email_change" | "invite" | "magiclink",
+  ) {
+    return request<AuthResponse>("/auth/v1/verify", {
+      method: "POST",
+      body: JSON.stringify({ token_hash: tokenHash, type }),
+    });
+  },
   signUp(email: string, phone: string, password: string, next = "/") {
     return requestAppForgeSignup(email, phone, password, next);
   },

@@ -38,11 +38,13 @@ export function RequireAuth({ children }: Props) {
   if (!me.phoneVerified) {
     const next = `${location.pathname}${location.search}`;
     return (
-      <Navigate
-        to={`/verify-phone?next=${encodeURIComponent(next)}`}
-        replace
-      />
+      <Navigate to={`/verify-phone?next=${encodeURIComponent(next)}`} replace />
     );
+  }
+
+  if (me.isOwner && !me.ownerMfaVerified && location.pathname !== "/admin") {
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/admin?next=${encodeURIComponent(next)}`} replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

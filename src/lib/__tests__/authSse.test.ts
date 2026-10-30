@@ -62,6 +62,7 @@ describe("generate auth helpers", () => {
   });
 
   it("restores only a non-secret user marker after the server proves the cookie session", async () => {
+    window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
       JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -87,6 +88,7 @@ describe("generate auth helpers", () => {
   });
 
   it("clears a stale user marker when the server cannot prove the cookie session", async () => {
+    window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
       JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -112,6 +114,7 @@ describe("generate auth helpers", () => {
   });
 
   it("allows cookie-authenticated SSE when no browser bearer token is available", async () => {
+    window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
       JSON.stringify({ id: "u1", email: "owner@example.com" }),
@@ -156,6 +159,9 @@ describe("generate auth helpers", () => {
     const [, options] = sseCall!;
     expect(options?.credentials).toBe("same-origin");
     expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+    expect(
+      new Headers(options?.headers).get("x-appforge-browser-session"),
+    ).toBe("active");
     expect(events).toEqual([{ event: "done", data: '{"ok":true}' }]);
   });
 

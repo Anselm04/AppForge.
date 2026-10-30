@@ -14,7 +14,7 @@ describe("trusted signup confirmation redirects", () => {
   it("fails closed without a configured origin", () => {
     vi.stubEnv("PUBLIC_APP_URL", "");
     vi.stubEnv("APP_URL", "");
-    expect(() => signupRedirect("/")).toThrow("trusted signup origin");
+    expect(() => signupRedirect("/")).toThrow("trusted auth origin");
   });
 
   it.each([

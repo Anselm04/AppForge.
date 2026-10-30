@@ -21,6 +21,7 @@ vi.mock("../lib/auth.js", () => ({
   ensureFreshSession: auth.ensureFreshSession,
   refreshSession: auth.refreshSession,
   getAccessToken: () => auth.token,
+  browserSessionHeaders: () => ({ "x-appforge-browser-session": "active" }),
 }));
 vi.mock("../lib/csrf.js", () => ({
   clearCsrfToken: vi.fn(),

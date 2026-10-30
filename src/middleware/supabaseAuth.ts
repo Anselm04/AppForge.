@@ -101,6 +101,8 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
+      /** Validated provider token, including server-side cookie rotation. */
+      authAccessToken?: string;
     }
   }
 }
@@ -375,8 +377,8 @@ export async function supabaseAuthMiddleware(
   }
 
   try {
-    const emailConfirmedAt =
-      authUser.email_confirmed_at ?? authUser.confirmed_at ?? null;
+    // confirmed_at can describe a phone-only identity; AppForge requires email.
+    const emailConfirmedAt = authUser.email_confirmed_at;
     if (!emailConfirmedAt) {
       logger.warn(
         { supabaseUid: authUser.id },
@@ -404,9 +406,11 @@ export async function supabaseAuthMiddleware(
     const phone =
       (typeof authUser.phone === "string" && authUser.phone) ||
       (typeof metadataPhone === "string" ? metadataPhone : undefined);
-    const phoneVerified =
-      Boolean(authUser.phone_confirmed_at) ||
-      authUser.user_metadata?.["signup_phone_verified"] === true;
+    // user_metadata is editable by the signed-in customer and is never proof
+    // of ownership. Only the identity provider can confirm a phone number.
+    const phoneVerified = Boolean(
+      authUser.phone && authUser.phone_confirmed_at,
+    );
 
     const { upsertUserFromAuth, ensureUserCredits } = await import("../db.js");
     const dbUser = await upsertUserFromAuth({
@@ -430,6 +434,7 @@ export async function supabaseAuthMiddleware(
 
     await ensureUserCredits(dbUser.id);
 
+    req.authAccessToken = token;
     req.user = {
       id: dbUser.id,
       email: email || dbUser.email || "",

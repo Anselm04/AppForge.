@@ -10,6 +10,25 @@ function adminClient() {
   });
 }
 
+/** Resolve account verification for trusted service integrations without a browser JWT. */
+export async function getSupabaseAccountIdentity(expectedUserId: string) {
+  const { data, error } =
+    await adminClient().auth.admin.getUserById(expectedUserId);
+  if (
+    error ||
+    !data.user ||
+    data.user.id !== expectedUserId ||
+    !data.user.email_confirmed_at
+  ) {
+    throw new Error("A confirmed account identity is required.");
+  }
+  return {
+    supabaseUid: data.user.id,
+    phone: data.user.phone || undefined,
+    phoneVerified: Boolean(data.user.phone && data.user.phone_confirmed_at),
+  };
+}
+
 export async function verifySupabaseAuthUser(
   accessToken: string,
   expectedUserId: string,

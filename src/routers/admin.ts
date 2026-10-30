@@ -32,6 +32,9 @@ import {
   adminMfaExpiresInSeconds,
   adminMfaCodeSchema,
   hasValidAdminMfa,
+  hasValidAdminMfaChallenge,
+  clearAdminMfaCookie,
+  setAdminMfaChallengeCookie,
   setAdminMfaCookie,
 } from "../lib/adminMfa.js";
 import { getBuildQueueDiagnostics } from "../services/build-queue.js";
@@ -90,9 +93,11 @@ export const adminRouter = router({
 
   requestMfa: ownerAuthenticatedProcedure.mutation(async ({ ctx }) => {
     ensureAdminMfaConfigured();
+    clearAdminMfaCookie(ctx.res);
 
     try {
       await requestTwilioVerification(ENV.ownerPhone.trim());
+      setAdminMfaChallengeCookie(ctx.req, ctx.res, ctx.user.id);
     } catch (error) {
       logger.error(
         {
@@ -138,6 +143,13 @@ export const adminRouter = router({
     .input(z.object({ code: adminMfaCodeSchema }))
     .mutation(async ({ ctx, input }) => {
       ensureAdminMfaConfigured();
+      if (!hasValidAdminMfaChallenge(ctx.req, ctx.user.id)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Request a new admin SMS code in this browser before verifying.",
+        });
+      }
 
       let approved = false;
       try {

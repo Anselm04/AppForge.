@@ -1,4 +1,4 @@
-import { ENV } from "../_core/env.js";
+import { sendCloudflareEmail } from "./cloudflareEmail.js";
 import { logger } from "../_core/logger.js";
 
 function appForgeSender(): string {
@@ -15,48 +15,27 @@ function appUrl(path: string): string {
   return base ? `${base.replace(/\/$/, "")}${path}` : path;
 }
 
-/** Send a single email via Resend REST API */
-async function sendViaResend(
+/** Customer notifications use the same Cloudflare email provider as auth. */
+async function sendViaCloudflare(
   to: string,
   subject: string,
   html: string,
-  from: string,
-): Promise<{ success: boolean; error?: string }> {
-  const apiKey = ENV.resendApiKey;
-  if (!apiKey) {
-    logger.warn({ to, subject }, "email_not_sent_no_resend_key");
-    return { success: false, error: "RESEND_API_KEY not configured" };
-  }
-  if (!from) {
-    logger.error({ to, subject }, "email_not_sent_no_appforge_sender");
-    return { success: false, error: "APPFORGE_EMAIL_FROM not configured" };
-  }
-
+  _from: string,
+): Promise<{ success: boolean }> {
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from, to, subject, html }),
+    await sendCloudflareEmail({
+      to,
+      subject,
+      html,
+      text: html
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
     });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "unknown");
-      logger.error({ status: res.status, body, to }, "resend_email_failed");
-      return { success: false, error: `Resend HTTP ${res.status}: ${body}` };
-    }
-
-    const data = (await res.json().catch(() => ({ id: "unknown" }))) as {
-      id?: string;
-    };
-    logger.info({ to, subject, resendId: data.id }, "email_sent_resend");
     return { success: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ to, subject, error: msg }, "resend_email_exception");
-    return { success: false, error: msg };
+  } catch {
+    logger.error({ provider: "cloudflare" }, "customer_email_delivery_failed");
+    return { success: false };
   }
 }
 
@@ -66,7 +45,7 @@ export async function sendEmail(
   html: string,
   _sender: "hello" | "support" = "hello",
 ): Promise<{ success: boolean }> {
-  const result = await sendViaResend(to, subject, html, appForgeSender());
+  const result = await sendViaCloudflare(to, subject, html, appForgeSender());
   return { success: result.success };
 }
 
@@ -74,7 +53,7 @@ export async function notifyTrialEnding(
   userEmail: string,
   daysLeft: number,
 ): Promise<void> {
-  await sendViaResend(
+  await sendViaCloudflare(
     userEmail,
     `Your AppForge trial ends in ${daysLeft} days`,
     `<p>Hi there,</p>
@@ -87,7 +66,7 @@ export async function notifyTrialEnding(
 }
 
 export async function notifyPaymentFailed(userEmail: string): Promise<void> {
-  await sendViaResend(
+  await sendViaCloudflare(
     userEmail,
     "Action required: Update your payment method",
     `<p>Hi there,</p>
@@ -108,7 +87,7 @@ export async function notifyBuildComplete(
     ? `<p><a href="${deployUrl}">View live deployment →</a></p>`
     : `<p><a href="${appUrl("/dashboard")}">Go to your dashboard →</a></p>`;
 
-  await sendViaResend(
+  await sendViaCloudflare(
     userEmail,
     `"${projectTitle}" is ready on AppForge`,
     `<p>Hi there,</p>
@@ -123,7 +102,7 @@ export async function notifyAccountBanned(
   userEmail: string,
   reason: string,
 ): Promise<void> {
-  await sendViaResend(
+  await sendViaCloudflare(
     userEmail,
     "Account suspended",
     `<p>Hi there,</p>

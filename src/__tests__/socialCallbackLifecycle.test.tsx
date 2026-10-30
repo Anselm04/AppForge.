@@ -58,7 +58,9 @@ describe("social callback completion survives effect cleanup", () => {
       window.history.replaceState({}, "", "/login");
       return completion;
     });
-    mocks.me.mockResolvedValueOnce(null).mockResolvedValue({ id: 7 });
+    mocks.me
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: 7, phoneVerified: true });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -78,6 +80,9 @@ describe("social callback completion survives effect cleanup", () => {
       }),
     );
     expect(mocks.complete).toHaveBeenCalledTimes(1);
-    expect(queryClient.getQueryData(["auth", "me"])).toEqual({ id: 7 });
+    expect(queryClient.getQueryData(["auth", "me"])).toEqual({
+      id: 7,
+      phoneVerified: true,
+    });
   });
 });

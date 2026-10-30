@@ -55,6 +55,11 @@ export interface EnvConfig {
   VANTA_WORKSPACE_ID?: string;
   VANTA_API_TOKEN?: string;
   RESEND_API_KEY?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_EMAIL_API_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  APPFORGE_EMAIL_FROM?: string;
+  SUPABASE_SEND_EMAIL_HOOK_SECRET?: string;
   VERCEL_TOKEN?: string;
   VERCEL_TEAM_ID?: string;
   NETLIFY_AUTH_TOKEN?: string;
@@ -343,10 +348,25 @@ export function validateEnv(
     );
   }
 
-  if (config.OWNER_EMAIL && !config.RESEND_API_KEY && isProduction) {
-    warnings.push(
-      "RESEND_API_KEY not set. Email notifications (bans, god codes, welcome) will not be sent.",
-    );
+  if (isProduction) {
+    const missingEmail = [
+      ["CLOUDFLARE_ACCOUNT_ID", config.CLOUDFLARE_ACCOUNT_ID],
+      [
+        "CLOUDFLARE_EMAIL_API_TOKEN",
+        config.CLOUDFLARE_EMAIL_API_TOKEN || config.CLOUDFLARE_API_TOKEN,
+      ],
+      ["APPFORGE_EMAIL_FROM", config.APPFORGE_EMAIL_FROM],
+      [
+        "SUPABASE_SEND_EMAIL_HOOK_SECRET",
+        config.SUPABASE_SEND_EMAIL_HOOK_SECRET,
+      ],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+    if (missingEmail.length)
+      errors.push(
+        `Cloudflare authentication email requires ${missingEmail.join(", ")} in production.`,
+      );
   }
 
   if (!config.VERCEL_TOKEN) {
@@ -455,7 +475,7 @@ export function getEnvSummary(
         : "❌"
     }`,
     `  Vanta: ${config.VANTA_WORKSPACE_ID && config.VANTA_API_TOKEN ? "✅" : "⚠️"}`,
-    `  Resend Email: ${config.RESEND_API_KEY ? "✅" : "⚠️"}`,
+    `  Cloudflare Email: ${config.CLOUDFLARE_ACCOUNT_ID && (config.CLOUDFLARE_EMAIL_API_TOKEN || config.CLOUDFLARE_API_TOKEN) && config.APPFORGE_EMAIL_FROM && config.SUPABASE_SEND_EMAIL_HOOK_SECRET ? "✅" : "❌"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
     `  LLM Provider: ${llmReady(config) ? "✅" : "❌ (at least one supported provider required)"}`,
     `  Redis: ${config.REDIS_URL ? "✅" : isProductionSummary(config) ? "❌ (required for multi-machine production)" : "⚠️"}`,

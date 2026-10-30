@@ -1,9 +1,12 @@
 import type { Request, Response } from "express";
+import { TRPCError } from "@trpc/server";
+import { getSupabaseAccountIdentity } from "./supabaseAccountAdmin.js";
 export type ManagerUser = {
   id: number;
   email: string;
   name?: string;
   isBanned?: boolean;
+  openId?: string | null;
 };
 export async function callManagerProjectApi(
   user: ManagerUser,
@@ -12,12 +15,22 @@ export async function callManagerProjectApi(
   context: { req: Request; res: Response },
 ): Promise<any> {
   const { projectsRouter } = await import("../routers/projects.js");
+  if (!user.openId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "A verified account identity is required.",
+    });
+  }
+  // Service bearer tokens authenticate Manager, not the customer's phone.
+  // Resolve provider-owned confirmation state before entering protected APIs.
+  const identity = await getSupabaseAccountIdentity(user.openId);
   const caller = projectsRouter.createCaller({
     ...context,
     user: {
       id: user.id,
       email: user.email,
       name: user.name || "TrillionAI Manager",
+      ...identity,
     },
   });
   switch (action) {

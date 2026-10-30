@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ensureFreshSession,
-  getAccessToken,
+  logout,
   signOutAllDevices,
   signOutOtherDevices,
 } from "../lib/auth.js";
-import { supabaseClient } from "../lib/supabase-client.js";
 import { trpc } from "../utils/trpc.js";
 import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
@@ -51,6 +50,10 @@ export function Account() {
   const [emailPending, setEmailPending] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [passwordVerificationCode, setPasswordVerificationCode] = useState("");
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [showPasswordVerification, setShowPasswordVerification] =
+    useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
@@ -110,10 +113,7 @@ export function Account() {
     setEmailMessage(null);
     try {
       await ensureFreshSession();
-      const token = getAccessToken();
-      if (!token)
-        throw new Error("Sign in again before changing your email address.");
-      await supabaseClient.updateEmail(token, newEmail);
+      await trpc.account.changeEmail.mutate({ email: newEmail });
       setNewEmail("");
       setEmailMessage(
         "Email change requested. Complete the verification messages required by the identity provider before the new address becomes authoritative.",
@@ -138,14 +138,16 @@ export function Account() {
     setPending(true);
     try {
       await ensureFreshSession();
-      const token = getAccessToken();
-      if (!token)
-        throw new Error(
-          "Your secure session needs to be renewed. Use Forgot password to set a new password.",
-        );
-      await supabaseClient.updatePassword(token, password);
+      await trpc.account.changePassword.mutate({
+        password,
+        ...(passwordVerificationCode.trim()
+          ? { nonce: passwordVerificationCode.trim() }
+          : {}),
+      });
       setPassword("");
       setConfirm("");
+      setPasswordVerificationCode("");
+      setShowPasswordVerification(false);
       setMessage("Password changed successfully.");
     } catch (error) {
       setMessage(
@@ -153,6 +155,27 @@ export function Account() {
       );
     } finally {
       setPending(false);
+    }
+  };
+
+  const requestPasswordVerification = async () => {
+    setVerificationPending(true);
+    setMessage(null);
+    try {
+      await ensureFreshSession();
+      await trpc.account.requestPasswordVerification.mutate();
+      setShowPasswordVerification(true);
+      setMessage(
+        "Check your verified email for the password verification code, then enter it below.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to send a password verification code.",
+      );
+    } finally {
+      setVerificationPending(false);
     }
   };
 
@@ -224,16 +247,13 @@ export function Account() {
     setDeleteMessage(null);
     try {
       await ensureFreshSession();
-      const token = getAccessToken();
-      if (!token)
-        throw new Error(
-          "Sign in again immediately before deleting your account.",
-        );
       await trpc.account.deleteAccount.mutate({
         confirmation: "DELETE MY APPFORGE ACCOUNT",
-        accessToken: token,
       });
-      await signOutAllDevices().catch(() => undefined);
+      // The provider identity is gone, so remote revocation may now fail.
+      // Always clear this browser's state after successful account deletion.
+      await logout();
+      queryClient.clear();
       navigate("/login", { replace: true });
     } catch (error) {
       setDeleteMessage(
@@ -391,6 +411,30 @@ export function Account() {
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
             />
+            {showPasswordVerification && (
+              <Input
+                id="account-password-verification"
+                label="Password verification code"
+                autoComplete="one-time-code"
+                value={passwordVerificationCode}
+                onChange={(event) =>
+                  setPasswordVerificationCode(event.target.value)
+                }
+              />
+            )}
+            <p className="text-sm text-forge-text-muted">
+              If a verification code is required to change your password,
+              request one here.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={verificationPending}
+              disabled={verificationPending || pending}
+              onClick={() => void requestPasswordVerification()}
+            >
+              Send password verification code
+            </Button>
             {message && (
               <p className="text-sm text-forge-text-muted" role="status">
                 {message}

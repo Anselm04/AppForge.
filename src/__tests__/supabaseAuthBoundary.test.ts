@@ -18,7 +18,7 @@ describe("Supabase server authentication boundary", () => {
 
   it("requires confirmed email before establishing an AppForge session", () => {
     expect(middleware).toContain("authUser.email_confirmed_at");
-    expect(middleware).toContain("authUser.confirmed_at");
+    expect(middleware).not.toContain("authUser.confirmed_at");
     expect(middleware).toContain('code: "EMAIL_CONFIRMATION_REQUIRED"');
     expect(middleware).toContain('"supabase_auth_email_confirmation_required"');
   });
@@ -39,7 +39,7 @@ describe("Supabase server authentication boundary", () => {
     expect(middleware).toContain("REFRESH_GRACE_MS");
     expect(middleware).toContain('createHash("sha256")');
     expect(middleware).toContain(
-      "Preserve a still-valid refresh cookie across transient Supabase failures.",
+      'logger.warn({ error: err }, "supabase_auth_refresh_failed")',
     );
   });
 

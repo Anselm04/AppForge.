@@ -45,7 +45,13 @@ describe("account deletion resume", () => {
     const caller = accountRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: "customer@example.com", name: "Customer" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: "customer@example.com",
+        name: "Customer",
+      },
     });
 
     await expect(

@@ -15,6 +15,11 @@ const baseProductionEnv = {
   TWILIO_ACCOUNT_SID: "AC" + "a".repeat(32),
   TWILIO_AUTH_TOKEN: "t".repeat(40),
   TWILIO_VERIFY_SERVICE_SID: "VA" + "b".repeat(32),
+  CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
+  CLOUDFLARE_EMAIL_API_TOKEN: "test-cloudflare-token",
+  APPFORGE_EMAIL_FROM: "support@example.com",
+  SUPABASE_SEND_EMAIL_HOOK_SECRET:
+    "v1,whsec_" + Buffer.alloc(32, 1).toString("base64"),
   BUILT_IN_FORGE_API_KEY: "forge_" + "x".repeat(40),
   REDIS_URL: "rediss://example.invalid:6379",
   STRIPE_SECRET_KEY: "sk_live_" + "x".repeat(40),
@@ -29,6 +34,17 @@ const baseProductionEnv = {
 };
 
 describe("production environment validation", () => {
+  it("does not certify transactional email with SMS credentials alone", () => {
+    const result = validateEnv({
+      ...baseProductionEnv,
+      CLOUDFLARE_EMAIL_API_TOKEN: undefined,
+      SUPABASE_SEND_EMAIL_HOOK_SECRET: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join("\n")).toContain(
+      "Cloudflare authentication email requires",
+    );
+  });
   it("does not certify signup without server link-generation credentials", () => {
     const result = validateEnv({
       ...baseProductionEnv,

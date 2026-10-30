@@ -25,7 +25,9 @@ import {
 } from "../auth";
 
 describe("customer phone authentication", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    mocks.signOut.mockResolvedValue({ error: null });
+    await logout();
     vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
@@ -38,7 +40,9 @@ describe("customer phone authentication", () => {
   });
 
   it("rejects non-E.164 phone numbers before requesting an OTP", async () => {
-    await expect(sendPhoneOtp("5551234567")).rejects.toThrow(/E\.164/i);
+    await expect(sendPhoneOtp("5551234567")).rejects.toThrow(
+      /international format/i,
+    );
     expect(mocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
@@ -109,5 +113,6 @@ describe("customer phone authentication", () => {
     mocks.signOut.mockResolvedValue({ error: null });
     await logout();
     expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

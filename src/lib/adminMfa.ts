@@ -4,12 +4,15 @@ import { z } from "zod";
 import { ENV } from "../_core/env.js";
 
 const ADMIN_MFA_COOKIE = "appforge_admin_mfa";
+const ADMIN_CHALLENGE_COOKIE = "appforge_admin_challenge";
 const ADMIN_MFA_TTL_MS = 15 * 60 * 1000;
+const ADMIN_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 export const adminMfaCodeSchema = z.string().regex(/^[0-9]{6}$/);
 
 type AdminMfaPayload = {
-  v: 1;
+  v: 2;
+  purpose: "verified" | "challenge";
   uid: number;
   session: string;
   ua: string;
@@ -19,8 +22,10 @@ type AdminMfaPayload = {
 
 function signingSecret(): string {
   const secret = ENV.cookieSecret;
-  if (!secret) {
-    throw new Error("Admin MFA signing secret is not configured");
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "Admin MFA signing secret must contain at least 32 characters",
+    );
   }
   return secret;
 }
@@ -31,23 +36,30 @@ function sha256(value: string): string {
 
 function hmac(value: string): string {
   return createHmac("sha256", signingSecret())
-    .update(`appforge-admin-mfa:v1:${value}`)
+    .update(`appforge-admin-mfa:v2:${value}`)
     .digest("hex");
 }
 
-function readPrimaryAccessToken(req: Request): string | null {
-  const header = req.headers.authorization;
-  if (typeof header === "string") {
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    if (match?.[1]) return match[1].trim();
-  }
-  const cookie = req.cookies?.["sb-access-token"];
-  return typeof cookie === "string" && cookie.length > 0 ? cookie : null;
-}
-
 function currentSessionFingerprint(req: Request): string | null {
-  const token = readPrimaryAccessToken(req);
-  return token ? sha256(token) : null;
+  // Only use the token validated by authentication middleware. Raw headers and
+  // cookies can contain expired tokens replaced during server-side refresh.
+  const token = req.authAccessToken;
+  if (!token) return null;
+  try {
+    const claims = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
+    ) as { sub?: string; session_id?: string };
+    if (
+      typeof claims.sub !== "string" ||
+      !claims.sub ||
+      typeof claims.session_id !== "string" ||
+      !claims.session_id
+    )
+      return null;
+    return sha256(JSON.stringify([claims.sub, claims.session_id]));
+  } catch {
+    return null;
+  }
 }
 
 function currentUserAgentFingerprint(req: Request): string {
@@ -73,7 +85,8 @@ function decodePayload(encoded: string): AdminMfaPayload | null {
       Buffer.from(encoded, "base64url").toString("utf8"),
     ) as Partial<AdminMfaPayload>;
     if (
-      parsed.v !== 1 ||
+      parsed.v !== 2 ||
+      !["verified", "challenge"].includes(parsed.purpose ?? "") ||
       !Number.isInteger(parsed.uid) ||
       typeof parsed.session !== "string" ||
       typeof parsed.ua !== "string" ||
@@ -93,31 +106,76 @@ export function setAdminMfaCookie(
   res: Response,
   userId: number,
 ): void {
+  setMfaCookie(req, res, userId, "verified");
+  res.clearCookie(ADMIN_CHALLENGE_COOKIE, cookieOptions());
+}
+
+export function setAdminMfaChallengeCookie(
+  req: Request,
+  res: Response,
+  userId: number,
+): void {
+  setMfaCookie(req, res, userId, "challenge");
+}
+
+function setMfaCookie(
+  req: Request,
+  res: Response,
+  userId: number,
+  purpose: AdminMfaPayload["purpose"],
+): void {
   const session = currentSessionFingerprint(req);
   if (!session) throw new Error("Primary session is required for admin MFA");
 
   const now = Date.now();
   const encoded = encodePayload({
-    v: 1,
+    v: 2,
+    purpose,
     uid: userId,
     session,
     ua: currentUserAgentFingerprint(req),
     iat: now,
-    exp: now + ADMIN_MFA_TTL_MS,
+    exp:
+      now +
+      (purpose === "verified" ? ADMIN_MFA_TTL_MS : ADMIN_CHALLENGE_TTL_MS),
   });
   const signature = hmac(encoded);
-  res.cookie(ADMIN_MFA_COOKIE, `${encoded}.${signature}`, {
-    ...cookieOptions(),
-    maxAge: ADMIN_MFA_TTL_MS,
-  });
+  res.cookie(
+    purpose === "verified" ? ADMIN_MFA_COOKIE : ADMIN_CHALLENGE_COOKIE,
+    `${encoded}.${signature}`,
+    {
+      ...cookieOptions(),
+      maxAge:
+        purpose === "verified" ? ADMIN_MFA_TTL_MS : ADMIN_CHALLENGE_TTL_MS,
+    },
+  );
 }
 
 export function clearAdminMfaCookie(res: Response): void {
   res.clearCookie(ADMIN_MFA_COOKIE, cookieOptions());
+  res.clearCookie(ADMIN_CHALLENGE_COOKIE, cookieOptions());
 }
 
 export function hasValidAdminMfa(req: Request, userId: number): boolean {
-  const raw = req.cookies?.[ADMIN_MFA_COOKIE];
+  return hasValidMfaCookie(req, userId, "verified");
+}
+
+export function hasValidAdminMfaChallenge(
+  req: Request,
+  userId: number,
+): boolean {
+  return hasValidMfaCookie(req, userId, "challenge");
+}
+
+function hasValidMfaCookie(
+  req: Request,
+  userId: number,
+  purpose: AdminMfaPayload["purpose"],
+): boolean {
+  const raw =
+    req.cookies?.[
+      purpose === "verified" ? ADMIN_MFA_COOKIE : ADMIN_CHALLENGE_COOKIE
+    ];
   if (typeof raw !== "string" || raw.length === 0) return false;
 
   const dot = raw.lastIndexOf(".");
@@ -143,7 +201,19 @@ export function hasValidAdminMfa(req: Request, userId: number): boolean {
   }
 
   const payload = decodePayload(encoded);
-  if (!payload || payload.uid !== userId || payload.exp <= Date.now()) {
+  const now = Date.now();
+  const ttl =
+    purpose === "verified" ? ADMIN_MFA_TTL_MS : ADMIN_CHALLENGE_TTL_MS;
+  if (
+    !payload ||
+    payload.purpose !== purpose ||
+    payload.uid !== userId ||
+    !Number.isFinite(payload.iat) ||
+    !Number.isFinite(payload.exp) ||
+    payload.iat > now ||
+    payload.exp <= now ||
+    payload.exp - payload.iat > ttl
+  ) {
     return false;
   }
 

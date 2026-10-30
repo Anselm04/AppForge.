@@ -114,6 +114,9 @@ describe("auth submission resilience", () => {
         target: { value: "ForgeBuilder1!" },
       });
       if (route === "signup") {
+        fireEvent.change(screen.getByLabelText("Mobile number"), {
+          target: { value: "+15551234567" },
+        });
         fireEvent.change(screen.getByLabelText("Confirm password"), {
           target: { value: "ForgeBuilder1!" },
         });

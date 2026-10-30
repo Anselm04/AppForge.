@@ -7,7 +7,9 @@ import {
 } from "../accountLifecycle.js";
 
 function jwtWithIat(iat: number) {
-  const payload = Buffer.from(JSON.stringify({ iat })).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({ iat, amr: [{ method: "password", timestamp: iat }] }),
+  ).toString("base64url");
   return `x.${payload}.x`;
 }
 
@@ -51,6 +53,25 @@ describe("account lifecycle", () => {
       communications: { product: true, billing: true, marketing: false },
       accessibility: { reducedMotion: true, highContrast: false },
     });
+  });
+
+  it("does not treat refreshing an old login as reauthentication", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const payload = Buffer.from(
+      JSON.stringify({
+        iat: now,
+        amr: [{ method: "password", timestamp: now - 3600 }],
+      }),
+    ).toString("base64url");
+    expect(() => assertRecentSession(`x.${payload}.x`, now)).toThrow(
+      /sign in again/i,
+    );
+    const withoutAuthentication = Buffer.from(
+      JSON.stringify({ iat: now }),
+    ).toString("base64url");
+    expect(() =>
+      assertRecentSession(`x.${withoutAuthentication}.x`, now),
+    ).toThrow(/sign in again/i);
   });
 
   it("cleans recoverable local data before revoking identity and revokes sessions last", async () => {

@@ -53,6 +53,7 @@ jobs:
           DISPATCH_TAG: ${{ inputs.batch_tag }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           BASE_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_AUTH_GATE_PHONE: ${{ secrets.APPFORGE_CANARY_PHONE }}
           APPFORGE_URL: https://appforge-unfurling-moon-9058.fly.dev
         shell: bash
         run: |
@@ -105,10 +106,15 @@ jobs:
 
           alias_email="${localpart}+gate1-${prefix}@${domain}"
           echo "::add-mask::$alias_email"
+          test -n "$APPFORGE_AUTH_GATE_PHONE" || {
+            echo "Configure APPFORGE_CANARY_PHONE with a dedicated E.164 test phone before running this gate."
+            exit 1
+          }
+          echo "::add-mask::$APPFORGE_AUTH_GATE_PHONE"
 
           run_one "request-confirmation" "$alias_email" "$password" "signup request"
 
-          echo "Waiting up to 20 minutes for the real confirmation link to be consumed."
+          echo "Waiting up to 20 minutes for email confirmation and SMS verification in the tester's browser."
           confirmed=0
           for attempt in $(seq 1 40); do
             if run_one "probe-confirmed" "$alias_email" "$password" "confirmation probe $attempt/40"; then
@@ -118,7 +124,7 @@ jobs:
             sleep 30
           done
           test "$confirmed" = "1" || {
-            echo "Real email confirmation was not completed within 20 minutes."
+            echo "Real email confirmation and SMS verification were not completed within 20 minutes."
             exit 1
           }
 
@@ -132,6 +138,7 @@ jobs:
           A successful Production Auth Lifecycle run is full launch evidence only.
           It requests a real production signup confirmation, waits for the real
           one-time Supabase confirmation link to be consumed out-of-band, then proves
+          phone verification using the dedicated canary phone, followed by
           normal login, ten logout/relogin boundaries, hard reload continuity,
           forced HttpOnly-cookie session recovery, anonymous protected-route denial,
           and ten fresh-browser-context login/recovery cycles. Partial request-only

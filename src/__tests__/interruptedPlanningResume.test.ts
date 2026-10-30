@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// These build tests use a fully authenticated owner fixture; MFA denial has
+// independent behavioral coverage in ownerAccessSecurity.test.ts.
+vi.mock("../lib/adminMfa.js", () => ({ hasValidAdminMfa: () => true }));
 import {
   buildProductContract,
   classifyProductIntent,
@@ -38,7 +41,13 @@ import { projectsRouter } from "../routers/projects.js";
 const caller = projectsRouter.createCaller({
   req: {} as never,
   res: {} as never,
-  user: { id: 7, email: "unit@example.com", name: "Unit" },
+  user: {
+    id: 7,
+    supabaseUid: "test-identity-7",
+    phoneVerified: true,
+    email: "unit@example.com",
+    name: "Unit",
+  },
 });
 const prompt =
   "Build a lead generation website with Stripe subscription billing";
@@ -88,7 +97,13 @@ describe("real resume API with database and queue I/O replaced", () => {
     const ownerCaller = projectsRouter.createCaller({
       req: {} as never,
       res: {} as never,
-      user: { id: 7, email: canonicalOwnerEmail(), name: "Owner" },
+      user: {
+        id: 7,
+        supabaseUid: "test-identity-7",
+        phoneVerified: true,
+        email: canonicalOwnerEmail(),
+        name: "Owner",
+      },
     });
     await expect(
       ownerCaller.resumeApprovedBuild({ projectId: 1 }),

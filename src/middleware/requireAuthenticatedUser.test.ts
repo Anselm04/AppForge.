@@ -56,6 +56,7 @@ describe("requireAuthenticatedUser", () => {
         email: "user@example.com",
         name: "User",
         supabaseUid: "supabase-user-id",
+        phoneVerified: true,
       },
     } as Request;
     const res = createResponse();
@@ -66,5 +67,32 @@ describe("requireAuthenticatedUser", () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it("keeps an owner's REST access locked without SMS approval", () => {
+    const req = {
+      user: { id: 42, email: "anselm.perkins@gmail.com", phoneVerified: true },
+      headers: {},
+      cookies: {},
+    } as Request;
+    const res = createResponse();
+    const next = vi.fn();
+    requireAuthenticatedUser(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "OWNER_MFA_REQUIRED" }),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("does not let an unverified phone bypass verification through REST", () => {
+    const req = {
+      user: { id: 42, email: "customer@example.com", phoneVerified: false },
+    } as Request;
+    const res = createResponse();
+    const next = vi.fn();
+    requireAuthenticatedUser(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
   });
 });

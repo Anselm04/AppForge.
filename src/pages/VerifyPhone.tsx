@@ -23,6 +23,7 @@ export function VerifyPhone() {
   const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requested = useRef(false);
 
@@ -47,10 +48,12 @@ export function VerifyPhone() {
       }
       setMaskedPhone(result.maskedPhone ?? null);
       setCodeSent(true);
+      setEditingPhone(false);
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
     },
     onError: (err) => {
-      requested.current = false;
+      // Automatic delivery is attempted once. Resetting this ref on failure
+      // creates a render/retry loop that repeatedly sends or rate-limits SMS.
       setError(
         err instanceof Error
           ? err.message
@@ -60,7 +63,8 @@ export function VerifyPhone() {
   });
 
   const verifyCode = useMutation({
-    mutationFn: (value: string) => trpc.auth.verifyPhone.mutate({ code: value }),
+    mutationFn: (value: string) =>
+      trpc.auth.verifyPhone.mutate({ code: value }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["auth"] });
       navigate(next, { replace: true });
@@ -76,20 +80,23 @@ export function VerifyPhone() {
   useEffect(() => {
     if (!isFetched) return;
     if (!me) {
-      navigate(loginPathWithReturn(`/verify-phone?next=${encodeURIComponent(next)}`), {
-        replace: true,
-      });
+      navigate(
+        loginPathWithReturn(`/verify-phone?next=${encodeURIComponent(next)}`),
+        {
+          replace: true,
+        },
+      );
       return;
     }
     if (me.phoneVerified) {
       navigate(next, { replace: true });
       return;
     }
-    if (me.phone && !requested.current && !codeSent) {
+    if (me.phone && !requested.current && !codeSent && !editingPhone) {
       requested.current = true;
       requestCode.mutate(undefined);
     }
-  }, [codeSent, isFetched, me, navigate, next, requestCode]);
+  }, [codeSent, editingPhone, isFetched, me, navigate, next, requestCode]);
 
   const requestForEnteredPhone = (event: FormEvent) => {
     event.preventDefault();
@@ -126,7 +133,7 @@ export function VerifyPhone() {
     <AuthShell
       title="Verify your mobile number"
       subtitle={
-        codeSent || me?.phone
+        codeSent && !editingPhone
           ? `Enter the six-digit code sent to ${destination}. This phone is linked to the same AppForge account as your email.`
           : "Add your mobile number to this AppForge account. We will send a six-digit SMS code before giving access to the app."
       }
@@ -140,7 +147,7 @@ export function VerifyPhone() {
         </p>
       )}
 
-      {!me?.phone && !codeSent ? (
+      {editingPhone || (!me?.phone && !codeSent) ? (
         <form onSubmit={requestForEnteredPhone} className="space-y-5">
           <Input
             id="phone-enrollment-number"
@@ -154,8 +161,8 @@ export function VerifyPhone() {
             required
           />
           <p className="text-xs text-forge-text-muted">
-            Use international format including the country code. For New Zealand,
-            use +64 and omit the first 0 of the mobile number.
+            Use international format including the country code. For New
+            Zealand, use +64 and omit the first 0 of the mobile number.
           </p>
           <Button
             type="submit"
@@ -204,6 +211,20 @@ export function VerifyPhone() {
             }}
           >
             Send a new code
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3 w-full"
+            disabled={requestCode.isPending || verifyCode.isPending}
+            onClick={() => {
+              setPhone(me?.phone ?? "");
+              setCode("");
+              setError(null);
+              setEditingPhone(true);
+            }}
+          >
+            Use a different mobile number
           </Button>
         </>
       )}
