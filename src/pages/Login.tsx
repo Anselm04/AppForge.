@@ -36,7 +36,11 @@ function describeSignInError(
 }
 
 function isAdminDestination(next: string): boolean {
-  return next === "/admin" || next.startsWith("/admin/") || next.startsWith("/admin?");
+  return (
+    next === "/admin" ||
+    next.startsWith("/admin/") ||
+    next.startsWith("/admin?")
+  );
 }
 
 function destinationForUser(
