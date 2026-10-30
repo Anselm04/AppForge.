@@ -27,6 +27,7 @@ type ConfirmationEmail = {
 type SignupConfirmationDeps = {
   generateLink: (input: SignupConfirmationInput) => Promise<ConfirmationLink>;
   sendEmail: (input: ConfirmationEmail) => Promise<void>;
+  rollbackUser?: (userId: string) => Promise<void>;
 };
 
 function requireServerAuthConfig() {
@@ -103,9 +104,16 @@ async function sendCloudflareConfirmationEmail(
   });
 }
 
+async function rollbackSupabaseSignup(userId: string): Promise<void> {
+  const supabase = serverAuthClient();
+  const { error } = await supabase.auth.admin.deleteUser(userId);
+  if (error) throw error;
+}
+
 const productionDeps: SignupConfirmationDeps = {
   generateLink: generateSupabaseSignupLink,
   sendEmail: sendCloudflareConfirmationEmail,
+  rollbackUser: rollbackSupabaseSignup,
 };
 
 export async function createSignupConfirmation(
@@ -117,11 +125,23 @@ export async function createSignupConfirmation(
     requireCloudflareEmailConfig();
   }
   const link = await deps.generateLink(input);
-  await deps.sendEmail({
-    to: input.email,
-    subject: "Confirm your AppForge email",
-    confirmationUrl: link.actionLink,
-  });
+  try {
+    await deps.sendEmail({
+      to: input.email,
+      subject: "Confirm your AppForge email",
+      confirmationUrl: link.actionLink,
+    });
+  } catch (deliveryError) {
+    if (deps.rollbackUser) {
+      try {
+        await deps.rollbackUser(link.userId);
+      } catch {
+        // Preserve the original provider error. A failed rollback is still
+        // fail-closed and the resend flow can recover the pending identity.
+      }
+    }
+    throw deliveryError;
+  }
   return { userId: link.userId, confirmationSent: true };
 }
 
