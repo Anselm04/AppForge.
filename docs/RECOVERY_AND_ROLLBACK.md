@@ -31,6 +31,18 @@ live credentials in this document.
 
 ## Known-good recovery points
 
+### Production image rebuilds after the Vite 8 migration
+
+Recovery review (31 October 2026): the Alpine builder uses Vite 8's locked
+Rolldown platform binding, installed by `npm ci --ignore-scripts`. Do not restore
+the old manual Rollup binary installation: Rollup is no longer in the dependency
+tree, so that step prevents production and recovery images from building.
+Rebuild the production Docker target and pass its privilege-drop and fail-closed
+startup checks before treating a rebuilt image as a recovery candidate. The
+exact-SHA CI/security requirements, blue/green deployment, two-machine capacity,
+health, authorization, and release-identity checks remain required. This build
+change does not alter runtime secrets, persisted data, or migration recovery.
+
 Two checkpoint levels are stored in `recovery_checkpoints`:
 
 - `validated_artifact`: the immutable final snapshot passed AppForge's product
