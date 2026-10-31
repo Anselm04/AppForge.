@@ -9,6 +9,7 @@
  */
 
 import rateLimit, {
+  ipKeyGenerator,
   RateLimitRequestHandler,
   Options as RateLimitOptions,
 } from "express-rate-limit";
@@ -111,7 +112,7 @@ export function rateLimitIdentity(req: any): string {
   const userId = req.user?.id;
   if (userId) return `user:${userId}`;
 
-  return req.ip || req.socket?.remoteAddress || "unknown";
+  return ipKeyGenerator(req.ip || req.socket?.remoteAddress || "unknown");
 }
 
 function createOptions(config: RateLimitConfig): Partial<RateLimitOptions> {

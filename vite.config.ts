@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   plugins: [react()],
@@ -8,11 +8,19 @@ export default defineConfig({
     outDir: "dist/client",
     emptyOutDir: true,
     minify: true,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "react-vendor": ["react", "react-dom", "react-router-dom"],
-          "tanstack-vendor": ["@tanstack/react-query"],
+        manualChunks(id) {
+          if (
+            /[/\\]node_modules[/\\](?:react|react-dom|react-router|react-router-dom|scheduler)[/\\]/.test(
+              id,
+            )
+          ) {
+            return "react-vendor";
+          }
+          if (/[/\\]node_modules[/\\]@tanstack[/\\]/.test(id)) {
+            return "tanstack-vendor";
+          }
         },
       },
     },
@@ -35,5 +43,5 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
-  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
 });
