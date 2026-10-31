@@ -14,6 +14,7 @@ import { corsOrigin } from "./middleware/corsOrigin.js";
 import { compressionMiddleware } from "./middleware/compression.js";
 import { createLocalRateLimiter } from "./middleware/rateLimiter.js";
 import { createSlowDown } from "./middleware/slowDown.js";
+import { createPublicAssetsRouter } from "./middleware/publicAssets.js";
 import {
   sanitizeSentryEvent,
   sentryErrorHandler,
@@ -275,6 +276,9 @@ app.post(
 // cannot consume the expensive body-parsing/build path first. Stripe webhooks
 // remain on their dedicated limiter and raw-body signature-verification route
 // above, so this ordering does not interfere with webhook verification.
+// Serve only existing public bundles/images before application abuse controls.
+// Missing assets and non-read requests fall through and still consume a budget.
+if (ENV.isProduction) app.use(createPublicAssetsRouter(clientDir));
 app.use(globalLimiter);
 app.use(slowDown);
 app.use("/api/trpc/projects.create", buildLimiter);

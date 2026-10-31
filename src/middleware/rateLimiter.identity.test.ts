@@ -19,6 +19,14 @@ function request(overrides: FakeRequest = {}): FakeRequest {
 }
 
 describe("trusted abuse-control identities", () => {
+  it("shares an anonymous IPv6 budget across addresses in the same /56 subnet", () => {
+    for (const ip of ["2001:db8:abcd:1201::1", "2001:db8:abcd:12ff::2"]) {
+      const req = request({ ip });
+      expect(rateLimitIdentity(req)).toBe("2001:db8:abcd:1200::/56");
+      expect(slowDownIdentity(req)).toBe("2001:db8:abcd:1200::/56");
+    }
+  });
+
   it("uses a server-established AppForge user id when present", () => {
     const req = request({ user: { id: 42 } });
 

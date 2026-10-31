@@ -22,6 +22,12 @@ fi
 
 printf '%s\n' "$changed"
 
+# Recovery review (31 October 2026): checkout 7.0.1 uses the hosted runners'
+# Node 24 runtime and keeps fork protections enabled; no unsafe-PR opt-in is
+# introduced. CodeQL init/analyze move together to 4.39.1 with identical pinned
+# commit IDs and retain the existing analysis scope. TruffleHog 3.99.4 retains
+# history scanning and verified-result enforcement. Exact-SHA CI/security,
+# release, backup, restore, and owner recovery gates remain unchanged.
 # CI and deployment workflows are recovery-critical controls. In particular,
 # production boot/liveness gates must remain governed so a release cannot bypass
 # executable startup verification after dependency or middleware changes.

@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isValidTechStack } from "../agents/pipeline.js";
+import { STACK_ADAPTERS } from "../lib/stackAdapters.js";
 
 function source(path: string): string {
   return readFileSync(path, "utf8");
@@ -16,9 +18,7 @@ function stringArray(text: string, name: string): string[] {
 }
 
 describe("repository source-of-truth boundaries", () => {
-  it("uses the stack adapter registry as the only buildable-stack list", async () => {
-    const { isValidTechStack } = await import("../agents/pipeline.js");
-    const { STACK_ADAPTERS } = await import("../lib/stackAdapters.js");
+  it("uses the stack adapter registry as the only buildable-stack list", () => {
     for (const adapter of STACK_ADAPTERS) {
       expect(isValidTechStack(adapter.id)).toBe(true);
     }

@@ -16,14 +16,16 @@ describe("native Node recovery imports", () => {
         execFileSync(
           process.execPath,
           ["--import", "tsx", "--input-type=module", "-e", script],
-          { encoding: "utf8", timeout: 3000 },
+          // Include tsx/TypeScript startup under concurrent CI load while still
+          // bounding the path-traversal regression that previously hung.
+          { encoding: "utf8", timeout: 10_000 },
         ),
       ),
     ).toEqual({
       "/outside/main.js": "import './value';",
       "../outside/main.js": "import './value';",
     });
-  });
+  }, 15_000);
   it("preserves ambiguous, missing, explicit and non-module imports", () => {
     const source = `// import "./found";
 const example = 'import "./found";';

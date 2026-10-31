@@ -116,5 +116,7 @@ describe("tester-facing customer shell interactions", () => {
     expect(
       within(controls).getByRole("button", { name: /clair|light/i }),
     ).toBeVisible();
-  });
+    // Accessibility queries over the full language list are CPU-heavy during
+    // parallel coverage; keep this functional check bounded without a 5s SLA.
+  }, 15_000);
 });

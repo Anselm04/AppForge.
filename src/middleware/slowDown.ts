@@ -4,7 +4,7 @@
  */
 
 import slowDown from "express-slow-down";
-import { RateLimitRequestHandler } from "express-rate-limit";
+import { ipKeyGenerator, RateLimitRequestHandler } from "express-rate-limit";
 
 export interface SlowDownConfig {
   windowMs: number;
@@ -39,7 +39,7 @@ export function slowDownIdentity(req: any): string {
   const userId = req.user?.id;
   if (userId) return `user:${userId}`;
 
-  return req.ip || req.socket?.remoteAddress || "unknown";
+  return ipKeyGenerator(req.ip || req.socket?.remoteAddress || "unknown");
 }
 
 export function createSlowDown(
