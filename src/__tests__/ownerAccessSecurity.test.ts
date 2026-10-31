@@ -113,14 +113,28 @@ describe("owner account and god-code authorization", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("requires owner SMS approval for unlimited-account APIs as well as admin", async () => {
+  it("allows a phone-verified owner to use normal APIs without admin SMS approval", async () => {
     await expect(
       testRouter.createCaller(context()).unlimitedAction(),
-    ).rejects.toThrow("Owner SMS verification required");
+    ).resolves.toEqual({ allowed: true });
     await expect(
       testRouter.createCaller(context(ownerEmail, true)).unlimitedAction(),
     ).resolves.toEqual({ allowed: true });
   });
+
+  it.each([ownerEmail, "customer@example.com"])(
+    "requires phone verification for normal APIs for %s even with admin MFA",
+    async (email) => {
+      const ctx = context(email, true);
+      ctx.user.phoneVerified = false;
+      await expect(
+        testRouter.createCaller(ctx).unlimitedAction(),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        message: "Phone verification required",
+      });
+    },
+  );
 
   it("allows ordinary verified customers to use their own account without owner MFA", async () => {
     await expect(

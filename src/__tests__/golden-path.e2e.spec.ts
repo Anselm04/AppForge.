@@ -1,4 +1,5 @@
 import { test, expect } from "vitest";
+import { runAgentPipeline } from "../agents/pipeline.js";
 
 /**
  * Golden-path contract tests.
@@ -11,9 +12,8 @@ test("home route module exports", async () => {
   expect(mod).toBeDefined();
 });
 
-test("build pipeline exports runAgentPipeline", async () => {
-  const mod = await import("../agents/pipeline.js");
-  expect(typeof mod.runAgentPipeline).toBe("function");
+test("build pipeline exports runAgentPipeline", () => {
+  expect(typeof runAgentPipeline).toBe("function");
 });
 
 test("deploy health detects env vars", async () => {
