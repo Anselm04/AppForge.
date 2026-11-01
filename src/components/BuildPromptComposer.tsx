@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   createSpeechRecognition,
   speechRecognitionSupported,
@@ -19,6 +19,7 @@ type Props = {
   helperText?: string;
   submitTestId?: string;
   textareaTestId?: string;
+  children?: ReactNode;
 };
 
 export function BuildPromptComposer({
@@ -35,6 +36,7 @@ export function BuildPromptComposer({
   helperText,
   submitTestId,
   textareaTestId,
+  children,
 }: Props) {
   const [listening, setListening] = useState(false);
   const voiceSupported = useMemo(() => speechRecognitionSupported(), []);
@@ -79,6 +81,12 @@ export function BuildPromptComposer({
           data-testid={textareaTestId}
           className="min-h-36 w-full resize-none bg-transparent px-5 pt-5 text-base leading-7 text-forge-text-primary outline-none placeholder:text-forge-text-muted disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-40 sm:px-6 sm:pt-6"
         />
+
+        {children && (
+          <div className="space-y-4 border-t border-forge-border/70 px-4 py-4 sm:px-5">
+            {children}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 border-t border-forge-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-2">
