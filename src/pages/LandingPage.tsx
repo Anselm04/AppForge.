@@ -5,8 +5,63 @@ import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
 import { Section } from "../design-system/Section.js";
 import { useLocale } from "../i18n/LocaleContext.js";
+import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PLATFORM_FEATURES, featurePath } from "../lib/platformFeatures.js";
 import { publicClaimForEvidence } from "../lib/publicCapabilityClaims.js";
+
+const LANDING_PLANS = [
+  {
+    key: "free",
+    nameKey: "pricing.freeName",
+    descriptionKey: "pricing.freeDesc",
+    price: "$0",
+    featureKeys: ["pricing.freeF1", "pricing.freeF2", "pricing.freeF3"],
+  },
+  {
+    key: "starter",
+    nameKey: "pricing.starterName",
+    descriptionKey: "pricing.starterDesc",
+    price: "$49",
+    featureKeys: [
+      "pricing.starterF1",
+      "pricing.starterF2",
+      "pricing.starterF3",
+    ],
+  },
+  {
+    key: "builder",
+    nameKey: "pricing.builderName",
+    descriptionKey: "pricing.builderDesc",
+    price: "$149",
+    featureKeys: [
+      "pricing.builderF1",
+      "pricing.builderF2",
+      "pricing.builderF3",
+    ],
+  },
+  {
+    key: "studio",
+    nameKey: "pricing.studioName",
+    descriptionKey: "pricing.studioDesc",
+    price: "$399",
+    featureKeys: [
+      "pricing.studioF1",
+      "pricing.studioF2",
+      "pricing.studioF3",
+    ],
+  },
+  {
+    key: "enterprise",
+    nameKey: "pricing.enterpriseName",
+    descriptionKey: "pricing.enterpriseDesc",
+    price: "$1,499",
+    featureKeys: [
+      "pricing.enterpriseF1",
+      "pricing.enterpriseF2",
+      "pricing.enterpriseF3",
+    ],
+  },
+] as const;
 
 export function LandingPage() {
   const { t } = useLocale();
@@ -71,6 +126,82 @@ export function LandingPage() {
             );
           })}
         </div>
+      </Section>
+
+      <Section
+        id="pricing"
+        title={t("landing.pricingTitle")}
+        subtitle={t("landing.pricingSubtitle")}
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {LANDING_PLANS.map((plan) => (
+            <GlassCard key={plan.key} className="flex h-full flex-col" hover>
+              <h3 className="text-lg font-semibold text-forge-text-primary">
+                {t(plan.nameKey)}
+              </h3>
+              <p className="mt-2 min-h-10 text-sm text-forge-text-muted">
+                {t(plan.descriptionKey)}
+              </p>
+              <div className="mt-5">
+                <span className="text-3xl font-bold text-forge-text-primary">
+                  {plan.price}
+                </span>
+                <span className="text-sm text-forge-text-muted">
+                  {t("pricing.perMonth")}
+                </span>
+              </div>
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-forge-text-muted">
+                {plan.featureKeys.map((featureKey) => (
+                  <li key={featureKey} className="flex items-start gap-2">
+                    <span className="mt-0.5 text-forge-cyan">✓</span>
+                    <span>{t(featureKey)}</span>
+                  </li>
+                ))}
+              </ul>
+            </GlassCard>
+          ))}
+        </div>
+
+        <GlassCard className="mt-8" hover={false}>
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+            <div>
+              <div className="forge-badge inline-flex text-xs">
+                {t("landing.costTransparencyBadge")}
+              </div>
+              <h3 className="mt-4 text-2xl font-semibold text-forge-text-primary">
+                {t("landing.costTransparencyTitle")}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-forge-text-muted">
+                {t("landing.costTransparencyBody", {
+                  buildCost: BUILD_CREDIT_COST,
+                })}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-forge-text-muted">
+                {t("landing.costTransparencyComplex")}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-forge-border bg-forge-bg/40 p-5">
+              <p className="font-semibold text-forge-text-primary">
+                {t("landing.costTransparencyPromiseTitle")}
+              </p>
+              <ul className="mt-4 space-y-3 text-sm text-forge-text-muted">
+                <li>• {t("landing.costTransparencyPromise1")}</li>
+                <li>• {t("landing.costTransparencyPromise2")}</li>
+                <li>• {t("landing.costTransparencyPromise3")}</li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/pricing">
+              <Button>{t("landing.viewPlans")}</Button>
+            </Link>
+            <Link to="/pricing#credits">
+              <Button variant="secondary">
+                {t("landing.viewCreditTopUps")}
+              </Button>
+            </Link>
+          </div>
+        </GlassCard>
       </Section>
     </>
   );
