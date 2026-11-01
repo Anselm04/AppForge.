@@ -6,7 +6,7 @@ on:
       - chore/pr239-prettier-output
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format-output:
@@ -27,17 +27,20 @@ jobs:
             src/pages/Home.tsx \
             src/pages/LandingPage.tsx \
             src/pages/__tests__/Home.customerControls.test.tsx
-      - name: Print formatted files
+      - name: Persist formatted output
         run: |
-          for file in \
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
             src/__tests__/buildPromptComposer.test.tsx \
             src/__tests__/themeContract.test.ts \
             src/components/BuildPromptComposer.tsx \
             src/pages/Home.tsx \
             src/pages/LandingPage.tsx \
             src/pages/__tests__/Home.customerControls.test.tsx
-          do
-            echo "===== BEGIN $file ====="
-            cat "$file"
-            echo "===== END $file ====="
-          done
+          if git diff --cached --quiet; then
+            echo "No formatting changes to persist."
+          else
+            git commit -m "chore: capture exact prettier output"
+            git push origin HEAD:chore/pr239-prettier-output
+          fi
