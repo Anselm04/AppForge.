@@ -1,0 +1,43 @@
+name: PR239 Prettier Output
+
+on:
+  push:
+    branches:
+      - chore/pr239-prettier-output
+
+permissions:
+  contents: read
+
+jobs:
+  format-output:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Format target files
+        run: |
+          npx prettier --write \
+            src/__tests__/buildPromptComposer.test.tsx \
+            src/__tests__/themeContract.test.ts \
+            src/components/BuildPromptComposer.tsx \
+            src/pages/Home.tsx \
+            src/pages/LandingPage.tsx \
+            src/pages/__tests__/Home.customerControls.test.tsx
+      - name: Print formatted files
+        run: |
+          for file in \
+            src/__tests__/buildPromptComposer.test.tsx \
+            src/__tests__/themeContract.test.ts \
+            src/components/BuildPromptComposer.tsx \
+            src/pages/Home.tsx \
+            src/pages/LandingPage.tsx \
+            src/pages/__tests__/Home.customerControls.test.tsx
+          do
+            echo "===== BEGIN $file ====="
+            cat "$file"
+            echo "===== END $file ====="
+          done
