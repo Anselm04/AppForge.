@@ -1,0 +1,27 @@
+name: PR239 Final Five Tests
+
+on:
+  push:
+    branches:
+      - chore/pr239-final-five-tests
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: |
+          npx vitest run \
+            src/__tests__/buildLivePreviewContract.test.ts \
+            src/__tests__/themeContract.test.ts \
+            src/__tests__/landingPromptHandoff.test.tsx \
+            src/__tests__/customer-flow-contract.e2e.spec.ts \
+            src/pages/__tests__/Home.firstPaint.test.tsx
