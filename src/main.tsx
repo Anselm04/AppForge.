@@ -8,6 +8,7 @@ import { ThemeProvider } from "./lib/theme.js";
 import { initPostHog } from "./lib/posthog.js";
 import App from "./App.js";
 import "./index.css";
+import "./premiumTheme.css";
 
 initPostHog();
 
