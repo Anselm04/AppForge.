@@ -179,10 +179,16 @@ export function Home() {
           className="mx-auto mb-9 max-w-4xl text-center"
           data-testid="home-hero"
         >
-          <div className="mb-6 flex justify-center" data-testid="home-hero-logo">
+          <div
+            className="mb-6 flex justify-center"
+            data-testid="home-hero-logo"
+          >
             <LogoLockup size="lg" />
           </div>
-          <span className="forge-badge mb-5 inline-flex" data-testid="hero-brand-badge">
+          <span
+            className="forge-badge mb-5 inline-flex"
+            data-testid="hero-brand-badge"
+          >
             <span className="dot" /> BUILD WORKSPACE
           </span>
           <h1
@@ -192,8 +198,9 @@ export function Home() {
             What do you want AppForge to build?
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-forge-text-muted sm:text-lg">
-            Describe it in normal language or use the microphone. AppForge will work
-            out the technical structure through the existing production pipeline.
+            Describe it in normal language or use the microphone. AppForge will
+            work out the technical structure through the existing production
+            pipeline.
           </p>
         </div>
 
@@ -308,7 +315,10 @@ export function Home() {
             )}
 
             {(formError || createProjectMutation.isError) && (
-              <p className="text-sm text-amber-700 dark:text-amber-300" role="alert">
+              <p
+                className="text-sm text-amber-700 dark:text-amber-300"
+                role="alert"
+              >
                 {formError ||
                   String((createProjectMutation.error as Error)?.message || "")}
               </p>
@@ -326,11 +336,15 @@ export function Home() {
               key={number}
               className="rounded-2xl border border-forge-border bg-forge-surface/75 p-4"
             >
-              <span className="text-xs font-bold text-forge-gold">{number}</span>
+              <span className="text-xs font-bold text-forge-gold">
+                {number}
+              </span>
               <p className="mt-2 text-sm font-semibold text-forge-text-primary">
                 {title}
               </p>
-              <p className="mt-1 text-xs leading-5 text-forge-text-muted">{body}</p>
+              <p className="mt-1 text-xs leading-5 text-forge-text-muted">
+                {body}
+              </p>
             </div>
           ))}
         </div>
