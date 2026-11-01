@@ -1,7 +1,5 @@
 export type OpportunityRecommendation =
-  | "BUILD"
-  | "VALIDATE_MORE"
-  | "DO_NOT_BUILD";
+  "BUILD" | "VALIDATE_MORE" | "DO_NOT_BUILD";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -145,9 +143,10 @@ export function sanitizeAnalysisEvidence(
 export function publishingReadinessForIdea(
   buildBrief: string,
 ): PublishingReadiness {
-  const mobileIntent = /\b(ios|iphone|ipad|android|mobile|flutter|react native)\b/i.test(
-    buildBrief,
-  );
+  const mobileIntent =
+    /\b(ios|iphone|ipad|android|mobile|flutter|react native)\b/i.test(
+      buildBrief,
+    );
 
   return {
     web: [
@@ -164,7 +163,9 @@ export function publishingReadinessForIdea(
           "Release build is uploaded and passes App Store validation",
           "Human/App Review approval is still required before public availability",
         ]
-      : ["Generate an iOS-capable product before preparing App Store submission"],
+      : [
+          "Generate an iOS-capable product before preparing App Store submission",
+        ],
     googlePlay: mobileIntent
       ? [
           "Google Play developer account is verified",
@@ -173,7 +174,9 @@ export function publishingReadinessForIdea(
           "Signed Android App Bundle passes Play validation",
           "Google review/rollout requirements are still required before public availability",
         ]
-      : ["Generate an Android-capable product before preparing Google Play submission"],
+      : [
+          "Generate an Android-capable product before preparing Google Play submission",
+        ],
   };
 }
 
