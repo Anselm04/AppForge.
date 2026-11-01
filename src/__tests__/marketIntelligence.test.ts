@@ -39,8 +39,8 @@ describe("market intelligence scoring", () => {
 
 describe("market intelligence evidence references", () => {
   it("removes references that do not exist in the returned source set", () => {
-    expect(sanitizeEvidenceRefs([1, 2, 999, 2, -1], new Set([1, 2, 3]))).toEqual([
-      1, 2,
-    ]);
+    expect(
+      sanitizeEvidenceRefs([1, 2, 999, 2, -1], new Set([1, 2, 3])),
+    ).toEqual([1, 2]);
   });
 });
