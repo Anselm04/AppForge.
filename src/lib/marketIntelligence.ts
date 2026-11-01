@@ -117,19 +117,23 @@ export function sanitizeAnalysisEvidence(
     ...item,
     evidence: sanitizeEvidenceRefs(item.evidence, sourceIds),
   });
+  const sanitizeSupportedItems = (items: EvidenceBackedItem[]) =>
+    items.map(sanitizeItem).filter((item) => item.evidence.length > 0);
 
   return {
     ...analysis,
     summary: sanitizeItem(analysis.summary),
     positioning: sanitizeItem(analysis.positioning),
-    customerPains: analysis.customerPains.map(sanitizeItem),
-    featureGaps: analysis.featureGaps.map(sanitizeItem),
-    marketingHooks: analysis.marketingHooks.map(sanitizeItem),
-    monetization: analysis.monetization.map((item) => ({
-      ...item,
-      evidence: sanitizeEvidenceRefs(item.evidence, sourceIds),
-    })),
-    risks: analysis.risks.map(sanitizeItem),
+    customerPains: sanitizeSupportedItems(analysis.customerPains),
+    featureGaps: sanitizeSupportedItems(analysis.featureGaps),
+    marketingHooks: sanitizeSupportedItems(analysis.marketingHooks),
+    monetization: analysis.monetization
+      .map((item) => ({
+        ...item,
+        evidence: sanitizeEvidenceRefs(item.evidence, sourceIds),
+      }))
+      .filter((item) => item.evidence.length > 0),
+    risks: sanitizeSupportedItems(analysis.risks),
     scores: {
       demand: clampScore(analysis.scores.demand),
       monetization: clampScore(analysis.scores.monetization),
