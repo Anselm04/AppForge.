@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const premiumCss = readFileSync(
-  new URL("../premiumTheme.css", import.meta.url),
+  resolve(process.cwd(), "src/premiumTheme.css"),
   "utf8",
 );
 const entrySource = readFileSync(
-  new URL("../main.tsx", import.meta.url),
+  resolve(process.cwd(), "src/main.tsx"),
   "utf8",
 );
 
