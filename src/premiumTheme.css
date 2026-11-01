@@ -1,0 +1,27 @@
+/*
+ * AppForge premium light-theme refinement.
+ * Loaded after index.css so the existing design system and dark theme remain
+ * intact while light mode moves away from the legacy cream palette.
+ */
+:root {
+  --forge-bg: #f5f7fa;
+  --forge-bg-rgb: 245 247 250;
+  --forge-surface: #ffffff;
+  --forge-surface-rgb: 255 255 255;
+  --forge-surface-hover: #eef2f6;
+  --forge-surface-hover-rgb: 238 242 246;
+  --forge-text: #191d24;
+  --forge-text-rgb: 25 29 36;
+  --forge-muted: #667085;
+  --forge-muted-rgb: 102 112 133;
+  --forge-border: rgba(31, 41, 55, 0.12);
+  --forge-heading: #171a20;
+  --forge-shadow: 0 20px 55px rgba(20, 28, 40, 0.1);
+  --forge-shadow-soft: 0 10px 30px rgba(20, 28, 40, 0.065);
+  --forge-mesh-a: rgba(183, 141, 61, 0.1);
+  --forge-mesh-b: rgba(85, 198, 200, 0.055);
+}
+
+.dark {
+  /* Dark mode intentionally remains owned by index.css. */
+}
