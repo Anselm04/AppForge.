@@ -131,7 +131,7 @@ export function LandingPage() {
       <Section
         id="pricing"
         title={t("landing.pricingTitle")}
-        subtitle={t("landing.pricingSubtitle")}
+        subtitle="See the standard monthly price, included build allowance, and compute credits before you start."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {LANDING_PLANS.map((plan) => (
@@ -166,28 +166,45 @@ export function LandingPage() {
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
             <div>
               <div className="forge-badge inline-flex text-xs">
-                {t("landing.costTransparencyBadge")}
+                NO HIDDEN BUILD-COST SURPRISES
               </div>
               <h3 className="mt-4 text-2xl font-semibold text-forge-text-primary">
-                {t("landing.costTransparencyTitle")}
+                What your plan covers — and what complex builds can realistically
+                require
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                {t("landing.costTransparencyBody", {
-                  buildCost: BUILD_CREDIT_COST,
-                })}
+                Your subscription includes a monthly build allowance and compute
+                credits. A standard full build currently reserves {BUILD_CREDIT_COST}{" "}
+                credits when it starts. Straightforward products are designed to fit
+                the normal build flow, but not every product requires the same amount
+                of work.
               </p>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                {t("landing.costTransparencyComplex")}
+                More complex products can require extra build iterations, additional
+                AI work, specialist or Senior Dev sessions, larger integrations, or
+                more compute than a standard build. In those cases you may need extra
+                credit top-ups or a higher plan. We tell you this upfront so the price
+                of the subscription is not mistaken for a promise that every possible
+                product can be completed within the included monthly credits.
               </p>
             </div>
             <div className="rounded-2xl border border-forge-border bg-forge-bg/40 p-5">
               <p className="font-semibold text-forge-text-primary">
-                {t("landing.costTransparencyPromiseTitle")}
+                Our pricing promise
               </p>
               <ul className="mt-4 space-y-3 text-sm text-forge-text-muted">
-                <li>• {t("landing.costTransparencyPromise1")}</li>
-                <li>• {t("landing.costTransparencyPromise2")}</li>
-                <li>• {t("landing.costTransparencyPromise3")}</li>
+                <li>
+                  • Standard plan prices and included credits are shown before you
+                  subscribe.
+                </li>
+                <li>
+                  • Extra credits are optional top-ups at the published rate — not a
+                  hidden automatic charge.
+                </li>
+                <li>
+                  • If you run out of credits, AppForge pauses the work so you decide
+                  whether to top up, upgrade, or stop.
+                </li>
               </ul>
             </div>
           </div>
@@ -196,9 +213,7 @@ export function LandingPage() {
               <Button>{t("landing.viewPlans")}</Button>
             </Link>
             <Link to="/pricing#credits">
-              <Button variant="secondary">
-                {t("landing.viewCreditTopUps")}
-              </Button>
+              <Button variant="secondary">View credit top-ups</Button>
             </Link>
           </div>
         </GlassCard>
