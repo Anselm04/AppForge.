@@ -254,7 +254,8 @@ export function Home() {
             submitLabel={submitLabel}
             placeholder={t("home.promptPlaceholder")}
             suggestions={HOME_SUGGESTIONS}
-            disabled={generateDisabled && !createProjectMutation.isPending}
+            disabled={isBuilding}
+            submitDisabled={generateDisabled}
             busy={createProjectMutation.isPending || isBuilding}
             maxLength={PROMPT_MAX_CHARS}
             label={t("home.promptLabel")}
