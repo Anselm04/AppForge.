@@ -13,6 +13,7 @@ type Props = {
   placeholder: string;
   suggestions?: readonly string[];
   disabled?: boolean;
+  submitDisabled?: boolean;
   busy?: boolean;
   maxLength?: number;
   label?: string;
@@ -30,6 +31,7 @@ export function BuildPromptComposer({
   placeholder,
   suggestions = [],
   disabled = false,
+  submitDisabled = false,
   busy = false,
   maxLength,
   label = "What do you want to build?",
@@ -127,7 +129,9 @@ export function BuildPromptComposer({
 
           <button
             type="submit"
-            disabled={disabled || busy || !value.trim()}
+            disabled={
+              disabled || submitDisabled || busy || !value.trim()
+            }
             data-testid={submitTestId}
             className="forge-gold-btn inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
