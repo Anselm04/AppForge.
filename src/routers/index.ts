@@ -37,6 +37,7 @@ import { deepResearchRouter } from "./deepResearch.js";
 import { collaborationRouter } from "./collaboration.js";
 import { visualEditorRouter } from "./visualEditor.js";
 import { versionedWritesRouter } from "./versionedWrites.js";
+import { marketIntelligenceRouter } from "./marketIntelligence.js";
 
 function maskPhone(phone?: string): string | null {
   if (!phone) return null;
@@ -143,6 +144,7 @@ export const appRouter = router({
   collaboration: collaborationRouter,
   visualEditor: visualEditorRouter,
   versionedWrites: versionedWritesRouter,
+  marketIntelligence: marketIntelligenceRouter,
 });
 
 export type AppRouter = typeof appRouter;
