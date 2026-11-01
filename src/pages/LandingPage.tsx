@@ -9,6 +9,7 @@ import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PLATFORM_FEATURES, featurePath } from "../lib/platformFeatures.js";
 import { publicClaimForEvidence } from "../lib/publicCapabilityClaims.js";
 
+// prettier-ignore
 const LANDING_PLANS = [
   {
     key: "free",
