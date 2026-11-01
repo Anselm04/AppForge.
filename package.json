@@ -93,7 +93,7 @@
   },
   "devDependencies": {
     "@eslint/js": "8.57.1",
-    "@sentry/cli": "2.39.1",
+    "@sentry/cli": "3.8.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
