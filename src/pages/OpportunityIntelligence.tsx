@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
 import { buildOpportunityBuildPath } from "../lib/marketIntelligenceHandoff.js";
+import { writePromptDraft } from "../lib/promptDraft.js";
 
 export function OpportunityIntelligence() {
   const navigate = useNavigate();
@@ -157,7 +158,10 @@ export function OpportunityIntelligence() {
                 <button
                   type="button"
                   className="forge-btn-gold shrink-0 px-5 py-3"
-                  onClick={() => navigate(buildOpportunityBuildPath(report.buildBrief))}
+                  onClick={() => {
+                    writePromptDraft(report.buildBrief);
+                    navigate(buildOpportunityBuildPath(report.buildBrief));
+                  }}
                 >
                   Build this opportunity
                 </button>
