@@ -11,17 +11,20 @@ const analyzeInput = z.object({
 });
 
 export const marketIntelligenceRouter = router({
-  analyze: protectedProcedure.input(analyzeInput).mutation(async ({ input }) => {
-    try {
-      return await researchMarketOpportunity(input);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Market intelligence failed";
-      throw new TRPCError({
-        code: /sources are currently unavailable/i.test(message)
-          ? "BAD_GATEWAY"
-          : "INTERNAL_SERVER_ERROR",
-        message,
-      });
-    }
-  }),
+  analyze: protectedProcedure
+    .input(analyzeInput)
+    .mutation(async ({ input }) => {
+      try {
+        return await researchMarketOpportunity(input);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Market intelligence failed";
+        throw new TRPCError({
+          code: /sources are currently unavailable/i.test(message)
+            ? "BAD_GATEWAY"
+            : "INTERNAL_SERVER_ERROR",
+          message,
+        });
+      }
+    }),
 });
