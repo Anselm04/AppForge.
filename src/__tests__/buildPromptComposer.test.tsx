@@ -26,7 +26,9 @@ describe("BuildPromptComposer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Build me a booking app" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Build me a booking app" }),
+    );
     expect(onChange).toHaveBeenCalledWith("Build me a booking app");
 
     fireEvent.submit(screen.getByTestId("build-prompt-form"));
@@ -46,7 +48,9 @@ describe("BuildPromptComposer", () => {
       />,
     );
 
-    const input = screen.getByRole("textbox", { name: "What do you want to build?" });
+    const input = screen.getByRole("textbox", {
+      name: "What do you want to build?",
+    });
     fireEvent.change(input, { target: { value: "A simple customer portal" } });
     expect(onChange).toHaveBeenCalledWith("A simple customer portal");
     expect(
@@ -55,34 +59,34 @@ describe("BuildPromptComposer", () => {
   });
 
   it("passes recognized speech back through the controlled value callback", () => {
-    let recognitionInstance: {
-      start: ReturnType<typeof vi.fn>;
-      stop: ReturnType<typeof vi.fn>;
-      onresult: ((event: unknown) => void) | null;
-      onend: (() => void) | null;
-      onerror: (() => void) | null;
-      continuous: boolean;
-      interimResults: boolean;
-      lang: string;
-    } | null = null;
-
     class FakeRecognition {
       start = vi.fn();
       stop = vi.fn();
-      onresult: ((event: unknown) => void) | null = null;
+      onresult:
+        | ((event: {
+            results: Array<Array<{ transcript: string }>>;
+          }) => void)
+        | null = null;
       onend: (() => void) | null = null;
       onerror: (() => void) | null = null;
       continuous = false;
       interimResults = false;
       lang = "";
+    }
 
+    const instances: FakeRecognition[] = [];
+    class FakeRecognitionConstructor extends FakeRecognition {
       constructor() {
-        recognitionInstance = this;
+        super();
+        instances.push(this);
       }
     }
 
-    (window as unknown as { SpeechRecognition: typeof FakeRecognition }).SpeechRecognition =
-      FakeRecognition;
+    (
+      window as unknown as {
+        SpeechRecognition: typeof FakeRecognitionConstructor;
+      }
+    ).SpeechRecognition = FakeRecognitionConstructor;
 
     const onChange = vi.fn();
     render(
@@ -96,9 +100,11 @@ describe("BuildPromptComposer", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Start voice input" }));
-    expect(recognitionInstance?.start).toHaveBeenCalledTimes(1);
+    const recognition = instances[0];
+    expect(recognition).toBeDefined();
+    expect(recognition?.start).toHaveBeenCalledTimes(1);
 
-    recognitionInstance?.onresult?.({
+    recognition?.onresult?.({
       results: [[{ transcript: "with customer notifications" }]],
     });
 
