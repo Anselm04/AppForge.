@@ -168,6 +168,13 @@ function NavChrome({
           >
             {t("nav.dashboard")}
           </button>
+          <button
+            type="button"
+            onClick={() => go("/intelligence")}
+            className={item}
+          >
+            Intelligence
+          </button>
           <button type="button" onClick={() => go("/account")} className={item}>
             Account
           </button>

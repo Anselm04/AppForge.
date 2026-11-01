@@ -23,6 +23,7 @@ export const APP_ROUTES = [
   "/features/:id",
   "/forgot-password",
   "/help",
+  "/intelligence",
   "/login",
   "/password-reset",
   "/pricing",
