@@ -24,6 +24,7 @@ import { PatentStudio } from "./pages/PatentStudio.js";
 import { ArchitectureStudio } from "./pages/ArchitectureStudio.js";
 import { ExtensionStudio } from "./pages/ExtensionStudio.js";
 import { PluginWorkspace } from "./pages/PluginWorkspace.js";
+import { OpportunityIntelligence } from "./pages/OpportunityIntelligence.js";
 import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { VerifyPhone } from "./pages/VerifyPhone.js";
@@ -73,6 +74,7 @@ function AppShell() {
 
           <Route element={<RequireAuth />}>
             <Route path="/app/new" element={<Home />} />
+            <Route path="/intelligence" element={<OpportunityIntelligence />} />
             <Route path="/settings/org" element={<OrgSettings />} />
             <Route path="/account" element={<Account />} />
             <Route path="/settings" element={<Settings />} />
