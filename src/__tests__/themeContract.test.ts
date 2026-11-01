@@ -5,7 +5,10 @@ const premiumCss = readFileSync(
   new URL("../premiumTheme.css", import.meta.url),
   "utf8",
 );
-const entrySource = readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
+const entrySource = readFileSync(
+  new URL("../main.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("AppForge light theme contract", () => {
   it("loads a premium cool-neutral palette after the base design system", () => {
