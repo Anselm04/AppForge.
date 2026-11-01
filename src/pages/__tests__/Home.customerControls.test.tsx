@@ -74,6 +74,19 @@ describe("tester-facing customer shell interactions", () => {
     expect(screen.getByTestId("home-generate-button")).toBeEnabled();
   });
 
+  it("offers non-technical suggestion chips that feed the existing prompt state", () => {
+    renderCustomerShell();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Build a booking app for my business" }),
+    );
+
+    expect(screen.getByTestId("hero-app-idea-textarea")).toHaveValue(
+      "Build a booking app for my business",
+    );
+    expect(screen.getByTestId("home-generate-button")).toBeEnabled();
+  });
+
   it("opens compact navigation, exposes 100+ languages, and applies a real translated locale", () => {
     window.localStorage.setItem("appforge.layout", "phone");
     renderCustomerShell();
@@ -116,7 +129,5 @@ describe("tester-facing customer shell interactions", () => {
     expect(
       within(controls).getByRole("button", { name: /clair|light/i }),
     ).toBeVisible();
-    // Accessibility queries over the full language list are CPU-heavy during
-    // parallel coverage; keep this functional check bounded without a 5s SLA.
   }, 15_000);
 });
