@@ -129,9 +129,7 @@ export function BuildPromptComposer({
 
           <button
             type="submit"
-            disabled={
-              disabled || submitDisabled || busy || !value.trim()
-            }
+            disabled={disabled || submitDisabled || busy || !value.trim()}
             data-testid={submitTestId}
             className="forge-gold-btn inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
