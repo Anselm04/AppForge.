@@ -52,8 +52,12 @@ export type MarketResearchInput = {
   maxSources?: number;
 };
 
-export function buildMarketResearchQueries(input: MarketResearchInput): string[] {
-  const context = [input.idea, input.audience, input.region].filter(Boolean).join(" ");
+export function buildMarketResearchQueries(
+  input: MarketResearchInput,
+): string[] {
+  const context = [input.idea, input.audience, input.region]
+    .filter(Boolean)
+    .join(" ");
   return [
     `${context} market demand alternatives pricing`,
     `${context} competitor apps features pricing`,
@@ -78,7 +82,8 @@ export function dedupeMarketSources(
 
 export function parseMarketAnalysis(text: string): MarketIntelligenceAnalysis {
   const json = text.match(/\{[\s\S]*\}/)?.[0];
-  if (!json) throw new Error("Model did not return valid market intelligence JSON");
+  if (!json)
+    throw new Error("Model did not return valid market intelligence JSON");
   let raw: unknown;
   try {
     raw = JSON.parse(json);
@@ -110,10 +115,9 @@ export async function researchMarketOpportunity(
       searchWeb(query, Math.ceil(maxSources / 4)),
     ),
   );
-  const sources = dedupeMarketSources(searches.flatMap((search) => search.results)).slice(
-    0,
-    maxSources,
-  );
+  const sources = dedupeMarketSources(
+    searches.flatMap((search) => search.results),
+  ).slice(0, maxSources);
   if (sources.length === 0) {
     throw new Error("Research sources are currently unavailable");
   }
@@ -134,7 +138,9 @@ export async function researchMarketOpportunity(
   });
 
   const content = result.choices[0]?.message?.content;
-  const analysis = parseMarketAnalysis(typeof content === "string" ? content : "");
+  const analysis = parseMarketAnalysis(
+    typeof content === "string" ? content : "",
+  );
   const sanitized = sanitizeAnalysisEvidence(
     analysis,
     new Set(sources.map((source) => source.id)),
