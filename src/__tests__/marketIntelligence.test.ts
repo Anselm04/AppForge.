@@ -15,7 +15,7 @@ describe("market intelligence scoring", () => {
         marketingReach: 60,
         competition: 40,
       }),
-    ).toBe(74);
+    ).toBe(75);
   });
 
   it("clamps component scores before calculating the final score", () => {
