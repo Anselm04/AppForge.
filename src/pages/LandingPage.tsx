@@ -65,6 +65,7 @@ const LANDING_PLANS = [
 
 export function LandingPage() {
   const { t } = useLocale();
+  // prettier-ignore
   return (
     <>
       <PageMeta
