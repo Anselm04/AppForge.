@@ -78,7 +78,9 @@ describe("tester-facing customer shell interactions", () => {
     renderCustomerShell();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Build a booking app for my business" }),
+      screen.getByRole("button", {
+        name: "Build a booking app for my business",
+      }),
     );
 
     expect(screen.getByTestId("hero-app-idea-textarea")).toHaveValue(
