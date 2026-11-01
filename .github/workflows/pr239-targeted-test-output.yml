@@ -1,0 +1,43 @@
+name: PR239 Targeted Test Output
+
+on:
+  push:
+    branches:
+      - chore/pr239-targeted-test-output
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Capture targeted UI tests
+        shell: bash
+        run: |
+          set +e
+          npx vitest run \
+            src/__tests__/buildPromptComposer.test.tsx \
+            src/__tests__/landingPromptHandoff.test.tsx \
+            src/__tests__/themeContract.test.ts \
+            src/__tests__/buildLivePreviewContract.test.ts \
+            src/pages/__tests__/Home.customerControls.test.tsx \
+            > targeted-test-output.txt 2>&1
+          STATUS=$?
+          cat targeted-test-output.txt
+          echo "$STATUS" > targeted-test-exit-code.txt
+          exit 0
+      - name: Upload targeted output
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pr239-targeted-test-output
+          path: |
+            targeted-test-output.txt
+            targeted-test-exit-code.txt
+          if-no-files-found: error
