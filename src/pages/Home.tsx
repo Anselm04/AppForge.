@@ -208,7 +208,7 @@ export function Home() {
           {(tierStatus || ownerUnlimited) && (
             <span className="rounded-full border border-forge-border bg-forge-surface px-3 py-2">
               {unlimited
-                ? "Owner · Unlimited lifetime access"
+                ? "Owner account · Unlimited lifetime access"
                 : tierStatus?.tier === "free"
                   ? t("home.planFree", {
                       remaining: tierStatus.remaining ?? 0,
