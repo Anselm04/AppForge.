@@ -68,8 +68,7 @@ describe("market intelligence evidence references", () => {
           competition: 50,
         },
         confidence: "medium",
-        buildBrief:
-          "Build a sufficiently detailed evidence-backed product brief.",
+        buildBrief: "Build a sufficiently detailed evidence-backed product brief.",
         audience: "test audience",
       };
 
