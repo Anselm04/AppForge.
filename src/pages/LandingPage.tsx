@@ -9,9 +9,9 @@ import { Section } from "../design-system/Section.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PLATFORM_FEATURES, featurePath } from "../lib/platformFeatures.js";
+import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import { readPromptDraft, writePromptDraft } from "../lib/promptDraft.js";
 import { publicClaimForEvidence } from "../lib/publicCapabilityClaims.js";
-import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 
 const LANDING_PLANS = [
   {
@@ -19,7 +19,12 @@ const LANDING_PLANS = [
     nameKey: "pricing.freeName",
     descriptionKey: "pricing.freeDesc",
     price: "$0",
-    featureKeys: ["pricing.freeF1", "pricing.freeF2", "pricing.freeF3"],
+    featureKeys: [
+      "pricing.freeF1",
+      "pricing.freeF2",
+      "pricing.freeF3",
+      "pricing.freeF4",
+    ],
   },
   {
     key: "starter",
@@ -30,6 +35,9 @@ const LANDING_PLANS = [
       "pricing.starterF1",
       "pricing.starterF2",
       "pricing.starterF3",
+      "pricing.starterF4",
+      "pricing.starterF5",
+      "pricing.starterF6",
     ],
   },
   {
@@ -41,6 +49,9 @@ const LANDING_PLANS = [
       "pricing.builderF1",
       "pricing.builderF2",
       "pricing.builderF3",
+      "pricing.builderF4",
+      "pricing.builderF5",
+      "pricing.builderF6",
     ],
   },
   {
@@ -52,6 +63,9 @@ const LANDING_PLANS = [
       "pricing.studioF1",
       "pricing.studioF2",
       "pricing.studioF3",
+      "pricing.studioF4",
+      "pricing.studioF5",
+      "pricing.studioF6",
     ],
   },
   {
@@ -63,6 +77,9 @@ const LANDING_PLANS = [
       "pricing.enterpriseF1",
       "pricing.enterpriseF2",
       "pricing.enterpriseF3",
+      "pricing.enterpriseF4",
+      "pricing.enterpriseF5",
+      "pricing.enterpriseF6",
     ],
   },
 ] as const;
@@ -261,7 +278,7 @@ export function LandingPage() {
       <Section
         id="pricing"
         title="Clear prices before you commit"
-        subtitle="See the standard monthly price, included build allowance, and compute credits before you start."
+        subtitle="See the standard monthly price, included build allowance, compute credits, and full plan benefits before you start."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {LANDING_PLANS.map((plan) => {
