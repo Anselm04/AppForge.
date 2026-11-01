@@ -46,33 +46,37 @@ describe("market intelligence evidence references", () => {
     ).toEqual([1, 2]);
   });
 
-  it("drops optional claims when all of their evidence references are invalid", () => {
-    const analysis: MarketIntelligenceAnalysis = {
-      summary: { text: "Supported summary", evidence: [1] },
-      positioning: { text: "Supported positioning", evidence: [1] },
-      customerPains: [
-        { text: "Supported pain", evidence: [1] },
-        { text: "Unsupported pain", evidence: [999] },
-      ],
-      featureGaps: [],
-      marketingHooks: [],
-      monetization: [],
-      risks: [],
-      scores: {
-        demand: 50,
-        monetization: 50,
-        differentiation: 50,
-        marketingReach: 50,
-        competition: 50,
-      },
-      confidence: "medium",
-      buildBrief: "Build a sufficiently detailed evidence-backed product brief.",
-      audience: "test audience",
-    };
+  it(
+    "drops optional claims when all of their evidence references are invalid",
+    () => {
+      const analysis: MarketIntelligenceAnalysis = {
+        summary: { text: "Supported summary", evidence: [1] },
+        positioning: { text: "Supported positioning", evidence: [1] },
+        customerPains: [
+          { text: "Supported pain", evidence: [1] },
+          { text: "Unsupported pain", evidence: [999] },
+        ],
+        featureGaps: [],
+        marketingHooks: [],
+        monetization: [],
+        risks: [],
+        scores: {
+          demand: 50,
+          monetization: 50,
+          differentiation: 50,
+          marketingReach: 50,
+          competition: 50,
+        },
+        confidence: "medium",
+        buildBrief:
+          "Build a sufficiently detailed evidence-backed product brief.",
+        audience: "test audience",
+      };
 
-    const sanitized = sanitizeAnalysisEvidence(analysis, new Set([1]));
-    expect(sanitized.customerPains).toEqual([
-      { text: "Supported pain", evidence: [1] },
-    ]);
-  });
+      const sanitized = sanitizeAnalysisEvidence(analysis, new Set([1]));
+      expect(sanitized.customerPains).toEqual([
+        { text: "Supported pain", evidence: [1] },
+      ]);
+    },
+  );
 });
