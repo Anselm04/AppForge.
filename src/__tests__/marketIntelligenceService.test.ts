@@ -50,8 +50,8 @@ describe("market intelligence research service", () => {
   });
 
   it("rejects analysis JSON that is not structurally valid", () => {
-    expect(() => parseMarketAnalysis('{"summary":"not an evidence item"}')).toThrow(
-      /valid market intelligence/i,
-    );
+    expect(() =>
+      parseMarketAnalysis('{"summary":"not an evidence item"}'),
+    ).toThrow(/valid market intelligence/i);
   });
 });
