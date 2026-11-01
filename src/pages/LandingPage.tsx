@@ -146,9 +146,10 @@ export function LandingPage() {
                 Build the product you have in mind. Just describe it.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-forge-text-muted sm:text-lg">
-                AppForge turns a plain-language idea into a working software project
-                through its existing planning, building, review, preview, and delivery
-                pipeline. No technical vocabulary required to get started.
+                AppForge turns a plain-language idea into a working software
+                project through its existing planning, building, review,
+                preview, and delivery pipeline. No technical vocabulary required
+                to get started.
               </p>
 
               <div className="mt-8 max-w-3xl">
@@ -173,7 +174,8 @@ export function LandingPage() {
                   <span className="text-forge-cyan">✓</span> Type or speak
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <span className="text-forge-cyan">✓</span> Keep your source code
+                  <span className="text-forge-cyan">✓</span> Keep your source
+                  code
                 </span>
                 <Link
                   to="/pricing"
@@ -225,9 +227,10 @@ export function LandingPage() {
 
               <div className="border-t border-forge-border bg-forge-bg/50 px-5 py-4">
                 <p className="text-xs leading-5 text-forge-text-muted">
-                  Once generated files are ready, AppForge&apos;s existing secure live
-                  preview becomes available in the build workspace, where you can
-                  inspect, design, refine, export, and deploy the actual project.
+                  Once generated files are ready, AppForge&apos;s existing
+                  secure live preview becomes available in the build workspace,
+                  where you can inspect, design, refine, export, and deploy the
+                  actual project.
                 </p>
               </div>
             </GlassCard>
@@ -338,23 +341,24 @@ export function LandingPage() {
                 NO HIDDEN BUILD-COST SURPRISES
               </div>
               <h3 className="mt-4 text-2xl font-semibold text-forge-text-primary">
-                What your plan covers — and what complex builds can realistically
-                require
+                What your plan covers — and what complex builds can
+                realistically require
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
                 Your subscription includes a monthly build allowance and compute
-                credits. A standard full build currently reserves {BUILD_CREDIT_COST}{" "}
-                credits when it starts. Straightforward products are designed to fit
-                the normal build flow, but not every product requires the same amount
-                of work.
+                credits. A standard full build currently reserves{" "}
+                {BUILD_CREDIT_COST} credits when it starts. Straightforward
+                products are designed to fit the normal build flow, but not
+                every product requires the same amount of work.
               </p>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                More complex products can require extra build iterations, additional
-                AI work, specialist or Senior Dev sessions, larger integrations, or
-                more compute than a standard build. In those cases you may need extra
-                credit top-ups or a higher plan. We tell you this upfront so the price
-                of the subscription is not mistaken for a promise that every possible
-                product can be completed within the included monthly credits.
+                More complex products can require extra build iterations,
+                additional AI work, specialist or Senior Dev sessions, larger
+                integrations, or more compute than a standard build. In those
+                cases you may need extra credit top-ups or a higher plan. We
+                tell you this upfront so the price of the subscription is not
+                mistaken for a promise that every possible product can be
+                completed within the included monthly credits.
               </p>
             </div>
             <div className="rounded-2xl border border-forge-border bg-forge-bg/50 p-5">
@@ -363,16 +367,16 @@ export function LandingPage() {
               </p>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-forge-text-muted">
                 <li>
-                  • Standard plan prices and included credits are shown before you
-                  subscribe.
+                  • Standard plan prices and included credits are shown before
+                  you subscribe.
                 </li>
                 <li>
-                  • Extra credits are optional top-ups at the published rate — not a
-                  hidden automatic charge.
+                  • Extra credits are optional top-ups at the published rate —
+                  not a hidden automatic charge.
                 </li>
                 <li>
-                  • If you run out of credits, AppForge pauses the work so you decide
-                  whether to top up, upgrade, or stop.
+                  • If you run out of credits, AppForge pauses the work so you
+                  decide whether to top up, upgrade, or stop.
                 </li>
               </ul>
             </div>
