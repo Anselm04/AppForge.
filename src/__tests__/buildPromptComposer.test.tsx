@@ -5,7 +5,8 @@ import { BuildPromptComposer } from "../components/BuildPromptComposer.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
-  delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition;
+  delete (window as unknown as { SpeechRecognition?: unknown })
+    .SpeechRecognition;
   delete (window as unknown as { webkitSpeechRecognition?: unknown })
     .webkitSpeechRecognition;
 });
@@ -63,9 +64,7 @@ describe("BuildPromptComposer", () => {
       start = vi.fn();
       stop = vi.fn();
       onresult:
-        | ((event: {
-            results: Array<Array<{ transcript: string }>>;
-          }) => void)
+        | ((event: { results: Array<Array<{ transcript: string }>> }) => void)
         | null = null;
       onend: (() => void) | null = null;
       onerror: (() => void) | null = null;
