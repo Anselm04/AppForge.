@@ -103,7 +103,9 @@ describe("Home first paint", () => {
     renderHome();
     expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
     expect(screen.getAllByText("AppForge").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Build full-stack web apps/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/What do you want AppForge to build\?/i),
+    ).toBeInTheDocument();
   });
 
   it("does not ErrorBoundary when a dummy appforge.session exists (React #185)", () => {
