@@ -70,7 +70,7 @@ function LayoutSwitcher({
       aria-label={t("nav.layout")}
     >
       {stacked && (
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#6ec9d0]">
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-forge-text-muted">
           {t("nav.layout")}
         </p>
       )}
@@ -91,8 +91,8 @@ function LayoutSwitcher({
               onClick={() => setMode(value)}
               className={
                 stacked
-                  ? `min-h-[44px] px-2 text-sm font-medium ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
-                  : `min-h-[32px] px-2 text-xs font-medium whitespace-nowrap ${selected ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+                  ? `min-h-[44px] px-2 text-sm font-medium ${selected ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+                  : `min-h-[32px] px-2 text-xs font-medium whitespace-nowrap ${selected ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
               }
             >
               {labelFor(value)}
@@ -132,7 +132,7 @@ function NavChrome({
   onLogout,
 }: NavChromeProps) {
   const item = stacked
-    ? "w-full min-h-[44px] px-3 py-2 text-start text-forge-text-primary hover:bg-[rgba(196,163,90,0.08)] hover:text-(--forge-heading)"
+    ? "w-full min-h-[44px] px-3 py-2 text-start text-forge-text-primary hover:bg-forge-surface-hover hover:text-(--forge-heading)"
     : "text-forge-text-muted hover:text-(--forge-heading) text-sm uppercase tracking-[0.08em]";
   const adminBtn = stacked
     ? "w-full min-h-[44px] bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-semibold"
@@ -204,12 +204,12 @@ function NavChrome({
             </button>
           )}
           {isTrialing && (
-            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-(--forge-heading) border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold self-start">
+            <span className="text-xs bg-forge-surface-hover text-(--forge-heading) border border-forge-border px-3 py-1 font-semibold self-start">
               {t("nav.trial", { tier })}
             </span>
           )}
           {isPaid && !isTrialing && (
-            <span className="text-xs bg-[rgba(196,163,90,0.15)] text-(--forge-heading) border border-[rgba(196,163,90,0.35)] px-3 py-1 font-semibold capitalize self-start">
+            <span className="text-xs bg-forge-surface-hover text-(--forge-heading) border border-forge-border px-3 py-1 font-semibold capitalize self-start">
               {tier}
             </span>
           )}
@@ -361,7 +361,7 @@ export function TopNav() {
           <button
             ref={hamburgerRef}
             type="button"
-            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] border border-forge-border text-(--forge-heading) hover:bg-[rgba(196,163,90,0.08)]"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] border border-forge-border text-(--forge-heading) hover:bg-forge-surface-hover"
             aria-label={t("nav.menu")}
             aria-expanded={menuOpen}
             aria-controls="mobile-nav-drawer"
@@ -400,7 +400,7 @@ export function TopNav() {
               <button
                 ref={closeBtnRef}
                 type="button"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-(--forge-heading) hover:bg-[rgba(196,163,90,0.08)]"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-(--forge-heading) hover:bg-forge-surface-hover"
                 aria-label={t("nav.closeMenu")}
                 onClick={closeMenu}
               >

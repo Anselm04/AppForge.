@@ -15,10 +15,35 @@ test("production customer shell is interactive on mobile", async ({ page }) => {
 
   // Signed-out visitors see the public landing page. The private builder
   // mounts only after the server confirms an authenticated session.
-  const startBuilding = page.locator('a[href="/app/new"]').first();
-  await expect(startBuilding).toBeVisible({ timeout: 20_000 });
+  const composer = page.getByRole("textbox", {
+    name: "What do you want to build?",
+  });
+  await expect(composer).toBeVisible({ timeout: 20_000 });
+  await composer.fill("Build a booking app for my business");
+  const build = page.getByRole("button", {
+    name: "Build with AppForge",
+    exact: true,
+  });
+  await expect(build).toBeEnabled();
+  await build.click();
+  await expect(page).toHaveURL(/\/signup\?next=\/$/);
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("appforge.promptDraft")),
+  ).toBe("Build a booking app for my business");
+  await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
+  await expect(composer).toHaveValue("Build a booking app for my business");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+
   await expect(page.getByTestId("hero-app-idea-textarea")).toHaveCount(0);
-  await startBuilding.click();
+  // Direct builder links still enforce sign-in after the public composer handoff.
+  await page.goto(`${appUrl}/app/new`, {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await expect(page.locator('input[type="email"]')).toBeVisible();
   await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });

@@ -12,10 +12,10 @@ const TRUST_LINKS = [
 export function SiteFooter() {
   const { t } = useLocale();
   return (
-    <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-      <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between text-sm text-slate-600 dark:text-slate-400">
+    <footer className="border-t border-forge-border bg-forge-surface">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between text-sm text-forge-text-muted">
         <div>
-          <p className="font-semibold text-slate-800 dark:text-slate-200">
+          <p className="font-semibold text-forge-text-primary">
             {t("footer.founder")}
           </p>
           <p>{t("footer.ownerOf")}</p>
@@ -26,22 +26,15 @@ export function SiteFooter() {
         >
           <Link
             to="/about"
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-forge-gold hover:text-forge-gold-deep font-medium"
           >
             {t("footer.about")}
           </Link>
-          <Link
-            to="/help"
-            className="hover:text-slate-900 dark:hover:text-white"
-          >
+          <Link to="/help" className="hover:text-forge-text-primary">
             AppForge Support
           </Link>
           {TRUST_LINKS.map(([label, to]) => (
-            <Link
-              key={to}
-              to={to}
-              className="hover:text-slate-900 dark:hover:text-white"
-            >
+            <Link key={to} to={to} className="hover:text-forge-text-primary">
               {label}
             </Link>
           ))}

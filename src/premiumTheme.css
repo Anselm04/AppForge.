@@ -1,7 +1,6 @@
-/*
- * AppForge premium light-theme refinement.
- * Loaded after index.css so the existing design system and dark theme remain
- * intact while light mode moves away from the legacy cream palette.
+/* Current AppForge direction: cool white, graphite and restrained forge copper.
+ * Keep the existing token names so every surface uses the same design system.
+ * The locked anvil/A logo is an unchanged image asset.
  */
 :root {
   --forge-bg: #f5f7fa;
@@ -10,18 +9,107 @@
   --forge-surface-rgb: 255 255 255;
   --forge-surface-hover: #eef2f6;
   --forge-surface-hover-rgb: 238 242 246;
-  --forge-text: #191d24;
-  --forge-text-rgb: 25 29 36;
-  --forge-muted: #667085;
-  --forge-muted-rgb: 102 112 133;
-  --forge-border: rgba(31, 41, 55, 0.12);
-  --forge-heading: #171a20;
-  --forge-shadow: 0 20px 55px rgba(20, 28, 40, 0.1);
-  --forge-shadow-soft: 0 10px 30px rgba(20, 28, 40, 0.065);
-  --forge-mesh-a: rgba(183, 141, 61, 0.1);
-  --forge-mesh-b: rgba(85, 198, 200, 0.055);
+  --forge-text: #20252d;
+  --forge-text-rgb: 32 37 45;
+  --forge-muted: #596575;
+  --forge-muted-rgb: 89 101 117;
+  --forge-border: rgba(51, 65, 85, 0.16);
+  --forge-heading: #20252d;
+  --forge-gold: #b4532a;
+  --forge-gold-rgb: 180 83 42;
+  --forge-gold-bright: #e8a77e;
+  --forge-gold-deep: #943f20;
+  /* Legacy cyan/blue names now provide neutral slate secondary emphasis. */
+  --forge-cyan: #526477;
+  --forge-cyan-rgb: 82 100 119;
+  --forge-blue: #526477;
+  --forge-blue-rgb: 82 100 119;
+  --forge-gradient: linear-gradient(135deg, #b4532a, #943f20);
+  --forge-gold-gradient: linear-gradient(135deg, #b4532a, #a34624);
+  --forge-focus: rgba(180, 83, 42, 0.28);
+  --forge-shadow: 0 20px 55px rgba(20, 28, 40, 0.09);
+  --forge-shadow-soft: 0 8px 24px rgba(20, 28, 40, 0.045);
+  --forge-mesh-a: rgba(180, 83, 42, 0.035);
+  --forge-mesh-b: rgba(82, 100, 119, 0.025);
 }
 
 .dark {
-  /* Dark mode intentionally remains owned by index.css. */
+  --forge-bg: #15181d;
+  --forge-bg-rgb: 21 24 29;
+  --forge-surface: #1e232b;
+  --forge-surface-rgb: 30 35 43;
+  --forge-surface-hover: #2a313b;
+  --forge-surface-hover-rgb: 42 49 59;
+  --forge-text: #f1f4f8;
+  --forge-text-rgb: 241 244 248;
+  --forge-muted: #aab5c3;
+  --forge-muted-rgb: 170 181 195;
+  --forge-border: rgba(170, 181, 195, 0.2);
+  --forge-heading: #f1f4f8;
+  --forge-gold: #e8a77e;
+  --forge-gold-rgb: 232 167 126;
+  --forge-gold-deep: #e8a77e;
+  --forge-cyan: #b3c0cf;
+  --forge-cyan-rgb: 179 192 207;
+  --forge-blue: #b3c0cf;
+  --forge-blue-rgb: 179 192 207;
+  --forge-focus: rgba(232, 167, 126, 0.35);
+  --forge-shadow: 0 20px 55px rgba(0, 0, 0, 0.25);
+  --forge-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --forge-mesh-a: rgba(232, 167, 126, 0.035);
+  --forge-mesh-b: rgba(179, 192, 207, 0.025);
+}
+
+.forge-gold-btn,
+.forge-btn-gold {
+  color: #ffffff;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 12px rgba(148, 63, 32, 0.12);
+}
+
+.forge-gold-btn:hover,
+.forge-btn-gold:hover {
+  box-shadow: 0 6px 18px rgba(148, 63, 32, 0.2);
+}
+
+.forge-ghost-btn {
+  border-radius: 0.875rem;
+  box-shadow: none;
+}
+
+.forge-glass,
+.dark .forge-glass {
+  background: var(--forge-surface);
+  border-color: var(--forge-border);
+  backdrop-filter: none;
+}
+
+.forge-badge {
+  border-color: rgba(var(--forge-gold-rgb) / 0.2);
+  letter-spacing: 0.1em;
+}
+
+.forge-glass:hover {
+  box-shadow: var(--forge-shadow-soft);
+}
+
+:where(a, button, textarea, input, select):focus-visible {
+  outline: 2px solid var(--forge-gold);
+  outline-offset: 4px;
+}
+
+.forge-prompt-panel:focus-within {
+  border-color: var(--forge-gold);
+  box-shadow:
+    0 0 0 4px var(--forge-focus),
+    var(--forge-shadow-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forge-prompt-panel,
+  .forge-gold-btn,
+  .forge-btn-gold,
+  .forge-glass {
+    transition: none;
+  }
 }

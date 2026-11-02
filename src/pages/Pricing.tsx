@@ -209,6 +209,18 @@ export function Pricing() {
           })}
         </p>
 
+        <div className="mx-auto mb-10 max-w-3xl rounded-2xl border border-forge-border bg-forge-surface px-5 py-4 text-sm leading-6 text-forge-text-muted">
+          <p className="font-semibold text-forge-text-primary">
+            Plan your budget before you build
+          </p>
+          <p className="mt-1">
+            Complex products and additional iterations can use more compute
+            credits. Optional top-ups cost $1 per credit. When credits run out,
+            work pauses so you choose whether to top up, upgrade, or stop — no
+            automatic top-up charges.
+          </p>
+        </div>
+
         {subStatus?.stripeCustomerId && (
           <div className="mb-10 flex flex-col items-center gap-3">
             <p className="text-sm text-forge-text-muted text-center">
@@ -237,8 +249,7 @@ export function Pricing() {
               hover={!tier.disabled}
               className={cn(
                 "relative flex flex-col",
-                tier.popular &&
-                  "forge-gradient-border bg-forge-gradient/10 lg:scale-[1.02] z-10",
+                tier.popular && "forge-gradient-border z-10",
               )}
             >
               {tier.popular && (
