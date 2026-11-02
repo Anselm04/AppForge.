@@ -189,6 +189,15 @@ export function Admin() {
                   }`}
           </button>
 
+          {requestMfa.data?.fallback && (
+            <p className="mt-3 text-sm text-amber-700" role="status">
+              Twilio trial delivery was blocked.{" "}
+              {requestMfa.data.developmentCode
+                ? `Development code: ${requestMfa.data.developmentCode}.`
+                : "Retrieve your temporary code from the private server logs."}{" "}
+              Enter it below within five minutes.
+            </p>
+          )}
           {requestMfa.isError && (
             <p className="mt-3 text-sm text-red-600">
               {requestMfa.error.message}

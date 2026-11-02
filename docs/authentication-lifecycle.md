@@ -102,9 +102,41 @@ Use a phone not already linked to a different Supabase identity.
   the owner identity and completed SMS. Unlimited entitlement alone never grants
   administrative privileges. The owner account's other protected APIs also
   require SMS approval.
-- Failed Twilio delivery never unlocks admin. Trial-recipient restrictions must
+- Failed Twilio delivery never automatically unlocks admin. Trial-recipient restrictions should
   be resolved in Twilio; AppForge no longer initiates an unexpected voice call as
   an SMS fallback.
 - Local tests prove access checks; they do not establish whether another person
   accessed the existing production account. Review session/audit history and
   revoke existing sessions through the account controls as part of live rollout.
+
+
+### Temporary admin trial recovery (Twilio 21608)
+
+The admin SMS button calls `admin.requestMfa`; the six-digit form calls
+`admin.verifyMfa`. Both require the authenticated owner. Twilio Verify delivery
+lives in `src/lib/twilioSms.ts`.
+
+For trial error 21608, non-production servers issue a random six-digit development
+code displayed on the owner verification screen. It expires in five minutes and
+is bound to the same owner login and browser; verification still uses the normal
+button. Other provider errors remain failures. The warning about unsolicited
+AppForge admin codes remains visible.
+
+Production defaults to rejecting the send. The preferred fix is to verify
+`OWNER_PHONE` in the Twilio account that owns `TWILIO_ACCOUNT_SID`. If temporary
+recovery is needed, explicitly set `ADMIN_MFA_TRIAL_FALLBACK=true` on the server.
+Only error 21608 then issues a random code to **private server logs**, prefixed
+`[AppForge admin trial fallback]`; no code is returned to the production browser.
+Retrieve the latest code for the owner after clicking Send, then enter it in the
+usual six-digit form. A successful SMS still uses Twilio verification. Restrict
+log access, disable recovery after testing, and never set NODE_ENV=development
+on the public production deployment. Never use a universal fixed test code.
+
+For this Fly app, after deploying the change:
+
+```sh
+fly secrets set ADMIN_MFA_TRIAL_FALLBACK=true -a appforge-unfurling-moon-9058
+fly logs -a appforge-unfurling-moon-9058
+# After testing:
+fly secrets unset ADMIN_MFA_TRIAL_FALLBACK -a appforge-unfurling-moon-9058
+```
