@@ -1,47 +1,56 @@
-name: Authentication Email Configuration Readiness
+name: Authentication Provider Readiness
 
 on:
   workflow_dispatch:
-  push:
-    branches: [fix/twilio-auth-email-provider]
 
 permissions:
   contents: read
 
-concurrency:
-  group: auth-email-configuration-readiness
-  cancel-in-progress: false
-
 jobs:
-  inspect:
-    name: Inspect existing Twilio email configuration names
+  inspect-provider-contract:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-      - name: Check live configuration presence without reading secret values or sending email
+      - name: Require production auth provider configuration
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$FLY_API_TOKEN"
-          secret_names="$(flyctl secrets list --app appforge-unfurling-moon-9058 --json | jq -r '.[] | (.Name // .name // empty)')"
+          APP="appforge-unfurling-moon-9058"
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "FLY_API_TOKEN is not configured."
+            exit 1
+          fi
+
+          for name in SUPABASE_URL VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if ! grep -Eq "^[[:space:]]*${name}[[:space:]]*=[[:space:]]*'[^']+'" fly.toml; then
+              echo "Missing pinned Supabase public authentication configuration: $name"
+              exit 1
+            fi
+          done
+
+          secret_json="$(flyctl secrets list --app "$APP" --json)"
+          secret_names="$(printf '%s' "$secret_json" | jq -r '.[] | (.Name // .name // empty)')"
+          required=(
+            SUPABASE_SERVICE_ROLE_KEY
+            TWILIO_ACCOUNT_SID
+            TWILIO_AUTH_TOKEN
+            TWILIO_VERIFY_SERVICE_SID
+          )
           missing=0
-          for name in TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_VERIFY_SERVICE_SID SUPABASE_SEND_EMAIL_HOOK_SECRET; do
-            if grep -Fxq "$name" <<<"$secret_names"; then
-              echo "$name: present"
-            else
-              echo "$name: missing"
+          for name in "${required[@]}"; do
+            if ! grep -Fxq "$name" <<<"$secret_names"; then
+              echo "Missing production authentication secret: $name"
               missing=1
             fi
           done
-          if grep -Fxq 'TWILIO_EMAIL_FROM' <<<"$secret_names" || grep -Fxq 'APPFORGE_EMAIL_FROM' <<<"$secret_names"; then
-            echo 'Explicit Twilio Email sender: present'
-          else
-            echo 'Explicit Twilio Email sender: missing'
-            missing=1
+          if [ "$missing" -ne 0 ]; then
+            exit 1
           fi
-          echo 'This checks configuration names only. It does not prove verified sender identity, hook activation, or inbox delivery. No email was sent and no secret values were read.'
-          test "$missing" -eq 0
+
+          echo "Provider contract is configured: Supabase Auth for identity/email lifecycle; Twilio Verify for SMS."
+          echo "This check intentionally reads secret names only and does not retrieve secret values or send messages."
