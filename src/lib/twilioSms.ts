@@ -168,9 +168,8 @@ export async function requestTwilioVerification(to: string): Promise<void> {
         : undefined;
 
     if (providerCode === 21608) {
-      const validationCode = await startOwnerPhoneVerificationRecovery(to).catch(
-        () => null,
-      );
+      const validationCode =
+        await startOwnerPhoneVerificationRecovery(to).catch(() => null);
       if (validationCode) {
         throw new TwilioVerificationDeliveryError(
           res.status,
