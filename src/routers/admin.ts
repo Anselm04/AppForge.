@@ -11,7 +11,6 @@ import * as schema from "../db/schema.js";
 import { eq, desc, and, gte, count, sql, isNull } from "drizzle-orm";
 import { ENV } from "../_core/env.js";
 import { logger } from "../_core/logger.js";
-import { sendCloudflareEmail } from "../services/cloudflareEmail.js";
 import {
   encryptGodCode,
   hashGodCode,
@@ -110,26 +109,6 @@ export const adminRouter = router({
         adminMfaTrialFallbackEnabled()
       ) {
         fallbackCode = generateOtp();
-        if (ENV.isProduction) {
-          try {
-            await sendCloudflareEmail({
-              to: ENV.ownerEmail,
-              subject: "Your AppForge admin verification code",
-              text: `Your AppForge admin code is ${fallbackCode}. It expires in five minutes. If you receive an AppForge admin code you did not request, treat it as a security warning and secure your account.`,
-              html: `<p>Your AppForge admin code is <strong>${fallbackCode}</strong>.</p><p>It expires in five minutes.</p><p>If you receive an AppForge admin code you did not request, treat it as a security warning and secure your account.</p>`,
-            });
-          } catch {
-            logger.error(
-              { userId: ctx.user.id },
-              "admin_mfa_recovery_email_failed",
-            );
-            throw new TRPCError({
-              code: "BAD_GATEWAY",
-              message:
-                "SMS was blocked by the Twilio trial and the backup email could not be sent. Admin remains locked. Please retry.",
-            });
-          }
-        }
         setAdminMfaFallbackChallenge(
           ctx.req,
           ctx.res,
@@ -176,12 +155,7 @@ export const adminRouter = router({
       sent: true,
       phoneHint: maskedOwnerPhone(),
       fallback: !!fallbackCode,
-      delivery: fallbackCode
-        ? ENV.isProduction
-          ? ("email" as const)
-          : ("development" as const)
-        : ("sms" as const),
-      developmentCode: !ENV.isProduction ? fallbackCode : undefined,
+      testCode: fallbackCode,
     };
   }),
 

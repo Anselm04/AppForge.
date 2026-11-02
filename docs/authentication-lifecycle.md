@@ -109,28 +109,20 @@ Use a phone not already linked to a different Supabase identity.
   accessed the existing production account. Review session/audit history and
   revoke existing sessions through the account controls as part of live rollout.
 
-### Temporary admin trial recovery (Twilio 21608)
+### Temporary owner trial testing (Twilio 21608)
 
-The admin SMS button calls `admin.requestMfa`; the six-digit form calls
-`admin.verifyMfa`. Both require the authenticated owner. Twilio Verify delivery
-lives in `src/lib/twilioSms.ts`.
+The owner explicitly authorized a temporary bypass for testing AppForge. With
+ADMIN_MFA_TRIAL_FALLBACK=true and a future ADMIN_MFA_TRIAL_FALLBACK_UNTIL,
+only Twilio error 21608 causes the authenticated owner screen to display a
+random six-digit testing code. This intentionally suspends the SMS second
+factor for that owner during the testing window. All other users remain
+forbidden. Codes expire after five minutes and are bound to the signed-in
+owner session and browser. The normal input and Verify button still apply.
+Successful SMS continues to use Twilio Verify, and other delivery failures
+remain locked. Codes are never logged. Recovery approvals use the distinct
+trial_test_approved audit outcome rather than physical SMS approval.
 
-For trial error 21608, non-production servers issue a random six-digit development
-code displayed on the owner verification screen. It expires in five minutes and
-is bound to the same owner login and browser; verification still uses the normal
-button. Other provider errors remain failures. The warning about unsolicited
-AppForge admin codes remains visible.
-
-Production recovery is enabled for the current trial-testing rollout in `fly.toml`
-with `ADMIN_MFA_TRIAL_FALLBACK=true`. Only error 21608 then sends a random
-six-digit code through AppForge's configured Cloudflare email service to the
-fixed server-side `OWNER_EMAIL`. No code is returned to the production browser
-or written to logs. Failed email delivery leaves admin locked. Enter the code
-from your owner inbox in the usual six-digit form; a successful SMS still uses
-Twilio verification. Recovery approvals are audited as `fallback_approved`, so
-they cannot be mistaken for physical SMS launch-certification evidence.
-
-The preferred permanent fix is to verify `OWNER_PHONE` in the Twilio account
-that owns `TWILIO_ACCOUNT_SID`, then remove the temporary recovery setting from
-`fly.toml`. Never set NODE_ENV=development on the public production deployment
-and never use a universal fixed test code.
+The Fly configuration activates testing until 3 November 2026 at 05:00 UTC.
+Remove the two settings after testing or let the fixed deadline disable the
+path. The permanent remedy is to verify OWNER_PHONE in the configured Twilio
+trial account. The unsolicited-code warning remains visible.

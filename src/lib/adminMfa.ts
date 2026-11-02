@@ -119,9 +119,15 @@ export function setAdminMfaChallengeCookie(
   setMfaCookie(req, res, userId, "challenge");
 }
 
-// Production recovery sends a code only to the configured owner email.
+// Owner-authorized testing bypass is explicitly activated and time bounded.
 export function adminMfaTrialFallbackEnabled(): boolean {
-  return !ENV.isProduction || process.env.ADMIN_MFA_TRIAL_FALLBACK === "true";
+  if (!ENV.isProduction) return true;
+  const until = Date.parse(process.env.ADMIN_MFA_TRIAL_FALLBACK_UNTIL || "");
+  return (
+    process.env.ADMIN_MFA_TRIAL_FALLBACK === "true" &&
+    Number.isFinite(until) &&
+    until > Date.now()
+  );
 }
 
 export function setAdminMfaFallbackChallenge(

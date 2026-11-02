@@ -4,10 +4,6 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   smsRequest: vi.fn(),
   smsCheck: vi.fn(),
-  recoveryEmail: vi.fn(),
-}));
-vi.mock("../services/cloudflareEmail.js", () => ({
-  sendCloudflareEmail: mocks.recoveryEmail,
 }));
 vi.mock("../db.js", () => ({
   db: { insert: mocks.insert },
@@ -86,7 +82,6 @@ describe("owner account and god-code authorization", () => {
   beforeEach(() => {
     ENV.cookieSecret = "test-cookie-secret".padEnd(40, "x");
     ENV.ownerPhone = "+15551234567";
-    mocks.recoveryEmail.mockResolvedValue(undefined);
     mocks.insert.mockReturnValue({
       values: () => ({
         returning: async () => [{ id: 1, createdAt: new Date() }],
@@ -211,7 +206,7 @@ describe("owner account and god-code authorization", () => {
       const result = await caller.requestMfa();
       expect(result).toMatchObject({
         fallback: true,
-        developmentCode: "654321",
+        testCode: "654321",
       });
       await expect(caller.verifyMfa({ code: "111111" })).rejects.toMatchObject({
         code: "UNAUTHORIZED",
@@ -228,10 +223,14 @@ describe("owner account and god-code authorization", () => {
     }
   });
 
-  it("never returns the production recovery code to the browser", async () => {
+  it("allows the explicitly activated temporary production testing path", async () => {
     const production = ENV.isProduction;
     ENV.isProduction = true;
     vi.stubEnv("ADMIN_MFA_TRIAL_FALLBACK", "true");
+    vi.stubEnv(
+      "ADMIN_MFA_TRIAL_FALLBACK_UNTIL",
+      new Date(Date.now() + 3600000).toISOString(),
+    );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       mocks.smsRequest.mockRejectedValue(
@@ -241,40 +240,14 @@ describe("owner account and god-code authorization", () => {
       const caller = adminRouter.createCaller(ctx);
       const result = await caller.requestMfa();
       expect(result.fallback).toBe(true);
-      expect(result.developmentCode).toBeUndefined();
+      expect(result.testCode).toBe("654321");
       expect(warn).not.toHaveBeenCalled();
-      expect(mocks.recoveryEmail).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: ENV.ownerEmail,
-          text: expect.stringContaining("654321"),
-        }),
-      );
       await caller.verifyMfa({ code: "654321" });
       expect(mocks.smsCheck).not.toHaveBeenCalled();
     } finally {
       ENV.isProduction = production;
       vi.unstubAllEnvs();
       warn.mockRestore();
-    }
-  });
-
-  it("does not issue a production fallback challenge if email delivery fails", async () => {
-    const production = ENV.isProduction;
-    ENV.isProduction = true;
-    vi.stubEnv("ADMIN_MFA_TRIAL_FALLBACK", "true");
-    try {
-      mocks.smsRequest.mockRejectedValue(
-        new TwilioVerificationDeliveryError(403, 21608),
-      );
-      mocks.recoveryEmail.mockRejectedValue(new Error("mail unavailable"));
-      const ctx = context();
-      await expect(
-        adminRouter.createCaller(ctx).requestMfa(),
-      ).rejects.toMatchObject({ code: "BAD_GATEWAY" });
-      expect(ctx.req.cookies.appforge_admin_challenge).toBeUndefined();
-    } finally {
-      ENV.isProduction = production;
-      vi.unstubAllEnvs();
     }
   });
 

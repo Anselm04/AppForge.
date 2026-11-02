@@ -70,14 +70,14 @@ describe("owner dashboard SMS gate", () => {
     mocks.request.mockResolvedValue({
       sent: true,
       fallback: true,
-      developmentCode: "654321",
+      testCode: "654321",
     });
     mocks.verify.mockResolvedValue({ verified: false });
     mount();
     fireEvent.click(
       await screen.findByRole("button", { name: "Send SMS code to ••••4567" }),
     );
-    await screen.findByText(/Development code: 654321/);
+    await screen.findByText("654321");
     expect(
       screen.getByText(
         /If you receive an AppForge admin code you did not request/,

@@ -175,3 +175,8 @@ At least quarterly, and after any material authentication/provider change:
 - Confirm provider recovery documentation is current.
 
 A secure system must be difficult for an attacker to enter and predictable for the legitimate owner to recover.
+
+
+### Admin trial testing recovery, 2 November 2026
+
+The owner authorized a temporary testing bypass specifically for Twilio 21608. The fixed Fly deadline is 3 November 2026 at 05:00 UTC. The signed-in owner sees a random six-digit code in the same form when Twilio rejects a trial recipient; this deliberately suspends SMS as a second factor for this testing window. Anonymous and non-owner users remain blocked. Five-minute session-bound signed challenges, normal input verification, and distinct trial_test_approved auditing remain enforced. No codes enter application or CI logs. Remove ADMIN_MFA_TRIAL_FALLBACK and ADMIN_MFA_TRIAL_FALLBACK_UNTIL after testing; verify the owner phone in Twilio for normal SMS. The live hotfix is built from deployed SHA 5f1063cb to avoid unrelated unreleased Cloudflare email configuration requirements. This main-branch forward port preserves the normal production deployment workflow.
