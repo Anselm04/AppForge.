@@ -10,9 +10,9 @@ import { resendSignupConfirmation } from "../services/authEmailDelivery.js";
 
 describe("verification resend preserves the signup identity", () => {
   beforeEach(() => {
-    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "a".repeat(32));
-    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "cloudflare-test-token");
-    vi.stubEnv("APPFORGE_EMAIL_FROM", "support@example.com");
+    vi.stubEnv("TWILIO_ACCOUNT_SID", "AC" + "a".repeat(32));
+    vi.stubEnv("TWILIO_AUTH_TOKEN", "twilio-test-token");
+    vi.stubEnv("TWILIO_EMAIL_FROM", "accounts@example.com");
     vi.stubEnv("SUPABASE_SEND_EMAIL_HOOK_SECRET", "test-hook-secret");
     vi.stubEnv("SUPABASE_ANON_KEY", "public-key");
     resend.mockReset();

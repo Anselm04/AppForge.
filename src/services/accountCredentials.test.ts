@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-vi.mock("./cloudflareEmail.js", () => ({
-  requireCloudflareAuthEmailHookConfig: vi.fn(),
+vi.mock("./twilioEmail.js", () => ({
+  requireTwilioAuthEmailHookConfig: vi.fn(),
 }));
 vi.mock("../_core/env.js", () => ({
   ENV: {

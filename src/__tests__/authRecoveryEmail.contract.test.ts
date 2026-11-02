@@ -7,15 +7,15 @@ function source(path: string): string {
 }
 
 describe("AppForge password recovery email contract", () => {
-  it("generates recovery links server-side and sends them through Cloudflare Email", () => {
+  it("generates recovery links server-side and sends them through Twilio Email", () => {
     const delivery = source("src/services/authEmailDelivery.ts");
     expect(delivery).toContain('type: "recovery"');
     expect(delivery).toContain("supabase.auth.admin.generateLink");
-    expect(delivery).toContain("sendCloudflareEmail");
-    expect(source("src/services/cloudflareEmail.ts")).toContain(
-      "https://api.cloudflare.com/client/v4/accounts/",
+    expect(delivery).toContain("sendTwilioEmail");
+    expect(source("src/services/twilioEmail.ts")).toContain(
+      "https://comms.twilio.com/v1/Emails",
     );
-    expect(delivery).not.toContain("twilio");
+    expect(delivery).not.toContain("cloudflare");
     expect(delivery).toContain('subject: "Reset your AppForge password"');
   });
 

@@ -1,4 +1,4 @@
-import { sendCloudflareEmail } from "./cloudflareEmail.js";
+import { sendTwilioEmail } from "./twilioEmail.js";
 import { logger } from "../_core/logger.js";
 
 function appForgeSender(): string {
@@ -15,15 +15,15 @@ function appUrl(path: string): string {
   return base ? `${base.replace(/\/$/, "")}${path}` : path;
 }
 
-/** Customer notifications use the same Cloudflare email provider as auth. */
-async function sendViaCloudflare(
+/** Customer notifications use the same Twilio Email provider as auth. */
+async function sendViaTwilio(
   to: string,
   subject: string,
   html: string,
   _from: string,
 ): Promise<{ success: boolean }> {
   try {
-    await sendCloudflareEmail({
+    await sendTwilioEmail({
       to,
       subject,
       html,
@@ -34,7 +34,7 @@ async function sendViaCloudflare(
     });
     return { success: true };
   } catch {
-    logger.error({ provider: "cloudflare" }, "customer_email_delivery_failed");
+    logger.error({ provider: "twilio" }, "customer_email_delivery_failed");
     return { success: false };
   }
 }
@@ -45,7 +45,7 @@ export async function sendEmail(
   html: string,
   _sender: "hello" | "support" = "hello",
 ): Promise<{ success: boolean }> {
-  const result = await sendViaCloudflare(to, subject, html, appForgeSender());
+  const result = await sendViaTwilio(to, subject, html, appForgeSender());
   return { success: result.success };
 }
 
@@ -53,7 +53,7 @@ export async function notifyTrialEnding(
   userEmail: string,
   daysLeft: number,
 ): Promise<void> {
-  await sendViaCloudflare(
+  await sendViaTwilio(
     userEmail,
     `Your AppForge trial ends in ${daysLeft} days`,
     `<p>Hi there,</p>
@@ -66,7 +66,7 @@ export async function notifyTrialEnding(
 }
 
 export async function notifyPaymentFailed(userEmail: string): Promise<void> {
-  await sendViaCloudflare(
+  await sendViaTwilio(
     userEmail,
     "Action required: Update your payment method",
     `<p>Hi there,</p>
@@ -87,7 +87,7 @@ export async function notifyBuildComplete(
     ? `<p><a href="${deployUrl}">View live deployment →</a></p>`
     : `<p><a href="${appUrl("/dashboard")}">Go to your dashboard →</a></p>`;
 
-  await sendViaCloudflare(
+  await sendViaTwilio(
     userEmail,
     `"${projectTitle}" is ready on AppForge`,
     `<p>Hi there,</p>
@@ -102,7 +102,7 @@ export async function notifyAccountBanned(
   userEmail: string,
   reason: string,
 ): Promise<void> {
-  await sendViaCloudflare(
+  await sendViaTwilio(
     userEmail,
     "Account suspended",
     `<p>Hi there,</p>

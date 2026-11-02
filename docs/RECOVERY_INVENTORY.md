@@ -119,6 +119,8 @@ Required production secret names include:
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_VERIFY_SERVICE_SID`
+- `TWILIO_EMAIL_FROM` (or existing explicit `APPFORGE_EMAIL_FROM`): verified Twilio Email sender, never an implicit owner-inbox fallback.
+- `SUPABASE_SEND_EMAIL_HOOK_SECRET`: signing secret for the Supabase-to-AppForge hook that delivers through Twilio.
 - At least one supported LLM-provider credential used by the runtime router, such as `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `BUILT_IN_FORGE_API_KEY`, `FORGE_API_KEY`, or `OPENAI_API_KEY`.
 
 Verification target:
@@ -778,7 +780,7 @@ Verification target:
 
 ## Signup confirmation and verification recovery — 2026-10-08
 
-See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup uses server-side Supabase link generation plus Twilio Email; resend uses Supabase Auth SMTP. Restore and verify both delivery paths, the Supabase public/service credentials, trusted HTTPS confirmation origin and shared Redis abuse bucket. A healthy liveness endpoint does not prove these integrations work. Use controlled mailboxes and an immutable release revision for recovery evidence; never persist confirmation links, passwords, session cookies, or private keys in the report.
+See `docs/AUTH_RECOVERY_RELEASE.md`. Initial signup and password recovery use server-side Supabase link generation plus Twilio Email; resend, email changes and reauthentication use the signed Supabase Send Email Hook delivering through Twilio Email. Cloudflare only provides domain/DNS and support forwarding. Restore and verify both Twilio delivery paths, the Supabase public/service credentials, trusted HTTPS confirmation origin and shared Redis abuse bucket. A healthy liveness endpoint does not prove these integrations work. Use controlled mailboxes and an immutable release revision for recovery evidence; never persist confirmation links, passwords, session cookies, or private keys in the report.
 
 ## Generated artifact preservation
 
@@ -952,3 +954,11 @@ The AppForge Manager integration uses a dedicated scoped bearer credential, a co
 CI adds an explicitly disposable local PostgreSQL service for command concurrency/RLS and emitted-product billing tests. Its fixture credentials are not production credentials. Generated billing defaults now require server-verified authentication, use correct Express module paths, respect expired billing periods and enable RLS on their billing tables. These template changes affect newly emitted defaults; they do not silently rewrite previously deployed customer products or their authentication implementations. Existing custom authentication files remain preserved and still require product-specific verification.
 
 Senior Dev start/resume execution now uses a shared service for browser streams and Manager jobs. A transport disconnect does not cancel provider work. The Manager repair worker claims durable queue rows with expiring leases; task heartbeats prevent duplicate execution. Interrupted stale tasks fail closed and settle their credit reservations before an explicit new repair. Failed refund settlement retries settlement only, never provider work. Restore command, repair queue, task and credit transaction records together; inspect stale or uncertain results before retrying. Repair approval remains a separate command and resume never charges a second reservation.
+
+### Authentication email configuration inspection
+
+`Authentication Email Configuration Readiness` is a read-only operator workflow.
+It checks existing Fly secret names for Twilio Email/SMS and the signed Supabase
+email hook, prints presence only, and sends no messages. Sender verification,
+hook activation and actual customer delivery require separate provider evidence.
+Cloudflare support-address forwarding is independent and remains unchanged.
