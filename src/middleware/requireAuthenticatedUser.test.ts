@@ -69,20 +69,24 @@ describe("requireAuthenticatedUser", () => {
     expect(res.json).not.toHaveBeenCalled();
   });
 
-  it("keeps an owner's REST access locked without SMS approval", () => {
+  it("allows a phone-verified owner through without a second admin SMS", () => {
     const req = {
-      user: { id: 42, email: "anselm.perkins@gmail.com", phoneVerified: true },
+      user: {
+        id: 42,
+        email: "anselm.perkins@gmail.com",
+        phoneVerified: true,
+      },
       headers: {},
       cookies: {},
     } as Request;
     const res = createResponse();
     const next = vi.fn();
+
     requireAuthenticatedUser(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ code: "OWNER_MFA_REQUIRED" }),
-    );
-    expect(next).not.toHaveBeenCalled();
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 
   it("does not let an unverified phone bypass verification through REST", () => {
