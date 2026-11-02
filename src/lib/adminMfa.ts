@@ -119,7 +119,7 @@ export function setAdminMfaChallengeCookie(
   setMfaCookie(req, res, userId, "challenge");
 }
 
-// Explicitly enabled production recovery requires access to private server logs.
+// Production recovery sends a code only to the configured owner email.
 export function adminMfaTrialFallbackEnabled(): boolean {
   return !ENV.isProduction || process.env.ADMIN_MFA_TRIAL_FALLBACK === "true";
 }

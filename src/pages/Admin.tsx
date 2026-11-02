@@ -194,7 +194,7 @@ export function Admin() {
               Twilio trial delivery was blocked.{" "}
               {requestMfa.data.developmentCode
                 ? `Development code: ${requestMfa.data.developmentCode}.`
-                : "Retrieve your temporary code from the private server logs."}{" "}
+                : "A temporary code was sent to your registered owner email. Check your inbox and spam folder."}{" "}
               Enter it below within five minutes.
             </p>
           )}

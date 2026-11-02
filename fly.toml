@@ -78,6 +78,8 @@ primary_region = 'lhr'
   SPRITES_DISABLED = 'true'
   # Reuse the existing fleet only; startup qualification fails closed.
   EXISTING_HOST_SANDBOX_ENABLED = 'true'
+  # Temporary owner recovery for Twilio trial error 21608; codes go to owner email.
+  ADMIN_MFA_TRIAL_FALLBACK = 'true'
   NODE_ENV = 'production'
   PORT = '3000'
   REQUEST_TIMEOUT_MS = '330000'
