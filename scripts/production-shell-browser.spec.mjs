@@ -38,10 +38,12 @@ test("production customer shell is interactive on mobile", async ({ page }) => {
     ),
   ).toBe(true);
 
-  const startBuilding = page.locator('a[href="/app/new"]').first();
-  await expect(startBuilding).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("hero-app-idea-textarea")).toHaveCount(0);
-  await startBuilding.click();
+  // Direct builder links still enforce sign-in after the public composer handoff.
+  await page.goto(`${appUrl}/app/new`, {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await expect(page.locator('input[type="email"]')).toBeVisible();
   await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
