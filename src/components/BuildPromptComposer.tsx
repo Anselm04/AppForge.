@@ -68,7 +68,7 @@ export function BuildPromptComposer({
       data-testid="build-prompt-form"
       className="space-y-4"
     >
-      <div className="rounded-3xl border border-forge-border bg-forge-surface shadow-(--forge-shadow-soft) transition-[border-color,box-shadow] focus-within:border-forge-gold/50 focus-within:shadow-[0_20px_60px_rgba(37,42,50,0.12)]">
+      <div className="forge-prompt-panel rounded-3xl border border-forge-border bg-forge-surface shadow-(--forge-shadow) transition-[border-color,box-shadow]">
         <label className="sr-only" htmlFor="appforge-build-prompt">
           {label}
         </label>
@@ -90,7 +90,7 @@ export function BuildPromptComposer({
           </div>
         )}
 
-        <div className="flex flex-col gap-3 border-t border-forge-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-forge-border/70 px-4 py-4 sm:px-5">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -122,7 +122,7 @@ export function BuildPromptComposer({
                 <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
               </svg>
             </button>
-            <span className="text-xs text-forge-text-muted">
+            <span className="hidden text-xs text-forge-text-muted sm:inline">
               {listening ? "Listening…" : "Type or speak your idea"}
             </span>
           </div>
@@ -145,7 +145,10 @@ export function BuildPromptComposer({
       </div>
 
       {suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="Build suggestions">
+        <div
+          className="flex flex-wrap justify-center gap-2"
+          aria-label="Build suggestions"
+        >
           {suggestions.map((suggestion) => (
             <button
               key={suggestion}

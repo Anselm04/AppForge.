@@ -199,8 +199,8 @@ export function Home() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-forge-text-muted sm:text-lg">
             Describe it in normal language or use the microphone. AppForge will
-            work out the technical structure through the existing production
-            pipeline.
+            plan and build your project. Preview the result, ask for changes,
+            and deploy when it is ready.
           </p>
         </div>
 

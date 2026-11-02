@@ -32,8 +32,8 @@ export function ThemeToggle({ className, stacked = false }: Props) {
           onClick={() => setTheme("dark")}
           className={
             stacked
-              ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
-              : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+              ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${isDark ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+              : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${isDark ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
           }
         >
           <MoonIcon />
@@ -45,8 +45,8 @@ export function ThemeToggle({ className, stacked = false }: Props) {
           onClick={() => setTheme("light")}
           className={
             stacked
-              ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
-              : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${!isDark ? "bg-[#c4a35a] text-[#140f08]" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+              ? `min-h-[44px] px-2 text-sm font-medium inline-flex items-center justify-center gap-1.5 ${!isDark ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
+              : `min-h-[32px] px-2.5 text-xs font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${!isDark ? "bg-forge-gold text-forge-bg" : "text-forge-text-muted hover:text-(--forge-heading)"}`
           }
         >
           <SunIcon />
