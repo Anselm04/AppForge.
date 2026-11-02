@@ -21,7 +21,6 @@ import {
   sentryRequestLogging,
 } from "./middleware/sentryHandler.js";
 import { healthRouter } from "./routes/health.js";
-import { authEmailHookHandler } from "./routes/authEmailHook.js";
 import { adminMfaBatchGuard } from "./middleware/adminMfaBatchGuard.js";
 import { aiRouter } from "./routes/ai.js";
 import { agentsRouter } from "./routes/agents.js";
@@ -293,13 +292,6 @@ app.use(
   managerIntegrationRouter,
 );
 
-// Supabase calls this server-to-server hook. Its signed raw payload provides
-// authentication; browser CSRF and JSON parsing must run only after it.
-app.post(
-  "/api/auth/email-hook",
-  express.raw({ type: "application/json", limit: "64kb" }),
-  authEmailHookHandler,
-);
 app.use(csrfProtection);
 app.get("/api/csrf-token", csrfTokenHandler);
 app.use(express.json({ limit: "10mb" }));

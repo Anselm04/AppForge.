@@ -7,16 +7,14 @@ function source(path: string): string {
 }
 
 describe("AppForge password recovery email contract", () => {
-  it("generates recovery links server-side and sends them through Twilio Email", () => {
+  it("lets Supabase Auth own recovery token creation and email delivery", () => {
     const delivery = source("src/services/authEmailDelivery.ts");
-    expect(delivery).toContain('type: "recovery"');
-    expect(delivery).toContain("supabase.auth.admin.generateLink");
-    expect(delivery).toContain("sendTwilioEmail");
-    expect(source("src/services/twilioEmail.ts")).toContain(
-      "https://comms.twilio.com/v1/Emails",
-    );
-    expect(delivery).not.toContain("cloudflare");
-    expect(delivery).toContain('subject: "Reset your AppForge password"');
+    expect(delivery).toContain("auth.resetPasswordForEmail");
+    expect(delivery).toContain("redirectTo: input.redirectTo");
+    expect(delivery).not.toContain("auth.admin.generateLink");
+    expect(delivery).not.toContain("sendTwilioEmail");
+    expect(delivery).not.toContain("SUPABASE_SEND_EMAIL_HOOK_SECRET");
+    expect(delivery).not.toContain("TWILIO_EMAIL_FROM");
   });
 
   it("keeps password recovery on the rate-limited same-origin auth endpoint", () => {

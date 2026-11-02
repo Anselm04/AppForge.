@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const generateLink = vi.hoisted(() => vi.fn());
+const signUp = vi.hoisted(() => vi.fn());
+const resetPasswordForEmail = vi.hoisted(() => vi.fn());
+
 vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({ auth: { admin: { generateLink } } }),
+  createClient: () => ({
+    auth: {
+      signUp,
+      resetPasswordForEmail,
+      resend: vi.fn(),
+    },
+  }),
 }));
 vi.mock("../_core/env.js", () => ({
   ENV: {
@@ -10,85 +18,82 @@ vi.mock("../_core/env.js", () => ({
     supabaseServiceKey: "test-key",
   },
 }));
+
 import {
   createSignupConfirmation,
   sendPasswordRecovery,
 } from "../services/authEmailDelivery.js";
 
-describe("email confirmation and recovery destinations", () => {
-  afterEach(() => vi.unstubAllEnvs());
+describe("Supabase authentication email destinations", () => {
   beforeEach(() => {
-    vi.stubEnv("TWILIO_ACCOUNT_SID", "AC" + "a".repeat(32));
-    vi.stubEnv("TWILIO_AUTH_TOKEN", "twilio-test-token");
-    vi.stubEnv("TWILIO_EMAIL_FROM", "accounts@example.com");
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ operationId: "send-1" }), { status: 202 }),
-    );
-    generateLink.mockResolvedValue({
-      data: {
-        properties: {
-          hashed_token: "one-time-token",
-          action_link: "https://identity.example.com/wrong-default-destination",
-        },
-        user: { id: "identity-1" },
-      },
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "public-key");
+    signUp.mockReset();
+    resetPasswordForEmail.mockReset();
+    signUp.mockResolvedValue({
+      data: { user: { id: "identity-1" }, session: null },
       error: null,
     });
+    resetPasswordForEmail.mockResolvedValue({ error: null });
   });
 
-  function sentEmail() {
-    const init = vi.mocked(fetch).mock.calls[0][1]!;
-    return JSON.parse(init.body as string) as { content: { text: string } };
-  }
+  afterEach(() => vi.unstubAllEnvs());
 
-  it("keeps confirmation on the app and preserves the intended destination", async () => {
+  it("keeps signup confirmation on the app and preserves the intended destination", async () => {
     const result = await createSignupConfirmation({
       email: "customer@example.com",
       phone: "+15551234567",
       password: "Password123!",
       redirectTo: "https://app.example.com/login?next=%2Faccount",
     });
-    expect(sentEmail().content.text).toContain(
-      "https://app.example.com/login?next=%2Faccount&token_hash=one-time-token&type=signup",
-    );
-    expect(sentEmail().content.text).not.toContain("wrong-default-destination");
-    expect(JSON.stringify(result)).not.toContain("one-time-token");
+
+    expect(signUp).toHaveBeenCalledWith({
+      email: "customer@example.com",
+      password: "Password123!",
+      options: {
+        emailRedirectTo: "https://app.example.com/login?next=%2Faccount",
+        data: {
+          signup_phone: "+15551234567",
+          signup_phone_verified: false,
+        },
+      },
+    });
+    expect(result).toEqual({ userId: "identity-1", confirmationSent: true });
   });
 
-  it("sends password recovery to the password-reset page", async () => {
+  it("sends password recovery to the password-reset page through Supabase Auth", async () => {
     await sendPasswordRecovery({
       email: "customer@example.com",
       redirectTo: "https://app.example.com/password-reset",
     });
-    expect(generateLink).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "recovery" }),
-    );
-    expect(sentEmail().content.text).toContain(
-      "https://app.example.com/password-reset?token_hash=one-time-token&type=recovery",
-    );
+
+    expect(resetPasswordForEmail).toHaveBeenCalledWith("customer@example.com", {
+      redirectTo: "https://app.example.com/password-reset",
+    });
   });
 
-  it("does not send a recovery email for an unknown account", async () => {
-    generateLink.mockResolvedValue({
-      data: null,
-      error: { code: "user_not_found" },
+  it("does not expose an unknown recovery account", async () => {
+    resetPasswordForEmail.mockResolvedValue({
+      error: { code: "user_not_found", message: "User not found" },
     });
+
     await expect(
       sendPasswordRecovery({
         email: "unknown@example.com",
         redirectTo: "https://app.example.com/password-reset",
       }),
     ).resolves.toBeUndefined();
-    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("reports rejected email delivery rather than claiming success", async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 401 }));
+  it("reports real Supabase recovery delivery failures rather than claiming success", async () => {
+    resetPasswordForEmail.mockResolvedValue({
+      error: { code: "smtp_failure", message: "SMTP unavailable" },
+    });
+
     await expect(
       sendPasswordRecovery({
         email: "customer@example.com",
         redirectTo: "https://app.example.com/password-reset",
       }),
-    ).rejects.toThrow(/delivery failed/i);
+    ).rejects.toMatchObject({ code: "smtp_failure" });
   });
 });

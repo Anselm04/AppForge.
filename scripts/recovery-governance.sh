@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Recovery review (3 November 2026): front-door authentication is restored to
+# the selected provider boundary. Supabase Auth owns identity plus signup,
+# confirmation, resend, recovery, reauthentication and email-change lifecycle;
+# Twilio Verify owns SMS phone verification and separate owner/admin MFA. The
+# accidental Supabase Send Email Hook -> AppForge -> Twilio Email auth path is
+# removed, so SUPABASE_SEND_EMAIL_HOOK_SECRET and TWILIO_EMAIL_FROM are not
+# production authentication recovery dependencies. REDIS_URL remains mandatory
+# for the two-Machine Fly fleet and now also coordinates one-time Supabase
+# refresh-token rotation across Machines using hashed lock/result keys. Recovery
+# must restore Supabase public/server auth configuration, Twilio Verify SMS,
+# shared Redis, database/cookie/JWT dependencies and then rerun exact-SHA CI,
+# security, readiness, auth-boundary and browser checks before reopening traffic.
+# Public launch still requires a suitable outbound mail transport configured in
+# Supabase; that provider configuration is recovered with Supabase Auth rather
+# than as an AppForge/Twilio Email runtime secret.
 # Recovery review (20 October 2026): upload-artifact v7 preserves default ZIP
 # archives, names, paths, retention, filtering and integrity manifests. Hosted
 # Node 24 is supported; recovery encryption and API ZIP consumers stay intact.
@@ -55,6 +70,9 @@ printf '%s\n' "$changed"
 # Recovery review (20 October 2026): github-script v9 runs on hosted Node 24.
 # Checklist scripts use only injected context/core; no removed require calls or
 # getOctokit redeclarations. Required template checks and file gates stay intact.
+# Physical-evidence workflows are also fail-closed recovery controls: requesting
+# an email/SMS challenge is not equivalent to completing the real auth or MFA
+# lifecycle, so only successful full/fresh evidence may satisfy certification.
 critical_regex='^(\.github/workflows/|fly\.toml$|Dockerfile|docker/|supabase/|migrations/|drizzle/|src/lib/auth\.ts$|src/services/(productionAutoDeploy|deployHealth|build-worker|stripeCheckout|stripeEventLedger)\.ts$|src/webhooks/stripe\.ts$|src/routers/(auth|projects|billing|stripe).*\.ts$)'
 recovery_regex='^(docs/DISASTER_RECOVERY\.md$|docs/OFFSITE_BACKUP\.md$|docs/OWNER_BREAK_GLASS\.md$|docs/RECOVERY_INVENTORY\.md$|docs/RECOVERY_AND_ROLLBACK\.md$|docs/PLATINUM_SECURITY_PROTOCOL\.md$|\.github/workflows/repository-backup\.yml$|\.github/workflows/repository-metadata-backup\.yml$|\.github/workflows/recovery-readiness\.yml$|scripts/recovery-governance\.sh$)'
 
