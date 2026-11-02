@@ -3,17 +3,61 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
+concurrency:
+  group: fly-production-runtime
+  cancel-in-progress: false
 jobs:
-  inspect:
+  deploy-verified-hotfix-locally:
+    if: github.ref == 'refs/heads/ops/admin-mfa-inspect'
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 5
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: 0e3c273e6f50493dd4c8a51c8fc3e23469616847
     steps:
+      - name: Require successful immutable hotfix validation steps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/Anselm04/AppForge./actions/runs/41392899904 | jq -e --arg sha "$RELEASE_SHA" '.head_sha == $sha'
+          gh api repos/Anselm04/AppForge./actions/runs/41392899904/jobs > /tmp/verified-jobs.json
+          for name in 'Verify focused release ancestry and recovery documentation' 'Run npm ci --ignore-scripts' 'Run npm run lint' 'Run npm run typecheck' 'Run npm test -- --run' 'Run npm run test:e2e' 'Run npm audit --omit=dev --audit-level=moderate' 'Run npm run build' 'Record rollback image and verify required live services'; do
+            jq -e --arg name "$name" 'any(.jobs[].steps[]; .name==$name and .conclusion=="success")' /tmp/verified-jobs.json >/dev/null
+            echo "Verified release evidence: $name"
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-      - name: Inspect AppForge release and configured credential names only
+      - name: Build tested source on GitHub runner and deploy with blue-green checks
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
-          flyctl machines list --app appforge-unfurling-moon-9058 --json | jq '[.[] | {id,state,image:.config.image,release:.image_ref.labels.GH_SHA}]'
-          flyctl secrets list --app appforge-unfurling-moon-9058 --json | jq '[.[] | (.Name // .name)]'
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(git ls-remote origin refs/heads/hotfix/admin-trial-live | cut -f1)" = "$RELEASE_SHA"
+          flyctl deploy --local-only --config fly.toml --strategy bluegreen --label "GH_SHA=$RELEASE_SHA" --wait-timeout 10m
+      - name: Verify exact serving revision and health
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          flyctl machines list -a appforge-unfurling-moon-9058 --json | jq -e --arg sha "$RELEASE_SHA" '[.[] | select(.state=="started" and (.config.metadata.fly_process_group // "app")=="app")] | length >= 2 and all(.image_ref.labels.GH_SHA == $sha)'
+          node scripts/verify-production-build-runtime.mjs
+          curl --fail --silent --show-error --max-time 30 https://appforge-unfurling-moon-9058.fly.dev/api/health/live
+          curl --fail --silent --show-error --max-time 30 https://appforge-unfurling-moon-9058.fly.dev/api/health/ready
+      - name: Install browser verifier
+        run: |
+          bash scripts/install-browser-verifier.sh
+          npx playwright install --with-deps chromium
+      - name: Verify owner fallback and admin unlock without recording codes
+        env:
+          APPFORGE_CANARY_EMAIL: ${{ secrets.APPFORGE_CANARY_EMAIL }}
+          APPFORGE_CANARY_PASSWORD: ${{ secrets.APPFORGE_CANARY_PASSWORD }}
+        run: npx playwright test scripts/admin-trial-live.spec.mjs --reporter=line
