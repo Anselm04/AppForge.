@@ -35,14 +35,14 @@ jobs:
           node-version: '22'
           cache: npm
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-      - name: Build tested source on GitHub runner and deploy with blue-green checks
+      - name: Release the already built and tested image with blue-green checks
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           test "$(git ls-remote origin refs/heads/hotfix/admin-trial-live | cut -f1)" = "$RELEASE_SHA"
-          flyctl deploy --local-only --config fly.toml --strategy bluegreen --label "GH_SHA=$RELEASE_SHA" --wait-timeout 10m
+          flyctl deploy --image registry.fly.io/appforge-unfurling-moon-9058@sha256:6c9317fde21b6e5c617577650350a2c2be00d43261924c0a7f87888508b770a5 --config fly.toml --strategy bluegreen --label "GH_SHA=$RELEASE_SHA" --wait-timeout 10m
       - name: Verify exact serving revision and health
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
