@@ -94,15 +94,7 @@ export const ownerAuthenticatedProcedure = authenticatedProcedure.use(
   },
 );
 
-export const ownerOnlyProcedure = ownerAuthenticatedProcedure.use(
-  async (opts) => {
-    const user = opts.ctx.user;
-    if (!hasValidAdminMfa(opts.ctx.req, user.id)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Admin SMS verification required",
-      });
-    }
-    return opts.next({ ctx: { ...opts.ctx, user } });
-  },
-);
+// The owner's normal verified account session is the admin authorization
+// boundary. Do not demand a second SMS after the account phone is already
+// verified; owner identity still comes from the authenticated server session.
+export const ownerOnlyProcedure = ownerAuthenticatedProcedure;
