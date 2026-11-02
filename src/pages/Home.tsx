@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { BuildPromptComposer } from "../components/BuildPromptComposer.js";
 import { CreditsPauseBanner } from "../components/CreditsPauseBanner.js";
 import { HcaptchaWidget } from "../components/HcaptchaWidget.js";
+import { LogoLockup } from "../components/brand/LogoMark.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import {
   ensureFreshSession,
@@ -11,10 +13,6 @@ import {
   refreshSession,
 } from "../lib/auth.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
-import type {
-  ClarificationRequest,
-  ProductType,
-} from "../lib/productContract.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
 import {
@@ -22,16 +20,25 @@ import {
   readPromptDraft,
   writePromptDraft,
 } from "../lib/promptDraft.js";
+import type {
+  ClarificationRequest,
+  ProductType,
+} from "../lib/productContract.js";
 import {
   detectIncomeIntent,
   suggestCapabilitiesForIncome,
 } from "../lib/revenueReadiness.js";
 import { trpc } from "../utils/trpc.js";
 
+const HOME_SUGGESTIONS = [
+  "Build a booking app for my business",
+  "Create a customer portal with subscriptions",
+  "Make a mobile app and web dashboard",
+] as const;
+
 // Home never picks a stack. projects.create derives it from the canonical
 // product contract (game -> Phaser, mobile -> Expo, API -> service, ...), so
 // sending a fixed web stack here would reject or mis-build non-web products.
-
 export function Home() {
   const [description, setDescription] = useState(() => readPromptDraft());
   const [isBuilding, setIsBuilding] = useState(false);
@@ -54,9 +61,6 @@ export function Home() {
   });
 
   const { data: tierStatus } = useQuery({
-    // Entitlement data is user-scoped. Including the authenticated user in the
-    // key prevents a cached free-plan response from a prior session/account
-    // being shown after the owner signs in.
     queryKey: ["projects", "tierStatus", user?.id ?? null],
     queryFn: () => trpc.projects.tierStatus.query(),
     enabled: !!user,
@@ -64,7 +68,6 @@ export function Home() {
 
   useEffect(() => {
     writePromptDraft(description);
-    // A clarification belongs to the prompt it was asked about.
     setClarification(null);
   }, [description]);
 
@@ -86,7 +89,6 @@ export function Home() {
       }),
     onSuccess: (data) => {
       if (data.status === "clarification_required") {
-        // Nothing was created or charged; ask the structured question.
         writePromptDraft(description);
         setClarification(data.clarification);
         return;
@@ -128,10 +130,6 @@ export function Home() {
     },
   });
 
-  // auth.me is server-authoritative for owner identity. Treat it as an
-  // immediate unlimited entitlement while tierStatus is loading/refetching.
-  // projects.create independently enforces the same owner entitlement on the
-  // server, so this changes presentation only and cannot promote a customer.
   const ownerUnlimited = user?.isOwner === true;
   const unlimited = ownerUnlimited || !!tierStatus?.unlimited;
   const creditBalance = tierStatus?.credits ?? 0;
@@ -168,37 +166,47 @@ export function Home() {
     overLimit ||
     isBuilding;
 
+  const submitLabel = outOfCredits
+    ? t("home.pausedCta")
+    : createProjectMutation.isPending
+      ? t("home.creating")
+      : t("home.generate");
+
   return (
     <div className="min-h-screen bg-forge-bg bg-forge-mesh">
-      <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
-        <div className="text-center mb-14" data-testid="home-hero">
-          <img
-            src="/branding/logo-mark.png"
-            alt="AppForge"
-            width={520}
-            height={520}
-            className="mx-auto mb-6 h-64 w-64 sm:h-80 sm:w-80 md:h-96 md:w-96 lg:h-112 lg:w-md object-contain drop-shadow-[0_24px_60px_rgba(184,134,11,0.28)]"
+      <div className="forge-container py-10 sm:py-14 lg:py-18">
+        <div
+          className="mx-auto mb-9 max-w-4xl text-center"
+          data-testid="home-hero"
+        >
+          <div
+            className="mb-6 flex justify-center"
             data-testid="home-hero-logo"
-          />
-          <div className="flex justify-center mb-6">
-            <span className="forge-badge" data-testid="hero-brand-badge">
-              <span className="dot" /> A AppForge Product
-            </span>
+          >
+            <LogoLockup size="lg" />
           </div>
+          <span
+            className="forge-badge mb-5 inline-flex"
+            data-testid="hero-brand-badge"
+          >
+            <span className="dot" /> BUILD WORKSPACE
+          </span>
           <h1
-            className="forge-metal-wordmark font-display text-7xl sm:text-8xl md:text-9xl lg:text-[10rem] font-bold tracking-[0.01em] leading-[0.95] mb-5"
+            className="forge-h1 mx-auto max-w-3xl"
             data-testid="home-hero-title"
           >
-            AppForge
+            What do you want AppForge to build?
           </h1>
-          <p className="text-lg sm:text-xl text-forge-text-muted max-w-2xl mx-auto">
-            {t("home.tagline")}
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-forge-text-muted sm:text-lg">
+            Describe it in normal language or use the microphone. AppForge will
+            work out the technical structure through the existing production
+            pipeline.
           </p>
         </div>
 
-        {(tierStatus || ownerUnlimited) && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-8 max-w-2xl mx-auto text-center">
-            <p className="text-slate-700 dark:text-slate-300 font-semibold">
+        <div className="mx-auto mb-5 flex max-w-3xl flex-wrap items-center justify-center gap-3 text-xs text-forge-text-muted">
+          {(tierStatus || ownerUnlimited) && (
+            <span className="rounded-full border border-forge-border bg-forge-surface px-3 py-2">
               {unlimited
                 ? "Owner account · Unlimited lifetime access"
                 : tierStatus?.tier === "free"
@@ -221,20 +229,20 @@ export function Home() {
                             credits: tierStatus.credits ?? 0,
                           })
                         : t("home.planEnterprise")}
-            </p>
-            {!unlimited && tierStatus?.tier === "free" && (
-              <a
-                href="/pricing"
-                className="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block"
-              >
-                {t("home.upgradeMore")}
-              </a>
-            )}
-          </div>
-        )}
+            </span>
+          )}
+          {!unlimited && tierStatus?.tier === "free" && (
+            <a
+              href="/pricing"
+              className="rounded-full border border-forge-border bg-forge-surface px-3 py-2 font-semibold text-forge-text-primary hover:border-forge-gold/50"
+            >
+              {t("home.upgradeMore")}
+            </a>
+          )}
+        </div>
 
         {outOfCredits && (
-          <div className="max-w-2xl mx-auto mb-8">
+          <div className="mx-auto mb-6 max-w-3xl">
             <CreditsPauseBanner
               credits={creditBalance}
               cost={BUILD_CREDIT_COST}
@@ -243,30 +251,29 @@ export function Home() {
           </div>
         )}
 
-        <div
-          className="bg-forge-surface border border-forge-border rounded-(--forge-radius) shadow-(--forge-shadow-soft) p-6 sm:p-8 max-w-2xl mx-auto forge-noise"
-          data-testid="hero-prompt-card"
-        >
-          <form onSubmit={handleStartBuild} className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-forge-text-primary mb-3">
-                {t("home.promptLabel")}
-              </label>
-              <textarea
-                value={description}
-                onChange={(event) =>
-                  setDescription(event.target.value.slice(0, PROMPT_MAX_CHARS))
-                }
-                maxLength={PROMPT_MAX_CHARS}
-                placeholder={t("home.promptPlaceholder")}
-                data-testid="hero-app-idea-textarea"
-                className="w-full h-32 px-4 py-3 bg-forge-bg border border-forge-border rounded-2xl text-forge-text-primary placeholder:text-forge-text-muted focus:outline-hidden focus:ring-2 focus:ring-(--forge-focus) resize-none transition-[box-shadow,border-color]"
-              />
-              <p className="text-xs mt-2 text-slate-500 dark:text-slate-400">
-                {t("home.charCount", { count: description.length })}
-              </p>
-            </div>
-
+        <div className="mx-auto max-w-3xl" data-testid="hero-prompt-card">
+          <BuildPromptComposer
+            value={description}
+            onChange={(value) =>
+              setDescription(value.slice(0, PROMPT_MAX_CHARS))
+            }
+            onSubmit={handleStartBuild}
+            submitLabel={submitLabel}
+            placeholder={t("home.promptPlaceholder")}
+            suggestions={HOME_SUGGESTIONS}
+            disabled={isBuilding}
+            submitDisabled={generateDisabled}
+            busy={createProjectMutation.isPending || isBuilding}
+            maxLength={PROMPT_MAX_CHARS}
+            label={t("home.promptLabel")}
+            textareaTestId="hero-app-idea-textarea"
+            submitTestId="home-generate-button"
+            helperText={
+              overLimit
+                ? t("home.overLimit")
+                : `${description.length.toLocaleString()} / ${PROMPT_MAX_CHARS.toLocaleString()} characters · your prompt is saved automatically`
+            }
+          >
             {!ownerUnlimited && <HcaptchaWidget onToken={setHcaptchaToken} />}
 
             {clarification && (
@@ -274,7 +281,7 @@ export function Home() {
                 role="group"
                 aria-labelledby="home-clarification-question"
                 data-testid="home-clarification"
-                className="rounded-2xl border border-forge-border bg-forge-bg p-4 space-y-3"
+                className="space-y-3 rounded-2xl border border-forge-border bg-forge-bg p-4"
               >
                 {clarification.questions.map((question) => (
                   <div key={question.id} className="space-y-2">
@@ -296,7 +303,7 @@ export function Home() {
                             setClarification(null);
                             void startBuild(choice.value);
                           }}
-                          className="px-3 py-1.5 text-sm rounded-full border border-forge-border text-forge-text-primary hover:border-(--forge-focus) disabled:opacity-50"
+                          className="rounded-full border border-forge-border px-3 py-1.5 text-sm text-forge-text-primary hover:border-forge-gold/60 disabled:opacity-50"
                         >
                           {choice.label}
                         </button>
@@ -308,25 +315,38 @@ export function Home() {
             )}
 
             {(formError || createProjectMutation.isError) && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">
+              <p
+                className="text-sm text-amber-700 dark:text-amber-300"
+                role="alert"
+              >
                 {formError ||
                   String((createProjectMutation.error as Error)?.message || "")}
               </p>
             )}
+          </BuildPromptComposer>
+        </div>
 
-            <button
-              type="submit"
-              disabled={generateDisabled}
-              data-testid="home-generate-button"
-              className="w-full forge-gold-btn font-bold py-3.5 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="mx-auto mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
+          {[
+            ["1", "Describe", "Tell AppForge what you want."],
+            ["2", "Watch", "Open the real live build workspace."],
+            ["3", "Refine & ship", "Change it, export it, or deploy it."],
+          ].map(([number, title, body]) => (
+            <div
+              key={number}
+              className="rounded-2xl border border-forge-border bg-forge-surface/75 p-4"
             >
-              {outOfCredits
-                ? t("home.pausedCta")
-                : createProjectMutation.isPending
-                  ? t("home.creating")
-                  : t("home.generate")}
-            </button>
-          </form>
+              <span className="text-xs font-bold text-forge-gold">
+                {number}
+              </span>
+              <p className="mt-2 text-sm font-semibold text-forge-text-primary">
+                {title}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-forge-text-muted">
+                {body}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
