@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createClient, type User } from "@supabase/supabase-js";
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../_core/logger.js";
+import { coordinateRefreshAcrossMachines } from "../lib/refreshCoordinator.js";
 import { clearAdminMfaCookie } from "../lib/adminMfa.js";
 
 const supabaseUrl =
@@ -239,7 +240,9 @@ async function refreshAccessTokenSingleFlight(
   const existing = refreshFlights.get(key);
   if (existing) return existing;
 
-  const flight = refreshAccessToken(refreshToken)
+  const flight = coordinateRefreshAcrossMachines(key, () =>
+    refreshAccessToken(refreshToken),
+  )
     .then((result) => {
       if (result) {
         recentRefreshes.set(key, {

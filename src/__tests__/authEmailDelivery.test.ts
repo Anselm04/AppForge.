@@ -52,7 +52,10 @@ describe("AppForge signup confirmation delivery", () => {
   it("reports provider signup failures instead of claiming confirmation was sent", async () => {
     signUp.mockResolvedValue({
       data: { user: null, session: null },
-      error: { code: "smtp_failure", message: "Confirmation delivery unavailable" },
+      error: {
+        code: "smtp_failure",
+        message: "Confirmation delivery unavailable",
+      },
     });
 
     await expect(

@@ -107,7 +107,9 @@ describe("Supabase-native authentication email lifecycle", () => {
     "does not expose account status %s",
     async (code) => {
       resend.mockResolvedValue({ error: { code } });
-      await expect(resendSignupConfirmation(resendInput)).resolves.toBeUndefined();
+      await expect(
+        resendSignupConfirmation(resendInput),
+      ).resolves.toBeUndefined();
     },
   );
 

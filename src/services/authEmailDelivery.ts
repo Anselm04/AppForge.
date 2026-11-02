@@ -41,11 +41,9 @@ function isNonEnumeratingAuthError(error: AuthErrorLike | null): boolean {
   if (!error) return false;
   const code = error.code || "";
   if (
-    [
-      "user_not_found",
-      "email_not_found",
-      "email_already_confirmed",
-    ].includes(code)
+    ["user_not_found", "email_not_found", "email_already_confirmed"].includes(
+      code,
+    )
   ) {
     return true;
   }
