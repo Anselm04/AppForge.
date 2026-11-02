@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: front-door-refresh-repair
+  cancel-in-progress: true
+
 jobs:
   repair:
     if: ${{ !contains(github.event.head_commit.message, '[front-door-repair]') }}
@@ -21,14 +25,35 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - name: Apply deterministic refresh patch
+      - name: Apply deterministic front-door patch
         run: python3 scripts/repair-front-door-refresh.py
       - name: Install dependencies
         run: npm ci --ignore-scripts
       - name: Format changed TypeScript
-        run: npx prettier --write src/middleware/supabaseAuth.ts src/lib/refreshCoordinator.ts src/lib/__tests__/refreshCoordinator.test.ts src/services/authEmailDelivery.ts src/__tests__/authResend.test.ts src/__tests__/authEmailLinks.test.ts src/__tests__/authProviderRoles.contract.test.ts
+        run: >-
+          npx prettier --write
+          src/middleware/supabaseAuth.ts
+          src/server.ts
+          src/lib/refreshCoordinator.ts
+          src/lib/__tests__/refreshCoordinator.test.ts
+          src/services/authEmailDelivery.ts
+          src/services/accountCredentials.ts
+          src/__tests__/authResend.test.ts
+          src/__tests__/authEmailLinks.test.ts
+          src/__tests__/authEmailDelivery.test.ts
+          src/__tests__/authRecoveryEmail.contract.test.ts
+          src/__tests__/authProviderRoles.contract.test.ts
       - name: Verify focused authentication tests
-        run: npm test -- --run src/lib/__tests__/refreshCoordinator.test.ts src/__tests__/authResend.test.ts src/__tests__/authEmailLinks.test.ts src/__tests__/authProviderRoles.contract.test.ts src/middleware/supabaseAuth.behavior.test.ts
+        run: >-
+          npm test -- --run
+          src/lib/__tests__/refreshCoordinator.test.ts
+          src/__tests__/authResend.test.ts
+          src/__tests__/authEmailLinks.test.ts
+          src/__tests__/authEmailDelivery.test.ts
+          src/__tests__/authRecoveryEmail.contract.test.ts
+          src/__tests__/authProviderRoles.contract.test.ts
+          src/services/accountCredentials.test.ts
+          src/middleware/supabaseAuth.behavior.test.ts
       - name: Verify TypeScript
         run: npm run typecheck
       - name: Commit repaired source
@@ -37,12 +62,23 @@ jobs:
           set -euo pipefail
           git config user.name "AppForge Front Door Repair"
           git config user.email "actions@users.noreply.github.com"
-          git add src/middleware/supabaseAuth.ts src/lib/refreshCoordinator.ts src/lib/__tests__/refreshCoordinator.test.ts src/services/authEmailDelivery.ts src/__tests__/authResend.test.ts src/__tests__/authEmailLinks.test.ts src/__tests__/authProviderRoles.contract.test.ts
+          git add \
+            src/middleware/supabaseAuth.ts \
+            src/server.ts \
+            src/lib/refreshCoordinator.ts \
+            src/lib/__tests__/refreshCoordinator.test.ts \
+            src/services/authEmailDelivery.ts \
+            src/services/accountCredentials.ts \
+            src/__tests__/authResend.test.ts \
+            src/__tests__/authEmailLinks.test.ts \
+            src/__tests__/authEmailDelivery.test.ts \
+            src/__tests__/authRecoveryEmail.contract.test.ts \
+            src/__tests__/authProviderRoles.contract.test.ts
           if git diff --cached --quiet; then
             echo "No source repair required"
             exit 0
           fi
-          git commit -m "fix: coordinate authentication refresh across machines [front-door-repair]"
+          git commit -m "fix: complete front-door authentication repair [front-door-repair]"
           git fetch origin fix/front-door-auth-and-release
           if ! git merge-base --is-ancestor origin/fix/front-door-auth-and-release HEAD; then
             git rebase origin/fix/front-door-auth-and-release
