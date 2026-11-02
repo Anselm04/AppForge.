@@ -21,11 +21,19 @@ vi.mock("../lib/twilioSms.js", () => ({
   isTwilioConfigured: () => true,
   requestTwilioVerification: mocks.smsRequest,
   checkTwilioVerification: mocks.smsCheck,
-  generateOtp: vi.fn(),
+  generateOtp: () => "654321",
   hashOtp: vi.fn(),
   sendSms: vi.fn(),
-  TwilioVerificationDeliveryError: class extends Error {},
+  TwilioVerificationDeliveryError: class extends Error {
+    constructor(
+      public httpStatus: number,
+      public providerCode?: number,
+    ) {
+      super("SMS rejected");
+    }
+  },
 }));
+import { TwilioVerificationDeliveryError } from "../lib/twilioSms.js";
 import { ENV } from "../_core/env.js";
 import { adminRouter } from "../routers/admin.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
@@ -183,6 +191,83 @@ describe("owner account and god-code authorization", () => {
       adminRouter.createCaller(other).verifyMfa({ code: "123456" }),
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect(mocks.smsCheck).not.toHaveBeenCalled();
+  });
+
+  it("accepts the development fallback after 21608 through the normal verification flow", async () => {
+    const production = ENV.isProduction;
+    ENV.isProduction = false;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      mocks.smsRequest.mockRejectedValue(
+        new TwilioVerificationDeliveryError(403, 21608),
+      );
+      const ctx = context();
+      const caller = adminRouter.createCaller(ctx);
+      const result = await caller.requestMfa();
+      expect(result).toMatchObject({
+        fallback: true,
+        testCode: "654321",
+      });
+      await expect(caller.verifyMfa({ code: "111111" })).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+      });
+      await caller.verifyMfa({ code: "654321" });
+      expect(mocks.smsCheck).not.toHaveBeenCalled();
+      await expect(caller.me()).resolves.toMatchObject({ isOwner: true });
+      await expect(caller.verifyMfa({ code: "654321" })).rejects.toMatchObject({
+        code: "PRECONDITION_FAILED",
+      });
+    } finally {
+      ENV.isProduction = production;
+      warn.mockRestore();
+    }
+  });
+
+  it("allows the explicitly activated temporary production testing path", async () => {
+    const production = ENV.isProduction;
+    ENV.isProduction = true;
+    vi.stubEnv("ADMIN_MFA_TRIAL_FALLBACK", "true");
+    vi.stubEnv(
+      "ADMIN_MFA_TRIAL_FALLBACK_UNTIL",
+      new Date(Date.now() + 3600000).toISOString(),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      mocks.smsRequest.mockRejectedValue(
+        new TwilioVerificationDeliveryError(403, 21608),
+      );
+      const ctx = context();
+      const caller = adminRouter.createCaller(ctx);
+      const result = await caller.requestMfa();
+      expect(result.fallback).toBe(true);
+      expect(result.testCode).toBe("654321");
+      expect(warn).not.toHaveBeenCalled();
+      await caller.verifyMfa({ code: "654321" });
+      expect(mocks.smsCheck).not.toHaveBeenCalled();
+    } finally {
+      ENV.isProduction = production;
+      vi.unstubAllEnvs();
+      warn.mockRestore();
+    }
+  });
+
+  it("keeps production locked on 21608 unless recovery is explicitly enabled", async () => {
+    const production = ENV.isProduction;
+    ENV.isProduction = true;
+    vi.stubEnv("ADMIN_MFA_TRIAL_FALLBACK", "false");
+    try {
+      mocks.smsRequest.mockRejectedValue(
+        new TwilioVerificationDeliveryError(403, 21608),
+      );
+      const ctx = context();
+      await expect(
+        adminRouter.createCaller(ctx).requestMfa(),
+      ).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+      expect(ctx.req.cookies.appforge_admin_challenge).toBeUndefined();
+    } finally {
+      ENV.isProduction = production;
+      vi.unstubAllEnvs();
+    }
   });
 
   it("does not grant admin access when SMS delivery fails", async () => {

@@ -102,9 +102,27 @@ Use a phone not already linked to a different Supabase identity.
   the owner identity and completed SMS. Unlimited entitlement alone never grants
   administrative privileges. The owner account's other protected APIs also
   require SMS approval.
-- Failed Twilio delivery never unlocks admin. Trial-recipient restrictions must
+- Failed Twilio delivery never automatically unlocks admin. Trial-recipient restrictions should
   be resolved in Twilio; AppForge no longer initiates an unexpected voice call as
   an SMS fallback.
 - Local tests prove access checks; they do not establish whether another person
   accessed the existing production account. Review session/audit history and
   revoke existing sessions through the account controls as part of live rollout.
+
+### Temporary owner trial testing (Twilio 21608)
+
+The owner explicitly authorized a temporary bypass for testing AppForge. With
+ADMIN_MFA_TRIAL_FALLBACK=true and a future ADMIN_MFA_TRIAL_FALLBACK_UNTIL,
+only Twilio error 21608 causes the authenticated owner screen to display a
+random six-digit testing code. This intentionally suspends the SMS second
+factor for that owner during the testing window. All other users remain
+forbidden. Codes expire after five minutes and are bound to the signed-in
+owner session and browser. The normal input and Verify button still apply.
+Successful SMS continues to use Twilio Verify, and other delivery failures
+remain locked. Codes are never logged. Recovery approvals use the distinct
+trial_test_approved audit outcome rather than physical SMS approval.
+
+The Fly configuration activates testing until 3 November 2026 at 05:00 UTC.
+Remove the two settings after testing or let the fixed deadline disable the
+path. The permanent remedy is to verify OWNER_PHONE in the configured Twilio
+trial account. The unsolicited-code warning remains visible.

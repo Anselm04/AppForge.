@@ -66,6 +66,33 @@ describe("owner dashboard SMS gate", () => {
     );
     expect(mocks.privateQuery).not.toHaveBeenCalled();
   });
+  it("shows the development fallback and submits its six-digit code", async () => {
+    mocks.request.mockResolvedValue({
+      sent: true,
+      fallback: true,
+      testCode: "654321",
+    });
+    mocks.verify.mockResolvedValue({ verified: false });
+    mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Send SMS code to ••••4567" }),
+    );
+    await screen.findByText("654321");
+    expect(
+      screen.getByText(
+        /If you receive an AppForge admin code you did not request/,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Admin SMS code"), {
+      target: { value: "654321" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Verify and enter admin" }),
+    );
+    await waitFor(() =>
+      expect(mocks.verify).toHaveBeenCalledWith({ code: "654321" }),
+    );
+  });
   it("returns to the owner account only after the server verifies SMS", async () => {
     mocks.verify.mockImplementation(async () => {
       mocks.status.mockResolvedValue({ verified: true });

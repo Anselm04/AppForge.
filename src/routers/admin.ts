@@ -30,6 +30,9 @@ import {
 import { summarizeTeamIntegrations } from "../config/teamIntegrations.js";
 import {
   adminMfaExpiresInSeconds,
+  adminMfaTrialFallbackEnabled,
+  setAdminMfaFallbackChallenge,
+  checkAdminMfaFallbackCode,
   adminMfaCodeSchema,
   hasValidAdminMfa,
   hasValidAdminMfaChallenge,
@@ -95,31 +98,46 @@ export const adminRouter = router({
     ensureAdminMfaConfigured();
     clearAdminMfaCookie(ctx.res);
 
+    let fallbackCode: string | undefined;
     try {
       await requestTwilioVerification(ENV.ownerPhone.trim());
       setAdminMfaChallengeCookie(ctx.req, ctx.res, ctx.user.id);
     } catch (error) {
-      logger.error(
-        {
-          userId: ctx.user.id,
-          httpStatus:
+      if (
+        error instanceof TwilioVerificationDeliveryError &&
+        error.providerCode === 21608 &&
+        adminMfaTrialFallbackEnabled()
+      ) {
+        fallbackCode = generateOtp();
+        setAdminMfaFallbackChallenge(
+          ctx.req,
+          ctx.res,
+          ctx.user.id,
+          fallbackCode,
+        );
+      } else {
+        logger.error(
+          {
+            userId: ctx.user.id,
+            httpStatus:
+              error instanceof TwilioVerificationDeliveryError
+                ? error.httpStatus
+                : undefined,
+            providerCode:
+              error instanceof TwilioVerificationDeliveryError
+                ? error.providerCode
+                : undefined,
+          },
+          "admin_mfa_delivery_failed",
+        );
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message:
             error instanceof TwilioVerificationDeliveryError
-              ? error.httpStatus
-              : undefined,
-          providerCode:
-            error instanceof TwilioVerificationDeliveryError
-              ? error.providerCode
-              : undefined,
-        },
-        "admin_mfa_delivery_failed",
-      );
-      throw new TRPCError({
-        code: "BAD_GATEWAY",
-        message:
-          error instanceof TwilioVerificationDeliveryError
-            ? error.message
-            : "Unable to contact the SMS provider. Admin remains locked. Check provider availability before retrying.",
-      });
+              ? error.message
+              : "Unable to contact the SMS provider. Admin remains locked. Check provider availability before retrying.",
+        });
+      }
     }
 
     await db.insert(schema.complianceRecords).values({
@@ -127,7 +145,7 @@ export const adminRouter = router({
       userId: ctx.user.id,
       details: {
         action: "admin_mfa_requested",
-        outcome: "challenge_sent",
+        outcome: fallbackCode ? "trial_fallback_issued" : "challenge_sent",
       },
       adminEmail: ctx.user.email,
     });
@@ -136,6 +154,8 @@ export const adminRouter = router({
     return {
       sent: true,
       phoneHint: maskedOwnerPhone(),
+      fallback: !!fallbackCode,
+      testCode: fallbackCode,
     };
   }),
 
@@ -152,11 +172,18 @@ export const adminRouter = router({
       }
 
       let approved = false;
+      let usedFallback = false;
       try {
-        approved = await checkTwilioVerification(
-          ENV.ownerPhone.trim(),
+        const fallback = checkAdminMfaFallbackCode(
+          ctx.req,
+          ctx.user.id,
           input.code,
         );
+        usedFallback = fallback !== null;
+        approved =
+          fallback === null
+            ? await checkTwilioVerification(ENV.ownerPhone.trim(), input.code)
+            : fallback;
       } catch (error) {
         logger.error({ error, userId: ctx.user.id }, "admin_mfa_check_failed");
         throw new TRPCError({
@@ -192,7 +219,10 @@ export const adminRouter = router({
         },
         adminEmail: ctx.user.email,
       });
-      logger.info({ userId: ctx.user.id }, "admin_mfa_approved");
+      logger.info(
+        { userId: ctx.user.id, method: usedFallback ? "recovery" : "sms" },
+        "admin_mfa_approved",
+      );
 
       return {
         verified: true,

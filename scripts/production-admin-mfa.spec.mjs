@@ -41,17 +41,17 @@ async function expectMfaLocked(page) {
   await expect(page.getByText(/AppForge Admin/)).toHaveCount(0);
 }
 
-test("production owner admin challenge sends SMS", async ({ page }) => {
+test("production owner admin challenge sends SMS or trial recovery email", async ({ page }) => {
   test.skip(phase !== "request", "Not the request phase.");
   await loginOwner(page);
   await expectMfaLocked(page);
 
-  const send = page.getByRole("button", { name: /send sms verification code/i });
+  const send = page.getByRole("button", { name: /send sms (verification )?code/i });
   await expect(send).toBeVisible({ timeout: 30_000 });
   await send.click();
 
   await expect(
-    page.getByRole("button", { name: /send a new code/i }),
+    page.getByRole("button", { name: /send (a new|another) code/i }),
   ).toBeVisible({ timeout: 30_000 });
 });
 
@@ -113,7 +113,7 @@ test("production owner SMS code enforces negative, fresh-browser, logout and reu
 
   // Twilio Verify codes are single-use: the already-approved code must not
   // unlock a new primary login session.
-  await page.getByRole("button", { name: /send sms verification code/i }).click();
+  await page.getByRole("button", { name: /send sms (verification )?code/i }).click();
   await page.getByLabel(/6-digit SMS code/i).fill(smsCode);
   await page.getByRole("button", { name: /verify and enter admin/i }).click();
   await expect(page.getByText(/code was rejected or expired/i)).toBeVisible({

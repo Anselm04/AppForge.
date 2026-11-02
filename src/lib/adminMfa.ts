@@ -18,6 +18,7 @@ type AdminMfaPayload = {
   ua: string;
   iat: number;
   exp: number;
+  fallbackCodeHash?: string;
 };
 
 function signingSecret(): string {
@@ -118,11 +119,50 @@ export function setAdminMfaChallengeCookie(
   setMfaCookie(req, res, userId, "challenge");
 }
 
+// Owner-authorized testing bypass is explicitly activated and time bounded.
+export function adminMfaTrialFallbackEnabled(): boolean {
+  if (!ENV.isProduction) return true;
+  const until = Date.parse(process.env.ADMIN_MFA_TRIAL_FALLBACK_UNTIL || "");
+  return (
+    process.env.ADMIN_MFA_TRIAL_FALLBACK === "true" &&
+    Number.isFinite(until) &&
+    until > Date.now()
+  );
+}
+
+export function setAdminMfaFallbackChallenge(
+  req: Request,
+  res: Response,
+  userId: number,
+  code: string,
+): void {
+  setMfaCookie(req, res, userId, "challenge", hmac(`fallback-code:${code}`));
+}
+
+export function checkAdminMfaFallbackCode(
+  req: Request,
+  userId: number,
+  code: string,
+): boolean | null {
+  if (!hasValidAdminMfaChallenge(req, userId)) return null;
+  const raw = req.cookies[ADMIN_CHALLENGE_COOKIE] as string;
+  const payload = decodePayload(raw.slice(0, raw.lastIndexOf(".")));
+  if (!payload?.fallbackCodeHash) return null;
+  return (
+    adminMfaTrialFallbackEnabled() &&
+    timingSafeEqual(
+      Buffer.from(hmac(`fallback-code:${code}`)),
+      Buffer.from(payload.fallbackCodeHash),
+    )
+  );
+}
+
 function setMfaCookie(
   req: Request,
   res: Response,
   userId: number,
   purpose: AdminMfaPayload["purpose"],
+  fallbackCodeHash?: string,
 ): void {
   const session = currentSessionFingerprint(req);
   if (!session) throw new Error("Primary session is required for admin MFA");
@@ -132,6 +172,7 @@ function setMfaCookie(
     v: 2,
     purpose,
     uid: userId,
+    ...(fallbackCodeHash ? { fallbackCodeHash } : {}),
     session,
     ua: currentUserAgentFingerprint(req),
     iat: now,
