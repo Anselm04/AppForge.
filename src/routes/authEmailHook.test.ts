@@ -2,13 +2,13 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Request, Response } from "express";
 const send = vi.hoisted(() => vi.fn());
-vi.mock("../services/cloudflareEmail.js", () => ({
-  sendCloudflareEmail: send,
-  requireCloudflareEmailConfig: vi.fn(),
+vi.mock("../services/twilioEmail.js", () => ({
+  sendTwilioEmail: send,
+  requireTwilioEmailConfig: vi.fn(),
 }));
 import { authEmailHookHandler } from "./authEmailHook.js";
 const key = Buffer.alloc(32, 1);
-describe("signed Supabase to Cloudflare email hook", () => {
+describe("signed Supabase to Twilio email hook", () => {
   beforeEach(() => {
     vi.stubEnv(
       "SUPABASE_SEND_EMAIL_HOOK_SECRET",
@@ -61,7 +61,7 @@ describe("signed Supabase to Cloudflare email hook", () => {
       expect(send).not.toHaveBeenCalled();
     },
   );
-  it("routes a genuine confirmation to Cloudflare using only the trusted app origin", async () => {
+  it("routes a genuine confirmation to Twilio using only the trusted app origin", async () => {
     const res = await invoke(signup);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(send).toHaveBeenCalledWith(

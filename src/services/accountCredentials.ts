@@ -1,5 +1,5 @@
 import { ENV } from "../_core/env.js";
-import { requireCloudflareAuthEmailHookConfig } from "./cloudflareEmail.js";
+import { requireTwilioAuthEmailHookConfig } from "./twilioEmail.js";
 
 /** Use the customer's JWT so provider email/password protections still apply. */
 export async function updateAccountCredentials(
@@ -9,7 +9,7 @@ export async function updateAccountCredentials(
   if (!ENV.supabaseUrl || !ENV.supabaseServiceKey) {
     throw new Error("Account management is not configured.");
   }
-  if ("email" in change) requireCloudflareAuthEmailHookConfig();
+  if ("email" in change) requireTwilioAuthEmailHookConfig();
   const response = await fetch(`${ENV.supabaseUrl}/auth/v1/user`, {
     method: "PUT",
     signal: AbortSignal.timeout(10_000),
@@ -46,7 +46,7 @@ export async function updateAccountCredentials(
 export async function requestAccountReauthentication(
   accessToken: string,
 ): Promise<void> {
-  requireCloudflareAuthEmailHookConfig();
+  requireTwilioAuthEmailHookConfig();
   if (!ENV.supabaseUrl || !ENV.supabaseServiceKey) {
     throw new Error("Account management is not configured.");
   }

@@ -18,14 +18,11 @@ import {
 describe("email confirmation and recovery destinations", () => {
   afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
-    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "a".repeat(32));
-    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "cloudflare-test-token");
-    vi.stubEnv("APPFORGE_EMAIL_FROM", "support@example.com");
+    vi.stubEnv("TWILIO_ACCOUNT_SID", "AC" + "a".repeat(32));
+    vi.stubEnv("TWILIO_AUTH_TOKEN", "twilio-test-token");
+    vi.stubEnv("TWILIO_EMAIL_FROM", "accounts@example.com");
     vi.mocked(fetch).mockResolvedValue(
-      new Response(
-        JSON.stringify({ delivered: ["customer@example.com"], queued: [] }),
-        { status: 200 },
-      ),
+      new Response(JSON.stringify({ operationId: "send-1" }), { status: 202 }),
     );
     generateLink.mockResolvedValue({
       data: {
@@ -41,7 +38,7 @@ describe("email confirmation and recovery destinations", () => {
 
   function sentEmail() {
     const init = vi.mocked(fetch).mock.calls[0][1]!;
-    return JSON.parse(init.body as string) as { text: string };
+    return JSON.parse(init.body as string) as { content: { text: string } };
   }
 
   it("keeps confirmation on the app and preserves the intended destination", async () => {
@@ -51,10 +48,10 @@ describe("email confirmation and recovery destinations", () => {
       password: "Password123!",
       redirectTo: "https://app.example.com/login?next=%2Faccount",
     });
-    expect(sentEmail().text).toContain(
+    expect(sentEmail().content.text).toContain(
       "https://app.example.com/login?next=%2Faccount&token_hash=one-time-token&type=signup",
     );
-    expect(sentEmail().text).not.toContain("wrong-default-destination");
+    expect(sentEmail().content.text).not.toContain("wrong-default-destination");
     expect(JSON.stringify(result)).not.toContain("one-time-token");
   });
 
@@ -66,7 +63,7 @@ describe("email confirmation and recovery destinations", () => {
     expect(generateLink).toHaveBeenCalledWith(
       expect.objectContaining({ type: "recovery" }),
     );
-    expect(sentEmail().text).toContain(
+    expect(sentEmail().content.text).toContain(
       "https://app.example.com/password-reset?token_hash=one-time-token&type=recovery",
     );
   });

@@ -6,8 +6,8 @@ This candidate restores the public signed-out home, keeps the private builder be
 
 - `PUBLIC_APP_URL` (or `APP_URL`) must be a trusted HTTPS origin. Confirmation redirects never use the request Host header.
 - `SUPABASE_SERVICE_ROLE_KEY` and the configured Supabase URL are required for initial signup confirmation-link generation.
-- Current candidate: outbound customer/authentication mail uses Cloudflare Email Sending with `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN` and `APPFORGE_EMAIL_FROM`. Twilio credentials are for SMS only.
-- Configure Supabase's signed Send Email Hook at `/api/auth/email-hook` using `SUPABASE_SEND_EMAIL_HOOK_SECRET` so resends, email changes and password verification also use Cloudflare. Incoming Email Routing alone does not provide outgoing email delivery.
+- Outbound customer/authentication mail uses Twilio Email with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and a verified `TWILIO_EMAIL_FROM` (or the existing explicit `APPFORGE_EMAIL_FROM` alias). The owner's private inbox must never become the default sender or customer recipient. Twilio Verify handles SMS. Cloudflare manages the domain/DNS and inbound support forwarding only.
+- Configure Supabase's signed Send Email Hook at `/api/auth/email-hook` using `SUPABASE_SEND_EMAIL_HOOK_SECRET` so resends, email changes and password verification also use Twilio. Keep the hook signature and replay checks intact; switching the email provider does not remove Supabase's signed-hook requirement.
 - Retain shared `REDIS_URL` production coordination. Signup and resend share the same auth abuse bucket across Fly machines.
 
 Configuration validation is evidence of configured values, not evidence of delivered mail. Production must pass signup, received confirmation, confirmation consumption, login, logout, relogin, reset and resend with controlled accounts. Never approve paying-customer readiness based on these local tests alone.

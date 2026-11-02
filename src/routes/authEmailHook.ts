@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "express";
 import { z } from "zod";
-import { sendCloudflareEmail } from "../services/cloudflareEmail.js";
+import { sendTwilioEmail } from "../services/twilioEmail.js";
 import { appActionLink } from "../services/authEmailDelivery.js";
 import {
   passwordRecoveryRedirect,
@@ -71,7 +71,7 @@ async function deliverLink(
 ) {
   if (!hash) throw new Error("Missing email verification hash");
   const link = appActionLink({ hashed_token: hash }, destination, type);
-  await sendCloudflareEmail({
+  await sendTwilioEmail({
     to,
     subject,
     text: `${subject}: ${link}`,
@@ -110,7 +110,7 @@ export const authEmailHookHandler: RequestHandler = async (req, res) => {
     if (action === "reauthentication") {
       if (!/^\d{6,10}$/.test(email.token ?? ""))
         throw new Error("Missing verification code");
-      await sendCloudflareEmail({
+      await sendTwilioEmail({
         to: user.email,
         subject: "Verify your AppForge password change",
         text: `Your verification code is ${email.token}. If you did not request it, ignore this email.`,
@@ -150,7 +150,7 @@ export const authEmailHookHandler: RequestHandler = async (req, res) => {
         subject,
       );
     } else if (action.endsWith("_notification")) {
-      await sendCloudflareEmail({
+      await sendTwilioEmail({
         to: user.email,
         subject: "AppForge account security notification",
         text: "A security setting on your AppForge account has changed. If you did not make this change, recover your account and contact support.",

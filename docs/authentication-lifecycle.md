@@ -10,19 +10,22 @@ unlimited-build API can be used, in addition to the dashboard and god-code APIs.
 - Browser runtime configuration needs the Supabase URL and publishable key.
 - Server account administration needs the matching Supabase URL and service key.
 - `PUBLIC_APP_URL` (or `APP_URL`) must be the HTTPS origin used by customers.
-- All customer and authentication emails use Cloudflare Email Sending. Configure
-  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN` (or the existing
-  `CLOUDFLARE_API_TOKEN`) and `APPFORGE_EMAIL_FROM` with a verified sending domain.
-  Cloudflare Email Routing is the separate inbound service; enabled routing
-  alone does not establish outbound sending readiness.
-- Configure Supabase Auth's Send Email Hook to
+- All customer and authentication emails use Twilio Email with server-side
+  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and a sender already verified in
+  Twilio: `TWILIO_EMAIL_FROM` (or the existing explicit `APPFORGE_EMAIL_FROM`).
+  Customer messages go to the customer's own account email. The owner's private
+  inbox is never an implicit sender or recipient.
+- Cloudflare manages the domain/DNS and incoming support-address forwarding.
+  No Cloudflare Email Sending token is required for AppForge authentication.
+- Configure Supabase Auth's signed Send Email Hook to
   `https://YOUR_APP_ORIGIN/api/auth/email-hook` and set the matching
-  `SUPABASE_SEND_EMAIL_HOOK_SECRET` in AppForge. The signed hook routes
-  verification resends, password-change codes, email changes and security
-  notifications through Cloudflare. The handler verifies the raw-body signature
-  and rejects stale/forged payloads before sending.
-- Initial confirmation and recovery also use Cloudflare directly. Email code
-  never uses Twilio credentials or silently falls back to another provider.
+  `SUPABASE_SEND_EMAIL_HOOK_SECRET` in AppForge. Verification resends,
+  password-change codes, email changes and security notifications use Twilio.
+  The handler still verifies the raw-body signature and rejects stale/forged
+  payloads before sending.
+- Initial confirmation and recovery use Twilio Email directly. HTTP 202 plus
+  an operation acknowledgment is queue acceptance, not proof of delivery to an
+  inbox. Verify delivery with a controlled customer journey before certification.
 - Customer account verification and owner MFA use Twilio Verify. Configure
   `TWILIO_VERIFY_SERVICE_SID`, destination geographic permissions, account credit
   and any trial-recipient restrictions. Owner MFA also needs `OWNER_PHONE`.

@@ -55,9 +55,7 @@ export interface EnvConfig {
   VANTA_WORKSPACE_ID?: string;
   VANTA_API_TOKEN?: string;
   RESEND_API_KEY?: string;
-  CLOUDFLARE_ACCOUNT_ID?: string;
-  CLOUDFLARE_EMAIL_API_TOKEN?: string;
-  CLOUDFLARE_API_TOKEN?: string;
+  TWILIO_EMAIL_FROM?: string;
   APPFORGE_EMAIL_FROM?: string;
   SUPABASE_SEND_EMAIL_HOOK_SECRET?: string;
   VERCEL_TOKEN?: string;
@@ -350,12 +348,12 @@ export function validateEnv(
 
   if (isProduction) {
     const missingEmail = [
-      ["CLOUDFLARE_ACCOUNT_ID", config.CLOUDFLARE_ACCOUNT_ID],
+      ["TWILIO_ACCOUNT_SID", config.TWILIO_ACCOUNT_SID],
+      ["TWILIO_AUTH_TOKEN", config.TWILIO_AUTH_TOKEN],
       [
-        "CLOUDFLARE_EMAIL_API_TOKEN",
-        config.CLOUDFLARE_EMAIL_API_TOKEN || config.CLOUDFLARE_API_TOKEN,
+        "TWILIO_EMAIL_FROM (or APPFORGE_EMAIL_FROM)",
+        config.TWILIO_EMAIL_FROM || config.APPFORGE_EMAIL_FROM,
       ],
-      ["APPFORGE_EMAIL_FROM", config.APPFORGE_EMAIL_FROM],
       [
         "SUPABASE_SEND_EMAIL_HOOK_SECRET",
         config.SUPABASE_SEND_EMAIL_HOOK_SECRET,
@@ -365,7 +363,7 @@ export function validateEnv(
       .map(([name]) => name);
     if (missingEmail.length)
       errors.push(
-        `Cloudflare authentication email requires ${missingEmail.join(", ")} in production.`,
+        `Twilio authentication email requires ${missingEmail.join(", ")} in production.`,
       );
   }
 
@@ -475,7 +473,7 @@ export function getEnvSummary(
         : "❌"
     }`,
     `  Vanta: ${config.VANTA_WORKSPACE_ID && config.VANTA_API_TOKEN ? "✅" : "⚠️"}`,
-    `  Cloudflare Email: ${config.CLOUDFLARE_ACCOUNT_ID && (config.CLOUDFLARE_EMAIL_API_TOKEN || config.CLOUDFLARE_API_TOKEN) && config.APPFORGE_EMAIL_FROM && config.SUPABASE_SEND_EMAIL_HOOK_SECRET ? "✅" : "❌"}`,
+    `  Twilio Email: ${config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN && (config.TWILIO_EMAIL_FROM || config.APPFORGE_EMAIL_FROM) && config.SUPABASE_SEND_EMAIL_HOOK_SECRET ? "✅" : "❌"}`,
     `  Vercel Deploy: ${config.VERCEL_TOKEN ? "✅" : "⚠️"}`,
     `  LLM Provider: ${llmReady(config) ? "✅" : "❌ (at least one supported provider required)"}`,
     `  Redis: ${config.REDIS_URL ? "✅" : isProductionSummary(config) ? "❌ (required for multi-machine production)" : "⚠️"}`,

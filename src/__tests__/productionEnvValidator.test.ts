@@ -15,9 +15,7 @@ const baseProductionEnv = {
   TWILIO_ACCOUNT_SID: "AC" + "a".repeat(32),
   TWILIO_AUTH_TOKEN: "t".repeat(40),
   TWILIO_VERIFY_SERVICE_SID: "VA" + "b".repeat(32),
-  CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
-  CLOUDFLARE_EMAIL_API_TOKEN: "test-cloudflare-token",
-  APPFORGE_EMAIL_FROM: "support@example.com",
+  TWILIO_EMAIL_FROM: "accounts@example.com",
   SUPABASE_SEND_EMAIL_HOOK_SECRET:
     "v1,whsec_" + Buffer.alloc(32, 1).toString("base64"),
   BUILT_IN_FORGE_API_KEY: "forge_" + "x".repeat(40),
@@ -34,16 +32,21 @@ const baseProductionEnv = {
 };
 
 describe("production environment validation", () => {
-  it("does not certify transactional email with SMS credentials alone", () => {
+  it("requires an explicit Twilio sender and a signed identity-provider hook", () => {
     const result = validateEnv({
       ...baseProductionEnv,
-      CLOUDFLARE_EMAIL_API_TOKEN: undefined,
+      TWILIO_EMAIL_FROM: undefined,
       SUPABASE_SEND_EMAIL_HOOK_SECRET: undefined,
     });
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain(
-      "Cloudflare authentication email requires",
+      "Twilio authentication email requires",
     );
+  });
+  it("accepts Twilio email and SMS without any Cloudflare sending credentials", () => {
+    const result = validateEnv(baseProductionEnv);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
   it("does not certify signup without server link-generation credentials", () => {
     const result = validateEnv({

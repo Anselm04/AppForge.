@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { ENV } from "../_core/env.js";
 import {
-  requireCloudflareEmailConfig,
-  requireCloudflareAuthEmailHookConfig,
-  sendCloudflareEmail,
-} from "./cloudflareEmail.js";
+  requireTwilioEmailConfig,
+  requireTwilioAuthEmailHookConfig,
+  sendTwilioEmail,
+} from "./twilioEmail.js";
 
 export type SignupConfirmationInput = {
   email: string;
@@ -93,10 +93,10 @@ async function generateSupabaseSignupLink(
   return { actionLink, userId };
 }
 
-async function sendCloudflareConfirmationEmail(
+async function sendTwilioConfirmationEmail(
   input: ConfirmationEmail,
 ): Promise<void> {
-  await sendCloudflareEmail({
+  await sendTwilioEmail({
     to: input.to,
     subject: input.subject,
     text: `Confirm your AppForge email address: ${input.confirmationUrl}`,
@@ -112,7 +112,7 @@ async function rollbackSupabaseSignup(userId: string): Promise<void> {
 
 const productionDeps: SignupConfirmationDeps = {
   generateLink: generateSupabaseSignupLink,
-  sendEmail: sendCloudflareConfirmationEmail,
+  sendEmail: sendTwilioConfirmationEmail,
   rollbackUser: rollbackSupabaseSignup,
 };
 
@@ -122,7 +122,7 @@ export async function createSignupConfirmation(
 ): Promise<{ userId: string; confirmationSent: true }> {
   if (deps === productionDeps) {
     requireServerAuthConfig();
-    requireCloudflareEmailConfig();
+    requireTwilioEmailConfig();
   }
   const link = await deps.generateLink(input);
   try {
@@ -150,7 +150,7 @@ export async function sendPasswordRecovery(input: {
   redirectTo: string;
 }): Promise<void> {
   const supabase = serverAuthClient();
-  requireCloudflareEmailConfig();
+  requireTwilioEmailConfig();
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "recovery",
     email: input.email,
@@ -172,7 +172,7 @@ export async function sendPasswordRecovery(input: {
     throw new Error("Supabase did not produce a password recovery link");
   }
 
-  await sendCloudflareEmail({
+  await sendTwilioEmail({
     to: input.email,
     subject: "Reset your AppForge password",
     text: `Reset your AppForge password: ${actionLink}`,
@@ -185,7 +185,7 @@ export async function resendSignupConfirmation(input: {
   email: string;
   redirectTo: string;
 }): Promise<void> {
-  requireCloudflareAuthEmailHookConfig();
+  requireTwilioAuthEmailHookConfig();
   const key =
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||

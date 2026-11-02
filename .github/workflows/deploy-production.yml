@@ -202,8 +202,6 @@ jobs:
             TWILIO_AUTH_TOKEN
             TWILIO_VERIFY_SERVICE_SID
             SUPABASE_SERVICE_ROLE_KEY
-            CLOUDFLARE_ACCOUNT_ID
-            APPFORGE_EMAIL_FROM
             SUPABASE_SEND_EMAIL_HOOK_SECRET
           )
           missing=0
@@ -214,9 +212,9 @@ jobs:
             fi
           done
 
-          if ! grep -Fxq "CLOUDFLARE_EMAIL_API_TOKEN" <<<"$SECRET_NAMES" &&
-             ! grep -Fxq "CLOUDFLARE_API_TOKEN" <<<"$SECRET_NAMES"; then
-            echo "Missing Cloudflare Email Sending credential; refusing an authentication release with broken outbound email."
+          if ! grep -Fxq "TWILIO_EMAIL_FROM" <<<"$SECRET_NAMES" &&
+             ! grep -Fxq "APPFORGE_EMAIL_FROM" <<<"$SECRET_NAMES"; then
+            echo "Missing verified Twilio Email sender: configure TWILIO_EMAIL_FROM or APPFORGE_EMAIL_FROM."
             missing=1
           fi
 
