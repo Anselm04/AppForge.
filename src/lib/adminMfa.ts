@@ -157,6 +157,10 @@ export function clearAdminMfaCookie(res: Response): void {
 }
 
 export function hasValidAdminMfa(req: Request, userId: number): boolean {
+  // AppForge already requires a verified phone before protected access. When
+  // authentication middleware has attached that verified user to this request,
+  // do not demand a second SMS for the same owner session.
+  if (req.user?.id === userId && req.user.phoneVerified) return true;
   return hasValidMfaCookie(req, userId, "verified");
 }
 
