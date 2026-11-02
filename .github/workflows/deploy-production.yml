@@ -1,10 +1,7 @@
 name: Deploy Production
 
-# A green CI Pipeline run for a push to main deploys that exact commit to Fly
-# automatically. The owner can also start a release manually on main
-# (Actions -> Deploy Production -> Run workflow). Either way, the validate job
-# re-runs lint, typecheck, tests, e2e and build on the exact SHA and refuses
-# stale SHAs before any Fly deployment step can run.
+# A green CI Pipeline run for a push to main deploys that exact commit to Fly.
+# Supabase owns identity/email authentication; Twilio Verify owns SMS.
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
@@ -30,73 +27,61 @@ jobs:
     runs-on: ubuntu-latest
     name: Validate release
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_SHA }}
+
       - name: Verify exact release SHA
         shell: bash
         run: |
           set -euo pipefail
           ACTUAL_SHA="$(git rev-parse HEAD)"
-          if [ "$ACTUAL_SHA" != "$RELEASE_SHA" ]; then
+          test "$ACTUAL_SHA" = "$RELEASE_SHA" || {
             echo "Release SHA mismatch: expected $RELEASE_SHA, got $ACTUAL_SHA"
             exit 1
-          fi
-          echo "Verified release SHA $RELEASE_SHA"
+          }
+
       - name: Refuse stale release SHA
         shell: bash
         run: |
           set -euo pipefail
           MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          if [ -z "$MAIN_SHA" ]; then
-            echo "Unable to resolve current main SHA; refusing production release."
+          if [ -z "$MAIN_SHA" ] || [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Release SHA $RELEASE_SHA is stale or main cannot be resolved; current main is ${MAIN_SHA:-unknown}."
             exit 1
           fi
-          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
-            echo "Release SHA $RELEASE_SHA is stale; current main is $MAIN_SHA. Refusing rollback-by-queue."
-            exit 1
-          fi
-          echo "Release SHA is still current main: $RELEASE_SHA"
+
       - name: Require successful exact-SHA CI and security evidence
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
           require_workflow_success() {
             workflow_file="$1"
             label="$2"
-
             for attempt in $(seq 1 30); do
-              runs="$(gh api                 -H "Accept: application/vnd.github+json"                 "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&event=push&per_page=100")"
-
-              conclusion="$(printf '%s' "$runs"                 | jq -r --arg sha "$RELEASE_SHA"                   '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.run_number) | reverse | .[0].conclusion // "missing"')"
-              status="$(printf '%s' "$runs"                 | jq -r --arg sha "$RELEASE_SHA"                   '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.run_number) | reverse | .[0].status // "missing"')"
-
+              runs="$(gh api -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&event=push&per_page=100")"
+              conclusion="$(printf '%s' "$runs" | jq -r --arg sha "$RELEASE_SHA" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.run_number) | reverse | .[0].conclusion // "missing"')"
+              status="$(printf '%s' "$runs" | jq -r --arg sha "$RELEASE_SHA" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.run_number) | reverse | .[0].status // "missing"')"
               echo "$label evidence for $RELEASE_SHA: status=$status conclusion=$conclusion"
-
               if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
                 return 0
               fi
-
               if [ "$status" = "completed" ] && [ "$conclusion" != "success" ] && [ "$conclusion" != "missing" ]; then
                 echo "$label failed for exact release SHA $RELEASE_SHA; refusing production release."
                 return 1
               fi
-
               sleep 10
             done
-
             echo "No successful completed $label run found for exact release SHA $RELEASE_SHA."
             return 1
           }
-
           require_workflow_success "ci.yml" "CI Pipeline"
           require_workflow_success "security.yml" "Security Scanning"
-          echo "Exact-SHA CI and Security Scanning release evidence is green."
+
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -114,7 +99,9 @@ jobs:
       - run: npm run build
       - name: Verify production Docker builder matches release
         run: docker build --target builder --pull --no-cache -t "appforge-release-builder:${RELEASE_SHA}" .
+
       - name: Require pinned production public configuration
+        shell: bash
         run: |
           set -euo pipefail
           missing=0
@@ -124,59 +111,51 @@ jobs:
               missing=1
             fi
           done
-
-          if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because public auth/billing configuration is incomplete."
-            exit 1
-          fi
-          echo "Production Supabase public configuration is pinned; billing catalog must use only AppForge-owned Stripe prices."
+          test "$missing" -eq 0 || exit 1
 
   deploy-fly:
     runs-on: ubuntu-latest
     name: Deploy to Fly.io
     needs: validate
     environment: production
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_SHA }}
+
       - name: Verify exact deploy SHA
         shell: bash
         run: |
           set -euo pipefail
           ACTUAL_SHA="$(git rev-parse HEAD)"
-          if [ "$ACTUAL_SHA" != "$RELEASE_SHA" ]; then
-            echo "Deploy SHA mismatch: expected $RELEASE_SHA, got $ACTUAL_SHA"
-            exit 1
-          fi
-          echo "Deploying verified SHA $RELEASE_SHA"
+          test "$ACTUAL_SHA" = "$RELEASE_SHA" || exit 1
+
       - name: Refuse stale deploy SHA
         shell: bash
         run: |
           set -euo pipefail
           MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          if [ -z "$MAIN_SHA" ]; then
-            echo "Unable to resolve current main SHA; refusing production deployment."
+          if [ -z "$MAIN_SHA" ] || [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
+            echo "Deploy SHA $RELEASE_SHA is stale; current main is ${MAIN_SHA:-unknown}."
             exit 1
           fi
-          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
-            echo "Deploy SHA $RELEASE_SHA is stale; current main is $MAIN_SHA. Refusing rollback-by-queue."
-            exit 1
-          fi
-          echo "Deploy SHA is still current main: $RELEASE_SHA"
+
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
       - name: Require Fly production token
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           if [ -z "$FLY_API_TOKEN" ]; then
-            echo "FLY_API_TOKEN is not configured; refusing to report a false production deployment."
+            echo "FLY_API_TOKEN is not configured; refusing production deployment."
             exit 1
           fi
+
       - name: Require revenue-critical and two-machine Fly runtime secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
         run: |
           set -euo pipefail
           APP="appforge-unfurling-moon-9058"
@@ -202,7 +181,6 @@ jobs:
             TWILIO_AUTH_TOKEN
             TWILIO_VERIFY_SERVICE_SID
             SUPABASE_SERVICE_ROLE_KEY
-            SUPABASE_SEND_EMAIL_HOOK_SECRET
           )
           missing=0
           for name in "${required[@]}"; do
@@ -211,12 +189,6 @@ jobs:
               missing=1
             fi
           done
-
-          if ! grep -Fxq "TWILIO_EMAIL_FROM" <<<"$SECRET_NAMES" &&
-             ! grep -Fxq "APPFORGE_EMAIL_FROM" <<<"$SECRET_NAMES"; then
-            echo "Missing verified Twilio Email sender: configure TWILIO_EMAIL_FROM or APPFORGE_EMAIL_FROM."
-            missing=1
-          fi
 
           llm_provider_candidates=(
             GROQ_API_KEY
@@ -246,21 +218,21 @@ jobs:
             echo "Production deploy blocked because no supported LLM provider secret is configured on Fly."
             missing=1
           fi
-
           if [ "$missing" -ne 0 ]; then
-            echo "Production deploy blocked because AppForge cannot reliably authenticate, enforce owner SMS MFA, build, coordinate two Machines, generate with an LLM, or collect money with the current Fly secret set."
+            echo "Production deploy blocked because a real runtime dependency is missing."
             exit 1
           fi
-          echo "Revenue-critical, owner-MFA, LLM-provider, and shared two-Machine Fly runtime secret requirements are satisfied."
+
       - name: Reconfirm release freshness immediately before deploy
         shell: bash
         run: |
           set -euo pipefail
           MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          if [ "$MAIN_SHA" != "$RELEASE_SHA" ]; then
-            echo "Main advanced to $MAIN_SHA after validation; refusing to deploy stale SHA $RELEASE_SHA."
+          test "$MAIN_SHA" = "$RELEASE_SHA" || {
+            echo "Main advanced to $MAIN_SHA; refusing stale deploy $RELEASE_SHA."
             exit 1
-          fi
+          }
+
       - name: Deploy to Fly.io
         timeout-minutes: 20
         env:
@@ -270,93 +242,55 @@ jobs:
           set -euo pipefail
           docker info >/dev/null
           flyctl deploy --local-only --config fly.toml --app appforge-unfurling-moon-9058
+
       - name: Reconcile and require exactly two started Fly app machines after deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Observe first. Global scale operations can select stale blue/green
-          # machines or race deletion leases even when two replacements are ready.
-          node scripts/verify-fly-capacity.mjs
+        run: node scripts/verify-fly-capacity.mjs
+
       - name: Require prepared non-root build runtime on every serving machine
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: node scripts/verify-production-build-runtime.mjs
+
       - name: Verify production runtime and auth boundaries
+        shell: bash
         run: |
           set -euo pipefail
           URL="https://appforge-unfurling-moon-9058.fly.dev"
-
-          healthy=false
           for i in $(seq 1 30); do
-            if curl --fail --silent --show-error --retry 2 --retry-delay 2 --retry-all-errors --max-time 10 "$URL/api/health/live" >/dev/null; then
-              healthy=true
+            if curl --fail --silent --show-error --max-time 10 "$URL/api/health/live" >/dev/null; then
               break
             fi
-            echo "Waiting for production health (attempt $i/30)..."
+            test "$i" -lt 30 || exit 1
             sleep 10
           done
-
-          if [ "$healthy" != "true" ]; then
-            echo "Production live health check failed after deploy"
-            exit 1
-          fi
-
-          ready=false
-          readiness_body="$(mktemp)"
           for i in $(seq 1 30); do
-            readiness_status=$(curl --silent --show-error --max-time 10 \
-              --output "$readiness_body" \
-              --write-out '%{http_code}' \
-              "$URL/api/health/ready" || true)
-            if [ "$readiness_status" = "200" ]; then
-              ready=true
+            status="$(curl --silent --show-error --max-time 10 --output /tmp/ready --write-out '%{http_code}' "$URL/api/health/ready" || true)"
+            if [ "$status" = "200" ]; then
               break
             fi
-            echo "Waiting for production readiness (attempt $i/30, HTTP $readiness_status)..."
-            cat "$readiness_body" || true
+            test "$i" -lt 30 || { cat /tmp/ready || true; exit 1; }
             sleep 10
           done
-
-          if [ "$ready" != "true" ]; then
-            echo "Production readiness check failed after deploy"
-            cat "$readiness_body" || true
-            rm -f "$readiness_body"
-            exit 1
-          fi
-          rm -f "$readiness_body"
 
           assert_status() {
             expected="$1"
             endpoint="$2"
-            actual=$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "$URL$endpoint")
-            if [ "$actual" != "$expected" ]; then
-              echo "Expected $endpoint to return HTTP $expected without authentication, got $actual"
+            actual="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "$URL$endpoint")"
+            test "$actual" = "$expected" || {
+              echo "Expected $endpoint HTTP $expected, got $actual"
               exit 1
-            fi
+            }
           }
-
           assert_post_denied() {
             endpoint="$1"
-            actual=$(curl --silent --show-error --max-time 10 \
-              --request POST \
-              --header 'Content-Type: application/json' \
-              --data '{}' \
-              --output /dev/null \
-              --write-out '%{http_code}' \
-              "$URL$endpoint")
+            actual="$(curl --silent --show-error --max-time 10 --request POST --header 'Content-Type: application/json' --data '{}' --output /dev/null --write-out '%{http_code}' "$URL$endpoint")"
             if [ "$actual" != "401" ] && [ "$actual" != "403" ]; then
-              echo "Expected POST $endpoint to fail closed with HTTP 401 or 403 without authentication/CSRF context, got $actual"
+              echo "Expected POST $endpoint to fail closed, got $actual"
               exit 1
             fi
           }
-
-          # Recovery contract: a restored/redeployed release is not healthy until
-          # every revenue- or execution-capable REST prefix still fails closed.
-          # GET canaries must remain 401. Anonymous state-changing POSTs may be
-          # rejected earlier by CSRF (403) or by authentication (401); both are
-          # secure fail-closed outcomes and neither may become a successful 2xx.
           assert_status 401 "/api/preview-auth/1"
           assert_status 401 "/api/build/1"
           assert_post_denied "/api/ai/extract"
@@ -365,40 +299,24 @@ jobs:
           assert_post_denied "/api/checkout/plan"
           assert_status 401 "/api/apps"
           assert_status 401 "/api/billing"
-          echo "Production live, readiness, redundancy, and fail-closed anonymous-access gates passed"
 
       - name: Verify customer flow entry routes after deploy
+        shell: bash
         run: |
           set -euo pipefail
           URL="https://appforge-unfurling-moon-9058.fly.dev"
-          routes=(
-            "/"
-            "/signup"
-            "/signup?next=/pricing"
-            "/login"
-            "/login?next=%2Fpricing"
-            "/pricing"
-            "/redeem"
-          )
-
+          routes=("/" "/signup" "/signup?next=/pricing" "/login" "/login?next=%2Fpricing" "/pricing" "/redeem")
           for route in "${routes[@]}"; do
             body="$(mktemp)"
-            status=$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 --location --output "$body" --write-out '%{http_code}' "$URL$route")
-            if [ "$status" != "200" ]; then
-              echo "Customer-flow route $route returned HTTP $status after deploy"
-              cat "$body"
-              rm -f "$body"
-              exit 1
-            fi
-            if [ ! -s "$body" ]; then
-              echo "Customer-flow route $route returned an empty response after deploy"
+            status="$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 10 --location --output "$body" --write-out '%{http_code}' "$URL$route")"
+            if [ "$status" != "200" ] || [ ! -s "$body" ]; then
+              echo "Customer-flow route $route failed with HTTP $status"
+              cat "$body" || true
               rm -f "$body"
               exit 1
             fi
             rm -f "$body"
           done
-
-          echo "Customer-flow entry and deep-link routes are live after deploy"
 
       - name: Verify Fly is running the released commit
         env:
@@ -407,21 +325,13 @@ jobs:
         run: |
           set -euo pipefail
           APP="appforge-unfurling-moon-9058"
-          # flyctl stamps every image built from GitHub Actions with GH_SHA.
-          # Every started app Machine must serve the image built from this run's
-          # exact release SHA; otherwise the deploy did not really ship.
           machines_json="$(flyctl machines list --app "$APP" --json)"
           started_shas="$(printf '%s' "$machines_json" | jq -r '[.[] | select((.config.metadata.fly_process_group // "app") == "app" and .state == "started") | (.image_ref.labels.GH_SHA // "unknown")] | unique | join(",")')"
           if [ "$started_shas" != "$RELEASE_SHA" ]; then
-            echo "Started app Machines report image commit(s) '$started_shas', expected $RELEASE_SHA."
+            echo "Started app Machines report '$started_shas', expected $RELEASE_SHA."
             exit 1
           fi
-          echo "Every started app Machine serves release $RELEASE_SHA"
 
-      # The deploy job has no project node_modules, and installing one package
-      # into the repository without its lockfile crashes npm's resolver
-      # ("Cannot read properties of null (reading 'edgesOut')"). Install the
-      # browser verifier in an isolated directory instead and run the spec there.
       - name: Install browser verifier for live shell
         shell: bash
         run: |
@@ -433,8 +343,6 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund @playwright/test@1.63.0
 
-      # GitHub's Ubuntu runner already supplies stable Chrome and its dependencies.
-      # Require it rather than blocking the release on redundant apt/download work.
       - name: Require installed Chrome for live shell verification
         timeout-minutes: 1
         run: google-chrome --version
