@@ -28,6 +28,10 @@ export function Admin() {
 
   const requestMfa = useMutation({
     mutationFn: () => trpc.admin.requestMfa.mutate(),
+    onMutate: () => {
+      setChallengeSent(false);
+      setMfaCode("");
+    },
     onSuccess: () => {
       setChallengeSent(true);
       setMfaCode("");
@@ -165,6 +169,13 @@ export function Admin() {
                   }`}
           </button>
 
+          {requestMfa.data?.testCode && (
+            <p className="mt-3 text-sm text-amber-700" role="status">
+              Temporary owner testing mode: Twilio trial SMS was blocked. Use
+              code <strong>{requestMfa.data.testCode}</strong> below within five
+              minutes.
+            </p>
+          )}
           {requestMfa.isError && (
             <p className="mt-3 text-sm text-red-600">
               {requestMfa.error.message}

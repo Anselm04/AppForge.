@@ -10,6 +10,12 @@ import { applyGodCodeGrant, db, getProjectEvidenceBundle } from "../db.js";
 import * as schema from "../db/schema.js";
 import { eq, desc, and, gte, count, sql, isNull } from "drizzle-orm";
 import { ENV } from "../_core/env.js";
+import {
+  trialFallbackEnabled,
+  issueTrialFallback,
+  checkTrialFallback,
+  clearTrialFallback,
+} from "../lib/adminTrialFallback.js";
 import { logger } from "../_core/logger.js";
 import {
   encryptGodCode,
@@ -91,30 +97,40 @@ export const adminRouter = router({
   requestMfa: ownerAuthenticatedProcedure.mutation(async ({ ctx }) => {
     ensureAdminMfaConfigured();
 
+    clearTrialFallback(ctx.res);
+    let testCode: string | undefined;
     try {
       await requestTwilioVerification(ENV.ownerPhone.trim());
     } catch (error) {
-      logger.error(
-        {
-          userId: ctx.user.id,
-          httpStatus:
+      if (
+        error instanceof TwilioVerificationDeliveryError &&
+        error.providerCode === 21608 &&
+        trialFallbackEnabled()
+      ) {
+        testCode = issueTrialFallback(ctx.req, ctx.res, ctx.user.id);
+      } else {
+        logger.error(
+          {
+            userId: ctx.user.id,
+            httpStatus:
+              error instanceof TwilioVerificationDeliveryError
+                ? error.httpStatus
+                : undefined,
+            providerCode:
+              error instanceof TwilioVerificationDeliveryError
+                ? error.providerCode
+                : undefined,
+          },
+          "admin_mfa_delivery_failed",
+        );
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message:
             error instanceof TwilioVerificationDeliveryError
-              ? error.httpStatus
-              : undefined,
-          providerCode:
-            error instanceof TwilioVerificationDeliveryError
-              ? error.providerCode
-              : undefined,
-        },
-        "admin_mfa_delivery_failed",
-      );
-      throw new TRPCError({
-        code: "BAD_GATEWAY",
-        message:
-          error instanceof TwilioVerificationDeliveryError
-            ? error.message
-            : "Unable to contact the SMS provider. Admin remains locked. Check provider availability before retrying.",
-      });
+              ? error.message
+              : "Unable to contact the SMS provider. Admin remains locked. Check provider availability before retrying.",
+        });
+      }
     }
 
     await db.insert(schema.complianceRecords).values({
@@ -122,7 +138,7 @@ export const adminRouter = router({
       userId: ctx.user.id,
       details: {
         action: "admin_mfa_requested",
-        outcome: "challenge_sent",
+        outcome: testCode ? "trial_test_challenge" : "challenge_sent",
       },
       adminEmail: ctx.user.email,
     });
@@ -131,6 +147,7 @@ export const adminRouter = router({
     return {
       sent: true,
       phoneHint: maskedOwnerPhone(),
+      testCode,
     };
   }),
 
@@ -140,11 +157,14 @@ export const adminRouter = router({
       ensureAdminMfaConfigured();
 
       let approved = false;
+      let testing = false;
       try {
-        approved = await checkTwilioVerification(
-          ENV.ownerPhone.trim(),
-          input.code,
-        );
+        const fallback = checkTrialFallback(ctx.req, ctx.user.id, input.code);
+        testing = fallback !== null;
+        approved =
+          fallback === null
+            ? await checkTwilioVerification(ENV.ownerPhone.trim(), input.code)
+            : fallback;
       } catch (error) {
         logger.error({ error, userId: ctx.user.id }, "admin_mfa_check_failed");
         throw new TRPCError({
@@ -170,13 +190,14 @@ export const adminRouter = router({
         });
       }
 
+      clearTrialFallback(ctx.res);
       setAdminMfaCookie(ctx.req, ctx.res, ctx.user.id);
       await db.insert(schema.complianceRecords).values({
         recordType: "security_incident",
         userId: ctx.user.id,
         details: {
           action: "admin_mfa_verify",
-          outcome: "approved",
+          outcome: testing ? "trial_test_approved" : "approved",
         },
         adminEmail: ctx.user.email,
       });

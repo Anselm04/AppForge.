@@ -175,3 +175,12 @@ At least quarterly, and after any material authentication/provider change:
 - Confirm provider recovery documentation is current.
 
 A secure system must be difficult for an attacker to enter and predictable for the legitimate owner to recover.
+
+
+### Temporary admin trial testing recovery (2 November 2026)
+
+This focused release is based on the deployed SHA 5f1063cb93e76b8b1bec5ef5572182b45b1aa070. It preserves the running email/auth/billing configuration instead of rolling unrelated unreleased Cloudflare configuration into this SMS repair.
+
+The authenticated owner requested a temporary test bypass for Twilio 21608. The Fly config enables it only until 3 November 2026 at 05:00 UTC. When and only when Twilio returns 21608, the owner screen displays a randomly generated six-digit testing code. This deliberately suspends the SMS second factor for the authenticated owner during the testing window. Anonymous and non-owner callers remain forbidden. Codes expire in five minutes, use a signed HttpOnly cookie bound to the owner login and browser, and are removed on successful verification or a new send. Codes are never logged. Recovery is audited as trial_test_approved, never as physical SMS approval. All other Twilio failures stay locked; successful SMS uses the existing Verify check.
+
+After testing, remove ADMIN_MFA_TRIAL_FALLBACK and ADMIN_MFA_TRIAL_FALLBACK_UNTIL from fly.toml, or let the fixed deadline disable the path. Restore real SMS by verifying OWNER_PHONE in the configured Twilio trial account. Roll back to the image recorded by the hotfix deployment workflow if health checks fail. No credential values or codes belong in CI logs or recovery artifacts.
