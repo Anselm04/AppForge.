@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createClient, type RedisClientType } from "redis";
+import { createClient } from "redis";
 import { logger } from "../_core/logger.js";
 
 const LOCK_TTL_SECONDS = 10;
@@ -23,8 +23,9 @@ type RefreshStore = {
   ): Promise<unknown>;
 };
 
-let redisClient: RedisClientType | null = null;
-let redisConnectPromise: Promise<RedisClientType | null> | null = null;
+type ConcreteRedisClient = ReturnType<typeof createClient>;
+let redisClient: ConcreteRedisClient | null = null;
+let redisConnectPromise: Promise<RefreshStore | null> | null = null;
 
 async function productionRedisStore(): Promise<RefreshStore | null> {
   const url = process.env.REDIS_URL?.trim();
@@ -32,7 +33,7 @@ async function productionRedisStore(): Promise<RefreshStore | null> {
   if (redisClient?.isReady) return redisClient as unknown as RefreshStore;
   if (redisConnectPromise) return redisConnectPromise;
 
-  redisConnectPromise = (async () => {
+  redisConnectPromise = (async (): Promise<RefreshStore | null> => {
     const client = createClient({ url });
     client.on("error", (error) =>
       logger.error({ error }, "auth_refresh_redis_error"),
@@ -40,7 +41,7 @@ async function productionRedisStore(): Promise<RefreshStore | null> {
     try {
       await client.connect();
       redisClient = client;
-      return client;
+      return client as unknown as RefreshStore;
     } catch (error) {
       logger.error({ error }, "auth_refresh_redis_connect_failed");
       try {
