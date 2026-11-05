@@ -277,7 +277,7 @@ export function LandingPage() {
                     {plan.price}
                   </span>
                   <span className="text-sm text-forge-text-muted">
-                    {t("pricing.perMonth")}
+                    {t("pricing.perMonth")} USD
                   </span>
                 </div>
                 <ul className="mt-5 flex-1 space-y-2 text-sm text-forge-text-muted">
@@ -315,7 +315,7 @@ export function LandingPage() {
                 Know what your build can cost
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                Your subscription includes a monthly build allowance and compute
+                Prices are in USD. Customer subscriptions and Enterprise contracts have finite, disclosed usage limits. Only the authorised AppForge owner account has owner-level unlimited access. Your subscription includes a monthly build allowance and compute
                 credits. A standard full build currently reserves{" "}
                 {BUILD_CREDIT_COST} credits when it starts. Straightforward
                 products are designed to fit the normal build flow, but not
