@@ -214,7 +214,7 @@ export function Pricing() {
             Plan your budget before you build
           </p>
           <p className="mt-1">
-            Complex products and additional iterations can use more compute
+            All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute
             credits. Optional top-ups cost $1 per credit. When credits run out,
             work pauses so you choose whether to top up, upgrade, or stop — no
             automatic top-up charges.
@@ -270,7 +270,7 @@ export function Pricing() {
                 <span className="text-3xl font-bold text-forge-text-primary">
                   {tier.price}
                 </span>
-                <span className="text-forge-text-muted">{tier.subPrice}</span>
+                <span className="text-forge-text-muted">{tier.subPrice} USD</span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {tier.features.map((feature, idx) => (
@@ -331,7 +331,7 @@ export function Pricing() {
           className="mt-16 max-w-3xl mx-auto"
           hover={false}
         >
-          <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")}</h3>
+          <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")} (USD)</h3>
           <p className="text-forge-text-muted mb-6 text-sm">
             {t("pricing.buySubtitle")}
           </p>
