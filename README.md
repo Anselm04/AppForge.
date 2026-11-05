@@ -80,3 +80,13 @@ Third-party software remains governed by its respective licences.
 AppForge is developed by **AppForge**.
 
 All proprietary product strategy, internal architecture, future plans, commercial direction, and non-public implementation details are confidential unless explicitly approved for disclosure.
+
+## Approved Product Visual Design — LOCKED
+
+The product owner approved the **TrillionAI AppForge™ neon mountain and A/anvil landing page** as the official future visual direction. This remains distinct from the TrillionAI Manager, Identity and Observability interfaces while sharing their recognised TrillionAI visual family.
+
+**Design specification:** [LOCKED AppForge Landing Page](design/LOCKED_APPFORGE_LANDING_PAGE.md).
+
+The reference illustration contains demonstration content and **unapproved illustrative prices**; it does not establish live subscriptions, supported capabilities, or confirmed build outcomes. The source PNG is not yet committed to GitHub; the approved design contract is recorded in the linked document.
+
+**AppForge code development, production deployments and integration with other TrillionAI systems remain on hold.** This commit changes documentation only.
