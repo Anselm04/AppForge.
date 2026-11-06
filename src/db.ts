@@ -843,6 +843,9 @@ export async function refillMonthlyCredits(
 
     // The user-credit tier is cached state, not proof of a current payment.
     // A cancelled or expired Stripe subscription must never mint new credits.
+    // Serialize with concurrent subscription updates before taking a billing
+    // snapshot: a cancellation must not race an unguarded refill.
+    await tx.execute(sql`SELECT id FROM subscriptions WHERE user_id = ${userId} FOR UPDATE`);
     const [subscription] = await tx
       .select()
       .from(schema.subscriptions)
