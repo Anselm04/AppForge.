@@ -23,6 +23,14 @@ describe("fail-closed customer provider-cost release gate", () => {
       .not.toThrow();
   });
 
+  it("fails closed for unset, staging and unfamiliar runtime environments", () => {
+    for (const environment of [undefined, "", "staging", "preview", "qa", "Production"]) {
+      expect(() =>
+        assertCustomerComputeLaunchCertified(false, environment),
+      ).toThrow(CUSTOMER_COMPUTE_NOT_CERTIFIED);
+    }
+  });
+
   it("guards both customer admission routes and dequeued worker execution", () => {
     const files = [
       "src/routes/generate.ts",
