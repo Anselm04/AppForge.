@@ -1,6 +1,7 @@
 import { ENV } from "./env.js";
 import { llmRetryWait } from "../lib/llmRetryPolicy.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
+import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
 import {
   assertAnyLlmProviderConfigured,
   chatCompletionsUrl,
@@ -543,7 +544,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         // Attribution is best-effort telemetry, NOT production spend control.
         // Unknown token prices/attempts remain unverified and the customer
         // production build gate must remain closed until full cost caps exist.
-        try {
+        if (currentBuildExecutionLease()) try {
           const { recordProviderUsageForCurrentBuild } = await import(
             "../services/buildProviderUsage.js"
           );
