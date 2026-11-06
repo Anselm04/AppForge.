@@ -87,6 +87,20 @@ describe("per-build provider telemetry is evidence, not fabricated billing", () 
     expect(invoke).toContain("succeeded: false");
   });
 
+  it("preserves cost evidence when an in-flight provider request is aborted", () => {
+    const code = readFileSync(resolve(process.cwd(), "src/_core/llm.ts"), "utf8");
+    const invoke = code.slice(code.indexOf("export async function invokeLLM("));
+    const abort = invoke.slice(invoke.indexOf("if (\n        signal?.aborted ||"));
+    const end = abort.indexOf("const msg = err instanceof Error");
+    expect(end).toBeGreaterThan(0);
+    const abortedRequest = abort.slice(0, end);
+    expect(abortedRequest).toContain("Aborting a request does not prove");
+    expect(abortedRequest).toContain("recordProviderUsageForCurrentBuild({");
+    expect(abortedRequest).toContain("succeeded: false");
+    expect(abortedRequest.indexOf("recordProviderUsageForCurrentBuild({"))
+      .toBeLessThan(abortedRequest.indexOf("throw err;"));
+  });
+
   it("records missing usage as unknown rather than zero-cost proof", async () => {
     mock.lease = { projectId: 1, userId: 2, executionId: 3 };
     await recordProviderUsageForCurrentBuild({
