@@ -17,7 +17,7 @@ const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
 const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
-  "All amounts on this page are in USD. These are proposals, not active checkout prices. Enterprise and other customer subscriptions do not provide unlimited compute. Complex projects require a separate customer-approved estimate. Additional usage will be prepaid and strictly metered; there are no automatic top-up charges.";
+  "Your subscription includes a limited monthly credit allowance, not unlimited builds. If you use all included and previously purchased credits before your next monthly subscription payment, AppForge pauses credit-consuming work. To continue building before the next monthly credit refill, you must separately purchase enough top-up credits at the displayed USD price, or choose an eligible higher plan. If you do not purchase more credits, the work stays paused until new credits become available. Top-ups are never automatic, and complex builds may need additional credits even within the same billing month.";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -227,6 +227,11 @@ export function Pricing() {
             Plan your budget before you build
           </p>
           <p className="mt-1">{PRICING_BUDGET_DISCLOSURE}</p>
+          <p className="mt-2 font-semibold text-forge-text-primary">
+            Monthly subscription fees and credit top-ups are separate payments.
+            All amounts are in USD; applicable taxes and any external vendor
+            charges are additional where disclosed.
+          </p>
         </div>
 
         {subStatus?.stripeCustomerId && (
@@ -344,6 +349,11 @@ export function Pricing() {
           <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")} (USD)</h3>
           <p className="text-forge-text-muted mb-6 text-sm">
             {t("pricing.buySubtitle")}
+          </p>
+          <p className="mb-6 text-sm font-semibold text-forge-text-primary">
+            Run out before your next monthly payment? To keep building now, buy
+            more credits separately. Otherwise your build pauses until credits
+            become available again. Nothing is purchased automatically.
           </p>
           {checkoutError && (
             <p className="text-sm text-red-500 mb-4" role="alert">
