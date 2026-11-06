@@ -121,52 +121,64 @@ export async function applyGodCodeGrant(
   grantType: "lifetime" | "limited",
   credits: number,
 ): Promise<{ credits: number; unlimited: boolean }> {
-  await ensureUserCredits(userId);
-  const row = await getUserCredits(userId);
-  if (!row) return { credits: 0, unlimited: false };
-
-  const now = new Date();
-  if (grantType === "lifetime") {
-    const user = await getUserById(userId);
-    if (!isOwnerEmail(user?.email)) {
-      throw new Error("Unlimited AppForge credit grants are owner-only");
-    }
-    await db
-      .update(schema.userCredits)
-      .set({
-        unlimited: true,
-        tier: "lifetime",
-        updatedAt: now,
-      })
-      .where(eq(schema.userCredits.id, row.id));
-    await db.insert(schema.creditTransactions).values({
-      userId,
-      amount: 0,
-      type: "god_code_grant",
-      description: "Lifetime unlimited credits (god code)",
-    });
-    await unpauseCreditExhaustedProjects(userId);
-    return { credits: row.balance, unlimited: true };
+  if (!Number.isSafeInteger(userId) || userId <= 0 ||
+      !Number.isSafeInteger(credits) || credits < 0) {
+    throw new Error("Invalid AppForge credit grant");
   }
+  await ensureUserCredits(userId);
 
-  const amount = Math.max(0, credits);
-  const newBalance = row.balance + amount;
-  await db.transaction(async (tx) => {
-    await tx
-      .update(schema.userCredits)
-      .set({ balance: newBalance, updatedAt: now })
-      .where(eq(schema.userCredits.id, row.id));
-    if (amount > 0) {
+  const result = await db.transaction(async (tx) => {
+    // Use the same customer lock as checkout grants and build deductions.
+    // A stale pre-transaction balance could overwrite purchased credits.
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const [row] = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    if (!row) throw new Error("AppForge credit balance not found");
+
+    const now = new Date();
+    if (grantType === "lifetime") {
+      const user = await tx.query.users.findFirst({
+        where: eq(schema.users.id, userId),
+      });
+      if (!isOwnerEmail(user?.email)) {
+        throw new Error("Unlimited AppForge credit grants are owner-only");
+      }
+      if (!row.unlimited || row.tier !== "lifetime") {
+        await tx
+          .update(schema.userCredits)
+          .set({ unlimited: true, tier: "lifetime", updatedAt: now })
+          .where(eq(schema.userCredits.id, row.id));
+        await tx.insert(schema.creditTransactions).values({
+          userId,
+          amount: 0,
+          type: "god_code_grant",
+          description: "Lifetime unlimited credits (god code)",
+        });
+      }
+      return { credits: row.balance, unlimited: true };
+    }
+
+    const newBalance = balanceAfterMonthlyGrant(row.balance, credits);
+    if (credits > 0) {
+      await tx
+        .update(schema.userCredits)
+        .set({ balance: newBalance, updatedAt: now })
+        .where(eq(schema.userCredits.id, row.id));
       await tx.insert(schema.creditTransactions).values({
         userId,
-        amount,
+        amount: credits,
         type: "god_code_grant",
-        description: `God code grant (+${amount} credits)`,
+        description: `God code grant (+${credits} credits)`,
       });
     }
+    return { credits: newBalance, unlimited: !!row.unlimited };
   });
+
   await unpauseCreditExhaustedProjects(userId);
-  return { credits: newBalance, unlimited: !!row.unlimited };
+  return result;
 }
 
 // ── SUBSCRIPTIONS ──
