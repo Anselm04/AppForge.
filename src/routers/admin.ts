@@ -560,7 +560,7 @@ export const adminRouter = router({
           message: "New unlimited lifetime codes are disabled. Use explicitly limited credits.",
         });
       }
-      const credits = input.grantType === "lifetime" ? 0 : (input.credits ?? 0);
+      const credits = input.credits ?? 0;
       if (input.grantType === "limited" && credits < 1) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -578,7 +578,7 @@ export const adminRouter = router({
           grantType: input.grantType,
           credits,
           codeHash: hash,
-          tier: input.grantType === "lifetime" ? "lifetime" : "custom",
+          tier: "custom",
           isUsed: false,
         })
         .returning({
