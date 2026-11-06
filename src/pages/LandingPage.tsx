@@ -30,7 +30,7 @@ const LANDING_PLANS = [
     key: "starter",
     nameKey: "pricing.starterName",
     descriptionKey: "pricing.starterDesc",
-    price: "$49",
+    price: "$499",
     featureKeys: [
       "pricing.starterF1",
       "pricing.starterF2",
@@ -44,7 +44,7 @@ const LANDING_PLANS = [
     key: "builder",
     nameKey: "pricing.builderName",
     descriptionKey: "pricing.builderDesc",
-    price: "$149",
+    price: "$1,499",
     featureKeys: [
       "pricing.builderF1",
       "pricing.builderF2",
@@ -58,7 +58,7 @@ const LANDING_PLANS = [
     key: "studio",
     nameKey: "pricing.studioName",
     descriptionKey: "pricing.studioDesc",
-    price: "$399",
+    price: "$3,999",
     featureKeys: [
       "pricing.studioF1",
       "pricing.studioF2",
@@ -72,7 +72,7 @@ const LANDING_PLANS = [
     key: "enterprise",
     nameKey: "pricing.enterpriseName",
     descriptionKey: "pricing.enterpriseDesc",
-    price: "$1,499",
+    price: "$11,999+",
     featureKeys: [
       "pricing.enterpriseF1",
       "pricing.enterpriseF2",
@@ -114,7 +114,7 @@ const WORKFLOW_STEPS = [
 ] as const;
 
 const LANDING_MARGIN_DISCLOSURE =
-  "Prices are in USD. All customer plans have finite compute limits. Enterprise allowances are contract-defined, not unlimited. Only the verified AppForge owner account has unlimited owner access.";
+  "PROPOSED USD pricing for owner review only. Compute usage must be metered and capped before launch; no unlimited customer use. Actual build costs depend on the approved product scope and extra work requires a separate quote.";
 
 export function LandingPage() {
   const { t } = useLocale();
