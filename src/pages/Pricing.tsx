@@ -214,7 +214,11 @@ export function Pricing() {
             Plan your budget before you build
           </p>
           <p className="mt-1">
-            All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute
+            All amounts on this page are in USD. Enterprise plans do not
+            include unlimited credits or unlimited build compute. Their agreed
+            monthly allowances and usage caps must be confirmed in writing
+            before activation. Complex products and additional iterations can
+            use more compute
             credits. Optional top-ups cost $1 per credit. When credits run out,
             work pauses so you choose whether to top up, upgrade, or stop — no
             automatic top-up charges.
