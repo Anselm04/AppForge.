@@ -137,3 +137,7 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - `providerSpendLedger` now requires a **non-null, unexpired paid subscription period** to create a provider-money reservation. An "active" string alone is not sufficient. Tests cover expired and absent periods.
 - `applyGodCodeGrant` now locks the customer inside one transaction, rereads the latest credit row and writes the grant and audit row atomically. The previous implementation read its balance before the transaction and could overwrite concurrent paid credit transactions. Lifetime grants verify owner identity inside the transaction; limited grants reject unsafe amounts. Added `ownerCodeCreditSafety.test.ts` to the offline commercial suite.
 - These are committed source corrections and regression-test additions, **not an executed test pass**. GitHub Actions jobs continue to report failed before producing steps/logs on this branch; live checkout and customer production builds remain disabled.
+
+## Credit resume regression fix — duplicate/zero grant
+
+In `db.ts`, `grantPlanCredits` previously invoked `unpauseCreditExhaustedProjects` even when the grant had been skipped as a duplicate or provided zero actual credits. Now it only resumes paused builds when `!result.skipped && result.granted > 0`. The offline owner credit safety test includes a non-network regression contract. This does not certify webhook behavior or real Stripe payments; production checkout remains closed.
