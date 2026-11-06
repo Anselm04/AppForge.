@@ -45,5 +45,14 @@ describe("fail-closed customer provider-cost release gate", () => {
     );
     expect(trpc.indexOf("assertCustomerComputeLaunchCertified(owner)"))
       .toBeLessThan(trpc.indexOf("await enrichProductContract("));
+    expect(trpc).toContain(
+      "assertCustomerComputeLaunchCertified(isOwnerEmail(ctx.user.email))",
+    );
+    const worker = readFileSync(
+      resolve(process.cwd(), "src/services/build-worker.ts"),
+      "utf8",
+    );
+    expect(worker.indexOf("assertCustomerComputeLaunchCertified("))
+      .toBeLessThan(worker.indexOf("await runAgentPipeline("));
   });
 });
