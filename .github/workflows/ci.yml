@@ -96,6 +96,8 @@ jobs:
         run: npm run test -- --coverage --run
         env:
           CI: true
+      - name: Verify provider reservations against PostgreSQL
+        run: node --import tsx --test scripts/provider-spend-postgres.test.ts
       - name: Verify existing-host isolation input, syscall and registry boundaries
         run: node --test scripts/runtime/*.test.mjs
       - name: Verify Fly capacity safety cases

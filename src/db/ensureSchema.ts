@@ -702,7 +702,7 @@ CREATE TABLE IF NOT EXISTS "incidents" (
 CREATE INDEX IF NOT EXISTS "incidents_status_severity_idx" ON "incidents" ("status", "severity");
 `;
 
-const PROVIDER_SPEND_LEDGER_SQL = `
+export const PROVIDER_SPEND_LEDGER_SQL = `
 CREATE TABLE IF NOT EXISTS "provider_spend_reservations" (
   "id" BIGSERIAL PRIMARY KEY,
   "operation_id" VARCHAR(128) NOT NULL,
