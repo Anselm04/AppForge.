@@ -49,6 +49,21 @@ describe("AppForge USD profitability calculator (offline only)", () => {
     expect(result.reason).toContain("pause and quote");
   });
 
+  it("rejects invalid or unknown tiers instead of producing a NaN budget", () => {
+    expect(() => evaluateProvisionalProviderBudget({
+      tier: "enterprise" as "starter",
+      usedCents: 0,
+      pendingCents: 0,
+      estimatedWorstCaseNewCents: 100,
+    })).toThrow(/Unknown customer tier/);
+    expect(() => evaluateProvisionalProviderBudget({
+      tier: "starter",
+      usedCents: Number.MAX_SAFE_INTEGER,
+      pendingCents: 1,
+      estimatedWorstCaseNewCents: 1,
+    })).toThrow(/overflow/);
+  });
+
   it("does not treat free access or a zero-priced billable call as authorised", () => {
     expect(
       evaluateProvisionalProviderBudget({
