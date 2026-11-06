@@ -66,6 +66,9 @@ export function evaluateProvisionalProviderBudget(input: {
   ) {
     throw new Error("Unknown or invalid customer provider costs");
   }
+  if (!Object.prototype.hasOwnProperty.call(PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS, tier)) {
+    throw new Error("Unknown customer tier; refuse provisional budget");
+  }
   const cap = PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS[tier];
   const used = usedCents + pendingCents;
   if (!Number.isSafeInteger(used)) {
