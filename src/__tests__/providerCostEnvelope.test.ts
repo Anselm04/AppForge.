@@ -76,7 +76,7 @@ describe("conservative provider-cost envelope (offline only)", () => {
 
   it("does not treat provisional rates as certified live provider prices", () => {
     const quote = sample();
-    expect(() => assertProviderPricesConfirmed(quote)).toThrow(/provisional/);
+    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(/provisional/);
     quote.priceSnapshotSource = "provider_confirmed";
     expect(() => assertProviderPricesConfirmed(quote, clock)).not.toThrow();
     expect(() => assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z"))).toThrow(/expired/);
