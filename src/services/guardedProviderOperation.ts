@@ -23,7 +23,6 @@ export async function runReservedProviderOperation<T>(
   options: {
     operationId: ProviderReservationInput["operationId"];
     envelope: CostEnvelope;
-    now?: Date;
   },
   invoke: () => Promise<T>,
 ): Promise<T> {
@@ -33,8 +32,8 @@ export async function runReservedProviderOperation<T>(
   const lease = currentBuildExecutionLease();
   if (!lease) throw new Error("Provider spending requires a build execution lease");
   await assertCurrentBuildLease();
-  assertProviderPricesConfirmed(options.envelope, options.now);
-  const maximumCents = maximumProviderEnvelopeCents(options.envelope, options.now);
+  assertProviderPricesConfirmed(options.envelope);
+  const maximumCents = maximumProviderEnvelopeCents(options.envelope);
   const status = await reserveProviderSpend({
     operationId: options.operationId,
     userId: lease.userId,
