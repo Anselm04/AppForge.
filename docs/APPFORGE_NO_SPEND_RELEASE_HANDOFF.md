@@ -73,3 +73,10 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - New subscription checkout and customer paid build gating deny unknown, staging and preview environment names; explicit local test/development runtimes still run mocked tests. No production environment escape flag is provided.
 - Failed LLM HTTP/network requests record unpriced per-build observations when an execution lease exists; tokens/cost remain unknown, not zero. Retries inside transport backoff are not yet individually costed, so this is audit evidence, not spend enforcement.
 - The hard production customer compute gate remains until atomic monetary reservations, provider billing reconciliation and tested per-user/job caps have been implemented; do not merge directly to a production-deploying branch.
+
+## Offline provider cost evidence summary
+
+- Added a read-only per-user/per-execution `summarizeBuildProviderEvidence` helper over persisted `provider_usage` events. It distinguishes token observations, failed attempts, unknown-cost samples and verified-cost subtotals.
+- **Never interpret a null/unknown provider cost as zero or as a confirmed positive margin.** Builds with no observations have unknown total, not zero total. Summaries remain `providerInvoicesReconciled: false` and `spendingLimitEnforced: false` until the full money-ledger is integrated.
+- The raw build-event reader is not exposed as a customer-facing global route in this draft. Callers must first verify customer/project ownership; the helper adds a second user/execution filter.
+- This is preparation for real atomic per-call USD reservations and provider invoice reconciliation, not sufficient reason to remove any production customer compute safety stop.
