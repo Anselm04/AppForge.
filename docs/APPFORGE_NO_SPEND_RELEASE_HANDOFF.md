@@ -141,3 +141,9 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 ## Credit resume regression fix — duplicate/zero grant
 
 In `db.ts`, `grantPlanCredits` previously invoked `unpauseCreditExhaustedProjects` even when the grant had been skipped as a duplicate or provided zero actual credits. Now it only resumes paused builds when `!result.skipped && result.granted > 0`. The offline owner credit safety test includes a non-network regression contract. This does not certify webhook behavior or real Stripe payments; production checkout remains closed.
+
+## Commercial cutover hardening: monthly refill entitlement (2026-11-06)
+
+- Corrected `refillMonthlyCredits` in `src/db.ts`: it no longer grants monthly build credits based solely on the cached `user_credits.tier`, which could remain paid after a subscription expired or was cancelled. Under the existing advisory lock and transaction, the refill reads the current subscription and requires `active` or valid `trialing` status, a positive unexpired billing period, a matching tier if the caller supplied one, and a nonzero valid refill amount. Invalid billing timestamps fail closed.
+- Extended `monthlyCreditRollover.test.ts` to cover the guard's presence and ordering, without making external payment calls.
+- Still not certified: live Stripe invoices, provider-charging reconciliation, CI execution, browser customer journey and paid integration tests. The draft PR must remain unmerged until exact-head tests and security checks pass; production checkout remains closed.
