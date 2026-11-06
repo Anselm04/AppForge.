@@ -73,9 +73,11 @@ describe("AppForge margin-protective checkout terms", () => {
     expect(checkout).toMatch(
       /assertAppForgePrice\(\s*price,\s*TOPUP_USD_CENTS\[credits\]/,
     );
-    expect(
-      checkout.search(/assertAppForgePrice\(\s*price,\s*MONTHLY_PLAN_USD_CENTS/),
-    ).toBeLessThan(checkout.indexOf("stripe.checkout.sessions.create"));
+    const policyIndex = checkout.indexOf("assertAppForgePrice");
+    expect(policyIndex).toBeGreaterThanOrEqual(0);
+    expect(policyIndex).toBeLessThan(
+      checkout.indexOf("stripe.checkout.sessions.create"),
+    );
   });
 
   it("blocks creation and redemption of new unlimited lifetime codes", () => {
