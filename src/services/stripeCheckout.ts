@@ -1,6 +1,10 @@
 import { getSubscriptionByUserId } from "../db.js";
 import { getAppForgeStripe } from "./appForgeStripe.js";
-import {assertAppForgePrice, MONTHLY_PLAN_USD_CENTS, TOPUP_USD_CENTS} from "./appForgePricePolicy.js";
+import {
+  assertAppForgePrice,
+  MONTHLY_PLAN_USD_CENTS,
+  TOPUP_USD_CENTS,
+} from "./appForgePricePolicy.js";
 
 export const SELF_SERVE_PLAN_TIERS = ["starter", "builder", "studio"] as const;
 export type SelfServePlanTier = (typeof SELF_SERVE_PLAN_TIERS)[number];
@@ -107,7 +111,12 @@ export async function createPlanCheckout(
   assertCanCreateSubscription(sub);
   const priceId = requirePlanPriceId(tier);
   const price = await stripe.prices.retrieve(priceId);
-  assertAppForgePrice(price, MONTHLY_PLAN_USD_CENTS[tier], "recurring", process.env.NODE_ENV === "production");
+  assertAppForgePrice(
+    price,
+    MONTHLY_PLAN_USD_CENTS[tier],
+    "recurring",
+    process.env.NODE_ENV === "production",
+  );
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -147,7 +156,12 @@ export async function createCreditCheckout(
   const sub = await getSubscriptionByUserId(user.id);
   const priceId = requireCreditPriceId(credits);
   const price = await stripe.prices.retrieve(priceId);
-  assertAppForgePrice(price, TOPUP_USD_CENTS[credits], "one_time", process.env.NODE_ENV === "production");
+  assertAppForgePrice(
+    price,
+    TOPUP_USD_CENTS[credits],
+    "one_time",
+    process.env.NODE_ENV === "production",
+  );
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     line_items: [{ price: priceId, quantity: 1 }],
