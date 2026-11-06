@@ -10,7 +10,7 @@ import { TRPCError } from "@trpc/server";
  * per-customer/per-job monetary reservations, provider metering and hard
  * enforcement inside every external billable call.
  *
- * Non-production CI can use mocked model calls. Owner review/test actions
+ * Only explicit local test/development CI can use mocked model calls. Unknown runtimes fail closed. Owner review/test actions
  * are explicitly outside paid customer launch certification.
  */
 export const CUSTOMER_COMPUTE_NOT_CERTIFIED =
@@ -21,7 +21,7 @@ export function customerComputeLaunchCertified(
 ): boolean {
   // This is deliberately NOT controlled by a config flag: env=true is not
   // evidence that all AI, VM, storage, egress and retry charges are capped.
-  return environment !== "production";
+  return environment === "test" || environment === "development";
 }
 
 export function assertCustomerComputeLaunchCertified(
