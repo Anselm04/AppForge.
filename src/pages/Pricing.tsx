@@ -111,7 +111,7 @@ export function Pricing() {
     {
       key: "starter" as const,
       name: t("pricing.starterName"),
-      price: "$499",
+      price: "$79",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.starterDesc"),
       features: [
@@ -135,7 +135,7 @@ export function Pricing() {
     {
       key: "builder" as const,
       name: t("pricing.builderName"),
-      price: "$1,499",
+      price: "$199",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.builderDesc"),
       features: [
@@ -158,7 +158,7 @@ export function Pricing() {
     {
       key: "studio" as const,
       name: t("pricing.studioName"),
-      price: "$3,999",
+      price: "$499",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.studioDesc"),
       features: [
@@ -179,7 +179,7 @@ export function Pricing() {
     {
       key: "enterprise" as const,
       name: t("pricing.enterpriseName"),
-      price: "$11,999+",
+      price: "$2,499+",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.enterpriseDesc"),
       features: [
@@ -370,7 +370,7 @@ export function Pricing() {
                   {pack}
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  {t("pricing.packCredits", { n: pack })} · USD ${(pack * 5).toLocaleString("en-US")}
+                  {t("pricing.packCredits", { n: pack })} · USD ${(pack * 2).toLocaleString("en-US")}
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
