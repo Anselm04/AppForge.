@@ -80,6 +80,22 @@ describe("AppForge margin-protective checkout terms", () => {
     );
   });
 
+  it("warns customers that mid-cycle top-ups are a separate purchase", () => {
+    const pricing = readFileSync(
+      resolve(process.cwd(), "src/pages/Pricing.tsx"),
+      "utf8",
+    );
+    const landing = readFileSync(
+      resolve(process.cwd(), "src/pages/LandingPage.tsx"),
+      "utf8",
+    );
+    expect(pricing).toContain("before your next monthly subscription payment");
+    expect(pricing).toContain("must separately purchase");
+    expect(pricing).toContain("Top-ups are never automatic");
+    expect(landing).toContain("before your next monthly subscription payment");
+    expect(landing).toContain("must buy extra top-up credits separately");
+  });
+
   it("blocks creation and redemption of new unlimited lifetime codes", () => {
     const admin = readFileSync(
       resolve(process.cwd(), "src/routers/admin.ts"),
