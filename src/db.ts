@@ -200,7 +200,7 @@ export async function getUserTier(userId: number): Promise<string> {
 }
 
 const TIER_BUILD_LIMITS: Record<string, number | null> = {
-  free: 3,
+  free: 0,
   starter: 16,
   builder: 66,
   studio: null,
@@ -213,7 +213,7 @@ export function getTierBuildLimit(tier: string): number | null {
 }
 
 const TIER_CREDIT_REFILLS: Record<string, number | null> = {
-  free: 20,
+  free: 0,
   starter: 100,
   builder: 400,
   studio: 1500,
@@ -785,9 +785,11 @@ export async function ensureUserCredits(userId: number) {
     .insert(schema.userCredits)
     .values({
       userId,
-      balance: 20,
+      // Explore is free to browse/plan; do not issue paid-generation credits.
+      // Existing balances are never changed by this new-account default.
+      balance: 0,
       tier: "free",
-      monthlyAllowance: 3,
+      monthlyAllowance: 0,
       unlimited: owner,
     })
     .onConflictDoNothing({ target: schema.userCredits.userId });
