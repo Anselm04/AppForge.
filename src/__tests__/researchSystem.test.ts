@@ -202,9 +202,8 @@ describe("section 5 research system", () => {
 // Live network integration checks are opt-in locally and required explicitly by CI.
 // Keep deterministic tests in the default pre-push suite so offline development
 // does not mistake DNS/network isolation for an application regression.
-describe.runIf(process.env.APPFORGE_LIVE_RESEARCH_TESTS === "1")(
-  "section 5 live structured providers",
-  () => {
+const liveResearch = process.env.APPFORGE_LIVE_RESEARCH_TESTS === "1";
+describe.runIf(liveResearch)("section 5 live structured providers", () => {
   beforeEach(() => {
     const original = (
       globalThis as typeof globalThis & { __originalFetch?: typeof fetch }
@@ -242,5 +241,4 @@ describe.runIf(process.env.APPFORGE_LIVE_RESEARCH_TESTS === "1")(
     expect(doc.fact.status).toBe("verified");
     expect(doc.fact.httpStatus).toBe(200);
   }, 20_000);
-  },
-);
+});
