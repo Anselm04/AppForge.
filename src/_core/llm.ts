@@ -356,6 +356,7 @@ const computeBackoffDelay = (
 const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
+  onRetry?: () => Promise<void>,
 ): Promise<Response> => {
   let lastError: unknown;
 
@@ -386,6 +387,14 @@ const fetchWithBackoff = async (
       } catch {
         // Body already settled; nothing to clean up.
       }
+
+      if (onRetry) {
+        try {
+          await onRetry();
+        } catch (evidenceError) {
+          console.warn("LLM retry usage evidence unavailable", evidenceError);
+        }
+      }
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`,
       );
@@ -402,6 +411,14 @@ const fetchWithBackoff = async (
         throw error;
       }
       if (attempt === RETRY_MAX_RETRIES) throw error;
+
+      if (onRetry) {
+        try {
+          await onRetry();
+        } catch (evidenceError) {
+          console.warn("LLM retry usage evidence unavailable", evidenceError);
+        }
+      }
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`,
       );
@@ -525,6 +542,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         },
         body: JSON.stringify(payload),
         signal,
+      }, async () => {
+        // Each HTTP/network retry may incur a charge even if its result was
+        // never observed. Record it independently of the final response.
+        if (!currentBuildExecutionLease()) return;
+        const { recordProviderUsageForCurrentBuild } = await import(
+          "../services/buildProviderUsage.js"
+        );
+        await recordProviderUsageForCurrentBuild({
+          provider: provider.id,
+          model: String(payload.model),
+          succeeded: false,
+        });
       });
 
       if (response.ok) {
