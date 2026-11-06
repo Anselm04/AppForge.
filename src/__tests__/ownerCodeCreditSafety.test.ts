@@ -42,3 +42,17 @@ describe("owner-code grant safety — no external services", () => {
     expect(() => balanceAfterMonthlyGrant(Number.MAX_SAFE_INTEGER, 1)).toThrow();
   });
 });
+
+describe("no automatic restart from skipped credit grants", () => {
+  it("requires an actual positive new monthly grant to unpause work", () => {
+    const db = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
+    const grant = db.slice(
+      db.indexOf("export async function grantPlanCredits("),
+      db.indexOf("export async function updateProjectCreditsSpent("),
+    );
+    expect(grant).toContain("if (!result.skipped && result.granted > 0)");
+    expect(grant).toContain("await unpauseCreditExhaustedProjects(userId)");
+    expect(grant.indexOf("if (!result.skipped && result.granted > 0)"))
+      .toBeLessThan(grant.lastIndexOf("await unpauseCreditExhaustedProjects(userId)"));
+  });
+});
