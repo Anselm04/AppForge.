@@ -20,7 +20,6 @@ import {
 export async function runReservedProviderOperation<T>(
   options: {
     operationId: ProviderReservationInput["operationId"];
-    monthlyLimitCents: number;
     envelope: CostEnvelope;
     now?: Date;
   },
@@ -37,7 +36,6 @@ export async function runReservedProviderOperation<T>(
     projectId: lease.projectId,
     executionId: lease.executionId,
     maximumCents,
-    monthlyLimitCents: options.monthlyLimitCents,
   });
   // Replaying the same request must not dispatch a second billable operation.
   if (status !== "reserved") {
