@@ -305,6 +305,27 @@ CREATE TABLE IF NOT EXISTS "build_events" (
 CREATE INDEX IF NOT EXISTS "build_events_project_idx" ON "build_events" ("project_id");
 CREATE INDEX IF NOT EXISTS "build_events_project_id_idx" ON "build_events" ("project_id", "id");
 
+CREATE TABLE IF NOT EXISTS "provider_spend_reservations" (
+  "id" BIGSERIAL PRIMARY KEY,
+  "operation_id" VARCHAR(128) NOT NULL,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "execution_id" INTEGER NOT NULL CHECK ("execution_id" > 0),
+  "period_start" DATE NOT NULL,
+  "maximum_cents" BIGINT NOT NULL CHECK ("maximum_cents" > 0),
+  "actual_cents" BIGINT CHECK ("actual_cents" >= 0 AND "actual_cents" <= "maximum_cents"),
+  "state" VARCHAR(16) NOT NULL DEFAULT 'reserved'
+    CHECK ("state" IN ('reserved', 'settled', 'released')),
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "provider_spend_state_consistency"
+    CHECK (("state" = 'settled' AND "actual_cents" IS NOT NULL)
+       OR ("state" <> 'settled' AND "actual_cents" IS NULL)),
+  CONSTRAINT "provider_spend_operation_unique" UNIQUE ("user_id", "operation_id")
+);
+CREATE INDEX IF NOT EXISTS "provider_spend_user_period_idx"
+  ON "provider_spend_reservations" ("user_id", "period_start", "state");
+
 CREATE TABLE IF NOT EXISTS "project_assets" (
   "id" SERIAL PRIMARY KEY,
   "project_id" INTEGER NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
