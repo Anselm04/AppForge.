@@ -32,3 +32,19 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 - Normal static GitHub source edits and pull requests are permitted; Actions may consume the repository's included minutes, so avoid unnecessary reruns.
 
 **Engineering status:** Source changes staged for review, not a completed profit-safe billing release. Product capability certification and real-margin proof remain dependent on actual usage receipts and approved live testing.
+
+## Latest offline engineering — financial release safety
+
+- Implemented `customerComputeLaunchGate.ts` as a **non-bypassable production-only stop** for paid customer AI build entry and queue execution. Both REST and tRPC creation paths, tRPC resume and the build worker check it. Mocked development/CI flows remain available. No arbitrary `ENABLE=true` environment variable pretends to certify actual provider cost controls.
+- Implemented `appForgeCommercialCheckoutGate.ts` as a server-side production checkout stop for *new* subscriptions and paid credit-pack sessions. Existing active customer subscriptions, Stripe objects, plan access and saved projects are not modified by this code. Mocked Stripe tests can run outside production.
+- These stops are **intentional launch blockers, not delivered provider-cost metering or completed commercial functionality**. Remove them only in reviewed code when all provider-priced operations have per-tenant/job preauthorised spend reservations with atomic limits, accounted retries, reconciliation, and refund/cancellation rules; when correct new live Stripe price IDs and tax/customer disclosures are tested; and only following the owner's explicit deployment approval.
+- Tightened prepaid/subscription credit arithmetic with `balanceAfterMonthlyGrant` across the plan and top-up grant paths, and added regression tests for customer compute start, resume, worker execution and direct checkout safety.
+- **Do not assume GitHub Actions are free**: test scope should be limited to existing available minutes, and do not initiate live Stripe, SMS or paid LLM services.
+
+## Offline verification strategy
+
+1. Run format/type checks, targeted Vitest suites, mock gateway/Stripe tests and dependency security checks once on the exact integration head, without API secrets.
+2. Preserve the stacked draft PRs (#249 → #250) until conflicts/rebase have been reconciled and the owner approves a single release candidate.
+3. Test cost-budget denial and retry safety in simulated execution, then implement/verify provider pricing and atomic monetary budget enforcement in the billing ledger.
+4. Clearly report source-level verification separately from executed CI results; tests written are **not** evidence they passed.
+5. Keep Fly.io production and existing live Stripe products untouched.
