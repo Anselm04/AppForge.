@@ -29,6 +29,7 @@ const tests = [
   "src/__tests__/providerSpendLedger.test.ts",
   "src/__tests__/providerCostEnvelope.test.ts",
   "src/__tests__/guardedProviderOperation.test.ts",
+  "src/__tests__/ownerCodeCreditSafety.test.ts",
   "src/__tests__/offlineCustomerAcceptance.test.ts",
   "src/__tests__/customer-flow-contract.e2e.spec.ts",
 ];
