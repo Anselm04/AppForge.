@@ -85,7 +85,10 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
     const usage = await tx.execute<{ total: string }>(sql`
       SELECT COALESCE(SUM(COALESCE(actual_cents, maximum_cents)), 0)::text AS total
       FROM provider_spend_reservations WHERE user_id = ${input.userId}
-        AND period_start = ${period}::date AND state IN ('reserved', 'settled')
+        AND (
+          state = 'reserved'
+          OR (period_start = ${period}::date AND state = 'settled')
+        )
     `);
     const spent = amount((usage as unknown as Array<{ total: string }>)[0]?.total ?? "0");
     if (input.maximumCents > monthlyLimitCents - spent)
