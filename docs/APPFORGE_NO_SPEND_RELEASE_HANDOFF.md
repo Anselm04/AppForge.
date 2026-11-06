@@ -130,3 +130,10 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - Fixed `providerSpendLedger.ts` to count **all outstanding reserved** (unreconciled) provider charges, including operations begun in earlier UTC calendar months, against the current period's admission budget. Only verified **settled** charges from the current period are counted as current-month settled usage.
 - A regression test in `providerSpendLedger.test.ts` covers an old-month pending charge preventing overspend after month rollover, followed by its settlement and restoration of current-month available budget.
 - This is conservative financial risk accounting, not provider verification or a production integration certification. Existing release stops remain.
+
+## Current no-spend hardening — expiry and credit atomicity
+
+- `runReservedProviderOperation` now exclusively uses the trusted current server clock for provider price expiration. The previous optional caller clock was removed from this dispatch path; test coverage uses Vitest's isolated fake system clock instead.
+- `providerSpendLedger` now requires a **non-null, unexpired paid subscription period** to create a provider-money reservation. An "active" string alone is not sufficient. Tests cover expired and absent periods.
+- `applyGodCodeGrant` now locks the customer inside one transaction, rereads the latest credit row and writes the grant and audit row atomically. The previous implementation read its balance before the transaction and could overwrite concurrent paid credit transactions. Lifetime grants verify owner identity inside the transaction; limited grants reject unsafe amounts. Added `ownerCodeCreditSafety.test.ts` to the offline commercial suite.
+- These are committed source corrections and regression-test additions, **not an executed test pass**. GitHub Actions jobs continue to report failed before producing steps/logs on this branch; live checkout and customer production builds remain disabled.
