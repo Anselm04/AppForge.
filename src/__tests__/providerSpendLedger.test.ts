@@ -38,7 +38,7 @@ vi.mock("../db.js", () => ({
           }
           if (text.includes("SELECT COALESCE(SUM")) {
             const total = state.reservations
-              .filter((r) => r.userId === p[0] && r.period === p[1] && r.state !== "released")
+              .filter((r) => r.userId === p[0] && (r.state === "reserved" || (r.period === p[1] && r.state === "settled")))
               .reduce((sum, r) => sum + (r.actualCents ?? r.maximumCents), 0);
             return [{ total: String(total) }];
           }
@@ -99,6 +99,17 @@ describe("offline customer money reservation and settlement", () => {
     expect(result.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(result.filter((r) => r.status === "rejected")).toHaveLength(1);
     expect(state.reservations).toHaveLength(1);
+  });
+  it("holds previous-month unresolved charges against the new month budget", async () => {
+    await reserveProviderSpend(input("carryover_1", 1100));
+    // Simulate a new calendar period while the provider invoice is pending.
+    state.reservations[0].period = "2026-10-01";
+    await expect(reserveProviderSpend(input("next_month_2", 150)))
+      .rejects.toThrow(/budget exhausted/);
+    // Once an old-month charge is verified and settled, it belongs only to
+    // the original period; a new month's allowance can be used.
+    await settleProviderSpend(1, "carryover_1", 1000);
+    expect(await reserveProviderSpend(input("next_month_2", 150))).toBe("reserved");
   });
   it("does not treat unknown charges, invalid money or zero allowance as free", async () => {
     await reserveProviderSpend(input("unknown_1", 1175));
