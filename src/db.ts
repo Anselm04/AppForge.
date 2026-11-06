@@ -835,7 +835,9 @@ export async function refillMonthlyCredits(
     await tx
       .update(schema.userCredits)
       .set({
-        balance: refillAmount,
+        // Never destroy unused separately purchased credits on a monthly refill.
+        // Plan grants and top-ups share the current balance in this legacy ledger.
+        balance: credits.balance + refillAmount,
         tier: effectiveTier,
         monthlyAllowance: getTierBuildLimit(effectiveTier) ?? 0,
         lastRefillAt: now,
