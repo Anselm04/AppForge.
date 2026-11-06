@@ -436,6 +436,12 @@ async function runOwnedBuildJob(
       throw new BuildDependencyBlockedError(dependencyGraph);
     }
 
+    // Recheck at worker execution, including jobs queued before a new release.
+    // The fixed credit reservation is NOT a third-party cost budget.
+    const { getUserById } = await import("../db.js");
+    const { isOwnerEmail } = await import("../lib/owner.js");
+    const jobOwner = await getUserById(userId);
+    assertCustomerComputeLaunchCertified(isOwnerEmail(jobOwner?.email));
     await assertBuildExecutionReady();
 
     if (project.status === "paused") {
