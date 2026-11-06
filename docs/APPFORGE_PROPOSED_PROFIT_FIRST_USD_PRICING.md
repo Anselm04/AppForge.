@@ -28,7 +28,7 @@ Assumptions, **not verified bills**:
 - Every customer uses the full planned variable provider-cost ceiling.
 - Customer-variable support/servicing allowances per month: $35 Starter, $150 Builder, $450 Studio, $1,500 Enterprise.
 - Conservative payment/FX allowance: **5.5% of sales**, approximately $2,639 at the illustrated mix, pending actual Stripe settlement mix. Actual Stripe NZ rates vary: domestic cards 2.65% + NZ$0.30, international 3.5% + NZ$0.30, plus 2% if currency conversion is needed.
-- Fixed shared monthly overhead **$18,000**: $7,000 founder gross salary (employee PAYE/ACC withheld and remitted according to NZ rules), $4,000 shared cloud/security/operations, $2,000 accounting/legal/compliance, $2,000 marketing/customer acquisition, $3,000 reserve and contingency. These are planning allowances, not audited company costs.
+- Budgeted fixed monthly cash requirement **$18,000**: $7,000 founder gross salary (employee PAYE/ACC withheld and remitted according to NZ rules), $4,000 shared cloud/security/operations, $2,000 accounting/legal/compliance, $2,000 marketing/customer acquisition, **plus a $3,000 cash reserve allocation after tax**. Only $15,000 is treated as deductible operating spending in this illustration; merely transferring cash into a reserve is **not** itself a deductible business expense. These are planning allowances, not audited company costs.
 - NZ company income tax modelled at 28% on positive **taxable** income after deductible business expenses, with accounting adjustments ignored in the illustration. GST is a separate collection/remittance obligation, not revenue. Owner salary is a cost *before* company profit; do **not** add personal income tax again as an extra corporate expense on top of gross wages.
 
 | Item | Monthly USD |
@@ -37,14 +37,16 @@ Assumptions, **not verified bills**:
 | Third-party provider budget consumed | ($8,750) |
 | Customer-variable support costs | ($5,150) |
 | Payment/FX allowance (5.5%) | ($2,639) |
-| Fixed shared overhead, founder gross salary and reserves | ($18,000) |
-| **Illustrative pretax company profit** | **$13,436** |
-| Modelled NZ company income tax (28%) | ($3,762) |
-| **Illustrative retained company profit after tax** | **$9,674** |
+| Fixed deductible spending including founder gross salary | ($15,000) |
+| **Illustrative pretax taxable company profit** | **$16,436** |
+| Modelled NZ company income tax (28%) | ($4,602) |
+| **Illustrative company profit after tax** | **$11,834** |
+| Cash set aside into contingency reserve (not a tax deduction) | ($3,000) |
+| **Cash remaining after company tax and reserve** | **$8,834** |
 
-The founder would also have **$7,000 gross monthly pay** in this scenario, subject to PAYE, ACC and individual circumstances. The retained company profit is not personal take-home pay. Business cash flow and deposits/working capital may differ from recognised accounting profit.
+The founder would also have **$7,000 gross monthly pay** in this scenario, subject to PAYE, ACC and individual circumstances. The remaining company cash is not personal take-home pay. The reserve is an internal cash allocation from after-tax earnings unless money is actually spent on deductible items. Business cash flow and deposits/working capital may differ from recognised accounting profit.
 
-At this same artificial customer *mix* and average contribution/customer, the $18,000 fixed overhead requires approximately **15 paying customers to break even**; real break-even varies drastically by plan mix, workload, payment method, refunds and support. **Zero/low customers can still mean a loss regardless of price.**
+At this same artificial customer *mix* and average contribution/customer, the $15,000 deductible operating budget plus planned $3,000 after-tax cash reserve requires approximately **15 paying customers to satisfy the overall cash target**; real break-even varies drastically by plan mix, workload, payment method, refunds and support. **Zero/low customers can still mean a loss regardless of price.**
 
 ### Before numbers can be made live
 
