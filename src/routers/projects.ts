@@ -50,7 +50,7 @@ import {
 import { assertBuildExecutionReady } from "../services/buildExecutionReadiness.js";
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 
-const FREE_TIER_LIMIT = 3;
+const FREE_TIER_LIMIT = 0;
 
 const recoveryFailureKindEnum = z.enum([
   "application_failure",
@@ -572,6 +572,8 @@ export const projectsRouter = router({
         });
       }
 
+      // Resume must obey the same financial launch stop as first-time builds.
+      assertCustomerComputeLaunchCertified(isOwnerEmail(ctx.user.email));
       await assertBuildExecutionReady();
       const credits = await ensureUserCredits(ctx.user.id);
       const unlimited =
