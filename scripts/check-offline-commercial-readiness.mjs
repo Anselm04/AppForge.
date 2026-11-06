@@ -24,6 +24,8 @@ const tests = [
   "src/__tests__/providerCostPolicy.test.ts",
   "src/__tests__/buildProviderUsage.test.ts",
   "src/__tests__/legacyBuilderHonesty.test.ts",
+  "src/__tests__/buildCostEvidence.test.ts",
+  "src/__tests__/commercialCheckoutReleaseSafety.test.ts",
 ];
 
 const env = { ...process.env, NODE_ENV: "test" };
