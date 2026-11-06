@@ -15,7 +15,7 @@ export const COMMERCIAL_CHECKOUT_PAUSED =
 export function assertCommercialCheckoutReleased(
   environment: string | undefined = process.env.NODE_ENV,
 ): void {
-  if (environment === "production") {
+  if (environment !== "test" && environment !== "development") {
     throw new Error(COMMERCIAL_CHECKOUT_PAUSED);
   }
 }
