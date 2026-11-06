@@ -24,6 +24,18 @@ describe("AppForge monthly credits and paid top-ups", () => {
     }
   });
 
+  it("keeps new Free Explore accounts free of provider-funded credits", () => {
+    const db = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
+    const initial = db.slice(
+      db.indexOf("export async function ensureUserCredits("),
+      db.indexOf("export async function refillMonthlyCredits("),
+    );
+    expect(initial).toContain("balance: 0,");
+    expect(initial).toContain('tier: "free"');
+    expect(db).toMatch(/free:\s*0,\s*starter:\s*100/);
+    expect(db).toMatch(/TIER_BUILD_LIMITS[^]*?free:\s*0,/);
+  });
+
   it("uses additive rollover in the actual database refill path", () => {
     const db = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
     const start = db.indexOf("export async function refillMonthlyCredits(");
