@@ -15,8 +15,9 @@ type CreditPack = 50 | 100 | 250;
 
 const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
+const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
-  "All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute credits. Optional top-ups cost $1 per credit. When credits run out, work pauses so you choose whether to top up, upgrade, or stop — no automatic top-up charges.";
+  "All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute credits. Proposed top-up pricing is $5 per credit, subject to approval, metering and future Stripe configuration. When credits run out, work pauses so you choose whether to top up, upgrade, or stop — no automatic top-up charges.";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -110,7 +111,7 @@ export function Pricing() {
     {
       key: "starter" as const,
       name: t("pricing.starterName"),
-      price: "$49",
+      price: "$499",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.starterDesc"),
       features: [
@@ -125,6 +126,7 @@ export function Pricing() {
         currentTier === "starter" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled:
+        PRICING_PROPOSAL_MODE ||
         currentTier === "starter" ||
         currentTier === "builder" ||
         currentTier === "studio" ||
@@ -133,7 +135,7 @@ export function Pricing() {
     {
       key: "builder" as const,
       name: t("pricing.builderName"),
-      price: "$149",
+      price: "$11,999+",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.builderDesc"),
       features: [
@@ -148,6 +150,7 @@ export function Pricing() {
         currentTier === "builder" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: true,
       disabled:
+        PRICING_PROPOSAL_MODE ||
         currentTier === "builder" ||
         currentTier === "studio" ||
         currentTier === "enterprise",
@@ -155,7 +158,7 @@ export function Pricing() {
     {
       key: "studio" as const,
       name: t("pricing.studioName"),
-      price: "$399",
+      price: "$3,999",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.studioDesc"),
       features: [
@@ -169,7 +172,9 @@ export function Pricing() {
       cta:
         currentTier === "studio" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
-      disabled: currentTier === "studio" || currentTier === "enterprise",
+      disabled:
+        PRICING_PROPOSAL_MODE ||
+        currentTier === "studio" || currentTier === "enterprise",
     },
     {
       key: "enterprise" as const,
@@ -200,6 +205,12 @@ export function Pricing() {
         <div className="text-center mb-4">
           <Badge tone="success">Secure checkout powered by Stripe</Badge>
         </div>
+        {PRICING_PROPOSAL_MODE && (
+          <p className="text-center text-sm text-forge-text-muted mb-4">
+            PROPOSED USD PRICES — FOR OWNER REVIEW ONLY. Subscription checkout
+            is disabled until billing, cost limits and Stripe prices are approved.
+          </p>
+        )}
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
         <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
           {t("pricing.subtitle")}
