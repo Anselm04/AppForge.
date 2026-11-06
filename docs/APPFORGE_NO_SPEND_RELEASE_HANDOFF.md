@@ -124,3 +124,9 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 ## Direct provider-dispatch hard stop
 
 `runReservedProviderOperation` now itself calls `assertCustomerComputeLaunchCertified(false)` before accessing a build lease or reserving provider funds. That makes the preparatory helper fail closed in production and unknown runtime environments even if a future route accidentally calls it directly. An offline regression contract protects this ordering. A separate reviewed certification change must establish complete pricing, rate-source authenticity, all-provider/transport-retry cost enforcement and invoice reconciliation before this stop can be removed.
+
+## Pending-charge rollover protection
+
+- Fixed `providerSpendLedger.ts` to count **all outstanding reserved** (unreconciled) provider charges, including operations begun in earlier UTC calendar months, against the current period's admission budget. Only verified **settled** charges from the current period are counted as current-month settled usage.
+- A regression test in `providerSpendLedger.test.ts` covers an old-month pending charge preventing overspend after month rollover, followed by its settlement and restoration of current-month available budget.
+- This is conservative financial risk accounting, not provider verification or a production integration certification. Existing release stops remain.
