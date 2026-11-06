@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 const state = vi.hoisted(() => ({
   lease: undefined as undefined | {
     userId: number;
@@ -45,6 +47,16 @@ beforeEach(() => {
 });
 
 describe("pre-dispatch monetary guard mock acceptance", () => {
+  it("does not allow direct production dispatch around the customer release stop", () => {
+    const wrapper = readFileSync(
+      resolve(process.cwd(), "src/services/guardedProviderOperation.ts"),
+      "utf8",
+    );
+    expect(wrapper).toContain("assertCustomerComputeLaunchCertified(false)");
+    expect(wrapper.indexOf("assertCustomerComputeLaunchCertified(false)"))
+      .toBeLessThan(wrapper.indexOf("const lease = currentBuildExecutionLease()"));
+  });
+
   it("reserves verified maximum before attempting a paid call", async () => {
     expect(await runReservedProviderOperation(options(), state.dispatched))
       .toBe("mock-provider-result");
