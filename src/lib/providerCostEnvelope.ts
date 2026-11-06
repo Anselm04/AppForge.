@@ -99,7 +99,8 @@ export function maximumProviderEnvelopeCents(
 }
 
 /** A provisional estimate can inform a quote but never certify live charging. */
-export function assertProviderPricesConfirmed(envelope: CostEnvelope): void {
+export function assertProviderPricesConfirmed(envelope: CostEnvelope, now: Date = new Date()): void {
+  maximumProviderEnvelopeCents(envelope, now);
   if (envelope.priceSnapshotSource !== "provider_confirmed") {
     throw new Error("Provider prices remain provisional; customer work paused");
   }
