@@ -330,11 +330,12 @@ export function LandingPage() {
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
                 More complex products can require extra build iterations,
                 additional AI work, specialist or Senior Dev sessions, larger
-                integrations, or more compute than a standard build. In those
-                cases you may need extra credit top-ups or a higher plan. We
-                tell you this upfront so the price of the subscription is not
-                mistaken for a promise that every possible product can be
-                completed within the included monthly credits.
+                integrations, or more compute than a standard build. If you run
+                out of credits before your next monthly subscription payment,
+                you must buy extra top-up credits separately to keep building
+                right away. Otherwise your build pauses until new credits
+                become available, or you choose an eligible higher plan.
+                Subscriptions do not promise unlimited completed products.
               </p>
             </div>
             <div className="rounded-2xl border border-forge-border bg-forge-bg/50 p-5">
@@ -347,12 +348,17 @@ export function LandingPage() {
                   you subscribe.
                 </li>
                 <li>
-                  • Extra credits are optional top-ups at the published rate —
-                  not a hidden automatic charge.
+                  • Included credits are limited. You may need to buy extra
+                  top-up credits between your monthly subscription payments.
                 </li>
                 <li>
-                  • If you run out of credits, AppForge pauses the work so you
-                  decide whether to top up, upgrade, or stop.
+                  • To continue immediately after running out, you must pay
+                  separately for enough credits. Otherwise work pauses until
+                  credits become available again.
+                </li>
+                <li>
+                  • Top-ups are customer-approved purchases only: no hidden
+                  charges and no automatic top-up payments.
                 </li>
               </ul>
             </div>
