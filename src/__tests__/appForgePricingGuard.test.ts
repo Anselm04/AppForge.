@@ -67,14 +67,14 @@ describe("AppForge margin-protective checkout terms", () => {
       "utf8",
     );
     expect(checkout).toContain("stripe.prices.retrieve(priceId)");
-    expect(checkout).toContain(
-      "assertAppForgePrice(price, MONTHLY_PLAN_USD_CENTS[tier]",
+    expect(checkout).toMatch(
+      /assertAppForgePrice\(\s*price,\s*MONTHLY_PLAN_USD_CENTS\[tier\]/,
     );
-    expect(checkout).toContain(
-      "assertAppForgePrice(price, TOPUP_USD_CENTS[credits]",
+    expect(checkout).toMatch(
+      /assertAppForgePrice\(\s*price,\s*TOPUP_USD_CENTS\[credits\]/,
     );
     expect(
-      checkout.indexOf("assertAppForgePrice(price, MONTHLY_PLAN_USD_CENTS"),
+      checkout.search(/assertAppForgePrice\(\s*price,\s*MONTHLY_PLAN_USD_CENTS/),
     ).toBeLessThan(checkout.indexOf("stripe.checkout.sessions.create"));
   });
 
