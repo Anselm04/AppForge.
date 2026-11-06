@@ -22,7 +22,7 @@ const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
 ]);
 
 const TIER_LIMITS: Record<string, number | null> = {
-  free: 3,
+  free: 0,
   starter: 16,
   builder: 66,
   studio: null,
