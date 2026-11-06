@@ -970,7 +970,7 @@ export async function addCredits(
       .limit(1);
     const credits = current[0];
     if (!credits) throw new Error(`Credits row missing for user ${userId}`);
-    const newBalance = credits.balance + amount;
+    const newBalance = balanceAfterMonthlyGrant(credits.balance, amount);
 
     await tx
       .update(schema.userCredits)
@@ -1075,7 +1075,7 @@ export async function grantPlanCredits(
       return { granted: 0, skipped: false };
     }
 
-    const newBalance = credits.balance + refillAmount;
+    const newBalance = balanceAfterMonthlyGrant(credits.balance, refillAmount);
     await tx
       .update(schema.userCredits)
       .set({
