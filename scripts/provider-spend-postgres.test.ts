@@ -115,6 +115,14 @@ test("real PostgreSQL serializes reservations and refuses overspending", async (
     await reserveProviderSpend({ ...input, operationId: "attempt_004" }),
     "reserved",
   );
+  await assert.rejects(
+    reserveProviderSpend({
+      ...input,
+      operationId: "attempt_006",
+      maximumCents: 1,
+    }),
+    /Provider budget exhausted/,
+  );
 });
 
 test("real PostgreSQL rejects cross-customer project reservations", async () => {
