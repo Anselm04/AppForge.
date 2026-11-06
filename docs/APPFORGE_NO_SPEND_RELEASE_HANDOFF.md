@@ -112,3 +112,11 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - The server applies only the **provisional** internal ceilings in `providerCostPolicy.ts`; free, expired, cancelled, unknown, enterprise and unpriced tiers cannot reserve provider costs until their own commercial policy is explicitly defined. These ceilings are not owner-approved allowances and are **not** an authority to open paid customer builds.
 - Adjusted the guarded provider wrapper so callers cannot provide spending caps, and expanded ledger tests for cancelled/unknown tiers, duplicate operations, concurrent cost exhaustion and settlement consistency.
 - No live database was migrated, and no provider call was dispatched. Exact-head runtime and GitHub CI verification remain outstanding.
+
+## 2026-11-06 continued offline commercial hardening
+
+- Fixed preparatory `providerSpendLedger` so the caller cannot pass its own spending limit. It obtains active subscription status and the provisional internal tier ceiling under the same customer row lock as the spending reservation. Unsupported/unknown/expired/unpaid tiers fail closed.
+- Draft `Pricing.tsx` no longer advertises provisional `$100/$200/$500` top-up prices. Exact USD pack pricing is visibly awaiting owner approval, purchases remain disabled, and separate top-up payments are explicitly disclosed.
+- Instrumented `fetchWithBackoff` in `src/_core/llm.ts` to persist unknown-cost usage evidence for **each retryable HTTP and network error** in a build, as well as aborted provider requests, instead of merely recording the final response. This evidence is not a provider invoice or spending enforcement.
+- Updated relevant offline tests for server-derived tier ceilings, unapproved price disclosure, transport retries and uncertain aborted attempts.
+- GitHub Actions has repeatedly ended workflows without job execution steps; **the code and tests are not certified as passing**. Do not circumvent the required checks or production release gates. Remaining uncorrected code-style reports and exact-head build/test failures must be addressed when execution is available.
