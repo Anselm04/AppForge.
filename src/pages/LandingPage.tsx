@@ -318,7 +318,8 @@ export function LandingPage() {
                 Know what your build can cost
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                {LANDING_MARGIN_DISCLOSURE} A standard full build currently reserves{" "}
+                {LANDING_MARGIN_DISCLOSURE} A standard full build currently
+                reserves{" "}
                 {BUILD_CREDIT_COST} credits when it starts. Straightforward
                 products are designed to fit the normal build flow, but not
                 every product requires the same amount of work.
