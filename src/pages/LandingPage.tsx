@@ -30,7 +30,7 @@ const LANDING_PLANS = [
     key: "starter",
     nameKey: "pricing.starterName",
     descriptionKey: "pricing.starterDesc",
-    price: "$499",
+    price: "$79",
     featureKeys: [
       "pricing.starterF1",
       "pricing.starterF2",
@@ -44,7 +44,7 @@ const LANDING_PLANS = [
     key: "builder",
     nameKey: "pricing.builderName",
     descriptionKey: "pricing.builderDesc",
-    price: "$1,499",
+    price: "$199",
     featureKeys: [
       "pricing.builderF1",
       "pricing.builderF2",
@@ -58,7 +58,7 @@ const LANDING_PLANS = [
     key: "studio",
     nameKey: "pricing.studioName",
     descriptionKey: "pricing.studioDesc",
-    price: "$3,999",
+    price: "$499",
     featureKeys: [
       "pricing.studioF1",
       "pricing.studioF2",
@@ -72,7 +72,7 @@ const LANDING_PLANS = [
     key: "enterprise",
     nameKey: "pricing.enterpriseName",
     descriptionKey: "pricing.enterpriseDesc",
-    price: "$11,999+",
+    price: "$2,499+",
     featureKeys: [
       "pricing.enterpriseF1",
       "pricing.enterpriseF2",
