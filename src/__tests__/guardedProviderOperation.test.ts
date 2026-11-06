@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 const state = vi.hoisted(() => ({
@@ -38,12 +38,17 @@ const envelope = (): CostEnvelope => ({
 const options = () => ({
   operationId: "mock_call_123",
   envelope: envelope(),
-  now,
 });
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(now);
   vi.clearAllMocks();
   state.lease = { userId: 5, projectId: 11, executionId: 17 };
   state.reserve.mockResolvedValue("reserved");
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("pre-dispatch monetary guard mock acceptance", () => {
@@ -86,9 +91,10 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
     await expect(runReservedProviderOperation(provisional, state.dispatched))
       .rejects.toThrow(/provisional/);
     const expired = options();
-    expired.now = new Date("2026-11-08T00:00:00Z");
+    vi.setSystemTime(new Date("2026-11-08T00:00:00Z"));
     await expect(runReservedProviderOperation(expired, state.dispatched))
       .rejects.toThrow(/expired/);
+    vi.setSystemTime(now);
     state.reserve.mockResolvedValueOnce("duplicate");
     await expect(runReservedProviderOperation(options(), state.dispatched))
       .rejects.toThrow(/Duplicate/);
