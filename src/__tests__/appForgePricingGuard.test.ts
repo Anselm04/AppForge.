@@ -89,10 +89,7 @@ describe("AppForge margin-protective checkout terms", () => {
     expect(admin).toContain(
       "Legacy lifetime codes require owner-assisted review",
     );
-    const database = readFileSync(
-      resolve(process.cwd(), "src/db.ts"),
-      "utf8",
-    );
+    const database = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
     expect(database).toContain(
       "Unlimited AppForge credit grants are owner-only",
     );
