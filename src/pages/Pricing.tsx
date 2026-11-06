@@ -15,6 +15,8 @@ type CreditPack = 50 | 100 | 250;
 
 const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
+const PRICING_BUDGET_DISCLOSURE =
+  "All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute credits. Optional top-ups cost $1 per credit. When credits run out, work pauses so you choose whether to top up, upgrade, or stop — no automatic top-up charges.";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -214,14 +216,7 @@ export function Pricing() {
             Plan your budget before you build
           </p>
           <p className="mt-1">
-            All amounts on this page are in USD. Enterprise plans do not
-            include unlimited credits or unlimited build compute. Their agreed
-            monthly allowances and usage caps must be confirmed in writing
-            before activation. Complex products and additional iterations can
-            use more compute
-            credits. Optional top-ups cost $1 per credit. When credits run out,
-            work pauses so you choose whether to top up, upgrade, or stop — no
-            automatic top-up charges.
+            {PRICING_BUDGET_DISCLOSURE}
           </p>
         </div>
 
