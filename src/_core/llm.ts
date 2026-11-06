@@ -2,6 +2,7 @@ import { ENV } from "./env.js";
 import { llmRetryWait } from "../lib/llmRetryPolicy.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
 import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
+import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 import {
   assertAnyLlmProviderConfigured,
   chatCompletionsUrl,
@@ -453,6 +454,7 @@ function orderProviders(
 }
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
+  assertCustomerComputeLaunchCertified(false);
   const providers = orderProviders(
     assertAnyLlmProviderConfigured(),
     params.preferredProviderId,

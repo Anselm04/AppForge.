@@ -48,6 +48,22 @@ describe("LLM invokeLLM", () => {
     expect(result.choices[0].message.content).toBe("Hello");
   });
 
+  it("blocks direct production provider dispatch before network access", async () => {
+    const previousEnvironment = process.env.NODE_ENV;
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock;
+    process.env.NODE_ENV = "production";
+
+    try {
+      await expect(
+        invokeLLM({ messages: [{ role: "user", content: "paid build" }] }),
+      ).rejects.toThrow(/Customer builds are paused/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousEnvironment;
+    }
+  });
+
   it("should handle array content parts", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
