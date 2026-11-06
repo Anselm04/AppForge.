@@ -360,6 +360,9 @@ export function Pricing() {
               {checkoutError}
             </p>
           )}
+          <p className="mb-4 text-sm text-forge-text-muted" role="status">
+            Top-up purchases are unavailable until the exact USD prices and included credit allowances are approved. No charge will be made.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {CREDIT_PACKS.map((pack) => (
               <button
@@ -380,7 +383,7 @@ export function Pricing() {
                   {pack}
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  {t("pricing.packCredits", { n: pack })} · USD ${(pack * 2).toLocaleString("en-US")}
+                  {t("pricing.packCredits", { n: pack })} · USD price awaiting approval
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
