@@ -68,6 +68,25 @@ describe("per-build provider telemetry is evidence, not fabricated billing", () 
     expect(path).not.toContain("costUsdCents: 0");
   });
 
+
+  it("records cost-unknown evidence for every retryable transport attempt", () => {
+    const code = readFileSync(resolve(process.cwd(), "src/_core/llm.ts"), "utf8");
+    const transportStart = code.indexOf("const fetchWithBackoff = async (");
+    const transportEnd = code.indexOf("function orderProviders(", transportStart);
+    const transport = code.slice(transportStart, transportEnd);
+    expect(transport).toContain("onRetry?: () => Promise<void>");
+    expect(transport).toContain("if (onRetry)");
+    const retryCallbacks = transport.match(/await onRetry\(\)/g) ?? [];
+    expect(retryCallbacks).toHaveLength(2);
+    expect(transport.indexOf("await onRetry()")).toBeLessThan(
+      transport.indexOf("after status")
+    );
+    const invoke = code.slice(code.indexOf("export async function invokeLLM("));
+    expect(invoke).toContain("Each HTTP/network retry may incur a charge");
+    expect(invoke).toContain("recordProviderUsageForCurrentBuild({");
+    expect(invoke).toContain("succeeded: false");
+  });
+
   it("records missing usage as unknown rather than zero-cost proof", async () => {
     mock.lease = { projectId: 1, userId: 2, executionId: 3 };
     await recordProviderUsageForCurrentBuild({
