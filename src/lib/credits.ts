@@ -21,7 +21,7 @@ export function creditsExhaustedBody(
     code: "credits_exhausted" as const,
     balance,
     cost,
-    message: `Out of credits. Subscribe or buy extra credits to ${action}. Builds stay paused until you pay.`,
+    message: `Out of credits. To ${action} before your next monthly refill, you must buy extra credits as a separate optional payment. Otherwise credit-consuming work stays paused until credits become available. No automatic top-up charges.`,
     payUrl: "/pricing",
   };
 }
