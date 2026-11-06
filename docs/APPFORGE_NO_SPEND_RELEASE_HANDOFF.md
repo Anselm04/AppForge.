@@ -147,3 +147,8 @@ In `db.ts`, `grantPlanCredits` previously invoked `unpauseCreditExhaustedProject
 - Corrected `refillMonthlyCredits` in `src/db.ts`: it no longer grants monthly build credits based solely on the cached `user_credits.tier`, which could remain paid after a subscription expired or was cancelled. Under the existing advisory lock and transaction, the refill reads the current subscription and requires `active` or valid `trialing` status, a positive unexpired billing period, a matching tier if the caller supplied one, and a nonzero valid refill amount. Invalid billing timestamps fail closed.
 - Extended `monthlyCreditRollover.test.ts` to cover the guard's presence and ordering, without making external payment calls.
 - Still not certified: live Stripe invoices, provider-charging reconciliation, CI execution, browser customer journey and paid integration tests. The draft PR must remain unmerged until exact-head tests and security checks pass; production checkout remains closed.
+
+## 2026-11-06 monthly refill race protection
+
+- Additional safeguard: `refillMonthlyCredits` now locks the matching `subscriptions` row with `FOR UPDATE` inside the same credit transaction before reading the paid subscription and granting any monthly credits. This coordinates with concurrent subscription status writes, preventing a stale unchecked subscription read during a refill. A new source-contract assertion verifies the lock precedes the subscription read.
+- **CI is still a hard blocker:** GitHub reports failing jobs with no recorded steps, and previously detected Prettier issues have not been verified resolved. The latest implementation is unmerged; no production deployment, live billing, SMS, model calls or paid tests occurred.
