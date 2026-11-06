@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const mock = vi.hoisted(() => ({
   lease: undefined as
@@ -56,6 +58,20 @@ describe("per-build provider telemetry is evidence, not fabricated billing", () 
         costVerified: false,
       }),
     );
+  });
+
+  it("records failed provider responses without representing unknown charges as zero", () => {
+    const llm = readFileSync(
+      resolve(process.cwd(), "src/_core/llm.ts"),
+      "utf8",
+    );
+    const failurePath = llm.slice(
+      llm.indexOf("const errorText = await response.text();", llm.indexOf("export async function invokeLLM(")),
+      llm.indexOf("const detail =", llm.indexOf("export async function invokeLLM(")),
+    );
+    expect(failurePath).toContain("recordProviderUsageForCurrentBuild");
+    expect(failurePath).toContain("succeeded: false");
+    expect(failurePath).not.toContain("costUsdCents: 0");
   });
 
   it("records missing usage as unknown rather than zero-cost proof", async () => {
