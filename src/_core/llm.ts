@@ -665,6 +665,22 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         signal?.aborted ||
         (err instanceof Error && err.name === "AbortError")
       ) {
+        // Aborting a request does not prove that a provider did not receive or
+        // charge it. Preserve unknown-cost evidence before propagating abort.
+        if (currentBuildExecutionLease()) {
+          try {
+            const { recordProviderUsageForCurrentBuild } = await import(
+              "../services/buildProviderUsage.js"
+            );
+            await recordProviderUsageForCurrentBuild({
+              provider: provider.id,
+              model: String(payload.model),
+              succeeded: false,
+            });
+          } catch (meteringError) {
+            console.warn("Aborted provider usage evidence unavailable", meteringError);
+          }
+        }
         throw err;
       }
       const msg = err instanceof Error ? err.message : String(err);
