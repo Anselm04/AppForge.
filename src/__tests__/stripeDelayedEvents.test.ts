@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   values: vi.fn(),
   conflict: vi.fn(),
   grant: vi.fn(),
+  grantProvider: vi.fn(),
 }));
 
 vi.mock("stripe", () => ({
@@ -49,6 +50,9 @@ vi.mock("../services/stripeCreditRefund.js", () => ({
 }));
 vi.mock("../services/stripePlanCredits.js", () => ({
   grantStripeInvoicePlanCredits: mocks.grant,
+}));
+vi.mock("../services/providerCreditProvisioning.js", () => ({
+  grantStripeInvoiceProviderCredits: mocks.grantProvider,
 }));
 vi.mock("../services/stripeEventLedger.js", () => ({
   processStripeEventOnce: async (
@@ -87,6 +91,10 @@ beforeEach(() => {
   mocks.findFirst.mockReset();
   mocks.values.mockClear();
   mocks.grant.mockReset().mockResolvedValue({ granted: 50, skipped: false });
+  mocks.grantProvider.mockReset().mockResolvedValue({
+    grantedCents: 1200,
+    skipped: false,
+  });
   mocks.set.mockImplementation(() => ({ where: mocks.where }));
   mocks.where.mockResolvedValue(undefined);
   mocks.addCredits.mockResolvedValue(50);
@@ -175,12 +183,23 @@ describe("delayed Stripe subscription events", () => {
             proration: false,
             quantity: 1,
             price: { id: "price_starter" },
+            period: {
+              start: 1735689600,
+              end: 1738368000,
+            },
           },
         ],
       },
     });
     expect(mocks.values).not.toHaveBeenCalled();
     expect(mocks.grant).toHaveBeenCalledWith(42, "starter", "in_old", "studio");
+    expect(mocks.grantProvider).toHaveBeenCalledWith(
+      42,
+      "starter",
+      "in_old",
+      1735689600,
+      1738368000,
+    );
     expect(res.json).toHaveBeenCalledWith({ received: true });
   });
   it("uses the same payment identity for expanded completed checkout references", async () => {

@@ -725,6 +725,64 @@ CREATE INDEX IF NOT EXISTS "provider_spend_user_period_idx"
   ON "provider_spend_reservations" ("user_id", "period_start", "state");
 `;
 
+export const PROVIDER_SPEND_SAFETY_SQL = `
+ALTER TABLE "subscriptions"
+  ADD COLUMN IF NOT EXISTS "current_period_start" TIMESTAMP;
+ALTER TABLE "provider_spend_reservations"
+  DROP CONSTRAINT IF EXISTS "provider_spend_reservations_actual_cents_check";
+ALTER TABLE "provider_spend_reservations"
+  DROP CONSTRAINT IF EXISTS "provider_spend_reservations_check";
+ALTER TABLE "provider_spend_reservations"
+  ADD COLUMN IF NOT EXISTS "overrun" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE "provider_spend_reservations"
+  ADD COLUMN IF NOT EXISTS "included_reserved_cents" BIGINT NOT NULL DEFAULT 0
+    CHECK ("included_reserved_cents" >= 0);
+ALTER TABLE "provider_spend_reservations"
+  ADD COLUMN IF NOT EXISTS "purchased_reserved_cents" BIGINT NOT NULL DEFAULT 0
+    CHECK ("purchased_reserved_cents" >= 0);
+ALTER TABLE "provider_spend_reservations"
+  ADD CONSTRAINT "provider_spend_actual_cents_nonnegative"
+  CHECK ("actual_cents" IS NULL OR "actual_cents" >= 0);
+`;
+
+export const PROVIDER_CREDIT_ACCOUNTS_SQL = `
+CREATE TABLE IF NOT EXISTS "provider_credit_accounts" (
+  "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+  "purchased_balance_cents" BIGINT NOT NULL DEFAULT 0
+    CHECK ("purchased_balance_cents" >= 0),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS "provider_credit_periods" (
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "period_start" DATE NOT NULL,
+  "period_end" TIMESTAMPTZ NOT NULL,
+  "included_balance_cents" BIGINT NOT NULL CHECK ("included_balance_cents" >= 0),
+  "included_allowance_cents" BIGINT NOT NULL
+    CHECK ("included_allowance_cents" >= "included_balance_cents"),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("user_id", "period_start")
+);
+CREATE TABLE IF NOT EXISTS "provider_credit_events" (
+  "id" BIGSERIAL PRIMARY KEY,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "source_id" VARCHAR(128) NOT NULL,
+  "kind" VARCHAR(24) NOT NULL
+    CHECK ("kind" IN ('included_grant', 'purchased_grant', 'reconciliation')),
+  "amount_cents" BIGINT NOT NULL CHECK ("amount_cents" > 0),
+  "period_start" DATE,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "provider_credit_source_unique" UNIQUE ("user_id", "source_id")
+);
+`;
+
+export const PROVIDER_CREDIT_INVOICE_PERIOD_SQL = `
+ALTER TABLE "provider_credit_periods"
+  ADD COLUMN IF NOT EXISTS "grant_invoice_id" VARCHAR(128);
+CREATE UNIQUE INDEX IF NOT EXISTS "provider_credit_period_invoice_unique"
+  ON "provider_credit_periods" ("grant_invoice_id")
+  WHERE "grant_invoice_id" IS NOT NULL;
+`;
+
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
@@ -786,6 +844,21 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20261106_011",
     name: "provider_spend_reservation_ledger",
     sql: PROVIDER_SPEND_LEDGER_SQL,
+  },
+  {
+    version: "20261106_012",
+    name: "provider_spend_period_and_overrun_safety",
+    sql: PROVIDER_SPEND_SAFETY_SQL,
+  },
+  {
+    version: "20261106_013",
+    name: "provider_credit_accounts",
+    sql: PROVIDER_CREDIT_ACCOUNTS_SQL,
+  },
+  {
+    version: "20261106_014",
+    name: "provider_credit_invoice_period_idempotency",
+    sql: PROVIDER_CREDIT_INVOICE_PERIOD_SQL,
   },
 ];
 

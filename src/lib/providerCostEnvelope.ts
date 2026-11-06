@@ -100,13 +100,17 @@ export function maximumProviderEnvelopeCents(
   return Number(maximum);
 }
 
-/** A provisional estimate can inform a quote but never certify live charging. */
+/**
+ * Caller-supplied rate data is useful for offline estimates, but a caller
+ * cannot certify its own prices by setting `priceSnapshotSource`. A reviewed,
+ * provider-sourced catalogue must be added before this can authorize dispatch.
+ */
 export function assertProviderPricesConfirmed(
   envelope: CostEnvelope,
   now: Date = new Date(),
 ): void {
   maximumProviderEnvelopeCents(envelope, now);
-  if (envelope.priceSnapshotSource !== "provider_confirmed") {
-    throw new Error("Provider prices remain provisional; customer work paused");
-  }
+  throw new Error(
+    "Trusted provider price catalogue is not configured; customer work paused",
+  );
 }
