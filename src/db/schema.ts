@@ -87,6 +87,7 @@ export const subscriptions = pgTable("subscriptions", {
   status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
   tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
   trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
+  currentPeriodStart: timestamp("current_period_start"),
   currentPeriodEnd: timestamp("current_period_end"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -10,6 +10,7 @@ import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js"
 import { logger } from "../_core/logger.js";
 import { incrementOperationalMetric } from "../lib/operationsObservability.js";
 import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
+import { grantStripeInvoiceProviderCredits } from "../services/providerCreditProvisioning.js";
 import {
   classifyAppForgeSubscription,
   isAppForgeCreditMetadata,
@@ -245,6 +246,9 @@ async function upsertSubscription(opts: {
     subscription.status === "trialing" && subscription.trial_end
       ? new Date(subscription.trial_end * 1000)
       : null;
+  const periodStart = subscription.current_period_start
+    ? new Date(subscription.current_period_start * 1000)
+    : null;
   const periodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
     : null;
@@ -276,6 +280,7 @@ async function upsertSubscription(opts: {
         status: subscription.status,
         tier,
         trialEnd,
+        currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       })
       .onConflictDoUpdate({
@@ -286,6 +291,7 @@ async function upsertSubscription(opts: {
           status: subscription.status,
           tier,
           trialEnd,
+          currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
           updatedAt: new Date(),
         },
@@ -558,6 +564,33 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
                 eventId: event.id,
               },
               "stripe_invoice_plan_credits_granted",
+            );
+          }
+          const invoiceLine = invoice.lines.data.find(
+            (line) => line.type === "subscription" && !line.proration,
+          );
+          if (!invoiceLine?.period) {
+            throw new Error(
+              "Stripe subscription invoice billing period is missing",
+            );
+          }
+          const providerCredits = await grantStripeInvoiceProviderCredits(
+            userId,
+            creditTier,
+            invoice.id,
+            invoiceLine.period.start,
+            invoiceLine.period.end,
+          );
+          if (!providerCredits.skipped) {
+            logger.info(
+              {
+                userId,
+                tier: creditTier,
+                providerCreditsGrantedCents: providerCredits.grantedCents,
+                invoiceId: invoice.id,
+                eventId: event.id,
+              },
+              "stripe_invoice_provider_credits_granted",
             );
           }
         } else if (userId && tier) {

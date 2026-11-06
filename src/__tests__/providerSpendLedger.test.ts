@@ -7,7 +7,10 @@ type Row = {
   operationId: string;
   period: string;
   maximumCents: number;
+  includedReservedCents: number;
+  purchasedReservedCents: number;
   actualCents: number | null;
+  overrun: boolean;
   state: string;
 };
 const state = vi.hoisted(() => ({
@@ -15,7 +18,10 @@ const state = vi.hoisted(() => ({
   queue: Promise.resolve() as Promise<unknown>,
   subscriptionStatus: "active" as string,
   subscriptionTier: "starter" as string,
+  subscriptionPeriodStart: new Date(Date.now() - 86400000) as Date | null,
   subscriptionPeriodEnd: new Date(Date.now() + 86400000) as Date | null,
+  includedBalance: 1200,
+  purchasedBalance: 0,
 }));
 vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray, ...parameters: unknown[]) => ({
@@ -38,6 +44,8 @@ vi.mock("../db.js", () => ({
       });
       await wait;
       const snapshot = state.reservations.map((row) => ({ ...row }));
+      const includedBalanceSnapshot = state.includedBalance;
+      const purchasedBalanceSnapshot = state.purchasedBalance;
       try {
         return await run({
           execute: async (query: unknown) => {
@@ -49,15 +57,32 @@ vi.mock("../db.js", () => ({
               return p[0] === 1 ? [{ id: 1 }] : [];
             if (text.includes("SELECT id FROM projects"))
               return p[0] === 10 && p[1] === 1 ? [{ id: 10 }] : [];
+            if (text.includes("SELECT id FROM build_events"))
+              return p[0] === 22 && p[1] === 10 ? [{ id: 22 }] : [];
             if (text.includes("FROM subscriptions"))
               return [
                 {
                   tier: state.subscriptionTier,
                   status: state.subscriptionStatus,
+                  periodStart: state.subscriptionPeriodStart,
                   periodEnd: state.subscriptionPeriodEnd,
                   trialEnd: null,
                 },
               ];
+            if (text.includes("FROM provider_credit_accounts")) {
+              return [{ purchasedBalance: String(state.purchasedBalance) }];
+            }
+            if (text.includes("FROM provider_credit_periods")) {
+              if (text.includes("included_allowance_cents"))
+                return [
+                  {
+                    includedBalance: String(state.includedBalance),
+                    includedAllowance: "1200",
+                    periodEnd: state.subscriptionPeriodEnd,
+                  },
+                ];
+              return [{ periodEnd: state.subscriptionPeriodEnd }];
+            }
             if (text.includes("SELECT state, maximum_cents")) {
               const found = state.reservations.find(
                 (r) => r.userId === p[0] && r.operationId === p[1],
@@ -71,19 +96,51 @@ vi.mock("../db.js", () => ({
                         found.actualCents === null
                           ? null
                           : String(found.actualCents),
+                      overrun: found.overrun,
+                      periodStart: found.period,
+                      includedReservedCents: String(
+                        found.includedReservedCents,
+                      ),
+                      purchasedReservedCents: String(
+                        found.purchasedReservedCents,
+                      ),
                       projectId: found.projectId,
                       executionId: found.executionId,
                     },
                   ]
                 : [];
             }
-            if (text.includes("SELECT COALESCE(SUM")) {
+            if (text.includes("overrun = TRUE")) {
+              return state.reservations.some((r) => r.overrun)
+                ? [{ id: 1 }]
+                : [];
+            }
+            if (text.includes("SUM(included_reserved_cents)")) {
+              const included = state.reservations
+                .filter(
+                  (r) =>
+                    r.userId === p[0] &&
+                    r.state === "reserved" &&
+                    r.period === p[1],
+                )
+                .reduce((sum, r) => sum + r.includedReservedCents, 0);
+              const purchased = state.reservations
+                .filter((r) => r.userId === p[0] && r.state === "reserved")
+                .reduce((sum, r) => sum + r.purchasedReservedCents, 0);
+              return [
+                { included: String(included), purchased: String(purchased) },
+              ];
+            }
+            if (text.includes("SELECT COALESCE(SUM(COALESCE")) {
+              const isBuildUsage = text.includes("execution_id =");
               const total = state.reservations
                 .filter(
                   (r) =>
                     r.userId === p[0] &&
+                    (!isBuildUsage || r.executionId === p[1]) &&
                     (r.state === "reserved" ||
-                      (r.period === p[1] && r.state === "settled")),
+                      (r.period === p[isBuildUsage ? 2 : 1] &&
+                        r.state === "settled")),
                 )
                 .reduce((sum, r) => sum + (r.actualCents ?? r.maximumCents), 0);
               return [{ total: String(total) }];
@@ -96,18 +153,30 @@ vi.mock("../db.js", () => ({
                 executionId: Number(p[3]),
                 period: String(p[4]),
                 maximumCents: Number(p[5]),
+                includedReservedCents: Number(p[6]),
+                purchasedReservedCents: Number(p[7]),
                 actualCents: null,
+                overrun: false,
                 state: "reserved",
               });
               return [];
             }
             if (text.includes("UPDATE provider_spend_reservations")) {
               const found = state.reservations.find(
-                (r) => r.userId === p[1] && r.operationId === p[2],
+                (r) => r.userId === p[2] && r.operationId === p[3],
               );
               if (!found) throw Error("Missing reservation");
               found.state = "settled";
               found.actualCents = Number(p[0]);
+              found.overrun = Boolean(p[1]);
+              return [];
+            }
+            if (text.includes("UPDATE provider_credit_periods")) {
+              state.includedBalance -= Number(p[0]);
+              return [];
+            }
+            if (text.includes("UPDATE provider_credit_accounts")) {
+              state.purchasedBalance -= Number(p[0]);
               return [];
             }
             throw Error("Unrecognized mocked SQL operation: " + text);
@@ -115,6 +184,8 @@ vi.mock("../db.js", () => ({
         });
       } catch (error) {
         state.reservations = snapshot;
+        state.includedBalance = includedBalanceSnapshot;
+        state.purchasedBalance = purchasedBalanceSnapshot;
         throw error;
       } finally {
         unlock();
@@ -138,7 +209,10 @@ beforeEach(() => {
   state.reservations = [];
   state.subscriptionStatus = "active";
   state.subscriptionTier = "starter";
+  state.subscriptionPeriodStart = new Date(Date.now() - 86400000);
   state.subscriptionPeriodEnd = new Date(Date.now() + 86400000);
+  state.includedBalance = 1200;
+  state.purchasedBalance = 0;
 });
 describe("offline customer money reservation and settlement", () => {
   it("allows one reservation and treats an identical retry as idempotent", async () => {
@@ -160,30 +234,30 @@ describe("offline customer money reservation and settlement", () => {
   });
   it("counts in-flight costs and blocks concurrent oversubscription", async () => {
     const result = await Promise.allSettled([
-      reserveProviderSpend(input("request_1", 700)),
-      reserveProviderSpend(input("request_2", 700)),
+      reserveProviderSpend(input("request_1", 250)),
+      reserveProviderSpend(input("request_2", 250)),
     ]);
     expect(result.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(result.filter((r) => r.status === "rejected")).toHaveLength(1);
     expect(state.reservations).toHaveLength(1);
   });
   it("holds previous-month unresolved charges against the new month budget", async () => {
-    await reserveProviderSpend(input("carryover_1", 1100));
-    // Simulate a new calendar period while the provider invoice is pending.
-    state.reservations[0].period = "2026-10-01";
+    await reserveProviderSpend(input("carryover_1", 250));
+    // Simulate a new Stripe billing period while the provider invoice is pending.
+    state.subscriptionPeriodStart = new Date(Date.now() - 32 * 86400000);
     await expect(
-      reserveProviderSpend(input("next_month_2", 150)),
+      reserveProviderSpend(input("next_month_2", 51)),
     ).rejects.toThrow(/budget exhausted/);
     // Once an old-month charge is verified and settled, it belongs only to
     // the original period; a new month's allowance can be used.
-    await settleProviderSpend(1, "carryover_1", 1000);
-    expect(await reserveProviderSpend(input("next_month_2", 150))).toBe(
+    await settleProviderSpend(1, "carryover_1", 200);
+    expect(await reserveProviderSpend(input("next_month_2", 250))).toBe(
       "reserved",
     );
   });
   it("does not treat unknown charges, invalid money or zero allowance as free", async () => {
-    await reserveProviderSpend(input("unknown_1", 1175));
-    await expect(reserveProviderSpend(input("unknown_2", 30))).rejects.toThrow(
+    await reserveProviderSpend(input("unknown_1", 250));
+    await expect(reserveProviderSpend(input("unknown_2", 51))).rejects.toThrow(
       /budget exhausted/,
     );
     await expect(
@@ -206,6 +280,11 @@ describe("offline customer money reservation and settlement", () => {
     expect(state.reservations).toHaveLength(0);
   });
   it("rejects missing and expired paid billing periods", async () => {
+    state.subscriptionPeriodStart = null;
+    await expect(
+      reserveProviderSpend(input("missing_start_1")),
+    ).rejects.toThrow(/subscription/);
+    state.subscriptionPeriodStart = new Date(Date.now() - 86400000);
     state.subscriptionPeriodEnd = null;
     await expect(
       reserveProviderSpend(input("missing_period_1")),
@@ -216,17 +295,35 @@ describe("offline customer money reservation and settlement", () => {
     ).rejects.toThrow(/subscription/);
     expect(state.reservations).toHaveLength(0);
   });
-  it("settles known costs exactly once, rejecting cost overrun and contradictory receipts", async () => {
+  it("settles known costs exactly once and rejects contradictory receipts", async () => {
     await reserveProviderSpend(input());
-    await expect(settleProviderSpend(1, "build_1234", 61)).rejects.toThrow(
-      /exceeds/,
-    );
-    expect(state.reservations[0].state).toBe("reserved");
     await settleProviderSpend(1, "build_1234", 40);
     await settleProviderSpend(1, "build_1234", 40);
     await expect(settleProviderSpend(1, "build_1234", 41)).rejects.toThrow(
       /Conflicting/,
     );
     expect(state.reservations[0].actualCents).toBe(40);
+  });
+  it("persists an overrun before freezing further reservations", async () => {
+    await reserveProviderSpend(input("overrun_123", 60));
+    await expect(settleProviderSpend(1, "overrun_123", 61)).rejects.toThrow(
+      /exceeded its reservation/,
+    );
+    expect(state.reservations[0]).toMatchObject({
+      state: "settled",
+      actualCents: 61,
+      overrun: true,
+    });
+    await expect(
+      reserveProviderSpend(input("after_overrun_1", 1)),
+    ).rejects.toThrow(/frozen pending overrun reconciliation/);
+  });
+  it("uses purchased credits and returns the unused reservation after settlement", async () => {
+    state.includedBalance = 0;
+    state.purchasedBalance = 100;
+    await reserveProviderSpend(input("purchased_123", 60));
+    await settleProviderSpend(1, "purchased_123", 40);
+    expect(state.includedBalance).toBe(0);
+    expect(state.purchasedBalance).toBe(60);
   });
 });
