@@ -74,7 +74,9 @@ export const subscriptionsRouter = router({
     const tier = hasLifetimeAccess ? "lifetime" : activeSubscriptionTier;
     const isPaid = tier !== "free";
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
-    const limit = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
+    const limit = Object.hasOwn(TIER_LIMITS, tier)
+      ? TIER_LIMITS[tier]
+      : TIER_LIMITS.free;
 
     return {
       tier,
