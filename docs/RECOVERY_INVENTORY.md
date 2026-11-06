@@ -962,3 +962,10 @@ It checks existing Fly secret names for Twilio Email/SMS and the signed Supabase
 email hook, prints presence only, and sends no messages. Sender verification,
 hook activation and actual customer delivery require separate provider evidence.
 Cloudflare support-address forwarding is independent and remains unchanged.
+
+## Pricing integrity and Stripe checkout recovery review (2026-11-06)
+
+- Checkout now retrieves each configured Stripe Price before creating a paid session. Production fails closed unless the Price is active, USD, exactly matches the published cents and monthly billing interval for a subscription, and is a live-mode Price. For credit packs it must be a one-time payment with the correct amount. An upstream Stripe outage or a malformed/mismatched Price will temporarily prevent new checkout rather than risk misleading billing.
+- **Recovery:** Check Stripe API availability, the Stripe secret key environment (test/live), the relevant AppForge Price ID and the owner's approved public catalogue. Correct the Stripe configuration or the reviewed catalogue through an ordinary change; never bypass price validation or substitute another product's Stripe Price ID. Retry checkout only after a customer confirms the displayed amount.
+- New lifetime/unlimited redemption issuance is disabled for customers. Previously redeemed lifetime records remain unchanged for contractual review; do not silently revoke historical rights or grant new owner-equivalent access. Owner auth is independent.
+- No secret values, payment methods or customer details are in this document. Do not release until runtime checks, rollback plan, webhook ledger and financial margin audit pass.
