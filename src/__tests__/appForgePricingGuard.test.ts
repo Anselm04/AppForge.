@@ -11,7 +11,7 @@ const monthly = {
   active: true,
   currency: "usd",
   type: "recurring",
-  unit_amount: 49900,
+  unit_amount: 7900,
   recurring: { interval: "month", interval_count: 1 },
   livemode: true,
 };
@@ -19,7 +19,7 @@ const credit = {
   active: true,
   currency: "usd",
   type: "one_time",
-  unit_amount: 25000,
+  unit_amount: 10000,
   recurring: null,
   livemode: true,
 };
@@ -35,14 +35,14 @@ describe("AppForge margin-protective checkout terms", () => {
       ),
     ).not.toThrow();
     for (const invalid of [
-      { ...monthly, unit_amount: 19000 },
+      { ...monthly, unit_amount: 1900 },
       { ...monthly, currency: "nzd" },
       { ...monthly, recurring: { interval: "year", interval_count: 1 } },
       { ...monthly, livemode: false },
       { ...monthly, active: false },
     ]) {
       expect(() =>
-        assertAppForgePrice(invalid, 49900, "recurring", true),
+        assertAppForgePrice(invalid, 7900, "recurring", true),
       ).toThrow(/checkout paused/);
     }
   });
@@ -52,11 +52,11 @@ describe("AppForge margin-protective checkout terms", () => {
       assertAppForgePrice(credit, TOPUP_USD_CENTS[50], "one_time", true),
     ).not.toThrow();
     for (const invalid of [
-      { ...credit, unit_amount: 10000 },
+      { ...credit, unit_amount: 1000 },
       { ...credit, type: "recurring" },
     ]) {
       expect(() =>
-        assertAppForgePrice(invalid, 25000, "one_time", true),
+        assertAppForgePrice(invalid, 10000, "one_time", true),
       ).toThrow(/checkout paused/);
     }
   });
