@@ -52,8 +52,8 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
     const now = new Date();
     const active = sub?.status === "active" || sub?.status === "trialing";
     const validEnd = (value: Date | string | null | undefined) =>
-      !value || (Number.isFinite(new Date(value).getTime()) &&
-        new Date(value).getTime() > now.getTime());
+      !!value && Number.isFinite(new Date(value).getTime()) &&
+      new Date(value).getTime() > now.getTime();
     const validPeriod = validEnd(sub?.periodEnd);
     const validTrial = sub?.status !== "trialing" || validEnd(sub?.trialEnd);
     if (!active || !validPeriod || !validTrial ||
