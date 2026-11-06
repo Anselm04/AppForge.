@@ -11,6 +11,8 @@ import {
   reserveProviderSpend,
   type ProviderReservationInput,
 } from "./providerSpendLedger.js";
+import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
+
 
 /**
  * Preparatory paid-operation guard. This does not authorize production work.
@@ -25,6 +27,9 @@ export async function runReservedProviderOperation<T>(
   },
   invoke: () => Promise<T>,
 ): Promise<T> {
+  // Standalone release stop: preparatory money controls do not authorize
+  // real customer charges even if this helper is called outside the router.
+  assertCustomerComputeLaunchCertified(false);
   const lease = currentBuildExecutionLease();
   if (!lease) throw new Error("Provider spending requires a build execution lease");
   await assertCurrentBuildLease();
