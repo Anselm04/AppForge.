@@ -841,11 +841,29 @@ export async function refillMonthlyCredits(
     const credits = rows[0];
     if (!credits) return;
 
-    const effectiveTier = tier ?? credits.tier ?? "free";
-    const refillAmount = getTierCreditRefill(effectiveTier);
-    if (refillAmount === null) return;
-
+    // The user-credit tier is cached state, not proof of a current payment.
+    // A cancelled or expired Stripe subscription must never mint new credits.
+    const [subscription] = await tx
+      .select()
+      .from(schema.subscriptions)
+      .where(eq(schema.subscriptions.userId, userId))
+      .limit(1);
     const now = new Date();
+    const effectiveTier = subscription?.tier ?? "free";
+    if (tier && tier !== effectiveTier) return;
+    if (
+      (subscription?.status !== "active" &&
+        subscription?.status !== "trialing") ||
+      !subscription?.currentPeriodEnd ||
+      new Date(subscription.currentPeriodEnd).getTime() <= now.getTime() ||
+      (subscription.status === "trialing" &&
+        (!subscription.trialEnd ||
+          new Date(subscription.trialEnd).getTime() <= now.getTime()))
+    ) {
+      return;
+    }
+    const refillAmount = getTierCreditRefill(effectiveTier);
+    if (refillAmount === null || refillAmount <= 0) return;
     const lastRefill = credits.lastRefillAt ?? credits.createdAt ?? now;
     const daysSinceRefill =
       (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
