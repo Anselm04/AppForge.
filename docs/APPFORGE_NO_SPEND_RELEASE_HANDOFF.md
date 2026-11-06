@@ -89,3 +89,11 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - The consolidated draft PR #252 is aimed at `main` for full CI and hermetic preview qualification. It must remain draft with commercial checkout and customer build release gates closed.
 - **Still missing:** full end-to-end connection of reservations to every billable provider attempt (including individual HTTP retry attempts/fallbacks), verified real provider pricing and bill reconciliation, safe release semantics only for calls proven never dispatched, sandbox/runtime/storage/egress/SMS/deployment cost accounting, complete mocked customer lifecycle, approved plan allowances and top-up pack prices, Stripe cutover and final owner release approval.
 
+
+## No-spend automated customer acceptance continuation
+
+- Added `src/__tests__/offlineCustomerAcceptance.test.ts`, checking the actual approved Stripe pricing policy, rejection of mismatched Stripe prices, prepaid credit rollover, exhausted-credit disclosures, paid top-up eligibility, unknown provider costs and the unreleased production gates.
+- Updated `npm run test:offline-commercial` to execute this suite **and** the existing `customer-flow-contract.e2e.spec.ts` source-level lifecycle contract suite, alongside the preceding commercial and ledger tests.
+- First consolidated GitHub CI surfaced four TypeScript errors (unsupported `Object.hasOwn` type library and a missing worker release-gate import). Fixes are committed. Prettier separately reported 20 changed files needing formatting; this remains open.
+- Subsequent workflow runs on PR #252 failed with **zero executed job steps and unavailable run logs**. This is a CI execution/runner blocker, not a validated pass or a diagnostically confirmed source-code failure. Do not spend GitHub Actions minutes rerunning blindly.
+- **Not certified:** exact-head full test execution, functional end-to-end UI/browser operation, live auth/Twilio, real Stripe entitlements, fully priced AI + infrastructure workload, export/deploy proof, or positive net profitability. AppForge checkout and non-owner production builds remain fail-closed.
