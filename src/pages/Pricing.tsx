@@ -215,9 +215,7 @@ export function Pricing() {
           <p className="font-semibold text-forge-text-primary">
             Plan your budget before you build
           </p>
-          <p className="mt-1">
-            {PRICING_BUDGET_DISCLOSURE}
-          </p>
+          <p className="mt-1">{PRICING_BUDGET_DISCLOSURE}</p>
         </div>
 
         {subStatus?.stripeCustomerId && (
