@@ -1,3 +1,4 @@
+import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
 import {
   withBuildExecutionLease,
   currentBuildExecutionLease,
