@@ -267,7 +267,9 @@ export function Pricing() {
                 <span className="text-3xl font-bold text-forge-text-primary">
                   {tier.price}
                 </span>
-                <span className="text-forge-text-muted">{tier.subPrice} USD</span>
+                <span className="text-forge-text-muted">
+                  {tier.subPrice} USD
+                </span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {tier.features.map((feature, idx) => (
