@@ -29,7 +29,7 @@ const amount = (v: string | number): number => {
 /** A row lock serializes every spending reservation belonging to the user. */
 export async function reserveProviderSpend(input: ProviderReservationInput): Promise<"reserved" | "duplicate"> {
   if (!safeId(input.userId) || !safeId(input.projectId) || !safeId(input.executionId) ||
-    !validKey(input.operationId) || !safeCents(input.maximumCents) || input.maximumCents === 0 ||
+    !validKey(input.operationId) || !safeCents(input.maximumCents) || input.maximumCents === 0
     ) throw new Error("Invalid provider reservation");
   return db.transaction(async (tx) => {
     const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${input.userId} FOR UPDATE`);
