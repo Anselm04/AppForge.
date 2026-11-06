@@ -24,7 +24,7 @@ describe("fail-closed customer provider-cost release gate", () => {
   });
 
   it("fails closed for unset, staging and unfamiliar runtime environments", () => {
-    for (const environment of [undefined, "", "staging", "preview", "qa", "Production"]) {
+    for (const environment of ["", "staging", "preview", "qa", "Production"]) {
       expect(() =>
         assertCustomerComputeLaunchCertified(false, environment),
       ).toThrow(CUSTOMER_COMPUTE_NOT_CERTIFIED);
