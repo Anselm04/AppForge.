@@ -17,7 +17,7 @@ const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
 const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
-  "All amounts on this page are in USD. Enterprise plans do not include unlimited credits or unlimited build compute. Their agreed monthly allowances and usage caps must be confirmed in writing before activation. Complex products and additional iterations can use more compute credits. Proposed top-up pricing is $5 per credit, subject to approval, metering and future Stripe configuration. When credits run out, work pauses so you choose whether to top up, upgrade, or stop — no automatic top-up charges.";
+  "All amounts on this page are in USD. These are proposals, not active checkout prices. Enterprise and other customer subscriptions do not provide unlimited compute. Complex projects require a separate customer-approved estimate. Additional usage will be prepaid and strictly metered; there are no automatic top-up charges.";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -363,14 +363,14 @@ export function Pricing() {
                   setCheckoutError(null);
                   buyCredits.mutate(pack);
                 }}
-                disabled={buyCredits.isPending}
+                disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}
                 className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-left transition-colors hover:border-forge-cyan/40 disabled:opacity-50"
               >
                 <div className="text-2xl font-bold text-forge-text-primary">
                   {pack}
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  {t("pricing.packCredits", { n: pack })}
+                  {t("pricing.packCredits", { n: pack })} · USD ${(pack * 5).toLocaleString("en-US")}
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
