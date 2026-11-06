@@ -97,6 +97,20 @@ test("real PostgreSQL serializes reservations and refuses overspending", async (
     /Provider budget exhausted/,
   );
   await settleProviderSpend(1, String(rows[0].operation_id), 500);
+  const settled = await admin.unsafe(
+    `SELECT state, maximum_cents, actual_cents FROM "${schema}".provider_spend_reservations WHERE user_id = 1`,
+  );
+  assert.equal(settled[0].state, "settled");
+  assert.equal(Number(settled[0].maximum_cents), 700);
+  assert.equal(Number(settled[0].actual_cents), 500);
+  await assert.rejects(
+    reserveProviderSpend({
+      ...input,
+      operationId: "attempt_005",
+      maximumCents: 701,
+    }),
+    /Provider budget exhausted/,
+  );
   assert.equal(
     await reserveProviderSpend({ ...input, operationId: "attempt_004" }),
     "reserved",

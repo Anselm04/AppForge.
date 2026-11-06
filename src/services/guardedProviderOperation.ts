@@ -9,6 +9,7 @@ import {
 } from "./buildExecutionLease.js";
 import {
   reserveProviderSpend,
+  settleProviderSpend,
   type ProviderReservationInput,
 } from "./providerSpendLedger.js";
 import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
@@ -23,7 +24,7 @@ export async function runReservedProviderOperation<T>(
     operationId: ProviderReservationInput["operationId"];
     envelope: CostEnvelope;
   },
-  invoke: () => Promise<T>,
+  invoke: () => Promise<{ value: T; verifiedCents: number }>,
 ): Promise<T> {
   // Standalone release stop: preparatory money controls do not authorize
   // real customer charges even if this helper is called outside the router.
@@ -48,7 +49,12 @@ export async function runReservedProviderOperation<T>(
     );
   }
   await assertCurrentBuildLease();
-  // Never automatically release the reservation on timeout, abort or error:
-  // the provider might still have billed a request in transit.
-  return invoke();
+  // An error or uncertain charge must leave the reservation in place.
+  const result = await invoke();
+  await settleProviderSpend(
+    lease.userId,
+    options.operationId,
+    result.verifiedCents,
+  );
+  return result.value;
 }

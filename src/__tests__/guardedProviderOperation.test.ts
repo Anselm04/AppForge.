@@ -11,7 +11,11 @@ const state = vi.hoisted(() => ({
       },
   current: vi.fn(async () => undefined),
   reserve: vi.fn(async () => "reserved" as "reserved" | "duplicate"),
-  dispatched: vi.fn(async () => "mock-provider-result"),
+  settle: vi.fn(async () => undefined),
+  dispatched: vi.fn(async () => ({
+    value: "mock-provider-result",
+    verifiedCents: 75,
+  })),
 }));
 vi.mock("../services/buildExecutionLease.js", () => ({
   currentBuildExecutionLease: () => state.lease,
@@ -19,6 +23,7 @@ vi.mock("../services/buildExecutionLease.js", () => ({
 }));
 vi.mock("../services/providerSpendLedger.js", () => ({
   reserveProviderSpend: state.reserve,
+  settleProviderSpend: state.settle,
 }));
 import { runReservedProviderOperation } from "../services/guardedProviderOperation.js";
 import type { CostEnvelope } from "../lib/providerCostEnvelope.js";
@@ -49,6 +54,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.lease = { userId: 5, projectId: 11, executionId: 17 };
   state.reserve.mockResolvedValue("reserved");
+  state.dispatched.mockResolvedValue({
+    value: "mock-provider-result",
+    verifiedCents: 75,
+  });
 });
 
 afterEach(() => {
@@ -83,6 +92,10 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
     );
     expect(state.current).toHaveBeenCalledTimes(2);
     expect(state.dispatched).toHaveBeenCalledTimes(1);
+    expect(state.settle).toHaveBeenCalledWith(5, "mock_call_123", 75);
+    expect(state.settle.mock.invocationCallOrder[0]).toBeGreaterThan(
+      state.dispatched.mock.invocationCallOrder[0],
+    );
   });
   it("does not dispatch without a build lease or with stale lease", async () => {
     state.lease = undefined;
@@ -121,5 +134,13 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
       runReservedProviderOperation(options(), state.dispatched),
     ).rejects.toThrow(/timeout/);
     expect(state.reserve).toHaveBeenCalledTimes(1);
+    expect(state.settle).not.toHaveBeenCalled();
+  });
+  it("does not report success when the verified charge cannot be settled", async () => {
+    state.settle.mockRejectedValueOnce(new Error("settlement failed"));
+    await expect(
+      runReservedProviderOperation(options(), state.dispatched),
+    ).rejects.toThrow(/settlement failed/);
+    expect(state.dispatched).toHaveBeenCalledTimes(1);
   });
 });

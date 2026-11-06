@@ -79,6 +79,24 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - Failed LLM HTTP/network requests record unpriced per-build observations when an execution lease exists; tokens/cost remain unknown, not zero. Retries inside transport backoff are not yet individually costed, so this is audit evidence, not spend enforcement.
 - The hard production customer compute gate remains until atomic monetary reservations, provider billing reconciliation and tested per-user/job caps have been implemented; do not merge directly to a production-deploying branch.
 
+## Approved policy and reservation settlement follow-up
+
+On 2026-11-06 the owner approved the proposed allowances and top-up policy with
+three changes: the hard cap is included plus purchased credits; new builds
+pause throughout the seven-day failed-payment grace period; and unused
+reservation amounts are returned after each operation when the charge is
+known, with uncertain charges retained. Approval does not authorize live keys,
+paid provider operations or opening production gates.
+
+The preparatory guarded operation now settles a returned verified charge
+before reporting success. Unit tests cover settlement and failures; the
+PostgreSQL fixture tests demonstrate that settlement restores the difference
+between a reservation and its charge. These checks do not prove provider
+receipts or price provenance. The existing ledger still uses calendar months
+and provisional tier caps rather than the approved billing-period and
+included-plus-purchased credit model. Real provider paths remain unwired, and
+the production stops must remain closed.
+
 ## Offline provider cost evidence summary
 
 - Added a read-only per-user/per-execution `summarizeBuildProviderEvidence` helper over persisted `provider_usage` events. It distinguishes token observations, failed attempts, unknown-cost samples and verified-cost subtotals.
