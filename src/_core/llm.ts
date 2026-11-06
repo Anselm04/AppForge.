@@ -533,28 +533,31 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     const url = chatCompletionsUrl(provider.baseUrl);
     const requestStartedAt = Date.now();
     try {
-      const response = await fetchWithBackoff(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${provider.apiKey}`,
-          ...(provider.headers ?? {}),
+      const response = await fetchWithBackoff(
+        url,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${provider.apiKey}`,
+            ...(provider.headers ?? {}),
+          },
+          body: JSON.stringify(payload),
+          signal,
         },
-        body: JSON.stringify(payload),
-        signal,
-      }, async () => {
-        // Each HTTP/network retry may incur a charge even if its result was
-        // never observed. Record it independently of the final response.
-        if (!currentBuildExecutionLease()) return;
-        const { recordProviderUsageForCurrentBuild } = await import(
-          "../services/buildProviderUsage.js"
-        );
-        await recordProviderUsageForCurrentBuild({
-          provider: provider.id,
-          model: String(payload.model),
-          succeeded: false,
-        });
-      });
+        async () => {
+          // Each HTTP/network retry may incur a charge even if its result was
+          // never observed. Record it independently of the final response.
+          if (!currentBuildExecutionLease()) return;
+          const { recordProviderUsageForCurrentBuild } =
+            await import("../services/buildProviderUsage.js");
+          await recordProviderUsageForCurrentBuild({
+            provider: provider.id,
+            model: String(payload.model),
+            succeeded: false,
+          });
+        },
+      );
 
       if (response.ok) {
         if (i > 0) {
@@ -575,9 +578,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         // production build gate must remain closed until full cost caps exist.
         if (currentBuildExecutionLease()) {
           try {
-            const { recordProviderUsageForCurrentBuild } = await import(
-              "../services/buildProviderUsage.js"
-            );
+            const { recordProviderUsageForCurrentBuild } =
+              await import("../services/buildProviderUsage.js");
             await recordProviderUsageForCurrentBuild({
               provider: provider.id,
               model: result.model || String(payload.model),
@@ -607,16 +609,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       // Record evidence without inventing a zero-dollar cost.
       if (currentBuildExecutionLease()) {
         try {
-          const { recordProviderUsageForCurrentBuild } = await import(
-            "../services/buildProviderUsage.js"
-          );
+          const { recordProviderUsageForCurrentBuild } =
+            await import("../services/buildProviderUsage.js");
           await recordProviderUsageForCurrentBuild({
             provider: provider.id,
             model: String(payload.model),
             succeeded: false,
           });
         } catch (meteringError) {
-          console.warn("Failed provider usage evidence unavailable", meteringError);
+          console.warn(
+            "Failed provider usage evidence unavailable",
+            meteringError,
+          );
         }
       }
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
@@ -669,16 +673,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         // charge it. Preserve unknown-cost evidence before propagating abort.
         if (currentBuildExecutionLease()) {
           try {
-            const { recordProviderUsageForCurrentBuild } = await import(
-              "../services/buildProviderUsage.js"
-            );
+            const { recordProviderUsageForCurrentBuild } =
+              await import("../services/buildProviderUsage.js");
             await recordProviderUsageForCurrentBuild({
               provider: provider.id,
               model: String(payload.model),
               succeeded: false,
             });
           } catch (meteringError) {
-            console.warn("Aborted provider usage evidence unavailable", meteringError);
+            console.warn(
+              "Aborted provider usage evidence unavailable",
+              meteringError,
+            );
           }
         }
         throw err;
@@ -687,16 +693,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       if (!msg.startsWith("LLM invoke failed:")) {
         if (currentBuildExecutionLease()) {
           try {
-            const { recordProviderUsageForCurrentBuild } = await import(
-              "../services/buildProviderUsage.js"
-            );
+            const { recordProviderUsageForCurrentBuild } =
+              await import("../services/buildProviderUsage.js");
             await recordProviderUsageForCurrentBuild({
               provider: provider.id,
               model: String(payload.model),
               succeeded: false,
             });
           } catch (meteringError) {
-            console.warn("Network provider usage evidence unavailable", meteringError);
+            console.warn(
+              "Network provider usage evidence unavailable",
+              meteringError,
+            );
           }
         }
         recordModelUsage({

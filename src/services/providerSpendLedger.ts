@@ -27,44 +27,76 @@ const amount = (v: string | number): number => {
 };
 
 /** A row lock serializes every spending reservation belonging to the user. */
-export async function reserveProviderSpend(input: ProviderReservationInput): Promise<"reserved" | "duplicate"> {
-  if (!safeId(input.userId) || !safeId(input.projectId) || !safeId(input.executionId) ||
-    !validKey(input.operationId) || !safeCents(input.maximumCents) || input.maximumCents === 0
-    ) throw new Error("Invalid provider reservation");
+export async function reserveProviderSpend(
+  input: ProviderReservationInput,
+): Promise<"reserved" | "duplicate"> {
+  if (
+    !safeId(input.userId) ||
+    !safeId(input.projectId) ||
+    !safeId(input.executionId) ||
+    !validKey(input.operationId) ||
+    !safeCents(input.maximumCents) ||
+    input.maximumCents === 0
+  )
+    throw new Error("Invalid provider reservation");
   return db.transaction(async (tx) => {
-    const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${input.userId} FOR UPDATE`);
-    if ((owner as unknown as unknown[]).length !== 1) throw new Error("Customer not found");
-    const project = await tx.execute(sql`SELECT id FROM projects WHERE id = ${input.projectId} AND user_id = ${input.userId}`);
-    if ((project as unknown as unknown[]).length !== 1) throw new Error("Project ownership mismatch");
+    const owner = await tx.execute(
+      sql`SELECT id FROM users WHERE id = ${input.userId} FOR UPDATE`,
+    );
+    if ((owner as unknown as unknown[]).length !== 1)
+      throw new Error("Customer not found");
+    const project = await tx.execute(
+      sql`SELECT id FROM projects WHERE id = ${input.projectId} AND user_id = ${input.userId}`,
+    );
+    if ((project as unknown as unknown[]).length !== 1)
+      throw new Error("Project ownership mismatch");
     // A caller cannot choose its own monetary allowance. Resolve current
     // paid subscription status under the same serialized user transaction.
     const subscriptions = await tx.execute<{
-      tier: string; status: string; periodEnd: Date | string | null;
+      tier: string;
+      status: string;
+      periodEnd: Date | string | null;
       trialEnd: Date | string | null;
     }>(sql`
       SELECT tier, status, current_period_end AS "periodEnd", trial_end AS "trialEnd"
       FROM subscriptions WHERE user_id = ${input.userId}
     `);
-    const sub = (subscriptions as unknown as Array<{
-      tier: string; status: string; periodEnd: Date | string | null;
-      trialEnd: Date | string | null;
-    }>)[0];
+    const sub = (
+      subscriptions as unknown as Array<{
+        tier: string;
+        status: string;
+        periodEnd: Date | string | null;
+        trialEnd: Date | string | null;
+      }>
+    )[0];
     const now = new Date();
     const active = sub?.status === "active" || sub?.status === "trialing";
     const validEnd = (value: Date | string | null | undefined) =>
-      !!value && Number.isFinite(new Date(value).getTime()) &&
+      !!value &&
+      Number.isFinite(new Date(value).getTime()) &&
       new Date(value).getTime() > now.getTime();
     const validPeriod = validEnd(sub?.periodEnd);
     const validTrial = sub?.status !== "trialing" || validEnd(sub?.trialEnd);
-    if (!active || !validPeriod || !validTrial ||
-        !sub || !Object.prototype.hasOwnProperty.call(
-          PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS, sub.tier)) {
-      throw new Error("Active approved-tier subscription required for provider reservation");
+    if (
+      !active ||
+      !validPeriod ||
+      !validTrial ||
+      !sub ||
+      !Object.prototype.hasOwnProperty.call(
+        PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS,
+        sub.tier,
+      )
+    ) {
+      throw new Error(
+        "Active approved-tier subscription required for provider reservation",
+      );
     }
-    const monthlyLimitCents = PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS[
-      sub.tier as keyof typeof PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS
-    ];
-    if (monthlyLimitCents <= 0) throw new Error("No provider budget for this tier");
+    const monthlyLimitCents =
+      PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS[
+        sub.tier as keyof typeof PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS
+      ];
+    if (monthlyLimitCents <= 0)
+      throw new Error("No provider budget for this tier");
 
     const existing = await tx.execute<Reservation>(sql`
       SELECT state, maximum_cents::text AS "maximumCents", actual_cents::text AS "actualCents",
@@ -73,8 +105,12 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
     `);
     const previous = (existing as unknown as Reservation[])[0];
     if (previous) {
-      if (previous.state === "released" || previous.projectId !== input.projectId ||
-        previous.executionId !== input.executionId || amount(previous.maximumCents) !== input.maximumCents)
+      if (
+        previous.state === "released" ||
+        previous.projectId !== input.projectId ||
+        previous.executionId !== input.executionId ||
+        amount(previous.maximumCents) !== input.maximumCents
+      )
         throw new Error("Conflicting or released provider operation");
       return "duplicate";
     }
@@ -90,7 +126,9 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
           OR (period_start = ${period}::date AND state = 'settled')
         )
     `);
-    const spent = amount((usage as unknown as Array<{ total: string }>)[0]?.total ?? "0");
+    const spent = amount(
+      (usage as unknown as Array<{ total: string }>)[0]?.total ?? "0",
+    );
     if (input.maximumCents > monthlyLimitCents - spent)
       throw new Error("Provider budget exhausted; pause and quote");
     await tx.execute(sql`
@@ -104,22 +142,33 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
 }
 
 /** Unknown charges remain reserved. A timeout never proves a call was free. */
-export async function settleProviderSpend(userId: number, operationId: string, verifiedCents: number): Promise<void> {
+export async function settleProviderSpend(
+  userId: number,
+  operationId: string,
+  verifiedCents: number,
+): Promise<void> {
   if (!safeId(userId) || !validKey(operationId) || !safeCents(verifiedCents))
     throw new Error("Invalid provider settlement");
   await db.transaction(async (tx) => {
-    const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`);
-    if ((owner as unknown as unknown[]).length !== 1) throw new Error("Customer not found");
+    const owner = await tx.execute(
+      sql`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`,
+    );
+    if ((owner as unknown as unknown[]).length !== 1)
+      throw new Error("Customer not found");
     const data = await tx.execute<Reservation>(sql`
       SELECT state, maximum_cents::text AS "maximumCents", actual_cents::text AS "actualCents"
       FROM provider_spend_reservations WHERE user_id = ${userId} AND operation_id = ${operationId} FOR UPDATE
     `);
     const item = (data as unknown as Reservation[])[0];
-    if (!item || item.state === "released") throw new Error("Missing active reservation");
+    if (!item || item.state === "released")
+      throw new Error("Missing active reservation");
     if (verifiedCents > amount(item.maximumCents))
       throw new Error("Charge exceeds reservation; freeze further work");
     if (item.state === "settled") {
-      if (item.actualCents === null || amount(item.actualCents) !== verifiedCents)
+      if (
+        item.actualCents === null ||
+        amount(item.actualCents) !== verifiedCents
+      )
         throw new Error("Conflicting settlement");
       return;
     }

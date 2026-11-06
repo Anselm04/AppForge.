@@ -333,9 +333,9 @@ export function LandingPage() {
                 integrations, or more compute than a standard build. If you run
                 out of credits before your next monthly subscription payment,
                 you must buy extra top-up credits separately to keep building
-                right away. Otherwise your build pauses until new credits
-                become available, or you choose an eligible higher plan.
-                Subscriptions do not promise unlimited completed products.
+                right away. Otherwise your build pauses until new credits become
+                available, or you choose an eligible higher plan. Subscriptions
+                do not promise unlimited completed products.
               </p>
             </div>
             <div className="rounded-2xl border border-forge-border bg-forge-bg/50 p-5">

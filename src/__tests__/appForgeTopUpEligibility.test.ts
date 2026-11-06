@@ -45,8 +45,12 @@ describe("AppForge credit top-up billing eligibility", () => {
       resolve(process.cwd(), "src/services/stripeCheckout.ts"),
       "utf8",
     );
-    const topUp = checkout.slice(checkout.indexOf("export async function createCreditCheckout"));
-    expect(topUp.indexOf("assertEligibleForCreditTopUp(sub)")).toBeGreaterThan(0);
+    const topUp = checkout.slice(
+      checkout.indexOf("export async function createCreditCheckout"),
+    );
+    expect(topUp.indexOf("assertEligibleForCreditTopUp(sub)")).toBeGreaterThan(
+      0,
+    );
     expect(topUp.indexOf("assertEligibleForCreditTopUp(sub)")).toBeLessThan(
       topUp.indexOf("stripe.checkout.sessions.create"),
     );

@@ -3,7 +3,10 @@
  * The existing balance may include separately purchased packs; replacing it
  * would silently confiscate those prepaid credits.
  */
-export function balanceAfterMonthlyGrant(balance: number, grant: number): number {
+export function balanceAfterMonthlyGrant(
+  balance: number,
+  grant: number,
+): number {
   if (
     !Number.isSafeInteger(balance) ||
     balance < 0 ||

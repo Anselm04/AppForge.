@@ -31,10 +31,12 @@ describe("approved prices do not automatically activate live billing", () => {
       checkout.indexOf("export async function createCreditCheckout("),
     );
     for (const operation of [plan, credits]) {
-      expect(operation.indexOf("assertCommercialCheckoutReleased()"))
-        .toBeGreaterThan(0);
-      expect(operation.indexOf("assertCommercialCheckoutReleased()"))
-        .toBeLessThan(operation.indexOf("getStripe()"));
+      expect(
+        operation.indexOf("assertCommercialCheckoutReleased()"),
+      ).toBeGreaterThan(0);
+      expect(
+        operation.indexOf("assertCommercialCheckoutReleased()"),
+      ).toBeLessThan(operation.indexOf("getStripe()"));
     }
   });
 });

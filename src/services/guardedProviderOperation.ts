@@ -13,7 +13,6 @@ import {
 } from "./providerSpendLedger.js";
 import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
 
-
 /**
  * Preparatory paid-operation guard. This does not authorize production work.
  * Pricing input must be independently sourced, and every billable attempt
@@ -30,7 +29,8 @@ export async function runReservedProviderOperation<T>(
   // real customer charges even if this helper is called outside the router.
   assertCustomerComputeLaunchCertified(false);
   const lease = currentBuildExecutionLease();
-  if (!lease) throw new Error("Provider spending requires a build execution lease");
+  if (!lease)
+    throw new Error("Provider spending requires a build execution lease");
   await assertCurrentBuildLease();
   assertProviderPricesConfirmed(options.envelope);
   const maximumCents = maximumProviderEnvelopeCents(options.envelope);
@@ -43,7 +43,9 @@ export async function runReservedProviderOperation<T>(
   });
   // Replaying the same request must not dispatch a second billable operation.
   if (status !== "reserved") {
-    throw new Error("Duplicate provider operation refused; inspect existing result");
+    throw new Error(
+      "Duplicate provider operation refused; inspect existing result",
+    );
   }
   await assertCurrentBuildLease();
   // Never automatically release the reservation on timeout, abort or error:

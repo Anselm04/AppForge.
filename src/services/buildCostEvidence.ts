@@ -83,9 +83,10 @@ export function summarizeBuildProviderEvidence(
     observedTokens,
     verifiedCostSubtotalUsdCents,
     // Null explicitly indicates no reliable all-inclusive spend total.
-    totalCostUsdCents: observedRequests > 0 && unknownCostSamples === 0
-      ? verifiedCostSubtotalUsdCents
-      : null,
+    totalCostUsdCents:
+      observedRequests > 0 && unknownCostSamples === 0
+        ? verifiedCostSubtotalUsdCents
+        : null,
     costFullyVerified: observedRequests > 0 && unknownCostSamples === 0,
     source: "build_events" as const,
     providerInvoicesReconciled: false,

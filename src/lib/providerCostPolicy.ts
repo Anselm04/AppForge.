@@ -32,8 +32,8 @@ export function minimumPriceForMargin(input: QuoteInput): number {
     costs.some((v) => !safeCents(v)) ||
     !safeCents(input.paymentFeeBasisPoints) ||
     !safeCents(input.targetContributionMarginBasisPoints) ||
-    input.paymentFeeBasisPoints +
-      input.targetContributionMarginBasisPoints >= 10000
+    input.paymentFeeBasisPoints + input.targetContributionMarginBasisPoints >=
+      10000
   ) {
     throw new Error("Invalid unit economics; refuse this quote");
   }
@@ -66,7 +66,12 @@ export function evaluateProvisionalProviderBudget(input: {
   ) {
     throw new Error("Unknown or invalid customer provider costs");
   }
-  if (!Object.prototype.hasOwnProperty.call(PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS, tier)) {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS,
+      tier,
+    )
+  ) {
     throw new Error("Unknown customer tier; refuse provisional budget");
   }
   const cap = PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS[tier];
@@ -76,7 +81,8 @@ export function evaluateProvisionalProviderBudget(input: {
   }
   const availableCents = Math.max(0, cap - used);
   return {
-    permittedByModel: estimatedWorstCaseNewCents <= availableCents &&
+    permittedByModel:
+      estimatedWorstCaseNewCents <= availableCents &&
       estimatedWorstCaseNewCents > 0,
     availableCents,
     reason:

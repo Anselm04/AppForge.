@@ -66,18 +66,24 @@ export class AppBuilder {
     // Do not present a placeholder as a successfully revised product.
     void appId;
     void changes;
-    throw new Error("App iteration requires a verified persisted project workflow.");
+    throw new Error(
+      "App iteration requires a verified persisted project workflow.",
+    );
   }
 
   async deploy(appId: string): Promise<string> {
     void appId;
-    throw new Error("Deployment requires an authorised, verified deployment adapter.");
+    throw new Error(
+      "Deployment requires an authorised, verified deployment adapter.",
+    );
   }
 
   async exportToGitHub(appId: string, repoName: string): Promise<string> {
     void appId;
     void repoName;
-    throw new Error("GitHub export requires an authorised repository integration.");
+    throw new Error(
+      "GitHub export requires an authorised repository integration.",
+    );
   }
 }
 

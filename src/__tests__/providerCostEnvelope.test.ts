@@ -38,12 +38,14 @@ describe("conservative provider-cost envelope (offline only)", () => {
   it("rounds fractional USD cents up, never down", () => {
     const envelope = sample();
     envelope.externalRuntimeStorageEgressCents = 0;
-    envelope.attempts = [{
-      ...envelope.attempts[0],
-      maxInputTokens: 1,
-      maxOutputTokens: 1,
-      fixedRequestCents: 0,
-    }];
+    envelope.attempts = [
+      {
+        ...envelope.attempts[0],
+        maxInputTokens: 1,
+        maxOutputTokens: 1,
+        fixedRequestCents: 0,
+      },
+    ];
     expect(maximumProviderEnvelopeCents(envelope, clock)).toBe(1);
   });
 
@@ -65,20 +67,26 @@ describe("conservative provider-cost envelope (offline only)", () => {
     expect(() => maximumProviderEnvelopeCents(expired, clock)).toThrow();
 
     const assumedFree = sample();
-    assumedFree.attempts = [{
-      ...assumedFree.attempts[0],
-      inputUsdMicrosPerMillionTokens: 0,
-      outputUsdMicrosPerMillionTokens: 0,
-      fixedRequestCents: 0,
-    }];
+    assumedFree.attempts = [
+      {
+        ...assumedFree.attempts[0],
+        inputUsdMicrosPerMillionTokens: 0,
+        outputUsdMicrosPerMillionTokens: 0,
+        fixedRequestCents: 0,
+      },
+    ];
     expect(() => maximumProviderEnvelopeCents(assumedFree, clock)).toThrow();
   });
 
   it("does not treat provisional rates as certified live provider prices", () => {
     const quote = sample();
-    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(/provisional/);
+    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
+      /provisional/,
+    );
     quote.priceSnapshotSource = "provider_confirmed";
     expect(() => assertProviderPricesConfirmed(quote, clock)).not.toThrow();
-    expect(() => assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z"))).toThrow(/expired/);
+    expect(() =>
+      assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z")),
+    ).toThrow(/expired/);
   });
 });

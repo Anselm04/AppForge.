@@ -30,7 +30,10 @@ describe("AppForge USD profitability calculator (offline only)", () => {
       minimumPriceForMargin({ ...quote, worstCaseProviderCents: -1 }),
     ).toThrow(/Invalid unit economics/);
     expect(() =>
-      minimumPriceForMargin({ ...quote, targetContributionMarginBasisPoints: 9800 }),
+      minimumPriceForMargin({
+        ...quote,
+        targetContributionMarginBasisPoints: 9800,
+      }),
     ).toThrow(/Invalid unit economics/);
     expect(() =>
       minimumPriceForMargin({ ...quote, worstCaseProviderCents: Number.NaN }),
@@ -50,18 +53,22 @@ describe("AppForge USD profitability calculator (offline only)", () => {
   });
 
   it("rejects invalid or unknown tiers instead of producing a NaN budget", () => {
-    expect(() => evaluateProvisionalProviderBudget({
-      tier: "enterprise" as "starter",
-      usedCents: 0,
-      pendingCents: 0,
-      estimatedWorstCaseNewCents: 100,
-    })).toThrow(/Unknown customer tier/);
-    expect(() => evaluateProvisionalProviderBudget({
-      tier: "starter",
-      usedCents: Number.MAX_SAFE_INTEGER,
-      pendingCents: 1,
-      estimatedWorstCaseNewCents: 1,
-    })).toThrow(/overflow/);
+    expect(() =>
+      evaluateProvisionalProviderBudget({
+        tier: "enterprise" as "starter",
+        usedCents: 0,
+        pendingCents: 0,
+        estimatedWorstCaseNewCents: 100,
+      }),
+    ).toThrow(/Unknown customer tier/);
+    expect(() =>
+      evaluateProvisionalProviderBudget({
+        tier: "starter",
+        usedCents: Number.MAX_SAFE_INTEGER,
+        pendingCents: 1,
+        estimatedWorstCaseNewCents: 1,
+      }),
+    ).toThrow(/overflow/);
   });
 
   it("does not treat free access or a zero-priced billable call as authorised", () => {

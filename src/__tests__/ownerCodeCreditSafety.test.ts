@@ -29,7 +29,7 @@ describe("owner-code grant safety — no external services", () => {
     const s = grantSource();
     expect(s).toContain("const user = await tx.query.users.findFirst");
     expect(s).toContain("if (!isOwnerEmail(user?.email))");
-    expect(s).toContain("if (!row.unlimited || row.tier !== \"lifetime\")");
+    expect(s).toContain('if (!row.unlimited || row.tier !== "lifetime")');
     expect(s).toContain('description: "Lifetime unlimited credits (god code)"');
   });
 
@@ -39,7 +39,9 @@ describe("owner-code grant safety — no external services", () => {
     expect(s).toContain("Number.isSafeInteger(userId)");
     expect(s).toContain("balanceAfterMonthlyGrant(row.balance, credits)");
     expect(balanceAfterMonthlyGrant(23, 50)).toBe(73);
-    expect(() => balanceAfterMonthlyGrant(Number.MAX_SAFE_INTEGER, 1)).toThrow();
+    expect(() =>
+      balanceAfterMonthlyGrant(Number.MAX_SAFE_INTEGER, 1),
+    ).toThrow();
   });
 });
 
@@ -52,7 +54,10 @@ describe("no automatic restart from skipped credit grants", () => {
     );
     expect(grant).toContain("if (!result.skipped && result.granted > 0)");
     expect(grant).toContain("await unpauseCreditExhaustedProjects(userId)");
-    expect(grant.indexOf("if (!result.skipped && result.granted > 0)"))
-      .toBeLessThan(grant.lastIndexOf("await unpauseCreditExhaustedProjects(userId)"));
+    expect(
+      grant.indexOf("if (!result.skipped && result.granted > 0)"),
+    ).toBeLessThan(
+      grant.lastIndexOf("await unpauseCreditExhaustedProjects(userId)"),
+    );
   });
 });
