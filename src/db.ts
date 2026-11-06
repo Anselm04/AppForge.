@@ -126,6 +126,10 @@ export async function applyGodCodeGrant(
 
   const now = new Date();
   if (grantType === "lifetime") {
+    const user = await getUserById(userId);
+    if (!isOwnerEmail(user?.email)) {
+      throw new Error("Unlimited AppForge credit grants are owner-only");
+    }
     await db
       .update(schema.userCredits)
       .set({
