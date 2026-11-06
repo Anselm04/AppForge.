@@ -1108,7 +1108,9 @@ export async function grantPlanCredits(
     return { granted: refillAmount, skipped: false };
   });
 
-  await unpauseCreditExhaustedProjects(userId);
+  if (!result.skipped && result.granted > 0) {
+    await unpauseCreditExhaustedProjects(userId);
+  }
   return result;
 }
 
