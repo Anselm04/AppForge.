@@ -5,6 +5,7 @@ import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { isOwnerEmail } from "./lib/owner.js";
+import { balanceAfterMonthlyGrant } from "./lib/creditRollover.js";
 import {
   buildProductContract,
   validateProductContract,
@@ -837,7 +838,7 @@ export async function refillMonthlyCredits(
       .set({
         // Never destroy unused separately purchased credits on a monthly refill.
         // Plan grants and top-ups share the current balance in this legacy ledger.
-        balance: credits.balance + refillAmount,
+        balance: balanceAfterMonthlyGrant(credits.balance, refillAmount),
         tier: effectiveTier,
         monthlyAllowance: getTierBuildLimit(effectiveTier) ?? 0,
         lastRefillAt: now,
