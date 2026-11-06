@@ -168,9 +168,9 @@
   },
   "credits": {
     "title": "Out of credits — work paused",
-    "body": "You have {credits} credits; this action needs {cost} to {action}. Builds stay paused until you subscribe or buy extra credits.",
-    "subscribe": "Subscribe",
-    "buyExtra": "Buy extra credits",
+    "body": "You have {credits} credits; this action needs {cost} to {action}. To continue before your next monthly refill, you must separately buy additional credits or choose an eligible higher plan. Otherwise work stays paused. No automatic top-up charges.",
+    "subscribe": "View plans and credit options",
+    "buyExtra": "Buy credits separately (USD)",
     "actionStartBuild": "start a build"
   },
   "footer": {
