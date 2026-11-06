@@ -48,3 +48,10 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 3. Test cost-budget denial and retry safety in simulated execution, then implement/verify provider pricing and atomic monetary budget enforcement in the billing ledger.
 4. Clearly report source-level verification separately from executed CI results; tests written are **not** evidence they passed.
 5. Keep Fly.io production and existing live Stripe products untouched.
+
+## Offline safety follow-up — environment and AI failure audit
+
+- Both new-checkout and customer-build safety gates now require an explicitly recognised local `test` or `development` runtime for mock activity. Preview, staging, missing/unknown environment names, and production deny customer paid work until full provider USD-cost enforcement is certified. Do not set `NODE_ENV=development` on an external production worker to bypass this.
+- LLM provider HTTP/network failures now attempt to append per-build `provider_usage` evidence with unknown tokens and `costVerified: false`. Unknown/unreported charges are **not zero-cost entries**, and retry attempts internal to provider request backoff may still require additional reconciliation instrumentation.
+- These checks are not a verified provider-cost ledger, not atomic customer-spend reservations, and not proof that paid builds are profitable.
+- Regression tests target staging/preview fail-closed behaviour, guarded checkout ordering, and unpriced provider-failure evidence. The precise GitHub CI outcome must be checked before merging.
