@@ -557,7 +557,8 @@ export const adminRouter = router({
       if (input.grantType === "lifetime") {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "New unlimited lifetime codes are disabled. Use explicitly limited credits.",
+          message:
+            "New unlimited lifetime codes are disabled. Use explicitly limited credits.",
         });
       }
       const credits = input.credits ?? 0;
@@ -650,7 +651,8 @@ export const adminRouter = router({
       if (found.grantType === "lifetime" || found.tier === "lifetime") {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Legacy lifetime codes require owner-assisted review before redemption.",
+          message:
+            "Legacy lifetime codes require owner-assisted review before redemption.",
         });
       }
       if (found.expiresAt && new Date(found.expiresAt) < new Date()) {
