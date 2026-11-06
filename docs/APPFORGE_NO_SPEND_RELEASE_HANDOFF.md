@@ -80,3 +80,12 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - **Never interpret a null/unknown provider cost as zero or as a confirmed positive margin.** Builds with no observations have unknown total, not zero total. Summaries remain `providerInvoicesReconciled: false` and `spendingLimitEnforced: false` until the full money-ledger is integrated.
 - The raw build-event reader is not exposed as a customer-facing global route in this draft. Callers must first verify customer/project ownership; the helper adds a second user/execution filter.
 - This is preparation for real atomic per-call USD reservations and provider invoice reconciliation, not sufficient reason to remove any production customer compute safety stop.
+
+## 2026-11-06 continuation — preparatory monetary reservations (unmerged)
+
+- Added `src/services/providerSpendLedger.ts` with per-user PostgreSQL row-lock serialization, idempotent per-operation reservations, project ownership check, UTC monthly budget accounting, and reject-on-overrun settlements. This is **a foundation only**; no billable provider call has yet been wired to this service.
+- Added `provider_spend_reservations` to the authoritative schema under the **new** immutable migration `20261106_011`. Older applied migration contents/checksums are preserved; no live migration was applied.
+- Added mock concurrency/idempotency/budget/settlement tests and included them (plus pre-existing checkout and cost-evidence tests) in the offline commercial suite. A separate local simulation of the ledger logic passed, but this is not an exact-head GitHub CI result.
+- The consolidated draft PR #252 is aimed at `main` for full CI and hermetic preview qualification. It must remain draft with commercial checkout and customer build release gates closed.
+- **Still missing:** full end-to-end connection of reservations to every billable provider attempt (including individual HTTP retry attempts/fallbacks), verified real provider pricing and bill reconciliation, safe release semantics only for calls proven never dispatched, sandbox/runtime/storage/egress/SMS/deployment cost accounting, complete mocked customer lifecycle, approved plan allowances and top-up pack prices, Stripe cutover and final owner release approval.
+
