@@ -1,3 +1,4 @@
+import { PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS } from "../lib/providerCostPolicy.js";
 import { sql } from "drizzle-orm";
 import { db } from "../db.js";
 
@@ -8,7 +9,6 @@ export type ProviderReservationInput = {
   executionId: number;
   operationId: string;
   maximumCents: number;
-  monthlyLimitCents: number;
 };
 type Reservation = {
   state: "reserved" | "settled" | "released";
@@ -30,12 +30,42 @@ const amount = (v: string | number): number => {
 export async function reserveProviderSpend(input: ProviderReservationInput): Promise<"reserved" | "duplicate"> {
   if (!safeId(input.userId) || !safeId(input.projectId) || !safeId(input.executionId) ||
     !validKey(input.operationId) || !safeCents(input.maximumCents) || input.maximumCents === 0 ||
-    !safeCents(input.monthlyLimitCents)) throw new Error("Invalid provider reservation");
+    ) throw new Error("Invalid provider reservation");
   return db.transaction(async (tx) => {
     const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${input.userId} FOR UPDATE`);
     if ((owner as unknown as unknown[]).length !== 1) throw new Error("Customer not found");
     const project = await tx.execute(sql`SELECT id FROM projects WHERE id = ${input.projectId} AND user_id = ${input.userId}`);
     if ((project as unknown as unknown[]).length !== 1) throw new Error("Project ownership mismatch");
+    // A caller cannot choose its own monetary allowance. Resolve current
+    // paid subscription status under the same serialized user transaction.
+    const subscriptions = await tx.execute<{
+      tier: string; status: string; periodEnd: Date | string | null;
+      trialEnd: Date | string | null;
+    }>(sql`
+      SELECT tier, status, current_period_end AS "periodEnd", trial_end AS "trialEnd"
+      FROM subscriptions WHERE user_id = ${input.userId}
+    `);
+    const sub = (subscriptions as unknown as Array<{
+      tier: string; status: string; periodEnd: Date | string | null;
+      trialEnd: Date | string | null;
+    }>)[0];
+    const now = new Date();
+    const active = sub?.status === "active" || sub?.status === "trialing";
+    const validEnd = (value: Date | string | null | undefined) =>
+      !value || (Number.isFinite(new Date(value).getTime()) &&
+        new Date(value).getTime() > now.getTime());
+    const validPeriod = validEnd(sub?.periodEnd);
+    const validTrial = sub?.status !== "trialing" || validEnd(sub?.trialEnd);
+    if (!active || !validPeriod || !validTrial ||
+        !sub || !Object.prototype.hasOwnProperty.call(
+          PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS, sub.tier)) {
+      throw new Error("Active approved-tier subscription required for provider reservation");
+    }
+    const monthlyLimitCents = PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS[
+      sub.tier as keyof typeof PROVISIONAL_PROVIDER_MONTHLY_CEILINGS_CENTS
+    ];
+    if (monthlyLimitCents <= 0) throw new Error("No provider budget for this tier");
+
     const existing = await tx.execute<Reservation>(sql`
       SELECT state, maximum_cents::text AS "maximumCents", actual_cents::text AS "actualCents",
         project_id AS "projectId", execution_id AS "executionId"
@@ -58,7 +88,7 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
         AND period_start = ${period}::date AND state IN ('reserved', 'settled')
     `);
     const spent = amount((usage as unknown as Array<{ total: string }>)[0]?.total ?? "0");
-    if (input.maximumCents > input.monthlyLimitCents - spent)
+    if (input.maximumCents > monthlyLimitCents - spent)
       throw new Error("Provider budget exhausted; pause and quote");
     await tx.execute(sql`
       INSERT INTO provider_spend_reservations
