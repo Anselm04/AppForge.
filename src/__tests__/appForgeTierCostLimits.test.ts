@@ -11,9 +11,15 @@ describe("AppForge finite credits and tier-limit invariants", () => {
 
   it("preserves intentionally contract-defined Studio and Enterprise limits", () => {
     expect(db).toMatch(/studio:\s*null,\s*enterprise:\s*null/);
-    expect(db).toContain("Object.hasOwn(TIER_BUILD_LIMITS, tier)");
-    expect(db).toContain("Object.hasOwn(TIER_CREDIT_REFILLS, tier)");
-    expect(subscriptions).toContain("Object.hasOwn(TIER_LIMITS, tier)");
+    expect(db).toContain(
+      "Object.prototype.hasOwnProperty.call(TIER_BUILD_LIMITS, tier)",
+    );
+    expect(db).toContain(
+      "Object.prototype.hasOwnProperty.call(TIER_CREDIT_REFILLS, tier)",
+    );
+    expect(subscriptions).toContain(
+      "Object.prototype.hasOwnProperty.call(TIER_LIMITS, tier)",
+    );
   });
 
   it("does not issue free plan monthly AI credits or included build slots", () => {
@@ -24,7 +30,10 @@ describe("AppForge finite credits and tier-limit invariants", () => {
 
   it("keeps abstract credits separate from actual verified provider spend", () => {
     const pricing = readFileSync(
-      resolve(process.cwd(), "docs/APPFORGE_PROPOSED_PROFIT_FIRST_USD_PRICING.md"),
+      resolve(
+        process.cwd(),
+        "docs/APPFORGE_PROPOSED_PROFIT_FIRST_USD_PRICING.md",
+      ),
       "utf8",
     );
     expect(pricing).toContain("per-tenant and per-job provider cost metering");

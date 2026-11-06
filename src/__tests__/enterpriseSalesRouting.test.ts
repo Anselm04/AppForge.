@@ -18,7 +18,10 @@ const subscriptions = readFileSync(
 
 describe("Enterprise sales-led provisioning", () => {
   it("does not advertise unlimited paid Enterprise credits or unlimited Studio compute", () => {
-    expect(copy.enterpriseF1.toLowerCase()).toContain("not unlimited");
+    expect(copy.enterpriseF1.toLowerCase()).toContain(
+      "no unlimited builds or compute",
+    );
+    expect(copy.enterpriseF1.toLowerCase()).toContain("signed caps required");
     expect(copy.studioF1.toLowerCase()).toContain("metered budget");
     expect(database).toContain("enterprise: null");
     expect(database).toContain("unlimited: owner");

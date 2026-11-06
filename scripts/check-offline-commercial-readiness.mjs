@@ -36,7 +36,11 @@ const tests = [
 
 const env = { ...process.env, NODE_ENV: "test" };
 for (const name of Object.keys(env)) {
-  if (/^(STRIPE_|TWILIO_|OPENAI_|GROQ_|GEMINI_|ANTHROPIC_|OPENROUTER_|COHERE_|FLY_|VERCEL_|CLOUDFLARE_|SUPABASE_|DATABASE_URL|GOOGLE_APPLICATION_CREDENTIALS)/.test(name)) {
+  if (
+    /^(STRIPE_|TWILIO_|OPENAI_|GROQ_|GEMINI_|ANTHROPIC_|OPENROUTER_|COHERE_|FLY_|VERCEL_|CLOUDFLARE_|SUPABASE_|DATABASE_URL|GOOGLE_APPLICATION_CREDENTIALS)/.test(
+      name,
+    )
+  ) {
     delete env[name];
   }
 }
@@ -50,7 +54,7 @@ if (assembly.status !== 0) process.exit(assembly.status ?? 1);
 
 const run = spawnSync(
   process.execPath,
-  [vitest, "run", "--maxWorkers=2", "--minWorkers=1", ...tests],
+  [vitest, "run", "--maxWorkers=2", ...tests],
   { cwd: root, stdio: "inherit", env },
 );
 process.exit(run.status ?? 1);
