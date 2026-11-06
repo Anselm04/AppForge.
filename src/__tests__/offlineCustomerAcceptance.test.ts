@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { balanceAfterMonthlyGrant } from "../lib/creditRollover.js";
 import { creditsExhaustedBody } from "../lib/credits.js";
 import { assertEligibleForCreditTopUp } from "../services/appForgeCreditEligibility.js";
@@ -8,6 +10,14 @@ import { assertCustomerComputeLaunchCertified } from "../services/customerComput
 import { evaluateProvisionalProviderBudget, minimumPriceForMargin } from "../lib/providerCostPolicy.js";
 
 describe("zero-spend customer acceptance: actual commercial policy helpers", () => {
+  it("does not advertise unapproved top-up prices as final customer charges", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/pages/Pricing.tsx"), "utf8");
+    expect(page).toContain("USD price awaiting approval");
+    expect(page).toContain("Top-up purchases are unavailable until the exact USD prices");
+    expect(page).toContain("disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}");
+    expect(page).not.toContain("USD ${(pack * 2)");
+  });
+
   it("advertised plans have the approved USD amounts", () => {
     expect(MONTHLY_PLAN_USD_CENTS).toEqual({
       starter: 7900,
