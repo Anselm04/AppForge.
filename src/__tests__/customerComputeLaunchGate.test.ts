@@ -23,6 +23,12 @@ describe("fail-closed customer provider-cost release gate", () => {
       .not.toThrow();
   });
 
+  it("blocks missing and unexpected environment names", () => {
+    for (const env of ["", "staging", "preview", "qa", "Production"]) {
+      expect(() => assertCustomerComputeLaunchCertified(false, env)).toThrow(CUSTOMER_COMPUTE_NOT_CERTIFIED);
+    }
+  });
+
   it("guards both customer admission routes and dequeued worker execution", () => {
     const files = [
       "src/routes/generate.ts",
