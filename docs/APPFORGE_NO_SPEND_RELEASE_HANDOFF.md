@@ -67,3 +67,9 @@ npm run test:offline-commercial
 This runs selected pure unit and source contract tests, assembles the local pipeline, explicitly sets `NODE_ENV=test`, and strips known billable provider, SMS, deployment and live Stripe credentials from the test subprocess. It does **not** run a real payment, generate a billed AI app, send SMS, deploy or contact real customer accounts. Dependency installation itself may use internet/bandwidth if local node_modules are absent; the script deliberately does not auto-install anything.
 
 Passing this subset is **not** evidence that full CI, production auth, actual provider-cost metering, refund semantics or real app export/deployment have passed. Run the full existing repo CI/security/production-build checks before any production merge and keep paid customer tests pending budget and approval.
+
+## Further offline release safety qualification
+
+- New subscription checkout and customer paid build gating deny unknown, staging and preview environment names; explicit local test/development runtimes still run mocked tests. No production environment escape flag is provided.
+- Failed LLM HTTP/network requests record unpriced per-build observations when an execution lease exists; tokens/cost remain unknown, not zero. Retries inside transport backoff are not yet individually costed, so this is audit evidence, not spend enforcement.
+- The hard production customer compute gate remains until atomic monetary reservations, provider billing reconciliation and tested per-user/job caps have been implemented; do not merge directly to a production-deploying branch.
