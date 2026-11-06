@@ -1,12 +1,14 @@
 # AppForge no-spend development handoff — 2026-11-06
 
 ## Approved customer subscription pricing (USD)
+
 Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 per month; Enterprise from $2,499 per month, sales-led.
 
 **Not approved yet:** prices of optional credit top-up packs, exact included customer credits per plan, numeric per-job/provider USD spend budgets, final tax presentation and existing-customer migration terms. The draft UI shows provisional top-up prices but keeps subscription and credit purchase actions disabled.
 
 ## Changes staged in draft PR #250
-- Upfront disclosure that credits are limited and separately paid top-ups may be required *before* the next subscription renewal; no automated charges, pause when depleted.
+
+- Upfront disclosure that credits are limited and separately paid top-ups may be required _before_ the next subscription renewal; no automated charges, pause when depleted.
 - New Free Explore accounts receive **zero** chargeable AI build credits; existing balances are not automatically removed.
 - Stripe credit pack checkout rejects customers without a valid active paid subscription. Existing plans/receipts are not changed.
 - Monthly balance replenishment is additive and overflow-checked; it does not wipe unused separately purchased top-up credits.
@@ -15,6 +17,7 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 - Regression tests added for prepaid rollover, finite free usage, price terms, credit top-up eligibility and tier null-limit semantics.
 
 ## Operational and financial release gates NOT yet satisfied
+
 1. **Provider cost metering and hard caps:** instrument AI model calls, tokens, external builder services, VM/container/sandbox runtimes, storage/egress, retries, push/SMS and app deployments. Record actual cost per customer/project/job, reserve budget atomically, stop external calls when the verified paid limit is insufficient, and reconcile provider invoices.
 2. **Pricing economics:** run true provider costing for at least one simple, medium and complex build in an approved test account; calculate customer-level contribution after payment/FX fees, refunds, taxes collected for government, support and allocated overhead. Confirm approved included credits and pack pricing with gross-margin targets and a contingency. Do not state guaranteed profits.
 3. **Stripe live migration:** create NEW USD prices for the approved $79/$199/$499 subscriptions, and approve future top-up pack amounts. Do not change existing subscriptions or price IDs in place without agreed terms. Test webhooks, refunds and exactly-once entitlements.
@@ -25,6 +28,7 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 8. **Production signoff:** zero forced merges, exact-head CI/format/type/security tests, owner-approved deployment, Fly.io smoke tests, backups/recovery and rollback.
 
 ## Zero-spend policy until budget available
+
 - Do **not** make live Stripe charges, real SMS sends, real AI/cloud generation tests, paid deployments, paid ads or new subscriptions just to certify this branch.
 - No pricing-only merge may silently activate checkout against obsolete live Stripe Prices.
 - Preserve existing user balances and entitlement history; disputed lifetime entitlements require contractual review.
@@ -36,7 +40,7 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 ## Latest offline engineering — financial release safety
 
 - Implemented `customerComputeLaunchGate.ts` as a **non-bypassable production-only stop** for paid customer AI build entry and queue execution. Both REST and tRPC creation paths, tRPC resume and the build worker check it. Mocked development/CI flows remain available. No arbitrary `ENABLE=true` environment variable pretends to certify actual provider cost controls.
-- Implemented `appForgeCommercialCheckoutGate.ts` as a server-side production checkout stop for *new* subscriptions and paid credit-pack sessions. Existing active customer subscriptions, Stripe objects, plan access and saved projects are not modified by this code. Mocked Stripe tests can run outside production.
+- Implemented `appForgeCommercialCheckoutGate.ts` as a server-side production checkout stop for _new_ subscriptions and paid credit-pack sessions. Existing active customer subscriptions, Stripe objects, plan access and saved projects are not modified by this code. Mocked Stripe tests can run outside production.
 - These stops are **intentional launch blockers, not delivered provider-cost metering or completed commercial functionality**. Remove them only in reviewed code when all provider-priced operations have per-tenant/job preauthorised spend reservations with atomic limits, accounted retries, reconciliation, and refund/cancellation rules; when correct new live Stripe price IDs and tax/customer disclosures are tested; and only following the owner's explicit deployment approval.
 - Tightened prepaid/subscription credit arithmetic with `balanceAfterMonthlyGrant` across the plan and top-up grant paths, and added regression tests for customer compute start, resume, worker execution and direct checkout safety.
 - **Do not assume GitHub Actions are free**: test scope should be limited to existing available minutes, and do not initiate live Stripe, SMS or paid LLM services.
@@ -50,11 +54,12 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 5. Keep Fly.io production and existing live Stripe products untouched.
 
 ## Further implementation in the no-spend draft
+
 - Added `providerCostPolicy.ts`: deterministic USD-cent per-plan **provisional** budget evaluation and a conservative minimum quote calculator that includes provider maximums, support, allocated overhead, payment fees and target margin. These calculations **do not authorise live work**.
 - Added `buildProviderUsage.ts` and integration in `_core/llm.ts` to record provider/model and observed tokens against the active build lease only. Token gaps, unknown billed retries and the true USD charge remain explicitly unverified; no secrets or prompts are stored in the usage event. This is a telemetry step, not spend enforcement or a substitute for reconciliation.
 - Corrected the unused legacy `app-builder.ts` adapter: its draft return is no longer marked ready and its preview/deploy/export helpers do not fabricate externally deployed URLs.
 - Tests cover quote arithmetic, budget exhaustion, usage attribution without cross-customer records, no invented cost, and honest legacy adapter outputs.
-- **Further engineering required:** atomic provider budget reservations, actual model/provider pricing and usage reconciliation, fail-closed limits at *each* paid tool call (including retries), sandbox/container/database/storage/egress metering, real estimate approval, and safe release of the build/checkout gates. These are NOT paid-test-only items.
+- **Further engineering required:** atomic provider budget reservations, actual model/provider pricing and usage reconciliation, fail-closed limits at _each_ paid tool call (including retries), sandbox/container/database/storage/egress metering, real estimate approval, and safe release of the build/checkout gates. These are NOT paid-test-only items.
 
 ## One-command local test with no live service spend
 
@@ -70,7 +75,7 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 
 ## Further offline release safety qualification
 
-- New subscription checkout and customer paid build gating deny unknown, staging and preview environment names; explicit local test/development runtimes still run mocked tests. No production environment escape flag is provided.
+- New subscription checkout and customer paid build gating deny unknown, staging and preview environment names; explicit local test/development runtimes still run mocked tests. Queued non-owner builds in those restricted environments are paused before the pipeline, with an idempotent refund attempted for their fixed credit reservation; refund failures are logged. No production environment escape flag is provided.
 - Failed LLM HTTP/network requests record unpriced per-build observations when an execution lease exists; tokens/cost remain unknown, not zero. Retries inside transport backoff are not yet individually costed, so this is audit evidence, not spend enforcement.
 - The hard production customer compute gate remains until atomic monetary reservations, provider billing reconciliation and tested per-user/job caps have been implemented; do not merge directly to a production-deploying branch.
 
@@ -88,7 +93,6 @@ Passing this subset is **not** evidence that full CI, production auth, actual pr
 - Added mock concurrency/idempotency/budget/settlement tests and included them (plus pre-existing checkout and cost-evidence tests) in the offline commercial suite. A separate local simulation of the ledger logic passed, but this is not an exact-head GitHub CI result.
 - The consolidated draft PR #252 is aimed at `main` for full CI and hermetic preview qualification. It must remain draft with commercial checkout and customer build release gates closed.
 - **Still missing:** full end-to-end connection of reservations to every billable provider attempt (including individual HTTP retry attempts/fallbacks), verified real provider pricing and bill reconciliation, safe release semantics only for calls proven never dispatched, sandbox/runtime/storage/egress/SMS/deployment cost accounting, complete mocked customer lifecycle, approved plan allowances and top-up pack prices, Stripe cutover and final owner release approval.
-
 
 ## No-spend automated customer acceptance continuation
 
