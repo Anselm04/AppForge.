@@ -16,7 +16,7 @@ The "provider cost" figures above are **internal cost ceilings**, not dollar-den
 
 ### Additional build usage
 - Require a customer-visible quote and prepaid authorisation for resource-intensive builds and further AI iterations before extra provider usage.
-- Proposed paid retail markup is **at least 3x measured incremental third-party variable cost**, including estimated retries, plus a separately budgeted support allowance when needed. Unused prepaid fees require a clear refund/credit policy compliant with applicable law.
+- Proposed paid retail markup is **at least 4x fully allocated and independently measured product-build cost** (third-party compute, personnel/support, platform usage, allocated overhead, likely retries, payment fees and a contingency allowance). Unused prepaid fees require a clear refund/credit policy compliant with applicable law.
 - No automatic charges, no unapproved metered overages, no unlimited agency/Enterprise compute.
 - Existing 50/100/250 abstract credit pack values, the five-credit build reservation and seven-day free-trial claims must be reconciled with **actual metered USD provider spend** before release. Historical prepaid credits and contracted entitlements require review; do not silently devalue them.
 - Hosting a customer's deployed app (and App Store fees, domains, phone/SMS, marketing spend, storage at scale and external vendor subscriptions) must be quoted/billed separately or included only under a stated finite contract limit.
