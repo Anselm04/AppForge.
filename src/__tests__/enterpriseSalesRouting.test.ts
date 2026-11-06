@@ -28,9 +28,7 @@ describe("Enterprise sales-led provisioning", () => {
 
   it("discloses USD pricing and contract-based Enterprise allowances", () => {
     expect(pricing).toContain("All amounts on this page are in USD.");
-    expect(pricing).toContain(
-      "Enterprise plans do not include unlimited credits",
-    );
+    expect(pricing).toMatch(/Enterprise plans do not\s+include unlimited credits/);
   });
   it("routes the Enterprise CTA to sales instead of self-serve checkout", () => {
     expect(pricing).toContain('t("pricing.contactSales")');
