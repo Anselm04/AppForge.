@@ -574,6 +574,22 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         durationMs: Date.now() - requestStartedAt,
         ok: false,
       });
+      // Unsuccessful provider responses can still have unreported charges.
+      // Record evidence without inventing a zero-dollar cost.
+      if (currentBuildExecutionLease()) {
+        try {
+          const { recordProviderUsageForCurrentBuild } = await import(
+            "../services/buildProviderUsage.js"
+          );
+          await recordProviderUsageForCurrentBuild({
+            provider: provider.id,
+            model: String(payload.model),
+            succeeded: false,
+          });
+        } catch (meteringError) {
+          console.warn("Failed provider usage evidence unavailable", meteringError);
+        }
+      }
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
       errors.push(detail);
 
@@ -624,6 +640,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       }
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.startsWith("LLM invoke failed:")) {
+        if (currentBuildExecutionLease()) {
+          try {
+            const { recordProviderUsageForCurrentBuild } = await import(
+              "../services/buildProviderUsage.js"
+            );
+            await recordProviderUsageForCurrentBuild({
+              provider: provider.id,
+              model: String(payload.model),
+              succeeded: false,
+            });
+          } catch (meteringError) {
+            console.warn("Network provider usage evidence unavailable", meteringError);
+          }
+        }
         recordModelUsage({
           provider: provider.id,
           model: String(payload.model),
