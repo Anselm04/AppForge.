@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: "22"
 
 jobs:
   lint:
@@ -98,7 +98,7 @@ jobs:
           CI: true
       - name: Verify live research providers on network-enabled CI
         env:
-          APPFORGE_LIVE_RESEARCH_TESTS: '1'
+          APPFORGE_LIVE_RESEARCH_TESTS: "1"
         run: npx vitest run src/__tests__/researchSystem.test.ts
       - name: Verify provider reservations against PostgreSQL
         run: node --import tsx --test scripts/provider-spend-postgres.test.ts
@@ -183,7 +183,6 @@ jobs:
       - name: Verify real isolated Docker build flow without customer data
         run: npx tsx scripts/verify-docker-build-flow.ts
 
-
   build:
     name: Production Build
     runs-on: ubuntu-latest
@@ -213,9 +212,9 @@ jobs:
         shell: bash
         env:
           NODE_ENV: production
-          ENFORCE_ENV_VALIDATION: 'false'
-          PORT: '3100'
-          COOKIE_SECRET: 'ci-production-boot-smoke-only'
+          ENFORCE_ENV_VALIDATION: "false"
+          PORT: "3100"
+          COOKIE_SECRET: "ci-production-boot-smoke-only"
         run: |
           set -euo pipefail
           LOG=/tmp/appforge-production-boot.log
