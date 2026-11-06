@@ -28,7 +28,7 @@ const tests = [
 
 const env = { ...process.env, NODE_ENV: "test" };
 for (const name of Object.keys(env)) {
-  if (/^(STRIPE_SECRET_KEY|TWILIO_|OPENAI_API_KEY|GROQ_API_KEY|GEMINI_API_KEY|FLY_API_TOKEN|VERCEL_TOKEN)/.test(name)) {
+  if (/^(STRIPE_|TWILIO_|OPENAI_|GROQ_|GEMINI_|ANTHROPIC_|OPENROUTER_|COHERE_|FLY_|VERCEL_|CLOUDFLARE_|SUPABASE_|DATABASE_URL|GOOGLE_APPLICATION_CREDENTIALS)/.test(name)) {
     delete env[name];
   }
 }
