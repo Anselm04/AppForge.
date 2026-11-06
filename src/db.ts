@@ -209,7 +209,9 @@ const TIER_BUILD_LIMITS: Record<string, number | null> = {
 };
 
 export function getTierBuildLimit(tier: string): number | null {
-  return TIER_BUILD_LIMITS[tier] ?? TIER_BUILD_LIMITS.free;
+  return Object.hasOwn(TIER_BUILD_LIMITS, tier)
+    ? TIER_BUILD_LIMITS[tier]
+    : TIER_BUILD_LIMITS.free;
 }
 
 const TIER_CREDIT_REFILLS: Record<string, number | null> = {
@@ -222,7 +224,9 @@ const TIER_CREDIT_REFILLS: Record<string, number | null> = {
 };
 
 export function getTierCreditRefill(tier: string): number | null {
-  return TIER_CREDIT_REFILLS[tier] ?? TIER_CREDIT_REFILLS.free;
+  return Object.hasOwn(TIER_CREDIT_REFILLS, tier)
+    ? TIER_CREDIT_REFILLS[tier]
+    : TIER_CREDIT_REFILLS.free;
 }
 
 // ── GITHUB CONNECTIONS ──
