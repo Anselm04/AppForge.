@@ -147,6 +147,21 @@ export async function createPlanCheckout(
   return { url: session.url };
 }
 
+function assertCanBuyTopUp(
+  sub: Awaited<ReturnType<typeof getSubscriptionByUserId>>,
+) {
+  const active = sub?.status === "active" || sub?.status === "trialing";
+  const validPeriod =
+    !sub?.currentPeriodEnd || sub.currentPeriodEnd > new Date();
+  const tier = sub?.tier;
+  const paidTier = tier === "starter" || tier === "builder" || tier === "studio";
+  if (!active || !validPeriod || !paidTier) {
+    throw new Error(
+      "Additional credits require an active paid AppForge plan. Explore accounts must subscribe before purchasing build credits.",
+    );
+  }
+}
+
 export async function createCreditCheckout(
   user: CheckoutUser,
   credits: CreditPack,
@@ -154,6 +169,7 @@ export async function createCreditCheckout(
   const stripe = await getStripe();
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);
+  assertCanBuyTopUp(sub);
   const priceId = requireCreditPriceId(credits);
   const price = await stripe.prices.retrieve(priceId);
   assertAppForgePrice(
