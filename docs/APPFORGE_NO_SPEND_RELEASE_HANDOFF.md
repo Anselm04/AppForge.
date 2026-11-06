@@ -55,3 +55,15 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 - Corrected the unused legacy `app-builder.ts` adapter: its draft return is no longer marked ready and its preview/deploy/export helpers do not fabricate externally deployed URLs.
 - Tests cover quote arithmetic, budget exhaustion, usage attribution without cross-customer records, no invented cost, and honest legacy adapter outputs.
 - **Further engineering required:** atomic provider budget reservations, actual model/provider pricing and usage reconciliation, fail-closed limits at *each* paid tool call (including retries), sandbox/container/database/storage/egress metering, real estimate approval, and safe release of the build/checkout gates. These are NOT paid-test-only items.
+
+## One-command local test with no live service spend
+
+On a Linux machine where AppForge's lockfile dependencies are already installed or cached, run:
+
+```bash
+npm run test:offline-commercial
+```
+
+This runs selected pure unit and source contract tests, assembles the local pipeline, explicitly sets `NODE_ENV=test`, and strips known billable provider, SMS, deployment and live Stripe credentials from the test subprocess. It does **not** run a real payment, generate a billed AI app, send SMS, deploy or contact real customer accounts. Dependency installation itself may use internet/bandwidth if local node_modules are absent; the script deliberately does not auto-install anything.
+
+Passing this subset is **not** evidence that full CI, production auth, actual provider-cost metering, refund semantics or real app export/deployment have passed. Run the full existing repo CI/security/production-build checks before any production merge and keep paid customer tests pending budget and approval.
