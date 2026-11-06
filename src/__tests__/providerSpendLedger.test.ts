@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   queue: Promise.resolve() as Promise<unknown>,
   subscriptionStatus: "active" as string,
   subscriptionTier: "starter" as string,
+  subscriptionPeriodEnd: new Date(Date.now() + 86400000) as Date | null,
 }));
 vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray, ...parameters: unknown[]) => ({
@@ -27,7 +28,7 @@ vi.mock("../db.js", () => ({
           const { text, parameters: p } = query as {text: string; parameters: unknown[]};
           if (text.includes("SELECT id FROM users")) return p[0] === 1 ? [{ id: 1 }] : [];
           if (text.includes("SELECT id FROM projects")) return p[0] === 10 && p[1] === 1 ? [{ id: 10 }] : [];
-          if (text.includes("FROM subscriptions")) return [{ tier: state.subscriptionTier, status: state.subscriptionStatus, periodEnd: null, trialEnd: null }];
+          if (text.includes("FROM subscriptions")) return [{ tier: state.subscriptionTier, status: state.subscriptionStatus, periodEnd: state.subscriptionPeriodEnd, trialEnd: null }];
           if (text.includes("SELECT state, maximum_cents")) {
             const found = state.reservations.find((r) => r.userId === p[0] && r.operationId === p[1]);
             return found ? [{
@@ -76,6 +77,7 @@ beforeEach(() => {
   state.reservations = [];
   state.subscriptionStatus = "active";
   state.subscriptionTier = "starter";
+  state.subscriptionPeriodEnd = new Date(Date.now() + 86400000);
 });
 describe("offline customer money reservation and settlement", () => {
   it("allows one reservation and treats an identical retry as idempotent", async () => {
@@ -126,6 +128,15 @@ describe("offline customer money reservation and settlement", () => {
     state.subscriptionStatus = "active";
     state.subscriptionTier = "enterprise";
     await expect(reserveProviderSpend(input("unsupported_1"))).rejects.toThrow(/subscription/);
+    expect(state.reservations).toHaveLength(0);
+  });
+  it("rejects missing and expired paid billing periods", async () => {
+    state.subscriptionPeriodEnd = null;
+    await expect(reserveProviderSpend(input("missing_period_1")))
+      .rejects.toThrow(/subscription/);
+    state.subscriptionPeriodEnd = new Date("2020-01-01T00:00:00Z");
+    await expect(reserveProviderSpend(input("expired_period_1")))
+      .rejects.toThrow(/subscription/);
     expect(state.reservations).toHaveLength(0);
   });
   it("settles known costs exactly once, rejecting cost overrun and contradictory receipts", async () => {
