@@ -35,7 +35,6 @@ const envelope = (): CostEnvelope => ({
 });
 const options = () => ({
   operationId: "mock_call_123",
-  monthlyLimitCents: 500,
   envelope: envelope(),
   now,
 });
@@ -54,7 +53,6 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
       projectId: 11,
       executionId: 17,
       maximumCents: 200,
-      monthlyLimitCents: 500,
     }));
     expect(state.current).toHaveBeenCalledTimes(2);
     expect(state.dispatched).toHaveBeenCalledTimes(1);
