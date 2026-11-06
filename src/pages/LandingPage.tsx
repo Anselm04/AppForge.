@@ -114,7 +114,7 @@ const WORKFLOW_STEPS = [
 ] as const;
 
 const LANDING_MARGIN_DISCLOSURE =
-  "Prices are in USD. Customer subscriptions and Enterprise contracts have finite, disclosed usage limits. Only the authorised AppForge owner account has owner-level unlimited access. Your subscription includes a monthly build allowance and compute credits.";
+  "Prices are in USD. All customer plans have finite compute limits. Enterprise allowances are contract-defined, not unlimited. Only the verified AppForge owner account has unlimited owner access.";
 
 export function LandingPage() {
   const { t } = useLocale();
@@ -318,8 +318,11 @@ export function LandingPage() {
                 Know what your build can cost
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
-                {LANDING_MARGIN_DISCLOSURE} A standard full build currently
-                reserves{" "}
+                {LANDING_MARGIN_DISCLOSURE}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-forge-text-muted">
+                Your subscription includes a monthly build allowance and compute
+                credits. A standard full build currently reserves{" "}
                 {BUILD_CREDIT_COST} credits when it starts. Straightforward
                 products are designed to fit the normal build flow, but not
                 every product requires the same amount of work.
