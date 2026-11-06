@@ -855,9 +855,11 @@ export async function refillMonthlyCredits(
       (subscription?.status !== "active" &&
         subscription?.status !== "trialing") ||
       !subscription?.currentPeriodEnd ||
+      !Number.isFinite(new Date(subscription.currentPeriodEnd).getTime()) ||
       new Date(subscription.currentPeriodEnd).getTime() <= now.getTime() ||
       (subscription.status === "trialing" &&
         (!subscription.trialEnd ||
+          !Number.isFinite(new Date(subscription.trialEnd).getTime()) ||
           new Date(subscription.trialEnd).getTime() <= now.getTime()))
     ) {
       return;
