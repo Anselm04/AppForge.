@@ -32,15 +32,15 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
     !validKey(input.operationId) || !safeCents(input.maximumCents) || input.maximumCents === 0 ||
     !safeCents(input.monthlyLimitCents)) throw new Error("Invalid provider reservation");
   return db.transaction(async (tx) => {
-    const owner = await tx.execute(sql\`SELECT id FROM users WHERE id = \${input.userId} FOR UPDATE\`);
+    const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${input.userId} FOR UPDATE`);
     if ((owner as unknown as unknown[]).length !== 1) throw new Error("Customer not found");
-    const project = await tx.execute(sql\`SELECT id FROM projects WHERE id = \${input.projectId} AND user_id = \${input.userId}\`);
+    const project = await tx.execute(sql`SELECT id FROM projects WHERE id = ${input.projectId} AND user_id = ${input.userId}`);
     if ((project as unknown as unknown[]).length !== 1) throw new Error("Project ownership mismatch");
-    const existing = await tx.execute<Reservation>(sql\`
+    const existing = await tx.execute<Reservation>(sql`
       SELECT state, maximum_cents::text AS "maximumCents", actual_cents::text AS "actualCents",
         project_id AS "projectId", execution_id AS "executionId"
-      FROM provider_spend_reservations WHERE user_id = \${input.userId} AND operation_id = \${input.operationId}
-    \`);
+      FROM provider_spend_reservations WHERE user_id = ${input.userId} AND operation_id = ${input.operationId}
+    `);
     const previous = (existing as unknown as Reservation[])[0];
     if (previous) {
       if (previous.state === "released" || previous.projectId !== input.projectId ||
@@ -52,20 +52,20 @@ export async function reserveProviderSpend(input: ProviderReservationInput): Pro
     date.setUTCDate(1);
     date.setUTCHours(0, 0, 0, 0);
     const period = date.toISOString().slice(0, 10);
-    const usage = await tx.execute<{ total: string }>(sql\`
+    const usage = await tx.execute<{ total: string }>(sql`
       SELECT COALESCE(SUM(COALESCE(actual_cents, maximum_cents)), 0)::text AS total
-      FROM provider_spend_reservations WHERE user_id = \${input.userId}
-        AND period_start = \${period}::date AND state IN ('reserved', 'settled')
-    \`);
+      FROM provider_spend_reservations WHERE user_id = ${input.userId}
+        AND period_start = ${period}::date AND state IN ('reserved', 'settled')
+    `);
     const spent = amount((usage as unknown as Array<{ total: string }>)[0]?.total ?? "0");
     if (input.maximumCents > input.monthlyLimitCents - spent)
       throw new Error("Provider budget exhausted; pause and quote");
-    await tx.execute(sql\`
+    await tx.execute(sql`
       INSERT INTO provider_spend_reservations
         (operation_id, user_id, project_id, execution_id, period_start, maximum_cents, state)
-      VALUES (\${input.operationId}, \${input.userId}, \${input.projectId},
-        \${input.executionId}, \${period}::date, \${input.maximumCents}, 'reserved')
-    \`);
+      VALUES (${input.operationId}, ${input.userId}, ${input.projectId},
+        ${input.executionId}, ${period}::date, ${input.maximumCents}, 'reserved')
+    `);
     return "reserved";
   });
 }
@@ -75,12 +75,12 @@ export async function settleProviderSpend(userId: number, operationId: string, v
   if (!safeId(userId) || !validKey(operationId) || !safeCents(verifiedCents))
     throw new Error("Invalid provider settlement");
   await db.transaction(async (tx) => {
-    const owner = await tx.execute(sql\`SELECT id FROM users WHERE id = \${userId} FOR UPDATE\`);
+    const owner = await tx.execute(sql`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`);
     if ((owner as unknown as unknown[]).length !== 1) throw new Error("Customer not found");
-    const data = await tx.execute<Reservation>(sql\`
+    const data = await tx.execute<Reservation>(sql`
       SELECT state, maximum_cents::text AS "maximumCents", actual_cents::text AS "actualCents"
-      FROM provider_spend_reservations WHERE user_id = \${userId} AND operation_id = \${operationId} FOR UPDATE
-    \`);
+      FROM provider_spend_reservations WHERE user_id = ${userId} AND operation_id = ${operationId} FOR UPDATE
+    `);
     const item = (data as unknown as Reservation[])[0];
     if (!item || item.state === "released") throw new Error("Missing active reservation");
     if (verifiedCents > amount(item.maximumCents))
@@ -90,9 +90,9 @@ export async function settleProviderSpend(userId: number, operationId: string, v
         throw new Error("Conflicting settlement");
       return;
     }
-    await tx.execute(sql\`
-      UPDATE provider_spend_reservations SET state = 'settled', actual_cents = \${verifiedCents},
-        updated_at = NOW() WHERE user_id = \${userId} AND operation_id = \${operationId}
-    \`);
+    await tx.execute(sql`
+      UPDATE provider_spend_reservations SET state = 'settled', actual_cents = ${verifiedCents},
+        updated_at = NOW() WHERE user_id = ${userId} AND operation_id = ${operationId}
+    `);
   });
 }
