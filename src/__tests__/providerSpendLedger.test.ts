@@ -5,6 +5,8 @@ type Row = { userId: number; projectId: number; executionId: number; operationId
 const state = vi.hoisted(() => ({
   reservations: [] as Row[],
   queue: Promise.resolve() as Promise<unknown>,
+  subscriptionStatus: "active" as string,
+  subscriptionTier: "starter" as string,
 }));
 vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray, ...parameters: unknown[]) => ({
@@ -25,6 +27,7 @@ vi.mock("../db.js", () => ({
           const { text, parameters: p } = query as {text: string; parameters: unknown[]};
           if (text.includes("SELECT id FROM users")) return p[0] === 1 ? [{ id: 1 }] : [];
           if (text.includes("SELECT id FROM projects")) return p[0] === 10 && p[1] === 1 ? [{ id: 10 }] : [];
+          if (text.includes("FROM subscriptions")) return [{ tier: state.subscriptionTier, status: state.subscriptionStatus, periodEnd: null, trialEnd: null }];
           if (text.includes("SELECT state, maximum_cents")) {
             const found = state.reservations.find((r) => r.userId === p[0] && r.operationId === p[1]);
             return found ? [{
@@ -67,10 +70,12 @@ vi.mock("../db.js", () => ({
 import { reserveProviderSpend, settleProviderSpend } from "../services/providerSpendLedger.js";
 const input = (operationId = "build_1234", maximumCents = 60) => ({
   userId: 1, projectId: 10, executionId: 22, operationId,
-  maximumCents, monthlyLimitCents: 100,
+  maximumCents,
 });
 beforeEach(() => {
   state.reservations = [];
+  state.subscriptionStatus = "active";
+  state.subscriptionTier = "starter";
 });
 describe("offline customer money reservation and settlement", () => {
   it("allows one reservation and treats an identical retry as idempotent", async () => {
@@ -88,21 +93,29 @@ describe("offline customer money reservation and settlement", () => {
   });
   it("counts in-flight costs and blocks concurrent oversubscription", async () => {
     const result = await Promise.allSettled([
-      reserveProviderSpend(input("request_1", 70)),
-      reserveProviderSpend(input("request_2", 70)),
+      reserveProviderSpend(input("request_1", 700)),
+      reserveProviderSpend(input("request_2", 700)),
     ]);
     expect(result.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(result.filter((r) => r.status === "rejected")).toHaveLength(1);
     expect(state.reservations).toHaveLength(1);
   });
   it("does not treat unknown charges, invalid money or zero allowance as free", async () => {
-    await reserveProviderSpend(input("unknown_1", 75));
+    await reserveProviderSpend(input("unknown_1", 1175));
     await expect(reserveProviderSpend(input("unknown_2", 30)))
       .rejects.toThrow(/budget exhausted/);
     await expect(reserveProviderSpend(input("invalid_1", Number.NaN)))
       .rejects.toThrow(/Invalid/);
-    await expect(reserveProviderSpend({ ...input("invalid_2"), monthlyLimitCents: 0 }))
-      .rejects.toThrow(/budget exhausted/);
+    await expect(reserveProviderSpend(input("invalid_2", 0)))
+      .rejects.toThrow(/Invalid/);
+  });
+  it("denies unpaid and unknown subscription tiers regardless of requested amount", async () => {
+    state.subscriptionStatus = "canceled";
+    await expect(reserveProviderSpend(input("canceled_1"))).rejects.toThrow(/subscription/);
+    state.subscriptionStatus = "active";
+    state.subscriptionTier = "enterprise";
+    await expect(reserveProviderSpend(input("unsupported_1"))).rejects.toThrow(/subscription/);
+    expect(state.reservations).toHaveLength(0);
   });
   it("settles known costs exactly once, rejecting cost overrun and contradictory receipts", async () => {
     await reserveProviderSpend(input());
