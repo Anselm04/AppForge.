@@ -42,6 +42,10 @@ describe("AppForge monthly credits and paid top-ups", () => {
     const end = db.indexOf("export async function syncTierFromSubscription(", start);
     const body = db.slice(start, end);
     expect(body).toContain(".from(schema.subscriptions)");
+    expect(body).toContain("SELECT id FROM subscriptions WHERE user_id = ${userId} FOR UPDATE");
+    expect(body.indexOf("FOR UPDATE")).toBeLessThan(
+      body.indexOf(".from(schema.subscriptions)"),
+    );
     expect(body).toContain('subscription?.status !== "active"');
     expect(body).toContain('subscription?.status !== "trialing"');
     expect(body).toContain("!subscription?.currentPeriodEnd");
