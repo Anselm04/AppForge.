@@ -553,6 +553,13 @@ export const adminRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Unlimited compute is never issued as a new transferable customer code.
+      if (input.grantType === "lifetime") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "New unlimited lifetime codes are disabled. Use explicitly limited credits.",
+        });
+      }
       const credits = input.grantType === "lifetime" ? 0 : (input.credits ?? 0);
       if (input.grantType === "limited" && credits < 1) {
         throw new TRPCError({
@@ -637,6 +644,14 @@ export const adminRouter = router({
         found.usedByUserId
       ) {
         genericRedeemFail();
+      }
+      // Preserve existing records for review, but do not silently create
+      // fresh unlimited non-owner compute commitments from legacy codes.
+      if (found.grantType === "lifetime" || found.tier === "lifetime") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Legacy lifetime codes require owner-assisted review before redemption.",
+        });
       }
       if (found.expiresAt && new Date(found.expiresAt) < new Date()) {
         genericRedeemFail();
