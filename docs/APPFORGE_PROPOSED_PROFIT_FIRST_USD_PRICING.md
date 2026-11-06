@@ -1,61 +1,70 @@
-# AppForge profit-first pricing proposal — USD (6 November 2026)
+# AppForge approved subscription price proposal — USD
 
-**PROPOSAL ONLY. NOT AUTHORISED FOR STRIPE OR PRODUCTION.** Replaces the old $49/$149/$399/$1,499 catalogue only after owner approval, an entitlement migration plan, measured provider costs and verified Stripe live price objects.
+**Owner-approved subscription amounts (6 November 2026). This is a draft implementation, not a live Stripe price change.**
 
-## Candidate subscription prices
+## Monthly subscriptions — USD, excluding applicable tax
 
-| Tier | USD/month (excluding applicable tax) | Modelled hard ceiling for third-party variable provider costs per customer per month | Other boundary |
-|---|---:|---:|---|
-| Free | $0 | $0 chargeable provider compute | Brief/estimate, onboarding and documentation only; no free paid generation proposed |
-| Starter | $499 | $75 | Limited scope, prepaid additional usage on approval |
-| Builder | $1,499 | $250 | Additional integrations/retries require quoted prepaid budget |
-| Studio | $3,999 | $750 | Team features and bounded workloads, no unlimited builds |
-| Enterprise | From $11,999 | Initial illustration: $2,500 | Tailored contract, cost and support envelope, no self-serve checkout |
+| Tier | Price | Customer | Provisional internal provider-cost envelope |
+|---|---:|---|---:|
+| Free / Explore | $0 | Learn, describe an idea, receive a scope estimate | No unapproved paid provider compute |
+| Starter | $79 | First-time builders and ordinary individuals | $12 / month |
+| Builder | $199 | Entrepreneurs developing products | $35 / month |
+| Studio | $499 | Agencies and businesses creating multiple products | $95 / month |
+| Enterprise | From $2,499 | Complex integrations and enterprise support | Custom written allowance and costs |
 
-The "provider cost" figures above are **internal cost ceilings**, not dollar-denominated customer credit balances and not promises of completed builds. Those caps **do not exist as enforced controls today**. Do not merge or launch this price change before atomic metering of actual inference, tool calls, sandbox runtime, storage, egress, queue time and retries can stop execution. Do not advertise a fixed build count unless it passes real workload certification and fits within the cap.
+The provider-cost envelopes above are **planning scenarios, not enforced production limits**, not customer credit values, and not a guarantee of successful products. An approved customer subscription price is not approval to activate unmetered AI spending. Credit quantities and build costs must be calibrated against actual provider bills and task complexity.
 
-### Additional build usage
-- Require a customer-visible quote and prepaid authorisation for resource-intensive builds and further AI iterations before extra provider usage.
-- Proposed paid retail markup is **at least 4x fully allocated and independently measured product-build cost** (third-party compute, personnel/support, platform usage, allocated overhead, likely retries, payment fees and a contingency allowance). Unused prepaid fees require a clear refund/credit policy compliant with applicable law.
-- No automatic charges, no unapproved metered overages, no unlimited agency/Enterprise compute.
-- Existing 50/100/250 abstract credit pack values, the five-credit build reservation and seven-day free-trial claims must be reconciled with **actual metered USD provider spend** before release. Historical prepaid credits and contracted entitlements require review; do not silently devalue them.
-- Hosting a customer's deployed app (and App Store fees, domains, phone/SMS, marketing spend, storage at scale and external vendor subscriptions) must be quoted/billed separately or included only under a stated finite contract limit.
+## Customer disclosure — REQUIRED AT EVERY COMMERCIAL DECISION
 
-## Illustrative monthly business economics (USD, no GST included in revenue)
+**Your monthly subscription includes a limited amount of credits, not unlimited builds. If you use up your credits before your next monthly subscription payment, you will need to buy an additional credit top-up as a separate payment to continue building right away. If you choose not to top up, credit-consuming work pauses until new credits are available again (for example, through your next eligible subscription refill). We never charge for extra credits automatically. More complicated apps and extra changes can require additional credits, even within the same billing month.**
 
-Assumptions, **not verified bills**:
-- 10 Starter customers, 10 Builder customers, 4 Studio customers and 1 Enterprise customer.
-- Every customer uses the full planned variable provider-cost ceiling.
-- Customer-variable support/servicing allowances per month: $35 Starter, $150 Builder, $450 Studio, $1,500 Enterprise.
-- Conservative payment/FX allowance: **5.5% of sales**, approximately $2,639 at the illustrated mix, pending actual Stripe settlement mix. Actual Stripe NZ rates vary: domestic cards 2.65% + NZ$0.30, international 3.5% + NZ$0.30, plus 2% if currency conversion is needed.
-- Budgeted fixed monthly cash requirement **$18,000**: $7,000 founder gross salary (employee PAYE/ACC withheld and remitted according to NZ rules), $4,000 shared cloud/security/operations, $2,000 accounting/legal/compliance, $2,000 marketing/customer acquisition, **plus a $3,000 cash reserve allocation after tax**. Only $15,000 is treated as deductible operating spending in this illustration; merely transferring cash into a reserve is **not** itself a deductible business expense. These are planning allowances, not audited company costs.
-- NZ company income tax modelled at 28% on positive **taxable** income after deductible business expenses, with accounting adjustments ignored in the illustration. GST is a separate collection/remittance obligation, not revenue. Owner salary is a cost *before* company profit; do **not** add personal income tax again as an extra corporate expense on top of gross wages.
+Display this unambiguously on:
+- Landing page and subscription comparisons.
+- Customer-facing pricing page and top-up selection.
+- Account credit balance, pre-build cost estimate, and low/out-of-credits screens **when implemented**.
+- Confirmation immediately before the initial subscription purchase and every subsequent paid top-up **when checkout is enabled**.
+- Email receipts/customer support guidance where appropriate.
 
-| Item | Monthly USD |
+Do not misrepresent a fixed number of completed apps, AI inference requests, cloud build minutes, deployed-app operating costs or integrations as included unless actually verified and bounded.
+
+### Top-up proposal (NOT YET OWNER-APPROVED)
+
+Current draft UI displays credit packs: 50 credits for $100, 100 credits for $200, 250 credits for $500, all USD. These **pack amounts remain provisional** until real provider and per-build costs, credit economics and Stripe live Prices have been verified and the owner separately approves them. Customer purchases must be individually authorised; no surprise charges or automatic top-ups.
+
+Major build overruns must trigger a quoted, explicitly approved and prepaid workload budget. Long-term hosting/deployment costs, SMS, paid ads, app-store/developer fees, domain fees and external subscriptions must be excluded or included only under specific finite disclosed terms.
+
+## Company-level economics — illustrative stress test, not a forecast
+
+Illustrative month: 10 Starter + 10 Builder + 4 Studio + 1 Enterprise = **25 customers**.
+
+| Item | USD / month |
 |---|---:|
-| Gross subscription revenue | $47,975 |
-| Third-party provider budget consumed | ($8,750) |
-| Customer-variable support costs | ($5,150) |
-| Payment/FX allowance (5.5%) | ($2,639) |
-| Fixed deductible spending including founder gross salary | ($15,000) |
-| **Illustrative pretax taxable company profit** | **$16,436** |
-| Modelled NZ company income tax (28%) | ($4,602) |
-| **Illustrative company profit after tax** | **$11,834** |
-| Cash set aside into contingency reserve (not a tax deduction) | ($3,000) |
-| **Cash remaining after company tax and reserve** | **$8,834** |
+| Starter: 10 × $79 | $790 |
+| Builder: 10 × $199 | $1,990 |
+| Studio: 4 × $499 | $1,996 |
+| Enterprise: 1 × $2,499 | $2,499 |
+| **Monthly recurring revenue** | **$7,275** |
+| Provisional provider spending ($12/$35/$95/$500) | ($1,350) |
+| Illustrative per-customer servicing ($10/$25/$60/$300) | ($890) |
+| Payment/FX allowance at 5.5% (approximate) | ($400) |
+| **Contribution before shared company overhead** | **$4,635** |
+| Illustrative deductible shared costs (founder gross pay, cloud/security, accounting/legal, marketing) | ($15,000) |
+| **Illustrative operating loss before company income tax** | **($10,365)** |
 
-The founder would also have **$7,000 gross monthly pay** in this scenario, subject to PAYE, ACC and individual circumstances. The remaining company cash is not personal take-home pay. The reserve is an internal cash allocation from after-tax earnings unless money is actually spent on deductible items. Business cash flow and deposits/working capital may differ from recognised accounting profit.
+No positive company income tax is assumed on a tax loss (tax accounting may differ); there is **no** $3,000 reserve allocation in this losing scenario. Founder pay, if included in the illustrated $15,000, is gross PAYE-taxable remuneration; personal income tax is withheld from gross wages rather than charged again as a separate company expense. GST collected for government is not revenue. The model does **not** support claims of guaranteed profit at 25 customers.
 
-At this same artificial customer *mix* and average contribution/customer, the $15,000 deductible operating budget plus planned $3,000 after-tax cash reserve requires approximately **15 paying customers to satisfy the overall cash target**; real break-even varies drastically by plan mix, workload, payment method, refunds and support. **Zero/low customers can still mean a loss regardless of price.**
+At this same illustrative mix, average contribution is about $185 per customer, so approximately **81 paying customers** would be needed to cover $15,000 fixed overhead, before the owner targets positive company profit and additional after-tax reserves. Real break-even depends on customer mix, build completion rates, direct metered expenses, payroll, support workload, exchange rates, refunds and seasonality.
 
-### Before numbers can be made live
+This is why protecting per-customer third-party compute spend is non-negotiable at the approved accessible subscription prices. Build extra services only with consent, credit entitlements and sufficient contribution.
 
-1. Owner approves prices, commercial positioning and existing-customer handling.
-2. Provider-token, subprocess, VM minute, storage, build retries and customer-deployment COGS are metered by tenant/job; strict spend and concurrency caps fail closed.
-3. Contractual agreements for old customers and existing credits are preserved or agreed changes obtained.
-4. Stripe live USD recurring Prices and tax settings are created/reconciled **without overwriting or disturbing existing subscription Prices**; old checkout continues under its previous terms until safe cutover.
-5. Corresponding cancellation, free-trial, finance/tax disclosure and build-count text across translations/website is updated; do not display unavailable capabilities as promised.
-6. Full flow: verify payment → grant capped entitlement → quote → approve → build/charge → pause on cap → refund/reconcile; live tests and rollbacks.
-7. Reforecast from actual third-party invoices and cohort load, including business and owner tax treatments reviewed by a NZ accountant.
+## Launch conditions
 
-**These proposed amounts are intentionally higher, not scientifically exact. They are not a guarantee of positive profit or an authorised production price list.**
+1. Audit existing customer subscriptions, balances, legal terms and outstanding credits before any price migration; grandfather or obtain consent as appropriate.
+2. Implement **per-tenant and per-job provider cost metering** for AI inference, tool calls, compute/sandbox time, storage, egress, retries and customer-deployment support. Atomic hard caps must stop provider usage before external costs outrun paid allowances; quota cannot be based on nominal credits alone.
+3. Establish a verified minimum contribution margin using actual costs, payment fees and shared-company overhead allocation. Keep emergency reserves and owner gross pay in the model.
+4. Finalise internal credit conversion to external USD costs, customer-facing credit entitlements, and separately approved top-up pack prices.
+5. Create/reconcile new Stripe live USD recurring Prices and tax rules without modifying existing customer subscription Prices behind their backs. Switch checkout only after the owner approves pack economics, legal notices and entitlements.
+6. Require purchase-by-purchase customer consent before payment for any top-up; keep builds paused without sufficient credits, and ensure a failed/refunded payment never grants additional compute.
+7. Complete signup, email/SMS verification, Stripe webhook, entitlement/refund/retry, low-balance notifications, build/export/deploy, cancellation and full real-cost tests.
+
+**Status: approved subscription price amounts, unfinished economics/usage enforcement, no authorised live price cutover.**
