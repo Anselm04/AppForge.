@@ -36,6 +36,22 @@ describe("AppForge monthly credits and paid top-ups", () => {
     expect(db).toMatch(/TIER_BUILD_LIMITS[^]*?free:\s*0,/);
   });
 
+  it("does not mint monthly credits from a cached tier without verified billing", () => {
+    const db = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
+    const start = db.indexOf("export async function refillMonthlyCredits(");
+    const end = db.indexOf("export async function syncTierFromSubscription(", start);
+    const body = db.slice(start, end);
+    expect(body).toContain(".from(schema.subscriptions)");
+    expect(body).toContain('subscription?.status !== "active"');
+    expect(body).toContain('subscription?.status !== "trialing"');
+    expect(body).toContain("!subscription?.currentPeriodEnd");
+    expect(body).toContain("Number.isFinite(new Date(subscription.currentPeriodEnd).getTime())");
+    expect(body).toContain("if (tier && tier !== effectiveTier) return");
+    expect(body.indexOf(".from(schema.subscriptions)")).toBeLessThan(
+      body.indexOf("balanceAfterMonthlyGrant(credits.balance, refillAmount)"),
+    );
+  });
+
   it("uses additive rollover in the actual database refill path", () => {
     const db = readFileSync(resolve(process.cwd(), "src/db.ts"), "utf8");
     const start = db.indexOf("export async function refillMonthlyCredits(");
