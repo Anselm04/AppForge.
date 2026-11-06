@@ -29,6 +29,7 @@ import {
   releaseProjectBuildClaim,
 } from "../services/build-claim.js";
 import { enqueueBuild } from "../services/build-queue.js";
+import { assertCustomerComputeLaunchCertified, CUSTOMER_COMPUTE_NOT_CERTIFIED } from "../services/customerComputeLaunchGate.js";
 
 export const generateRouter = Router();
 
@@ -149,6 +150,8 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       }
     }
 
+    // Reject before model enrichment, credit reservation or project creation.
+    assertCustomerComputeLaunchCertified(owner);
     await assertBuildExecutionReady();
 
     // Optional model enrichment runs only after captcha, moderation, and
@@ -230,6 +233,10 @@ generateRouter.post("/", async (req: Request, res: Response) => {
       secondaryCapabilities: promptIntent.secondaryCapabilities,
     });
   } catch (err: unknown) {
+    if (err instanceof Error && err.message === CUSTOMER_COMPUTE_NOT_CERTIFIED) {
+      res.status(503).json({ error: "provider_cost_metering_pending", message: CUSTOMER_COMPUTE_NOT_CERTIFIED });
+      return;
+    }
     if (err instanceof BuildRuntimeUnavailableError) {
       res.status(503).json({
         error: "build_runtime_unavailable",
