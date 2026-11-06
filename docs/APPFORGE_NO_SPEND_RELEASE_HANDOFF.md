@@ -48,3 +48,10 @@ Free / Explore $0; Starter $79 per month; Builder $199 per month; Studio $499 pe
 3. Test cost-budget denial and retry safety in simulated execution, then implement/verify provider pricing and atomic monetary budget enforcement in the billing ledger.
 4. Clearly report source-level verification separately from executed CI results; tests written are **not** evidence they passed.
 5. Keep Fly.io production and existing live Stripe products untouched.
+
+## Further implementation in the no-spend draft
+- Added `providerCostPolicy.ts`: deterministic USD-cent per-plan **provisional** budget evaluation and a conservative minimum quote calculator that includes provider maximums, support, allocated overhead, payment fees and target margin. These calculations **do not authorise live work**.
+- Added `buildProviderUsage.ts` and integration in `_core/llm.ts` to record provider/model and observed tokens against the active build lease only. Token gaps, unknown billed retries and the true USD charge remain explicitly unverified; no secrets or prompts are stored in the usage event. This is a telemetry step, not spend enforcement or a substitute for reconciliation.
+- Corrected the unused legacy `app-builder.ts` adapter: its draft return is no longer marked ready and its preview/deploy/export helpers do not fabricate externally deployed URLs.
+- Tests cover quote arithmetic, budget exhaustion, usage attribution without cross-customer records, no invented cost, and honest legacy adapter outputs.
+- **Further engineering required:** atomic provider budget reservations, actual model/provider pricing and usage reconciliation, fail-closed limits at *each* paid tool call (including retries), sandbox/container/database/storage/egress metering, real estimate approval, and safe release of the build/checkout gates. These are NOT paid-test-only items.
