@@ -540,6 +540,24 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
           durationMs: Date.now() - requestStartedAt,
           ok: true,
         });
+        // Attribution is best-effort telemetry, NOT production spend control.
+        // Unknown token prices/attempts remain unverified and the customer
+        // production build gate must remain closed until full cost caps exist.
+        try {
+          const { recordProviderUsageForCurrentBuild } = await import(
+            "../services/buildProviderUsage.js"
+          );
+          await recordProviderUsageForCurrentBuild({
+            provider: provider.id,
+            model: result.model || String(payload.model),
+            promptTokens: result.usage?.prompt_tokens,
+            completionTokens: result.usage?.completion_tokens,
+            totalTokens: result.usage?.total_tokens,
+            succeeded: true,
+          });
+        } catch (meteringError) {
+          console.warn("Per-build provider usage evidence unavailable", meteringError);
+        }
         return result;
       }
 
