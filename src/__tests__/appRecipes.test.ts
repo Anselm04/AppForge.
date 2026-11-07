@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyRecipe,
+  APP_RECIPES,
   buildRecipeApp,
   checkRecipeSpec,
 } from "../lib/appRecipes.js";
@@ -8,6 +9,23 @@ import { assertBuildableShape } from "../lib/reliableBuild.js";
 import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
 
 describe("appRecipes", () => {
+  it("never instructs the production generator to fabricate a working product", () => {
+    for (const recipe of APP_RECIPES) {
+      expect(recipe.coderHint).not.toMatch(
+        /mock data only|local state mock|CRM shell/i,
+      );
+    }
+    expect(classifyRecipe("CRM for sales leads").coderHint).toMatch(
+      /authenticated CRUD endpoints/,
+    );
+    expect(classifyRecipe("chat messaging").coderHint).toMatch(
+      /persisted message history/,
+    );
+    expect(classifyRecipe("todo tasks").coderHint).toMatch(
+      /persistent user-scoped storage/,
+    );
+  });
+
   it("classifies common prompts", () => {
     expect(classifyRecipe("simple todo list app").id).toBe("todo");
     expect(classifyRecipe("CRM for sales leads").id).toBe("crm");
