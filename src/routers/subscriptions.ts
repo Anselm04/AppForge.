@@ -22,7 +22,7 @@ const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
 ]);
 
 const TIER_LIMITS: Record<string, number | null> = {
-  free: 3,
+  free: 0,
   starter: 16,
   builder: 66,
   studio: null,
@@ -74,7 +74,9 @@ export const subscriptionsRouter = router({
     const tier = hasLifetimeAccess ? "lifetime" : activeSubscriptionTier;
     const isPaid = tier !== "free";
     const buildsThisMonth = await countBuildsThisMonth(ctx.user.id);
-    const limit = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
+    const limit = Object.prototype.hasOwnProperty.call(TIER_LIMITS, tier)
+      ? TIER_LIMITS[tier]
+      : TIER_LIMITS.free;
 
     return {
       tier,

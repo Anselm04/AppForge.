@@ -26,7 +26,8 @@
     "sentry:release": "sentry-cli releases new",
     "sentry:sourcemaps": "sentry-cli sourcemaps upload",
     "prepare": "node scripts/assemble-pipeline.mjs && (husky || true)",
-    "assemble:pipeline": "node scripts/assemble-pipeline.mjs"
+    "assemble:pipeline": "node scripts/assemble-pipeline.mjs",
+    "test:offline-commercial": "node scripts/check-offline-commercial-readiness.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

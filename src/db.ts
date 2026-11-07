@@ -5,6 +5,7 @@ import * as schema from "./db/schema.js";
 import { ENV } from "./_core/env.js";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { isOwnerEmail } from "./lib/owner.js";
+import { balanceAfterMonthlyGrant } from "./lib/creditRollover.js";
 import {
   buildProductContract,
   validateProductContract,
@@ -120,48 +121,64 @@ export async function applyGodCodeGrant(
   grantType: "lifetime" | "limited",
   credits: number,
 ): Promise<{ credits: number; unlimited: boolean }> {
-  await ensureUserCredits(userId);
-  const row = await getUserCredits(userId);
-  if (!row) return { credits: 0, unlimited: false };
-
-  const now = new Date();
-  if (grantType === "lifetime") {
-    await db
-      .update(schema.userCredits)
-      .set({
-        unlimited: true,
-        tier: "lifetime",
-        updatedAt: now,
-      })
-      .where(eq(schema.userCredits.id, row.id));
-    await db.insert(schema.creditTransactions).values({
-      userId,
-      amount: 0,
-      type: "god_code_grant",
-      description: "Lifetime unlimited credits (god code)",
-    });
-    await unpauseCreditExhaustedProjects(userId);
-    return { credits: row.balance, unlimited: true };
+  if (!Number.isSafeInteger(userId) || userId <= 0 ||
+      !Number.isSafeInteger(credits) || credits < 0) {
+    throw new Error("Invalid AppForge credit grant");
   }
+  await ensureUserCredits(userId);
 
-  const amount = Math.max(0, credits);
-  const newBalance = row.balance + amount;
-  await db.transaction(async (tx) => {
-    await tx
-      .update(schema.userCredits)
-      .set({ balance: newBalance, updatedAt: now })
-      .where(eq(schema.userCredits.id, row.id));
-    if (amount > 0) {
+  const result = await db.transaction(async (tx) => {
+    // Use the same customer lock as checkout grants and build deductions.
+    // A stale pre-transaction balance could overwrite purchased credits.
+    await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
+    const [row] = await tx
+      .select()
+      .from(schema.userCredits)
+      .where(eq(schema.userCredits.userId, userId))
+      .limit(1);
+    if (!row) throw new Error("AppForge credit balance not found");
+
+    const now = new Date();
+    if (grantType === "lifetime") {
+      const user = await tx.query.users.findFirst({
+        where: eq(schema.users.id, userId),
+      });
+      if (!isOwnerEmail(user?.email)) {
+        throw new Error("Unlimited AppForge credit grants are owner-only");
+      }
+      if (!row.unlimited || row.tier !== "lifetime") {
+        await tx
+          .update(schema.userCredits)
+          .set({ unlimited: true, tier: "lifetime", updatedAt: now })
+          .where(eq(schema.userCredits.id, row.id));
+        await tx.insert(schema.creditTransactions).values({
+          userId,
+          amount: 0,
+          type: "god_code_grant",
+          description: "Lifetime unlimited credits (god code)",
+        });
+      }
+      return { credits: row.balance, unlimited: true };
+    }
+
+    const newBalance = balanceAfterMonthlyGrant(row.balance, credits);
+    if (credits > 0) {
+      await tx
+        .update(schema.userCredits)
+        .set({ balance: newBalance, updatedAt: now })
+        .where(eq(schema.userCredits.id, row.id));
       await tx.insert(schema.creditTransactions).values({
         userId,
-        amount,
+        amount: credits,
         type: "god_code_grant",
-        description: `God code grant (+${amount} credits)`,
+        description: `God code grant (+${credits} credits)`,
       });
     }
+    return { credits: newBalance, unlimited: !!row.unlimited };
   });
+
   await unpauseCreditExhaustedProjects(userId);
-  return { credits: newBalance, unlimited: !!row.unlimited };
+  return result;
 }
 
 // ── SUBSCRIPTIONS ──
@@ -195,7 +212,7 @@ export async function getUserTier(userId: number): Promise<string> {
 }
 
 const TIER_BUILD_LIMITS: Record<string, number | null> = {
-  free: 3,
+  free: 0,
   starter: 16,
   builder: 66,
   studio: null,
@@ -204,11 +221,13 @@ const TIER_BUILD_LIMITS: Record<string, number | null> = {
 };
 
 export function getTierBuildLimit(tier: string): number | null {
-  return TIER_BUILD_LIMITS[tier] ?? TIER_BUILD_LIMITS.free;
+  return Object.prototype.hasOwnProperty.call(TIER_BUILD_LIMITS, tier)
+    ? TIER_BUILD_LIMITS[tier]
+    : TIER_BUILD_LIMITS.free;
 }
 
 const TIER_CREDIT_REFILLS: Record<string, number | null> = {
-  free: 20,
+  free: 0,
   starter: 100,
   builder: 400,
   studio: 1500,
@@ -217,7 +236,9 @@ const TIER_CREDIT_REFILLS: Record<string, number | null> = {
 };
 
 export function getTierCreditRefill(tier: string): number | null {
-  return TIER_CREDIT_REFILLS[tier] ?? TIER_CREDIT_REFILLS.free;
+  return Object.prototype.hasOwnProperty.call(TIER_CREDIT_REFILLS, tier)
+    ? TIER_CREDIT_REFILLS[tier]
+    : TIER_CREDIT_REFILLS.free;
 }
 
 // ── GITHUB CONNECTIONS ──
@@ -780,9 +801,11 @@ export async function ensureUserCredits(userId: number) {
     .insert(schema.userCredits)
     .values({
       userId,
-      balance: 20,
+      // Explore is free to browse/plan; do not issue paid-generation credits.
+      // Existing balances are never changed by this new-account default.
+      balance: 0,
       tier: "free",
-      monthlyAllowance: 3,
+      monthlyAllowance: 0,
       unlimited: owner,
     })
     .onConflictDoNothing({ target: schema.userCredits.userId });
@@ -818,11 +841,34 @@ export async function refillMonthlyCredits(
     const credits = rows[0];
     if (!credits) return;
 
-    const effectiveTier = tier ?? credits.tier ?? "free";
-    const refillAmount = getTierCreditRefill(effectiveTier);
-    if (refillAmount === null) return;
-
+    // The user-credit tier is cached state, not proof of a current payment.
+    // A cancelled or expired Stripe subscription must never mint new credits.
+    // Serialize with concurrent subscription updates before taking a billing
+    // snapshot: a cancellation must not race an unguarded refill.
+    await tx.execute(sql`SELECT id FROM subscriptions WHERE user_id = ${userId} FOR UPDATE`);
+    const [subscription] = await tx
+      .select()
+      .from(schema.subscriptions)
+      .where(eq(schema.subscriptions.userId, userId))
+      .limit(1);
     const now = new Date();
+    const effectiveTier = subscription?.tier ?? "free";
+    if (tier && tier !== effectiveTier) return;
+    if (
+      (subscription?.status !== "active" &&
+        subscription?.status !== "trialing") ||
+      !subscription?.currentPeriodEnd ||
+      !Number.isFinite(new Date(subscription.currentPeriodEnd).getTime()) ||
+      new Date(subscription.currentPeriodEnd).getTime() <= now.getTime() ||
+      (subscription.status === "trialing" &&
+        (!subscription.trialEnd ||
+          !Number.isFinite(new Date(subscription.trialEnd).getTime()) ||
+          new Date(subscription.trialEnd).getTime() <= now.getTime()))
+    ) {
+      return;
+    }
+    const refillAmount = getTierCreditRefill(effectiveTier);
+    if (refillAmount === null || refillAmount <= 0) return;
     const lastRefill = credits.lastRefillAt ?? credits.createdAt ?? now;
     const daysSinceRefill =
       (now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60 * 60 * 24);
@@ -831,7 +877,9 @@ export async function refillMonthlyCredits(
     await tx
       .update(schema.userCredits)
       .set({
-        balance: refillAmount,
+        // Never destroy unused separately purchased credits on a monthly refill.
+        // Plan grants and top-ups share the current balance in this legacy ledger.
+        balance: balanceAfterMonthlyGrant(credits.balance, refillAmount),
         tier: effectiveTier,
         monthlyAllowance: getTierBuildLimit(effectiveTier) ?? 0,
         lastRefillAt: now,
@@ -957,7 +1005,7 @@ export async function addCredits(
       .limit(1);
     const credits = current[0];
     if (!credits) throw new Error(`Credits row missing for user ${userId}`);
-    const newBalance = credits.balance + amount;
+    const newBalance = balanceAfterMonthlyGrant(credits.balance, amount);
 
     await tx
       .update(schema.userCredits)
@@ -1062,7 +1110,7 @@ export async function grantPlanCredits(
       return { granted: 0, skipped: false };
     }
 
-    const newBalance = credits.balance + refillAmount;
+    const newBalance = balanceAfterMonthlyGrant(credits.balance, refillAmount);
     await tx
       .update(schema.userCredits)
       .set({
@@ -1083,7 +1131,9 @@ export async function grantPlanCredits(
     return { granted: refillAmount, skipped: false };
   });
 
-  await unpauseCreditExhaustedProjects(userId);
+  if (!result.skipped && result.granted > 0) {
+    await unpauseCreditExhaustedProjects(userId);
+  }
   return result;
 }
 

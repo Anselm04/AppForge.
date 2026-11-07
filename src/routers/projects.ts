@@ -48,8 +48,9 @@ import {
 } from "../db.js";
 
 import { assertBuildExecutionReady } from "../services/buildExecutionReadiness.js";
+import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 
-const FREE_TIER_LIMIT = 3;
+const FREE_TIER_LIMIT = 0;
 
 const recoveryFailureKindEnum = z.enum([
   "application_failure",
@@ -256,6 +257,10 @@ export const projectsRouter = router({
           message: `credits_exhausted: Out of credits (${credits.balance}/${BUILD_CREDIT_COST}). Subscribe or buy extra credits to start a build.`,
         });
       }
+
+      // The fixed credit reservation does not meter external provider dollars.
+      // Pause customer compute until atomic hard USD caps are implemented.
+      assertCustomerComputeLaunchCertified(owner);
 
       // Deterministic prompt-specific contract, optionally enriched by a model
       // when one is configured. Enrichment can only add schema-valid items and
@@ -567,6 +572,8 @@ export const projectsRouter = router({
         });
       }
 
+      // Resume must obey the same financial launch stop as first-time builds.
+      assertCustomerComputeLaunchCertified(isOwnerEmail(ctx.user.email));
       await assertBuildExecutionReady();
       const credits = await ensureUserCredits(ctx.user.id);
       const unlimited =

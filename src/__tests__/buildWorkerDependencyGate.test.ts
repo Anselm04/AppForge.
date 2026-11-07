@@ -17,6 +17,7 @@ const db = vi.hoisted(() => ({
   getCurrentArtifact: vi.fn(),
   getProjectById: vi.fn(),
   getProjectEvidence: vi.fn(),
+  getUserById: vi.fn(),
   recordProjectEvidence: vi.fn(),
   resumeProject: vi.fn(),
   updateProjectBuildStage: vi.fn(),
@@ -38,6 +39,9 @@ const resolverMock = vi.hoisted(() => ({
 }));
 
 vi.mock("../db.js", () => db);
+vi.mock("../lib/owner.js", () => ({
+  isOwnerEmail: (email?: string | null) => email === "owner@example.com",
+}));
 vi.mock("../agents/pipeline.js", () => pipeline);
 vi.mock("../services/build-event-store.js", () => events);
 vi.mock("../services/build-runtime.js", () => ({
@@ -160,12 +164,73 @@ beforeEach(() => {
 });
 
 describe("build worker pre-build dependency gate", () => {
-  it("returns a validated build for customer destination choice without deploying or requiring hosting credentials", async () => {
+  it.each(["production", "staging", "preview", "", undefined])(
+    "pauses non-owner queued builds in %s before the pipeline starts",
+    async (environment) => {
+      vi.stubEnv("NODE_ENV", environment);
+      const job = validJob();
+      resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());
+      db.getProjectById.mockResolvedValue(projectFor(job));
+      db.getUserById.mockResolvedValue({ email: "customer@example.com" });
+
+      try {
+        await runBuildJob(JSON.parse(JSON.stringify(job)));
+
+        expectPipelineNeverStarted();
+        expect(db.getUserById).toHaveBeenCalledWith(job.userId);
+        expect(db.addCredits).toHaveBeenCalledWith(
+          job.userId,
+          expect.any(Number),
+          "build_refund",
+          expect.any(String),
+          `build-refund-${job.projectId}-${job.createdAt}`,
+        );
+        expect(db.updateProjectStatus).toHaveBeenCalledWith(
+          job.projectId,
+          "paused",
+          "provider_cost_metering_pending",
+        );
+        expect(errorEvents()).toEqual([
+          expect.objectContaining({ error: "provider_cost_metering_pending" }),
+        ]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
+  it.each(["test", "development"])(
+    "allows mocked worker execution in %s without an owner lookup",
+    async (environment) => {
+      vi.stubEnv("NODE_ENV", environment);
+      const job = validJob();
+      resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());
+      db.getProjectById.mockResolvedValue(projectFor(job));
+      pipeline.runAgentPipeline.mockImplementation(async () => {
+        db.getProjectById.mockResolvedValue(
+          projectFor(job, { status: "validated" }),
+        );
+      });
+
+      try {
+        await runBuildJob(JSON.parse(JSON.stringify(job)));
+
+        expect(db.getUserById).not.toHaveBeenCalled();
+        expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce();
+        expect(errorEvents()).toEqual([]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
+  it("returns a validated owner build without deploying or requiring hosting credentials", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("FLY_API_TOKEN", "");
     const job = validJob();
     resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());
     db.getProjectById.mockResolvedValue(projectFor(job));
+    db.getUserById.mockResolvedValue({ email: "owner@example.com" });
     pipeline.runAgentPipeline.mockImplementation(async () => {
       db.getProjectById.mockResolvedValue(
         projectFor(job, { status: "validated" }),

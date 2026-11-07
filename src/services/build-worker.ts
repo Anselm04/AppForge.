@@ -1,4 +1,10 @@
 import {
+  assertCustomerComputeLaunchCertified,
+  customerComputeLaunchCertified,
+  CUSTOMER_COMPUTE_NOT_CERTIFIED,
+} from "./customerComputeLaunchGate.js";
+import { TRPCError } from "@trpc/server";
+import {
   withBuildExecutionLease,
   currentBuildExecutionLease,
   appendBuildAgentLog,
@@ -436,6 +442,14 @@ async function runOwnedBuildJob(
       throw new BuildDependencyBlockedError(dependencyGraph);
     }
 
+    // Recheck at worker execution, including jobs queued before a new release.
+    // The fixed credit reservation is NOT a third-party cost budget.
+    if (!customerComputeLaunchCertified()) {
+      const { getUserById } = await import("../db.js");
+      const { isOwnerEmail } = await import("../lib/owner.js");
+      const jobOwner = await getUserById(userId);
+      assertCustomerComputeLaunchCertified(isOwnerEmail(jobOwner?.email));
+    }
     await assertBuildExecutionReady();
 
     if (project.status === "paused") {
@@ -648,7 +662,21 @@ async function runOwnedBuildJob(
     }
 
     await recordBuildOutcome(userId, false, 0);
-    if (err instanceof BuildRuntimeUnavailableError) {
+    if (
+      err instanceof TRPCError &&
+      err.code === "SERVICE_UNAVAILABLE" &&
+      err.message === CUSTOMER_COMPUTE_NOT_CERTIFIED
+    ) {
+      await emit(projectId, "error", {
+        error: "provider_cost_metering_pending",
+        message: CUSTOMER_COMPUTE_NOT_CERTIFIED,
+      });
+      await updateProjectStatus(
+        projectId,
+        "paused",
+        "provider_cost_metering_pending",
+      );
+    } else if (err instanceof BuildRuntimeUnavailableError) {
       await emit(projectId, "error", {
         error: "validation_unavailable",
         message: err.message,

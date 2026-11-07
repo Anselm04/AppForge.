@@ -30,7 +30,7 @@ const LANDING_PLANS = [
     key: "starter",
     nameKey: "pricing.starterName",
     descriptionKey: "pricing.starterDesc",
-    price: "$49",
+    price: "$79",
     featureKeys: [
       "pricing.starterF1",
       "pricing.starterF2",
@@ -44,7 +44,7 @@ const LANDING_PLANS = [
     key: "builder",
     nameKey: "pricing.builderName",
     descriptionKey: "pricing.builderDesc",
-    price: "$149",
+    price: "$199",
     featureKeys: [
       "pricing.builderF1",
       "pricing.builderF2",
@@ -58,7 +58,7 @@ const LANDING_PLANS = [
     key: "studio",
     nameKey: "pricing.studioName",
     descriptionKey: "pricing.studioDesc",
-    price: "$399",
+    price: "$499",
     featureKeys: [
       "pricing.studioF1",
       "pricing.studioF2",
@@ -72,7 +72,7 @@ const LANDING_PLANS = [
     key: "enterprise",
     nameKey: "pricing.enterpriseName",
     descriptionKey: "pricing.enterpriseDesc",
-    price: "$1,499",
+    price: "$2,499+",
     featureKeys: [
       "pricing.enterpriseF1",
       "pricing.enterpriseF2",
@@ -112,6 +112,9 @@ const WORKFLOW_STEPS = [
     body: "Deploy or export when your project is ready. App-store releases need additional checks.",
   },
 ] as const;
+
+const LANDING_MARGIN_DISCLOSURE =
+  "PROPOSED USD pricing for owner review only. Compute usage must be metered and capped before launch; no unlimited customer use. Actual build costs depend on the approved product scope and extra work requires a separate quote.";
 
 export function LandingPage() {
   const { t } = useLocale();
@@ -277,7 +280,7 @@ export function LandingPage() {
                     {plan.price}
                   </span>
                   <span className="text-sm text-forge-text-muted">
-                    {t("pricing.perMonth")}
+                    {t("pricing.perMonth")} USD
                   </span>
                 </div>
                 <ul className="mt-5 flex-1 space-y-2 text-sm text-forge-text-muted">
@@ -315,6 +318,9 @@ export function LandingPage() {
                 Know what your build can cost
               </h3>
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
+                {LANDING_MARGIN_DISCLOSURE}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-forge-text-muted">
                 Your subscription includes a monthly build allowance and compute
                 credits. A standard full build currently reserves{" "}
                 {BUILD_CREDIT_COST} credits when it starts. Straightforward
@@ -324,11 +330,12 @@ export function LandingPage() {
               <p className="mt-3 text-sm leading-6 text-forge-text-muted">
                 More complex products can require extra build iterations,
                 additional AI work, specialist or Senior Dev sessions, larger
-                integrations, or more compute than a standard build. In those
-                cases you may need extra credit top-ups or a higher plan. We
-                tell you this upfront so the price of the subscription is not
-                mistaken for a promise that every possible product can be
-                completed within the included monthly credits.
+                integrations, or more compute than a standard build. If you run
+                out of credits before your next monthly subscription payment,
+                you must buy extra top-up credits separately to keep building
+                right away. Otherwise your build pauses until new credits become
+                available, or you choose an eligible higher plan. Subscriptions
+                do not promise unlimited completed products.
               </p>
             </div>
             <div className="rounded-2xl border border-forge-border bg-forge-bg/50 p-5">
@@ -341,12 +348,17 @@ export function LandingPage() {
                   you subscribe.
                 </li>
                 <li>
-                  • Extra credits are optional top-ups at the published rate —
-                  not a hidden automatic charge.
+                  • Included credits are limited. You may need to buy extra
+                  top-up credits between your monthly subscription payments.
                 </li>
                 <li>
-                  • If you run out of credits, AppForge pauses the work so you
-                  decide whether to top up, upgrade, or stop.
+                  • To continue immediately after running out, you must pay
+                  separately for enough credits. Otherwise work pauses until
+                  credits become available again.
+                </li>
+                <li>
+                  • Top-ups are customer-approved purchases only: no hidden
+                  charges and no automatic top-up payments.
                 </li>
               </ul>
             </div>

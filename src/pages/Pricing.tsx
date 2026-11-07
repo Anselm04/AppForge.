@@ -15,6 +15,9 @@ type CreditPack = 50 | 100 | 250;
 
 const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
+const PRICING_PROPOSAL_MODE = true;
+const PRICING_BUDGET_DISCLOSURE =
+  "Your subscription includes a limited monthly credit allowance, not unlimited builds. If you use all included and previously purchased credits before your next monthly subscription payment, AppForge pauses credit-consuming work. To continue building before the next monthly credit refill, you must separately purchase enough top-up credits at the displayed USD price, or choose an eligible higher plan. If you do not purchase more credits, the work stays paused until new credits become available. Top-ups are never automatic, and complex builds may need additional credits even within the same billing month.";
 
 export function Pricing() {
   const navigate = useNavigate();
@@ -108,7 +111,7 @@ export function Pricing() {
     {
       key: "starter" as const,
       name: t("pricing.starterName"),
-      price: "$49",
+      price: "$79",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.starterDesc"),
       features: [
@@ -123,6 +126,7 @@ export function Pricing() {
         currentTier === "starter" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled:
+        PRICING_PROPOSAL_MODE ||
         currentTier === "starter" ||
         currentTier === "builder" ||
         currentTier === "studio" ||
@@ -131,7 +135,7 @@ export function Pricing() {
     {
       key: "builder" as const,
       name: t("pricing.builderName"),
-      price: "$149",
+      price: "$199",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.builderDesc"),
       features: [
@@ -146,6 +150,7 @@ export function Pricing() {
         currentTier === "builder" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: true,
       disabled:
+        PRICING_PROPOSAL_MODE ||
         currentTier === "builder" ||
         currentTier === "studio" ||
         currentTier === "enterprise",
@@ -153,7 +158,7 @@ export function Pricing() {
     {
       key: "studio" as const,
       name: t("pricing.studioName"),
-      price: "$399",
+      price: "$499",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.studioDesc"),
       features: [
@@ -167,12 +172,15 @@ export function Pricing() {
       cta:
         currentTier === "studio" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
-      disabled: currentTier === "studio" || currentTier === "enterprise",
+      disabled:
+        PRICING_PROPOSAL_MODE ||
+        currentTier === "studio" ||
+        currentTier === "enterprise",
     },
     {
       key: "enterprise" as const,
       name: t("pricing.enterpriseName"),
-      price: "$1,499",
+      price: "$2,499+",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.enterpriseDesc"),
       features: [
@@ -198,6 +206,13 @@ export function Pricing() {
         <div className="text-center mb-4">
           <Badge tone="success">Secure checkout powered by Stripe</Badge>
         </div>
+        {PRICING_PROPOSAL_MODE && (
+          <p className="text-center text-sm text-forge-text-muted mb-4">
+            PROPOSED USD PRICES — FOR OWNER REVIEW ONLY. Subscription checkout
+            is disabled until billing, cost limits and Stripe prices are
+            approved.
+          </p>
+        )}
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
         <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
           {t("pricing.subtitle")}
@@ -213,11 +228,11 @@ export function Pricing() {
           <p className="font-semibold text-forge-text-primary">
             Plan your budget before you build
           </p>
-          <p className="mt-1">
-            Complex products and additional iterations can use more compute
-            credits. Optional top-ups cost $1 per credit. When credits run out,
-            work pauses so you choose whether to top up, upgrade, or stop — no
-            automatic top-up charges.
+          <p className="mt-1">{PRICING_BUDGET_DISCLOSURE}</p>
+          <p className="mt-2 font-semibold text-forge-text-primary">
+            Monthly subscription fees and credit top-ups are separate payments.
+            All amounts are in USD; applicable taxes and any external vendor
+            charges are additional where disclosed.
           </p>
         </div>
 
@@ -270,7 +285,9 @@ export function Pricing() {
                 <span className="text-3xl font-bold text-forge-text-primary">
                   {tier.price}
                 </span>
-                <span className="text-forge-text-muted">{tier.subPrice}</span>
+                <span className="text-forge-text-muted">
+                  {tier.subPrice} USD
+                </span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {tier.features.map((feature, idx) => (
@@ -331,15 +348,24 @@ export function Pricing() {
           className="mt-16 max-w-3xl mx-auto"
           hover={false}
         >
-          <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")}</h3>
+          <h3 className="forge-h2 mb-2">{t("pricing.buyTitle")} (USD)</h3>
           <p className="text-forge-text-muted mb-6 text-sm">
             {t("pricing.buySubtitle")}
+          </p>
+          <p className="mb-6 text-sm font-semibold text-forge-text-primary">
+            Run out before your next monthly payment? To keep building now, buy
+            more credits separately. Otherwise your build pauses until credits
+            become available again. Nothing is purchased automatically.
           </p>
           {checkoutError && (
             <p className="text-sm text-red-500 mb-4" role="alert">
               {checkoutError}
             </p>
           )}
+          <p className="mb-4 text-sm text-forge-text-muted" role="status">
+            Top-up purchases are unavailable until the exact USD prices and
+            included credit allowances are approved. No charge will be made.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {CREDIT_PACKS.map((pack) => (
               <button
@@ -353,14 +379,15 @@ export function Pricing() {
                   setCheckoutError(null);
                   buyCredits.mutate(pack);
                 }}
-                disabled={buyCredits.isPending}
+                disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}
                 className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-left transition-colors hover:border-forge-cyan/40 disabled:opacity-50"
               >
                 <div className="text-2xl font-bold text-forge-text-primary">
                   {pack}
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  {t("pricing.packCredits", { n: pack })}
+                  {t("pricing.packCredits", { n: pack })} · USD price awaiting
+                  approval
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending

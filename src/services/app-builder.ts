@@ -53,30 +53,37 @@ export class AppBuilder {
       backend,
       database,
       infrastructure: architecture.infrastructure,
-      previewUrl: `https://${appId}.appforge.dev`,
-      deployUrl: `https://vercel.com/new?clone=1&repository-url=https://github.com/appforge/${appId}`,
-      status: "ready",
+      // An architecture/code draft is not a tested or deployed live app.
+      previewUrl: "",
+      deployUrl: "",
+      status: "building",
     };
 
     return app;
   }
 
   async iterate(appId: string, changes: any): Promise<GeneratedApp> {
-    // Iterate on existing app based on changes
-    // This would modify the existing app structure
-    return {} as GeneratedApp;
+    // Do not present a placeholder as a successfully revised product.
+    void appId;
+    void changes;
+    throw new Error(
+      "App iteration requires a verified persisted project workflow.",
+    );
   }
 
   async deploy(appId: string): Promise<string> {
-    // Deploy app to Vercel
-    const deployUrl = `https://${appId}.vercel.app`;
-    return deployUrl;
+    void appId;
+    throw new Error(
+      "Deployment requires an authorised, verified deployment adapter.",
+    );
   }
 
   async exportToGitHub(appId: string, repoName: string): Promise<string> {
-    // Export app to GitHub repository
-    const repoUrl = `https://github.com/${repoName}.git`;
-    return repoUrl;
+    void appId;
+    void repoName;
+    throw new Error(
+      "GitHub export requires an authorised repository integration.",
+    );
   }
 }
 

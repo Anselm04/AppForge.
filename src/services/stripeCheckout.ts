@@ -1,5 +1,12 @@
 import { getSubscriptionByUserId } from "../db.js";
 import { getAppForgeStripe } from "./appForgeStripe.js";
+import { assertEligibleForCreditTopUp } from "./appForgeCreditEligibility.js";
+import { assertCommercialCheckoutReleased } from "./appForgeCommercialCheckoutGate.js";
+import {
+  assertAppForgePrice,
+  MONTHLY_PLAN_USD_CENTS,
+  TOPUP_USD_CENTS,
+} from "./appForgePricePolicy.js";
 
 export const SELF_SERVE_PLAN_TIERS = ["starter", "builder", "studio"] as const;
 export type SelfServePlanTier = (typeof SELF_SERVE_PLAN_TIERS)[number];
@@ -100,14 +107,23 @@ export async function createPlanCheckout(
   user: CheckoutUser,
   tier: SelfServePlanTier,
 ) {
+  assertCommercialCheckoutReleased();
   const stripe = await getStripe();
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);
   assertCanCreateSubscription(sub);
+  const priceId = requirePlanPriceId(tier);
+  const price = await stripe.prices.retrieve(priceId);
+  assertAppForgePrice(
+    price,
+    MONTHLY_PLAN_USD_CENTS[tier],
+    "recurring",
+    process.env.NODE_ENV === "production",
+  );
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: requirePlanPriceId(tier), quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
@@ -138,12 +154,22 @@ export async function createCreditCheckout(
   user: CheckoutUser,
   credits: CreditPack,
 ) {
+  assertCommercialCheckoutReleased();
   const stripe = await getStripe();
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);
+  assertEligibleForCreditTopUp(sub);
+  const priceId = requireCreditPriceId(credits);
+  const price = await stripe.prices.retrieve(priceId);
+  assertAppForgePrice(
+    price,
+    TOPUP_USD_CENTS[credits],
+    "one_time",
+    process.env.NODE_ENV === "production",
+  );
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    line_items: [{ price: requireCreditPriceId(credits), quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
