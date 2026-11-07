@@ -31,7 +31,8 @@ function appForgeSender(): string {
 
 function supportContact(): string {
   const email = process.env.APPFORGE_SUPPORT_EMAIL?.trim();
-  const valid = email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(email);
+  const valid =
+    email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(email);
   return valid
     ? `<a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`
     : "AppForge Support";
