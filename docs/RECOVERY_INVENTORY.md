@@ -988,3 +988,9 @@ Cloudflare support-address forwarding is independent and remains unchanged.
 - The read-only source audit additionally packages `git archive HEAD` for tracked source/configuration paths (src, api, scripts, .github) into a short-lived GitHub Actions audit artifact. It is derived from already versioned repository content, contains no runner environment variables or untracked secrets, and runs without production credentials or outbound service calls.
 - The artifact can be regenerated from the identical source revision after expiry. It is **not** an application backup, deployment package, database export or permission to publish secrets. If the source is sensitive, repository access and artifact permissions must reflect that classification.
 - Production build, data restoration, migrations and rollback are unaffected. Continue requiring exact-SHA release evidence and ordinary recovery procedures.
+
+## Existing Stripe subscription Price auto-resolution recovery review (2026-11-08)
+
+- If a configured Stripe plan Price ID exists, use and validate that exact ID. Otherwise query the existing Stripe catalogue read-only; only an active USD monthly Price on an active product with metadata `product_line=appforge` and exact `plan` matching the selected tier and approved amount may be selected. Ambiguous or missing matches reject checkout without creating charges or subscriptions.
+- No Stripe product, Price, customer record or subscription is mutated by price resolution. Customer billing and webhook recovery procedures are unchanged. After recovery, reconcile the configured Price ID or exact product metadata before re-enabling any checkout path.
+- Roll back by restoring the previous source SHA and configuring explicit Price IDs. This change does not override production checkout certification or provider spend enforcement.
