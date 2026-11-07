@@ -94,7 +94,9 @@ describe("pre-dispatch monetary guard with test-only price fixture", () => {
       resolve(process.cwd(), "src/services/guardedProviderOperation.ts"),
       "utf8",
     );
-    expect(wrapper).not.toContain("assertCustomerComputeLaunchCertified(false)");
+    expect(wrapper).not.toContain(
+      "assertCustomerComputeLaunchCertified(false)",
+    );
     expect(
       wrapper.indexOf("const lease = currentBuildExecutionLease()"),
     ).toBeLessThan(
