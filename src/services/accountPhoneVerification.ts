@@ -97,7 +97,9 @@ export async function verifyAccountPhone(input: {
   code: string;
 }): Promise<boolean> {
   const code = input.code.trim();
-  if (!/^\d{6}$/.test(code)) return false;
+  // Twilio Verify accepts configurable 4–10 digit challenges; validate the
+  // actual provider response instead of assuming every service uses six.
+  if (!/^\d{4,10}$/.test(code)) return false;
 
   const supabase = serverAuthClient();
   const { data: current, error: readError } =

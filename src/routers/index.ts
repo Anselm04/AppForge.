@@ -97,7 +97,7 @@ export const appRouter = router({
         }
       }),
     verifyPhone: authenticatedProcedure
-      .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
+      .input(z.object({ code: z.string().regex(/^\d{4,10}$/) }))
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.phoneVerified) {
           return { verified: true } as const;

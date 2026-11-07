@@ -120,8 +120,8 @@ export function VerifyPhone() {
     event.preventDefault();
     setError(null);
     const normalized = code.trim();
-    if (!/^\d{6}$/.test(normalized)) {
-      setError("Enter the six-digit SMS verification code.");
+    if (!/^\d{4,10}$/.test(normalized)) {
+      setError("Enter the 4–10 digit SMS verification code.");
       return;
     }
     verifyCode.mutate(normalized);
@@ -134,8 +134,8 @@ export function VerifyPhone() {
       title="Verify your mobile number"
       subtitle={
         codeSent && !editingPhone
-          ? `Enter the six-digit code sent to ${destination}. This phone is linked to the same AppForge account as your email.`
-          : "Add your mobile number to this AppForge account. We will send a six-digit SMS code before giving access to the app."
+          ? `Enter the code sent to ${destination}. This phone is linked to the same AppForge account as your email.`
+          : "Add your mobile number to this AppForge account. We will send an SMS verification code before giving access to the app."
       }
     >
       {error && (
@@ -178,14 +178,14 @@ export function VerifyPhone() {
           <form onSubmit={submit} className="space-y-5">
             <Input
               id="phone-verification-code"
-              label="Six-digit SMS code"
+              label="SMS verification code"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={10}
               value={code}
               onChange={(event) =>
-                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                setCode(event.target.value.replace(/\D/g, "").slice(0, 10))
               }
               required
             />
@@ -193,7 +193,7 @@ export function VerifyPhone() {
               type="submit"
               className="w-full"
               loading={verifyCode.isPending}
-              disabled={verifyCode.isPending || code.length !== 6}
+              disabled={verifyCode.isPending || !/^\d{4,10}$/.test(code)}
             >
               Verify mobile number
             </Button>
