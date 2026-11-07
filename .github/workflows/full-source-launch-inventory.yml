@@ -1,0 +1,60 @@
+name: AppForge Full Source Launch Inventory
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22"
+      - name: Inventory all application source and build config
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-results
+          node scripts/audit-launch-blockers.mjs --json > audit-results/launch-inventory.json
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const r = JSON.parse(readFileSync('audit-results/launch-inventory.json', 'utf8'));
+          const totals = new Map();
+          for (const finding of r.findings) totals.set(finding.id, (totals.get(finding.id) ?? 0) + 1);
+          const summary = [
+            '# AppForge Full Source Launch Inventory',
+            '',
+            'Commit: ' + process.env.GITHUB_SHA,
+            'Scanned files: ' + r.scannedFiles,
+            'Production-source candidate findings: ' + r.findings.length,
+            'Read errors: ' + r.readErrors.length,
+            '',
+            '## Findings by category',
+            ...[...totals].sort((a, b) => a[0].localeCompare(b[0])).map(([id, count]) => '- ' + id + ': ' + count),
+            '',
+            '**This scanner reports candidates; every affected call path needs engineering review. Clean static results do not prove end-to-end operation.**',
+          ].join('\n') + '\n';
+          writeFileSync('audit-results/SUMMARY.md', summary);
+          console.log(summary);
+          if (process.env.GITHUB_STEP_SUMMARY) writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          if (r.readErrors.length) process.exitCode = 1;
+          NODE
+      - name: Upload complete source findings for review
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: appforge-launch-inventory-${{ github.sha }}
+          path: audit-results/
+          retention-days: 14
