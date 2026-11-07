@@ -9,9 +9,23 @@ import {
 } from "./buildExecutionLease.js";
 import {
   reserveProviderSpend,
+  releaseProviderSpend,
+  settleProviderSpend,
   type ProviderReservationInput,
 } from "./providerSpendLedger.js";
 import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
+
+class ReservationReleaseError extends Error {
+  constructor(
+    readonly leaseError: unknown,
+    readonly releaseError: unknown,
+  ) {
+    super(
+      "Build lease was lost before dispatch and reservation release failed",
+    );
+    this.name = "ReservationReleaseError";
+  }
+}
 
 /**
  * Preparatory paid-operation guard. This does not authorize production work.
@@ -23,7 +37,7 @@ export async function runReservedProviderOperation<T>(
     operationId: ProviderReservationInput["operationId"];
     envelope: CostEnvelope;
   },
-  invoke: () => Promise<T>,
+  invoke: () => Promise<{ value: T; verifiedCents: number }>,
 ): Promise<T> {
   // Standalone release stop: preparatory money controls do not authorize
   // real customer charges even if this helper is called outside the router.
@@ -47,8 +61,22 @@ export async function runReservedProviderOperation<T>(
       "Duplicate provider operation refused; inspect existing result",
     );
   }
-  await assertCurrentBuildLease();
-  // Never automatically release the reservation on timeout, abort or error:
-  // the provider might still have billed a request in transit.
-  return invoke();
+  try {
+    await assertCurrentBuildLease();
+  } catch (leaseError) {
+    try {
+      await releaseProviderSpend(lease.userId, options.operationId);
+    } catch (releaseError) {
+      throw new ReservationReleaseError(leaseError, releaseError);
+    }
+    throw leaseError;
+  }
+  // An error or uncertain charge must leave the reservation in place.
+  const result = await invoke();
+  await settleProviderSpend(
+    lease.userId,
+    options.operationId,
+    result.verifiedCents,
+  );
+  return result.value;
 }

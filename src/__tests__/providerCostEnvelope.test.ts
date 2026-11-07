@@ -78,13 +78,15 @@ describe("conservative provider-cost envelope (offline only)", () => {
     expect(() => maximumProviderEnvelopeCents(assumedFree, clock)).toThrow();
   });
 
-  it("does not treat provisional rates as certified live provider prices", () => {
+  it("does not accept caller-asserted rates as trusted live provider prices", () => {
     const quote = sample();
     expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
-      /provisional/,
+      /Trusted provider price catalogue is not configured/,
     );
     quote.priceSnapshotSource = "provider_confirmed";
-    expect(() => assertProviderPricesConfirmed(quote, clock)).not.toThrow();
+    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
+      /Trusted provider price catalogue is not configured/,
+    );
     expect(() =>
       assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z")),
     ).toThrow(/expired/);

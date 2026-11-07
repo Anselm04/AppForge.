@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   values: vi.fn(),
   conflict: vi.fn(),
   grant: vi.fn(),
+  grantProvider: vi.fn(),
+  fulfillProviderTopUp: vi.fn(),
+  expireProviderTopUp: vi.fn(),
 }));
 
 vi.mock("stripe", () => ({
@@ -49,6 +52,14 @@ vi.mock("../services/stripeCreditRefund.js", () => ({
 }));
 vi.mock("../services/stripePlanCredits.js", () => ({
   grantStripeInvoicePlanCredits: mocks.grant,
+}));
+vi.mock("../services/providerCreditProvisioning.js", () => ({
+  grantStripeInvoiceProviderCredits: mocks.grantProvider,
+}));
+vi.mock("../services/providerCreditTopUps.js", () => ({
+  expireProviderCreditTopUp: mocks.expireProviderTopUp,
+  fulfillProviderCreditTopUp: mocks.fulfillProviderTopUp,
+  PURCHASED_PROVIDER_CREDIT_PACKS_CENTS: [1000, 3000, 8000],
 }));
 vi.mock("../services/stripeEventLedger.js", () => ({
   processStripeEventOnce: async (
@@ -87,6 +98,18 @@ beforeEach(() => {
   mocks.findFirst.mockReset();
   mocks.values.mockClear();
   mocks.grant.mockReset().mockResolvedValue({ granted: 50, skipped: false });
+  mocks.grantProvider.mockReset().mockResolvedValue({
+    grantedCents: 1200,
+    skipped: false,
+  });
+  mocks.fulfillProviderTopUp.mockReset().mockResolvedValue({
+    grantedCents: 1000,
+    skipped: false,
+  });
+  mocks.expireProviderTopUp.mockReset().mockResolvedValue({
+    expired: true,
+    skipped: false,
+  });
   mocks.set.mockImplementation(() => ({ where: mocks.where }));
   mocks.where.mockResolvedValue(undefined);
   mocks.addCredits.mockResolvedValue(50);
@@ -96,6 +119,7 @@ beforeEach(() => {
   mocks.values.mockReturnValue({ onConflictDoUpdate: mocks.conflict });
   mocks.conflict.mockResolvedValue(undefined);
   vi.stubEnv("STRIPE_CREDITS_50_PRICE_ID", "price_credit50");
+  vi.stubEnv("STRIPE_PROVIDER_CREDITS_1000_PRICE_ID", "price_provider1000");
   vi.stubEnv("STRIPE_STUDIO_PRICE_ID", "price_studio");
   vi.stubEnv("STRIPE_STARTER_PRICE_ID", "price_starter");
 });
@@ -175,12 +199,23 @@ describe("delayed Stripe subscription events", () => {
             proration: false,
             quantity: 1,
             price: { id: "price_starter" },
+            period: {
+              start: 1735689600,
+              end: 1738368000,
+            },
           },
         ],
       },
     });
     expect(mocks.values).not.toHaveBeenCalled();
     expect(mocks.grant).toHaveBeenCalledWith(42, "starter", "in_old", "studio");
+    expect(mocks.grantProvider).toHaveBeenCalledWith(
+      42,
+      "starter",
+      "in_old",
+      1735689600,
+      1738368000,
+    );
     expect(res.json).toHaveBeenCalledWith({ received: true });
   });
   it("uses the same payment identity for expanded completed checkout references", async () => {
@@ -358,6 +393,98 @@ describe("delayed Stripe subscription events", () => {
     const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0]);
     expect(query.sql).toContain('"stripe_subscription_id"');
     expect(query.params).toEqual([42, "sub_old"]);
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("fulfills only a paid provider-credit checkout matching its reserved order", async () => {
+    mocks.findFirst.mockResolvedValue({ stripeCustomerId: "cus_owner" });
+    mocks.lineItems.mockResolvedValue({
+      data: [
+        {
+          quantity: 1,
+          price: {
+            id: "price_provider1000",
+            currency: "usd",
+            unit_amount: 2500,
+          },
+        },
+      ],
+    });
+    const res = await deliver("checkout.session.completed", {
+      id: "cs_test_providertopup",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_providertopup",
+      customer: "cus_owner",
+      client_reference_id: "42",
+      currency: "usd",
+      amount_total: 2500,
+      metadata: {
+        product_line: "appforge_provider_credits",
+        userId: "42",
+        providerCreditTopUpId: "5ce848f4-3123-49bf-b1cd-69698845b06e",
+        creditsCents: "1000",
+      },
+    });
+    expect(mocks.fulfillProviderTopUp).toHaveBeenCalledWith({
+      topUpId: "5ce848f4-3123-49bf-b1cd-69698845b06e",
+      userId: 42,
+      sessionId: "cs_test_providertopup",
+      paymentIntentId: "pi_providertopup",
+      creditsCents: 1000,
+      priceUsdCents: 2500,
+    });
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+  it("rejects provider-credit fulfillment when the Stripe amount differs", async () => {
+    mocks.findFirst.mockResolvedValue({ stripeCustomerId: "cus_owner" });
+    mocks.lineItems.mockResolvedValue({
+      data: [
+        {
+          quantity: 1,
+          price: {
+            id: "price_provider1000",
+            currency: "usd",
+            unit_amount: 2500,
+          },
+        },
+      ],
+    });
+    const res = await deliver("checkout.session.completed", {
+      id: "cs_test_providertopup",
+      mode: "payment",
+      payment_status: "paid",
+      payment_intent: "pi_providertopup",
+      customer: "cus_owner",
+      client_reference_id: "42",
+      currency: "usd",
+      amount_total: 2501,
+      metadata: {
+        product_line: "appforge_provider_credits",
+        userId: "42",
+        providerCreditTopUpId: "5ce848f4-3123-49bf-b1cd-69698845b06e",
+        creditsCents: "1000",
+      },
+    });
+    expect(mocks.fulfillProviderTopUp).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+  it("releases a reserved provider-credit cap only after Stripe expiration", async () => {
+    const res = await deliver("checkout.session.expired", {
+      id: "cs_test_expiredtopup",
+      mode: "payment",
+      status: "expired",
+      client_reference_id: "42",
+      metadata: {
+        product_line: "appforge_provider_credits",
+        userId: "42",
+        providerCreditTopUpId: "5ce848f4-3123-49bf-b1cd-69698845b06e",
+      },
+    });
+    expect(mocks.expireProviderTopUp).toHaveBeenCalledWith({
+      topUpId: "5ce848f4-3123-49bf-b1cd-69698845b06e",
+      userId: 42,
+      sessionId: "cs_test_expiredtopup",
+    });
     expect(res.json).toHaveBeenCalledWith({ received: true });
   });
 });

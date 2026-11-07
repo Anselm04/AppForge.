@@ -57,7 +57,24 @@ export async function zipFiles(
   files: Record<string, string>,
 ): Promise<{ base64: string; filename: string }> {
   const zip = new JSZip();
-  for (const [p, c] of Object.entries(files)) zip.file(p, c);
+  for (const [path, content] of Object.entries(files)) {
+    if (
+      !path ||
+      path !== path.replace(/\\/g, "/") ||
+      path.startsWith("/") ||
+      /^[a-z]:/i.test(path) ||
+      [...path].some((character) => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127;
+      }) ||
+      path
+        .split("/")
+        .some((segment) => !segment || segment === "." || segment === "..")
+    ) {
+      throw new Error(`Unsafe project export path: ${path}`);
+    }
+    zip.file(path, content);
+  }
   const b = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",
@@ -69,6 +86,24 @@ export async function zipFiles(
       .replace(/[^a-z0-9-]/g, "-")
       .slice(0, 30)}-appforge.zip`,
   };
+}
+
+export function assertArtifactMatchesWorkingFiles(input: {
+  workingFiles: Record<string, string>;
+  validatedFiles: Record<string, string>;
+}): void {
+  const workingPaths = Object.keys(input.workingFiles);
+  const validatedPaths = Object.keys(input.validatedFiles);
+  if (
+    workingPaths.length !== validatedPaths.length ||
+    workingPaths.some(
+      (path) => input.workingFiles[path] !== input.validatedFiles[path],
+    )
+  ) {
+    throw new Error(
+      "Saved project edits are unvalidated. Rebuild and validate the current source before previewing, exporting, or deploying.",
+    );
+  }
 }
 
 export function listDeployDestinations(): DeployDestinationStatus {
@@ -178,6 +213,7 @@ export async function deployProject(opts: {
 export default {
   deployToVercel,
   zipFiles,
+  assertArtifactMatchesWorkingFiles,
   deployProject,
   listDeployDestinations,
   previewSignature,

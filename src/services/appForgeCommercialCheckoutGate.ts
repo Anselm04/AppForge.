@@ -1,8 +1,8 @@
 /**
- * The owner approved the subscription amounts, but has not yet approved
- * credit-pack economics or live Stripe cutover. Existing configured Stripe
- * Prices still point to the old catalogue. Therefore no *new* checkout
- * session is issued by this proposed commercial release in production.
+ * The owner approved the USD subscription and provider-credit pack terms, but
+ * production Stripe Price IDs, refund reconciliation, and end-to-end release
+ * qualification are not complete. Therefore no new production checkout
+ * session is issued.
  *
  * This is intentionally NOT a boolean env toggle. Removing this block
  * requires a reviewed release with live Price IDs, atomic provider cost caps,
@@ -10,7 +10,7 @@
  * Mocked Stripe tests can continue without real payments.
  */
 export const COMMERCIAL_CHECKOUT_PAUSED =
-  "AppForge is finalising the approved USD plans and credit pricing. New subscription purchases and credit top-ups are temporarily unavailable. Existing account access is unchanged.";
+  "AppForge checkout is temporarily unavailable while billing fulfillment and release qualification are completed. Existing account access is unchanged.";
 
 export function assertCommercialCheckoutReleased(
   environment: string | undefined = process.env.NODE_ENV,

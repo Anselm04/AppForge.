@@ -10,6 +10,16 @@ import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js"
 import { logger } from "../_core/logger.js";
 import { incrementOperationalMetric } from "../lib/operationsObservability.js";
 import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
+import { grantStripeInvoiceProviderCredits } from "../services/providerCreditProvisioning.js";
+import {
+  expireProviderCreditTopUp,
+  fulfillProviderCreditTopUp,
+} from "../services/providerCreditTopUps.js";
+import {
+  PROVIDER_CREDIT_PACK_PRICE_ID_ENV,
+  PURCHASED_PROVIDER_CREDIT_PACKS_CENTS,
+  PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS,
+} from "../lib/providerCreditPolicy.js";
 import {
   classifyAppForgeSubscription,
   isAppForgeCreditMetadata,
@@ -35,6 +45,9 @@ const PAID_TIERS = new Set([
   "custom",
 ]);
 const CREDIT_PACK_SET = new Set<number>(CREDIT_PACKS);
+const PROVIDER_CREDIT_PACK_SET = new Set<number>(
+  PURCHASED_PROVIDER_CREDIT_PACKS_CENTS,
+);
 
 type StandardTier = "starter" | "builder" | "studio" | "enterprise";
 
@@ -234,6 +247,121 @@ async function paidCreditPackForSession(
   return paidCredits;
 }
 
+async function fulfillProviderCreditSession(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const userId = resolveCheckoutUserId(session);
+  const topUpId = session.metadata?.providerCreditTopUpId;
+  const creditsRaw = session.metadata?.creditsCents;
+  const creditsCents =
+    creditsRaw && /^\d+$/.test(creditsRaw) ? Number(creditsRaw) : null;
+  if (
+    !userId ||
+    !topUpId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      topUpId,
+    ) ||
+    creditsCents === null ||
+    !PROVIDER_CREDIT_PACK_SET.has(creditsCents)
+  ) {
+    throw new Error("Stripe provider-credit checkout metadata is invalid");
+  }
+  if (session.mode !== "payment" || session.payment_status !== "paid") {
+    throw new Error("Stripe provider-credit checkout is not paid");
+  }
+
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+    limit: 10,
+  });
+  if (lineItems.data.length !== 1 || (lineItems.data[0].quantity ?? 0) !== 1) {
+    throw new Error("Provider-credit checkout must contain exactly one item");
+  }
+  const expectedPriceId =
+    process.env[
+      PROVIDER_CREDIT_PACK_PRICE_ID_ENV[
+        creditsCents as keyof typeof PROVIDER_CREDIT_PACK_PRICE_ID_ENV
+      ]
+    ] || null;
+  const paidLineItem = lineItems.data[0];
+  const expectedPriceCents =
+    PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[
+      creditsCents as keyof typeof PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS
+    ];
+  if (
+    !expectedPriceId ||
+    paidLineItem.price?.id !== expectedPriceId ||
+    paidLineItem.price?.currency?.toLowerCase() !== "usd" ||
+    paidLineItem.price?.unit_amount !== expectedPriceCents ||
+    session.currency?.toLowerCase() !== "usd" ||
+    session.amount_total !== expectedPriceCents
+  ) {
+    throw new Error(
+      "Stripe provider-credit checkout does not match approved price",
+    );
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+  if (!paymentIntentId) {
+    throw new Error("Stripe provider-credit payment reference is missing");
+  }
+  const subscription = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.userId, userId),
+  });
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : (session.customer?.id ?? null);
+  if (
+    !subscription?.stripeCustomerId ||
+    customerId !== subscription.stripeCustomerId
+  ) {
+    throw new Error("Stripe provider-credit customer ownership mismatch");
+  }
+
+  const result = await fulfillProviderCreditTopUp({
+    topUpId,
+    userId,
+    sessionId: session.id,
+    paymentIntentId,
+    creditsCents,
+    priceUsdCents: expectedPriceCents,
+  });
+  logger.info(
+    { userId, creditsCents, eventId: session.id, ...result },
+    "stripe_provider_credit_purchase_processed",
+  );
+}
+
+async function expireProviderCreditSession(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const userId = resolveCheckoutUserId(session);
+  const topUpId = session.metadata?.providerCreditTopUpId;
+  if (
+    !userId ||
+    !topUpId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      topUpId,
+    ) ||
+    session.mode !== "payment" ||
+    session.status !== "expired"
+  ) {
+    throw new Error("Stripe provider-credit expiration metadata is invalid");
+  }
+  const result = await expireProviderCreditTopUp({
+    topUpId,
+    userId,
+    sessionId: session.id,
+  });
+  logger.info(
+    { userId, sessionId: session.id, eventId: session.id, ...result },
+    "stripe_provider_credit_checkout_expired",
+  );
+}
+
 async function upsertSubscription(opts: {
   userId: number;
   customerId: string;
@@ -245,6 +373,9 @@ async function upsertSubscription(opts: {
     subscription.status === "trialing" && subscription.trial_end
       ? new Date(subscription.trial_end * 1000)
       : null;
+  const periodStart = subscription.current_period_start
+    ? new Date(subscription.current_period_start * 1000)
+    : null;
   const periodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
     : null;
@@ -276,6 +407,7 @@ async function upsertSubscription(opts: {
         status: subscription.status,
         tier,
         trialEnd,
+        currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       })
       .onConflictDoUpdate({
@@ -286,6 +418,7 @@ async function upsertSubscription(opts: {
           status: subscription.status,
           tier,
           trialEnd,
+          currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
           updatedAt: new Date(),
         },
@@ -358,6 +491,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const mode = session.mode;
+      if (session.metadata?.product_line === "appforge_provider_credits") {
+        if (session.payment_status === "paid") {
+          await fulfillProviderCreditSession(session);
+        }
+        break;
+      }
       if (!isAppForgeCreditMetadata(session.metadata)) return;
       const userId = resolveCheckoutUserId(session);
 
@@ -421,6 +560,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "checkout.session.async_payment_succeeded": {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.product_line === "appforge_provider_credits") {
+        await fulfillProviderCreditSession(session);
+        break;
+      }
       if (!isAppForgeCreditMetadata(session.metadata)) return;
       const userId = resolveCheckoutUserId(session);
       if (!userId || session.mode !== "payment") {
@@ -441,6 +584,14 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         `Stripe delayed credit purchase (${credits} credits)`,
         paymentRef,
       );
+      break;
+    }
+
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.product_line !== "appforge_provider_credits")
+        return;
+      await expireProviderCreditSession(session);
       break;
     }
 
@@ -558,6 +709,33 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
                 eventId: event.id,
               },
               "stripe_invoice_plan_credits_granted",
+            );
+          }
+          const invoiceLine = invoice.lines.data.find(
+            (line) => line.type === "subscription" && !line.proration,
+          );
+          if (!invoiceLine?.period) {
+            throw new Error(
+              "Stripe subscription invoice billing period is missing",
+            );
+          }
+          const providerCredits = await grantStripeInvoiceProviderCredits(
+            userId,
+            creditTier,
+            invoice.id,
+            invoiceLine.period.start,
+            invoiceLine.period.end,
+          );
+          if (!providerCredits.skipped) {
+            logger.info(
+              {
+                userId,
+                tier: creditTier,
+                providerCreditsGrantedCents: providerCredits.grantedCents,
+                invoiceId: invoice.id,
+                eventId: event.id,
+              },
+              "stripe_invoice_provider_credits_granted",
             );
           }
         } else if (userId && tier) {

@@ -11,7 +11,12 @@ const state = vi.hoisted(() => ({
       },
   current: vi.fn(async () => undefined),
   reserve: vi.fn(async () => "reserved" as "reserved" | "duplicate"),
-  dispatched: vi.fn(async () => "mock-provider-result"),
+  release: vi.fn(async () => undefined),
+  settle: vi.fn(async () => undefined),
+  dispatched: vi.fn(async () => ({
+    value: "mock-provider-result",
+    verifiedCents: 75,
+  })),
 }));
 vi.mock("../services/buildExecutionLease.js", () => ({
   currentBuildExecutionLease: () => state.lease,
@@ -19,7 +24,30 @@ vi.mock("../services/buildExecutionLease.js", () => ({
 }));
 vi.mock("../services/providerSpendLedger.js", () => ({
   reserveProviderSpend: state.reserve,
+  releaseProviderSpend: state.release,
+  settleProviderSpend: state.settle,
 }));
+vi.mock("../lib/providerCostEnvelope.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../lib/providerCostEnvelope.js")>();
+  return {
+    ...actual,
+    assertProviderPricesConfirmed: (envelope: CostEnvelope, now?: Date) => {
+      actual.maximumProviderEnvelopeCents(envelope, now);
+      if (envelope.priceSnapshotSource !== "provider_confirmed") {
+        throw new Error("Provider prices remain provisional");
+      }
+      if (
+        envelope.attempts.some(
+          (attempt) =>
+            attempt.provider !== "mock" || attempt.model !== "mock-1",
+        )
+      ) {
+        throw new Error("Untrusted mocked provider rate");
+      }
+    },
+  };
+});
 import { runReservedProviderOperation } from "../services/guardedProviderOperation.js";
 import type { CostEnvelope } from "../lib/providerCostEnvelope.js";
 const now = new Date("2026-11-06T00:00:00Z");
@@ -49,13 +77,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.lease = { userId: 5, projectId: 11, executionId: 17 };
   state.reserve.mockResolvedValue("reserved");
+  state.release.mockResolvedValue(undefined);
+  state.dispatched.mockResolvedValue({
+    value: "mock-provider-result",
+    verifiedCents: 75,
+  });
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("pre-dispatch monetary guard mock acceptance", () => {
+describe("pre-dispatch monetary guard with test-only price fixture", () => {
   it("does not allow direct production dispatch around the customer release stop", () => {
     const wrapper = readFileSync(
       resolve(process.cwd(), "src/services/guardedProviderOperation.ts"),
@@ -83,6 +116,10 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
     );
     expect(state.current).toHaveBeenCalledTimes(2);
     expect(state.dispatched).toHaveBeenCalledTimes(1);
+    expect(state.settle).toHaveBeenCalledWith(5, "mock_call_123", 75);
+    expect(state.settle.mock.invocationCallOrder[0]).toBeGreaterThan(
+      state.dispatched.mock.invocationCallOrder[0],
+    );
   });
   it("does not dispatch without a build lease or with stale lease", async () => {
     state.lease = undefined;
@@ -97,12 +134,23 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
     ).rejects.toThrow(/revoked/);
     expect(state.dispatched).not.toHaveBeenCalled();
   });
+  it("releases a reservation when the lease is lost before dispatch", async () => {
+    state.current
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("revoked after reservation"));
+    await expect(
+      runReservedProviderOperation(options(), state.dispatched),
+    ).rejects.toThrow(/revoked after reservation/);
+    expect(state.reserve).toHaveBeenCalledTimes(1);
+    expect(state.release).toHaveBeenCalledWith(5, "mock_call_123");
+    expect(state.dispatched).not.toHaveBeenCalled();
+  });
   it("rejects price gaps, expired price data and duplicate reservations", async () => {
     const provisional = options();
     provisional.envelope.priceSnapshotSource = "provisional";
     await expect(
       runReservedProviderOperation(provisional, state.dispatched),
-    ).rejects.toThrow(/provisional/);
+    ).rejects.toThrow(/Provider prices remain provisional/);
     const expired = options();
     vi.setSystemTime(new Date("2026-11-08T00:00:00Z"));
     await expect(
@@ -121,5 +169,13 @@ describe("pre-dispatch monetary guard mock acceptance", () => {
       runReservedProviderOperation(options(), state.dispatched),
     ).rejects.toThrow(/timeout/);
     expect(state.reserve).toHaveBeenCalledTimes(1);
+    expect(state.settle).not.toHaveBeenCalled();
+  });
+  it("does not report success when the verified charge cannot be settled", async () => {
+    state.settle.mockRejectedValueOnce(new Error("settlement failed"));
+    await expect(
+      runReservedProviderOperation(options(), state.dispatched),
+    ).rejects.toThrow(/settlement failed/);
+    expect(state.dispatched).toHaveBeenCalledTimes(1);
   });
 });
