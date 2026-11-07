@@ -7,7 +7,9 @@ describe("Senior Dev project change preservation", () => {
     expect(source).toContain("getEditableProjectFiles(task.projectId)");
     expect(source).toContain("commitValidatedProjectFilesEdit({");
     expect(source).toContain("originalFiles,");
-    expect(source).not.toContain("updateProjectFiles(task.projectId, result.files)");
+    expect(source).not.toContain(
+      "updateProjectFiles(task.projectId, result.files)",
+    );
     expect(source).not.toContain("project.generatedFiles as Record");
   });
 });
