@@ -8,6 +8,7 @@ describe("LLM provider retry accounting", () => {
     expect(source).toContain(
       "if (error instanceof RetryUsageEvidenceError) throw error;",
     );
+    expect(source).toContain("if (err instanceof RetryUsageEvidenceError) throw err;");
     expect(source).not.toContain("LLM retry usage evidence unavailable");
     expect(
       source.match(/throw new RetryUsageEvidenceError\(evidenceError\)/g),
