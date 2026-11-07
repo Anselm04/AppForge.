@@ -1001,3 +1001,10 @@ Cloudflare support-address forwarding is independent and remains unchanged.
 - On crash, timeout or uncertain provider charge, retain the reservation until verified reconciliation. Never auto-release after possible dispatch. Retain operation id, user, project, execution, maximum quote, provider usage and proof of settlement in audit records.
 - If the operator needs to roll back, restore the previous source SHA. Any outstanding reservations remain database liabilities requiring normal reconciliation; a code rollback cannot erase them.
 - The customer-build admission gate and direct AI transport are not lifted by this helper change and continue to require full end-to-end monetary enforcement before live customer generation.
+
+## Legacy project-file editing endpoint: revision integrity and recovery (2026-11-08)
+
+- The legacy `projects.updateFile` route now uses the same transactional, ownership-checked, path-validated working-snapshot writer as the supported code editor. Existing validated serving artifacts are **not** rewritten by a single-file edit.
+- Concurrent changes are rejected instead of silently overwriting a newer saved revision. The client must reload the current working files before retrying an edit. The new working snapshot and integrity chain provide evidence to inspect and recover prior versions.
+- Recovery procedure: inspect the project's latest working revision and immutable build snapshots before resuming editing; do not substitute an older validated serving snapshot for saved working source. If rollback is necessary, use the versioned snapshot recovery path and verify ownership/integrity.
+- Rollback of this code change would reintroduce a destructive unversioned write path. It does not alter database schema, stored snapshots, production deployment, paid provider operations or checkout.
