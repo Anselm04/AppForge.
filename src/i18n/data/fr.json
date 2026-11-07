@@ -25,8 +25,8 @@
     "planFree": "Plan Gratuit : {remaining} builds et {credits} crédits restants",
     "planStarter": "Plan Starter : {remaining} builds et {credits} crédits",
     "planBuilder": "Plan Builder : {remaining} builds et {credits} crédits",
-    "planStudio": "Plan Studio : builds illimités, {credits} crédits",
-    "planEnterprise": "Plan Enterprise : builds et crédits illimités",
+    "planStudio": "Formule Studio : {credits} crédits disponibles ; des limites d’utilisation s’appliquent",
+    "planEnterprise": "Formule Enterprise : utilisation et crédits selon les limites contractuelles",
     "upgradeMore": "Passez à un plan supérieur pour plus de builds et de crédits",
     "promptLabel": "Quelle app voulez-vous créer ?",
     "promptPlaceholder": "ex. Une todo list avec mode sombre, une app de réservation pour mon salon…",
@@ -442,7 +442,11 @@
       "builds": "Builds ce mois",
       "forecast": "Prévision (30j)"
     },
-    "values": { "credits": "142", "builds": "8 / 66", "forecast": "~24 $" },
+    "values": {
+      "credits": "142",
+      "builds": "8 / 66",
+      "forecast": "~24 $"
+    },
     "chartTitle": "Utilisation des crédits",
     "chartSubtitle": "6 derniers mois",
     "months": {
