@@ -1313,14 +1313,17 @@ export const projectsRouter = router({
       if (!project || project.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
-      const { getEditableProjectFiles } = await import("../db.js");
-      const files = await getEditableProjectFiles(input.id);
-      files[input.path] = input.content;
-      await updateProjectFiles(input.id, files);
-      const { invalidatePreviewCache } =
-        await import("../routes/livePreview.js");
-      invalidatePreviewCache(input.id);
-      return { ok: true, path: input.path };
+      const { commitValidatedProjectFileEdit } =
+        await import("../services/projectFileEdits.js");
+      const saved = await commitValidatedProjectFileEdit({
+        project,
+        userId: ctx.user.id,
+        path: input.path,
+        content: input.content,
+        label: "Saved code editor file: " + input.path,
+        allowCreate: true,
+      });
+      return { ok: true, path: saved.path, version: saved.version };
     }),
 
   validateFile: protectedProcedure
