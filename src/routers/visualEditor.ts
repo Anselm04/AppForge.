@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc.js";
-import { getProjectById, getProjectFiles } from "../db.js";
+import { getProjectById, getEditableProjectFiles } from "../db.js";
 import { applyStaticHtmlVisualEdit } from "../lib/visualHtmlEditor.js";
 import { commitValidatedProjectFileEdit } from "../services/projectFileEdits.js";
 
@@ -50,7 +50,8 @@ export const visualEditorRouter = router({
       }
 
       try {
-        const files = await getProjectFiles(input.projectId);
+        // Edit the latest saved working revision, never an older validated snapshot.
+        const files = await getEditableProjectFiles(input.projectId);
         const current = files[input.path];
         if (current === undefined) throw new Error("Project file not found");
         const content = applyStaticHtmlVisualEdit(current, {
