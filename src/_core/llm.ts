@@ -470,7 +470,9 @@ class ProviderUsagePersistenceError extends Error {
   readonly cause: unknown;
 
   constructor(cause: unknown) {
-    super("Provider operation stopped because build usage evidence was not persisted");
+    super(
+      "Provider operation stopped because build usage evidence was not persisted",
+    );
     this.name = "ProviderUsagePersistenceError";
     this.cause = cause;
   }
@@ -639,7 +641,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
             succeeded: false,
           });
         } catch (meteringError) {
-            throw new ProviderUsagePersistenceError(meteringError);
+          throw new ProviderUsagePersistenceError(meteringError);
         }
       }
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
