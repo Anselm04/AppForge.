@@ -28,6 +28,14 @@ for (const path of [
     await readFile(new URL(path.replace(/\//g, "_"), import.meta.url), "utf8"),
   );
 }
+// Flutter's supported integration-test driver executes the real APK test
+// without the flutter_test runner's golden stream proxy on Android emulators.
+await mkdir(join(destination, "test_driver"), { recursive: true });
+await writeFile(
+  join(destination, "test_driver/integration_test.dart"),
+  "import 'package:integration_test/integration_test_driver.dart';\\n\\nFuture<void> main() => integrationDriver();\\n".replaceAll("\\\\n", "\\n"),
+);
+
 await writeFile(
   join(destination, "QUALIFICATION_SCOPE.txt"),
   "Trusted scaffold shell only. Original lib/main.dart and API client preserved. Test UI is an explicit harness, not generated business behavior or golden app.\n",
