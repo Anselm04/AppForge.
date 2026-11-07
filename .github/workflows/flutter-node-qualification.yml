@@ -304,7 +304,9 @@ jobs:
           # Flutter integration tests do not need DDS. Android API 35
           # emulator CI can fail during DDS startup even after APK install.
           # Keep the actual integration test and backend interaction checks.
-          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/qualification_test.dart \
             --no-dds \
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
