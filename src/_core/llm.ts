@@ -354,7 +354,17 @@ const computeBackoffDelay = (
   return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
 };
 
-const fetchWithBackoff = async (
+class RetryUsageEvidenceError extends Error {
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super("Provider retry was stopped because usage accounting failed");
+    this.name = "RetryUsageEvidenceError";
+    this.cause = cause;
+  }
+}
+
+export const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
   onRetry?: () => Promise<void>,
@@ -393,7 +403,7 @@ const fetchWithBackoff = async (
         try {
           await onRetry();
         } catch (evidenceError) {
-          console.warn("LLM retry usage evidence unavailable", evidenceError);
+          throw new RetryUsageEvidenceError(evidenceError);
         }
       }
       console.warn(
@@ -405,6 +415,9 @@ const fetchWithBackoff = async (
       );
     } catch (error) {
       lastError = error;
+      // Accounting errors are not transport failures and must never trigger
+      // another potentially billable provider attempt.
+      if (error instanceof RetryUsageEvidenceError) throw error;
       if (
         init.signal?.aborted ||
         (error instanceof Error && error.name === "AbortError")
@@ -417,7 +430,7 @@ const fetchWithBackoff = async (
         try {
           await onRetry();
         } catch (evidenceError) {
-          console.warn("LLM retry usage evidence unavailable", evidenceError);
+          throw new RetryUsageEvidenceError(evidenceError);
         }
       }
       console.warn(
@@ -667,6 +680,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
       throw new Error(`LLM invoke failed: ${detail}`);
     } catch (err) {
+      // Never route an unaccounted retry to another provider: this is a
+      // monetary integrity failure, not a recoverable network outage.
+      if (err instanceof RetryUsageEvidenceError) throw err;
       if (
         signal?.aborted ||
         (err instanceof Error && err.name === "AbortError")
