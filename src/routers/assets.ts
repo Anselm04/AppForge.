@@ -3,7 +3,8 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { getProjectById, getProjectFiles, updateProjectFiles } from "../db.js";
+import { getProjectById } from "../db.js";
+import { commitValidatedProjectFileEdit } from "../services/projectFileEdits.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 
 const SAFE_ASSET_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -92,11 +93,26 @@ export const assetsRouter = router({
         .returning();
 
       const dest = `public/assets/${filename}`;
-      const files = await getProjectFiles(input.projectId);
-      await updateProjectFiles(input.projectId, {
-        ...files,
-        [dest]: input.content,
-      });
+      try {
+        // Use the same versioned, conflict-aware editor as normal file edits.
+        // Never overwrite the user's newer working files with an old snapshot.
+        await commitValidatedProjectFileEdit({
+          project,
+          userId: ctx.user.id,
+          path: dest,
+          content: input.content,
+          label: "Attach asset: " + filename,
+          allowCreate: true,
+          skipValidation: true,
+        });
+      } catch (error) {
+        // Do not leave a misleading asset database record after file save
+        // fails (for example because a concurrent edit won the revision).
+        await db
+          .delete(schema.projectAssets)
+          .where(eq(schema.projectAssets.id, asset.id));
+        throw error;
+      }
 
       return { assetId: asset.id, path: dest };
     }),
