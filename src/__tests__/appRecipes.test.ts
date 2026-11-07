@@ -11,11 +11,19 @@ import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
 describe("appRecipes", () => {
   it("never instructs the production generator to fabricate a working product", () => {
     for (const recipe of APP_RECIPES) {
-      expect(recipe.coderHint).not.toMatch(/mock data only|local state mock|CRM shell|cosmetic form/i);
+      expect(recipe.coderHint).not.toMatch(
+        /mock data only|local state mock|CRM shell|cosmetic form/i,
+      );
     }
-    expect(classifyRecipe("CRM for sales leads").coderHint).toMatch(/authenticated CRUD endpoints/);
-    expect(classifyRecipe("chat messaging").coderHint).toMatch(/persisted message history/);
-    expect(classifyRecipe("todo tasks").coderHint).toMatch(/persistent user-scoped storage/);
+    expect(classifyRecipe("CRM for sales leads").coderHint).toMatch(
+      /authenticated CRUD endpoints/,
+    );
+    expect(classifyRecipe("chat messaging").coderHint).toMatch(
+      /persisted message history/,
+    );
+    expect(classifyRecipe("todo tasks").coderHint).toMatch(
+      /persistent user-scoped storage/,
+    );
   });
 
   it("classifies common prompts", () => {
