@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("pre-dispatch monetary guard with test-only price fixture", () => {
-  it("requires active lease, reviewed price and atomic reservation before dispatch", () => {
+  it("checks lease, prices and credits before dispatch", () => {
     const wrapper = readFileSync(
       resolve(process.cwd(), "src/services/guardedProviderOperation.ts"),
       "utf8",
