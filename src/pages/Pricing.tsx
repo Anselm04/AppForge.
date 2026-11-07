@@ -17,6 +17,8 @@ import { cn } from "../lib/cn.js";
 
 type PaidTier = "starter" | "builder" | "studio" | "enterprise";
 const CREDIT_PACKS = PURCHASED_PROVIDER_CREDIT_PACKS_CENTS;
+const providerCreditPackPrice = (pack: ProviderCreditPackCents) =>
+  (PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[pack] / 100).toFixed(2);
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
 const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
@@ -390,7 +392,7 @@ export function Pricing() {
                   {pack.toLocaleString()} provider-cost credits
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  USD ${(PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[pack] / 100).toFixed(2)} · one-time top-up
+                  USD ${providerCreditPackPrice(pack)} · one-time top-up
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
