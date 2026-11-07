@@ -13,6 +13,8 @@ describe("chat edits preserve saved working revisions", () => {
     expect(chat).toContain("getEditableProjectFiles(input.projectId)");
     expect(chat).toContain("userId: ctx.user.id,");
     expect(edits).toContain("Saved files changed during this edit.");
-    expect(edits).toContain("export async function commitValidatedProjectFilesEdit");
+    expect(edits).toContain(
+      "export async function commitValidatedProjectFilesEdit",
+    );
   });
 });
