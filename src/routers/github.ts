@@ -56,7 +56,7 @@ async function fetchRepoFiles(
       message: "Repository tree is incomplete; import refused.",
     });
   }
-  return collectBlobFiles(token, base, treeJson);
+  return collectBlobFiles(token, base, { tree: treeJson.tree });
 }
 
 async function collectBlobFiles(
