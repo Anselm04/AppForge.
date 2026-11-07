@@ -111,7 +111,7 @@ export function Pricing() {
     {
       key: "starter" as const,
       name: t("pricing.starterName"),
-      price: "$79",
+      price: "$49",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.starterDesc"),
       features: [
@@ -135,7 +135,7 @@ export function Pricing() {
     {
       key: "builder" as const,
       name: t("pricing.builderName"),
-      price: "$199",
+      price: "$149",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.builderDesc"),
       features: [
@@ -158,7 +158,7 @@ export function Pricing() {
     {
       key: "studio" as const,
       name: t("pricing.studioName"),
-      price: "$499",
+      price: "$399",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.studioDesc"),
       features: [
