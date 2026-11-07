@@ -354,6 +354,15 @@ const computeBackoffDelay = (
   return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
 };
 
+class RetryUsageEvidenceError extends Error {
+  constructor(cause: unknown) {
+    super("Provider retry was stopped because usage accounting failed", {
+      cause,
+    });
+    this.name = "RetryUsageEvidenceError";
+  }
+}
+
 const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
@@ -393,7 +402,7 @@ const fetchWithBackoff = async (
         try {
           await onRetry();
         } catch (evidenceError) {
-          console.warn("LLM retry usage evidence unavailable", evidenceError);
+          throw new RetryUsageEvidenceError(evidenceError);
         }
       }
       console.warn(
@@ -405,6 +414,9 @@ const fetchWithBackoff = async (
       );
     } catch (error) {
       lastError = error;
+      // Accounting errors are not transport failures and must never trigger
+      // another potentially billable provider attempt.
+      if (error instanceof RetryUsageEvidenceError) throw error;
       if (
         init.signal?.aborted ||
         (error instanceof Error && error.name === "AbortError")
@@ -417,7 +429,7 @@ const fetchWithBackoff = async (
         try {
           await onRetry();
         } catch (evidenceError) {
-          console.warn("LLM retry usage evidence unavailable", evidenceError);
+          throw new RetryUsageEvidenceError(evidenceError);
         }
       }
       console.warn(
