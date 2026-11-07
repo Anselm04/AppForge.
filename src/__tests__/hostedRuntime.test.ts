@@ -22,6 +22,8 @@ describe("hosted artifact serving", () => {
     expect(hosted).toContain("getCurrentArtifact");
     expect(hosted).toContain("ensureIsolatedPreview");
     expect(hosted).not.toContain("materializeHostedHtml");
-    expect(mime).not.toMatch(/fake agent|localStorage|waitlist|function agentPage|function websitePage/);
+    expect(mime).not.toMatch(
+      /fake agent|localStorage|waitlist|function agentPage|function websitePage/,
+    );
   });
 });
