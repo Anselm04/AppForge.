@@ -30,7 +30,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(todo|to-?do|task\s*list|tasks?|checklist|reminders?|kanban)\b/i,
     specKeywords: ["task", "add", "complete"],
     coderHint:
-      "Build a todo app: input to add tasks, list with complete toggle. Local React state only.",
+      "Build a working task manager: implement add, edit, complete and delete actions backed by persistent user-scoped storage. Restore saved tasks on sign-in and refresh; do not substitute local-only demo state for required persistence.",
   },
   {
     id: "crm",
@@ -38,7 +38,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(crm|contacts?|leads?|pipeline|customers?|accounts?)\b/i,
     specKeywords: ["contact", "lead", "pipeline"],
     coderHint:
-      "Build a CRM shell: contacts table, lead status badges, add contact CTA. Mock data only.",
+      "Build a functional CRM: persist contacts, leads and pipeline stages through authenticated CRUD endpoints and database tables. Implement working add, update, filter and delete actions with tenant authorization, validation and error states. Never present invented contacts as customer records.",
   },
   {
     id: "dashboard",
@@ -46,7 +46,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(dashboard|admin|analytics|metrics|stats|kpi|overview)\b/i,
     specKeywords: ["dashboard", "stat", "overview"],
     coderHint:
-      "Build an admin dashboard: sidebar or top nav, 3-4 stat cards, data table.",
+      "Build an admin dashboard with access-controlled navigation, real database-backed metrics, functional filters and data tables. Show an explicit empty state when there are no records; never fabricate business statistics.",
   },
   {
     id: "auth",
@@ -54,7 +54,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(login|sign\s*up|signup|sign-?in|auth|register|password)\b/i,
     specKeywords: ["email", "password", "sign"],
     coderHint:
-      "Build a centered auth card: email, password, primary CTA, secondary link.",
+      "Build working sign-up and sign-in forms connected to the configured identity provider, with validation, secure session handling, error states and password recovery. Do not implement credentials-only cosmetic forms.",
   },
   {
     id: "settings",
@@ -62,7 +62,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(settings|preferences|profile\s*settings|account\s*settings)\b/i,
     specKeywords: ["settings", "save", "profile"],
     coderHint:
-      "Build a settings page: card sections, labeled inputs, Save button.",
+      "Build working settings with validated inputs, authenticated read/update endpoints, saved preference persistence and clear success/error feedback.",
   },
   {
     id: "blog",
@@ -70,7 +70,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(blog|articles?|posts?|newsletter|content\s*site)\b/i,
     specKeywords: ["post", "article", "read"],
     coderHint:
-      "Build a blog index: header, list of post cards with title + excerpt + Read link.",
+      "Build a blog index connected to persisted, publishable posts. Make every Read link open the corresponding stored article and show a real empty state when there are no posts.",
   },
   {
     id: "portfolio",
@@ -86,7 +86,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /\b(chat|messaging|inbox|messages|conversation)\b/i,
     specKeywords: ["message", "send", "chat"],
     coderHint:
-      "Build a chat UI: message list, composer input, send button. Local state mock messages.",
+      "Build functional messaging with authenticated conversations, persisted message history, working send and receive behavior, participant authorization and delivery/error states. Never substitute fabricated messages or cosmetic send buttons.",
   },
   {
     id: "landing",
@@ -103,7 +103,7 @@ export const APP_RECIPES: AppRecipe[] = [
     match: /.*/,
     specKeywords: [],
     coderHint:
-      "Build a cohesive single-page app: header, main panel, clear primary action.",
+      "Build a cohesive functional app that implements the actual requested user workflow, data persistence, validated inputs and working primary actions. Do not substitute a visual-only demo for requested features.",
   },
 ];
 
