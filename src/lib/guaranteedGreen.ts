@@ -25,6 +25,11 @@ export function buildGuaranteedGreenApp(opts: {
   description: string;
   techStack: string;
 }): Record<string, string> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Deterministic sample builders cannot execute in production or replace real customer generation.",
+    );
+  }
   // Recipes are Vite React apps; never substitute one for another stack.
   if (hardeningProfileForStack(opts.techStack) !== "vite-react") {
     throw new Error(

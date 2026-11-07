@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGuaranteedGreenApp } from "../lib/guaranteedGreen.js";
 import { assertBuildableShape } from "../lib/reliableBuild.js";
 
 describe("guaranteedGreen", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("refuses deterministic sample app execution in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(() =>
+      buildGuaranteedGreenApp({
+        title: "Customer product",
+        description: "Real CRM",
+        techStack: "react-node",
+      }),
+    ).toThrow(/cannot execute in production/);
+  });
+
   it("produces a buildable react-node shape", () => {
     const files = buildGuaranteedGreenApp({
       title: "Acme CRM",
