@@ -14,7 +14,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("configured SMS Messaging integration", () => {
   it("uses the configured Messaging sender without changing Verify settings", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     await sendSms("recipient", "message");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -26,7 +28,12 @@ describe("configured SMS Messaging integration", () => {
   });
 
   it("propagates provider failures without claiming delivery", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Rejected", { status: 403 })));
-    await expect(sendSms("recipient", "message")).rejects.toThrow(/SMS delivery failed/);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("Rejected", { status: 403 })),
+    );
+    await expect(sendSms("recipient", "message")).rejects.toThrow(
+      /SMS delivery failed/,
+    );
   });
 });
