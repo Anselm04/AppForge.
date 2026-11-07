@@ -680,6 +680,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
       throw new Error(`LLM invoke failed: ${detail}`);
     } catch (err) {
+      // Never route an unaccounted retry to another provider: this is a
+      // monetary integrity failure, not a recoverable network outage.
+      if (err instanceof RetryUsageEvidenceError) throw err;
       if (
         signal?.aborted ||
         (err instanceof Error && err.name === "AbortError")
