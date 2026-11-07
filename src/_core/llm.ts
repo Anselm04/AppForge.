@@ -363,7 +363,7 @@ class RetryUsageEvidenceError extends Error {
   }
 }
 
-const fetchWithBackoff = async (
+export const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
   onRetry?: () => Promise<void>,
