@@ -131,6 +131,38 @@ async function commitProjectFilesSnapshot(input: {
   });
 }
 
+/** Save a complete AI edit as a conflict-checked working snapshot. */
+export async function commitValidatedProjectFilesEdit(input: {
+  project: EditableProject;
+  userId: number;
+  label: string;
+  files: Record<string, string>;
+  originalFiles: Record<string, string>;
+  validationResult?: unknown;
+}): Promise<{ snapshotId: number; version: number }> {
+  const files = validateArtifactFiles(input.files);
+  const originalFiles = validateArtifactFiles(input.originalFiles);
+  if (
+    Object.keys(files).length === 0 ||
+    !Object.keys(files).every(safeProjectPath) ||
+    !Object.keys(originalFiles).every(safeProjectPath)
+  ) {
+    throw new Error("Invalid edited project files");
+  }
+  const snapshot = await commitProjectFilesSnapshot({
+    projectId: input.project.id,
+    userId: input.userId,
+    label: input.label,
+    files,
+    originalFiles,
+    techStack: input.project.techStack ?? "unknown",
+    validationResult: input.validationResult,
+  });
+  const { invalidatePreviewCache } = await import("../routes/livePreview.js");
+  invalidatePreviewCache(input.project.id);
+  return { snapshotId: snapshot.id, version: snapshot.version };
+}
+
 export async function commitValidatedProjectFileEdit(input: {
   project: EditableProject;
   userId: number;
