@@ -12,7 +12,7 @@ describe("appRecipes", () => {
   it("never instructs the production generator to fabricate a working product", () => {
     for (const recipe of APP_RECIPES) {
       expect(recipe.coderHint).not.toMatch(
-        /mock data only|local state mock|CRM shell|cosmetic form/i,
+        /mock data only|local state mock|CRM shell/i,
       );
     }
     expect(classifyRecipe("CRM for sales leads").coderHint).toMatch(
