@@ -14,7 +14,9 @@ describe("real customer email notification content", () => {
     email.send.mockReset().mockResolvedValue(undefined);
   });
 
-  it("escapes generated project titles and never includes a script URL", async () => {
+  it(
+    "escapes generated project titles and never includes a script URL",
+    async () => {
     await notifyBuildComplete(
       "customer@example.test",
       "<img src=x onerror=alert(1)>",
@@ -25,7 +27,8 @@ describe("real customer email notification content", () => {
     expect(sent.html).not.toContain("<img");
     expect(sent.html).not.toContain("javascript:");
     expect(sent.html).not.toContain("href=\"javascript:");
-  });
+    },
+  );
 
   it("only links to a verified HTTPS deployment", async () => {
     await notifyBuildComplete(
