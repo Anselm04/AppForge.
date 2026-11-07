@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, asc } from "drizzle-orm";
 import { db } from "../db.js";
 import * as schema from "../db/schema.js";
-import { getProjectById, createSeniorDevTask, getProjectFiles } from "../db.js";
+import { getProjectById, createSeniorDevTask, getEditableProjectFiles } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { ensureUserCredits } from "../db.js";
@@ -40,7 +40,7 @@ export const projectChatRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
-      const files = await getProjectFiles(input.projectId);
+      const files = await getEditableProjectFiles(input.projectId);
       const hasBuiltArtifact = Object.keys(files).length > 0;
       let changeContractCreated = false;
 
@@ -124,6 +124,7 @@ export const projectChatRouter = router({
       } else {
         const edit = await runQuickEdit({
           projectId: input.projectId,
+          userId: ctx.user.id,
           request: input.content,
           techStack: resolveProjectStack(project).techStack,
         });
