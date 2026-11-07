@@ -87,6 +87,33 @@ describe("working file edits", () => {
     mocks.transaction.mockImplementation(async (fn) => fn(tx));
   });
 
+  it.each([
+    "../outside.ts",
+    "src/../outside.ts",
+    "src//App.tsx",
+    "./README.md",
+    "src/./App.tsx",
+    "/etc/passwd",
+    "C:/Windows/system.ini",
+    "C:relative.txt",
+    "src\\\\outside.ts",
+    "src/\\0bad.ts",
+    "",
+  ])("rejects unsafe edited file path %s without persistence", async (path) => {
+    await expect(
+      commitValidatedProjectFileEdit({
+        project,
+        userId: 1,
+        path,
+        content: "change",
+        label: "Manual edit",
+        allowCreate: true,
+      }),
+    ).rejects.toThrow("Invalid project file path");
+    expect(snapshots).toEqual([]);
+    expect(updates).toEqual([]);
+  });
+
   it("saves a displayed working file before any final snapshot exists and retains its integrity", async () => {
     await commitValidatedProjectFileEdit({
       project,
