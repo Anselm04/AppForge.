@@ -7,10 +7,7 @@ vi.mock("../services/twilioEmail.js", () => ({
 vi.mock("../_core/logger.js", () => ({
   logger: { error: vi.fn() },
 }));
-import {
-  notifyBuildComplete,
-  notifyAccountBanned,
-} from "../services/email.js";
+import { notifyBuildComplete, notifyAccountBanned } from "../services/email.js";
 
 describe("real customer email notification content", () => {
   beforeEach(() => {
@@ -31,7 +28,11 @@ describe("real customer email notification content", () => {
   });
 
   it("only links to a verified HTTPS deployment", async () => {
-    await notifyBuildComplete("customer@example.test", "Real product", "https://example.test/product");
+    await notifyBuildComplete(
+      "customer@example.test",
+      "Real product",
+      "https://example.test/product",
+    );
     const sent = email.send.mock.calls[0][0];
     expect(sent.html).toContain('href="https://example.test/product"');
   });
