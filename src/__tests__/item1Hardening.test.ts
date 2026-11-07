@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   ensureRecipeFloor,
-  repairSpecWithRecipe,
   classifyRecipe,
   checkRecipeSpec,
   buildRecipeApp,
@@ -71,20 +70,16 @@ describe("Item 1 hardening suite", () => {
     expect(out["src/main.tsx"]).toBeUndefined();
   });
 
-  it("repairSpecWithRecipe restores keywords", () => {
+  it("never replaces failed generated code with a recipe application", () => {
     const recipe = classifyRecipe("crm contacts");
-    let files = buildRecipeApp({
-      title: "CRM",
-      description: "crm",
-      recipe: classifyRecipe("landing page"),
-    });
-    // Force wrong shape then repair
-    files = repairSpecWithRecipe(files, {
+    const files = { "src/App.tsx": "export function App() { return null; }" };
+    const preserved = ensureRecipeFloor(files, {
       title: "CRM",
       description: "crm contacts",
       recipe,
     });
-    expect(checkRecipeSpec(files, recipe).ok).toBe(true);
+    expect(preserved).toEqual(files);
+    expect(checkRecipeSpec(preserved, recipe).ok).toBe(false);
   });
 
   it("deterministic fixes add react import", () => {
