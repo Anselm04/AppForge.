@@ -12,10 +12,18 @@ describe("provider retry accounting cannot silently fail", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const evidence = vi.fn().mockRejectedValue(new Error("Database unavailable"));
+    const evidence = vi
+      .fn()
+      .mockRejectedValue(new Error("Database unavailable"));
     await expect(
-      fetchWithBackoff("https://provider.example/v1/chat", { method: "POST" }, evidence),
-    ).rejects.toThrow("Provider retry was stopped because usage accounting failed");
+      fetchWithBackoff(
+        "https://provider.example/v1/chat",
+        { method: "POST" },
+        evidence,
+      ),
+    ).rejects.toThrow(
+      "Provider retry was stopped because usage accounting failed",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(evidence).toHaveBeenCalledTimes(1);
   });
@@ -23,10 +31,18 @@ describe("provider retry accounting cannot silently fail", () => {
   it("does not send a second provider request if an uncertain network error cannot be accounted", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("Connection lost"));
     vi.stubGlobal("fetch", fetchMock);
-    const evidence = vi.fn().mockRejectedValue(new Error("Ledger unavailable"));
+    const evidence = vi
+      .fn()
+      .mockRejectedValue(new Error("Ledger unavailable"));
     await expect(
-      fetchWithBackoff("https://provider.example/v1/chat", { method: "POST" }, evidence),
-    ).rejects.toThrow("Provider retry was stopped because usage accounting failed");
+      fetchWithBackoff(
+        "https://provider.example/v1/chat",
+        { method: "POST" },
+        evidence,
+      ),
+    ).rejects.toThrow(
+      "Provider retry was stopped because usage accounting failed",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(evidence).toHaveBeenCalledTimes(1);
   });
