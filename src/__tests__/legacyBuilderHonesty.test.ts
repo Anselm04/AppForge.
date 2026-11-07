@@ -1,30 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-describe("legacy builder never invents customer deployment success", () => {
-  const src = readFileSync(
-    resolve(process.cwd(), "src/services/app-builder.ts"),
-    "utf8",
-  );
-
-  it("does not advertise a public preview or mark unverified code ready", () => {
-    expect(src).toContain('previewUrl: ""');
-    expect(src).toContain('deployUrl: ""');
-    expect(src).toContain('status: "building"');
-    expect(src).not.toContain('status: "ready",');
-    expect(src).not.toContain("https://vercel.com/new?clone=1");
+describe("only real project workflows can claim customer delivery", () => {
+  it("does not ship the abandoned legacy AppBuilder stub", () => {
+    expect(
+      existsSync(resolve(process.cwd(), "src/services/app-builder.ts")),
+    ).toBe(false);
   });
 
-  it("requires real integrated deployment, editing and export adapters", () => {
-    expect(src).toContain(
-      "App iteration requires a verified persisted project workflow.",
+  it("retains the persisted editing and validated product paths", () => {
+    const edits = readFileSync(
+      resolve(process.cwd(), "src/services/projectFileEdits.ts"),
+      "utf8",
     );
-    expect(src).toContain(
-      "Deployment requires an authorised, verified deployment adapter.",
+    const projects = readFileSync(
+      resolve(process.cwd(), "src/routers/projects.ts"),
+      "utf8",
     );
-    expect(src).toContain(
-      "GitHub export requires an authorised repository integration.",
-    );
+    expect(edits).toContain("projectId");
+    expect(edits).toContain("working");
+    expect(projects).toContain("validated");
+    expect(projects).toContain("export");
   });
 });
