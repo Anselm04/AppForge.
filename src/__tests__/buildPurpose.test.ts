@@ -8,6 +8,23 @@ import {
 import { capabilityHintsForPipeline } from "../agents/capabilityHints.js";
 
 describe("build purpose", () => {
+  it("rejects production capability hints that request stubs or fake data", () => {
+    const hints = capabilityHintsForPipeline([
+      "marketing",
+      "ar",
+      "education",
+      "architecture",
+      "healthcare",
+      "mobile",
+      "data",
+    ]);
+    expect(hints).not.toMatch(
+      /gradebook stub|migration stubs|logging middleware stub|model placeholder|analytics hook placeholder/i,
+    );
+    expect(hints).toContain("real stored records");
+    expect(hints).toContain("persistent student-scoped gradebook");
+  });
+
   it("defines purpose and five boundary categories", () => {
     expect(APPFORGE_BUILD_PURPOSE).toContain("full coverage");
     expect(APPFORGE_BUILD_BOUNDARIES).toHaveLength(5);
