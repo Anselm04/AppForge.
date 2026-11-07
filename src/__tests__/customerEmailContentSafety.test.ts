@@ -17,16 +17,16 @@ describe("real customer email notification content", () => {
   it(
     "escapes generated project titles and never includes a script URL",
     async () => {
-    await notifyBuildComplete(
-      "customer@example.test",
-      "<img src=x onerror=alert(1)>",
-      "javascript:alert(1)",
-    );
-    const sent = email.send.mock.calls[0][0];
-    expect(sent.html).toContain("&lt;img");
-    expect(sent.html).not.toContain("<img");
-    expect(sent.html).not.toContain("javascript:");
-    expect(sent.html).not.toContain("href=\"javascript:");
+      await notifyBuildComplete(
+        "customer@example.test",
+        "<img src=x onerror=alert(1)>",
+        "javascript:alert(1)",
+      );
+      const sent = email.send.mock.calls[0][0];
+      expect(sent.html).toContain("&lt;img");
+      expect(sent.html).not.toContain("<img");
+      expect(sent.html).not.toContain("javascript:");
+      expect(sent.html).not.toContain("href=\"javascript:");
     },
   );
 
