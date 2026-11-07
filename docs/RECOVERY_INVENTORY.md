@@ -1001,3 +1001,9 @@ Cloudflare support-address forwarding is independent and remains unchanged.
 - On crash, timeout or uncertain provider charge, retain the reservation until verified reconciliation. Never auto-release after possible dispatch. Retain operation id, user, project, execution, maximum quote, provider usage and proof of settlement in audit records.
 - If the operator needs to roll back, restore the previous source SHA. Any outstanding reservations remain database liabilities requiring normal reconciliation; a code rollback cannot erase them.
 - The customer-build admission gate and direct AI transport are not lifted by this helper change and continue to require full end-to-end monetary enforcement before live customer generation.
+
+## Android Flutter integration-test DDS correction (2026-11-08)
+
+- The generated Flutter/Node fixture remains compiled as APK and Android App Bundle, installed on the Android API 35 emulator, and exercised against the actual Node backend; the qualification retains its timeout and evidence artifacts.
+- The CI Flutter integration-test invocation disables the optional Dart Development Service (DDS), which is not required for test assertions and has produced a startup failure after successful app installation on the emulator. This is a test-runner transport correction, **not** a waiver of backend interaction or an assertion of store certification.
+- The workflow has no production access, customer data, deployment credentials, live billing or database mutation. Recovery is a rerun from the same source revision. Restore the earlier workflow file to roll back the runner option; do not treat the fixture as a deployed customer artifact.
