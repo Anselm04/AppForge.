@@ -5,7 +5,6 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
 import { revealGithubAccessToken } from "../lib/githubTokenCrypto.js";
-import { getStackAdapter } from "../lib/stackAdapters.js";
 import { detectStackFromFiles } from "../lib/stackDetection.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 
@@ -14,77 +13,97 @@ async function fetchRepoFiles(
   owner: string,
   repo: string,
 ): Promise<Record<string, string>> {
-  const treeRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-      },
-    },
-  );
-  if (!treeRes.ok) {
-    const masterRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-        },
-      },
-    );
-    if (!masterRes.ok) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Could not read repository tree (main/master).",
-      });
-    }
-    return collectBlobFiles(
-      token,
-      owner,
-      repo,
-      (await masterRes.json()) as {
-        tree?: Array<{ path?: string; type?: string; size?: number }>;
-      },
-    );
+  // Resolve the actual default branch rather than assuming main or master.
+  const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  };
+  const metadata = await fetch(base, { headers });
+  if (!metadata.ok) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Could not read GitHub repository metadata.",
+    });
   }
-  return collectBlobFiles(
-    token,
-    owner,
-    repo,
-    (await treeRes.json()) as {
-      tree?: Array<{ path?: string; type?: string; size?: number }>;
-    },
+  const details = (await metadata.json()) as { default_branch?: unknown };
+  if (
+    typeof details.default_branch !== "string" ||
+    !details.default_branch.trim()
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Repository default branch is missing.",
+    });
+  }
+  const treeResponse = await fetch(
+    `${base}/git/trees/${encodeURIComponent(details.default_branch)}?recursive=1`,
+    { headers },
   );
+  if (!treeResponse.ok) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Could not read the repository's default-branch tree.",
+    });
+  }
+  const treeJson = (await treeResponse.json()) as {
+    truncated?: boolean;
+    tree?: Array<{ path?: string; type?: string; size?: number }>;
+  };
+  if (treeJson.truncated || !Array.isArray(treeJson.tree)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Repository tree is incomplete; import refused.",
+    });
+  }
+  return collectBlobFiles(token, base, { tree: treeJson.tree });
 }
 
 async function collectBlobFiles(
   token: string,
-  owner: string,
-  repo: string,
-  treeJson: { tree?: Array<{ path?: string; type?: string; size?: number }> },
+  base: string,
+  treeJson: { tree: Array<{ path?: string; type?: string; size?: number }> },
 ): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
-  const blobs = (treeJson.tree ?? []).filter(
-    (n) =>
-      n.type === "blob" &&
-      n.path &&
-      !n.path.includes("node_modules/") &&
-      (n.size ?? 0) < 200_000,
+  const blobs = treeJson.tree.filter(
+    (node) =>
+      node.type === "blob" &&
+      node.path &&
+      !node.path.startsWith("node_modules/") &&
+      (node.size ?? 0) < 200_000,
   );
-  for (const node of blobs.slice(0, 150)) {
-    const raw = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${node.path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github.raw",
-        },
-      },
-    );
-    if (raw.ok) {
-      files[node.path!] = await raw.text();
+  if (blobs.length > 150) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Repository has more than 150 importable files; full import is required.",
+    });
+  }
+  for (const node of blobs) {
+    const path = node.path as string;
+    if (
+      path.startsWith("/") ||
+      path.includes("\\") ||
+      path.split("/").some((segment) => !segment || segment === "." || segment === "..")
+    ) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Repository includes an unsafe source path.",
+      });
     }
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const raw = await fetch(`${base}/contents/${encodedPath}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.raw",
+      },
+    });
+    if (!raw.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Repository source download was incomplete; import refused.",
+      });
+    }
+    files[path] = await raw.text();
   }
   return files;
 }
@@ -176,8 +195,8 @@ export const githubRouter = router({
   importFromRepo: protectedProcedure
     .input(
       z.object({
-        owner: z.string().min(1),
-        repo: z.string().min(1),
+        owner: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
+        repo: z.string().regex(/^[A-Za-z0-9._-]{1,100}$/),
         projectId: z.number().int().positive().optional(),
         title: z.string().optional(),
       }),
@@ -203,12 +222,7 @@ export const githubRouter = router({
         });
       }
 
-      const {
-        createProject,
-        updateProjectBuildStage,
-        updateProjectFiles,
-        updateProjectStatus,
-      } = await import("../db.js");
+      const { createProject, updateProjectFiles } = await import("../db.js");
       let projectId = input.projectId;
       if (!projectId) {
         projectId = await createProject({
@@ -231,14 +245,9 @@ export const githubRouter = router({
           });
         }
       }
-      await updateProjectFiles(projectId, files);
-      await updateProjectStatus(projectId, "validated");
-      await updateProjectBuildStage(projectId, "production-candidate", {
-        outputMaturity:
-          getStackAdapter(detected.stack).generationMode === "structural"
-            ? "structural"
-            : "runnable",
-      });
+      // Imported files are source, not a completed validated application.
+      // Persist source and its non-certified lifecycle atomically.
+      await updateProjectFiles(projectId, files, { markImported: true });
       return {
         projectId,
         fileCount: Object.keys(files).length,

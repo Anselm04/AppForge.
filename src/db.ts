@@ -617,6 +617,7 @@ export async function updateProjectBuildStage(
 export async function updateProjectFiles(
   id: number,
   files: Record<string, string>,
+  options: { markImported?: boolean } = {},
 ) {
   const normalized = validateArtifactFiles(files);
   return db.transaction(async (tx) => {
@@ -646,6 +647,16 @@ export async function updateProjectFiles(
         generatedFiles: normalized,
         workingArtifactVersion: artifactVersion,
         workingArtifactIntegrity: integrity,
+        ...(options.markImported
+          ? {
+              status: "pending",
+              buildStage: "generated",
+              outputMaturity: "structural",
+              errorMessage: null,
+              pauseReason: null,
+              failureStage: null,
+            }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(schema.projects.id, id));
