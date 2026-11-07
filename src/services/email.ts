@@ -1,13 +1,39 @@
 import { sendTwilioEmail } from "./twilioEmail.js";
 import { logger } from "../_core/logger.js";
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char] ?? char;
+  });
+}
+
+function safeHttpsUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function appForgeSender(): string {
   return process.env.APPFORGE_EMAIL_FROM?.trim() || "";
 }
 
 function supportContact(): string {
   const email = process.env.APPFORGE_SUPPORT_EMAIL?.trim();
-  return email ? `<a href="mailto:${email}">${email}</a>` : "AppForge Support";
+  return email && /^[^\\s@<>"\x27]+@[^\\s@<>"\x27]+\\.[^\\s@<>"\x27]+$/.test(email)
+    ? `<a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`
+    : "AppForge Support";
 }
 
 function appUrl(path: string): string {
@@ -83,15 +109,20 @@ export async function notifyBuildComplete(
   projectTitle: string,
   deployUrl?: string,
 ): Promise<void> {
-  const cta = deployUrl
-    ? `<p><a href="${deployUrl}">View live deployment →</a></p>`
-    : `<p><a href="${appUrl("/dashboard")}">Go to your dashboard →</a></p>`;
+  const safeDeployment = safeHttpsUrl(deployUrl);
+  const dashboard = safeHttpsUrl(appUrl("/dashboard"));
+  const cta = safeDeployment
+    ? `<p><a href="${escapeHtml(safeDeployment)}">View live deployment →</a></p>`
+    : dashboard
+      ? `<p><a href="${escapeHtml(dashboard)}">Go to your dashboard →</a></p>`
+      : "";
+  const title = projectTitle.replace(/[\r\n]+/g, " ").trim().slice(0, 120);
 
   await sendViaTwilio(
     userEmail,
-    `"${projectTitle}" is ready on AppForge`,
+    `"${title}" is ready on AppForge`,
     `<p>Hi there,</p>
-<p>Your app <strong>${projectTitle}</strong> has been successfully built and validated by AppForge.</p>
+<p>Your app <strong>${escapeHtml(projectTitle)}</strong> has been successfully built and validated by AppForge.</p>
 ${cta}
 <p>— AppForge</p>`,
     appForgeSender(),
@@ -107,7 +138,7 @@ export async function notifyAccountBanned(
     "Account suspended",
     `<p>Hi there,</p>
 <p>Your AppForge account has been permanently suspended.</p>
-<p><strong>Reason:</strong> ${reason}</p>
+<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
 <p>If you believe this is an error, contact ${supportContact()} with your account details.</p>
 <p>— AppForge Trust & Safety</p>`,
     appForgeSender(),
