@@ -323,42 +323,7 @@
       stage: validationResult.stage,
     });
 
-    const allowGuaranteedGreen = ["1", "true", "yes", "on"].includes(
-      (process.env.ALLOW_GUARANTEED_GREEN ?? "").trim().toLowerCase(),
-    );
-    if (
-      allowGuaranteedGreen &&
-      hardeningProfileForStack(techStack) === "vite-react"
-    ) {
-      emit("System", "info", {
-        message: `ALLOW_GUARANTEED_GREEN: applying recipe baseline (${classifyRecipe(description).id}) — not customer success.`,
-        guaranteedGreenDebug: true,
-      });
-      generatedFiles = buildGuaranteedGreenApp({
-        title: appTitle,
-        description,
-        techStack,
-      });
-      validationResult = await validateGeneratedBuild(generatedFiles, techStack, {
-        testsBlocking: false,
-        validateBilling: false,
-        productContract,
-        productPlan: coordinationContext?.productPlan,
-        researchDecisions: coordinationContext?.researchDecisions,
-      });
-      emit("Validator", "complete", {
-        passed: validationResult.passed,
-        stage: validationResult.stage,
-        errors: validationResult.errors,
-        durationMs: validationResult.durationMs,
-        warning: validationResult.passed
-          ? "Debug guaranteed-green baseline applied (ALLOW_GUARANTEED_GREEN)."
-          : validationResult.warning,
-        guaranteedGreen: true,
-        guaranteedGreenDebug: true,
-      });
-      break outerLoop;
-    }
+    // A failed real generation must never be replaced with canned source.
 
     await updateProjectStatus(
       projectId,
