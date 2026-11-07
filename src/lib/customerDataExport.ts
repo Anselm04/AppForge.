@@ -3,7 +3,7 @@ import {
   db,
   getCreditTransactions,
   getGithubConnection,
-  getProjectFiles,
+  getEditableProjectFiles,
   getProjectsByUserId,
   getSubscriptionByUserId,
   getUserById,
@@ -85,7 +85,9 @@ export type CustomerDataExportLoaders = {
 const DEFAULT_CUSTOMER_DATA_EXPORT_LOADERS: CustomerDataExportLoaders = {
   getUserById,
   getProjectsByUserId,
-  getProjectFiles,
+  // Customer account exports must include the latest saved working source,
+  // not only the older validated serving snapshot.
+  getProjectFiles: getEditableProjectFiles,
   getBuildHistory: async (projectId) => {
     const snapshots = await db.query.buildSnapshots.findMany({
       where: eq(schema.buildSnapshots.projectId, projectId),
