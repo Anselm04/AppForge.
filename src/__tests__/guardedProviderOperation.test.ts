@@ -89,16 +89,24 @@ afterEach(() => {
 });
 
 describe("pre-dispatch monetary guard with test-only price fixture", () => {
-  it("does not allow direct production dispatch around the customer release stop", () => {
+  it("checks lease, prices and credits before dispatch", () => {
     const wrapper = readFileSync(
       resolve(process.cwd(), "src/services/guardedProviderOperation.ts"),
       "utf8",
     );
-    expect(wrapper).toContain("assertCustomerComputeLaunchCertified(false)");
+    expect(wrapper).not.toContain(
+      "assertCustomerComputeLaunchCertified(false)",
+    );
     expect(
-      wrapper.indexOf("assertCustomerComputeLaunchCertified(false)"),
-    ).toBeLessThan(
       wrapper.indexOf("const lease = currentBuildExecutionLease()"),
+    ).toBeLessThan(
+      wrapper.indexOf("assertProviderPricesConfirmed(options.envelope)"),
+    );
+    expect(
+      wrapper.indexOf("assertProviderPricesConfirmed(options.envelope)"),
+    ).toBeLessThan(wrapper.indexOf("await reserveProviderSpend({"));
+    expect(wrapper.indexOf("await reserveProviderSpend({")).toBeLessThan(
+      wrapper.indexOf("const result = await invoke()"),
     );
   });
 

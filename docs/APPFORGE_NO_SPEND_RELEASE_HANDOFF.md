@@ -145,9 +145,11 @@ the production stops must remain closed.
 - Updated relevant offline tests for server-derived tier ceilings, unapproved price disclosure, transport retries and uncertain aborted attempts.
 - GitHub Actions has repeatedly ended workflows without job execution steps; **the code and tests are not certified as passing**. Do not circumvent the required checks or production release gates. Remaining uncorrected code-style reports and exact-head build/test failures must be addressed when execution is available.
 
-## Direct provider-dispatch hard stop
+## Reserved provider dispatch
 
-`runReservedProviderOperation` now itself calls `assertCustomerComputeLaunchCertified(false)` before accessing a build lease or reserving provider funds. That makes the preparatory helper fail closed in production and unknown runtime environments even if a future route accidentally calls it directly. An offline regression contract protects this ordering. A separate reviewed certification change must establish complete pricing, rate-source authenticity, all-provider/transport-retry cost enforcement and invoice reconciliation before this stop can be removed.
+`runReservedProviderOperation` now enforces the real operation prerequisites directly: an active build execution lease, a server-reviewed provider price envelope, an atomic customer-credit reservation, duplicate prevention, lease revalidation and verified settlement. Undispatched charges are released only when proven safe; uncertain charges remain reserved for reconciliation.
+
+The production customer-generation admission and direct LLM transport are separate integration paths and remain unavailable until all billable attempts (including retries and fallbacks) actually use this guarded operation. A validated reservation helper alone does not certify the complete build system or excuse a fake customer delivery.
 
 ## Pending-charge rollover protection
 

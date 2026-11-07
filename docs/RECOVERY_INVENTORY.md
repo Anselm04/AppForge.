@@ -994,3 +994,10 @@ Cloudflare support-address forwarding is independent and remains unchanged.
 - If a configured Stripe plan Price ID exists, use and validate that exact ID. Otherwise query the existing Stripe catalogue read-only; only an active USD monthly Price on an active product with metadata `product_line=appforge` and exact `plan` matching the selected tier and approved amount may be selected. Ambiguous or missing matches reject checkout without creating charges or subscriptions.
 - No Stripe product, Price, customer record or subscription is mutated by price resolution. Customer billing and webhook recovery procedures are unchanged. After recovery, reconcile the configured Price ID or exact product metadata before re-enabling any checkout path.
 - Roll back by restoring the previous source SHA and configuring explicit Price IDs. This change does not override production checkout certification or provider spend enforcement.
+
+## Provider operation helper gate recovery review (2026-11-08)
+
+- `runReservedProviderOperation` now relies on concrete ledger and provider quote checks instead of a redundant environment-only stop. It does not authorize anonymous calls: require the authenticated execution lease, immutable source-of-truth rate catalogue, atomic reservation and idempotent settlement.
+- On crash, timeout or uncertain provider charge, retain the reservation until verified reconciliation. Never auto-release after possible dispatch. Retain operation id, user, project, execution, maximum quote, provider usage and proof of settlement in audit records.
+- If the operator needs to roll back, restore the previous source SHA. Any outstanding reservations remain database liabilities requiring normal reconciliation; a code rollback cannot erase them.
+- The customer-build admission gate and direct AI transport are not lifted by this helper change and continue to require full end-to-end monetary enforcement before live customer generation.
