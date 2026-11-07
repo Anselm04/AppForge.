@@ -9,6 +9,7 @@ import {
   updateProjectFiles,
 } from "../db.js";
 import { sanitizeArtifactName } from "../services/artifactEngine.js";
+import { commitValidatedProjectFileEdit } from "../services/projectFileEdits.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
 
 const SECRET_PATH_SEGMENTS = [
@@ -125,9 +126,16 @@ export const templateFactoryRouter = router({
         filePaths: Object.keys(files).sort(),
       };
 
-      await updateProjectFiles(input.projectId, {
-        ...(await getProjectFiles(input.projectId)),
-        [manifestPath]: JSON.stringify(manifest, null, 2),
+      // Add the manifest to the current working revision. Never replace
+      // newer saved edits with an older validated snapshot.
+      await commitValidatedProjectFileEdit({
+        project,
+        userId: ctx.user.id,
+        path: manifestPath,
+        content: JSON.stringify(manifest, null, 2),
+        label: "Create reusable template: " + input.name,
+        allowCreate: true,
+        skipValidation: true,
       });
 
       return {
