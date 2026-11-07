@@ -89,4 +89,4 @@ The product owner approved the **TrillionAI AppForge™ neon mountain and A/anvi
 
 The reference illustration contains demonstration content and **unapproved illustrative prices**; it does not establish live subscriptions, supported capabilities, or confirmed build outcomes. The source PNG is not yet committed to GitHub; the approved design contract is recorded in the linked document.
 
-**AppForge code development, production deployments and integration with other TrillionAI systems remain on hold.** This commit changes documentation only.
+**Development direction:** Complete and verify AppForge's full customer journey, including account access, subscriptions, generation, project editing and recovery, validation, export, and deployment. Track unresolved blockers transparently and use passing release checks and operational safeguards to qualify releases. Documentation status statements must not impose a blanket pause on development or integration work.
