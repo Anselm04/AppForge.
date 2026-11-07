@@ -4,9 +4,9 @@
  * or using a one-off price for a subscription. It does not prove profit.
  */
 export const MONTHLY_PLAN_USD_CENTS = {
-  starter: 7900,
-  builder: 19900,
-  studio: 49900,
+  starter: 4900,
+  builder: 14900,
+  studio: 39900,
 } as const;
 
 export const TOPUP_USD_CENTS = {

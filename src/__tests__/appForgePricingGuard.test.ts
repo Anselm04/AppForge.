@@ -11,7 +11,7 @@ const monthly = {
   active: true,
   currency: "usd",
   type: "recurring",
-  unit_amount: 7900,
+  unit_amount: 4900,
   recurring: { interval: "month", interval_count: 1 },
   livemode: true,
 };
@@ -42,7 +42,7 @@ describe("AppForge margin-protective checkout terms", () => {
       { ...monthly, active: false },
     ]) {
       expect(() =>
-        assertAppForgePrice(invalid, 7900, "recurring", true),
+        assertAppForgePrice(invalid, 4900, "recurring", true),
       ).toThrow(/checkout paused/);
     }
   });
