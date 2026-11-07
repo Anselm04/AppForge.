@@ -355,11 +355,12 @@ const computeBackoffDelay = (
 };
 
 class RetryUsageEvidenceError extends Error {
+  readonly cause: unknown;
+
   constructor(cause: unknown) {
-    super("Provider retry was stopped because usage accounting failed", {
-      cause,
-    });
+    super("Provider retry was stopped because usage accounting failed");
     this.name = "RetryUsageEvidenceError";
+    this.cause = cause;
   }
 }
 
