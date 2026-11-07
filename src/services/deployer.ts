@@ -88,6 +88,24 @@ export async function zipFiles(
   };
 }
 
+export function assertArtifactMatchesWorkingFiles(input: {
+  workingFiles: Record<string, string>;
+  validatedFiles: Record<string, string>;
+}): void {
+  const workingPaths = Object.keys(input.workingFiles);
+  const validatedPaths = Object.keys(input.validatedFiles);
+  if (
+    workingPaths.length !== validatedPaths.length ||
+    workingPaths.some(
+      (path) => input.workingFiles[path] !== input.validatedFiles[path],
+    )
+  ) {
+    throw new Error(
+      "Saved project edits are unvalidated. Rebuild and validate the current source before previewing, exporting, or deploying.",
+    );
+  }
+}
+
 export function listDeployDestinations(): DeployDestinationStatus {
   return {
     vercel: { configured: false, label: "Vercel — use your own account" },
@@ -195,6 +213,7 @@ export async function deployProject(opts: {
 export default {
   deployToVercel,
   zipFiles,
+  assertArtifactMatchesWorkingFiles,
   deployProject,
   listDeployDestinations,
   previewSignature,

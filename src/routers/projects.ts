@@ -5,6 +5,7 @@ import {
   countBuildsThisMonth,
   createProject,
   getAgentLogsByProject,
+  getEditableProjectFiles,
   getProjectById,
   getProjectsByUserId,
   getProjectEvidenceBundle,
@@ -797,8 +798,16 @@ export const projectsRouter = router({
       }
       const files = artifact.files;
 
-      const { deployProject, zipFiles, listDeployDestinations } =
-        await import("../services/deployer.js");
+      const {
+        assertArtifactMatchesWorkingFiles,
+        deployProject,
+        zipFiles,
+        listDeployDestinations,
+      } = await import("../services/deployer.js");
+      assertArtifactMatchesWorkingFiles({
+        workingFiles: await getEditableProjectFiles(input.id),
+        validatedFiles: files,
+      });
       const { validateProductContract } =
         await import("../lib/productContract.js");
       const { getStackAdapter } = await import("../lib/stackAdapters.js");
@@ -1073,7 +1082,12 @@ export const projectsRouter = router({
       }
       const files = artifact.files;
       assertProjectExportComplete(project, files);
-      const { zipFiles } = await import("../services/deployer.js");
+      const { assertArtifactMatchesWorkingFiles, zipFiles } =
+        await import("../services/deployer.js");
+      assertArtifactMatchesWorkingFiles({
+        workingFiles: await getEditableProjectFiles(input.id),
+        validatedFiles: files,
+      });
       const { base64, filename } = await zipFiles(
         project.title || "appforge-app",
         files,
