@@ -21,9 +21,11 @@ describe("zero-spend customer acceptance: actual commercial policy helpers", () 
       resolve(process.cwd(), "src/pages/Pricing.tsx"),
       "utf8",
     );
-    expect(page).toMatch(/USD price awaiting\s+approval/);
-    expect(page).toMatch(
-      /Top-up purchases are unavailable until the exact USD prices/,
+    expect(page).toContain(
+      "PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[pack]",
+    );
+    expect(page).toContain(
+      "Approved provider-credit pack prices are displayed",
     );
     expect(page).toContain(
       "disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}",

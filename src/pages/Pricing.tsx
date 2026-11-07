@@ -4,6 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { trpc } from "../utils/trpc.js";
 import { useSession } from "../lib/auth.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import {
+  PURCHASED_PROVIDER_CREDIT_PACKS_CENTS,
+  PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS,
+  type ProviderCreditPackCents,
+} from "../lib/providerCreditPolicy.js";
 import { useLocale } from "../i18n/LocaleContext.js";
 import { Button } from "../design-system/Button.js";
 import { GlassCard } from "../design-system/GlassCard.js";
@@ -11,9 +16,9 @@ import { Badge } from "../design-system/Badge.js";
 import { cn } from "../lib/cn.js";
 
 type PaidTier = "starter" | "builder" | "studio" | "enterprise";
-type CreditPack = 50 | 100 | 250;
-
-const CREDIT_PACKS: readonly CreditPack[] = [50, 100, 250];
+const CREDIT_PACKS = PURCHASED_PROVIDER_CREDIT_PACKS_CENTS;
+const providerCreditPackPrice = (pack: ProviderCreditPackCents) =>
+  (PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[pack] / 100).toFixed(2);
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
 const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
@@ -55,8 +60,8 @@ export function Pricing() {
   });
 
   const buyCredits = useMutation({
-    mutationFn: (credits: CreditPack) =>
-      trpc.subscriptions.buyCredits.mutate({ credits }),
+    mutationFn: (credits: ProviderCreditPackCents) =>
+      trpc.subscriptions.buyProviderCredits.mutate({ creditsCents: credits }),
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
@@ -363,8 +368,9 @@ export function Pricing() {
             </p>
           )}
           <p className="mb-4 text-sm text-forge-text-muted" role="status">
-            Top-up purchases are unavailable until the exact USD prices and
-            included credit allowances are approved. No charge will be made.
+            Approved provider-credit pack prices are displayed below. Checkout is
+            not available until the payment and provider-cost protections are
+            operational. No charge will be made while checkout is unavailable.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {CREDIT_PACKS.map((pack) => (
@@ -383,11 +389,10 @@ export function Pricing() {
                 className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-left transition-colors hover:border-forge-cyan/40 disabled:opacity-50"
               >
                 <div className="text-2xl font-bold text-forge-text-primary">
-                  {pack}
+                  {pack.toLocaleString()} provider-cost credits
                 </div>
                 <div className="text-sm text-forge-text-muted mb-3">
-                  {t("pricing.packCredits", { n: pack })} · USD price awaiting
-                  approval
+                  USD ${providerCreditPackPrice(pack)} · one-time top-up
                 </div>
                 <span className="text-forge-cyan font-semibold text-sm">
                   {buyCredits.isPending
