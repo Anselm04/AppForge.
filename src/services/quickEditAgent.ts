@@ -1,6 +1,6 @@
-import { invalidatePreviewCache } from "../routes/livePreview.js";
 import { invokeLLM } from "../_core/llm.js";
-import { updateProjectFiles, getProjectFiles } from "../db.js";
+import { getEditableProjectFiles, getProjectById } from "../db.js";
+import { commitValidatedProjectFilesEdit } from "./projectFileEdits.js";
 import { modelForAgent } from "../lib/llmModels.js";
 import { validateProjectFiles } from "../lib/buildValidationHelpers.js";
 import type { ValidationResult } from "../agents/buildValidator.js";
@@ -75,11 +75,16 @@ async function surgicalIterateFix(
 
 export async function runQuickEdit(params: {
   projectId: number;
+  userId: number;
   request: string;
   techStack?: string | null;
 }): Promise<QuickEditResult> {
   const techStack = requireExplicitStack(params.techStack);
-  const baseline = await getProjectFiles(params.projectId);
+  const project = await getProjectById(params.projectId);
+  if (!project || project.userId !== params.userId) {
+    throw new Error("Project not found");
+  }
+  const baseline = await getEditableProjectFiles(params.projectId);
   const fileList = Object.keys(baseline).sort();
   if (fileList.length === 0) {
     return {
@@ -151,8 +156,16 @@ Respond with JSON only.`,
     maxFixAttempts: 2,
   });
 
-  await updateProjectFiles(params.projectId, outcome.files);
-  invalidatePreviewCache(params.projectId);
+  if (!outcome.rolledBack) {
+    await commitValidatedProjectFilesEdit({
+      project,
+      userId: params.userId,
+      label: "Quick edit: " + params.request.slice(0, 180),
+      files: outcome.files,
+      originalFiles: baseline,
+      validationResult: outcome.validation,
+    });
+  }
 
   const filesChanged = patches.map((p) => p.path);
   let summary = parsed.summary ?? `Updated ${filesChanged.length} file(s).`;
