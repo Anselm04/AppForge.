@@ -48,7 +48,7 @@ describe("phone verification recovery", () => {
     const { rerender, ui } = renderPage();
     await screen.findByRole("alert");
     rerender(ui);
-    fireEvent.change(screen.getByLabelText("Six-digit SMS code"), {
+    fireEvent.change(screen.getByLabelText("SMS verification code"), {
       target: { value: "12" },
     });
     await waitFor(() => expect(mocks.request).toHaveBeenCalledTimes(1));
@@ -76,7 +76,7 @@ describe("phone verification recovery", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Send SMS verification code" }),
     );
-    await screen.findByLabelText("Six-digit SMS code");
+    await screen.findByLabelText("SMS verification code");
     expect(mocks.request).toHaveBeenLastCalledWith({ phone: "+15557654321" });
     expect(screen.getByText(/code sent to ••••4321/)).toBeInTheDocument();
   });
