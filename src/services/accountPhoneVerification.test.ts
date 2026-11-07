@@ -116,6 +116,35 @@ describe("account phone challenges", () => {
     expect(mocks.check).not.toHaveBeenCalled();
   });
 
+  it("accepts valid provider-configured four-digit SMS codes", async () => {
+    mocks.getUserById.mockResolvedValue({
+      data: {
+        user: {
+          app_metadata: {
+            pending_phone: phone,
+            pending_phone_requested_at: Date.now(),
+          },
+        },
+      },
+      error: null,
+    });
+    await expect(
+      verifyAccountPhone({ supabaseUid: "user-1", code: "4321" }),
+    ).resolves.toBe(true);
+    expect(mocks.check).toHaveBeenCalledWith(phone, "4321");
+  });
+
+  it("rejects malformed or overly long OTPs without contacting Twilio", async () => {
+    mocks.check.mockClear();
+    await expect(
+      verifyAccountPhone({ supabaseUid: "user-1", code: "12345678901" }),
+    ).resolves.toBe(false);
+    await expect(
+      verifyAccountPhone({ supabaseUid: "user-1", code: "12ab" }),
+    ).resolves.toBe(false);
+    expect(mocks.check).not.toHaveBeenCalled();
+  });
+
   it("does not confirm an invalid OTP", async () => {
     mocks.getUserById.mockResolvedValue({
       data: {
