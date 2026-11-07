@@ -73,7 +73,9 @@ export function buildActivityLabel(project: {
 }): string {
   switch (project.status) {
     case "pending":
-      return "Queued";
+      return project.buildStage === "generated"
+        ? "Imported source — validation required"
+        : "Queued";
     case "paused":
       return project.pauseReason === "approval_required"
         ? "Waiting for your approval"
