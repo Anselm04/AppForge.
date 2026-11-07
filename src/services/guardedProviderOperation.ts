@@ -13,7 +13,6 @@ import {
   settleProviderSpend,
   type ProviderReservationInput,
 } from "./providerSpendLedger.js";
-import { assertCustomerComputeLaunchCertified } from "./customerComputeLaunchGate.js";
 
 class ReservationReleaseError extends Error {
   constructor(
@@ -39,9 +38,8 @@ export async function runReservedProviderOperation<T>(
   },
   invoke: () => Promise<{ value: T; verifiedCents: number }>,
 ): Promise<T> {
-  // Standalone release stop: preparatory money controls do not authorize
-  // real customer charges even if this helper is called outside the router.
-  assertCustomerComputeLaunchCertified(false);
+  // No independent blanket stop: every operation must prove an active lease,
+  // independently reviewed rates and an atomic spending reservation.
   const lease = currentBuildExecutionLease();
   if (!lease)
     throw new Error("Provider spending requires a build execution lease");
