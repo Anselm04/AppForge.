@@ -466,6 +466,18 @@ function orderProviders(
   return list;
 }
 
+class ProviderUsagePersistenceError extends Error {
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super(
+      "Provider operation stopped because build usage evidence was not persisted",
+    );
+    this.name = "ProviderUsagePersistenceError";
+    this.cause = cause;
+  }
+}
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertCustomerComputeLaunchCertified(false);
   const providers = orderProviders(
@@ -604,10 +616,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
               succeeded: true,
             });
           } catch (meteringError) {
-            console.warn(
-              "Per-build provider usage evidence unavailable",
-              meteringError,
-            );
+            throw new ProviderUsagePersistenceError(meteringError);
           }
         }
         return result;
@@ -632,10 +641,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
             succeeded: false,
           });
         } catch (meteringError) {
-          console.warn(
-            "Failed provider usage evidence unavailable",
-            meteringError,
-          );
+          throw new ProviderUsagePersistenceError(meteringError);
         }
       }
       const detail = `${provider.id} ${response.status} ${response.statusText} – ${errorText.slice(0, 400)}`;
@@ -683,6 +689,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       // Never route an unaccounted retry to another provider: this is a
       // monetary integrity failure, not a recoverable network outage.
       if (err instanceof RetryUsageEvidenceError) throw err;
+      if (err instanceof ProviderUsagePersistenceError) throw err;
       if (
         signal?.aborted ||
         (err instanceof Error && err.name === "AbortError")
@@ -699,10 +706,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
               succeeded: false,
             });
           } catch (meteringError) {
-            console.warn(
-              "Aborted provider usage evidence unavailable",
-              meteringError,
-            );
+            throw new ProviderUsagePersistenceError(meteringError);
           }
         }
         throw err;
@@ -719,10 +723,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
               succeeded: false,
             });
           } catch (meteringError) {
-            console.warn(
-              "Network provider usage evidence unavailable",
-              meteringError,
-            );
+            throw new ProviderUsagePersistenceError(meteringError);
           }
         }
         recordModelUsage({
