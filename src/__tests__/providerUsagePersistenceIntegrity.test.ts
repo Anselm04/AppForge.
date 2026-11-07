@@ -16,8 +16,6 @@ describe("provider usage evidence persistence", () => {
     expect(source).not.toContain(
       "Per-build provider usage evidence unavailable",
     );
-    expect(source).not.toContain(
-      "Network provider usage evidence unavailable",
-    );
+    expect(source).not.toContain("Network provider usage evidence unavailable");
   });
 });
