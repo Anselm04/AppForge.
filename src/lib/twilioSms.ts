@@ -199,7 +199,10 @@ export async function sendSms(to: string, body: string): Promise<void> {
     throw new Error("SMS is not configured on this server.");
   }
 
-  if (ENV.twilioVerifyServiceSid) {
+  // Administrator-issued codes already have a server-side challenge.
+  // Prefer the configured Messaging sender instead of mutating a Twilio
+  // Verify service to enable custom codes on each application instance.
+  if (!ENV.twilioPhoneNumber && ENV.twilioVerifyServiceSid) {
     await sendVerifySms(to, body);
     return;
   }
