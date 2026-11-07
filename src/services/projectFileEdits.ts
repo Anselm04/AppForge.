@@ -13,13 +13,12 @@ export type EditableProject = NonNullable<
 >;
 
 function safeProjectPath(path: string): boolean {
-  // Reject ambiguous or platform-specific paths rather than normalizing them
-  // into potentially different destinations in exported project archives.
-  if (!path || path.includes("\\0") || path.includes("\\\\")) return false;
+  // Reject ambiguous paths before writing snapshots or exporting projects.
+  if (!path || path.includes("\0") || path.includes("\\")) return false;
   if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) return false;
-  return !path.split("/").some(
-    (segment) => segment === "" || segment === "." || segment === "..",
-  );
+  return !path
+    .split("/")
+    .some((segment) => segment === "" || segment === "." || segment === "..");
 }
 
 async function commitProjectFilesSnapshot(input: {
