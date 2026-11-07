@@ -67,10 +67,66 @@ async function getStripe() {
   return getAppForgeStripe();
 }
 
-function requirePlanPriceId(tier: SelfServePlanTier) {
-  const id = PLAN_PRICE_IDS[tier];
-  if (!id) throw new Error(`Stripe price ID not configured for tier: ${tier}`);
-  return id;
+/**
+ * Resolve the already-existing AppForge subscription Price by product ownership,
+ * plan metadata, and the exact approved amount. No Stripe objects are created.
+ * An ambiguous catalogue fails closed instead of picking an arbitrary charge.
+ */
+export async function resolvePlanCheckoutPrice(
+  stripe: Awaited<ReturnType<typeof getStripe>>,
+  tier: SelfServePlanTier,
+): Promise<string> {
+  const configuredId = PLAN_PRICE_IDS[tier];
+  if (configuredId) {
+    const configured = await stripe.prices.retrieve(configuredId);
+    assertAppForgePrice(
+      configured,
+      MONTHLY_PLAN_USD_CENTS[tier],
+      "recurring",
+      process.env.NODE_ENV === "production",
+    );
+    return configured.id;
+  }
+
+  const matchingIds: string[] = [];
+  for await (const price of stripe.prices.list({
+    active: true,
+    currency: "usd",
+    type: "recurring",
+    limit: 100,
+    expand: ["data.product"],
+  })) {
+    const product =
+      typeof price.product === "string"
+        ? await stripe.products.retrieve(price.product)
+        : price.product;
+    if (
+      !("metadata" in product) ||
+      !product.active ||
+      product.metadata?.product_line !== "appforge" ||
+      product.metadata?.plan !== tier
+    ) {
+      continue;
+    }
+    try {
+      assertAppForgePrice(
+        price,
+        MONTHLY_PLAN_USD_CENTS[tier],
+        "recurring",
+        process.env.NODE_ENV === "production",
+      );
+      matchingIds.push(price.id);
+    } catch {
+      // Other historical prices for this tier must not be selected.
+    }
+    if (matchingIds.length > 1) break;
+  }
+  if (matchingIds.length !== 1) {
+    throw new Error(
+      `Expected exactly one active matching AppForge ${tier} Stripe Price; found ${matchingIds.length}. Configure the intended Price ID explicitly.`,
+    );
+  }
+  return matchingIds[0];
 }
 
 function requireCreditPriceId(credits: CreditPack) {
@@ -112,14 +168,7 @@ export async function createPlanCheckout(
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);
   assertCanCreateSubscription(sub);
-  const priceId = requirePlanPriceId(tier);
-  const price = await stripe.prices.retrieve(priceId);
-  assertAppForgePrice(
-    price,
-    MONTHLY_PLAN_USD_CENTS[tier],
-    "recurring",
-    process.env.NODE_ENV === "production",
-  );
+  const priceId = await resolvePlanCheckoutPrice(stripe, tier);
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
