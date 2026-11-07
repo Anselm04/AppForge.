@@ -78,17 +78,52 @@ describe("conservative provider-cost envelope (offline only)", () => {
     expect(() => maximumProviderEnvelopeCents(assumedFree, clock)).toThrow();
   });
 
-  it("does not accept caller-asserted rates as trusted live provider prices", () => {
+  it("requires protected reviewed prices, rejecting fake or expired evidence", () => {
+    const prior = process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON;
     const quote = sample();
-    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
-      /Trusted provider price catalogue is not configured/,
-    );
-    quote.priceSnapshotSource = "provider_confirmed";
-    expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
-      /Trusted provider price catalogue is not configured/,
-    );
-    expect(() =>
-      assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z")),
-    ).toThrow(/expired/);
+    const rate = {
+      provider: "mock-llm",
+      model: "mock-small",
+      inputUsdMicrosPerMillionTokens: 250000,
+      outputUsdMicrosPerMillionTokens: 1000000,
+      fixedRequestCents: 10,
+      sourceUrl: "https://provider.example/pricing",
+      reviewedAt: "2026-11-05T00:00:00.000Z",
+      validUntil: "2026-11-07T00:00:00.000Z",
+    };
+    try {
+      delete process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON;
+      expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow();
+      quote.priceSnapshotSource = "provider_confirmed";
+      expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
+        /not configured/,
+      );
+      process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON = JSON.stringify([rate]);
+      expect(() => assertProviderPricesConfirmed(quote, clock)).not.toThrow();
+      quote.attempts = [
+        { ...quote.attempts[0], outputUsdMicrosPerMillionTokens: 900000 },
+      ];
+      expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
+        /understates/,
+      );
+      quote.attempts = sample().attempts;
+      process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON = JSON.stringify([
+        rate,
+        rate,
+      ]);
+      expect(() => assertProviderPricesConfirmed(quote, clock)).toThrow(
+        /Duplicate/,
+      );
+      process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON = JSON.stringify([rate]);
+      expect(() =>
+        assertProviderPricesConfirmed(quote, new Date("2026-11-08T00:00:00Z")),
+      ).toThrow(/expired/i);
+    } finally {
+      if (prior === undefined) {
+        delete process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON;
+      } else {
+        process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON = prior;
+      }
+    }
   });
 });
