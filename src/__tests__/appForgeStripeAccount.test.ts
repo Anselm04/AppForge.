@@ -16,4 +16,13 @@ describe("AppForge Stripe configuration", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     await expect(getAppForgeStripe()).rejects.toThrow("Stripe not configured");
   });
+
+  it("rejects live Stripe keys outside production", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_never_use_outside_production");
+
+    await expect(getAppForgeStripe()).rejects.toThrow(
+      "Live Stripe keys are prohibited outside production",
+    );
+  });
 });

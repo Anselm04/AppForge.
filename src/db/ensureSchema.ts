@@ -783,6 +783,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS "provider_credit_period_invoice_unique"
   WHERE "grant_invoice_id" IS NOT NULL;
 `;
 
+export const PROVIDER_CREDIT_TOPUPS_SQL = `
+CREATE TABLE IF NOT EXISTS "provider_credit_topups" (
+  "id" UUID PRIMARY KEY,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "period_start" TIMESTAMPTZ NOT NULL,
+  "credits_cents" BIGINT NOT NULL CHECK ("credits_cents" > 0),
+  "price_usd_cents" INTEGER NOT NULL CHECK ("price_usd_cents" > 0),
+  "status" VARCHAR(16) NOT NULL DEFAULT 'reserved'
+    CHECK ("status" IN ('reserved', 'paid', 'expired')),
+  "expires_at" TIMESTAMPTZ NOT NULL,
+  "stripe_session_id" VARCHAR(255) UNIQUE,
+  "payment_intent_id" VARCHAR(255) UNIQUE,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "provider_credit_topups_user_period_idx"
+  ON "provider_credit_topups" ("user_id", "period_start", "status");
+`;
+
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
@@ -859,6 +877,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20261106_014",
     name: "provider_credit_invoice_period_idempotency",
     sql: PROVIDER_CREDIT_INVOICE_PERIOD_SQL,
+  },
+  {
+    version: "20261106_015",
+    name: "provider_credit_topup_reservations",
+    sql: PROVIDER_CREDIT_TOPUPS_SQL,
   },
 ];
 

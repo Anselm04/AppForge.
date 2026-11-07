@@ -12,6 +12,8 @@ import {
   createPlanCheckout,
   CREDIT_PACKS,
 } from "../services/stripeCheckout.js";
+import { createProviderCreditCheckout } from "../services/providerCreditTopUps.js";
+import { PURCHASED_PROVIDER_CREDIT_PACKS_CENTS } from "../lib/providerCreditPolicy.js";
 import { ensureAppForgeBillingPortalConfiguration } from "../services/stripeBillingPortal.js";
 import { getAppForgeStripe } from "../services/appForgeStripe.js";
 
@@ -161,6 +163,33 @@ export const subscriptionsRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Credit checkout failed",
+        });
+      }
+    }),
+
+  buyProviderCredits: protectedProcedure
+    .input(
+      z.object({
+        creditsCents: z.union(
+          PURCHASED_PROVIDER_CREDIT_PACKS_CENTS.map((value) =>
+            z.literal(value),
+          ) as [z.ZodLiteral<1000>, z.ZodLiteral<3000>, z.ZodLiteral<8000>],
+        ),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await createProviderCreditCheckout(
+          { id: ctx.user.id, email: ctx.user.email },
+          input.creditsCents,
+        );
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Provider-credit checkout failed",
         });
       }
     }),

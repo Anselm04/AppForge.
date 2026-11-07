@@ -26,6 +26,9 @@ let settleProviderSpend: typeof import("../src/services/providerSpendLedger.js")
 let withBuildExecutionLease: typeof import("../src/services/buildExecutionLease.js").withBuildExecutionLease;
 let runReservedProviderOperation: typeof import("../src/services/guardedProviderOperation.js").runReservedProviderOperation;
 let grantStripeInvoiceProviderCredits: typeof import("../src/services/providerCreditProvisioning.js").grantStripeInvoiceProviderCredits;
+let reserveProviderCreditTopUp: typeof import("../src/services/providerCreditTopUps.js").reserveProviderCreditTopUp;
+let expireProviderCreditTopUp: typeof import("../src/services/providerCreditTopUps.js").expireProviderCreditTopUp;
+let fulfillProviderCreditTopUp: typeof import("../src/services/providerCreditTopUps.js").fulfillProviderCreditTopUp;
 
 before(async () => {
   await admin.unsafe(`CREATE SCHEMA "${schema}"`);
@@ -37,6 +40,7 @@ before(async () => {
     PROVIDER_SPEND_SAFETY_SQL,
     PROVIDER_CREDIT_ACCOUNTS_SQL,
     PROVIDER_CREDIT_INVOICE_PERIOD_SQL,
+    PROVIDER_CREDIT_TOPUPS_SQL,
   } = await import("../src/db/ensureSchema.js");
   await admin.unsafe(`
     CREATE TABLE "${schema}".users (id integer PRIMARY KEY);
@@ -46,6 +50,7 @@ before(async () => {
     );
     CREATE TABLE "${schema}".subscriptions (
       user_id integer PRIMARY KEY REFERENCES "${schema}".users(id),
+      stripe_customer_id text,
       tier text, status text, current_period_start timestamp,
       current_period_end timestamp, trial_end timestamp
     );
@@ -61,6 +66,7 @@ before(async () => {
     await fixture.unsafe(PROVIDER_SPEND_SAFETY_SQL);
     await fixture.unsafe(PROVIDER_CREDIT_ACCOUNTS_SQL);
     await fixture.unsafe(PROVIDER_CREDIT_INVOICE_PERIOD_SQL);
+    await fixture.unsafe(PROVIDER_CREDIT_TOPUPS_SQL);
     await fixture.unsafe(`
       INSERT INTO users (id) VALUES (1), (2);
       INSERT INTO projects (id, user_id) VALUES (10, 1), (20, 2);
@@ -69,9 +75,14 @@ before(async () => {
              (23, 10, 'build_execution_claim', '{}'::jsonb),
              (24, 20, 'build_execution_claim', '{}'::jsonb);
       INSERT INTO subscriptions
-        (user_id, tier, status, current_period_start, current_period_end)
-      VALUES (1, 'starter', 'active', NOW() - INTERVAL '1 day', NOW() + INTERVAL '1 day'),
-             (2, 'starter', 'active', NOW() - INTERVAL '1 day', NOW() + INTERVAL '1 day');
+        (user_id, stripe_customer_id, tier, status,
+         current_period_start, current_period_end)
+      VALUES (1, 'cus_test_1', 'starter', 'active',
+              date_trunc('second', NOW() - INTERVAL '1 day'),
+              date_trunc('second', NOW() + INTERVAL '1 day')),
+             (2, 'cus_test_2', 'starter', 'active',
+              date_trunc('second', NOW() - INTERVAL '1 day'),
+              date_trunc('second', NOW() + INTERVAL '1 day'));
       INSERT INTO provider_credit_accounts
         (user_id, purchased_balance_cents)
       SELECT user_id, 0 FROM subscriptions;
@@ -89,6 +100,11 @@ before(async () => {
     await import("../src/services/providerSpendLedger.js"));
   ({ grantStripeInvoiceProviderCredits } =
     await import("../src/services/providerCreditProvisioning.js"));
+  ({
+    reserveProviderCreditTopUp,
+    expireProviderCreditTopUp,
+    fulfillProviderCreditTopUp,
+  } = await import("../src/services/providerCreditTopUps.js"));
   ({ withBuildExecutionLease } =
     await import("../src/services/buildExecutionLease.js"));
   process.env.NODE_ENV = "test";
@@ -234,6 +250,79 @@ test("Stripe invoice allowance provisioning is period-scoped and idempotent", as
     ),
     /Invalid Stripe invoice billing period/,
   );
+});
+
+test("provider-credit top-ups atomically enforce the monthly purchase cap and fulfill once", async () => {
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  const purchase = await reserveProviderCreditTopUp(2, 1000, expiresAt);
+  const payment = {
+    topUpId: purchase.id,
+    userId: 2,
+    sessionId: "cs_test_providertopup001",
+    paymentIntentId: "pi_providertopup001",
+    creditsCents: 1000,
+    priceUsdCents: 2500,
+  };
+  assert.deepEqual(await fulfillProviderCreditTopUp(payment), {
+    grantedCents: 1000,
+    skipped: false,
+  });
+  assert.deepEqual(await fulfillProviderCreditTopUp(payment), {
+    grantedCents: 0,
+    skipped: true,
+  });
+  const balance = await admin.unsafe(
+    `SELECT purchased_balance_cents FROM "${schema}".provider_credit_accounts WHERE user_id = 2`,
+  );
+  assert.equal(Number(balance[0].purchased_balance_cents), 1000);
+
+  const expiring = await reserveProviderCreditTopUp(2, 3000, expiresAt);
+  const expiration = {
+    topUpId: expiring.id,
+    userId: 2,
+    sessionId: "cs_test_expiredtopup001",
+  };
+  assert.deepEqual(await expireProviderCreditTopUp(expiration), {
+    expired: true,
+    skipped: false,
+  });
+  assert.deepEqual(await expireProviderCreditTopUp(expiration), {
+    expired: true,
+    skipped: true,
+  });
+  await reserveProviderCreditTopUp(2, 8000, expiresAt);
+
+  await reserveProviderCreditTopUp(1, 8000, expiresAt);
+  await reserveProviderCreditTopUp(1, 8000, expiresAt);
+  await reserveProviderCreditTopUp(1, 3000, expiresAt);
+  await reserveProviderCreditTopUp(1, 1000, expiresAt);
+  await reserveProviderCreditTopUp(1, 1000, expiresAt);
+  const concurrent = await Promise.allSettled([
+    reserveProviderCreditTopUp(1, 1000, expiresAt),
+    reserveProviderCreditTopUp(1, 1000, expiresAt),
+  ]);
+  const reservations = await admin.unsafe(
+    `SELECT period_start::text AS period_start, price_usd_cents, status
+      FROM "${schema}".provider_credit_topups WHERE user_id = 1`,
+  );
+  assert.equal(
+    concurrent.filter((result) => result.status === "fulfilled").length,
+    1,
+    JSON.stringify({
+      concurrent: concurrent.map((result) => result.status),
+      reservations,
+    }),
+  );
+  const periodTotal = await admin.unsafe(
+    `SELECT SUM(price_usd_cents)::int AS total FROM "${schema}".provider_credit_topups
+      WHERE user_id = 1 AND period_start = (
+        SELECT period_start FROM "${schema}".provider_credit_topups
+        WHERE user_id = 1 LIMIT 1
+      )
+        AND (status = 'paid' OR (status = 'reserved' AND expires_at > NOW()))`,
+    [],
+  );
+  assert.equal(periodTotal[0].total, 48200);
 });
 
 test("real PostgreSQL rejects cross-customer project reservations", async () => {

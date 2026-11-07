@@ -6,6 +6,8 @@ import {
   CREDIT_PACKS,
   SELF_SERVE_PLAN_TIERS,
 } from "../services/stripeCheckout.js";
+import { createProviderCreditCheckout } from "../services/providerCreditTopUps.js";
+import { PURCHASED_PROVIDER_CREDIT_PACKS_CENTS } from "../lib/providerCreditPolicy.js";
 import { logger } from "../_core/logger.js";
 
 const router = Router();
@@ -22,13 +24,23 @@ const checkoutSchema = z
         ],
       )
       .optional(),
+    providerCredits: z
+      .union(
+        PURCHASED_PROVIDER_CREDIT_PACKS_CENTS.map((value) =>
+          z.literal(value),
+        ) as [z.ZodLiteral<1000>, z.ZodLiteral<3000>, z.ZodLiteral<8000>],
+      )
+      .optional(),
   })
-  .refine((d) => Boolean(d.plan || d.credits), {
+  .refine((d) => Boolean(d.plan || d.credits || d.providerCredits), {
     message: "plan or supported credit pack is required",
   })
-  .refine((d) => !(d.plan && d.credits), {
-    message: "Choose either a subscription plan or a credit pack",
-  });
+  .refine(
+    (d) => [d.plan, d.credits, d.providerCredits].filter(Boolean).length === 1,
+    {
+      message: "Choose exactly one plan or credit pack",
+    },
+  );
 
 router.post("/", async (req: Request, res: Response) => {
   try {
@@ -46,15 +58,26 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    const { plan, credits } = parse.data;
+    const { plan, credits, providerCredits } = parse.data;
     const checkoutUser = {
       id: Number(user.id),
       email: user.email as string | undefined,
     };
 
-    const result = plan
-      ? await createPlanCheckout(checkoutUser, plan)
-      : await createCreditCheckout(checkoutUser, credits!);
+    let result: { url: string | null };
+    if (plan) {
+      result = await createPlanCheckout(checkoutUser, plan);
+    } else if (providerCredits) {
+      result = await createProviderCreditCheckout(
+        checkoutUser,
+        providerCredits,
+      );
+    } else if (credits) {
+      result = await createCreditCheckout(checkoutUser, credits);
+    } else {
+      throw new Error("Checkout requires a plan or credit pack");
+    }
+    if (!result.url) throw new Error("Stripe did not return a checkout URL");
 
     res.json(result);
   } catch (err: unknown) {
