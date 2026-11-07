@@ -55,10 +55,7 @@ import {
   assertSurgicalPatchScope,
   mergeSurgicalPatches,
 } from "../lib/surgicalFix.js";
-import {
-  buildGuaranteedGreenApp,
-  stackRecipeCoderHint,
-} from "../lib/guaranteedGreen.js";
+import { stackRecipeCoderHint } from "../lib/guaranteedGreen.js";
 import {
   classifyRecipe,
   ensureRecipeFloor,
