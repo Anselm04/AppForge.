@@ -2,7 +2,7 @@ import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { getProjectFiles } from "../db.js";
+import { getEditableProjectFiles } from "../db.js";
 
 const ALLOWED_COMMANDS = new Set([
   "npm",
@@ -100,7 +100,8 @@ function pushLog(
 }
 
 async function syncProjectFiles(session: SandboxSession): Promise<void> {
-  const files = await getProjectFiles(session.projectId);
+  // The editing sandbox must reflect the latest saved working revision.
+  const files = await getEditableProjectFiles(session.projectId);
   await rm(session.dir, { recursive: true, force: true });
   await mkdir(session.dir, { recursive: true });
   for (const [path, content] of Object.entries(files)) {
