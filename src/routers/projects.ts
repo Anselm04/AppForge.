@@ -38,6 +38,8 @@ import {
   resolveIntakeContract,
   validateProductContract,
 } from "../lib/productContract.js";
+import { assertProductComplete } from "../lib/incompleteProduct.js";
+import type { ProductPlan } from "../lib/productPlan.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -51,6 +53,28 @@ import { assertBuildExecutionReady } from "../services/buildExecutionReadiness.j
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 
 const FREE_TIER_LIMIT = 0;
+
+function assertProjectExportComplete(
+  project: { productContract: unknown; productPlan?: ProductPlan | null },
+  files: Record<string, string>,
+): void {
+  try {
+    assertProductComplete({
+      files,
+      productContract: validateProductContract(project.productContract),
+      productPlan: project.productPlan ?? undefined,
+      context: "Source export completeness gate",
+    });
+  } catch (error) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Source export completeness gate failed.",
+    });
+  }
+}
 
 const recoveryFailureKindEnum = z.enum([
   "application_failure",
@@ -784,6 +808,7 @@ export const projectsRouter = router({
       );
 
       if (input.destination === "zip") {
+        assertProjectExportComplete(project, files);
         const { base64, filename } = await zipFiles(
           project.title || "appforge-app",
           files,
@@ -1047,6 +1072,7 @@ export const projectsRouter = router({
         });
       }
       const files = artifact.files;
+      assertProjectExportComplete(project, files);
       const { zipFiles } = await import("../services/deployer.js");
       const { base64, filename } = await zipFiles(
         project.title || "appforge-app",

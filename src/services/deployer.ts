@@ -57,7 +57,24 @@ export async function zipFiles(
   files: Record<string, string>,
 ): Promise<{ base64: string; filename: string }> {
   const zip = new JSZip();
-  for (const [p, c] of Object.entries(files)) zip.file(p, c);
+  for (const [path, content] of Object.entries(files)) {
+    if (
+      !path ||
+      path !== path.replace(/\\/g, "/") ||
+      path.startsWith("/") ||
+      /^[a-z]:/i.test(path) ||
+      [...path].some((character) => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127;
+      }) ||
+      path
+        .split("/")
+        .some((segment) => !segment || segment === "." || segment === "..")
+    ) {
+      throw new Error(`Unsafe project export path: ${path}`);
+    }
+    zip.file(path, content);
+  }
   const b = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",
