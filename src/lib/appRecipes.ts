@@ -537,19 +537,6 @@ export function ensureRecipeFloor(
   return { ...generated };
 }
 
-/** If spec soft-fails, replace App with recipe App (deterministic, still green). */
-export function repairSpecWithRecipe(
-  files: Record<string, string>,
-  opts: { title: string; description: string; recipe: AppRecipe },
-): Record<string, string> {
-  const recipeApp = buildRecipeApp(opts);
-  return {
-    ...files,
-    "src/App.tsx": recipeApp["src/App.tsx"],
-    "src/main.tsx": files["src/main.tsx"] || recipeApp["src/main.tsx"],
-  };
-}
-
 export function checkRecipeSpec(
   files: Record<string, string>,
   recipe: AppRecipe,
