@@ -34,13 +34,13 @@ MARKETING CAPABILITY enabled — optimize for traffic, leads, and sales:
 - Lead capture form (email) with validation; optional waitlist/newsletter
 - SEO: meta title/description, Open Graph tags, semantic headings
 - Social proof section, pricing table or conversion funnel page
-- Analytics hook placeholder (GA4 / Plausible script comment)
+- Implement working privacy-conscious analytics event instrumentation only when an analytics provider is actually configured; disclose consent and respect opt-out choices, never claim tracked conversions from a placeholder.
 `.trim(),
 
   ar: `
 AR CAPABILITY enabled:
 - WebXR or AR.js integration with camera permission flow
-- 3D model placeholder (glTF) in public/models/
+- Include a genuine licensed glTF model asset in public/models/ when required; if the asset is unavailable, clearly report the missing asset as a blocked requirement rather than shipping an empty stand-in.
 - Hit-test / plane detection UI; "Tap to place" instructions
 - Fallback 3D viewer for non-AR browsers (orbit controls)
 `.trim(),
@@ -51,7 +51,7 @@ EDUCATION / TEACHING CAPABILITY enabled (includes AR virtual classroom):
 - Class scheduling: live sessions with start/end, instructor role, roster enrollment
 - AR virtual classroom: WebXR or AR.js room with virtual whiteboard (canvas sync), 3D teaching models (glTF in public/models/education/)
 - Interactive AR objects students can place/manipulate during live class; presenter mode for teacher
-- Quizzes/assessments with question bank JSON; gradebook stub
+- Implement quizzes and assessments with stored question banks, validated submissions, scores and persistent student-scoped gradebook records; no gradebook mock or decorative pass/fail results.
 - Video/embed support for recorded lectures; chat sidebar for live Q&A
 - Accessibility: captions, keyboard nav, screen-reader labels on all lesson UI
 - Use RESEARCH BRIEF for current curriculum standards, accreditation, and subject-matter sources
@@ -74,7 +74,7 @@ ARCHITECTURE / BIM CAPABILITY enabled — full building project delivery:
 - Concept: massing, floor plans, material palettes, sustainability/energy strategy in architecture/concept/
 - Coordinated BIM: single 3D model JSON (architecture/bim/model.json) generating plans, sections, elevations
 - Structural + MEP coordination with clash detection; construction document set in architecture/drawings/
-- Accessibility (ramps, egress, universal design) and fire/life-safety strategy stubs
+- Model accessibility and fire/life-safety requirements as explicit, editable, jurisdiction-cited checklists and review records; never fabricate verified regulatory compliance or engineer sign-off.
 - Site/landscape (grading, planting) and interior fit-out in architecture/site/ and architecture/interiors/
 - Permit drawings, bill of quantities, specifications in architecture/permits/ and architecture/specs/
 - Construction admin: submittal log, change orders, snagging in architecture/construction/
@@ -118,7 +118,7 @@ FINTECH / INCOME CAPABILITY enabled:
 HEALTHCARE / HIPAA CAPABILITY enabled:
 - healthcare/hipaa-build-config.json with phiDataTypes, encryptionAtRest, auditLogFields
 - Role-based accessControls, BA requirements, retentionPolicyDays, buildBoundaries
-- Audit logging middleware stub; no PHI in logs or client-side storage without encryption
+- Implement restricted audit event logging and consent-aware record access controls on actual server/storage integrations; never record PHI in logs or insecure client-side storage. Do not claim HIPAA compliance without independent assessment.
 - DISCLAIMER: not a compliance certification — engage qualified compliance officer
 `.trim(),
 
@@ -126,7 +126,7 @@ HEALTHCARE / HIPAA CAPABILITY enabled:
 NATIVE MOBILE PACKAGING enabled:
 - mobile/mobile-packaging.json with Expo or Capacitor framework, bundleId, platforms
 - storeListing metadata, icon sizes, permissions, buildCommands
-- app.json / eas.json or capacitor.config stubs as appropriate for stack
+- Generate valid buildable Flutter/Android/iOS or chosen mobile configuration files matching the actual stack, app IDs, permissions and release settings. Reject unsupported packaging instead of emitting fake configuration.
 `.trim(),
 
   voice: `
@@ -139,7 +139,7 @@ VOICE / PODCAST CAPABILITY enabled:
   data: `
 DATA / BI CAPABILITY enabled:
 - data/bi-dashboard.json with sqlSchema tables, charts, KPIs, refreshStrategy
-- Dashboard page with chart components (recharts or similar); SQL migration stubs
+- Build dashboard charts from authenticated real stored records and include executable SQL migrations for every required table and index; never fabricate KPI values or replace migrations with comments.
 - Query hints mapped to chart metrics in src/components/dashboard/
 `.trim(),
 
