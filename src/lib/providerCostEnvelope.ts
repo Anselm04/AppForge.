@@ -184,8 +184,7 @@ export function assertProviderPricesConfirmed(
       attempt.outputUsdMicrosPerMillionTokens <
         rate.outputUsdMicrosPerMillionTokens ||
       attempt.fixedRequestCents < rate.fixedRequestCents ||
-      Date.parse(envelope.priceSnapshotValidUntil) >
-        Date.parse(rate.validUntil)
+      Date.parse(envelope.priceSnapshotValidUntil) > Date.parse(rate.validUntil)
     ) {
       throw new Error("Provider cost envelope understates reviewed pricing");
     }
