@@ -117,3 +117,44 @@ Controls: **"Agree & continue"** and **"Choose another option"**, plus **"Tell u
 - Verify a mandatory external provider charge stays visible in collapsed cards.
 - Verify the user can request an alternate solution in natural language and re-consent to revised terms.
 - Verify no pre-checked boxes, provider defaults that silently incur charges, or build charges upon decline.
+
+
+## Mandatory aftercare and deployment assistance — customer success contract
+
+AppForge must not treat completed code generation as the end of the customer journey. Every successful build should open a persistent, tenant-isolated **My Product / Launch & Support** area with simple, task-driven help. This is a requirement for implementation, not a claim that these features are currently deployed.
+
+### Launch readiness and handover
+- Show "Your product is built. Here's how to get it running" in plain language with visible progress steps: Review product, Choose where to run it, Compare costs, Connect your accounts, Deploy, Check it works, Manage it.
+- Provide a complete export package and reproducible deployment instructions; no fake success indicators, placeholder builds, undisclosed secrets, or implied deployment when nothing was deployed.
+- Before deployment, show 2–3 **viable** hosting/deployment choices where possible (cost-effective/free tier where appropriate, value, and premium) and explain what each means for expected traffic, scaling, reliability, backups, region, data storage, maintenance, and any store/platform fees.
+- Present **Pay today / Estimated monthly / Pay as you grow / Who bills you / What happens if you cancel** in brief, large, scannable fields; usage-based amounts are estimates, never promises.
+- Disclose every active third-party dependency, account requirement, provider contact, customer-managed secret and expected running cost. Calculate an estimated combined monthly figure with assumptions and a visible notice for variable or unknown charges.
+- Customer chooses and expressly approves their deployment route and any optional AppForge managed service subscription. Preserve portability: allow export and self-deployment without a surprise obligation to subscribe to AppForge hosting.
+- When accounts or deployment approvals must be completed by the customer, show instructions tailored to their chosen path, with clear handoff. Never use TrillionAI's platform credentials in customer-exported products.
+- After deployment, perform real verifiable checks where authorised (reachable URL, health, essential flows, configuration, selected integrations), report actual success/failure and actionable fixes; never falsely claim a live release.
+
+### Context-aware AI aftercare assistant
+- A visible **Ask AppForge** helper remains accessible in the customer's product workspace after builds; answers use the actual project version, agreed feature set, approved dependency manifest, deployment choice, and saved error reports, with tenant-specific access control.
+- Support questions in everyday language: "How do I launch?", "What will I pay monthly?", "How do I update my app?", "Why isn't login working?", "How do I connect my domain?", "Can I move hosting?", "What happens if I cancel a provider?", "How do I publish to app stores?"
+- Offer step-by-step instructions, screenshots/visual guidance where available, clickable checks, and safe recovery. Never make up progress, prices, support actions or success.
+- The assistant can inspect only authorised project data and may suggest fixes, but changes to deployed code, credentials, domain records, spending or subscriptions require verified consent and safe approval controls. AI assistance must not autonomously incur provider charges.
+- Clearly distinguish AppForge build-defect support and agreed included assistance from optional paid maintenance or third-party hosting support; show available support entitlements and an escalation path to human support for unresolved failures.
+- The assistant must remain available via a defined support plan or durable self-service docs after the initial build. Publish support scope, hours/response expectations where applicable, and any limits **before purchase**. Never imply unlimited free human or AI usage.
+- Use answer sources from project documentation and verified deployment status; identify uncertainty and provide corrective instructions. Protect customer data from cross-tenant leakage and prompt injection.
+- Produce a downloadable project-specific "Ownership & Running Costs" summary and simple operation guide covering renewal dates, services, credentials ownership, backups, upgrade paths, export, cancellation and migration.
+
+### UX: simple glanceable launch cards
+- Top of workspace: **Built / Ready to launch / Live / Needs attention** only when backed by real state.
+- Example summary: "Your app is ready. Choose where it runs. Hosting: estimated $X/month. You pay [provider]. No extra AppForge hosting fee unless you choose it." Use real quotes, never invented rates.
+- Primary controls: **Compare hosting**, **Help me launch**, **Ask AppForge**, **Download my app**.
+- Keep explanations short and nontechnical, with optional expandable details.
+- Mobile-first accessibility, clear back/undo paths, no preselected paid options, and no surprise charges.
+
+### Tests / acceptance
+- Customer can see their complete build, export and deployment instructions without buying another unadvertised subscription.
+- Provider prices and AppForge maintenance fees are separate; all recurring charges require positive informed consent.
+- A "free" hosting selection never conceals domain, traffic, storage, AI API or store fees.
+- Nontechnical tester can identify how to deploy and total estimated running costs at a glance.
+- Help bot uses the correct customer and product, does not leak secrets, and cannot claim tests/deployments it did not execute.
+- Deployment choice can change and does not create vendor lock-in beyond unavoidable disclosed provider constraints.
+- Customer can obtain useful support after launch; when automated help cannot resolve a problem, a clear support escalation and scope are available.
