@@ -1,6 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getGithubConnection, getProjectById, getProjectFiles } from "../db.js";
+import {
+  getGithubConnection,
+  getProjectById,
+  getEditableProjectFiles,
+} from "../db.js";
+import {
+  isSafeTemplatePath,
+  isSafeTemplateContent,
+} from "./templateFactory.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
@@ -164,7 +172,21 @@ export const githubRouter = router({
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
 
-      const files = await getProjectFiles(input.projectId);
+      // Source export must represent the user's latest saved working edits,
+      // not the last validated serving snapshot.
+      const files = await getEditableProjectFiles(input.projectId);
+      if (
+        Object.entries(files).some(
+          ([path, content]) =>
+            !isSafeTemplatePath(path) || !isSafeTemplateContent(content),
+        )
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Export contains a sensitive path or credential. Remove secrets from project source before pushing to GitHub.",
+        });
+      }
       if (Object.keys(files).length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
