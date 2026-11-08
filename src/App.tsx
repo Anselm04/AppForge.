@@ -37,6 +37,7 @@ import { PasswordReset } from "./pages/PasswordReset.js";
 import { Discover } from "./pages/Discover.js";
 import { FeatureDetail } from "./pages/FeatureDetail.js";
 import { HelpCenter } from "./pages/HelpCenter.js";
+import { Aftercare } from "./pages/Aftercare.js";
 import { Settings } from "./pages/Settings.js";
 import { NotFound } from "./pages/NotFound.js";
 import { ShortcutsPage } from "./pages/ShortcutsPage.js";
@@ -80,6 +81,7 @@ function AppShell() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/shortcuts" element={<ShortcutsPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/aftercare" element={<Aftercare />} />
             <Route path="/tools" element={<PluginWorkspace />} />
             <Route path="/build/:projectId" element={<Build />} />
             <Route path="/ai-builder" element={<AIBuilder />} />

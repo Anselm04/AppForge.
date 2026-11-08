@@ -12,6 +12,7 @@ export const APP_ROUTES = [
   "/about",
   "/acceptable-use",
   "/account",
+  "/aftercare",
   "/admin",
   "/ai-builder",
   "/app/new",
