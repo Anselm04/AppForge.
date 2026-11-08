@@ -113,7 +113,7 @@
     "eslint": "^10.14.0",
     "globals": "^17.13.0",
     "husky": "^9.0.0",
-    "jsdom": "^24.0.0",
+    "jsdom": "^31.0.0",
     "lint-staged": "17.6.0",
     "postcss": "^8.4.49",
     "prettier": "^3.2.4",
