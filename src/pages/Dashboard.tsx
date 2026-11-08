@@ -253,6 +253,18 @@ export function Dashboard() {
           />
         )}
 
+        <GlassCard hover={false} className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="forge-h3">Launch &amp; Aftercare</h2>
+            <p className="text-sm text-forge-text-muted mt-1">
+              Get your build live, understand potential running costs, and ask for help after delivery.
+            </p>
+          </div>
+          <Button variant="secondary" onClick={() => navigate("/aftercare")}>
+            Open Aftercare
+          </Button>
+        </GlassCard>
+
         <div className="flex flex-wrap justify-between items-center gap-4">
           <h1 className="forge-h2 text-forge-text-primary">
             {t("dashboard.myApps")}
