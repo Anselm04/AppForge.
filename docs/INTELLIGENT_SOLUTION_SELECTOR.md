@@ -77,3 +77,43 @@ For each material dependency, display a brief plain-language summary that says:
 - Free-text preferences trigger re-planning, not auto-acceptance.
 - Switching provider or changing recurring charges requires renewed affirmative acceptance.
 - Exported/deployed products do not secretly depend on TrillionAI's paid provider credentials; default to customer-controlled accounts and portable, documented adapters.
+
+
+## UX acceptance contract — five-second understanding
+The selector must be designed for ordinary non-technical customers first. Do not replace informed consent with a wall of text, a confusing checkbox maze or technical jargon.
+
+### Default visible comparison card
+Show **at most three suitable choices** at once (e.g. Free / Best value / Premium, only when they are viable). Each card should be scannable within roughly five seconds and display, in this order:
+1. **What you get:** one sentence, plain English, what works and any important missing feature.
+2. **Pay now:** the exact known AppForge/build charge, or a clearly labelled estimate.
+3. **Pay later:** a visible recurring/monthly amount or clearly labelled usage estimate/range, including the responsible provider; if genuinely unknown show "Varies with use" with a short explanation, never "$0" for unknown costs.
+4. **Main trade-off:** one brief factual comparison (e.g. slower speech generation, requires your own server, or more lifelike speech) only when verified or labelled as an estimate.
+5. **Who manages it:** customer, TrillionAI (only for an accepted managed service), or third-party provider.
+
+Use a compact comparison pattern and plain-language labels: "Pay now", "Possible monthly cost", "Works after launch?", "You manage", "What changes". No unexplained jargon (API, latency, inference, token, deployment, SaaS, self-hosted, etc.). Explain unavoidable terms in tap-to-expand help.
+
+### Progressive disclosure, never concealed charges
+- One short visible headline above the cards: **"Your app will work with any option shown. The differences are features, speed, upkeep and future costs."** Only show options that meet the agreed essentials; otherwise label an option explicitly as requiring changed requirements and do not make it selectable as-is.
+- Highlight any mandatory external account, ongoing payment, usage-limit risk or service feature that stops without renewal directly on the card. This information must NOT be hidden behind "More details".
+- Add an optional "See full details" expansion with evidence, benchmarks, licence terms, migration considerations, pricing sources and plain-language definitions.
+- Default recommendation may be "Best fit for your needs"; it must be derived from evidence and the customer's requirements, not TrillionAI's commission or revenue. Mark the reasoning in one sentence.
+- Always show the *sum* of known estimated monthly obligations across chosen dependencies and separately note uncertain usage costs. Never call an app "free forever" when hosting/usage may cost money.
+- Make the mobile UI readable without horizontal scrolling, maintain accessible text size and clear contrast, and make the selected choice easy to change.
+
+### Minimal choice and acknowledgment
+Present a concise summary immediately before authorising the build:
+
+**"You chose [solution]. Pay now: [amount]. Possible ongoing costs: [amount or varies]. After launch, [customer/provider] pays and manages [service]. [Main limitation or risk]."**
+
+Then a single unchecked affirmative acknowledgement:
+**"I understand this choice and its possible ongoing costs."**
+
+Controls: **"Agree & continue"** and **"Choose another option"**, plus **"Tell us what you need"** for natural-language changes. Refusing or changing the option must not trigger payment, consume generation credits or build automatically. The final pay/build confirmation is separate, with the same disclosed terms. Never bundle consent to unrelated marketing or vendor contracts.
+
+### User tests required
+- Non-technical users can identify what works, what costs now/later, who pays after launch, and the main trade-off without opening details.
+- Show that text fits common iPhone widths and accessibility font sizes; no truncated fees or risks.
+- Verify an option with an unknown API usage cost cannot be displayed as zero.
+- Verify a mandatory external provider charge stays visible in collapsed cards.
+- Verify the user can request an alternate solution in natural language and re-consent to revised terms.
+- Verify no pre-checked boxes, provider defaults that silently incur charges, or build charges upon decline.
