@@ -158,3 +158,61 @@ AppForge must not treat completed code generation as the end of the customer jou
 - Help bot uses the correct customer and product, does not leak secrets, and cannot claim tests/deployments it did not execute.
 - Deployment choice can change and does not create vendor lock-in beyond unavoidable disclosed provider constraints.
 - Customer can obtain useful support after launch; when automated help cannot resolve a problem, a clear support escalation and scope are available.
+
+
+## Full-lifecycle launch, operations and maintenance — owner-choice contract
+
+**Goal:** Never leave a customer with an unusable build, unexplained release process or unmanageable recurring costs. Provide an accessible and supported path from validated build to live, maintained product. No claim of live deployment or maintenance until execution is verified. The customer chooses their level of operational responsibility; no forced AppForge-hosting subscription.
+
+### Support pathways offered at handover (only show technically viable options)
+- **Do it yourself:** portable source/export, project-specific deployment guide, provider checklist and self-service technical support, with honest included support limits.
+- **Guide me step by step:** interactive launch coach that checks progress, explains choices and helps recover from errors; customer performs external account actions.
+- **Deploy for me:** AppForge-managed, explicitly authorised deployment automation to the customer's own selected hosting/cloud accounts, after provider/account prerequisites are complete.
+- **Managed operations (optional):** separately priced and opted-in TrillionAI hosting/monitoring/patching/backups/support, if actually available, with scope, service level, portability and cancellation terms.
+- **Bring my own team/provider:** handover documentation, infrastructure templates, service inventory and permissions instructions for an independent developer, operations team or agency.
+- **Move later:** documented migration/export paths and assistance choices; disclose portability restrictions before selection.
+
+Different destinations may require additional paths: public website, API/backend, database, managed hosting, custom domain/TLS, progressive web app, Android, iOS/App Store, desktop application and approved game platforms. Display **only supported and relevant** destinations; explain external app-store review, identity verification and paid developer-account requirements. Never guarantee marketplace approval.
+
+### Automatic deployment controls
+1. Present destination options and verify the requested build can run on each one. Compare current verified provider pricing, free allowances, regions, scalability, operational effort, backups, support and billing arrangements.
+2. Before any costs, show **Pay AppForge now**, **Pay provider now**, **Expected recurring costs**, **Who is billed**, **Who owns the account**, **Who maintains the service**, **Cancellation impact**, and an itemised total with explicit variable-cost uncertainty.
+3. Customer chooses their deployment approach and target, creates/authorises their own provider account and explicitly accepts third-party terms and estimated charges. No preselected paid provider.
+4. Automated deploy may use **short-lived scoped credentials or OAuth**, stored only in a secret manager; never embed TrillionAI keys in generated apps or publish customer credentials in source control/logs. Require cost ceilings and prohibit provisioning billable resources outside approved scope.
+5. Show a preflight with dependencies, required secrets, migrations, backup/recovery plan, domain setup, certificate configuration, environment validation and a reversible deployment plan. If blocked, report what the customer needs to do in plain language.
+6. Execute auditable steps only after approval: provision approved resources, build, test, migrate safely, release, configure domain/TLS, inspect health and essential user journeys, report real links and actual verification results. Do not call a deploy successful merely because a job ran.
+7. On failure, surface error, impact, safe rollback or retry, owner actions and escalation. Never fabricate a live URL or successful store submission.
+8. Completion requires clear **handover accepted** acknowledgement naming the customer's provider account and indicating which costs and operational duties they control from then onward. Handover cannot waive AppForge's pre-existing deliverable/warranty/support obligations or override statutory rights.
+9. Third-party invoices should be billed directly to customer-owned accounts whenever possible. If a TrillionAI managed service is chosen, disclose recurring fees, usage boundaries, cancellation/migration procedures and separate AppForge build subscriptions.
+10. After deployment, preserve build evidence, deployment recipes, service inventory, versions and nonsecret configuration so a customer can maintain or move their product.
+
+### Ongoing care and guided maintenance
+- A persistent **Product Health & Help** home shows verified status, deployed version, provider owners, renewal and resource-cost expectations, backups, update needs and next recommended tasks. Never show fake live telemetry.
+- Explain routine tasks in simple steps: domain renewal, SSL certificates, security patches, dependency updates, database backups/restore, storage growth, API limits, app store renewals and releases, crash troubleshooting, user support, privacy/security maintenance and incident recovery.
+- Offer choices: **Show me how**, **Guide me**, **Automate with approval** (only supported, scoped and paid as disclosed), or **Ask a human** (within clearly disclosed support terms). Maintenance automation requires explicit authority, budgets, logs, reversible actions and safe fallback.
+- An AI aftercare assistant must be grounded in that customer's actual generated files, versions, deployment manifest, selected providers and verified telemetry, not generic unsupported guesses. The assistant should check permissions, minimise exposure of secrets, and escalate unresolved build defects and severe incidents. It cannot silently modify customer infrastructure or incur charges.
+- Distinguish clearly between a **defect in the promised build** (appropriate AppForge remedy/support) and new feature work or third-party service failures (supported assistance options, possibly separately charged). Never automatically shift all responsibility to the customer.
+- Keep a documented support path even if the customer's AppForge subscription ends, consistent with the original contract and consumer rights; do not remotely disable exported products solely to force renewal.
+- Give a project-specific operations playbook with ownership, charges, backup and disaster recovery plans, release checklist, secure secret rotation, contact/escalation channels and migration instructions.
+
+### Exception paths / no surprises
+The experience must expressly handle: free-tier exhaustion and overage, cloud billing spikes, expired credentials, denied provider account verification, store rejection, DNS and TLS failures, deployment rollback, broken integrations, provider outage or shutdown, lost domain, expired licence, forgotten maintenance, compromised credentials, data restoration, scaling and performance problems, unsupported destination, and customer migration between providers. Each case must have a clear next action, responsible party, expected costs where knowable, and path to human help.
+
+### Launch screen copy (example)
+**Your product is built. Let's get it live.**
+- **I'll launch it myself** — Export code and get a clear checklist.
+- **Guide me through launch** — Interactive, step-by-step help.
+- **Deploy it for me** — Authorise AppForge to deploy into **my** hosting account.
+- **Manage it for me** — Optional ongoing service with separately disclosed pricing, when available.
+Below: **Estimated monthly running costs: [itemised total/range]** · **Who pays: [customer/provider]** · **Need help? Ask AppForge**.
+Never mark an option available if it is not implemented and tested.
+
+### Acceptance tests
+- A nontechnical customer can identify and complete a supported launch path, see who pays now and after handover, and access help when launch fails.
+- Autonomous deployment cannot provision or bill without verified provider credentials, authority and budget approval; no secrets leak to frontend, export or logs.
+- Each deployed artifact has verified URL/health checks or a truthful explanation of unverified requirements.
+- Failed deploys have actionable diagnostics and retry/rollback; store-review delays are not called success.
+- Customer can export and move to a different provider without a hidden AppForge hosting dependency.
+- Maintenance guidance is project- and provider-specific, and unresolved issues provide clear escalation.
+- Paid managed operations are separate opt-in products, never silently attached to a build.
+- Customer's acceptance of operational handover doesn't erase agreed warranty, defect remedies or statutory rights.
