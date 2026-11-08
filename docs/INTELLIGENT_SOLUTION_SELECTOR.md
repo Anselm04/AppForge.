@@ -47,3 +47,33 @@ The consent dialog does not waive statutory consumer protections. Review applica
 - Consent audit records version, terms, costs, customer, project and provider
 - Cancelled/expired proprietary subscription handled according to disclosed contract
 - Future proprietary service offered as optional replacement; no silent migration
+
+
+## Customer-first build guarantee and interactive disclosure
+Every offered configuration MUST generate a genuinely functional, complete product meeting the expressly agreed essential requirements. Budget choice is NOT permission to intentionally degrade workmanship, introduce fake placeholders, omit agreed functionality or deliver a nonworking product. If a cheaper option cannot meet a requirement, clearly identify the mismatch before build and let the customer revise the requirement, choose an alternative or cancel that configuration with no misleading promise.
+
+### Short, mandatory pre-build explanation
+For each material dependency, display a brief plain-language summary that says:
+- What this service does in **your product**, and why it is being recommended.
+- Which parts will work at the selected tier and how they compare with other viable options (speed, quality, scale, reliability, support, features, and maintenance).
+- One-time build expenses, potential recurring external subscription/API/hosting expenses, usage assumptions and any uncertain future costs.
+- Who pays during the build versus who pays after deployment, whose credentials are required and which features will stop or degrade when a provider is unavailable, cancelled or exceeds its allowance.
+- Whether the component can be replaced later, expected migration effort, data portability and any termination/lock-in restrictions. State when a free alternative is equivalent for the customer's requirements.
+
+### Customer response controls
+- Require **Agree** or **Disagree**, initially unselected, with an accessible consent checkbox that specifically acknowledges the shown third-party expenses and dependencies. Do not use pre-ticked consent, dark patterns or forced premium selection.
+- Provide a free-text field labelled **Tell AppForge your requirements, budget limits or preferred alternatives**. Customers may request cost ceilings, free-only providers, no external accounts, self-hosting, reduced dependence on vendors, preferred regions, or their own service provider.
+- The customer's response feeds a fresh solution comparison and realistic re-estimate. Do not interpret their narrative as agreeing to a contract or as approval for previously unseen expenses; after changes, show the revised summary and request explicit acceptance again.
+- On **Disagree**, do not start or bill a build. Explain which outcomes are not achievable under the rejected terms, offer revised configurations or allow customers to leave without being trapped.
+- Show final **Your selected solution** summary, independent customer-ownership and credential responsibilities, recurring licences and any identified post-deployment obligations before build authorisation.
+- Keep acknowledgement brief and readable, with a details view for full terms and source links. Customer may view the complete comparison before choosing.
+- Accessibility: keyboard/screen reader-friendly controls, plain language and no consent hidden by scroll tricks.
+- Persist auditable response, alternatives shown, custom requirements, chosen provider and version, disclosure version, displayed prices/assumptions and timestamp. Record refusal as refusal, not consent.
+
+### Operational acceptance criteria
+- Cheapest technically viable choice remains a properly engineered, working product.
+- If the requested functionality is not possible on the free tier, block a misleading build and present the exact alternatives and performance impact.
+- Customers can decline and revise their stated budget/requirements without authorising charges.
+- Free-text preferences trigger re-planning, not auto-acceptance.
+- Switching provider or changing recurring charges requires renewed affirmative acceptance.
+- Exported/deployed products do not secretly depend on TrillionAI's paid provider credentials; default to customer-controlled accounts and portable, documented adapters.
