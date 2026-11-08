@@ -9,19 +9,37 @@ type ProjectSummary = {
   id: number;
   title: string | null;
   status: string | null;
-  techStack?: string | null;
 };
 
 const LAUNCH_STEPS = [
-  { name: "Review your product", detail: "Open your project, check its features and confirm the build is complete." },
-  { name: "Choose where it runs", detail: "Compare hosting or app-store choices for the technology your product uses. Any external account and charge is your decision." },
-  { name: "Prepare your accounts", detail: "Set up required domain, hosting, store or API accounts in your own name. Keep passwords and secret keys private." },
-  { name: "Deploy and verify", detail: "Follow the deployment process available for your project, then verify the live address and essential features. A finished build is not automatically live." },
-  { name: "Maintain your product", detail: "Plan backups, renewals, updates, security fixes and usage monitoring. Ask for help whenever you need it." },
+  {
+    name: "Review your product",
+    detail: "Open your project and confirm the build is complete.",
+  },
+  {
+    name: "Choose where it runs",
+    detail:
+      "Compare hosting and app-store options. External accounts and fees are your choice.",
+  },
+  {
+    name: "Prepare your accounts",
+    detail:
+      "Set up your hosting, domain and other required accounts. Keep passwords and keys private.",
+  },
+  {
+    name: "Deploy and verify",
+    detail:
+      "Follow your project's deployment instructions. Check the live address and main features.",
+  },
+  {
+    name: "Maintain your product",
+    detail:
+      "Plan backups, renewals, security updates and usage monitoring. Ask for help when needed.",
+  },
 ] as const;
 
 export function Aftercare() {
-  const [expanded, setExpanded] = useState<number>(0);
+  const [expanded, setExpanded] = useState(0);
   const projects = useQuery({
     queryKey: ["projects", "list"],
     queryFn: () => trpc.projects.list.query(),
@@ -32,37 +50,72 @@ export function Aftercare() {
     <main className="bg-forge-mesh min-h-screen">
       <div className="forge-container forge-section space-y-7">
         <header className="max-w-3xl">
-          <p className="text-sm font-semibold text-forge-cyan">APPFORGE AFTERCARE</p>
-          <h1 className="forge-h1 mt-2">Your product. Your launch. We're here to help.</h1>
-          <p className="forge-body mt-3">Find your build, understand the steps to launch and get help without signing up for another service.</p>
+          <p className="text-sm font-semibold text-forge-cyan">
+            APPFORGE AFTERCARE
+          </p>
+          <h1 className="forge-h1 mt-2">
+            Your product. Your launch. We're here to help.
+          </h1>
+          <p className="forge-body mt-3">
+            Find your build, prepare to launch, and get help after delivery.
+          </p>
         </header>
+
         <GlassCard hover={false}>
           <h2 className="forge-h3 mb-3">Your products</h2>
           {projects.isLoading && <p role="status">Loading your projects…</p>}
-          {projects.isError && <p role="alert">We couldn't load your projects. Try refreshing or contact support.</p>}
+          {projects.isError && (
+            <p role="alert">
+              We couldn't load your projects. Try again or contact support.
+            </p>
+          )}
           {projects.data?.length === 0 && (
-            <p className="text-forge-text-muted">No projects yet. <Link className="text-forge-cyan underline" to="/app/new">Create your first product</Link>.</p>
+            <p className="text-forge-text-muted">
+              No projects yet.{" "}
+              <Link className="text-forge-cyan underline" to="/app/new">
+                Create your first product
+              </Link>
+              .
+            </p>
           )}
           <ul className="space-y-3">
             {projects.data?.map((project: ProjectSummary) => {
               const ready = isProjectArtifactReady(project.status);
               return (
-                <li key={project.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-forge-border p-3">
+                <li
+                  key={project.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-forge-border p-3"
+                >
                   <div>
-                    <h3 className="font-semibold">{project.title || `Project #${project.id}`}</h3>
+                    <h3 className="font-semibold">
+                      {project.title || `Project #${project.id}`}
+                    </h3>
                     <p className="text-sm text-forge-text-muted">
-                      {ready ? "Build artifact available — deployment not verified here" : `Build status: ${project.status || "unknown"}`}
+                      {ready
+                        ? "Build available — launch not verified here"
+                        : `Build status: ${project.status || "unknown"}`}
                     </p>
                   </div>
-                  <Link className="forge-ghost-btn inline-flex h-11 items-center px-4 text-sm" to={`/build/${project.id}`}>Open project</Link>
+                  <Link
+                    className="forge-ghost-btn inline-flex h-11 items-center px-4 text-sm"
+                    to={`/build/${project.id}`}
+                  >
+                    Open project
+                  </Link>
                 </li>
               );
             })}
           </ul>
         </GlassCard>
+
         <section aria-labelledby="launch-heading" className="space-y-3">
-          <h2 id="launch-heading" className="forge-h2">How to get your product live</h2>
-          <p className="text-sm text-forge-text-muted">These steps explain the process. They do not deploy anything or make purchases on your behalf.</p>
+          <h2 id="launch-heading" className="forge-h2">
+            How to get your product live
+          </h2>
+          <p className="text-sm text-forge-text-muted">
+            These steps explain the process. Nothing is deployed or purchased
+            from this page.
+          </p>
           {LAUNCH_STEPS.map((step, index) => (
             <GlassCard hover={false} key={step.name}>
               <button
@@ -72,22 +125,51 @@ export function Aftercare() {
                 aria-controls={`launch-step-${index}`}
                 onClick={() => setExpanded(expanded === index ? -1 : index)}
               >
-                <span className="font-semibold">{index + 1}. {step.name}</span>
-                <span aria-hidden="true">{expanded === index ? "−" : "+"}</span>
+                <span className="font-semibold">
+                  {index + 1}. {step.name}
+                </span>
+                <span aria-hidden="true">
+                  {expanded === index ? "−" : "+"}
+                </span>
               </button>
-              {expanded === index && <p id={`launch-step-${index}`} className="mt-3 text-sm text-forge-text-muted">{step.detail}</p>}
+              {expanded === index && (
+                <p
+                  id={`launch-step-${index}`}
+                  className="mt-3 text-sm text-forge-text-muted"
+                >
+                  {step.detail}
+                </p>
+              )}
             </GlassCard>
           ))}
         </section>
+
         <GlassCard hover={false}>
-          <h2 className="forge-h3 mb-2">Before choosing a hosting or deployment service</h2>
-          <p className="text-sm text-forge-text-muted mb-3">Ask the provider about setup charges, monthly costs, traffic limits, database/storage fees, backups and what happens if you cancel. App-store developer accounts and paid APIs can have separate charges.</p>
-          <p className="text-sm font-semibold">No hosting plan or paid aftercare add-on is selected here.</p>
+          <h2 className="forge-h3 mb-2">
+            Check your costs before you launch
+          </h2>
+          <p className="text-sm text-forge-text-muted mb-3">
+            Hosting, domains, app-store accounts, databases and paid APIs may
+            charge separately. Compare their prices, limits and cancellation
+            terms before agreeing.
+          </p>
+          <p className="text-sm font-semibold">
+            No paid hosting or aftercare plan is selected here.
+          </p>
         </GlassCard>
+
         <GlassCard hover={false}>
           <h2 className="forge-h3 mb-2">Need help after the build?</h2>
-          <p className="text-sm text-forge-text-muted mb-4">Our support centre lets signed-in customers open and track cases about builds, deployment, billing or account access. Please never send passwords or API keys.</p>
-          <Link className="forge-btn inline-flex min-h-11 items-center px-5" to="/help">Open support centre</Link>
+          <p className="text-sm text-forge-text-muted mb-4">
+            Open and track support cases about your build, deployment, billing
+            or account. Never share passwords or API keys.
+          </p>
+          <Link
+            className="forge-ghost-btn inline-flex min-h-11 items-center px-5"
+            to="/help"
+          >
+            Open support centre
+          </Link>
         </GlassCard>
       </div>
     </main>
