@@ -36,6 +36,20 @@ await writeFile(
   "import 'package:integration_test/integration_test_driver.dart';\\n\\nFuture<void> main() => integrationDriver();\\n".replaceAll("\\\\n", "\\n"),
 );
 
+// Always supply a real Dart integration-test driver. The pinned Flutter SDK
+// can otherwise materialize a driver containing literal escaped newlines,
+// which fails Dart compilation before any device/backend interaction runs.
+await mkdir(join(destination, "test_driver"), { recursive: true });
+await writeFile(
+  join(destination, "test_driver/integration_test.dart"),
+  [
+    "import 'package:integration_test/integration_test_driver.dart';",
+    "",
+    "Future<void> main() => integrationDriver();",
+    "",
+  ].join("\n"),
+);
+
 await writeFile(
   join(destination, "QUALIFICATION_SCOPE.txt"),
   "Trusted scaffold shell only. Original lib/main.dart and API client preserved. Test UI is an explicit harness, not generated business behavior or golden app.\n",
