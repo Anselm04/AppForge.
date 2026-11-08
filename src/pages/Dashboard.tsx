@@ -253,7 +253,10 @@ export function Dashboard() {
           />
         )}
 
-        <GlassCard hover={false} className="flex flex-wrap items-center justify-between gap-4">
+        <GlassCard
+          hover={false}
+          className="flex flex-wrap items-center justify-between gap-4"
+        >
           <div>
             <h2 className="forge-h3">Launch &amp; Aftercare</h2>
             <p className="text-sm text-forge-text-muted mt-1">
