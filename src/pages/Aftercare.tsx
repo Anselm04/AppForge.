@@ -38,6 +38,7 @@ const LAUNCH_STEPS = [
   },
 ] as const;
 
+// prettier-ignore
 export function Aftercare() {
   const [expanded, setExpanded] = useState(0);
   const projects = useQuery({
