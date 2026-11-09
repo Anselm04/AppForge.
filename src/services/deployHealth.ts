@@ -184,11 +184,14 @@ export async function probeDeployedStaticAsset(
       headers: { "User-Agent": "AppForge-Deploy-Asset-Verification/1.0" },
       signal: AbortSignal.timeout(10_000),
     });
-    const contentType = response.headers.get("content-type") ?? "";
-    const isCss = /\\.css(?:$|[?#])/i.test(url);
+    const contentType = (response.headers.get("content-type") ?? "")
+      .split(";")[0]
+      ?.trim()
+      .toLowerCase() ?? "";
+    const isCss = new URL(url).pathname.toLowerCase().endsWith(".css");
     const correctMime = isCss
-      ? /^text\\/css(?:\\s*;|\\s*$)/i.test(contentType)
-      : /(?:javascript|ecmascript)/i.test(contentType);
+      ? contentType === "text/css"
+      : contentType.includes("javascript") || contentType.includes("ecmascript");
     const hasContentLength = response.headers.get("content-length") !== "0";
     if (!response.ok || !correctMime || !hasContentLength) {
       return {
