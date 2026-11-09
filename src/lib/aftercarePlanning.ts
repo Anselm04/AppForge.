@@ -1,5 +1,6 @@
 import { getStackAdapter } from "./stackAdapters.js";
 
+// prettier-ignore
 export type CustomerServiceCost = {
   service: string;
   provider: string;
@@ -9,6 +10,7 @@ export type CustomerServiceCost = {
   notes: string;
 };
 
+// prettier-ignore
 export type DeploymentChoice = {
   destination: string;
   label: string;
@@ -18,6 +20,7 @@ export type DeploymentChoice = {
   priceNotice: string;
 };
 
+// prettier-ignore
 const DEPLOY_LABELS: Record<string, string> = {
   vercel: "Vercel",
   netlify: "Netlify",
@@ -28,6 +31,7 @@ const DEPLOY_LABELS: Record<string, string> = {
   "expo-eas": "Expo",
 };
 
+// prettier-ignore
 export function compareDeploymentChoices(
   stack: string | null | undefined,
 ): DeploymentChoice[] {
@@ -57,6 +61,7 @@ export function compareDeploymentChoices(
     }));
 }
 
+// prettier-ignore
 export function summariseOngoingCosts(costs: CustomerServiceCost[]) {
   const knownMonthlyUsdCents = costs.reduce(
     (sum, cost) => sum + (cost.monthlyUsdCents ?? 0),
@@ -74,6 +79,7 @@ export function summariseOngoingCosts(costs: CustomerServiceCost[]) {
   };
 }
 
+// prettier-ignore
 export function aftercareGuidance(
   question: string,
   input: {
