@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+// prettier-ignore
 const state = vi.hoisted(() => ({
   operation: vi.fn(async (
     _options: unknown,
