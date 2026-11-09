@@ -9,7 +9,7 @@ import {
   type ProviderCreditPackCents,
 } from "../lib/providerCreditPolicy.js";
 import { assertEligibleForCreditTopUp } from "./appForgeCreditEligibility.js";
-import { assertCommercialCheckoutReleased } from "./appForgeCommercialCheckoutGate.js";
+import { assertCommercialCheckoutReady } from "./appForgeCommercialCheckoutGate.js";
 import { getAppForgeStripe } from "./appForgeStripe.js";
 import { assertAppForgePrice } from "./appForgePricePolicy.js";
 
@@ -149,7 +149,7 @@ export async function createProviderCreditCheckout(
   user: { id: number; email?: string | null },
   packValue: number,
 ): Promise<{ url: string }> {
-  assertCommercialCheckoutReleased();
+  await assertCommercialCheckoutReady();
   if (!safeId(user.id)) throw new Error("Valid customer is required");
   const pack = providerCreditPack(packValue);
   const subscription = await getSubscriptionByUserId(user.id);
