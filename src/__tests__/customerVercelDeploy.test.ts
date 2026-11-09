@@ -112,4 +112,26 @@ describe("customer-authorized Vercel deployment", () => {
       ),
     ).rejects.toThrow("Vercel file upload failed (HTTP 403)");
   });
+
+  it("rejects a provider response with an untrusted deployment hostname", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response({}))
+      .mockResolvedValueOnce(
+        response({
+          id: "dpl_ABC123",
+          url: "customer-app.vercel.app.evil.example",
+        }),
+      );
+    await expect(
+      deployToCustomerVercel(
+        {
+          token: "customer-token",
+          projectName: "test-app",
+          files: { "index.html": "real application source" },
+        },
+        fetcher,
+      ),
+    ).rejects.toThrow("invalid deployment identity");
+  });
 });
