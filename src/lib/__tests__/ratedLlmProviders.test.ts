@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { selectRatedLlmProviders } from "../lib/ratedLlmProviders.js";
-import type { LlmProvider } from "../lib/llmProviders.js";
-import type { TrustedRate } from "../lib/providerCostEnvelope.js";
+import { selectRatedLlmProviders } from "../ratedLlmProviders.js";
+import type { LlmProvider } from "../llmProviders.js";
+import type { TrustedRate } from "../providerCostEnvelope.js";
 
 const provider = (id: LlmProvider["id"], model: string): LlmProvider => ({
   id,
