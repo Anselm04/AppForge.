@@ -1049,3 +1049,12 @@ The previous unconditional production-only build and checkout rejection has been
 - Actual preview/host deployment paths retain the existing status, immutable validated artifact, working-versus-artifact equality, stack compatibility and production completeness requirements. Source backup is not a release certificate.
 - Recovery verification: save an edit after last validated snapshot, request a ZIP through `projects.deploy` and inspect its saved content; check empty/credential-bearing cases and foreign-owner denial. Verify a real deployment still refuses unvalidated changes.
 - Rollback: revert the deploy ZIP early-return and its tests. This restores the previous validated-only export contract without touching customer saved files, validated snapshots, billing or deployment history.
+
+
+## Customer-owned Vercel deployment recovery — 2026-11-09
+
+- The `projects.deploy` Vercel branch accepts an explicitly supplied customer Vercel access token (and optional customer team ID) for that single request. AppForge platform credentials are not a fallback. This feature does not create or store a provider token, save a customer credential to project data, or use customer source to deploy to an AppForge-owned account.
+- Deployments require the existing validated artifact, matching saved working files, canonical technology-stack support, product completeness and must-have requirement checks. The Vercel REST file-upload and deployment API is used for the customer's project; provider acceptance alone is not success: the deployment must reach READY and pass the existing live smoke verification before project evidence can report a completed deployment.
+- A failed upload, provider build error, timeout or failed smoke test records failure evidence and does not mark production deployment successful. Provider error bodies and authorization headers are never included in thrown errors or evidence. The customer must handle their own Vercel team quota/usage charges.
+- Recovery verification without provider charges: use mocked Vercel API responses to assert authenticated token use, per-file hashes, exact target, required READY status, failure handling and omission of customer credentials from request bodies. Separately verify router tenant ownership and validated-artifact gates.
+- Rollback: revert the customer Vercel adapter, the optional Vercel authorization input and its tests. Other export, preview and deployment providers are unchanged. Existing Vercel deployments remain owned and managed in the customer's account.
