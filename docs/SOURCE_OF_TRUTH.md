@@ -22,13 +22,21 @@ This file records which repository artifacts are authoritative so future fixes s
 | AI provider readiness | `src/lib/llmProviderConfig.ts`; provider construction in `src/lib/llmProviders.ts` | `.env.example`, `.env.schema.json` | multi-provider environment tests |
 | App database schema | `src/db/schema.ts` plus immutable `APPFORGE_SCHEMA_MIGRATIONS` in `src/db/ensureSchema.ts` | `appforge_schema_migrations` ledger; `drizzle/` historical/diff material | migration checksum/invariant tests, recovery governance, `src/db/README.md` |
 | Supabase preview migrations | `supabase/migrations/*` only for Supabase preview/optional hosted SQL | — | `supabase/migrations/README.md` explicitly separates this from AppForge app schema |
-| Stripe checkout products | `src/services/stripeCheckout.ts` + configured Stripe price IDs | pricing UI labels, subscription router | billing/customer-flow tests |
+| Owner-approved USD prices and recurring add-on | `src/services/appForgePricePolicy.ts` and verified Stripe Price objects; checkout `src/services/stripeCheckout.ts`; webhook fulfillment `src/webhooks/stripe.ts` | `src/pages/Pricing.tsx`, landing prices, billing portal and historic env aliases | pricing, webhook, invoice-credit, customer-flow and recovery tests |
 | Credits charged by AppForge | `src/lib/credits.ts` | pricing UI and pipeline messages | credit tests |
 | Integration/plugin registry | `src/integrations/catalog.ts` | `health.ts`, `runtime.ts`, PluginWorkspace | integration catalog coverage tests |
 | Production integration behavior | `src/integrations/runtime.ts`, `src/integrations/health.ts` | catalog metadata | integration runtime/health tests |
 | Deployment runtime | `fly.toml`, production deploy services/workflows | deployment docs | Fly capacity/deploy/recovery workflows |
 | MCP server contract | `src/routes/mcp.ts` | integration catalog entry | MCP interoperability tests |
 | Project snapshot currently active | database transaction paths in `src/db.ts` | projects router rollback endpoint | `snapshotSourceOfTruth.test.ts` |
+
+## Current instructions versus dated evidence
+
+The owner has instructed continuous development toward a fully working AppForge. Historical files such as `docs/APPFORGE_NO_SPEND_RELEASE_HANDOFF.md`, dated launch audits, old proposal documents and archived plans are **historical evidence**, not executable stop-work instructions. Their past-tense statements about frozen builds, disabled checkout, draft PRs, and obsolete prices do not override current product decisions or current tested source.
+
+Every defect must be followed through to verified engineering closure. Keep scoped protections that prevent fraud, surprise charges, exposure of secrets, unbounded provider costs and loss of customer data. A failing gate identifies missing implementation/evidence; it does **not** justify pausing all engineering. Conversely, a documentation change alone never proves a production feature works.
+
+The current approved monthly USD prices are Starter $79, Builder $199, Studio $499 and Enterprise from $2,499 (sales-led), with optional $19 Aftercare Plus; do not reintroduce obsolete $49/$149/$399 as new-purchase amounts. Validate every live transaction against the approved Stripe Price object and respect existing contracted subscriptions.
 
 ## Important generated-file rule
 

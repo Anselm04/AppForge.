@@ -1,3 +1,5 @@
+> **ARCHIVED HANDOFF — NOT AN ACTIVE ENGINEERING INSTRUCTION (9 November 2026).** This document captures the state and constraints reported on 6 November. Do **not** follow its historical “keep paused”, “do not merge”, old price or draft-PR wording as a current order. Work must continue toward real and verified customer operation. The approved plan prices and optional aftercare are recorded in `docs/PRICING_OWNER_APPROVED_USD.md`, with current runtime authorities in `docs/SOURCE_OF_TRUTH.md`. Do not disable safeguards against unapproved charges, unbounded external API spending, credential exposure or customer data loss; engineer the working bounded paths instead. Historical statements below are retained for forensic context, **not current status**.
+
 # AppForge no-spend development handoff — 2026-11-06
 
 ## Approved customer subscription pricing (USD)

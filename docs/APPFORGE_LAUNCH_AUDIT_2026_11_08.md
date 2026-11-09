@@ -1,3 +1,5 @@
+> **POINT-IN-TIME AUDIT (8 November 2026).** The issue states below are dated evidence, **not instructions to stop current engineering, block merges or reinstate historical prices**. Some findings have since changed (the README, owner-approved Stripe price catalogue, customer aftercare and source documentation were updated). Always re-check the current `main` branch and executed tests before reporting a finding as open or closed. Continue implementing repairs while respecting customer billing, consent, privacy and spending controls.
+
 # AppForge launch audit — confirmed source findings (2026-11-08)
 
 ## Scope and evidence standard
