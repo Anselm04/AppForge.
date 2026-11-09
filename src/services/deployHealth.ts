@@ -95,7 +95,9 @@ export type HealthCheckResult = {
 };
 
 export function isSuccessfulDeployStatus(status: number): boolean {
-  return status >= 200 && status < 400;
+  // Redirects, including SSO and deployment-protection redirects, do not
+  // demonstrate that the generated product is reachable.
+  return status >= 200 && status < 300;
 }
 
 export async function probeDeployUrl(
@@ -109,6 +111,7 @@ export async function probeDeployUrl(
   try {
     const res = await fetch(url, {
       method: "GET",
+      redirect: "manual",
       signal: controller.signal,
       headers: { "User-Agent": "AppForge-Deploy-Health/1.0" },
     });
