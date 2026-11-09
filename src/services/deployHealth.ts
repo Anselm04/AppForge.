@@ -168,6 +168,72 @@ export type AssetProbeResult = {
   result: HealthCheckResult;
 };
 
+/**
+ * A 200 response is not enough for a generated JS/CSS bundle: SPA routers
+ * commonly return index.html with HTTP 200 for missing assets. Require the
+ * actual asset MIME type and a non-empty response body.
+ */
+export async function probeDeployedStaticAsset(
+  url: string,
+): Promise<HealthCheckResult> {
+  const start = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "manual",
+      headers: { "User-Agent": "AppForge-Deploy-Asset-Verification/1.0" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const contentTypeHeader = response.headers.get("content-type") ?? "";
+    const contentType =
+      contentTypeHeader.split(";")[0]?.trim().toLowerCase() ?? "";
+    const isCss = new URL(url).pathname.toLowerCase().endsWith(".css");
+    const scriptMimeTypes = ["javascript", "ecmascript"];
+    const isScriptMime = scriptMimeTypes.some((mime) =>
+      contentType.includes(mime),
+    );
+    const correctMime = isCss ? contentType === "text/css" : isScriptMime;
+    const hasContentLength = response.headers.get("content-length") !== "0";
+    if (!response.ok || !correctMime || !hasContentLength) {
+      return {
+        ok: false,
+        statusCode: response.status,
+        latencyMs: Date.now() - start,
+        error: !response.ok
+          ? "Asset HTTP request failed"
+          : !correctMime
+            ? "Asset MIME does not match JavaScript or CSS (possible HTML fallback)"
+            : "Empty asset body",
+      };
+    }
+
+    // Read the first chunk, not the entire customer's application bundle.
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return {
+        ok: false,
+        statusCode: response.status,
+        latencyMs: Date.now() - start,
+        error: "Asset body unavailable",
+      };
+    }
+    const firstChunk = await reader.read();
+    if (!firstChunk.done) await reader.cancel();
+    return {
+      ok: !firstChunk.done && (firstChunk.value?.byteLength ?? 0) > 0,
+      statusCode: response.status,
+      latencyMs: Date.now() - start,
+      error: firstChunk.done ? "Empty asset body" : undefined,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      error: err instanceof Error ? err.message : "Asset verification failed",
+    };
+  }
+}
+
 export async function probeGeneratedProductAssets(
   deployUrl: string,
   html: string,
@@ -176,7 +242,7 @@ export async function probeGeneratedProductAssets(
   return Promise.all(
     urls.map(async (url) => ({
       url,
-      result: await probeDeployUrl(url, 10_000, false),
+      result: await probeDeployedStaticAsset(url),
     })),
   );
 }
