@@ -24,6 +24,7 @@ const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
   "Your subscription includes a limited monthly credit allowance, not unlimited builds. If you use all included and previously purchased credits before your next monthly subscription payment, AppForge pauses credit-consuming work. To continue building before the next monthly credit refill, you must separately purchase enough top-up credits at the displayed USD price, or choose an eligible higher plan. If you do not purchase more credits, the work stays paused until new credits become available. Top-ups are never automatic, and complex builds may need additional credits even within the same billing month.";
 
+// prettier-ignore
 export function Pricing() {
   const navigate = useNavigate();
   const { t } = useLocale();
