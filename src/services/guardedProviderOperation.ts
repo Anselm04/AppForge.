@@ -36,7 +36,7 @@ export async function runReservedProviderOperation<T>(
     operationId: ProviderReservationInput["operationId"];
     envelope: CostEnvelope;
   },
-  invoke: () => Promise<{ value: T; verifiedCents: number }>,
+  invoke: () => Promise<{ value: T; verifiedCents: number | null }>,
 ): Promise<T> {
   // No independent blanket stop: every operation must prove an active lease,
   // independently reviewed rates and an atomic spending reservation.
@@ -71,10 +71,14 @@ export async function runReservedProviderOperation<T>(
   }
   // An error or uncertain charge must leave the reservation in place.
   const result = await invoke();
-  await settleProviderSpend(
-    lease.userId,
-    options.operationId,
-    result.verifiedCents,
-  );
+  // An HTTP failure or uncertain charge must retain its reservation; each
+  // subsequent retry has its own separately reserved operation ID.
+  if (result.verifiedCents !== null) {
+    await settleProviderSpend(
+      lease.userId,
+      options.operationId,
+      result.verifiedCents,
+    );
+  }
   return result.value;
 }
