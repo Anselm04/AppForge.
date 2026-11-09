@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   previewSignature,
@@ -20,9 +21,12 @@ describe("signed preview authorization", () => {
     vi.stubEnv("NODE_ENV", "development");
     const sig = previewSignature(42);
     expect(sig).toMatch(/^[0-9a-f]{32}$/);
-    expect(sig).not.toBe(
-      "e1f8d9e61ed55eb120165beebc39b8a9",
-    );
+    const publiclyKnownLegacySignature = createHmac("sha256", "appforge-preview-dev")
+      .update("preview:42")
+      .digest("hex")
+      .slice(0, 32);
+    expect(sig).not.toBe(publiclyKnownLegacySignature);
+    expect(verifyPreviewSignature(42, publiclyKnownLegacySignature)).toBe(false);
     expect(verifyPreviewSignature(42, sig)).toBe(true);
     expect(verifyPreviewSignature(43, sig)).toBe(false);
   });
