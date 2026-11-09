@@ -86,6 +86,7 @@ export const subscriptions = pgTable("subscriptions", {
   }).unique(),
   status: varchar("status", { length: 50 }), // 'active', 'canceled', 'past_due', 'trialing', etc
   tier: varchar("tier", { length: 50 }).default("free"), // 'free', 'starter', 'builder', 'studio', 'enterprise', 'custom'
+  aftercarePlus: boolean("aftercare_plus").default(false).notNull(),
   trialEnd: timestamp("trial_end"), // when the 7-day (or N-day) free trial ends
   currentPeriodStart: timestamp("current_period_start"),
   currentPeriodEnd: timestamp("current_period_end"),
