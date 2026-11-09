@@ -4,6 +4,9 @@ import { assertEligibleForCreditTopUp } from "./appForgeCreditEligibility.js";
 import { assertCommercialCheckoutReleased } from "./appForgeCommercialCheckoutGate.js";
 import {
   assertAppForgePrice,
+  APPROVED_MONTHLY_PRICE_IDS,
+  AFTERCARE_PLUS_PRICE_ID,
+  AFTERCARE_PLUS_USD_CENTS,
   MONTHLY_PLAN_USD_CENTS,
   TOPUP_USD_CENTS,
 } from "./appForgePricePolicy.js";
@@ -19,18 +22,9 @@ const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
   "incomplete_expired",
 ]);
 
-const PLAN_PRICE_IDS: Record<SelfServePlanTier, string> = {
-  starter:
-    process.env.STRIPE_STARTER_PRICE_ID ||
-    process.env.STRIPE_PRICE_STARTER ||
-    "",
-  builder:
-    process.env.STRIPE_BUILDER_PRICE_ID ||
-    process.env.STRIPE_PRICE_BUILDER ||
-    "",
-  studio:
-    process.env.STRIPE_STUDIO_PRICE_ID || process.env.STRIPE_PRICE_STUDIO || "",
-};
+// Only the owner-approved live catalogue can create new plan subscriptions.
+// Historical env IDs are handled by webhook compatibility, never checkout.
+const PLAN_PRICE_IDS: Record<SelfServePlanTier, string> = APPROVED_MONTHLY_PRICE_IDS;
 
 const CREDIT_PRICE_IDS: Record<CreditPack, string> = {
   50: process.env.STRIPE_CREDITS_50_PRICE_ID || "",
@@ -162,6 +156,7 @@ function assertCanCreateSubscription(
 export async function createPlanCheckout(
   user: CheckoutUser,
   tier: SelfServePlanTier,
+  aftercarePlus = false,
 ) {
   assertCommercialCheckoutReleased();
   const stripe = await getStripe();
@@ -170,9 +165,20 @@ export async function createPlanCheckout(
   assertCanCreateSubscription(sub);
   const priceId = await resolvePlanCheckoutPrice(stripe, tier);
 
+  const lineItems = [{ price: priceId, quantity: 1 }];
+  if (aftercarePlus) {
+    const aftercarePrice = await stripe.prices.retrieve(AFTERCARE_PLUS_PRICE_ID);
+    assertAppForgePrice(
+      aftercarePrice,
+      AFTERCARE_PLUS_USD_CENTS,
+      "recurring",
+      process.env.NODE_ENV === "production",
+    );
+    lineItems.push({ price: AFTERCARE_PLUS_PRICE_ID, quantity: 1 });
+  }
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: lineItems,
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
@@ -186,6 +192,7 @@ export async function createPlanCheckout(
       plan: tier,
       tier,
       credits: "0",
+      aftercarePlus: aftercarePlus ? "true" : "false",
     },
     subscription_data: {
       metadata: {
@@ -193,6 +200,7 @@ export async function createPlanCheckout(
         userId: String(user.id),
         plan: tier,
         tier,
+        aftercarePlus: aftercarePlus ? "true" : "false",
       },
     },
   });
