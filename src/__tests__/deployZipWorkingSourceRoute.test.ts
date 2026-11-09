@@ -16,11 +16,15 @@ const zipBranch = deploy.slice(
   deploy.indexOf('if (input.destination === "zip")'),
   deploy.indexOf("const deployableStatuses"),
 );
-const deploymentBranch = deploy.slice(deploy.indexOf("const deployableStatuses"));
+const deploymentBranch = deploy.slice(
+  deploy.indexOf("const deployableStatuses"),
+);
 
 describe("projects.deploy ZIP source backup", () => {
   it("requires project ownership before exporting any working source", () => {
-    expect(deploy.indexOf("project.userId !== ctx.user.id")).toBeGreaterThan(-1);
+    expect(deploy.indexOf("project.userId !== ctx.user.id")).toBeGreaterThan(
+      -1,
+    );
     expect(deploy.indexOf("project.userId !== ctx.user.id")).toBeLessThan(
       deploy.indexOf('if (input.destination === "zip")'),
     );
