@@ -972,16 +972,24 @@ export const projectsRouter = router({
           )
           .where(eq(schema.projects.id, input.id));
 
-        const { recordDeploy } = await import("../db/buildStats.js");
-        await recordDeploy(ctx.user.id);
+        // A preview is useful, but is not a hosted production deployment.
+        // Do not inflate real deployment totals or report a preview as live.
+        if (productionDestination) {
+          const { recordDeploy } = await import("../db/buildStats.js");
+          await recordDeploy(ctx.user.id);
+        }
         await recordProjectEvidence({
           projectId: input.id,
-          kind: "deployment",
+          kind: productionDestination ? "deployment" : "validation",
           artifactVersion: artifact.version,
           payload: {
             success: true,
             destination: result.destination,
-            liveUrl: result.url ?? null,
+            productionVerified: productionDestination && !!smoke?.ok,
+            previewOnly: input.destination === "preview",
+            liveUrl: productionDestination ? (result.url ?? null) : null,
+            previewUrl:
+              input.destination === "preview" ? (result.url ?? null) : null,
             snapshotId: artifact.snapshotId,
             artifactSha256: artifact.integrity.sha256,
             smokeTest: smoke,
@@ -1040,7 +1048,7 @@ export const projectsRouter = router({
         const message = err instanceof Error ? err.message : "Deploy failed";
         await recordProjectEvidence({
           projectId: input.id,
-          kind: "deployment",
+          kind: input.destination === "preview" ? "validation" : "deployment",
           artifactVersion: artifact.version,
           payload: {
             success: false,
