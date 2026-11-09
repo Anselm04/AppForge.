@@ -1067,3 +1067,5 @@ The previous unconditional production-only build and checkout rejection has been
 - The build UI distinguishes `Open Preview` from `View Live App` using the destination that actually returned the current URL, not the current selection in the destination dropdown.
 - Verification: invoke preview and verify no `recordDeploy` call, no live deployment evidence and clear preview labeling; execute a real provider deployment and confirm only successful live smoke checks produce production deployment metrics. Existing source, billing, provider authorization, rollback and artifact gates remain unchanged.
 - Rollback: revert the preview evidence classification, metrics conditional and UI label. The correction is metadata/metrics only and does not migrate or mutate customer source, subscriptions or hosted deployments.
+
+- A preview URL is never evidence that a customer-owned host is provisioned, billed, healthy, or production-certified; only verified hosted deployment evidence can make those claims.
