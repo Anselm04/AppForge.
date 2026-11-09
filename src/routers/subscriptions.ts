@@ -92,6 +92,7 @@ export const subscriptionsRouter = router({
       limit,
       remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
       credits: credits?.balance ?? 0,
+      aftercarePlus: !!sub?.aftercarePlus && (sub.status === "active" || sub.status === "trialing"),
     };
   }),
 
