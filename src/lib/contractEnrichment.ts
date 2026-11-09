@@ -186,10 +186,7 @@ function buildMessages(contract: ProductContract): {
 async function defaultModelCall(): Promise<EnrichmentModelCall | null> {
   // The pre-build contract already works deterministically. Do not make a
   // separately billed AI call before a project lease and budget exist.
-  if (
-    process.env.NODE_ENV === "production" &&
-    !currentBuildExecutionLease()
-  )
+  if (process.env.NODE_ENV === "production" && !currentBuildExecutionLease())
     return null;
   const { configuredLlmProviderIds, invokeLLM } =
     await import("../_core/llm.js");
