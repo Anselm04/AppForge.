@@ -16,14 +16,14 @@ const tiers: {
   {
     plan: "starter",
     name: "Starter",
-    price: "$49",
+    price: "$79",
     credits: "100 compute credits / 16 builds per month",
     description: "Turn ideas into structured app plans and save projects.",
   },
   {
     plan: "builder",
     name: "Builder",
-    price: "$149",
+    price: "$199",
     credits: "400 compute credits / 66 builds per month",
     description:
       "For full build workflows, repositories, and deployments as they launch.",
@@ -31,7 +31,7 @@ const tiers: {
   {
     plan: "studio",
     name: "Studio",
-    price: "$399",
+    price: "$499",
     credits: "1,500 compute credits / unlimited builds per month",
     description:
       "Priority builds and advanced delivery workflow for serious makers.",
@@ -43,7 +43,7 @@ export function Pricing({ signedIn, busy, onChoose }: Props) {
     <section>
       <h2>Choose your AppForge plan</h2>
       <p>
-        Starter $49, Builder $149, Studio $399 / month. Paid access begins after
+        Starter $79, Builder $199, Studio $499 / month. Paid access begins after
         checkout succeeds.
       </p>
       <div
