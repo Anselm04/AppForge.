@@ -801,6 +801,27 @@ CREATE INDEX IF NOT EXISTS "provider_credit_topups_user_period_idx"
   ON "provider_credit_topups" ("user_id", "period_start", "status");
 `;
 
+export const CUSTOMER_AFTERCARE_SQL = `
+CREATE TABLE IF NOT EXISTS customer_aftercare_services (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  service_key VARCHAR(90) NOT NULL,
+  provider VARCHAR(120) NOT NULL,
+  monthly_usd_cents INTEGER CHECK (monthly_usd_cents IS NULL OR monthly_usd_cents >= 0),
+  variable_cost BOOLEAN NOT NULL DEFAULT TRUE,
+  billed_to VARCHAR(20) NOT NULL CHECK (billed_to IN ('customer', 'trillionai')),
+  notes TEXT NOT NULL DEFAULT '',
+  accepted BOOLEAN NOT NULL DEFAULT FALSE,
+  accepted_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, project_id, service_key),
+  CHECK ((accepted AND accepted_at IS NOT NULL) OR (NOT accepted AND accepted_at IS NULL))
+);
+CREATE INDEX IF NOT EXISTS customer_aftercare_project_idx
+  ON customer_aftercare_services (user_id, project_id);
+`;
+
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
@@ -882,6 +903,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20261106_015",
     name: "provider_credit_topup_reservations",
     sql: PROVIDER_CREDIT_TOPUPS_SQL,
+  },
+  {
+    version: "20261109_016",
+    name: "customer_aftercare_services",
+    sql: CUSTOMER_AFTERCARE_SQL,
   },
 ];
 
