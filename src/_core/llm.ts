@@ -3,6 +3,7 @@ import { llmRetryWait } from "../lib/llmRetryPolicy.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
 import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
+import { dispatchCostedLlmAttempt } from "../services/llmProviderSpend.js";
 import {
   assertAnyLlmProviderConfigured,
   chatCompletionsUrl,
@@ -364,17 +365,21 @@ class RetryUsageEvidenceError extends Error {
   }
 }
 
+// prettier-ignore
 export const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
   onRetry?: () => Promise<void>,
+  attemptDispatch?: (url: string, init: FetchInit, attempt: number) => Promise<Response>,
 ): Promise<Response> => {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     if (init.signal?.aborted) throw abortError();
     try {
-      const response = await fetch(url, init);
+      const response = attemptDispatch
+        ? await attemptDispatch(url, init, attempt)
+        : await fetch(url, init);
       if (response.ok || attempt === RETRY_MAX_RETRIES) {
         return response;
       }
@@ -478,6 +483,7 @@ class ProviderUsagePersistenceError extends Error {
   }
 }
 
+// prettier-ignore
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertCustomerComputeLaunchCertified(false);
   const providers = orderProviders(
@@ -519,7 +525,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     basePayload.tool_choice = normalizedToolChoice;
   }
 
-  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  const resolvedMaxTokens = max_tokens ?? maxTokens ?? 4096;
   if (typeof resolvedMaxTokens === "number") {
     basePayload.max_tokens = resolvedMaxTokens;
   }
@@ -549,7 +555,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
-    const payload = {
+    const payload: Record<string, unknown> = {
       ...basePayload,
       model:
         (freeFallbacks.has(provider) ? "" : explicitModel) ||
@@ -583,6 +589,42 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
             model: String(payload.model),
             succeeded: false,
           });
+        },
+        async (endpoint, init) => {
+          const lease = currentBuildExecutionLease();
+          if (!lease) return fetch(endpoint, init);
+          const requestBytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
+          const maxInputTokens = requestBytes * 2;
+          const maxOutputTokens = Number(payload.max_tokens);
+          const costLimit = Number(process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS);
+          if (
+            !Number.isSafeInteger(maxInputTokens) ||
+            !Number.isSafeInteger(maxOutputTokens) ||
+            maxOutputTokens < 1 ||
+            maxOutputTokens > 32768 ||
+            !Number.isSafeInteger(costLimit) ||
+            costLimit < 1
+          ) {
+            throw new RetryUsageEvidenceError(
+              new Error("Provider per-call maximum and runtime charge ceiling must be configured"),
+            );
+          }
+          try {
+            return await dispatchCostedLlmAttempt(
+              {
+                provider: provider.id,
+                model: String(payload.model),
+                maxInputTokens,
+                maxOutputTokens,
+                externalRuntimeStorageEgressCents: costLimit,
+              },
+              () => fetch(endpoint, init),
+            );
+          } catch (error) {
+            // An attempted dispatch can be charged even on failure.
+            // Never retry it under an untracked operation.
+            throw new RetryUsageEvidenceError(error);
+          }
         },
       );
 
