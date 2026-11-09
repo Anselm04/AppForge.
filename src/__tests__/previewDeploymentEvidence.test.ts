@@ -17,7 +17,7 @@ const deploy = router.slice(
 
 describe("preview and actual deployment evidence are distinct", () => {
   it("counts only real production destinations as hosted deployments", () => {
-    expect(deploy).toContain('if (productionDestination) {');
+    expect(deploy).toContain("if (productionDestination) {");
     expect(deploy).toContain("await recordDeploy(ctx.user.id)");
     const record = deploy.indexOf("await recordDeploy(ctx.user.id)");
     const guard = deploy.lastIndexOf("if (productionDestination)", record);
