@@ -18,41 +18,41 @@ describe("customer-authorized Vercel deployment", () => {
   it(
     "uploads source bytes with SHA1, creates production deployment and waits for READY",
     async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(response({}))
-      .mockResolvedValueOnce(response(deployment))
-      .mockResolvedValueOnce(response({ readyState: "READY" }));
-    const task = deployToCustomerVercel(
-      {
-        token: "customer-test-token",
-        projectName: "customer-app",
-        files: { "index.html": "<h1>Real app</h1>" },
-      },
-      fetcher,
-    );
-    const result = await task;
-    expect(result).toEqual({
-      url: "https://customer-app-123.vercel.app",
-      deploymentId: "dpl_ABC123",
-    });
-    const [uploadUrl, uploadOptions] = fetcher.mock.calls[0];
-    expect(uploadUrl).toBe("https://api.vercel.com/v2/files");
-    const sha = createHash("sha1")
-      .update("<h1>Real app</h1>")
-      .digest("hex");
-    expect(new Headers(uploadOptions?.headers).get("x-vercel-digest")).toBe(
-      sha,
-    );
-    const [deployUrl, deployOptions] = fetcher.mock.calls[1];
-    expect(deployUrl).toBe("https://api.vercel.com/v13/deployments");
-    const body = JSON.parse(String(deployOptions?.body)) as {
-      target: string;
-      files: Array<{ sha: string }>;
-    };
-    expect(body.target).toBe("production");
-    expect(body.files[0]?.sha).toBe(sha);
-    expect(JSON.stringify(body)).not.toContain("customer-test-token");
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(response({}))
+        .mockResolvedValueOnce(response(deployment))
+        .mockResolvedValueOnce(response({ readyState: "READY" }));
+      const task = deployToCustomerVercel(
+        {
+          token: "customer-test-token",
+          projectName: "customer-app",
+          files: { "index.html": "<h1>Real app</h1>" },
+        },
+        fetcher,
+      );
+      const result = await task;
+      expect(result).toEqual({
+        url: "https://customer-app-123.vercel.app",
+        deploymentId: "dpl_ABC123",
+      });
+      const [uploadUrl, uploadOptions] = fetcher.mock.calls[0];
+      expect(uploadUrl).toBe("https://api.vercel.com/v2/files");
+      const sha = createHash("sha1")
+        .update("<h1>Real app</h1>")
+        .digest("hex");
+      expect(new Headers(uploadOptions?.headers).get("x-vercel-digest")).toBe(
+        sha,
+      );
+      const [deployUrl, deployOptions] = fetcher.mock.calls[1];
+      expect(deployUrl).toBe("https://api.vercel.com/v13/deployments");
+      const body = JSON.parse(String(deployOptions?.body)) as {
+        target: string;
+        files: Array<{ sha: string }>;
+      };
+      expect(body.target).toBe("production");
+      expect(body.files[0]?.sha).toBe(sha);
+      expect(JSON.stringify(body)).not.toContain("customer-test-token");
     },
   );
 
@@ -85,40 +85,40 @@ describe("customer-authorized Vercel deployment", () => {
   it(
     "does not mark provider acceptance or build errors as a completed deployment",
     async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(response({}))
-      .mockResolvedValueOnce(response(deployment))
-      .mockResolvedValueOnce(response({ readyState: "ERROR" }));
-    await expect(
-      deployToCustomerVercel(
-        {
-          token: "customer-token",
-          projectName: "test-app",
-          files: { "index.html": "ok" },
-        },
-        fetcher,
-      ),
-    ).rejects.toThrow("Vercel deployment failed to build");
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(response({}))
+        .mockResolvedValueOnce(response(deployment))
+        .mockResolvedValueOnce(response({ readyState: "ERROR" }));
+      await expect(
+        deployToCustomerVercel(
+          {
+            token: "customer-token",
+            projectName: "test-app",
+            files: { "index.html": "ok" },
+          },
+          fetcher,
+        ),
+      ).rejects.toThrow("Vercel deployment failed to build");
     },
   );
 
   it(
     "does not expose provider error bodies that may contain customer data",
     async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      response({ error: "sensitive data from provider" }, 403),
-    );
-    await expect(
-      deployToCustomerVercel(
-        {
-          token: "customer-token",
-          projectName: "test-app",
-          files: { "index.html": "ok" },
-        },
-        fetcher,
-      ),
-    ).rejects.toThrow("Vercel file upload failed (HTTP 403)");
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(
+        response({ error: "sensitive data from provider" }, 403),
+      );
+      await expect(
+        deployToCustomerVercel(
+          {
+            token: "customer-token",
+            projectName: "test-app",
+            files: { "index.html": "ok" },
+          },
+          fetcher,
+        ),
+      ).rejects.toThrow("Vercel file upload failed (HTTP 403)");
     },
   );
 });
