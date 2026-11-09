@@ -85,7 +85,7 @@ describe("production evidence must correspond to real functioning billing", () =
     );
     expect(deploy).toContain("billingConnection,");
     expect(deploy).toContain(
-      "productionDestination && readiness.stripeDetected",
+      "productionDestination && result.url && readiness.stripeDetected",
     );
   });
 });
