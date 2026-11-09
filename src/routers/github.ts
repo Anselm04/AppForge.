@@ -1,16 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-// prettier-ignore
-import {
-  getGithubConnection,
-  getProjectById,
-  getEditableProjectFiles,
-} from "../db.js";
-// prettier-ignore
-import {
-  isSafeTemplatePath,
-  isSafeTemplateContent,
-} from "./templateFactory.js";
+import { getGithubConnection, getProjectById } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
@@ -176,6 +166,9 @@ export const githubRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
 
       // Export current saved working source, including changes after validation.
+      const { getEditableProjectFiles } = await import("../db.js");
+      const { isSafeTemplatePath, isSafeTemplateContent } =
+        await import("./templateFactory.js");
       const files = await getEditableProjectFiles(input.projectId);
       if (
         Object.entries(files).some(
