@@ -43,6 +43,7 @@ type ProviderOutcome =
  * An unquoted provider is skipped in favour of free public research, not
  * silently billed against TrillionAI. Unknown charges retain their hold.
  */
+// prettier-ignore
 async function runPricedSearchAttempt(
   provider: WebSearchProvider,
   query: string,
