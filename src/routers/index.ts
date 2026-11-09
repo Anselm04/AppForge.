@@ -16,6 +16,7 @@ import {
 } from "../services/accountPhoneVerification.js";
 import { accountRouter } from "./account.js";
 import { operationsRouter } from "./operations.js";
+import { aftercareRouter } from "./aftercare.js";
 import { projectsRouter } from "./projects.js";
 import { subscriptionsRouter } from "./subscriptions.js";
 import { githubRouter } from "./github.js";
@@ -123,6 +124,7 @@ export const appRouter = router({
   }),
   account: accountRouter,
   operations: operationsRouter,
+  aftercare: aftercareRouter,
   projects: projectsRouter,
   subscriptions: subscriptionsRouter,
   github: githubRouter,
