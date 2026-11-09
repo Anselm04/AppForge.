@@ -42,9 +42,7 @@ describe("preview and actual deployment evidence are distinct", () => {
   });
 
   it("shows the customer an explicit preview label", () => {
-    expect(buildPage).toContain(
-      'lastDeployDestination === "preview"',
-    );
+    expect(buildPage).toContain('lastDeployDestination === "preview"');
     expect(buildPage).toContain('"Open Preview"');
   });
 });
