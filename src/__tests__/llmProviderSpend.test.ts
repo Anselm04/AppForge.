@@ -79,18 +79,31 @@ describe("real LLM attempt monetary reservations", () => {
   });
 
   it("leaves uncertain provider charges unresolved without reporting success", async () => {
-    await expect(
-      dispatchCostedLlmAttempt(
-        input(),
-        async () => new Response("unavailable", { status: 503 }),
-      ),
-    ).rejects.toThrow(/awaits reconciliation/);
+    const unsuccessful = await dispatchCostedLlmAttempt(
+      input(),
+      async () => new Response("unavailable", { status: 503 }),
+    );
+    expect(unsuccessful.status).toBe(503);
+    expect(state.operation).toHaveBeenCalledOnce();
+    // The core guard retains this reservation when verifiedCents is null.
     await expect(
       dispatchCostedLlmAttempt(
         input(),
         async () => new Response(JSON.stringify({}), { status: 200 }),
       ),
     ).rejects.toThrow(/usage missing/);
+  });
+
+  it("keeps non-success HTTP attempts reserved for a separately authorised retry", async () => {
+    const response = await dispatchCostedLlmAttempt(
+      input(),
+      async () => new Response("rate limited", { status: 429 }),
+    );
+    expect(response.status).toBe(429);
+    expect(state.operation).toHaveBeenCalledOnce();
+    const [, execute] = state.operation.mock.calls[0];
+    const outcome = await execute();
+    expect(outcome.verifiedCents).toBeNull();
   });
 
   it("does not accept a missing runtime cost ceiling", async () => {
