@@ -215,9 +215,8 @@ export function Pricing() {
         </div>
         {PRICING_PROPOSAL_MODE && (
           <p className="text-center text-sm text-forge-text-muted mb-4">
-            PROPOSED USD PRICES — FOR OWNER REVIEW ONLY. Subscription checkout
-            is disabled until billing, cost limits and Stripe prices are
-            approved.
+            OWNER-APPROVED USD PRICES. Checkout is not accepting payments until
+            the complete customer-build and billing delivery checks are verified.
           </p>
         )}
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
