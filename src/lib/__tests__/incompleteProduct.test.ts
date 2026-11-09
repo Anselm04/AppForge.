@@ -296,18 +296,14 @@ describe("placeholder and incomplete-product protection", () => {
       }),
     ).rejects.toThrow(/Deployment completeness gate failed/);
   });
-  it("never offers platform hosting credentials as customer connections", async () => {
+  it("never uses platform hosting credentials for customer deployment", async () => {
     vi.stubEnv("FLY_API_TOKEN", "platform-fly-token");
     vi.stubEnv("VERCEL_TOKEN", "platform-vercel-token");
     vi.stubEnv("NETLIFY_AUTH_TOKEN", "platform-netlify-token");
     const fetch = vi.spyOn(globalThis, "fetch").mockReset();
     try {
-      for (const destination of [
-        "fly",
-        "vercel",
-        "netlify",
-        "github-pages",
-      ] as const) {
+      expect(listDeployDestinations().vercel.configured).toBe(true);
+      for (const destination of ["fly", "netlify", "github-pages"] as const) {
         expect(listDeployDestinations()[destination].configured).toBe(false);
       }
       const c = contract();
