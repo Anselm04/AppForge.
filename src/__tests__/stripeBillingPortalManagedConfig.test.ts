@@ -18,11 +18,12 @@ describe("managed Stripe billing portal", () => {
     expect(service).toContain("if (existing) return existing.id");
   });
 
-  it("derives allowed subscription products from configured Stripe prices", () => {
+  it("derives allowed subscription products exclusively from owner-approved Stripe prices", () => {
     expect(service).toContain("stripe.prices.retrieve(priceId)");
-    expect(service).toContain("STRIPE_STARTER_PRICE_ID");
-    expect(service).toContain("STRIPE_BUILDER_PRICE_ID");
-    expect(service).toContain("STRIPE_STUDIO_PRICE_ID");
+    expect(service).toContain("APPROVED_MONTHLY_PRICE_IDS.starter");
+    expect(service).toContain("APPROVED_MONTHLY_PRICE_IDS.builder");
+    expect(service).toContain("APPROVED_MONTHLY_PRICE_IDS.studio");
+    expect(service).toContain("assertAppForgePrice");
     expect(service).toContain('default_allowed_updates: ["price"]');
     expect(service).toContain('mode: "at_period_end"');
   });
