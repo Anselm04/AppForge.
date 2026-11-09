@@ -23,7 +23,7 @@ describe("production deployment health gate", () => {
   });
 
   it("refuses an SSO or provider protection redirect as a live application", async () => {
-    const fetcher = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: { location: "https://login.example.test/" },
