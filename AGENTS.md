@@ -1,4 +1,4 @@
-# AppForge AI Agents (Phase 4)
+# AppForge AI Agents — Engineering Guide
 
 AppForge uses a set of focused AI agents to turn natural-language prompts into a coherent build plan before code is generated and refined visually.
 
@@ -60,7 +60,7 @@ The production flow is:
 3. **AI build** — the production agent pipeline researches, plans, generates, validates, and reports evidence through the build event stream.
 4. **Templates** — Phase 2 templates can seed the plan with proven structures.
 5. **Visual Builder** — Phase 3 lets the user refine layout, content, and styling.
-6. **Deployment** — Phase 5 (deployment automation) will turn the plan into a live app.
+6. **Deployment and aftercare** — use the existing project-specific deployment machinery and authenticated aftercare workspace. Only claim a live app when verified deployment evidence exists; finish missing adapters instead of announcing mock releases.
 
 ## Extending agents
 
@@ -69,6 +69,12 @@ To add a new agent:
 1. Implement `Agent` in `src/agents/<name>Agent.ts`.
 2. Add the agent to the `agents` array in `agent-orchestrator.ts`.
 3. Optionally expose role-specific routes or UI.
+
+## Active implementation instructions
+
+Complete the functioning builder, approved billing, deployment and aftercare flow through the existing authoritative modules. Do not stop development because dated docs describe historical pauses or drafts. Correct failing checks and proceed with verified merges. Never silently replace incomplete code with fake success responses, disable user-owned export, force a third-party hosting subscription, or incur unapproved charges. Protect each customer's data, consent, funds, credentials and usage budget as a built-in operating requirement rather than a blanket ban on engineering.
+
+See [README](README.md) and [source-of-truth map](docs/SOURCE_OF_TRUTH.md).
 
 ## Safety
 
