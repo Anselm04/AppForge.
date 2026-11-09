@@ -2,7 +2,6 @@ import { logger } from "../_core/logger.js";
 import { researchFetch, ResearchAbortedError } from "./researchHttp.js";
 import { randomUUID } from "node:crypto";
 import { currentBuildExecutionLease } from "./buildExecutionLease.js";
-import { runReservedProviderOperation } from "./guardedProviderOperation.js";
 import {
   assertProviderPricesConfirmed,
   maximumProviderEnvelopeCents,
@@ -80,6 +79,7 @@ async function runPricedSearchAttempt(
     };
     assertProviderPricesConfirmed(envelope);
     const maximum = maximumProviderEnvelopeCents(envelope);
+    const { runReservedProviderOperation } = await import("./guardedProviderOperation.js");
     return await runReservedProviderOperation(
       {
         operationId: "research_" + randomUUID().replace(/-/g, ""),
