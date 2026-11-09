@@ -1071,28 +1071,41 @@ export const projectsRouter = router({
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
 
-      const { getCurrentArtifact } = await import("../db.js");
-      const artifact = await getCurrentArtifact(input.id);
-      if (!artifact) {
+      // A source backup must reflect the latest saved editable revision, even
+      // when newer customer edits have not passed production validation.
+      // Downloading source does not certify the build or deploy its output.
+      const files = await getEditableProjectFiles(input.id);
+      if (Object.keys(files).length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message:
-            "No validated current artifact is available for download. Working/partial files are never exported.",
+          message: "No saved source files are available to download.",
         });
       }
-      const files = artifact.files;
-      assertProjectExportComplete(project, files);
-      const { assertArtifactMatchesWorkingFiles, zipFiles } =
-        await import("../services/deployer.js");
-      assertArtifactMatchesWorkingFiles({
-        workingFiles: await getEditableProjectFiles(input.id),
-        validatedFiles: files,
-      });
+      const { isSafeTemplatePath, isSafeTemplateContent } =
+        await import("./templateFactory.js");
+      if (
+        Object.entries(files).some(
+          ([path, content]) =>
+            !isSafeTemplatePath(path) || !isSafeTemplateContent(content),
+        )
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "The saved source includes a sensitive path or credential. Remove the secret before downloading source.",
+        });
+      }
+      const { zipFiles } = await import("../services/deployer.js");
       const { base64, filename } = await zipFiles(
         project.title || "appforge-app",
         files,
       );
-      return { base64, filename };
+      return {
+        base64,
+        filename,
+        sourceStatus: "latest-saved-working-source" as const,
+        productionCertified: false as const,
+      };
     }),
 
   // ── Senior Dev Agent: Create Task ──

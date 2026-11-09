@@ -1030,3 +1030,12 @@ The previous unconditional production-only build and checkout rejection has been
 - The scaffold fixture materializer writes a valid Dart integration test driver with actual newline characters. No application feature, customer project, signing key, deployment credential or production payment is changed.
 - If qualification fails, inspect the interaction log for actual app, backend or emulator errors. Do not mistake the synthetic scaffold qualification for a certified customer-built product or deployed store release.
 - Rollback consists of reverting the runner and fixture writer together, retaining test artifacts. Never skip assertions or fake emulator success.
+
+
+## Saved working source ZIP download recovery — 2026-11-09
+
+- The protected `projects.download` endpoint now backs up the owner's latest saved editable source, including edits newer than the immutable validated artifact. This is an export/backup only; it never certifies the source as production-ready or invokes deployment.
+- Ownership verification remains mandatory before accessing the project files. The exported source is rejected if any path or file content trips the existing template credential/secret checks; ZIP path traversal protection also remains mandatory.
+- Existing immutable build artifacts, snapshots, subscriptions, credentials, customer project edits, deployments and other tenants' files are not mutated.
+- Recovery test: create a project with a validated baseline, save a newer editable revision, download ZIP as owner and inspect that it contains the new revision. Confirm another tenant is refused and credential-bearing paths/content are rejected without releasing an archive. Deployment must still use the validated artifact gate.
+- Rollback: revert the download selection change in `src/routers/projects.ts` and its regression test. This restores the prior validated-only ZIP download, but does not discard customer edits or change previously validated artifact history; existing exported ZIP files remain customer-owned.
