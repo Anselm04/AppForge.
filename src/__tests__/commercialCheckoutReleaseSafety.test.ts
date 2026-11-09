@@ -5,6 +5,7 @@ import { assertCommercialCheckoutReady } from "../services/appForgeCommercialChe
 
 afterEach(() => vi.unstubAllEnvs());
 
+// prettier-ignore
 describe("commercial checkout requires an actual deliverable, not a manual release toggle", () => {
   it("allows local simulated checkout and rejects an unverified runtime", async () => {
     await expect(assertCommercialCheckoutReady("test")).resolves.toBeUndefined();
