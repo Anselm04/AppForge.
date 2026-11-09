@@ -496,6 +496,11 @@ class ProviderUsagePersistenceError extends Error {
 // prettier-ignore
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertCustomerComputeLaunchCertified(false);
+  // Never dispatch an unreserved, potentially billable model request in production.
+  // Customer builds acquire a verified per-project lease before this call.
+  if (process.env.NODE_ENV === "production" && !currentBuildExecutionLease()) {
+    throw new Error("A project-scoped spending reservation is required for live AI requests");
+  }
   const providers = orderProviders(
     assertAnyLlmProviderConfigured(),
     params.preferredProviderId,
