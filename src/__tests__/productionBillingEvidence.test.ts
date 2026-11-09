@@ -80,8 +80,12 @@ describe("production evidence must correspond to real functioning billing", () =
     expect(deploy).toContain("await verifyDeployedBilling(result.url)");
     expect(deploy).toContain("assessProductionDeploymentEvidence({");
     expect(deploy).toContain("verified: verification.productionVerified");
-    expect(deploy).toContain("productionVerified: verification.productionVerified");
+    expect(deploy).toContain(
+      "productionVerified: verification.productionVerified",
+    );
     expect(deploy).toContain("billingConnection,");
-    expect(deploy).toContain('productionDestination && readiness.stripeDetected');
+    expect(deploy).toContain(
+      "productionDestination && readiness.stripeDetected",
+    );
   });
 });
