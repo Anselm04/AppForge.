@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 function installBillingFetch(override: Record<string, Response>) {
-  const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+  const fetcher = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     return (
       override[path] ??
@@ -97,6 +97,8 @@ describe("real billing-route verification", () => {
       }),
     });
     const result = await runBillingRouteSmokeTest("https://test.vercel.app");
-    expect(result.routes.find((route) => route.path === "/api/checkout")?.ok).toBe(false);
+    expect(
+      result.routes.find((route) => route.path === "/api/checkout")?.ok,
+    ).toBe(false);
   });
 });
