@@ -1071,3 +1071,12 @@ The previous unconditional production-only build and checkout rejection has been
 - A preview URL is never evidence that a customer-owned host is provisioned, billed, healthy, or production-certified; only verified hosted deployment evidence can make those claims.
 
 - Keep release audit tests aligned with the classification rule: production events are deployments, while preview events are validation and may never increment hosting totals.
+
+
+## Billing route verification truthfulness — 2026-11-09
+
+- Production deployment smoke checks must not report checkout, webhook or account billing APIs as present just because the hosting provider serves its SPA index HTML at those paths. The non-mutating probes reject HTML fallbacks, redirects, 404, 502 and 503. Real handlers can demonstrate their presence by rejecting unsigned/unauthorized requests (400/401/403/422) or returning a 2xx JSON API response.
+- This is route-existence verification, **not** proof of a completed checkout, valid Stripe webhook signing, subscription entitlement or a live paid transaction. Separate live billing verification and purchase-path evidence remain necessary.
+- The probes never include a real payment token, card number, API key or valid Stripe webhook signature, and do not create a paid transaction.
+- Recovery qualification: run the route tests for SPA 200 HTML fallbacks, redirect-to-login, absent routes, real signature-rejection handlers and generic provider error responses. Inspect actual deployment evidence for `billingSmokeTest.ok` and do not infer billing success from an unrelated root-page health check.
+- Rollback: restore the previous `runBillingRouteSmokeTest` only if required for an emergency, recognizing that it falsely accepted HTML fallbacks as working billing APIs. Neither customer data nor payment-provider state is changed by this repair.
