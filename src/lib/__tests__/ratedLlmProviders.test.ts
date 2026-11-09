@@ -21,6 +21,7 @@ const rate = (id: string, model: string, expires = "2099-01-01T00:00:00Z"): Trus
   sourceUrl: "https://example.com/pricing",
 });
 
+// prettier-ignore
 describe("rated customer provider selection", () => {
   it("skips unpriced providers rather than failing after the build begins", () => {
     const choices = [
