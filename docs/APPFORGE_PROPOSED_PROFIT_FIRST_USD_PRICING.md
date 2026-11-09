@@ -1,3 +1,5 @@
+> **HISTORICAL PRICING SCENARIOS — SUPERSEDED.** This file is not the current price authority and must not reinstate draft-pricing, stopped-development or frozen-checkout instructions. Approved current USD prices: Starter $79, Builder $199, Studio $499, Enterprise from $2,499, with optional Aftercare Plus $19/month (separate customer opt-in). See `docs/PRICING_OWNER_APPROVED_USD.md` and `src/services/appForgePricePolicy.ts`. Existing customer agreements are not silently repriced. Historical calculations remain illustrative and are not audited profit guarantees.
+
 # AppForge approved subscription price proposal — USD
 
 **Owner-approved subscription amounts (6 November 2026). This is a draft implementation, not a live Stripe price change.**
