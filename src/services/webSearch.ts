@@ -1,5 +1,14 @@
 import { logger } from "../_core/logger.js";
 import { researchFetch, ResearchAbortedError } from "./researchHttp.js";
+import { randomUUID } from "node:crypto";
+import { currentBuildExecutionLease } from "./buildExecutionLease.js";
+import { runReservedProviderOperation } from "./guardedProviderOperation.js";
+import {
+  assertProviderPricesConfirmed,
+  maximumProviderEnvelopeCents,
+  trustedRates,
+  type CostEnvelope,
+} from "../lib/providerCostEnvelope.js";
 
 export type WebSearchProvider =
   "tavily" | "serpapi" | "gemini_grounding" | "duckduckgo";
@@ -28,6 +37,66 @@ export type WebSearchResponse = {
 type ProviderOutcome =
   | { ok: true; results: WebSearchResult[]; answer?: string }
   | { ok: false; detail: string };
+
+/**
+ * External search APIs may charge per query or grounding request. In customer
+ * production jobs each attempt must reserve its independently reviewed maximum.
+ * An unquoted provider is skipped in favour of free public research, not
+ * silently billed against TrillionAI. Unknown charges retain their hold.
+ */
+async function runPricedSearchAttempt(
+  provider: WebSearchProvider,
+  query: string,
+  run: () => Promise<ProviderOutcome>,
+): Promise<ProviderOutcome> {
+  if (provider === "duckduckgo" || process.env.NODE_ENV !== "production") {
+    return run();
+  }
+  if (!currentBuildExecutionLease()) {
+    return { ok: false, detail: "scoped_customer_budget_required" };
+  }
+  const runtimeCents = Number(process.env.APPFORGE_RESEARCH_RUNTIME_MAX_CENTS);
+  if (!Number.isSafeInteger(runtimeCents) || runtimeCents < 1) {
+    return { ok: false, detail: "research_cost_ceiling_missing" };
+  }
+  try {
+    const rate = trustedRates().find(
+      (entry) => entry.provider === provider && entry.model === "web-search",
+    );
+    if (!rate) return { ok: false, detail: "provider_price_not_reviewed" };
+    const envelope: CostEnvelope = {
+      attempts: [{
+        provider,
+        model: "web-search",
+        maxInputTokens: Math.max(1, Buffer.byteLength(query, "utf8") * 2 + 256),
+        maxOutputTokens: provider === "gemini_grounding" ? 512 : 1,
+        inputUsdMicrosPerMillionTokens: rate.inputUsdMicrosPerMillionTokens,
+        outputUsdMicrosPerMillionTokens: rate.outputUsdMicrosPerMillionTokens,
+        fixedRequestCents: rate.fixedRequestCents,
+      }],
+      externalRuntimeStorageEgressCents: runtimeCents,
+      priceSnapshotValidUntil: rate.validUntil,
+      priceSnapshotSource: "provider_confirmed",
+    };
+    assertProviderPricesConfirmed(envelope);
+    const maximum = maximumProviderEnvelopeCents(envelope);
+    return await runReservedProviderOperation(
+      {
+        operationId: "research_" + randomUUID().replace(/-/g, ""),
+        envelope,
+      },
+      async () => {
+        const result = await run();
+        return {
+          value: result,
+          verifiedCents: result.ok ? maximum : null,
+        };
+      },
+    );
+  } catch {
+    return { ok: false, detail: "research_budget_or_provider_unavailable" };
+  }
+}
 
 function truthyFlag(value: string | undefined): boolean {
   return /^(1|true|yes|on)$/i.test((value ?? "").trim());
@@ -145,6 +214,7 @@ async function searchGeminiGrounding(
           },
         ],
         tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 512 },
       }),
       signal,
     },
@@ -302,7 +372,7 @@ export async function searchWeb(
     }
     let outcome: ProviderOutcome;
     try {
-      outcome = await entry.run();
+      outcome = await runPricedSearchAttempt(entry.provider, query, entry.run);
     } catch (error) {
       if (signal?.aborted || error instanceof ResearchAbortedError) throw error;
       outcome = { ok: false, detail: "provider_exception" };
