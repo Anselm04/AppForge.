@@ -10,6 +10,7 @@ import {
   type CustomerServiceCost,
 } from "../lib/aftercarePlanning.js";
 
+// prettier-ignore
 type ServiceRow = {
   service_key: string;
   provider: string;
@@ -21,6 +22,7 @@ type ServiceRow = {
   accepted_at: Date | null;
 };
 
+// prettier-ignore
 async function ownedProject(userId: number, projectId: number) {
   const project = await getProjectById(projectId);
   if (!project) throw new TRPCError({ code: "NOT_FOUND" });
@@ -29,6 +31,7 @@ async function ownedProject(userId: number, projectId: number) {
   return project;
 }
 
+// prettier-ignore
 async function serviceRows(userId: number, projectId: number) {
   const result = await db.execute<ServiceRow>(sql`
     SELECT service_key, provider, monthly_usd_cents, variable_cost,
@@ -40,6 +43,7 @@ async function serviceRows(userId: number, projectId: number) {
   return Array.isArray(result) ? result : [];
 }
 
+// prettier-ignore
 export const aftercareRouter = router({
   overview: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
