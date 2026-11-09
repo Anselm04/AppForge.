@@ -665,9 +665,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
           durationMs: Date.now() - requestStartedAt,
           ok: true,
         });
-        // Attribution is best-effort telemetry, NOT production spend control.
-        // Unknown token prices/attempts remain unverified and the customer
-        // production build gate must remain closed until full cost caps exist.
+        // Usage attribution supplements the separate atomic spending
+        // reservation already completed before the billable dispatch.
         if (currentBuildExecutionLease()) {
           try {
             const { recordProviderUsageForCurrentBuild } =
