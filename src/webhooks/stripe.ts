@@ -4,6 +4,10 @@ import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
 import { and, eq, sql } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
+import {
+  APPROVED_MONTHLY_PRICE_IDS,
+  AFTERCARE_PLUS_PRICE_ID,
+} from "../services/appForgePricePolicy.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
@@ -123,6 +127,7 @@ function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
   return charge.payment_intent?.id ?? null;
 }
 
+// prettier-ignore
 function priceIdsForTier(tier: StandardTier): string[] {
   const envKeys: Record<StandardTier, string[]> = {
     starter: ["STRIPE_STARTER_PRICE_ID", "STRIPE_PRICE_STARTER"],
@@ -130,7 +135,10 @@ function priceIdsForTier(tier: StandardTier): string[] {
     studio: ["STRIPE_STUDIO_PRICE_ID", "STRIPE_PRICE_STUDIO"],
     enterprise: ["STRIPE_ENTERPRISE_PRICE_ID", "STRIPE_PRICE_ENTERPRISE"],
   };
-  return envKeys[tier].map((k) => process.env[k] || "").filter(Boolean);
+  const approvedId = tier === "enterprise" ? null : APPROVED_MONTHLY_PRICE_IDS[tier];
+  return [approvedId, ...envKeys[tier].map((k) => process.env[k] || "")].filter(
+    (id): id is string => !!id,
+  );
 }
 
 function tierFromPriceId(priceId?: string | null): StandardTier | null {
@@ -169,8 +177,25 @@ function resolveTier(
   );
 }
 
+// prettier-ignore
 function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
-  return subscription.items?.data?.[0]?.price?.id ?? null;
+  const items = subscription.items?.data ?? [];
+  return items.find((item) => tierFromPriceId(item.price?.id) !== null)?.price?.id ?? null;
+}
+
+// prettier-ignore
+function subscriptionHasAftercarePlus(subscription: Stripe.Subscription): boolean {
+  const matches = subscription.items?.data?.filter(
+    (item) => item.price?.id === AFTERCARE_PLUS_PRICE_ID,
+  ) ?? [];
+  if (matches.length > 1 || matches.some((item) => item.quantity !== 1)) {
+    throw new Error("AppForge Aftercare Plus line-item quantity is invalid");
+  }
+  // Do not grant an add-on entitlement while a payment is incomplete.
+  return (
+    matches.length === 1 &&
+    (subscription.status === "active" || subscription.status === "trialing")
+  );
 }
 
 function requireAppForgeSubscriptionOwnership(
@@ -406,6 +431,7 @@ async function upsertSubscription(opts: {
         stripeSubscriptionId: subscription.id,
         status: subscription.status,
         tier,
+        aftercarePlus: subscriptionHasAftercarePlus(subscription),
         trialEnd,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
@@ -417,6 +443,7 @@ async function upsertSubscription(opts: {
           stripeSubscriptionId: subscription.id,
           status: subscription.status,
           tier,
+          aftercarePlus: subscriptionHasAftercarePlus(subscription),
           trialEnd,
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
@@ -477,7 +504,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       if (userId) {
         await db
           .update(subscriptions)
-          .set({ status: "canceled", tier: "free", updatedAt: new Date() })
+          .set({
+            status: "canceled",
+            tier: "free",
+            aftercarePlus: false,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(subscriptions.userId, userId),

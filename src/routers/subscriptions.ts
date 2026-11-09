@@ -66,6 +66,7 @@ async function getStripe() {
   return getAppForgeStripe();
 }
 
+// prettier-ignore
 export const subscriptionsRouter = router({
   status: protectedProcedure.query(async ({ ctx }) => {
     const sub = await getSubscriptionByUserId(ctx.user.id);
@@ -92,6 +93,7 @@ export const subscriptionsRouter = router({
       limit,
       remaining: limit !== null ? Math.max(0, limit - buildsThisMonth) : null,
       credits: credits?.balance ?? 0,
+      aftercarePlus: !!sub?.aftercarePlus && (sub.status === "active" || sub.status === "trialing"),
     };
   }),
 
@@ -99,6 +101,7 @@ export const subscriptionsRouter = router({
     .input(
       z.object({
         tier: z.enum(CHECKOUT_TIERS),
+        aftercarePlus: z.boolean().default(false),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -131,6 +134,7 @@ export const subscriptionsRouter = router({
         return await createPlanCheckout(
           { id: ctx.user.id, email: ctx.user.email },
           input.tier,
+          input.aftercarePlus,
         );
       } catch (error) {
         throw new TRPCError({

@@ -4,14 +4,22 @@
 | Tier | Monthly price USD | Included monthly compute credits | Build entitlement |
 | --- | ---: | ---: | --- |
 | Free | $0 | 20 | 3 build requests / month |
-| Starter | $49 | 100 | 16 build requests / month |
-| Builder | $149 | 400 | 66 build requests / month |
-| Studio | $399 | 1,500 | Build count is not the entitlement; every build remains subject to credits |
-| Enterprise | $1,499 listed starting price; sales-led | **Contract-defined; not unlimited** | **Contract-defined; not unlimited** |
+| Starter | $79 | 100 | 16 build requests / month |
+| Builder | $199 | 400 | 66 build requests / month |
+| Studio | $499 | 1,500 | Build count is not the entitlement; every build remains subject to credits |
+| Enterprise | From $2,499; sales-led | **Contract-defined; not unlimited** | **Contract-defined; not unlimited** |
 
 **Only the verified AppForge owner account may be treated as having owner-level unlimited access.** An Enterprise subscription is not equivalent to owner access. Do not give free or unlimited compute to paying customers.
 
 Current backend `getTierCreditRefill('enterprise')` is `null`, so no Enterprise monthly refill amount has been provisioned by the existing catalogue. No fixed allowance may be advertised until an owner-approved contract and enforced entitlement are implemented. Enterprise cannot be launched as a self-serve unlimited offer.
+
+## Optional aftercare (owner-approved, USD)
+- Essential customer aftercare, build handover and deployment guidance are included with paid plans.
+- **Aftercare Plus: $19/month**, expressly opted in by the customer; never selected by default.
+- Starter + Aftercare Plus: **$98/month**; Builder + Aftercare Plus: **$218/month**; Studio + Aftercare Plus: **$518/month** before applicable tax.
+- Managed Aftercare is a separate scoped service from $79/month, not an automatic $19 add-on, and must be deliverable before a customer is charged.
+- Third-party hosting, domains, AI API and usage-based costs are excluded unless explicitly quoted and contracted.
+- Legacy Stripe Price IDs (Starter $49, Builder $149, Studio $399, Enterprise $1,499) are **not** approved for new purchases. Existing subscriptions must be handled without silently repricing customers.
 
 ## Operating margin rules
 - Compute and AI usage must be funded by prepaid entitlements/top-ups or an explicitly approved and metered Enterprise allowance.

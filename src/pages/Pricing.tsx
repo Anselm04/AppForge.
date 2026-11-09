@@ -24,6 +24,7 @@ const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
   "Your subscription includes a limited monthly credit allowance, not unlimited builds. If you use all included and previously purchased credits before your next monthly subscription payment, AppForge pauses credit-consuming work. To continue building before the next monthly credit refill, you must separately purchase enough top-up credits at the displayed USD price, or choose an eligible higher plan. If you do not purchase more credits, the work stays paused until new credits become available. Top-ups are never automatic, and complex builds may need additional credits even within the same billing month.";
 
+// prettier-ignore
 export function Pricing() {
   const navigate = useNavigate();
   const { t } = useLocale();
@@ -41,10 +42,11 @@ export function Pricing() {
   });
 
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [aftercarePlus, setAftercarePlus] = useState(false);
 
   const createCheckout = useMutation({
     mutationFn: (tier: PaidTier) =>
-      trpc.subscriptions.createCheckoutSession.mutate({ tier }),
+      trpc.subscriptions.createCheckoutSession.mutate({ tier, aftercarePlus }),
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
@@ -116,7 +118,7 @@ export function Pricing() {
     {
       key: "starter" as const,
       name: t("pricing.starterName"),
-      price: "$49",
+      price: "$79",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.starterDesc"),
       features: [
@@ -140,7 +142,7 @@ export function Pricing() {
     {
       key: "builder" as const,
       name: t("pricing.builderName"),
-      price: "$149",
+      price: "$199",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.builderDesc"),
       features: [
@@ -163,7 +165,7 @@ export function Pricing() {
     {
       key: "studio" as const,
       name: t("pricing.studioName"),
-      price: "$399",
+      price: "$499",
       subPrice: t("pricing.perMonth"),
       description: t("pricing.studioDesc"),
       features: [
@@ -213,9 +215,8 @@ export function Pricing() {
         </div>
         {PRICING_PROPOSAL_MODE && (
           <p className="text-center text-sm text-forge-text-muted mb-4">
-            PROPOSED USD PRICES — FOR OWNER REVIEW ONLY. Subscription checkout
-            is disabled until billing, cost limits and Stripe prices are
-            approved.
+            OWNER-APPROVED USD PRICES. Checkout is not accepting payments until
+            the complete customer-build and billing delivery checks are verified.
           </p>
         )}
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
@@ -261,6 +262,35 @@ export function Pricing() {
             </Button>
           </div>
         )}
+
+        <div className="mx-auto mb-6 max-w-3xl rounded-2xl border border-forge-border bg-forge-surface p-5">
+          <h2 className="text-lg font-semibold text-forge-text-primary">
+            Aftercare Plus — optional $19 USD/month
+          </h2>
+          <p className="mt-2 text-sm text-forge-text-muted">
+            Essential build support and launch guidance are included with paid
+            AppForge plans. Aftercare Plus is an optional recurring addition.
+            External hosting, domains and APIs charge separately.
+          </p>
+          <label className="mt-3 flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={aftercarePlus}
+              onChange={(event) => setAftercarePlus(event.target.checked)}
+            />
+            <span>
+              Add Aftercare Plus for $19 USD/month, billed with my AppForge
+              subscription. I understand this is optional.
+            </span>
+          </label>
+          <p className="mt-2 text-xs text-forge-text-muted">
+            Your selected total: Starter ${aftercarePlus ? "98" : "79"},
+            Builder ${aftercarePlus ? "218" : "199"}, or Studio
+            ${aftercarePlus ? "518" : "499"} USD/month, before applicable tax.
+            No optional aftercare is charged unless you select it.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {tiers.map((tier) => (

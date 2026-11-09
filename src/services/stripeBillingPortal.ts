@@ -1,22 +1,19 @@
 import type Stripe from "stripe";
+import {
+  APPROVED_MONTHLY_PRICE_IDS,
+  MONTHLY_PLAN_USD_CENTS,
+  assertAppForgePrice,
+} from "./appForgePricePolicy.js";
 
-const PORTAL_VERSION = "1";
+const PORTAL_VERSION = "2";
 const MANAGED_METADATA_KEY = "appforge_managed_portal";
 
 function requiredPriceIds(): string[] {
-  const ids = [
-    process.env.STRIPE_STARTER_PRICE_ID,
-    process.env.STRIPE_BUILDER_PRICE_ID,
-    process.env.STRIPE_STUDIO_PRICE_ID,
+  return [
+    APPROVED_MONTHLY_PRICE_IDS.starter,
+    APPROVED_MONTHLY_PRICE_IDS.builder,
+    APPROVED_MONTHLY_PRICE_IDS.studio,
   ];
-
-  if (ids.some((id) => !id)) {
-    throw new Error(
-      "AppForge billing portal requires STRIPE_STARTER_PRICE_ID, STRIPE_BUILDER_PRICE_ID, and STRIPE_STUDIO_PRICE_ID.",
-    );
-  }
-
-  return ids as string[];
 }
 
 function productIdForPrice(price: Stripe.Price): string {
@@ -45,6 +42,15 @@ export async function ensureAppForgeBillingPortalConfiguration(
   const prices = await Promise.all(
     requiredPriceIds().map((priceId) => stripe.prices.retrieve(priceId)),
   );
+
+  (["starter", "builder", "studio"] as const).forEach((tier, index) => {
+    assertAppForgePrice(
+      prices[index],
+      MONTHLY_PLAN_USD_CENTS[tier],
+      "recurring",
+      process.env.NODE_ENV === "production",
+    );
+  });
 
   const products = prices.map((price) => ({
     product: productIdForPrice(price),

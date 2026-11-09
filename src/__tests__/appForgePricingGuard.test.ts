@@ -11,7 +11,7 @@ const monthly = {
   active: true,
   currency: "usd",
   type: "recurring",
-  unit_amount: 4900,
+  unit_amount: 7900,
   recurring: { interval: "month", interval_count: 1 },
   livemode: true,
 };
@@ -42,9 +42,35 @@ describe("AppForge margin-protective checkout terms", () => {
       { ...monthly, active: false },
     ]) {
       expect(() =>
-        assertAppForgePrice(invalid, 4900, "recurring", true),
+        assertAppForgePrice(invalid, 7900, "recurring", true),
       ).toThrow(/checkout paused/);
     }
+  });
+
+  it("enforces the approved owner prices for every self-service tier", () => {
+    expect(MONTHLY_PLAN_USD_CENTS).toEqual({
+      starter: 7900,
+      builder: 19900,
+      studio: 49900,
+    });
+    for (const amount of Object.values(MONTHLY_PLAN_USD_CENTS)) {
+      expect(() =>
+        assertAppForgePrice(
+          { ...monthly, unit_amount: amount },
+          amount,
+          "recurring",
+          true,
+        ),
+      ).not.toThrow();
+    }
+    expect(() =>
+      assertAppForgePrice(
+        { ...monthly, unit_amount: 4900 },
+        MONTHLY_PLAN_USD_CENTS.starter,
+        "recurring",
+        true,
+      ),
+    ).toThrow(/checkout paused/);
   });
 
   it("prevents credit top-ups billed as subscriptions or discounted prices", () => {
