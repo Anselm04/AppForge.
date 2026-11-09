@@ -320,6 +320,34 @@ export async function runBillingRouteSmokeTest(
   return { ok: routes.every((route) => route.ok), routes };
 }
 
+/**
+ * Do not certify a revenue-generating deployment solely because the website
+ * responds. Hosted files may be live while Stripe credentials, webhooks, or
+ * entitlement APIs are still unconfigured. This describes evidence only;
+ * it never blocks a customer from deploying their own application.
+ */
+export function assessProductionDeploymentEvidence(input: {
+  hostingSmokePassed: boolean;
+  stripeDetected: boolean;
+  billingRoutesPassed?: boolean | null;
+  billingConnected?: boolean | null;
+}): {
+  hostingVerified: boolean;
+  productionVerified: boolean;
+  billingVerified: boolean | null;
+} {
+  const hostingVerified = input.hostingSmokePassed;
+  const billingVerified = input.stripeDetected
+    ? input.billingRoutesPassed === true && input.billingConnected === true
+    : null;
+  return {
+    hostingVerified,
+    billingVerified,
+    productionVerified:
+      hostingVerified && (!input.stripeDetected || billingVerified === true),
+  };
+}
+
 export type BillingVerificationResult = {
   ok: boolean;
   configured: boolean;

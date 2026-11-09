@@ -893,6 +893,8 @@ export const projectsRouter = router({
           detectRequiredEnvVars,
           runPostDeploySmokeTest,
           runBillingRouteSmokeTest,
+          verifyDeployedBilling,
+          assessProductionDeploymentEvidence,
         } = await import("../services/deployHealth.js");
         const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } =
           await import("../lib/revenueReadiness.js");
@@ -922,9 +924,19 @@ export const projectsRouter = router({
         }
 
         const billingSmoke =
-          result.url && readiness.stripeDetected
+          productionDestination && result.url && readiness.stripeDetected
             ? await runBillingRouteSmokeTest(result.url)
             : null;
+        const billingConnection =
+          productionDestination && result.url && readiness.stripeDetected
+            ? await verifyDeployedBilling(result.url)
+            : null;
+        const verification = assessProductionDeploymentEvidence({
+          hostingSmokePassed: productionDestination && !!smoke?.ok,
+          stripeDetected: readiness.stripeDetected,
+          billingRoutesPassed: billingSmoke?.ok,
+          billingConnected: billingConnection?.ok,
+        });
         const dbGuide = databaseSetupGuide(project.techStack ?? "next-node", {
           projectName: project.title ?? undefined,
           hasBillingSchema: hasBillingMigration(files),
@@ -938,7 +950,7 @@ export const projectsRouter = router({
           requirementManifest = markRequirementDeployment(requirementManifest, {
             destination: input.destination,
             url: result.url,
-            verified: !!smoke?.ok,
+            verified: verification.productionVerified,
           });
           await persistRequirementDeploymentEvidence(
             input.id,
@@ -964,7 +976,7 @@ export const projectsRouter = router({
                   outputMaturity:
                     stackAdapter.generationMode === "structural"
                       ? "structural"
-                      : productionDestination && smoke?.ok
+                      : verification.productionVerified
                         ? "verified"
                         : "runnable",
                   updatedAt: new Date(),
@@ -985,7 +997,9 @@ export const projectsRouter = router({
           payload: {
             success: true,
             destination: result.destination,
-            productionVerified: productionDestination && !!smoke?.ok,
+            productionVerified: verification.productionVerified,
+            hostingVerified: verification.hostingVerified,
+            billingVerified: verification.billingVerified,
             previewOnly: input.destination === "preview",
             liveUrl: productionDestination ? (result.url ?? null) : null,
             previewUrl:
@@ -994,6 +1008,7 @@ export const projectsRouter = router({
             artifactSha256: artifact.integrity.sha256,
             smokeTest: smoke,
             billingSmokeTest: billingSmoke,
+            billingConnection,
             requirementManifest,
             note: result.note ?? null,
           },
@@ -1009,6 +1024,13 @@ export const projectsRouter = router({
             ? revenueGoLiveSteps(result.url)
             : ["Configure Stripe/webhooks if billing is included."]),
           "Review REVIEW.md for known issues from the AI pipeline.",
+          ...(productionDestination &&
+          readiness.stripeDetected &&
+          !verification.productionVerified
+            ? [
+                "Hosting may be live, but billing is NOT verified. Configure Stripe keys and webhooks with your hosting provider, then complete live billing verification before selling subscriptions.",
+              ]
+            : []),
           ...(smoke && !smoke.ok
             ? [
                 `Post-deploy smoke test warning: HTTP ${smoke.root.statusCode ?? "error"} at ${result.url}`,
@@ -1038,6 +1060,9 @@ export const projectsRouter = router({
           deployGuide,
           smokeTest: smoke,
           billingSmokeTest: billingSmoke,
+          billingConnection,
+          productionVerified: verification.productionVerified,
+          hostingVerified: verification.hostingVerified,
           databaseSetup: dbGuide,
           options: filterDeployOptionsForStack(
             stackAdapter.id,
