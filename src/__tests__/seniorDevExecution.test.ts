@@ -121,6 +121,7 @@ beforeEach(() => {
   d.run.mockImplementation(execute);
   d.resume.mockImplementation(execute);
 });
+// prettier-ignore
 describe("shared Senior Dev execution independent of browser streams", () => {
   it("autonomous repair executes and persists working files and actual agent outcome", async () => {
     expect(
