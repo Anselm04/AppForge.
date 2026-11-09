@@ -10,6 +10,7 @@ it("temporary: show precise formatting difference in export router", () => {
     [path],
     { encoding: "utf8" },
   ).split("\n");
+  console.log("AUTO_FORMAT_JSON:" + JSON.stringify(formatted.join("\n")));
   for (let index = 0; index < Math.max(original.length, formatted.length); index++) {
     if (original[index] !== formatted[index]) {
       console.log("EXPORT_FORMAT_DIAG at line", index + 1);
