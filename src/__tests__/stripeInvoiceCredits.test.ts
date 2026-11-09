@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { describe, expect, it } from "vitest";
 import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
+import { AFTERCARE_PLUS_PRICE_ID } from "../services/appForgePricePolicy.js";
 
 function invoice(lines: unknown[], hasMore = false): Stripe.Invoice {
   return { lines: { data: lines, has_more: hasMore } } as Stripe.Invoice;
@@ -20,6 +21,21 @@ describe("paid invoice credit tier", () => {
       resolveInvoiceCreditTier(invoice([plan("price_starter")]), tier),
     ).toBe("starter");
   });
+  it("ignores a separately billed $19 Aftercare Plus item when granting plan credits", () => {
+    expect(
+      resolveInvoiceCreditTier(
+        invoice([plan("price_starter"), plan(AFTERCARE_PLUS_PRICE_ID)]),
+        tier,
+      ),
+    ).toBe("starter");
+    expect(() =>
+      resolveInvoiceCreditTier(
+        invoice([plan("price_starter"), plan("price_unknown_addon")]),
+        tier,
+      ),
+    ).toThrow();
+  });
+
   it("ignores proration adjustments and reads the billed renewal plan", () => {
     expect(
       resolveInvoiceCreditTier(
