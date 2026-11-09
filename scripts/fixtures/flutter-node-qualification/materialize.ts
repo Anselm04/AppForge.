@@ -28,6 +28,19 @@ for (const path of [
     await readFile(new URL(path.replace(/\//g, "_"), import.meta.url), "utf8"),
   );
 }
+// Real Android integration_test uses the supported Flutter driver entry point.
+// Materialize it with literal newlines, not escaped Dart source.
+await mkdir(join(destination, "test_driver"), { recursive: true });
+await writeFile(
+  join(destination, "test_driver/integration_test.dart"),
+  [
+    "import 'package:integration_test/integration_test_driver.dart';",
+    "",
+    "Future<void> main() => integrationDriver();",
+    "",
+  ].join("\n"),
+);
+
 await writeFile(
   join(destination, "QUALIFICATION_SCOPE.txt"),
   "Trusted scaffold shell only. Original lib/main.dart and API client preserved. Test UI is an explicit harness, not generated business behavior or golden app.\n",
