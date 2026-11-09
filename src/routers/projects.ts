@@ -39,8 +39,6 @@ import {
   resolveIntakeContract,
   validateProductContract,
 } from "../lib/productContract.js";
-import { assertProductComplete } from "../lib/incompleteProduct.js";
-import type { ProductPlan } from "../lib/productPlan.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import * as schema from "../db/schema.js";
 import { db } from "../db.js";
@@ -54,28 +52,6 @@ import { assertBuildExecutionReady } from "../services/buildExecutionReadiness.j
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 
 const FREE_TIER_LIMIT = 0;
-
-function assertProjectExportComplete(
-  project: { productContract: unknown; productPlan?: ProductPlan | null },
-  files: Record<string, string>,
-): void {
-  try {
-    assertProductComplete({
-      files,
-      productContract: validateProductContract(project.productContract),
-      productPlan: project.productPlan ?? undefined,
-      context: "Source export completeness gate",
-    });
-  } catch (error) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Source export completeness gate failed.",
-    });
-  }
-}
 
 const recoveryFailureKindEnum = z.enum([
   "application_failure",
@@ -773,6 +749,46 @@ export const projectsRouter = router({
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
+      // ZIP is a customer source backup, not a production deployment.
+      // Make saved edits recoverable even if validation is pending or failed.
+      // Keep deployment and live-preview certification below this early return.
+      if (input.destination === "zip") {
+        const workingFiles = await getEditableProjectFiles(input.id);
+        if (Object.keys(workingFiles).length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No saved source files are available to download.",
+          });
+        }
+        const { isSafeTemplatePath, isSafeTemplateContent } =
+          await import("./templateFactory.js");
+        if (
+          Object.entries(workingFiles).some(
+            ([path, content]) =>
+              !isSafeTemplatePath(path) || !isSafeTemplateContent(content),
+          )
+        ) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "The saved source includes a sensitive path or credential. Remove the secret before downloading source.",
+          });
+        }
+        const { zipFiles } = await import("../services/deployer.js");
+        const { base64, filename } = await zipFiles(
+          project.title || "appforge-app",
+          workingFiles,
+        );
+        return {
+          deployUrl: null as string | null,
+          destination: "zip" as const,
+          base64,
+          filename,
+          sourceStatus: "latest-saved-working-source" as const,
+          productionCertified: false as const,
+        };
+      }
+
       const deployableStatuses = new Set([
         "validated",
         "production-certified",
@@ -801,7 +817,6 @@ export const projectsRouter = router({
       const {
         assertArtifactMatchesWorkingFiles,
         deployProject,
-        zipFiles,
         listDeployDestinations,
       } = await import("../services/deployer.js");
       assertArtifactMatchesWorkingFiles({
@@ -815,23 +830,6 @@ export const projectsRouter = router({
       const stackAdapter = getStackAdapter(
         productContract.selectedTechnologyStack,
       );
-
-      if (input.destination === "zip") {
-        assertProjectExportComplete(project, files);
-        const { base64, filename } = await zipFiles(
-          project.title || "appforge-app",
-          files,
-        );
-        return {
-          deployUrl: null as string | null,
-          destination: "zip" as const,
-          base64,
-          filename,
-          snapshotId: artifact.snapshotId,
-          artifactVersion: artifact.version,
-          artifactSha256: artifact.integrity.sha256,
-        };
-      }
 
       const productionDestination =
         input.destination === "vercel" ||
