@@ -99,6 +99,7 @@ export const subscriptionsRouter = router({
     .input(
       z.object({
         tier: z.enum(CHECKOUT_TIERS),
+        aftercarePlus: z.boolean().default(false),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -131,6 +132,7 @@ export const subscriptionsRouter = router({
         return await createPlanCheckout(
           { id: ctx.user.id, email: ctx.user.email },
           input.tier,
+          input.aftercarePlus,
         );
       } catch (error) {
         throw new TRPCError({
