@@ -105,7 +105,7 @@ export function maximumProviderEnvelopeCents(
  * independently of the generated project; callers cannot supply the trust
  * record in their request. Rate changes/expiry require operator review.
  */
-type TrustedRate = {
+export type TrustedRate = {
   provider: string;
   model: string;
   inputUsdMicrosPerMillionTokens: number;
@@ -116,7 +116,7 @@ type TrustedRate = {
   sourceUrl: string;
 };
 
-function trustedRates(): TrustedRate[] {
+export function trustedRates(): TrustedRate[] {
   const raw = process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON;
   if (!raw)
     throw new Error("Trusted provider price catalogue is not configured");
