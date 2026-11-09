@@ -96,7 +96,7 @@ export async function dispatchCostedLlmAttempt(
           maxOutputTokens: Math.max(1, actualOutput),
         }],
       });
-      return { value: response, verifiedCents: Math.min(maximumCents, verified) };
+      return { value: response, verifiedCents: verified };
     },
   );
 }
