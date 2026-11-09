@@ -6,12 +6,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// prettier-ignore
 describe("customer research pricing and no-surprise spend", () => {
   it("uses free public research when paid providers have no customer spending lease", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("TAVILY_API_KEY", "test-key-never-sent");
     vi.stubEnv("SERPAPI_API_KEY", "test-key-never-sent");
-    const outbound = vi.fn(async () =>
+    const outbound = vi.fn(async (_url: unknown) =>
       new Response(
         JSON.stringify({
           AbstractText: "Public summary",
