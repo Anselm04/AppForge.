@@ -822,6 +822,11 @@ CREATE INDEX IF NOT EXISTS customer_aftercare_project_idx
   ON customer_aftercare_services (user_id, project_id);
 `;
 
+export const APPFORGE_AFTERCARE_BILLING_SQL = `
+ALTER TABLE "subscriptions"
+  ADD COLUMN IF NOT EXISTS "aftercare_plus" BOOLEAN NOT NULL DEFAULT FALSE;
+`;
+
 type AppForgeSchemaMigration = {
   version: string;
   name: string;
@@ -908,6 +913,11 @@ const APPFORGE_SCHEMA_MIGRATIONS: readonly AppForgeSchemaMigration[] = [
     version: "20261109_016",
     name: "customer_aftercare_services",
     sql: CUSTOMER_AFTERCARE_SQL,
+  },
+  {
+    version: "20261109_017",
+    name: "aftercare_billing_entitlements",
+    sql: APPFORGE_AFTERCARE_BILLING_SQL,
   },
 ];
 
