@@ -1058,3 +1058,16 @@ The previous unconditional production-only build and checkout rejection has been
 - A failed upload, provider build error, timeout or failed smoke test records failure evidence and does not mark production deployment successful. Provider error bodies and authorization headers are never included in thrown errors or evidence. The customer must handle their own Vercel team quota/usage charges.
 - Recovery verification without provider charges: use mocked Vercel API responses to assert authenticated token use, per-file hashes, exact target, required READY status, failure handling and omission of customer credentials from request bodies. Separately verify router tenant ownership and validated-artifact gates.
 - Rollback: revert the customer Vercel adapter, the optional Vercel authorization input and its tests. Other export, preview and deployment providers are unchanged. Existing Vercel deployments remain owned and managed in the customer's account.
+
+
+## Preview/deployment evidence separation — 2026-11-09
+
+- Calling `projects.deploy` with destination `preview` opens an isolated product preview, **not a customer-hosted production deployment**. Preview actions must never increment the hosted deployment counter or write `kind: deployment` evidence with a supposedly live production URL.
+- Preview evidence is stored as `kind: validation` with `previewOnly: true`, its URL under `previewUrl`, and `productionVerified: false`. Customer-hosted deployment evidence remains `kind: deployment`, with real `liveUrl` and verified provider/HTTP results.
+- The build UI distinguishes `Open Preview` from `View Live App` using the destination that actually returned the current URL, not the current selection in the destination dropdown.
+- Verification: invoke preview and verify no `recordDeploy` call, no live deployment evidence and clear preview labeling; execute a real provider deployment and confirm only successful live smoke checks produce production deployment metrics. Existing source, billing, provider authorization, rollback and artifact gates remain unchanged.
+- Rollback: revert the preview evidence classification, metrics conditional and UI label. The correction is metadata/metrics only and does not migrate or mutate customer source, subscriptions or hosted deployments.
+
+- A preview URL is never evidence that a customer-owned host is provisioned, billed, healthy, or production-certified; only verified hosted deployment evidence can make those claims.
+
+- Keep release audit tests aligned with the classification rule: production events are deployments, while preview events are validation and may never increment hosting totals.
