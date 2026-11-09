@@ -10,6 +10,7 @@ import {
 
 afterEach(() => vi.unstubAllEnvs());
 
+// prettier-ignore
 describe("customer builds use real priced-provider readiness, not a blanket production stop", () => {
   it("admits production builds when a currently configured provider is cost-reviewed", () => {
     vi.stubEnv("GROQ_API_KEY", "unit-test-only");
