@@ -1069,3 +1069,5 @@ The previous unconditional production-only build and checkout rejection has been
 - Rollback: revert the preview evidence classification, metrics conditional and UI label. The correction is metadata/metrics only and does not migrate or mutate customer source, subscriptions or hosted deployments.
 
 - A preview URL is never evidence that a customer-owned host is provisioned, billed, healthy, or production-certified; only verified hosted deployment evidence can make those claims.
+
+- Keep release audit tests aligned with the classification rule: production events are deployments, while preview events are validation and may never increment hosting totals.
