@@ -745,7 +745,10 @@ export const projectsRouter = router({
         vercelAuthorization: z
           .object({
             token: z.string().min(1).max(512),
-            teamId: z.string().regex(/^team_[A-Za-z0-9]+$/).optional(),
+            teamId: z
+              .string()
+              .regex(/^team_[A-Za-z0-9]+$/)
+              .optional(),
           })
           .optional(),
       }),

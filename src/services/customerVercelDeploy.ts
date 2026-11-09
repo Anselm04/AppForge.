@@ -26,7 +26,9 @@ function safeSourcePath(path: string): boolean {
       const code = character.charCodeAt(0);
       return code < 32 || code === 127;
     }) &&
-    path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
+    path
+      .split("/")
+      .every((part) => part !== "" && part !== "." && part !== "..")
   );
 }
 
@@ -34,7 +36,8 @@ export async function deployToCustomerVercel(
   input: CustomerVercelDeployInput,
   fetcher: typeof fetch = fetch,
 ): Promise<{ url: string; deploymentId: string }> {
-  if (!input.token.trim()) throw new Error("Customer Vercel credential is required");
+  if (!input.token.trim())
+    throw new Error("Customer Vercel credential is required");
   if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(input.projectName)) {
     throw new Error("Invalid customer Vercel project name");
   }
@@ -55,7 +58,9 @@ export async function deployToCustomerVercel(
   }
 
   const authHeaders = { Authorization: `Bearer ${input.token}` };
-  const scope = input.teamId ? `?teamId=${encodeURIComponent(input.teamId)}` : "";
+  const scope = input.teamId
+    ? `?teamId=${encodeURIComponent(input.teamId)}`
+    : "";
   const manifest: Array<{ file: string; sha: string; size: number }> = [];
 
   for (const [path, content] of entries) {
@@ -131,5 +136,7 @@ export async function deployToCustomerVercel(
     }
     await new Promise((resolve) => setTimeout(resolve, 5_000));
   }
-  throw new Error("Vercel deployment has not reached READY; inspect the deployment in your Vercel account");
+  throw new Error(
+    "Vercel deployment has not reached READY; inspect the deployment in your Vercel account",
+  );
 }

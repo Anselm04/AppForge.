@@ -213,7 +213,11 @@ export async function deployProject(opts: {
         .slice(0, 100),
       files,
     });
-    return { destination, url: deployed.url, note: "Customer-owned Vercel deployment" };
+    return {
+      destination,
+      url: deployed.url,
+      note: "Customer-owned Vercel deployment",
+    };
   }
   if (productionDestination) {
     throw customerHostingError();

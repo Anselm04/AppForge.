@@ -350,8 +350,13 @@ export function Build() {
 
   const handleDeploy = async () => {
     if (!projectId) return;
-    if (destination === "vercel" && (!vercelToken.trim() || !vercelDeployConfirmed)) {
-      setError("Provide your Vercel access token and confirm deployment to your own account.");
+    if (
+      destination === "vercel" &&
+      (!vercelToken.trim() || !vercelDeployConfirmed)
+    ) {
+      setError(
+        "Provide your Vercel access token and confirm deployment to your own account.",
+      );
       return;
     }
     setDeploying(true);
@@ -1108,8 +1113,9 @@ export function Build() {
               {!structuralOnly && destination === "vercel" && (
                 <div className="mt-4 space-y-3 rounded-lg border border-green-700/40 bg-slate-900 p-4">
                   <p className="text-sm text-green-100">
-                    Deploy this validated source to your Vercel account. Vercel may charge
-                    you for building and hosting. AppForge never uses its hosting token.
+                    Deploy this validated source to your Vercel account. Vercel
+                    may charge you for building and hosting. AppForge never uses
+                    its hosting token.
                   </p>
                   <label className="block text-sm text-slate-200">
                     Vercel access token (used for this request only)
@@ -1140,7 +1146,9 @@ export function Build() {
                     <input
                       type="checkbox"
                       checked={vercelDeployConfirmed}
-                      onChange={(event) => setVercelDeployConfirmed(event.target.checked)}
+                      onChange={(event) =>
+                        setVercelDeployConfirmed(event.target.checked)
+                      }
                     />
                     I authorize deploying this project to my Vercel account and
                     understand that my provider may charge for usage.
