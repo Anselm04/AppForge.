@@ -1039,3 +1039,13 @@ The previous unconditional production-only build and checkout rejection has been
 - Existing immutable build artifacts, snapshots, subscriptions, credentials, customer project edits, deployments and other tenants' files are not mutated.
 - Recovery test: create a project with a validated baseline, save a newer editable revision, download ZIP as owner and inspect that it contains the new revision. Confirm another tenant is refused and credential-bearing paths/content are rejected without releasing an archive. Deployment must still use the validated artifact gate.
 - Rollback: revert the download selection change in `src/routers/projects.ts` and its regression test. This restores the prior validated-only ZIP download, but does not discard customer edits or change previously validated artifact history; existing exported ZIP files remain customer-owned.
+
+
+## Deploy-route ZIP backup recovery — 2026-11-09
+
+- The protected `projects.deploy(destination: "zip")` action is a source-backup operation, not an application deployment. It returns the customer's latest saved working revision even when a validated artifact does not yet exist, while continuing to require authenticated project ownership.
+- The ZIP path rejects empty projects, unsafe filenames and credential-bearing file content using the same sensitive-source checks as the separate `projects.download` and customer GitHub export paths. Archive path validation remains enabled.
+- The ZIP result explicitly identifies `latest-saved-working-source` and `productionCertified: false`. It does not write deployment events, alter project readiness, spend credits or call provider hosting APIs.
+- Actual preview/host deployment paths retain the existing status, immutable validated artifact, working-versus-artifact equality, stack compatibility and production completeness requirements. Source backup is not a release certificate.
+- Recovery verification: save an edit after last validated snapshot, request a ZIP through `projects.deploy` and inspect its saved content; check empty/credential-bearing cases and foreign-owner denial. Verify a real deployment still refuses unvalidated changes.
+- Rollback: revert the deploy ZIP early-return and its tests. This restores the previous validated-only export contract without touching customer saved files, validated snapshots, billing or deployment history.
