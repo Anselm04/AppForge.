@@ -94,11 +94,17 @@ describe("production deployment health gate", () => {
           { status: 200 },
         );
       }
-      if (
-        url === "https://generated.example.test/assets/app.css" ||
-        url === "https://generated.example.test/assets/app.js"
-      ) {
-        return new Response("asset", { status: 200 });
+      if (url === "https://generated.example.test/assets/app.css") {
+        return new Response("body { display: block; }", {
+          status: 200,
+          headers: { "content-type": "text/css" },
+        });
+      }
+      if (url === "https://generated.example.test/assets/app.js") {
+        return new Response("document.body.dataset.ready = 'true';", {
+          status: 200,
+          headers: { "content-type": "application/javascript" },
+        });
       }
       if (url === "https://generated.example.test/health") {
         return new Response("not found", { status: 404 });
@@ -114,6 +120,58 @@ describe("production deployment health gate", () => {
     expect(result.ok).toBe(true);
     expect(result.assets).toHaveLength(2);
     expect(result.assets.every((asset) => asset.result.ok)).toBe(true);
+  });
+
+  it("rejects a 200 HTML SPA fallback for a missing JavaScript bundle", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://generated.example.test") {
+        return new Response(
+          '<html><script type="module" src="/assets/app.js"></script></html>',
+          { status: 200, headers: { "content-type": "text/html" } },
+        );
+      }
+      if (url.endsWith("/assets/app.js")) {
+        return new Response("<html>This is the website homepage</html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+    expect(result.root.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.assets[0]?.result.statusCode).toBe(200);
+    expect(result.assets[0]?.result.error).toContain("HTML fallback");
+  });
+
+  it("rejects empty or incorrectly served CSS despite HTTP 200", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://generated.example.test") {
+        return new Response(
+          '<html><link rel="stylesheet" href="/assets/app.css"></html>',
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/assets/app.css")) {
+        return new Response("", {
+          status: 200,
+          headers: { "content-type": "text/css" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.assets[0]?.result.error).toBe("Empty asset body");
   });
 
   it("rejects a generated product whose referenced JavaScript bundle is missing", async () => {
