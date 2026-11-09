@@ -57,7 +57,7 @@ describe("LLM invokeLLM", () => {
     try {
       await expect(
         invokeLLM({ messages: [{ role: "user", content: "paid build" }] }),
-      ).rejects.toThrow(/Customer builds are paused/);
+      ).rejects.toThrow(/reviewed price|spending ceiling|project-scoped/);
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = previousEnvironment;
