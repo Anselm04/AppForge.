@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import JSZip from "jszip";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { assertProductComplete } from "../lib/incompleteProduct.js";
@@ -12,13 +12,25 @@ export type DeployDestinationStatus = Record<
   { configured: boolean; label: string }
 >;
 
+// Local development uses a per-process unpredictable secret instead of a
+// publicly known signing key. Production must use an operator-configured key.
+const developmentPreviewSecret = randomBytes(32).toString("hex");
+
+function previewSigningSecret(): string {
+  const configured = [
+    process.env.PREVIEW_SECRET,
+    process.env.COOKIE_SECRET,
+    process.env.JWT_SECRET,
+  ].find((value) => value?.trim());
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") return developmentPreviewSecret;
+  throw new Error(
+    "Signed previews require PREVIEW_SECRET, COOKIE_SECRET, or JWT_SECRET in production",
+  );
+}
+
 export function previewSignature(projectId: number): string {
-  const secret =
-    process.env.PREVIEW_SECRET ||
-    process.env.COOKIE_SECRET ||
-    process.env.JWT_SECRET ||
-    "appforge-preview-dev";
-  return createHmac("sha256", secret)
+  return createHmac("sha256", previewSigningSecret())
     .update(`preview:${projectId}`)
     .digest("hex")
     .slice(0, 32);
@@ -28,14 +40,15 @@ export function verifyPreviewSignature(
   projectId: number,
   sig: string | undefined,
 ): boolean {
-  if (!sig) return false;
-  const expected = previewSignature(projectId);
-  if (sig.length !== expected.length) return false;
-  let ok = 0;
-  for (let i = 0; i < sig.length; i++) {
-    ok |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+  if (!sig || !/^[a-f0-9]{32}$/.test(sig)) return false;
+  let expected: string;
+  try {
+    expected = previewSignature(projectId);
+  } catch {
+    // Missing configuration must never grant anonymous signed access.
+    return false;
   }
-  return ok === 0;
+  return timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
 }
 
 function customerHostingError(): Error {
