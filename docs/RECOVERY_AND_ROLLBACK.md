@@ -306,3 +306,5 @@ misrepresented as cancelling an existing subscription. Before archival verify
 the old Price is not used for new authorized checkout and preserve historic
 invoice records. Never force-update existing Stripe subscriptions to new prices
 without explicit customer notice and contractual/legal justification.
+
+Billing qualification note: The new Stripe price IDs and optional Aftercare Plus item are not customer subscriptions until a real, authorised checkout has completed. CI cannot substitute for paid end-to-end confirmation. Existing subscriptions retain prior billing contracts unless the customer agrees to a migration.
