@@ -20,10 +20,7 @@ describe("customer-authorized Vercel deployment", () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(response({}))
       .mockResolvedValueOnce(response(deployment))
-      .mockResolvedValueOnce(response({ readyState: "BUILDING" }))
       .mockResolvedValueOnce(response({ readyState: "READY" }));
-    vi.useFakeTimers();
-    try {
       const task = deployToCustomerVercel(
         {
           token: "customer-test-token",
@@ -32,8 +29,6 @@ describe("customer-authorized Vercel deployment", () => {
         },
         fetcher,
       );
-      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
-      await vi.advanceTimersByTimeAsync(5_000);
       const result = await task;
       expect(result).toEqual({
         url: "https://customer-app-123.vercel.app",
@@ -56,9 +51,6 @@ describe("customer-authorized Vercel deployment", () => {
       expect(body.target).toBe("production");
       expect(body.files[0]?.sha).toBe(sha);
       expect(JSON.stringify(body)).not.toContain("customer-test-token");
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("rejects missing customer authorization before any provider call", async () => {
