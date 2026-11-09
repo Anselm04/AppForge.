@@ -16,8 +16,7 @@ async function fetchRepoFiles(
   // Resolve the actual default branch rather than assuming main or master.
   const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
+    Authorization: `***    Accept: "application/vnd.github+json",
   };
   const metadata = await fetch(base, { headers });
   if (!metadata.ok) {
@@ -75,7 +74,8 @@ async function collectBlobFiles(
   if (blobs.length > 150) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Repository has more than 150 importable files; full import is required.",
+      message:
+        "Repository has more than 150 importable files; full import is required.",
     });
   }
   for (const node of blobs) {
@@ -83,7 +83,9 @@ async function collectBlobFiles(
     if (
       path.startsWith("/") ||
       path.includes("\\") ||
-      path.split("/").some((segment) => !segment || segment === "." || segment === "..")
+      path
+        .split("/")
+        .some((segment) => !segment || segment === "." || segment === "..")
     ) {
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -93,8 +95,7 @@ async function collectBlobFiles(
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
     const raw = await fetch(`${base}/contents/${encodedPath}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github.raw",
+        Authorization: `***        Accept: "application/vnd.github.raw",
       },
     });
     if (!raw.ok) {
