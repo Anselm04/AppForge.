@@ -35,9 +35,9 @@ describe("zero-spend customer acceptance: actual commercial policy helpers", () 
 
   it("advertised plans have the approved USD amounts", () => {
     expect(MONTHLY_PLAN_USD_CENTS).toEqual({
-      starter: 4900,
-      builder: 14900,
-      studio: 39900,
+      starter: 7900,
+      builder: 19900,
+      studio: 49900,
     });
     for (const [tier, cents] of Object.entries(MONTHLY_PLAN_USD_CENTS)) {
       expect(cents).toBeGreaterThan(0);
@@ -62,22 +62,22 @@ describe("zero-spend customer acceptance: actual commercial policy helpers", () 
     const valid = {
       active: true,
       currency: "usd",
-      unit_amount: 4900,
+      unit_amount: 7900,
       type: "recurring",
       recurring: { interval: "month", interval_count: 1 },
       livemode: false,
     };
     for (const bad of [
       { currency: "nzd" },
-      { unit_amount: 7900 },
+      { unit_amount: 4900 },
       { active: false },
       { recurring: { interval: "year", interval_count: 1 } },
     ]) {
       expect(() =>
-        assertAppForgePrice({ ...valid, ...bad }, 4900, "recurring", false),
+        assertAppForgePrice({ ...valid, ...bad }, 7900, "recurring", false),
       ).toThrow(/checkout paused/);
     }
-    expect(() => assertAppForgePrice(valid, 4900, "recurring", true)).toThrow();
+    expect(() => assertAppForgePrice(valid, 7900, "recurring", true)).toThrow();
   });
 
   it("preserves prepaid unused credits across monthly refills", () => {
