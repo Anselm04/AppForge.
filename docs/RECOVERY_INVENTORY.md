@@ -1098,3 +1098,12 @@ The previous unconditional production-only build and checkout rejection has been
 - This check does not charge a customer, execute a live payment, simulate a Stripe purchase or claim full end-to-end monetisation certification. Valid production purchases still require a separately authorised live test.
 - Recovery: examine deployment evidence `hostingVerified`, `billingVerified`, `billingConnection`, `productionVerified` and the immutable artifact identity; distinguish a reachable website from subscription checkout. Run `productionBillingEvidence.test.ts` for live-host success, absent billing, failed billing routes, unconnected provider, and fully connected scenarios.
 - Rollback: revert the verification classification and tests. Customer source, subscriptions, provider deployment identity and previous database rows are unchanged. Never reinterpret older `productionVerified` evidence without checking whether provider connection was independently confirmed.
+
+
+## Real deployed JavaScript and CSS verification — 2026-11-09
+
+- Production smoke tests verify generated page assets referenced by the deployed HTML are actual JavaScript/CSS, not HTTP-200 HTML SPA fallbacks or empty files. Source ownership, validated artifact identity and customer-selected hosting remain unchanged.
+- Same-origin assets must respond directly with 2xx, appropriate JavaScript or CSS content-type and a nonempty stream. The probe reads only the first chunk of the body rather than downloading and storing full customer bundles; redirects are not followed.
+- A missing bundle or fallback is recorded as failed live verification. This prevents a host whose root page loads but app scripts/styles are broken from being classified as a working deployed customer application. It does not block development or create fake deployments.
+- Recovery verification: use the production health regression tests for valid MIME JS/CSS assets, missing 404 bundles, HTTP-200 HTML fallbacks, redirects and empty 200 CSS responses.
+- Rollback: revert the asset-specific MIME/body probe and its tests to restore status-only asset checks. No database, customer source, payment, or hosting-provider changes are involved.
