@@ -301,7 +301,13 @@ jobs:
           test -n "$ANDROID_DEVICE"
           printf '%s\n' "$ANDROID_DEVICE" > "$EVIDENCE/android-device-id.txt"
 
-          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test integration_test/qualification_test.dart \
+          # Use Flutter's real integration_test driver without DDS, which can
+          # fail to start on the CI Android API 35 emulator after APK install.
+          # The real emulator and Node backend assertions still run.
+          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/qualification_test.dart \
+            --no-dds \
             -d "$ANDROID_DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
             2>&1 | tee "$EVIDENCE/android-interaction.log"
