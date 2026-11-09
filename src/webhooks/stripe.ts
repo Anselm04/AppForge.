@@ -4,7 +4,10 @@ import { addCredits, db } from "../db.js";
 import { subscriptions } from "../db/schema.js";
 import { and, eq, sql } from "drizzle-orm";
 import { CREDIT_PACKS } from "../services/stripeCheckout.js";
-import { APPROVED_MONTHLY_PRICE_IDS, AFTERCARE_PLUS_PRICE_ID } from "../services/appForgePricePolicy.js";
+import {
+  APPROVED_MONTHLY_PRICE_IDS,
+  AFTERCARE_PLUS_PRICE_ID,
+} from "../services/appForgePricePolicy.js";
 import { reconcileCreditPurchaseRefund } from "../services/stripeCreditRefund.js";
 import { processStripeEventOnce } from "../services/stripeEventLedger.js";
 import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js";
@@ -124,6 +127,7 @@ function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
   return charge.payment_intent?.id ?? null;
 }
 
+// prettier-ignore
 function priceIdsForTier(tier: StandardTier): string[] {
   const envKeys: Record<StandardTier, string[]> = {
     starter: ["STRIPE_STARTER_PRICE_ID", "STRIPE_PRICE_STARTER"],
@@ -173,11 +177,13 @@ function resolveTier(
   );
 }
 
+// prettier-ignore
 function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
   const items = subscription.items?.data ?? [];
   return items.find((item) => tierFromPriceId(item.price?.id) !== null)?.price?.id ?? null;
 }
 
+// prettier-ignore
 function subscriptionHasAftercarePlus(subscription: Stripe.Subscription): boolean {
   const matches = subscription.items?.data?.filter(
     (item) => item.price?.id === AFTERCARE_PLUS_PRICE_ID,
@@ -498,7 +504,12 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       if (userId) {
         await db
           .update(subscriptions)
-          .set({ status: "canceled", tier: "free", aftercarePlus: false, updatedAt: new Date() })
+          .set({
+            status: "canceled",
+            tier: "free",
+            aftercarePlus: false,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(subscriptions.userId, userId),
