@@ -23,7 +23,7 @@ describe("production deployment health gate", () => {
   });
 
   it("refuses an SSO or provider protection redirect as a live application", async () => {
-    const fetcher = vi.fn(async () =>
+    const fetcher = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
       new Response(null, {
         status: 302,
         headers: { location: "https://login.example.test/" },
