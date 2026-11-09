@@ -1,0 +1,33 @@
+name: Format deployment evidence audit test
+on:
+  push:
+    branches:
+      - fix/preview-not-production-deployment-evidence-20261109
+    paths:
+      - .github/workflows/pr313-audit-formatter.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/preview-not-production-deployment-evidence-20261109
+          persist-credentials: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Apply exact formatting and delete temporary job
+        run: |
+          set -euo pipefail
+          npx --no-install prettier --write src/__tests__/section26EvidenceAuditTrail.test.ts
+          git rm .github/workflows/pr313-audit-formatter.yml
+          git add src/__tests__/section26EvidenceAuditTrail.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: format preview deployment audit expectation"
+          git push origin HEAD:fix/preview-not-production-deployment-evidence-20261109
