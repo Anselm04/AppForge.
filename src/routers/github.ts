@@ -5,10 +5,7 @@ import {
   getProjectById,
   getEditableProjectFiles,
 } from "../db.js";
-import {
-  isSafeTemplatePath,
-  isSafeTemplateContent,
-} from "./templateFactory.js";
+import { isSafeTemplatePath, isSafeTemplateContent } from "./templateFactory.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
@@ -133,6 +130,7 @@ function githubTokenOrThrow(stored: string | null | undefined): string {
   }
 }
 
+// prettier-ignore
 export const githubRouter = router({
   connectionStatus: protectedProcedure.query(async ({ ctx }) => {
     const conn = await getGithubConnection(ctx.user.id);
