@@ -88,6 +88,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+// prettier-ignore
 describe("pre-dispatch monetary guard with test-only price fixture", () => {
   it("checks lease, prices and credits before dispatch", () => {
     const wrapper = readFileSync(
