@@ -45,6 +45,7 @@ afterEach(() => {
   else process.env.APPFORGE_PROVIDER_PRICE_CATALOG_JSON = originalCatalog;
 });
 
+// prettier-ignore
 describe("real LLM attempt monetary reservations", () => {
   it("verifies reviewed provider prices and reserves before dispatch", async () => {
     const dispatch = vi.fn(async () =>
@@ -59,7 +60,11 @@ describe("real LLM attempt monetary reservations", () => {
     expect(result.ok).toBe(true);
     expect(state.operation).toHaveBeenCalledOnce();
     expect(dispatch).toHaveBeenCalledOnce();
-    const [options] = state.operation.mock.calls[0];
+    const [rawOptions] = state.operation.mock.calls[0];
+    const options = rawOptions as {
+      operationId: string;
+      envelope: { attempts: Array<{ provider: string }>; priceSnapshotSource: string };
+    };
     expect(options.operationId).toMatch(/^llm_[a-f0-9]{32}$/);
     expect(options.envelope.attempts[0].provider).toBe("test-provider");
     expect(options.envelope.priceSnapshotSource).toBe("provider_confirmed");
