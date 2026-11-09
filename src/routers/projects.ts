@@ -742,6 +742,15 @@ export const projectsRouter = router({
         destination: z
           .enum(["vercel", "netlify", "fly", "preview", "zip", "github-pages"])
           .default("preview"),
+        vercelAuthorization: z
+          .object({
+            token: z.string().min(1).max(512),
+            teamId: z
+              .string()
+              .regex(/^team_[A-Za-z0-9]+$/)
+              .optional(),
+          })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -869,6 +878,10 @@ export const projectsRouter = router({
           techStack: stackAdapter.id,
           productContract,
           productPlan: project.productPlan ?? undefined,
+          vercelAuthorization:
+            input.destination === "vercel"
+              ? input.vercelAuthorization
+              : undefined,
         });
 
         if (input.destination === "preview" && result.url) {

@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import JSZip from "jszip";
+import { deployToCustomerVercel } from "./customerVercelDeploy.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { assertProductComplete } from "../lib/incompleteProduct.js";
 import type { ProductContract } from "../lib/productContract.js";
@@ -121,7 +122,7 @@ export function assertArtifactMatchesWorkingFiles(input: {
 
 export function listDeployDestinations(): DeployDestinationStatus {
   return {
-    vercel: { configured: false, label: "Vercel — use your own account" },
+    vercel: { configured: true, label: "Vercel — deploy using your account" },
     netlify: {
       configured: false,
       label: "Netlify — use your own account",
@@ -146,6 +147,7 @@ export async function deployProject(opts: {
   techStack?: string;
   productContract?: ProductContract;
   productPlan?: ProductPlan;
+  vercelAuthorization?: { token: string; teamId?: string };
 }): Promise<{ url: string; destination: DeployDestination; note?: string }> {
   const {
     destination,
@@ -156,6 +158,7 @@ export async function deployProject(opts: {
     techStack,
     productContract,
     productPlan,
+    vercelAuthorization,
   } = opts;
   const productionDestination =
     destination === "vercel" ||
@@ -197,6 +200,24 @@ export async function deployProject(opts: {
         context: "Deployment completeness gate",
       });
     }
+  }
+  if (destination === "vercel") {
+    if (!vercelAuthorization?.token) throw customerHostingError();
+    const deployed = await deployToCustomerVercel({
+      token: vercelAuthorization.token,
+      teamId: vercelAuthorization.teamId,
+      projectName: projectName
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 100),
+      files,
+    });
+    return {
+      destination,
+      url: deployed.url,
+      note: "Customer-owned Vercel deployment",
+    };
   }
   if (productionDestination) {
     throw customerHostingError();

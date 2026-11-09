@@ -83,6 +83,9 @@ export function Build() {
   const [structuralDone, setStructuralDone] = useState(false);
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
+  const [vercelToken, setVercelToken] = useState("");
+  const [vercelTeamId, setVercelTeamId] = useState("");
+  const [vercelDeployConfirmed, setVercelDeployConfirmed] = useState(false);
   const [hasPartialFiles, setHasPartialFiles] = useState(false);
   const [planRevision, setPlanRevision] = useState("");
   const [approvalBusy, setApprovalBusy] = useState(false);
@@ -347,12 +350,29 @@ export function Build() {
 
   const handleDeploy = async () => {
     if (!projectId) return;
+    if (
+      destination === "vercel" &&
+      (!vercelToken.trim() || !vercelDeployConfirmed)
+    ) {
+      setError(
+        "Provide your Vercel access token and confirm deployment to your own account.",
+      );
+      return;
+    }
     setDeploying(true);
     setError(null);
     try {
       const result = await trpc.projects.deploy.mutate({
         id: pid,
         destination,
+        ...(destination === "vercel"
+          ? {
+              vercelAuthorization: {
+                token: vercelToken,
+                ...(vercelTeamId.trim() ? { teamId: vercelTeamId.trim() } : {}),
+              },
+            }
+          : {}),
       });
       if (result.deployUrl) setDeployUrl(result.deployUrl);
       if ("deployGuide" in result && Array.isArray(result.deployGuide)) {
@@ -361,6 +381,7 @@ export function Build() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deployment failed");
     } finally {
+      setVercelToken("");
       setDeploying(false);
     }
   };
@@ -1089,6 +1110,51 @@ export function Build() {
                 Hosting is provided by your chosen host, using your own account.
                 AppForge does not host customer products.
               </p>
+              {!structuralOnly && destination === "vercel" && (
+                <div className="mt-4 space-y-3 rounded-lg border border-green-700/40 bg-slate-900 p-4">
+                  <p className="text-sm text-green-100">
+                    Deploy this validated source to your Vercel account. Vercel
+                    may charge you for building and hosting. AppForge never uses
+                    its hosting token.
+                  </p>
+                  <label className="block text-sm text-slate-200">
+                    Vercel access token (used for this request only)
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={vercelToken}
+                      onChange={(event) => {
+                        setVercelToken(event.target.value);
+                        setVercelDeployConfirmed(false);
+                      }}
+                      className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-white"
+                      placeholder="Paste your own Vercel token"
+                    />
+                  </label>
+                  <label className="block text-sm text-slate-200">
+                    Vercel team ID (optional, for team-owned projects)
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={vercelTeamId}
+                      onChange={(event) => setVercelTeamId(event.target.value)}
+                      className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-white"
+                      placeholder="team_..."
+                    />
+                  </label>
+                  <label className="flex items-start gap-2 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={vercelDeployConfirmed}
+                      onChange={(event) =>
+                        setVercelDeployConfirmed(event.target.checked)
+                      }
+                    />
+                    I authorize deploying this project to my Vercel account and
+                    understand that my provider may charge for usage.
+                  </label>
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {!structuralOnly && (
                   <label className="text-sm text-green-200/80">
@@ -1125,7 +1191,7 @@ export function Build() {
                     </select>
                   </label>
                 )}
-                {structuralOnly ? null : deployUrl ? (
+                {!structuralOnly && deployUrl && (
                   <a
                     href={deployUrl}
                     target="_blank"
@@ -1134,14 +1200,20 @@ export function Build() {
                   >
                     View Live App
                   </a>
-                ) : (
+                )}
+                {!structuralOnly && (
                   <button
                     onClick={handleDeploy}
-                    disabled={deploying || destinationDisabled(destination)}
+                    disabled={
+                      deploying ||
+                      destinationDisabled(destination) ||
+                      (destination === "vercel" &&
+                        (!vercelToken.trim() || !vercelDeployConfirmed))
+                    }
                     className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                   >
                     {deploying
-                      ? "Opening…"
+                      ? "Deploying…"
                       : destination === "preview"
                         ? "Open preview"
                         : "Deploy to my account"}
