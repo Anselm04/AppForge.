@@ -1024,7 +1024,9 @@ export const projectsRouter = router({
             ? revenueGoLiveSteps(result.url)
             : ["Configure Stripe/webhooks if billing is included."]),
           "Review REVIEW.md for known issues from the AI pipeline.",
-          ...(productionDestination && readiness.stripeDetected && !verification.productionVerified
+          ...(productionDestination &&
+          readiness.stripeDetected &&
+          !verification.productionVerified
             ? [
                 "Hosting may be live, but billing is NOT verified. Configure Stripe keys and webhooks with your hosting provider, then complete live billing verification before selling subscriptions.",
               ]
