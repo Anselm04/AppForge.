@@ -179,6 +179,8 @@ export async function createPlanCheckout(
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: lineItems,
+    automatic_tax: { enabled: true },
+    allow_promotion_codes: false,
     success_url: `${appUrl}/dashboard?checkout=success`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
     customer: sub?.stripeCustomerId ?? undefined,
