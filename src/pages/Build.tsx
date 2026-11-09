@@ -80,6 +80,8 @@ export function Build() {
     [pid],
   );
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [lastDeployDestination, setLastDeployDestination] =
+    useState<DeployDestination | null>(null);
   const [structuralDone, setStructuralDone] = useState(false);
   const [deployGuide, setDeployGuide] = useState<string[] | undefined>();
   const [destination, setDestination] = useState<DeployDestination>("preview");
@@ -374,7 +376,10 @@ export function Build() {
             }
           : {}),
       });
-      if (result.deployUrl) setDeployUrl(result.deployUrl);
+      if (result.deployUrl) {
+        setDeployUrl(result.deployUrl);
+        setLastDeployDestination(destination);
+      }
       if ("deployGuide" in result && Array.isArray(result.deployGuide)) {
         setDeployGuide(result.deployGuide as string[]);
       }
@@ -1198,7 +1203,9 @@ export function Build() {
                     rel="noopener noreferrer"
                     className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg inline-block"
                   >
-                    View Live App
+                    {lastDeployDestination === "preview"
+                      ? "Open Preview"
+                      : "View Live App"}
                   </a>
                 )}
                 {!structuralOnly && (
