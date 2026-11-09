@@ -22,7 +22,10 @@ function safeSourcePath(path: string): boolean {
     !path.startsWith("/") &&
     !path.includes("\\") &&
     !/^[A-Za-z]:/.test(path) &&
-    !/[\x00-\x1f\x7f]/.test(path) &&
+    ![...path].some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127;
+    }) &&
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
   );
 }
