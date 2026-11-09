@@ -85,6 +85,7 @@ import type {
 
 const PROMPT = "a REST API for bookings with OpenAPI documentation";
 
+// prettier-ignore
 function configurePricedCustomerProvider() {
   vi.stubEnv("GROQ_API_KEY", "offline-test-provider");
   vi.stubEnv("APPFORGE_LLM_RUNTIME_MAX_CENTS", "12");
@@ -186,6 +187,7 @@ beforeEach(() => {
   });
 });
 
+// prettier-ignore
 describe("build worker pre-build dependency gate", () => {
   it.each(["production", "staging", "preview", "", undefined])(
     "refuses unpriced customer requests in %s and refunds unused credits",
