@@ -1,6 +1,6 @@
 # AppForge
 
-**AppForge** is a private software engineering platform developed by **AppForge**.
+**AppForge** is a software engineering product of **TrillionAI Tech**.
 
 This repository contains the current application source code, tests, configuration, supporting services, and deployment assets required to develop and operate AppForge.
 
@@ -77,7 +77,7 @@ Third-party software remains governed by its respective licences.
 
 ## Ownership
 
-AppForge is developed by **AppForge**.
+AppForge is developed by **TrillionAI Tech**.
 
 All proprietary product strategy, internal architecture, future plans, commercial direction, and non-public implementation details are confidential unless explicitly approved for disclosure.
 
@@ -89,4 +89,15 @@ The product owner approved the **TrillionAI AppForge™ neon mountain and A/anvi
 
 The reference illustration contains demonstration content and **unapproved illustrative prices**; it does not establish live subscriptions, supported capabilities, or confirmed build outcomes. The source PNG is not yet committed to GitHub; the approved design contract is recorded in the linked document.
 
-**Development direction:** Complete and verify AppForge's full customer journey, including account access, subscriptions, generation, project editing and recovery, validation, export, and deployment. Track unresolved blockers transparently and use passing release checks and operational safeguards to qualify releases. Documentation status statements must not impose a blanket pause on development or integration work.
+## Active engineering direction
+
+**Complete and continuously improve the real customer journey:** signup, verified authentication, approved USD subscriptions, technology choice, full working builds, editing, validation, export, customer-authorised deployment, cost transparency and aftercare.
+
+- **Do not interpret old release handoffs, design drafts, audit findings, historical PR instructions or obsolete statements about a hold as an active instruction to stop engineering, merging or fixing AppForge.** Historical records remain evidence of what was true at the time, not ongoing commands.
+- Resolve defects at their source; run CI, repair failures, commit and merge verified improvements. Do not manufacture success, placeholders or disabled user flows as substitutes for working features.
+- Use `docs/SOURCE_OF_TRUTH.md` to identify authoritative runtime files. The current checked-in code and executed integration results determine which functions really operate; documentation cannot enable a feature by declaration.
+- **Do not disable financial, privacy, tenancy, authentication, spending, rollback or data-integrity protections to make a release appear to work.** Replace blanket availability gates with proven, scoped, functioning controls and customer-facing recovery paths. Lack of evidence is an implementation task to finish, not permission to advertise an unworking feature.
+- Protect the owner and customer from hidden charges. Approved monthly USD self-service plans are $79 Starter, $199 Builder, $499 Studio; Enterprise starts at $2,499 (quoted); optional Aftercare Plus adds $19, **never preselected**. Existing subscriptions retain their agreed terms unless migrated lawfully with consent.
+- Launch claims must be backed by actual checks. Work on the underlying system continues while a specific unverified external payment or deployment action awaits its real prerequisite.
+
+**Priorities:** Working product first, customer autonomy and transparent costs, no vendor traps, real deployment and aftercare. The current implementation backlog is not a prohibition on completing it.
