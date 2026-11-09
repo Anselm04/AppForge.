@@ -66,6 +66,7 @@ async function getStripe() {
   return getAppForgeStripe();
 }
 
+// prettier-ignore
 export const subscriptionsRouter = router({
   status: protectedProcedure.query(async ({ ctx }) => {
     const sub = await getSubscriptionByUserId(ctx.user.id);
