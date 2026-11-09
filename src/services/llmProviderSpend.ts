@@ -16,6 +16,7 @@ import { runReservedProviderOperation } from "./guardedProviderOperation.js";
  * retains the original reservation for reconciliation; never refund an
  * uncertain charge or retry without a separate reservation.
  */
+// prettier-ignore
 export async function dispatchCostedLlmAttempt(
   input: {
     provider: string;
