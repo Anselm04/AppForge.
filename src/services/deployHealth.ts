@@ -282,15 +282,15 @@ export async function runBillingRouteSmokeTest(
         res.status >= 200 &&
         res.status < 300 &&
         /\bapplication\/(?:[\w.+-]*\+)?json\b/i.test(contentType);
-      const healthyApiResponse = rejectedInvalidInput || apiJsonSuccess;
+      const htmlResponse = /text\/html|application\/xhtml\+xml/i.test(contentType);
+      const healthyApiResponse =
+        !htmlResponse && (rejectedInvalidInput || apiJsonSuccess);
       let hasExpectedContent = true;
       if (!apiRoute && res.ok) {
         const body = await res.text();
         hasExpectedContent = body.trim().length > 0;
       }
-      const ok = apiRoute
-        ? healthyApiResponse
-        : res.ok && hasExpectedContent;
+      const ok = apiRoute ? healthyApiResponse : res.ok && hasExpectedContent;
       routes.push({
         path: probe.path,
         method: probe.method,
