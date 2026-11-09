@@ -24,7 +24,8 @@ const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
 
 // Only the owner-approved live catalogue can create new plan subscriptions.
 // Historical env IDs are handled by webhook compatibility, never checkout.
-const PLAN_PRICE_IDS: Record<SelfServePlanTier, string> = APPROVED_MONTHLY_PRICE_IDS;
+const PLAN_PRICE_IDS: Record<SelfServePlanTier, string> =
+  APPROVED_MONTHLY_PRICE_IDS;
 
 const CREDIT_PRICE_IDS: Record<CreditPack, string> = {
   50: process.env.STRIPE_CREDITS_50_PRICE_ID || "",
@@ -153,6 +154,7 @@ function assertCanCreateSubscription(
   }
 }
 
+// prettier-ignore
 export async function createPlanCheckout(
   user: CheckoutUser,
   tier: SelfServePlanTier,
