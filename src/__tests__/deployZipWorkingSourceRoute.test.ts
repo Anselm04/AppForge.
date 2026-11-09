@@ -29,9 +29,7 @@ describe("projects.deploy ZIP source backup", () => {
   it("returns the saved source before validated-only deployment checks", () => {
     expect(zipBranch).toContain("getEditableProjectFiles(input.id)");
     expect(zipBranch).toContain("zipFiles(");
-    expect(zipBranch).toContain(
-      'sourceStatus: "latest-saved-working-source"',
-    );
+    expect(zipBranch).toContain('sourceStatus: "latest-saved-working-source"');
     expect(zipBranch).toContain("productionCertified: false");
     expect(zipBranch).not.toContain("getCurrentArtifact");
     expect(zipBranch).not.toContain("assertProjectExportComplete");
