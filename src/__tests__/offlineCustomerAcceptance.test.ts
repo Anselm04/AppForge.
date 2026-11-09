@@ -15,6 +15,7 @@ import {
   minimumPriceForMargin,
 } from "../lib/providerCostPolicy.js";
 
+// prettier-ignore
 describe("zero-spend customer acceptance: actual commercial policy helpers", () => {
   it("does not advertise unapproved top-up prices as final customer charges", () => {
     const page = readFileSync(
