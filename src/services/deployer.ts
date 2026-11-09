@@ -122,7 +122,7 @@ export function assertArtifactMatchesWorkingFiles(input: {
 
 export function listDeployDestinations(): DeployDestinationStatus {
   return {
-    vercel: { configured: false, label: "Vercel — use your own account" },
+    vercel: { configured: true, label: "Vercel — deploy using your account" },
     netlify: {
       configured: false,
       label: "Netlify — use your own account",
