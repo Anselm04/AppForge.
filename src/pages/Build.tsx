@@ -1183,7 +1183,7 @@ export function Build() {
                     </select>
                   </label>
                 )}
-                {structuralOnly ? null : deployUrl ? (
+                {!structuralOnly && deployUrl && (
                   <a
                     href={deployUrl}
                     target="_blank"
@@ -1192,14 +1192,20 @@ export function Build() {
                   >
                     View Live App
                   </a>
-                ) : (
+                )}
+                {!structuralOnly && (
                   <button
                     onClick={handleDeploy}
-                    disabled={deploying || destinationDisabled(destination)}
+                    disabled={
+                      deploying ||
+                      destinationDisabled(destination) ||
+                      (destination === "vercel" &&
+                        (!vercelToken.trim() || !vercelDeployConfirmed))
+                    }
                     className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-2 rounded-lg"
                   >
                     {deploying
-                      ? "Opening…"
+                      ? "Deploying…"
                       : destination === "preview"
                         ? "Open preview"
                         : "Deploy to my account"}
