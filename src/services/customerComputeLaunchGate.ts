@@ -1,36 +1,65 @@
 import { TRPCError } from "@trpc/server";
+import { listConfiguredLlmProviders } from "../lib/llmProviders.js";
+import { trustedRates } from "../lib/providerCostEnvelope.js";
 
 /**
- * This is a RELEASE STOP, not a substitute for real provider cost metering.
+ * Customer builds are admitted based on real, currently configured service
+ * capabilities — not a permanent NODE_ENV-based production embargo.
  *
- * Current build reservation charges a fixed 5 abstract credits, while the
- * autonomous pipeline can use unbounded external AI/provider resources.
- * No environment toggle is allowed to pretend that is a USD spending cap.
- * Remove this stop ONLY in a reviewed change which installs atomic
- * per-customer/per-job monetary reservations, provider metering and hard
- * enforcement inside every external billable call.
- *
- * Only explicit local test/development CI can use mocked model calls. Unknown runtimes fail closed. Owner review/test actions
- * are explicitly outside paid customer launch certification.
+ * All billable AI attempts still require an execution lease and an atomic
+ * customer spend reservation at the network boundary. Separate build-runtime
+ * readiness, paid entitlements, credit availability and provider limits are
+ * checked at their own operations.
  */
 export const CUSTOMER_COMPUTE_NOT_CERTIFIED =
-  "Customer builds are paused while AppForge completes provider-cost metering and spending protection. Your saved work and purchased credits are preserved; no new paid build will start.";
+  "An AI provider with a valid reviewed price and spending ceiling is needed for this build. Configure a supported provider; no billable request was sent.";
 
 export function customerComputeLaunchCertified(
   environment: string | undefined = process.env.NODE_ENV,
 ): boolean {
-  // This is deliberately NOT controlled by a config flag: env=true is not
-  // evidence that all AI, VM, storage, egress and retry charges are capped.
-  return environment === "test" || environment === "development";
+  if (environment === "test" || environment === "development") return true;
+  if (environment !== "production") return false;
+
+  const maximum = Number(process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS);
+  if (!Number.isSafeInteger(maximum) || maximum < 1) return false;
+
+  try {
+    const now = Date.now();
+    const providers = listConfiguredLlmProviders();
+    const rates = trustedRates();
+    return providers.some((provider) =>
+      rates.some(
+        (rate) =>
+          rate.provider === provider.id &&
+          rate.model === provider.defaultModel &&
+          Number.isSafeInteger(rate.inputUsdMicrosPerMillionTokens) &&
+          rate.inputUsdMicrosPerMillionTokens >= 0 &&
+          Number.isSafeInteger(rate.outputUsdMicrosPerMillionTokens) &&
+          rate.outputUsdMicrosPerMillionTokens >= 0 &&
+          Number.isSafeInteger(rate.fixedRequestCents) &&
+          rate.fixedRequestCents >= 0 &&
+          (rate.inputUsdMicrosPerMillionTokens > 0 ||
+            rate.outputUsdMicrosPerMillionTokens > 0 ||
+            rate.fixedRequestCents > 0) &&
+          rate.sourceUrl?.startsWith("https://") &&
+          Number.isFinite(Date.parse(rate.reviewedAt)) &&
+          Date.parse(rate.reviewedAt) <= now &&
+          Number.isFinite(Date.parse(rate.validUntil)) &&
+          Date.parse(rate.validUntil) > now,
+      ),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function assertCustomerComputeLaunchCertified(
-  owner: boolean,
+  _owner: boolean,
   environment: string | undefined = process.env.NODE_ENV,
 ): void {
-  if (owner || customerComputeLaunchCertified(environment)) return;
+  if (customerComputeLaunchCertified(environment)) return;
   throw new TRPCError({
-    code: "SERVICE_UNAVAILABLE",
+    code: "PRECONDITION_FAILED",
     message: CUSTOMER_COMPUTE_NOT_CERTIFIED,
   });
 }

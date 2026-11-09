@@ -76,6 +76,7 @@ import { syncComplianceToVanta } from "../services/vantaSync.js";
 import { deployValidatedProject } from "../services/productionAutoDeploy.js";
 import { runBuildJob } from "../services/build-worker.js";
 import { resolveIntakeContract } from "../lib/productContract.js";
+import { listConfiguredLlmProviders } from "../lib/llmProviders.js";
 import type { BuildJob } from "../lib/buildJob.js";
 import type {
   ResolvedDependencyNode,
@@ -83,6 +84,29 @@ import type {
 } from "../lib/stackDependencyResolver.js";
 
 const PROMPT = "a REST API for bookings with OpenAPI documentation";
+
+// prettier-ignore
+function configurePricedCustomerProvider() {
+  vi.stubEnv("GROQ_API_KEY", "offline-test-provider");
+  vi.stubEnv("APPFORGE_LLM_RUNTIME_MAX_CENTS", "12");
+  const model = listConfiguredLlmProviders().find((p) => p.id === "groq")?.defaultModel;
+  if (!model) throw new Error("Expected configured offline provider fixture");
+  vi.stubEnv(
+    "APPFORGE_PROVIDER_PRICE_CATALOG_JSON",
+    JSON.stringify([
+      {
+        provider: "groq",
+        model,
+        inputUsdMicrosPerMillionTokens: 1000000,
+        outputUsdMicrosPerMillionTokens: 1000000,
+        fixedRequestCents: 1,
+        sourceUrl: "https://example.com/pricing",
+        reviewedAt: "2026-11-01T00:00:00Z",
+        validUntil: "2099-01-01T00:00:00Z",
+      },
+    ]),
+  );
+}
 
 function validJob(overrides: Partial<BuildJob> = {}): BuildJob {
   const resolution = resolveIntakeContract(PROMPT);
@@ -163,9 +187,10 @@ beforeEach(() => {
   });
 });
 
+// prettier-ignore
 describe("build worker pre-build dependency gate", () => {
   it.each(["production", "staging", "preview", "", undefined])(
-    "pauses non-owner queued builds in %s before the pipeline starts",
+    "refuses unpriced customer requests in %s and refunds unused credits",
     async (environment) => {
       vi.stubEnv("NODE_ENV", environment);
       const job = validJob();
@@ -187,11 +212,11 @@ describe("build worker pre-build dependency gate", () => {
         );
         expect(db.updateProjectStatus).toHaveBeenCalledWith(
           job.projectId,
-          "paused",
-          "provider_cost_metering_pending",
+          "failed",
+          "build_failed",
         );
         expect(errorEvents()).toEqual([
-          expect.objectContaining({ error: "provider_cost_metering_pending" }),
+          expect.objectContaining({ error: "build_failed" }),
         ]);
       } finally {
         vi.unstubAllEnvs();
@@ -224,8 +249,29 @@ describe("build worker pre-build dependency gate", () => {
     },
   );
 
+  it("runs a properly priced production customer build instead of unconditionally pausing it", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    configurePricedCustomerProvider();
+    const job = validJob();
+    resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());
+    db.getProjectById.mockResolvedValue(projectFor(job));
+    pipeline.runAgentPipeline.mockImplementation(async () => {
+      db.getProjectById.mockResolvedValue(projectFor(job, { status: "validated" }));
+    });
+
+    try {
+      await runBuildJob(JSON.parse(JSON.stringify(job)));
+      expect(pipeline.runAgentPipeline).toHaveBeenCalledOnce();
+      expect(db.updateProjectStatus).toHaveBeenCalledWith(job.projectId, "validated");
+      expect(errorEvents()).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("returns a validated owner build without deploying or requiring hosting credentials", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    configurePricedCustomerProvider();
     vi.stubEnv("FLY_API_TOKEN", "");
     const job = validJob();
     resolverMock.resolveStackDependencyGraph.mockReturnValue(graph());

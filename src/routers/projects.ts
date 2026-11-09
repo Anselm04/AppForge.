@@ -283,8 +283,8 @@ export const projectsRouter = router({
         });
       }
 
-      // The fixed credit reservation does not meter external provider dollars.
-      // Pause customer compute until atomic hard USD caps are implemented.
+      // Check current priced-provider readiness before project creation.
+      // Every billable build operation is reserved atomically at dispatch.
       assertCustomerComputeLaunchCertified(owner);
 
       // Deterministic prompt-specific contract, optionally enriched by a model
@@ -597,7 +597,7 @@ export const projectsRouter = router({
         });
       }
 
-      // Resume must obey the same financial launch stop as first-time builds.
+      // Resume requires the same priced-provider and runtime readiness as a new build.
       assertCustomerComputeLaunchCertified(isOwnerEmail(ctx.user.email));
       await assertBuildExecutionReady();
       const credits = await ensureUserCredits(ctx.user.id);

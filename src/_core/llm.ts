@@ -4,6 +4,8 @@ import { recordModelUsage } from "../lib/operationsObservability.js";
 import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 import { dispatchCostedLlmAttempt } from "../services/llmProviderSpend.js";
+import { trustedRates } from "../lib/providerCostEnvelope.js";
+import { selectRatedLlmProviders } from "../lib/ratedLlmProviders.js";
 import {
   assertAnyLlmProviderConfigured,
   chatCompletionsUrl,
@@ -496,8 +498,25 @@ class ProviderUsagePersistenceError extends Error {
 // prettier-ignore
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertCustomerComputeLaunchCertified(false);
+  // Never dispatch an unreserved, potentially billable model request in production.
+  // Customer builds acquire a verified per-project lease before this call.
+  if (process.env.NODE_ENV === "production" && !currentBuildExecutionLease()) {
+    throw new Error("A project-scoped spending reservation is required for live AI requests");
+  }
+  const configuredProviders = assertAnyLlmProviderConfigured();
+  const eligibleProviders =
+    process.env.NODE_ENV === "production"
+      ? selectRatedLlmProviders(
+          configuredProviders,
+          trustedRates(),
+          params.model ?? "",
+        )
+      : configuredProviders;
+  if (eligibleProviders.length === 0) {
+    throw new Error("No reviewed provider/model price is available for this request");
+  }
   const providers = orderProviders(
-    assertAnyLlmProviderConfigured(),
+    eligibleProviders,
     params.preferredProviderId,
     params.startProviderIndex,
   );
@@ -660,9 +679,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
           durationMs: Date.now() - requestStartedAt,
           ok: true,
         });
-        // Attribution is best-effort telemetry, NOT production spend control.
-        // Unknown token prices/attempts remain unverified and the customer
-        // production build gate must remain closed until full cost caps exist.
+        // Usage attribution supplements the separate atomic spending
+        // reservation already completed before the billable dispatch.
         if (currentBuildExecutionLease()) {
           try {
             const { recordProviderUsageForCurrentBuild } =
@@ -722,6 +740,13 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         ].find(
           (model) =>
             !attemptedModels.has(model) &&
+            (process.env.NODE_ENV !== "production" ||
+              trustedRates().some(
+                (rate) =>
+                  rate.provider === "gemini" &&
+                  rate.model === model &&
+                  Date.parse(rate.validUntil) > Date.now(),
+              )) &&
             !providers.some(
               (candidate) =>
                 candidate.id === "gemini" && candidate.defaultModel === model,

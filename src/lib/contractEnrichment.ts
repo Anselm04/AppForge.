@@ -7,6 +7,7 @@
  * contract is always derived from the prompt either way.
  */
 import { z } from "zod";
+import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
 import {
   validateProductContract,
   type ProductContract,
@@ -183,6 +184,10 @@ function buildMessages(contract: ProductContract): {
 }
 
 async function defaultModelCall(): Promise<EnrichmentModelCall | null> {
+  // The pre-build contract already works deterministically. Do not make a
+  // separately billed AI call before a project lease and budget exist.
+  if (process.env.NODE_ENV === "production" && !currentBuildExecutionLease())
+    return null;
   const { configuredLlmProviderIds, invokeLLM } =
     await import("../_core/llm.js");
   if (configuredLlmProviderIds().length === 0) return null;

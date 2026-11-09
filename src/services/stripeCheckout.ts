@@ -1,7 +1,7 @@
 import { getSubscriptionByUserId } from "../db.js";
 import { getAppForgeStripe } from "./appForgeStripe.js";
 import { assertEligibleForCreditTopUp } from "./appForgeCreditEligibility.js";
-import { assertCommercialCheckoutReleased } from "./appForgeCommercialCheckoutGate.js";
+import { assertCommercialCheckoutReady } from "./appForgeCommercialCheckoutGate.js";
 import {
   assertAppForgePrice,
   APPROVED_MONTHLY_PRICE_IDS,
@@ -160,7 +160,7 @@ export async function createPlanCheckout(
   tier: SelfServePlanTier,
   aftercarePlus = false,
 ) {
-  assertCommercialCheckoutReleased();
+  await assertCommercialCheckoutReady();
   const stripe = await getStripe();
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);
@@ -215,7 +215,7 @@ export async function createCreditCheckout(
   user: CheckoutUser,
   credits: CreditPack,
 ) {
-  assertCommercialCheckoutReleased();
+  await assertCommercialCheckoutReady();
   const stripe = await getStripe();
   const appUrl = requireAppUrl();
   const sub = await getSubscriptionByUserId(user.id);

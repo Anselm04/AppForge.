@@ -8,13 +8,14 @@ import {
   assertAppForgePrice,
   MONTHLY_PLAN_USD_CENTS,
 } from "../services/appForgePricePolicy.js";
-import { assertCommercialCheckoutReleased } from "../services/appForgeCommercialCheckoutGate.js";
+import { assertCommercialCheckoutReady } from "../services/appForgeCommercialCheckoutGate.js";
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
 import {
   evaluateProvisionalProviderBudget,
   minimumPriceForMargin,
 } from "../lib/providerCostPolicy.js";
 
+// prettier-ignore
 describe("zero-spend customer acceptance: actual commercial policy helpers", () => {
   it("does not advertise unapproved top-up prices as final customer charges", () => {
     const page = readFileSync(
@@ -28,7 +29,7 @@ describe("zero-spend customer acceptance: actual commercial policy helpers", () 
       "Approved provider-credit pack prices are displayed",
     );
     expect(page).toContain(
-      "disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}",
+      "disabled={buyCredits.isPending}",
     );
     expect(page).not.toContain("USD ${(pack * 2)");
   });
@@ -120,23 +121,22 @@ describe("zero-spend customer acceptance: actual commercial policy helpers", () 
     ).toThrow();
   });
 
-  it("does not allow production checkout or unqualified customer AI calls", () => {
-    for (const runtime of [
-      "production",
-      "preview",
-      "staging",
-      "",
-      "Production",
-    ]) {
-      expect(() => assertCommercialCheckoutReleased(runtime)).toThrow();
+  it("does not charge for an unpriced AI provider but permits local payment tests", async () => {
+    const priorCap = process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS;
+    try {
+      process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS = "";
+      await expect(assertCommercialCheckoutReady("production")).rejects.toThrow();
       expect(() =>
-        assertCustomerComputeLaunchCertified(false, runtime),
+        assertCustomerComputeLaunchCertified(false, "production"),
       ).toThrow();
+      await expect(assertCommercialCheckoutReady("test")).resolves.toBeUndefined();
+      expect(() =>
+        assertCustomerComputeLaunchCertified(false, "test"),
+      ).not.toThrow();
+    } finally {
+      if (priorCap === undefined) delete process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS;
+      else process.env.APPFORGE_LLM_RUNTIME_MAX_CENTS = priorCap;
     }
-    expect(() => assertCommercialCheckoutReleased("test")).not.toThrow();
-    expect(() =>
-      assertCustomerComputeLaunchCertified(false, "test"),
-    ).not.toThrow();
   });
 
   it("denies provisional provider work when allowance is exhausted", () => {

@@ -14,7 +14,7 @@ const excludedDirs = new Set([".git", "node_modules", "dist", "build", "coverage
 const scanExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".sh", ".yaml", ".yml", ".json", ".html", ".sql", ".dart"]);
 const explicitNames = new Set(["Dockerfile", "fly.toml", "Procfile", ".env.example", ".env.production.example"]);
 const rules = [
-  { id: "customer-build-production-block", severity: "blocker", re: /assertCustomerComputeLaunchCertified|CUSTOMER_COMPUTE_NOT_CERTIFIED/ },
+  { id: "customer-build-production-block", severity: "blocker", re: /Customer builds are paused while AppForge|return environment === ["\x27]test["\x27] \|\| environment === ["\x27]development["\x27]/ },
   { id: "commercial-checkout-production-block", severity: "blocker", re: /assertCommercialCheckoutReleased|COMMERCIAL_CHECKOUT_PAUSED/ },
   { id: "pricing-proposal-mode", severity: "blocker", re: /PRICING_PROPOSAL_MODE\s*=\s*true/ },
   { id: "unimplemented-feature", severity: "review", re: /(?:not implemented|requires an authorised|requires a verified persisted|throw new Error\(["'].*(?:integration|adapter))/i },

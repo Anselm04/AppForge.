@@ -20,7 +20,6 @@ const CREDIT_PACKS = PURCHASED_PROVIDER_CREDIT_PACKS_CENTS;
 const providerCreditPackPrice = (pack: ProviderCreditPackCents) =>
   (PURCHASED_PROVIDER_CREDIT_PACK_PRICES_USD_CENTS[pack] / 100).toFixed(2);
 const ENTERPRISE_CONTACT = "/help?topic=enterprise";
-const PRICING_PROPOSAL_MODE = true;
 const PRICING_BUDGET_DISCLOSURE =
   "Your subscription includes a limited monthly credit allowance, not unlimited builds. If you use all included and previously purchased credits before your next monthly subscription payment, AppForge pauses credit-consuming work. To continue building before the next monthly credit refill, you must separately purchase enough top-up credits at the displayed USD price, or choose an eligible higher plan. If you do not purchase more credits, the work stays paused until new credits become available. Top-ups are never automatic, and complex builds may need additional credits even within the same billing month.";
 
@@ -133,7 +132,6 @@ export function Pricing() {
         currentTier === "starter" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled:
-        PRICING_PROPOSAL_MODE ||
         currentTier === "starter" ||
         currentTier === "builder" ||
         currentTier === "studio" ||
@@ -157,7 +155,6 @@ export function Pricing() {
         currentTier === "builder" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: true,
       disabled:
-        PRICING_PROPOSAL_MODE ||
         currentTier === "builder" ||
         currentTier === "studio" ||
         currentTier === "enterprise",
@@ -180,7 +177,6 @@ export function Pricing() {
         currentTier === "studio" ? t("pricing.currentPlan") : t("pricing.buy"),
       popular: false,
       disabled:
-        PRICING_PROPOSAL_MODE ||
         currentTier === "studio" ||
         currentTier === "enterprise",
     },
@@ -213,12 +209,6 @@ export function Pricing() {
         <div className="text-center mb-4">
           <Badge tone="success">Secure checkout powered by Stripe</Badge>
         </div>
-        {PRICING_PROPOSAL_MODE && (
-          <p className="text-center text-sm text-forge-text-muted mb-4">
-            OWNER-APPROVED USD PRICES. Checkout is not accepting payments until
-            the complete customer-build and billing delivery checks are verified.
-          </p>
-        )}
         <h1 className="forge-h1 text-center mb-4">{t("pricing.title")}</h1>
         <p className="text-center text-forge-text-muted mb-4 max-w-2xl mx-auto">
           {t("pricing.subtitle")}
@@ -415,7 +405,7 @@ export function Pricing() {
                   setCheckoutError(null);
                   buyCredits.mutate(pack);
                 }}
-                disabled={PRICING_PROPOSAL_MODE || buyCredits.isPending}
+                disabled={buyCredits.isPending}
                 className="rounded-xl border border-forge-border bg-forge-bg/40 p-4 text-left transition-colors hover:border-forge-cyan/40 disabled:opacity-50"
               >
                 <div className="text-2xl font-bold text-forge-text-primary">

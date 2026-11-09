@@ -442,8 +442,8 @@ async function runOwnedBuildJob(
       throw new BuildDependencyBlockedError(dependencyGraph);
     }
 
-    // Recheck at worker execution, including jobs queued before a new release.
-    // The fixed credit reservation is NOT a third-party cost budget.
+    // Recheck live priced-provider readiness for queued customer jobs.
+    // Provider dollars are reserved separately, per network attempt.
     if (!customerComputeLaunchCertified()) {
       const { getUserById } = await import("../db.js");
       const { isOwnerEmail } = await import("../lib/owner.js");
