@@ -1089,3 +1089,12 @@ The previous unconditional production-only build and checkout rejection has been
 - Actual Vercel deployment calls, build steps, customer source, payment state and project ownership checks are unchanged. A valid Vercel provider READY state remains insufficient without a live response.
 - Recovery verification: run production root tests for 200/204 success, 302 redirect rejection, missing JS/CSS, 401/403/404 and 503 rejection. A protected or redirected application must report failed live verification, not deployment success.
 - Rollback: revert the status predicate, explicit redirect mode and associated tests; this restores earlier redirect acceptance, which was susceptible to false positives. No schema or customer-data migration is needed.
+
+
+## Hosting versus real Stripe billing verification — 2026-11-09
+
+- Production-hosted customer source may respond successfully before required Stripe credentials, live webhook signature verification or entitlement APIs work. A successful root-page smoke test alone is never evidence that a paid product is ready to sell.
+- A Stripe-bearing deployment now independently records hosting verification, billing-route verification and `/api/billing/health` provider connection verification. A production verification flag requires all applicable checks to pass. The customer's own deployment is not undone or held when billing configuration is incomplete; it remains an accessible hosted candidate, with explicit instructions to configure and verify billing.
+- This check does not charge a customer, execute a live payment, simulate a Stripe purchase or claim full end-to-end monetisation certification. Valid production purchases still require a separately authorised live test.
+- Recovery: examine deployment evidence `hostingVerified`, `billingVerified`, `billingConnection`, `productionVerified` and the immutable artifact identity; distinguish a reachable website from subscription checkout. Run `productionBillingEvidence.test.ts` for live-host success, absent billing, failed billing routes, unconnected provider, and fully connected scenarios.
+- Rollback: revert the verification classification and tests. Customer source, subscriptions, provider deployment identity and previous database rows are unchanged. Never reinterpret older `productionVerified` evidence without checking whether provider connection was independently confirmed.
