@@ -365,6 +365,7 @@ class RetryUsageEvidenceError extends Error {
   }
 }
 
+// prettier-ignore
 export const fetchWithBackoff = async (
   url: string,
   init: FetchInit,
@@ -482,6 +483,7 @@ class ProviderUsagePersistenceError extends Error {
   }
 }
 
+// prettier-ignore
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertCustomerComputeLaunchCertified(false);
   const providers = orderProviders(
@@ -553,7 +555,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
-    const payload = {
+    const payload: Record<string, unknown> = {
       ...basePayload,
       model:
         (freeFallbacks.has(provider) ? "" : explicitModel) ||
