@@ -11,15 +11,33 @@ afterEach(() => {
 });
 
 describe("production deployment health gate", () => {
-  it("accepts only real successful or redirect responses", () => {
+  it("accepts only real successful responses, never redirects", () => {
     expect(isSuccessfulDeployStatus(200)).toBe(true);
     expect(isSuccessfulDeployStatus(204)).toBe(true);
-    expect(isSuccessfulDeployStatus(302)).toBe(true);
+    expect(isSuccessfulDeployStatus(302)).toBe(false);
     expect(isSuccessfulDeployStatus(401)).toBe(false);
     expect(isSuccessfulDeployStatus(403)).toBe(false);
     expect(isSuccessfulDeployStatus(404)).toBe(false);
     expect(isSuccessfulDeployStatus(500)).toBe(false);
     expect(isSuccessfulDeployStatus(503)).toBe(false);
+  });
+
+  it("refuses an SSO or provider protection redirect as a live application", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://login.example.test/" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await runPostDeploySmokeTest(
+      "https://generated.example.test",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.root.statusCode).toBe(302);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[1]?.redirect).toBe("manual");
   });
 
   it("does not report a missing generated product as healthy", async () => {

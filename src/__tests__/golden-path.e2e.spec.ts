@@ -28,7 +28,7 @@ test("production deployment gate rejects a missing live product", async () => {
   const { isSuccessfulDeployStatus } =
     await import("../services/deployHealth.js");
   expect(isSuccessfulDeployStatus(200)).toBe(true);
-  expect(isSuccessfulDeployStatus(302)).toBe(true);
+  expect(isSuccessfulDeployStatus(302)).toBe(false);
   expect(isSuccessfulDeployStatus(401)).toBe(false);
   expect(isSuccessfulDeployStatus(403)).toBe(false);
   expect(isSuccessfulDeployStatus(404)).toBe(false);

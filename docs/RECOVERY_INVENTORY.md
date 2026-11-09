@@ -1080,3 +1080,12 @@ The previous unconditional production-only build and checkout rejection has been
 - The probes never include a real payment token, card number, API key or valid Stripe webhook signature, and do not create a paid transaction.
 - Recovery qualification: run the route tests for SPA 200 HTML fallbacks, redirect-to-login, absent routes, real signature-rejection handlers and generic provider error responses. Inspect actual deployment evidence for `billingSmokeTest.ok` and do not infer billing success from an unrelated root-page health check.
 - Rollback: restore the previous `runBillingRouteSmokeTest` only if required for an emergency, recognizing that it falsely accepted HTML fallbacks as working billing APIs. Neither customer data nor payment-provider state is changed by this repair.
+
+
+## Live deployment redirect truthfulness — 2026-11-09
+
+- A production app root, JavaScript asset, stylesheet or health endpoint returning HTTP 3xx no longer counts as a successful live product response. Provider-protection, SSO/login and wrong-host redirects are not evidence that the generated application is running.
+- Deployment health GET requests use `redirect: "manual"` to prevent an automatic follow to unrelated login or error pages. Only HTTP 2xx qualifies as a successful runtime/asset response, and the existing non-empty root and referenced-asset checks still apply.
+- Actual Vercel deployment calls, build steps, customer source, payment state and project ownership checks are unchanged. A valid Vercel provider READY state remains insufficient without a live response.
+- Recovery verification: run production root tests for 200/204 success, 302 redirect rejection, missing JS/CSS, 401/403/404 and 503 rejection. A protected or redirected application must report failed live verification, not deployment success.
+- Rollback: revert the status predicate, explicit redirect mode and associated tests; this restores earlier redirect acceptance, which was susceptible to false positives. No schema or customer-data migration is needed.
