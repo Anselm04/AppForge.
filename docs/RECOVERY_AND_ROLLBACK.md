@@ -250,3 +250,59 @@ Before declaring recovery complete:
 - generated-product identity matches the selected artifact;
 - browser/HTTP production verification passes;
 - owner records the recovered SHA/checkpoint and incident outcome.
+
+
+## AppForge USD subscription and Aftercare Plus billing recovery (9 November 2026)
+
+**Financial source of truth:** The owner-approved new monthly charges are
+Starter USD 79, Builder USD 199, Studio USD 499, Enterprise from USD 2,499
+by individual contract, and optional Aftercare Plus USD 19. Essential aftercare
+remains included in paid plans. New Stripe Prices belong to the AppForge product
+line, are monthly and USD, and include exclusive tax behavior. Existing
+subscriptions with legacy prices must not be silently repriced.
+
+**Safe rollback of this change:** A code rollback must not delete or overwrite
+paid Stripe subscription records, cancel a customer subscription, drop the new
+`subscriptions.aftercare_plus` column, or remove the idempotent invoice ledger.
+If an add-on fulfillment defect is found, stop new affected checkout sessions
+while correcting the webhook handler, then replay verified settled Stripe
+events using their original event/invoice IDs. The versioned additive schema
+migration remains in place; do not edit applied migration checksums.
+
+**Paid customer reconciliation:**
+1. Inspect the actual Stripe customer, subscription, itemized recurring Price
+   IDs, invoice lines, currency, quantity, billing period, taxes, and paid status.
+2. Confirm exactly one recognized AppForge base plan. A distinct Aftercare Plus
+   line is optional and must be quantity one at exactly USD 19/month.
+3. Compare the approved Plan Price ID to the new subscription. Existing
+   contracted legacy prices are handled separately, without silently charging
+   the customer more or granting additional unapproved credits.
+4. Verify the invoice is settled before granting monthly build/provider credits.
+   The $19 Aftercare Plus invoice line must never trigger additional base-plan
+   build credits.
+5. Verify `subscriptions.aftercare_plus` matches the **current** paid/trialing
+   Stripe subscription item; on cancellation it must become false. Check both
+   directions: paid-without-access and access-without-payment.
+6. Reconcile retries by Stripe event/invoice identity, not by timestamps or
+   inferred billing metadata. Refunds, chargebacks, payment failures, price
+   migrations, add-on cancellation and proration need evidence-based handling.
+7. Present tax and optional third-party usage costs separately and conspicuously
+   before authorizing checkout; never represent an amount as tax inclusive when
+   the configured Price is exclusive.
+8. Before announcing commercial readiness, verify live end-to-end signup,
+   checkout, fulfillment, renewal, payment failure, cancellation, portal plan
+   changes and add-on removal without double charges. Customer-build cost
+   controls and delivery readiness must be verified independently.
+
+**Operational audit fields:** Stripe Price IDs for each plan and add-on,
+subscription ID, customer ID, invoice ID, event ID, currency, line item totals,
+tax, payment status, plan entitlement, add-on entitlement, and customer-facing
+acknowledgement. Do not log card details, raw API keys, customer passwords or
+Stripe signatures. The public approved price IDs are identifiers, not
+credentials.
+
+**Live-price catalogue changes:** Making a legacy Price inactive must never be
+misrepresented as cancelling an existing subscription. Before archival verify
+the old Price is not used for new authorized checkout and preserve historic
+invoice records. Never force-update existing Stripe subscriptions to new prices
+without explicit customer notice and contractual/legal justification.
