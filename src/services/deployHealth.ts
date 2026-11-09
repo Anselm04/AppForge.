@@ -282,7 +282,9 @@ export async function runBillingRouteSmokeTest(
         res.status >= 200 &&
         res.status < 300 &&
         /\bapplication\/(?:[\w.+-]*\+)?json\b/i.test(contentType);
-      const htmlResponse = /text\/html|application\/xhtml\+xml/i.test(contentType);
+      const htmlResponse = /text\/html|application\/xhtml\+xml/i.test(
+        contentType,
+      );
       const healthyApiResponse =
         !htmlResponse && (rejectedInvalidInput || apiJsonSuccess);
       let hasExpectedContent = true;
