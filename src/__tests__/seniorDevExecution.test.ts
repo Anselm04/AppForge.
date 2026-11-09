@@ -17,6 +17,8 @@ const d = vi.hoisted(() => ({
   deduct: vi.fn(),
   updateTask: vi.fn(),
   updateFiles: vi.fn(),
+  getWorkingFiles: vi.fn(),
+  commitFiles: vi.fn(),
   claimStart: vi.fn(),
   claimResume: vi.fn(),
   release: vi.fn(),
@@ -34,6 +36,10 @@ vi.mock("../db.js", () => ({
   deductCredits: d.deduct,
   updateSeniorDevTask: d.updateTask,
   updateProjectFiles: d.updateFiles,
+  getEditableProjectFiles: d.getWorkingFiles,
+}));
+vi.mock("../services/projectFileEdits.js", () => ({
+  commitValidatedProjectFilesEdit: d.commitFiles,
 }));
 vi.mock("../agents/seniorDevAgent.js", () => ({
   runSeniorDevAgent: d.run,
@@ -99,6 +105,8 @@ beforeEach(() => {
     Object.assign(d.task, patch),
   );
   d.updateFiles.mockResolvedValue(undefined);
+  d.getWorkingFiles.mockResolvedValue({ "src/app.ts": "old" });
+  d.commitFiles.mockResolvedValue({ snapshotId: 11, version: 2 });
   d.stale.mockResolvedValue(false);
   const execute = async (task: any) => {
     task.status = "completed";
@@ -113,13 +121,20 @@ beforeEach(() => {
   d.run.mockImplementation(execute);
   d.resume.mockImplementation(execute);
 });
+// prettier-ignore
 describe("shared Senior Dev execution independent of browser streams", () => {
   it("autonomous repair executes and persists working files and actual agent outcome", async () => {
     expect(
       await startSeniorDevExecution({ taskId: 7, userId: 1 }),
     ).toMatchObject({ status: "completed", creditsSpent: 20 });
     expect(d.run).toHaveBeenCalledOnce();
-    expect(d.updateFiles).toHaveBeenCalledWith(8, { "src/app.ts": "fixed" });
+    expect(d.commitFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 1,
+        files: { "src/app.ts": "fixed" },
+        originalFiles: { "src/app.ts": "old" },
+      }),
+    );
     expect(d.deduct).toHaveBeenCalledOnce();
   });
   it("losing the atomic claim cannot charge or execute twice", async () => {
@@ -176,10 +191,22 @@ describe("shared Senior Dev execution independent of browser streams", () => {
     expect(
       (await resumeSeniorDevExecution({ taskId: 7, userId: 1 })).status,
     ).toBe("failed");
-    expect(d.updateFiles).not.toHaveBeenCalled();
+    expect(d.commitFiles).not.toHaveBeenCalled();
     expect(d.refund).toHaveBeenCalledOnce();
     expect(d.task.status).toBe("failed");
   });
+  it("rejects concurrent customer edits without overwriting their working files", async () => {
+    d.commitFiles.mockRejectedValueOnce(
+      new Error("Saved files changed during this edit. Reload them and try again."),
+    );
+    await expect(
+      startSeniorDevExecution({ taskId: 7, userId: 1 }),
+    ).rejects.toMatchObject({ code: "senior_dev_failed" });
+    expect(d.commitFiles).toHaveBeenCalledOnce();
+    expect(d.refund).toHaveBeenCalledOnce();
+    expect(d.task.status).toBe("failed");
+  });
+
   it("refund failure blocks a new reservation and retry", async () => {
     d.task.status = "failed";
     d.outstanding.mockResolvedValue(true);

@@ -6,8 +6,9 @@ import {
   ensureUserCredits,
   deductCredits,
   updateSeniorDevTask,
-  updateProjectFiles,
+  getEditableProjectFiles,
 } from "../db.js";
+import { commitValidatedProjectFilesEdit } from "./projectFileEdits.js";
 import {
   runSeniorDevAgent,
   resumeAfterApproval,
@@ -193,9 +194,11 @@ async function executeClaimed(
       }
     };
     const run = resume ? resumeAfterApproval : runSeniorDevAgent;
+    // Start from the customer's latest saved working revision.
+    const originalFiles = await getEditableProjectFiles(task.projectId);
     const result = await run(
       agentTask,
-      { ...((project.generatedFiles as Record<string, string>) || {}) },
+      { ...originalFiles },
       context.techStack,
       progress,
     );
@@ -215,8 +218,18 @@ async function executeClaimed(
       };
     }
     const failed = agentTask.status === "failed";
-    if (!failed && Object.keys(result.files).length)
-      await updateProjectFiles(task.projectId, result.files);
+    if (!failed && Object.keys(result.files).length) {
+      // Reject results produced against a stale version, preserving edits the
+      // customer made while the AI task was running.
+      await commitValidatedProjectFilesEdit({
+        project,
+        userId: user.id,
+        files: result.files,
+        originalFiles,
+        label: "Senior Dev task " + task.id,
+        validationResult: result.validations,
+      });
+    }
     if (failed)
       await refundOutstandingSeniorDevReservation(
         user.id,

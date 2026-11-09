@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getGithubConnection, getProjectById, getProjectFiles } from "../db.js";
+import { getGithubConnection, getProjectById } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { pushFilesToGitHubRepo } from "../services/githubTreePush.js";
 import { createGithubOAuthState } from "../lib/githubOAuthState.js";
@@ -75,7 +75,8 @@ async function collectBlobFiles(
   if (blobs.length > 150) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Repository has more than 150 importable files; full import is required.",
+      message:
+        "Repository has more than 150 importable files; full import is required.",
     });
   }
   for (const node of blobs) {
@@ -83,7 +84,9 @@ async function collectBlobFiles(
     if (
       path.startsWith("/") ||
       path.includes("\\") ||
-      path.split("/").some((segment) => !segment || segment === "." || segment === "..")
+      path
+        .split("/")
+        .some((segment) => !segment || segment === "." || segment === "..")
     ) {
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -125,6 +128,7 @@ function githubTokenOrThrow(stored: string | null | undefined): string {
   }
 }
 
+// prettier-ignore
 export const githubRouter = router({
   connectionStatus: protectedProcedure.query(async ({ ctx }) => {
     const conn = await getGithubConnection(ctx.user.id);
@@ -164,7 +168,23 @@ export const githubRouter = router({
       if (project.userId !== ctx.user.id)
         throw new TRPCError({ code: "FORBIDDEN" });
 
-      const files = await getProjectFiles(input.projectId);
+      // Export current saved working source, including changes after validation.
+      const { getEditableProjectFiles } = await import("../db.js");
+      const { isSafeTemplatePath, isSafeTemplateContent } =
+        await import("./templateFactory.js");
+      const files = await getEditableProjectFiles(input.projectId);
+      if (
+        Object.entries(files).some(
+          ([path, content]) =>
+            !isSafeTemplatePath(path) || !isSafeTemplateContent(content),
+        )
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "The saved source includes a sensitive path or credential. Remove the secret before exporting to GitHub.",
+        });
+      }
       if (Object.keys(files).length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
