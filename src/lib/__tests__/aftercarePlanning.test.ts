@@ -5,6 +5,7 @@ import {
   summariseOngoingCosts,
 } from "../aftercarePlanning.js";
 
+// prettier-ignore
 describe("customer aftercare transparency", () => {
   it("never invents provider prices", () => {
     const options = compareDeploymentChoices("react-node");
