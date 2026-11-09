@@ -88,6 +88,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+// prettier-ignore
 describe("pre-dispatch monetary guard with test-only price fixture", () => {
   it("checks lease, prices and credits before dispatch", () => {
     const wrapper = readFileSync(
@@ -171,6 +172,20 @@ describe("pre-dispatch monetary guard with test-only price fixture", () => {
     ).rejects.toThrow(/Duplicate/);
     expect(state.dispatched).not.toHaveBeenCalled();
   });
+  it("retains the reserved maximum after a chargeable failed HTTP response", async () => {
+    const result = await runReservedProviderOperation(
+      options(),
+      async () => ({
+        value: { ok: false, status: 429 },
+        verifiedCents: null,
+      }),
+    );
+    expect(result).toEqual({ ok: false, status: 429 });
+    expect(state.reserve).toHaveBeenCalledOnce();
+    expect(state.settle).not.toHaveBeenCalled();
+    expect(state.release).not.toHaveBeenCalled();
+  });
+
   it("never auto-releases a reservation after an uncertain provider failure", async () => {
     state.dispatched.mockRejectedValueOnce(new Error("network timeout"));
     await expect(

@@ -56,7 +56,7 @@ export async function dispatchCostedLlmAttempt(
     priceSnapshotValidUntil: approved.validUntil,
   };
   assertProviderPricesConfirmed(envelope);
-  const maximumCents = maximumProviderEnvelopeCents(envelope);
+  maximumProviderEnvelopeCents(envelope);
   const operationId = "llm_" + randomUUID().replace(/-/g, "");
 
   return runReservedProviderOperation(
@@ -64,10 +64,10 @@ export async function dispatchCostedLlmAttempt(
     async () => {
       const response = await dispatch();
       if (!response.ok) {
-        // A failed HTTP call can still incur provider charges.
-        throw new Error(
-          `Provider attempt returned HTTP ${response.status}; reserved maximum ${maximumCents} cents awaits reconciliation`,
-        );
+        // An unsuccessful provider response can still carry an unknown bill.
+        // Return the response to the caller for backoff/failover, but leave
+        // this operation's reservation held for actual reconciliation.
+        return { value: response, verifiedCents: null };
       }
 
       const body = (await response.clone().json()) as {
