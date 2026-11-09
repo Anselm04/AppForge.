@@ -242,7 +242,12 @@ type RouteProbe = {
   note?: string;
 };
 
-/** Probe billing routes exist (404 = broken; 400/405/503 = route wired). */
+/**
+ * Non-mutating billing route qualification. These probes deliberately contain
+ * no valid payment method, authorization or Stripe signature, so they cannot
+ * prove a paid transaction. They must nevertheless reject SPA HTML fallbacks,
+ * redirects and generic success pages masquerading as backend API routes.
+ */
 export async function runBillingRouteSmokeTest(
   deployUrl: string,
 ): Promise<{ ok: boolean; routes: RouteProbe[] }> {
@@ -259,6 +264,7 @@ export async function runBillingRouteSmokeTest(
     try {
       const res = await fetch(`${base}${probe.path}`, {
         method: probe.method,
+        redirect: "manual",
         headers:
           probe.method === "POST"
             ? { "Content-Type": "application/json" }
@@ -266,13 +272,35 @@ export async function runBillingRouteSmokeTest(
         body: probe.method === "POST" ? "{}" : undefined,
         signal: AbortSignal.timeout(12_000),
       });
-      const ok = res.status !== 404 && res.status !== 502;
+      const apiRoute = probe.path.startsWith("/api/");
+      const contentType = res.headers.get("content-type") ?? "";
+      // API endpoints must not be mistaken for HTML SPA fallbacks. An
+      // unauthorized or malformed-request error from the actual handler
+      // confirms the route exists without executing a purchase.
+      const rejectedInvalidInput = [400, 401, 403, 422].includes(res.status);
+      const apiJsonSuccess =
+        res.status >= 200 &&
+        res.status < 300 &&
+        /\bapplication\/(?:[\w.+-]*\+)?json\b/i.test(contentType);
+      const healthyApiResponse = rejectedInvalidInput || apiJsonSuccess;
+      let hasExpectedContent = true;
+      if (!apiRoute && res.ok) {
+        const body = await res.text();
+        hasExpectedContent = body.trim().length > 0;
+      }
+      const ok = apiRoute
+        ? healthyApiResponse
+        : res.ok && hasExpectedContent;
       routes.push({
         path: probe.path,
         method: probe.method,
         ok,
         statusCode: res.status,
-        note: ok ? "route reachable" : "route missing or gateway error",
+        note: ok
+          ? apiRoute
+            ? "API route responded; live billing transaction not verified"
+            : "pricing page responded"
+          : "route missing, redirected, invalid or HTML fallback",
       });
     } catch (err) {
       routes.push({
@@ -284,8 +312,7 @@ export async function runBillingRouteSmokeTest(
     }
   }
 
-  const ok = routes.every((r) => r.ok);
-  return { ok, routes };
+  return { ok: routes.every((route) => route.ok), routes };
 }
 
 export type BillingVerificationResult = {
