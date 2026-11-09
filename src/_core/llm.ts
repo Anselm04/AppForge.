@@ -355,6 +355,16 @@ const computeBackoffDelay = (
   return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
 };
 
+class ProviderTransportError extends Error {
+  readonly original: unknown;
+
+  constructor(original: unknown) {
+    super("Provider transport failed after a reserved dispatch");
+    this.name = "ProviderTransportError";
+    this.original = original;
+  }
+}
+
 class RetryUsageEvidenceError extends Error {
   readonly cause: unknown;
 
@@ -618,11 +628,19 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
                 maxOutputTokens,
                 externalRuntimeStorageEgressCents: costLimit,
               },
-              () => fetch(endpoint, init),
+              async () => {
+                try {
+                  return await fetch(endpoint, init);
+                } catch (error) {
+                  throw new ProviderTransportError(error);
+                }
+              },
             );
           } catch (error) {
-            // An attempted dispatch can be charged even on failure.
-            // Never retry it under an untracked operation.
+            // Network retries retain the previous uncertain reservation and
+            // must reserve their own distinct operation on the next attempt.
+            if (error instanceof ProviderTransportError) throw error.original;
+            // Pricing, monetary ledger and usage errors are never retried.
             throw new RetryUsageEvidenceError(error);
           }
         },
