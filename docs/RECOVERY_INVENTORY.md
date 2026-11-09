@@ -1022,3 +1022,11 @@ The previous unconditional production-only build and checkout rejection has been
 - On payment/fulfilment mismatch, compare immutable Stripe session/invoice/subscription IDs and actual settled line items against the local subscription entitlements and outstanding build credit reservations. Correct through idempotent reconciliation; do not create another charge or silently migrate a legacy subscription.
 - On rollback, identify the previous passing main SHA and preserve database schema, existing entitlements, paid subscriptions, customer project source, build-event claims, provider cost reservations and immutable deployment artifacts. Rollback is not permission to restore a blanket stop-work instruction, weaken authentication/cost accounting, or erase unresolved customer purchases.
 - Recovery verification requires live provider readiness, a genuine account-scoped build and export, payment fulfilment reconciliation, and actual deployment evidence before claiming the complete commercial journey works. Passing source CI alone is insufficient proof of live provider settings.
+
+## Android Flutter/Node emulator qualification runner recovery (2026-11-09)
+
+- The real Android API 35 emulator, installed APK, integration_test assertions against the Node backend, screenshot and health evidence remain mandatory.
+- The Android runner now uses Flutter's supported `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/qualification_test.dart --no-dds` to avoid an unrelated optional Dart Development Service boot failure after APK installation.
+- The scaffold fixture materializer writes a valid Dart integration test driver with actual newline characters. No application feature, customer project, signing key, deployment credential or production payment is changed.
+- If qualification fails, inspect the interaction log for actual app, backend or emulator errors. Do not mistake the synthetic scaffold qualification for a certified customer-built product or deployed store release.
+- Rollback consists of reverting the runner and fixture writer together, retaining test artifacts. Never skip assertions or fake emulator success.
