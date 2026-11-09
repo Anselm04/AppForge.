@@ -1,10 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+// prettier-ignore
 import {
   getGithubConnection,
   getProjectById,
   getEditableProjectFiles,
 } from "../db.js";
+// prettier-ignore
 import {
   isSafeTemplatePath,
   isSafeTemplateContent,
