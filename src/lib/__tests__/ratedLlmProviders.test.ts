@@ -3,6 +3,7 @@ import { selectRatedLlmProviders } from "../ratedLlmProviders.js";
 import type { LlmProvider } from "../llmProviders.js";
 import type { TrustedRate } from "../providerCostEnvelope.js";
 
+// prettier-ignore
 const provider = (id: LlmProvider["id"], model: string): LlmProvider => ({
   id,
   defaultModel: model,
@@ -10,6 +11,7 @@ const provider = (id: LlmProvider["id"], model: string): LlmProvider => ({
   apiKey: "test-only",
 });
 
+// prettier-ignore
 const rate = (id: string, model: string, expires = "2099-01-01T00:00:00Z"): TrustedRate => ({
   provider: id,
   model,
