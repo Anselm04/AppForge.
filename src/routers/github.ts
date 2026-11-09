@@ -16,7 +16,8 @@ async function fetchRepoFiles(
   // Resolve the actual default branch rather than assuming main or master.
   const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const headers = {
-    Authorization: `***    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
   };
   const metadata = await fetch(base, { headers });
   if (!metadata.ok) {
@@ -95,7 +96,8 @@ async function collectBlobFiles(
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
     const raw = await fetch(`${base}/contents/${encodedPath}`, {
       headers: {
-        Authorization: `***        Accept: "application/vnd.github.raw",
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.raw",
       },
     });
     if (!raw.ok) {
