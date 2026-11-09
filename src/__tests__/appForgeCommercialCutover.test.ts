@@ -5,6 +5,7 @@ import { assertCommercialCheckoutReady } from "../services/appForgeCommercialChe
 
 afterEach(() => vi.unstubAllEnvs());
 
+// prettier-ignore
 describe("approved commercial checkout uses live deliverability, not a permanent stop", () => {
   it("accepts local payment simulations without charging Stripe", async () => {
     await expect(assertCommercialCheckoutReady("test")).resolves.toBeUndefined();
