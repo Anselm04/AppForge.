@@ -125,7 +125,12 @@ describe("Section 26 evidence and audit trail", () => {
     );
     expect(projects).toContain('kind: "integration"');
     expect(projects).toContain("integrations: contract.integrations");
-    expect(projects).toContain('kind: "deployment"');
+    expect(projects).toContain(
+      'kind: productionDestination ? "deployment" : "validation"',
+    );
+    expect(projects).toContain(
+      'liveUrl: productionDestination ? (result.url ?? null) : null',
+    );
     expect(projects).toContain("smokeTest: smoke");
     expect(worker).not.toContain("DEPLOY_MAX_ATTEMPTS");
     expect(worker).toContain("deploymentVerified: false");
