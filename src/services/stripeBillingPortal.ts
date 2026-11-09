@@ -1,5 +1,9 @@
 import type Stripe from "stripe";
-import { APPROVED_MONTHLY_PRICE_IDS, MONTHLY_PLAN_USD_CENTS, assertAppForgePrice } from "./appForgePricePolicy.js";
+import {
+  APPROVED_MONTHLY_PRICE_IDS,
+  MONTHLY_PLAN_USD_CENTS,
+  assertAppForgePrice,
+} from "./appForgePricePolicy.js";
 
 const PORTAL_VERSION = "2";
 const MANAGED_METADATA_KEY = "appforge_managed_portal";
