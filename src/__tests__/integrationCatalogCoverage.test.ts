@@ -75,7 +75,7 @@ describe("AppForge integration registry", () => {
     );
   });
 
-  it("requires real app hosting and build runtime without Fly credentials", () => {
+  it("requires real host and runner, not Fly", () => {
     const runtime = getIntegrationDefinition("sprites-fly");
     expect(runtime?.env).toContain("APP_URL");
     expect(runtime?.env).toContain("ISOLATED_BUILD_URL");
