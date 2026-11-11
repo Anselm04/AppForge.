@@ -28,8 +28,9 @@ describe("full-stack Docker runtime", () => {
     expect(compose).toContain("condition: service_healthy");
     expect(compose).toContain("/var/lib/postgresql/data");
     expect(compose).toContain("/data");
-    expect(compose).not.toContain("5432:5432");
-    expect(compose).not.toContain("6379:6379");
+    const services = parse(compose).services;
+    expect(services.postgres.ports).toEqual(["127.0.0.1:55432:5432"]);
+    expect(services.redis.ports).toEqual(["127.0.0.1:56379:6379"]);
   });
 
   it("launches one full-stack app on loopback only", () => {
