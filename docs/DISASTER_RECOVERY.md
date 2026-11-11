@@ -33,6 +33,10 @@ The Fly app and Fly-managed Upstash Redis are **not** required to develop or run
 
 The previous Fly hostname is no longer an implicit allowed CORS/CSRF origin and cannot be used as an automatic preview base URL. On a replacement host, configure the real public HTTPS `APP_URL` and `CORS_ORIGIN`, and verify customer preview and CSRF origin handling after DNS changes. A missing or malformed origin must fail closed rather than silently route previews to Fly. Retain the old Fly URL only as historical data in recovery documentation; do not add it back to trusted runtime defaults. This change does not move customer data or alter external hosting resources.
 
+### Retired static Vercel/Fly proxy (2026-11-11)
+
+The Vercel project in this repository is a disabled **static client only** and cannot replace the integrated Node/Express build engine. The historical Vercel proxy pointed API and preview requests to the original Fly hostname; these source rewrites have been removed so a future static release cannot silently reconnect to Fly. **Existing deployed Vercel aliases are not changed by GitHub commits** and must be checked separately before being presented to customers. Restore only the complete full-stack AppForge service on an approved persistent host, validate the actual API and customer journey, then update DNS and HTTPS routing explicitly. Never repurpose the static Vercel client as a fake restored production service.
+
 ## Backup layers
 
 Use a 3-2-1 model:
