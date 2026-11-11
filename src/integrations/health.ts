@@ -358,7 +358,7 @@ async function verifyRemote(
       const appCheck = await probe(
         new URL("/api/health/ready", origin).toString(),
       );
-      if (!appCheck.ok) {
+      if (appCheck.status !== 200) {
         return fail(`AppForge host readiness: ${appCheck.message}`);
       }
 
@@ -376,7 +376,7 @@ async function verifyRemote(
         const runtimeCheck = await probe(healthRuntime.url, {
           headers: { Authorization: `Bearer ${healthRuntime.token}` },
         });
-        return runtimeCheck.ok
+        return runtimeCheck.status >= 200 && runtimeCheck.status < 300
           ? pass(
               `AppForge HTTPS ready; isolated runtime ${runtimeCheck.message}`,
             )
