@@ -20,6 +20,43 @@ if (!existsSync(envFile)) {
 const loaded = config({ path: envFile });
 if (loaded.error) throw loaded.error;
 
+// Production authentication issues secure cookies and generates HTTPS signup
+// links. Never overwrite the real public origin with a plain HTTP loopback URL.
+const publicUrl = process.env.PUBLIC_APP_URL || process.env.APP_URL;
+let trustedOrigin;
+try {
+  const value = new URL(publicUrl || "");
+  if (
+    value.protocol !== "https:" ||
+    value.username ||
+    value.password ||
+    value.pathname !== "/" ||
+    value.search ||
+    value.hash
+  ) {
+    throw new Error("Invalid public origin");
+  }
+  trustedOrigin = value.origin;
+} catch {
+  throw new Error(
+    "A genuine HTTPS APP_URL or PUBLIC_APP_URL is required. " +
+      "Route your TLS reverse proxy or tunnel to 127.0.0.1:3000.",
+  );
+}
+if (
+  process.env.APP_URL &&
+  process.env.PUBLIC_APP_URL &&
+  process.env.APP_URL !== process.env.PUBLIC_APP_URL
+) {
+  throw new Error("APP_URL and PUBLIC_APP_URL must agree for this local host");
+}
+const allowedOrigins = (process.env.CORS_ORIGIN || trustedOrigin)
+  .split(",")
+  .map((origin) => origin.trim());
+if (!allowedOrigins.includes(trustedOrigin)) {
+  throw new Error("CORS_ORIGIN must include the configured HTTPS app origin");
+}
+
 for (const name of ["POSTGRES_PASSWORD", "REDIS_PASSWORD"]) {
   if (!process.env[name]?.trim()) {
     throw new Error(`Required local database setting is missing: ${name}`);
@@ -65,8 +102,9 @@ const env = {
   NODE_ENV: "production",
   PORT: "3000",
   BIND_HOST: "127.0.0.1",
-  APP_URL: "http://127.0.0.1:3000",
-  CORS_ORIGIN: "http://127.0.0.1:3000",
+  APP_URL: trustedOrigin,
+  PUBLIC_APP_URL: trustedOrigin,
+  CORS_ORIGIN: allowedOrigins.join(","),
   DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@127.0.0.1:55432/${dbName}`,
   REDIS_URL: `redis://:${redisPassword}@127.0.0.1:56379`,
   SPRITES_DISABLED: "true",
