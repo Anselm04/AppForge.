@@ -231,13 +231,35 @@ export async function deployProject(opts: {
       };
     case "preview": {
       if (!projectId) throw new Error("projectId required for preview deploy");
-      const base = (
-        previewBaseUrl ||
-        process.env.CORS_ORIGIN ||
-        process.env.APP_URL ||
-        "https://appforge-unfurling-moon-9058.fly.dev"
-      ).replace(/\/$/, "");
-      return { url: `${base}/apps/${projectId}`, destination };
+      const configuredBase =
+        previewBaseUrl || process.env.APP_URL || process.env.CORS_ORIGIN;
+      if (!configuredBase?.trim()) {
+        throw new Error(
+          "Preview URL is not configured. Set APP_URL to the actual AppForge host or pass previewBaseUrl.",
+        );
+      }
+      let origin: URL;
+      try {
+        origin = new URL(configuredBase);
+      } catch {
+        throw new Error("Preview URL must be a valid absolute HTTP(S) URL");
+      }
+      if (
+        !["http:", "https:"].includes(origin.protocol) ||
+        origin.username ||
+        origin.password ||
+        origin.search ||
+        origin.hash ||
+        origin.pathname !== "/"
+      ) {
+        throw new Error(
+          "Preview URL must be an HTTP(S) origin without credentials, query, fragment or path",
+        );
+      }
+      return {
+        url: `${origin.origin}/apps/${projectId}`,
+        destination,
+      };
     }
     default:
       throw new Error(`Unknown destination: ${destination as string}`);
