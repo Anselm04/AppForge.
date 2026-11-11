@@ -13,6 +13,8 @@ concurrency:
 
 jobs:
   provision:
+    # Billing lock: provisioning paid Redis is blocked until explicit authorization.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 15
