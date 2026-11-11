@@ -1,8 +1,6 @@
 import type { CorsOptions } from "cors";
 import { ENV } from "../_core/env.js";
 
-export const LIVE_APP_ORIGIN = "https://appforge-unfurling-moon-9058.fly.dev";
-
 export function normalizeCorsOrigin(
   value: string,
   requireHttps = ENV.isProduction,
@@ -31,7 +29,7 @@ export function allowedCorsOrigins(
     .map((value) => normalizeCorsOrigin(value, isProduction))
     .filter((value): value is string => Boolean(value));
 
-  const allowed = new Set<string>([LIVE_APP_ORIGIN, ...configured]);
+  const allowed = new Set<string>(configured);
   if (!isProduction) {
     allowed.add("http://localhost:3000");
     allowed.add("http://localhost:5173");

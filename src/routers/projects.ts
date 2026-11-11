@@ -863,10 +863,9 @@ export const projectsRouter = router({
         });
       }
 
-      const origin =
-        process.env.CORS_ORIGIN ||
-        process.env.APP_URL ||
-        "https://appforge-unfurling-moon-9058.fly.dev";
+      // Previews use the actual configured AppForge host, never a retired
+      // provider address. deployProject validates and requires a real origin.
+      const origin = process.env.APP_URL || process.env.PUBLIC_APP_URL;
 
       try {
         const result = await deployProject({
@@ -874,7 +873,7 @@ export const projectsRouter = router({
           projectName: project.title || "appforge-app",
           files,
           projectId: input.id,
-          previewBaseUrl: origin.replace(/\/$/, ""),
+          previewBaseUrl: origin,
           techStack: stackAdapter.id,
           productContract,
           productPlan: project.productPlan ?? undefined,

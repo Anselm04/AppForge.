@@ -29,6 +29,10 @@ The Fly app and Fly-managed Upstash Redis are **not** required to develop or run
 - AppForge liveness is not equivalent to customer readiness; verify the authenticated build/edit/export/deploy path on the recovered host before declaring service restored.
 - The RTO above assumes Fly availability; on an alternate host it is a nonbinding planning target until deployment, restore and acceptance tests are measured for that host.
 
+### Hosting-origin migration and preview recovery (2026-11-11)
+
+The previous Fly hostname is no longer an implicit allowed CORS/CSRF origin and cannot be used as an automatic preview base URL. On a replacement host, configure the real public HTTPS `APP_URL` and `CORS_ORIGIN`, and verify customer preview and CSRF origin handling after DNS changes. A missing or malformed origin must fail closed rather than silently route previews to Fly. Retain the old Fly URL only as historical data in recovery documentation; do not add it back to trusted runtime defaults. This change does not move customer data or alter external hosting resources.
+
 ## Backup layers
 
 Use a 3-2-1 model:
