@@ -1,8 +1,8 @@
-name: Emergency Fly Compute Shutdown
+name: Emergency Fly Fleet Shutdown
 
-# Owner-authorized cost containment on 2026-11-12.
-# Runs on the addition of THIS file only, not on ordinary code pushes.
-# Does not delete persistent volumes, Redis, databases, IPs, or the Fly app.
+# Owner authorized shutting down every Fly Machine shown in dashboard on 2026-11-12.
+# This workflow must never provision or deploy anything. It preserves all Fly volumes,
+# snapshots, service subscriptions, DNS, app definitions, and code.
 on:
   push:
     branches: [main]
@@ -19,46 +19,105 @@ concurrency:
 
 jobs:
   shutdown:
+    name: Destroy billable compute across 11 known Fly apps
     runs-on: ubuntu-latest
-    timeout-minutes: 12
     environment: production
+    timeout-minutes: 20
     steps:
-      - name: Install Fly CLI
-        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
 
-      - name: Destroy AppForge Fly Machines, preserving volumes
+      - name: Scale all application Machines to zero without deleting volumes
         shell: bash
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          set -euo pipefail
-          APP=appforge-unfurling-moon-9058
+          set -uo pipefail
           if [ -z "${FLY_API_TOKEN:-}" ]; then
-            echo "::error::FLY_API_TOKEN unavailable. No Fly resources were modified."
+            echo "::error::FLY_API_TOKEN is missing; shutdown could not proceed."
             exit 1
           fi
-          echo "Before shutdown: AppForge Machines"
-          flyctl machines list --app "$APP"
-          echo "Persistent volumes (preserved):"
-          flyctl volumes list --app "$APP" || true
+          apps=(
+            appforge-unfurling-moon-9058
+            trillionai-casecount
+            trillionai-northstar
+            trillionai-skyline-invaders
+            trillionai-quick-notes
+            trillionai-orb-catch
+            trillionai-quick-tasks
+            trillionai-brief-agent
+            trillionaitech-web
+            trillionai-marketing
+            appforge-db
+          )
+          failures=0
+          for app in "${apps[@]}"; do
+            echo "::group::Shutting down $app"
+            inventory="$(flyctl machines list --app "$app" --json 2>&1)" || {
+              echo "::error::$app Machine inventory failed: $inventory"
+              failures=$((failures+1))
+              echo "::endgroup::"
+              continue
+            }
+            before="$(printf '%s' "$inventory" | jq 'length')" || {
+              echo "::error::Machine inventory JSON was invalid for $app"
+              failures=$((failures+1))
+              echo "::endgroup::"
+              continue
+            }
+            echo "Machines before: $before"
+            echo "Preserving attached and unattached volumes:"
+            flyctl volumes list --app "$app" || true
+            if [ "$before" -eq 0 ]; then
+              echo "$app already has zero Machines"
+              echo "::endgroup::"
+              continue
+            fi
 
-          # flyctl scale count 0 destroys Machines, unlike stop.
-          # Handle every detected process group so workers cannot keep billing.
-          machines="$(flyctl machines list --app "$APP" --json)"
-          groups="$(printf '%s' "$machines" | jq -r '.[].config.metadata.fly_process_group // "app"' | sort -u)"
-          if [ -z "$groups" ]; then
-            echo "No Machines found; already at zero."
-          else
+            # For Postgres, require a persistent volume before destroying its Machine.
+            # Otherwise shut it down but retain the Machine until its data is protected.
+            if [ "$app" = "appforge-db" ]; then
+              has_mount="$(printf '%s' "$inventory" | jq '[.[] | (.config.mounts // []) | length] | add // 0')"
+              if [ "$has_mount" -eq 0 ]; then
+                echo "::warning::appforge-db has no identifiable attached volumes: stopping only, not destroying possible data."
+                for id in $(printf '%s' "$inventory" | jq -r '.[].id'); do
+                  flyctl machine stop "$id" --app "$app" || true
+                done
+                failures=$((failures+1))
+                echo "::endgroup::"
+                continue
+              fi
+            fi
+
+            # Primary supported Fly Launch path: scale every process group to zero.
+            groups="$(printf '%s' "$inventory" | jq -r '.[].config.metadata.fly_process_group // "app"' | sort -u)"
             counts=()
             while IFS= read -r group; do
               [ -n "$group" ] && counts+=("${group}=0")
             done <<< "$groups"
-            flyctl scale count "${counts[@]}" --app "$APP" --yes
-          fi
-
-          echo "Verify remaining Machines:"
-          remaining="$(flyctl machines list --app "$APP" --json)"
-          count="$(printf '%s' "$remaining" | jq 'length')"
-          echo "Remaining Machines: $count"
-          test "$count" -eq 0 || { echo "::error::Fly still has Machines"; exit 1; }
-          echo "SUCCESS: No remaining AppForge Machines. Volumes and paid services require separate billing review."
+            if ! flyctl scale count "${counts[@]}" --app "$app" --yes; then
+              echo "::warning::Scale-to-zero failed for $app. Attempting graceful stop then destroy of existing Machines."
+              for id in $(printf '%s' "$inventory" | jq -r '.[].id'); do
+                flyctl machine stop "$id" --app "$app" || true
+                if ! flyctl machine destroy "$id" --app "$app"; then
+                  echo "::error::Could not destroy $id on $app; no force destroy attempted."
+                  failures=$((failures+1))
+                fi
+              done
+            fi
+            afterjson="$(flyctl machines list --app "$app" --json 2>&1)" || {
+              echo "::error::$app recheck failed: $afterjson"
+              failures=$((failures+1))
+              echo "::endgroup::"
+              continue
+            }
+            after="$(printf '%s' "$afterjson" | jq 'length')" || after="unknown"
+            echo "$app: remaining Machines $after"
+            if [ "$after" != "0" ]; then
+              echo "::error::$app still has billable Machines"
+              failures=$((failures+1))
+            fi
+            echo "::endgroup::"
+          done
+          echo "Shutdown verification failures: $failures"
+          echo "Important: managed Upstash Redis, provisioned volumes, snapshots, IPs, other organizations, and invoices are NOT removed by this workflow."
+          test "$failures" -eq 0
