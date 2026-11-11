@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  allowedCorsOrigins,
-  normalizeCorsOrigin,
-} from "./corsOrigin.js";
+import { allowedCorsOrigins, normalizeCorsOrigin } from "./corsOrigin.js";
 
 describe("normalizeCorsOrigin", () => {
   it("accepts HTTPS and strips path/query details", () => {
