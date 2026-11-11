@@ -1,133 +1,77 @@
-# ============================================================
-# AppForge Docker Compose - Production
-# ============================================================
-
-version: '3.8'
-
+# AppForge's real full-stack service plus its private data dependencies.
+# Local-host use: docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+# No Fly account, Fly tooling, mock server, or duplicate frontend deployment.
 services:
-  # ============================================================
-  # Production App
-  # ============================================================
   appforge:
     build:
       context: .
       target: production
       args:
-        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-        - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-}
+        VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY:-}
     ports:
-      - "80:80"
-    environment:
-      - NODE_ENV=production
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env.production
-    restart: always
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - appforge-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-
-  # ============================================================
-  # Nginx Reverse Proxy (Optional - for multiple services)
-  # ============================================================
-  nginx-proxy:
-    image: nginx:alpine
-    container_name: appforge-proxy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/proxy.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-appforge}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-appforge}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.production}@redis:6379"
     depends_on:
-      - appforge
-    restart: always
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/live', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    restart: unless-stopped
     networks:
       - appforge-network
 
-  # ============================================================
-  # PostgreSQL Database (Production - use managed service in real prod)
-  # ============================================================
   postgres:
     image: postgres:15-alpine
-    container_name: appforge-postgres-prod
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-appforge}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
       POSTGRES_DB: ${POSTGRES_DB:-appforge}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appforge} -d ${POSTGRES_DB:-appforge}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: always
+    restart: unless-stopped
     networks:
       - appforge-network
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '1.0'
-          memory: 512M
 
-  # ============================================================
-  # Redis (Production)
-  # ============================================================
   redis:
     image: redis:7-alpine
-    container_name: appforge-redis-prod
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.production}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - redis_prod_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 5
-    restart: always
+    restart: unless-stopped
     networks:
       - appforge-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
 
-# ============================================================
-# Named Volumes
-# ============================================================
 volumes:
   postgres_prod_data:
-    driver: local
   redis_prod_data:
-    driver: local
 
-# ============================================================
-# Networks
-# ============================================================
 networks:
   appforge-network:
     driver: bridge
