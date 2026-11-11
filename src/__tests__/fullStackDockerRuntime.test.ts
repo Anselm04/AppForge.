@@ -8,11 +8,7 @@ describe("full-stack Docker runtime", () => {
 
   it("parses as a real Docker Compose services document", () => {
     const services = parse(compose).services;
-    expect(Object.keys(services).sort()).toEqual([
-      "appforge",
-      "postgres",
-      "redis",
-    ]);
+    expect(Object.keys(services).sort()).toEqual(["appforge", "postgres", "redis"]);
     expect(services.appforge.ports).toEqual(["127.0.0.1:3000:3000"]);
   });
 
