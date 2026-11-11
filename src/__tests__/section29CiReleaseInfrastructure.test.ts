@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => vi.unstubAllEnvs());
 import { deployProject } from "../services/deployer.js";
 
 function workflow(path: string): string {
@@ -85,6 +87,44 @@ describe("#29 CI and Release Infrastructure", () => {
     expect(production).toContain("Refuse stale deploy SHA");
     expect(production).toContain("Verify Fly is running the released commit");
     expect(production).not.toContain("continue-on-error: true");
+  });
+
+  it("never redirects unconfigured previews to the retired Fly hostname", async () => {
+    vi.stubEnv("APP_URL", "");
+    vi.stubEnv("CORS_ORIGIN", "");
+    await expect(
+      deployProject({
+        destination: "preview",
+        projectName: "No Fly Preview",
+        projectId: 29,
+        files: { "package.json": "{}" },
+      }),
+    ).rejects.toThrow("Preview URL is not configured");
+
+    vi.stubEnv("APP_URL", "https://appforge.example.test");
+    await expect(
+      deployProject({
+        destination: "preview",
+        projectName: "Host Independent",
+        projectId: 29,
+        files: { "package.json": "{}" },
+      }),
+    ).resolves.toMatchObject({
+      destination: "preview",
+      url: "https://appforge.example.test/apps/29",
+    });
+  });
+
+  it("rejects an unsafe or malformed preview origin", async () => {
+    vi.stubEnv("APP_URL", "https://someone:secret@appforge.example.test/path");
+    await expect(
+      deployProject({
+        destination: "preview",
+        projectName: "Invalid Preview",
+        projectId: 29,
+        files: { "package.json": "{}" },
+      }),
+    ).rejects.toThrow("Preview URL must be an HTTP(S) origin");
   });
 
   it("keeps the real AppForge preview deployment path deterministic", async () => {
