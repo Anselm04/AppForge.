@@ -355,9 +355,8 @@ async function verifyRemote(
         );
       }
 
-      const appCheck = await probe(
-        new URL("/api/health/ready", origin).toString(),
-      );
+      const readinessUrl = new URL("/api/health/ready", origin);
+      const appCheck = await probe(readinessUrl.toString());
       if (appCheck.status !== 200) {
         return fail(`AppForge host readiness: ${appCheck.message}`);
       }
@@ -366,21 +365,17 @@ async function verifyRemote(
       const buildRuntime = isolatedRuntimeConfig("build");
       const previewRuntime = isolatedRuntimeConfig("preview");
       if (healthRuntime && buildRuntime && previewRuntime) {
-        for (const runtime of [
-          healthRuntime,
-          buildRuntime,
-          previewRuntime,
-        ]) {
+        const runners = [healthRuntime, buildRuntime, previewRuntime];
+        for (const runtime of runners) {
           assertRuntimeProviderAllowed(new URL(runtime.url));
         }
         const runtimeCheck = await probe(healthRuntime.url, {
           headers: { Authorization: `Bearer ${healthRuntime.token}` },
         });
-        return runtimeCheck.status >= 200 && runtimeCheck.status < 300
-          ? pass(
-              `AppForge HTTPS ready; isolated runtime ${runtimeCheck.message}`,
-            )
-          : fail(`Isolated runtime: ${runtimeCheck.message}`);
+        if (runtimeCheck.status >= 200 && runtimeCheck.status < 300) {
+          return pass(`AppForge HTTPS ready; ${runtimeCheck.message}`);
+        }
+        return fail(`Isolated runtime: ${runtimeCheck.message}`);
       }
 
       const { existingHostBuildReady } = await import(
