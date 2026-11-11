@@ -15,6 +15,7 @@ import {
 import { buildArtifactIntegrity } from "../lib/artifactIntegrity.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import { getIntegrationDefinition } from "../integrations/catalog.js";
+import { getTeamIntegrationStatus } from "../config/teamIntegrations.js";
 import { verifyIntegration } from "../integrations/health.js";
 import { createHash } from "node:crypto";
 const original = { ...process.env };
@@ -149,6 +150,34 @@ describe("provider-neutral isolated execution", () => {
     expect(String(fetch.mock.calls[1][0])).toBe(
       "https://runner.example.test/health",
     );
+  });
+
+  it("never probes Fly or accepts an HTTP app origin", async () => {
+    process.env.APP_URL = "http://127.0.0.1:3000";
+    process.env.FLY_APP_NAME = "legacy-fly-app";
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const result = await verifyIntegration(
+      getIntegrationDefinition("sprites-fly")!,
+    );
+    expect(result.verified).toBe(false);
+    expect(result.state).toBe("configuration_required");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not require Fly credentials for a configured runtime", () => {
+    process.env.APP_URL = "https://appforge.example.test";
+    process.env.ISOLATED_HEALTH_URL = "https://runner.example.test/health";
+    process.env.ISOLATED_BUILD_URL = "https://runner.example.test/build";
+    process.env.ISOLATED_PREVIEW_URL = "https://runner.example.test/preview";
+    process.env.ISOLATED_RUNTIME_TOKEN = "example-runtime-token";
+    delete process.env.FLY_API_TOKEN;
+    delete process.env.FLY_APP_NAME;
+    const runtime = getTeamIntegrationStatus().find(
+      (item) => item.key === "fly",
+    );
+    expect(runtime?.requiredForProduction).toBe(true);
+    expect(runtime?.configured).toBe(true);
   });
 
   it("does not reuse a preview cached by a different provider", async () => {
