@@ -31,3 +31,7 @@ While Fly billing is unresolved, the Fly runtime deploy, Redis provisioning and 
 ## Source of truth
 
 `docs/SOURCE_OF_TRUTH.md` defines canonical build, schema, credits, auth, price and migration code. For hosting, the **actual** server entry point and build/runtime contracts are independent of Fly; `fly.toml` governs only a Fly deployment.
+
+## Provider-neutral production integration verification
+
+The legacy integration ID `sprites-fly` is retained for existing records and admin clients, but **Fly.io is not a required host**. Production integration verification checks the configured HTTPS `PUBLIC_APP_URL` or `APP_URL` at `/api/health/ready`, then verifies either the configured isolated build/preview/health runner or a real existing-host/Docker validation runtime. It must not infer a healthy builder from a Fly application name or contact Fly simply because a historical environment variable remains set. An HTTPS application liveness response alone is not sufficient to certify generated customer products; build isolation and end-to-end acceptance remain separate requirements.
