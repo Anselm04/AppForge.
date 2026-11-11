@@ -4,25 +4,6 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://appforge-unfurling-moon-9058.fly.dev/api/:path*"
-    },
-    {
-      "source": "/config.js",
-      "destination": "https://appforge-unfurling-moon-9058.fly.dev/config.js"
-    },
-    {
-      "source": "/live/:path*",
-      "destination": "https://appforge-unfurling-moon-9058.fly.dev/live/:path*"
-    },
-    {
-      "source": "/sandbox-dev/:path*",
-      "destination": "https://appforge-unfurling-moon-9058.fly.dev/sandbox-dev/:path*"
-    },
-    { "source": "/:path*", "destination": "/index.html" }
-  ],
   "git": {
     "deploymentEnabled": false
   }
