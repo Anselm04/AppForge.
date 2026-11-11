@@ -112,6 +112,8 @@ describe("provider-neutral isolated execution", () => {
   });
 
   it("does not probe Fly when independent hosting is unconfigured", async () => {
+    delete process.env.APP_URL;
+    delete process.env.PUBLIC_APP_URL;
     process.env.FLY_APP_NAME = "appforge-test";
     process.env.SPRITES_DISABLED = "true";
     process.env.SPRITES_HEALTH_URL = "https://paid.sprites.app/health";
@@ -129,6 +131,7 @@ describe("provider-neutral isolated execution", () => {
   });
 
   it("verifies the configured AppForge host and independent runner", async () => {
+    delete process.env.PUBLIC_APP_URL;
     process.env.APP_URL = "https://appforge.example.test";
     process.env.ISOLATED_HEALTH_URL = "https://runner.example.test/health";
     process.env.ISOLATED_BUILD_URL = "https://runner.example.test/build";
@@ -153,6 +156,7 @@ describe("provider-neutral isolated execution", () => {
   });
 
   it("never probes Fly or accepts an HTTP app origin", async () => {
+    delete process.env.PUBLIC_APP_URL;
     process.env.APP_URL = "http://127.0.0.1:3000";
     process.env.FLY_APP_NAME = "legacy-fly-app";
     const fetch = vi.fn();
