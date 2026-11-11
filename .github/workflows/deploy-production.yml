@@ -22,7 +22,7 @@ jobs:
     # Billing lock: never deploy Fly while owner-approved cost containment is active.
     # Remove this guard only after explicit owner authorization to resume paid hosting.
     if: ${{ false }}
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
+
     runs-on: ubuntu-latest
     name: Validate release
     environment: production
@@ -113,6 +113,8 @@ jobs:
           test "$missing" -eq 0 || exit 1
 
   deploy-fly:
+    # Billing lock: never recreate Fly Machines, even if validation changes.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     name: Deploy to Fly.io
     needs: validate
