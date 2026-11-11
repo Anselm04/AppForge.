@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: fly-production-runtime
@@ -50,6 +51,7 @@ jobs:
             appforge-db
           )
           failures=0
+          printf 'Fly fleet shutdown report for %s\n\n' "$(date -u +%FT%TZ)" > /tmp/fly-shutdown-report.txt
           for app in "${apps[@]}"; do
             echo "::group::Shutting down $app"
             inventory="$(flyctl machines list --app "$app" --json 2>&1)" || {
@@ -69,6 +71,7 @@ jobs:
             flyctl volumes list --app "$app" || true
             if [ "$before" -eq 0 ]; then
               echo "$app already has zero Machines"
+              printf "%s: zero Machines (already)\n" "$app" >> /tmp/fly-shutdown-report.txt
               echo "::endgroup::"
               continue
             fi
@@ -83,6 +86,7 @@ jobs:
                   flyctl machine stop "$id" --app "$app" || true
                 done
                 failures=$((failures+1))
+                printf "%s: STOPPED ONLY; database volume not confirmed\n" "$app" >> /tmp/fly-shutdown-report.txt
                 echo "::endgroup::"
                 continue
               fi
@@ -112,6 +116,7 @@ jobs:
             }
             after="$(printf '%s' "$afterjson" | jq 'length')" || after="unknown"
             echo "$app: remaining Machines $after"
+            printf "%s: %s Machines remaining\n" "$app" "$after" >> /tmp/fly-shutdown-report.txt
             if [ "$after" != "0" ]; then
               echo "::error::$app still has billable Machines"
               failures=$((failures+1))
@@ -121,3 +126,16 @@ jobs:
           echo "Shutdown verification failures: $failures"
           echo "Important: managed Upstash Redis, provisioned volumes, snapshots, IPs, other organizations, and invoices are NOT removed by this workflow."
           test "$failures" -eq 0
+ 
+      - name: Publish machine shutdown evidence to repository issues
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if [ ! -f /tmp/fly-shutdown-report.txt ]; then
+            echo 'Shutdown job never reached Fly API; check authorization, token and workflow logs.' > /tmp/fly-shutdown-report.txt
+          fi
+          printf '\nVolumes, snapshots, Redis, other extensions and invoices were not deleted.\n' >> /tmp/fly-shutdown-report.txt
+          gh issue create --title "Fly fleet cost-containment execution report" --body-file /tmp/fly-shutdown-report.txt || echo "::warning::Could not publish report; check Actions log."
