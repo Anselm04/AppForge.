@@ -64,6 +64,7 @@ const env = {
   ...process.env,
   NODE_ENV: "production",
   PORT: "3000",
+  BIND_HOST: "127.0.0.1",
   APP_URL: "http://127.0.0.1:3000",
   CORS_ORIGIN: "http://127.0.0.1:3000",
   DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@127.0.0.1:55432/${dbName}`,
