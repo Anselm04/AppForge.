@@ -19,6 +19,21 @@ function canonicalRequired(id: string, fallback: boolean) {
   return getIntegrationDefinition(id)?.requiredForProduction ?? fallback;
 }
 
+function providerIndependentRuntimeConfigured(): boolean {
+  if (!has("APP_URL", "PUBLIC_APP_URL")) return false;
+  if (
+    isolatedRuntimeConfig("health") &&
+    isolatedRuntimeConfig("build") &&
+    isolatedRuntimeConfig("preview")
+  ) {
+    return true;
+  }
+  return (
+    process.env.EXISTING_HOST_SANDBOX_ENABLED === "true" ||
+    process.env.DOCKER_VALIDATION === "true"
+  );
+}
+
 export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
   return [
     {
@@ -44,15 +59,7 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
       // not the mandatory production host.
       key: "fly",
       role: "provider-neutral-backend-workers-agent-runtime",
-      configured:
-        has("APP_URL", "PUBLIC_APP_URL") &&
-        (Boolean(
-          isolatedRuntimeConfig("health") &&
-            isolatedRuntimeConfig("build") &&
-            isolatedRuntimeConfig("preview"),
-        ) ||
-          process.env.EXISTING_HOST_SANDBOX_ENABLED === "true" ||
-          process.env.DOCKER_VALIDATION === "true"),
+      configured: providerIndependentRuntimeConfigured(),
       requiredForProduction: canonicalRequired("sprites-fly", true),
     },
     {
