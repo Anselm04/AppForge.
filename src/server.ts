@@ -63,6 +63,9 @@ import {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// The trusted local Linux launcher binds only loopback; production hosts retain
+// the existing default listener when BIND_HOST is not explicitly configured.
+const BIND_HOST = process.env.BIND_HOST?.trim() || undefined;
 const REQUEST_TIMEOUT = parseInt(
   process.env.REQUEST_TIMEOUT_MS || "330000",
   10,
@@ -542,7 +545,7 @@ function start() {
   // proves that the process and HTTP stack are alive, while /ready remains 503
   // until environment/schema initialization succeeds. A transient DB outage no
   // longer causes Fly to treat the whole machine as dead or enter a restart loop.
-  server = app.listen(PORT, () => {
+  server = app.listen(PORT, BIND_HOST, () => {
     logger.info({ port: PORT }, "appforge_server_started");
     void initialiseRuntime().catch((error) => {
       markStartupDegraded("startup");
