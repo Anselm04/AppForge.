@@ -545,14 +545,17 @@ function start() {
   // proves that the process and HTTP stack are alive, while /ready remains 503
   // until environment/schema initialization succeeds. A transient DB outage no
   // longer causes Fly to treat the whole machine as dead or enter a restart loop.
-  server = app.listen(PORT, BIND_HOST, () => {
+  const onListening = () => {
     logger.info({ port: PORT }, "appforge_server_started");
     void initialiseRuntime().catch((error) => {
       markStartupDegraded("startup");
       logger.error({ error }, "runtime_initialization_failed");
       if (ENV.isProduction) scheduleStartupRetry();
     });
-  });
+  };
+  server = BIND_HOST
+    ? app.listen(Number(PORT), BIND_HOST, onListening)
+    : app.listen(PORT, onListening);
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
 }
