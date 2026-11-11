@@ -26,7 +26,7 @@ npm run build
 node scripts/start-local-fullstack.mjs
 ```
 
-The launcher reads the existing private `.env.production`, starts real PostgreSQL/Redis services, and then executes `dist/server.js` on loopback port 3000. It uses the host Docker daemon for the existing hardened Docker validation path; it does not install Fly or contact Sprites. Run `curl --fail http://127.0.0.1:3000/api/health/ready` and exercise a real authenticated build/edit/export journey.
+The launcher reads the existing private `.env.production`, starts real PostgreSQL/Redis services, and then executes `dist/server.js` on loopback port 3000. **Production authentication requires a real HTTPS `APP_URL` or `PUBLIC_APP_URL`**, and the local launcher preserves that URL rather than falsely reporting `http://127.0.0.1:3000` as a production origin. A TLS reverse proxy or HTTPS tunnel must already route the configured public origin to `127.0.0.1:3000`; the launcher rejects missing/mismatched HTTPS and CORS origins before starting. Direct HTTP loopback liveness is diagnostic only and is not a working secure browser login flow. It uses the host Docker daemon for the existing hardened Docker validation path; it does not install Fly or contact Sprites. Run `curl --fail http://127.0.0.1:3000/api/health/ready` and exercise a real authenticated build/edit/export journey.
 
 The Node process must be run on a **trusted owner-controlled Linux computer only**, because access to the host Docker daemon is security-sensitive. Do not expose this mode to public customers, or treat it as production-certified hosting. In a public deployment use a separately isolated and verified build runner; never expose the Docker socket to the internet or mount it unrestricted inside a customer-facing container.
 
