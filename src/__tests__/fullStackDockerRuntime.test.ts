@@ -5,14 +5,14 @@ const compose = readFileSync("docker-compose.prod.yml", "utf8");
 const dockerfile = readFileSync("Dockerfile", "utf8");
 
 describe("full-stack Docker runtime without Fly", () => {
-  it("maps the actual Express listening port and checks its liveness route", () => {
+  it("maps the Express port and health endpoint", () => {
     expect(compose).toContain('"127.0.0.1:3000:3000"');
     expect(compose).toContain("http://127.0.0.1:3000/api/health/live");
     expect(compose).not.toContain('"80:80"');
     expect(compose).not.toContain("nginx-proxy:");
   });
 
-  it("provides real private PostgreSQL and Redis, not sample services", () => {
+  it("keeps PostgreSQL and Redis private", () => {
     expect(compose).toContain("postgres:");
     expect(compose).toContain("redis:");
     expect(compose).toContain("DATABASE_URL:");
