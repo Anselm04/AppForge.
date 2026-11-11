@@ -37,6 +37,9 @@ services:
 
   postgres:
     image: postgres:15-alpine
+    # Local Linux host mode can reach this service without public exposure.
+    ports:
+      - "127.0.0.1:55432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-appforge}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
@@ -54,6 +57,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "127.0.0.1:56379:6379"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.production}
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
