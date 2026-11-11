@@ -26,7 +26,8 @@ This file records which repository artifacts are authoritative so future fixes s
 | Credits charged by AppForge | `src/lib/credits.ts` | pricing UI and pipeline messages | credit tests |
 | Integration/plugin registry | `src/integrations/catalog.ts` | `health.ts`, `runtime.ts`, PluginWorkspace | integration catalog coverage tests |
 | Production integration behavior | `src/integrations/runtime.ts`, `src/integrations/health.ts` | catalog metadata | integration runtime/health tests |
-| Deployment runtime | `fly.toml`, production deploy services/workflows | deployment docs | Fly capacity/deploy/recovery workflows |
+| AppForge server/runtime | `package.json` (`build`/`start`), `src/` server and deployment contracts | `Dockerfile`, hosting-specific configs and `docs/FLY_INDEPENDENT_RUNTIME.md` | Full-stack health, build and end-to-end acceptance tests |
+| Fly-only hosting implementation | `fly.toml`, `.github/workflows/deploy-production.yml` | legacy Fly documentation and capacity checks | Fly-specific qualification only; **not** a requirement to run AppForge on another host |
 | MCP server contract | `src/routes/mcp.ts` | integration catalog entry | MCP interoperability tests |
 | Project snapshot currently active | database transaction paths in `src/db.ts` | projects router rollback endpoint | `snapshotSourceOfTruth.test.ts` |
 
