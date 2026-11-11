@@ -1,8 +1,7 @@
-name: Emergency Fly Fleet Shutdown
+name: Emergency Fly Complete Teardown
 
-# Owner authorized shutting down every Fly Machine shown in dashboard on 2026-11-12.
-# This workflow must never provision or deploy anything. It preserves all Fly volumes,
-# snapshots, service subscriptions, DNS, app definitions, and code.
+# Owner explicitly authorized permanent deletion of every Fly app and its data.
+# Keep GitHub repositories and source untouched. Never recreate billable services.
 on:
   push:
     branches: [main]
@@ -19,24 +18,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  shutdown:
-    name: Destroy billable compute across 11 known Fly apps
+  purge:
+    name: Remove all known Fly apps and Redis
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment: production
-    timeout-minutes: 20
     steps:
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-
-      - name: Scale all application Machines to zero without deleting volumes
+      - name: Permanently remove all Fly resources in owner's Personal organization
         shell: bash
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -uo pipefail
+          report=/tmp/fly-cleanup-report.txt
+          printf 'Fly cleanup run: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$report"
           if [ -z "${FLY_API_TOKEN:-}" ]; then
-            echo "::error::FLY_API_TOKEN is missing; shutdown could not proceed."
+            echo "FAIL: FLY_API_TOKEN not configured. No Fly resources removed." | tee -a "$report"
             exit 1
           fi
+          failures=0
+
+          # Destroy apps using Fly's first-party command. Fly app destruction
+          # is permanent and also removes Fly-managed Machines and volumes.
           apps=(
             appforge-unfurling-moon-9058
             trillionai-casecount
@@ -50,92 +54,45 @@ jobs:
             trillionai-marketing
             appforge-db
           )
-          failures=0
-          printf 'Fly fleet shutdown report for %s\n\n' "$(date -u +%FT%TZ)" > /tmp/fly-shutdown-report.txt
+          echo "=== DELETE ALL ELEVEN APPLICATIONS ==="
           for app in "${apps[@]}"; do
-            echo "::group::Shutting down $app"
-            inventory="$(flyctl machines list --app "$app" --json 2>&1)" || {
-              echo "::error::$app Machine inventory failed: $inventory"
-              failures=$((failures+1))
-              echo "::endgroup::"
-              continue
-            }
-            before="$(printf '%s' "$inventory" | jq 'length')" || {
-              echo "::error::Machine inventory JSON was invalid for $app"
-              failures=$((failures+1))
-              echo "::endgroup::"
-              continue
-            }
-            echo "Machines before: $before"
-            echo "Preserving attached and unattached volumes:"
-            flyctl volumes list --app "$app" || true
-            if [ "$before" -eq 0 ]; then
-              echo "$app already has zero Machines"
-              printf "%s: zero Machines (already)\n" "$app" >> /tmp/fly-shutdown-report.txt
-              echo "::endgroup::"
-              continue
-            fi
-
-            # For Postgres, require a persistent volume before destroying its Machine.
-            # Otherwise shut it down but retain the Machine until its data is protected.
-            if [ "$app" = "appforge-db" ]; then
-              has_mount="$(printf '%s' "$inventory" | jq '[.[] | (.config.mounts // []) | length] | add // 0')"
-              if [ "$has_mount" -eq 0 ]; then
-                echo "::warning::appforge-db has no identifiable attached volumes: stopping only, not destroying possible data."
-                for id in $(printf '%s' "$inventory" | jq -r '.[].id'); do
-                  flyctl machine stop "$id" --app "$app" || true
-                done
-                failures=$((failures+1))
-                printf "%s: STOPPED ONLY; database volume not confirmed\n" "$app" >> /tmp/fly-shutdown-report.txt
-                echo "::endgroup::"
-                continue
-              fi
-            fi
-
-            # Primary supported Fly Launch path: scale every process group to zero.
-            groups="$(printf '%s' "$inventory" | jq -r '.[].config.metadata.fly_process_group // "app"' | sort -u)"
-            counts=()
-            while IFS= read -r group; do
-              [ -n "$group" ] && counts+=("${group}=0")
-            done <<< "$groups"
-            if ! flyctl scale count "${counts[@]}" --app "$app" --yes; then
-              echo "::warning::Scale-to-zero failed for $app. Attempting graceful stop then destroy of existing Machines."
-              for id in $(printf '%s' "$inventory" | jq -r '.[].id'); do
-                flyctl machine stop "$id" --app "$app" || true
-                if ! flyctl machine destroy "$id" --app "$app"; then
-                  echo "::error::Could not destroy $id on $app; no force destroy attempted."
-                  failures=$((failures+1))
-                fi
-              done
-            fi
-            afterjson="$(flyctl machines list --app "$app" --json 2>&1)" || {
-              echo "::error::$app recheck failed: $afterjson"
-              failures=$((failures+1))
-              echo "::endgroup::"
-              continue
-            }
-            after="$(printf '%s' "$afterjson" | jq 'length')" || after="unknown"
-            echo "$app: remaining Machines $after"
-            printf "%s: %s Machines remaining\n" "$app" "$after" >> /tmp/fly-shutdown-report.txt
-            if [ "$after" != "0" ]; then
-              echo "::error::$app still has billable Machines"
+            echo "Destroying app: $app"
+            if flyctl apps destroy "$app" --yes; then
+              printf 'DELETED app: %s\n' "$app" | tee -a "$report"
+            else
+              printf 'FAILED app: %s (may be absent or account restricted)\n' "$app" | tee -a "$report"
               failures=$((failures+1))
             fi
-            echo "::endgroup::"
           done
-          echo "Shutdown verification failures: $failures"
-          echo "Important: managed Upstash Redis, provisioned volumes, snapshots, IPs, other organizations, and invoices are NOT removed by this workflow."
+
+          # Redis extensions can survive Fly app deletion and keep billing.
+          echo "=== DELETE UPSTASH REDIS ==="
+          redis_list="$(flyctl redis list --org personal 2>&1)" || redis_list=""
+          redis_names="$(printf '%s\n' "$redis_list" | awk 'NR>1 && $1!="NAME" && $1 !~ /^map\[/ && $1 !~ /^Error/ && NF>=2 {print $1}')"
+          redis_names="$(printf '%s\n%s\n' "$redis_names" 'appforge-production-redis' | sort -u)"
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            if flyctl redis destroy "$name" --yes; then
+              printf 'DELETED Redis: %s\n' "$name" | tee -a "$report"
+            else
+              printf 'NOT DELETED Redis: %s (verify absent / permissions)\n' "$name" | tee -a "$report"
+            fi
+          done <<< "$redis_names"
+
+          echo "=== VERIFY PERSONAL ORGANIZATION ==="
+          flyctl apps list || true
+          flyctl redis list --org personal || true
+          printf '\nManual billing review still needed for any separately billed extras.\n' >> "$report"
+          echo "App deletions reporting failures: $failures"
           test "$failures" -eq 0
- 
-      - name: Publish machine shutdown evidence to repository issues
+
+      - name: Publish result as GitHub issue
         if: always()
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
         run: |
-          if [ ! -f /tmp/fly-shutdown-report.txt ]; then
-            echo 'Shutdown job never reached Fly API; check authorization, token and workflow logs.' > /tmp/fly-shutdown-report.txt
+          if [ ! -f /tmp/fly-cleanup-report.txt ]; then
+            echo "Shutdown workflow did not reach Fly commands." > /tmp/fly-cleanup-report.txt
           fi
-          printf '\nVolumes, snapshots, Redis, other extensions and invoices were not deleted.\n' >> /tmp/fly-shutdown-report.txt
-          gh issue create --title "Fly fleet cost-containment execution report" --body-file /tmp/fly-shutdown-report.txt || echo "::warning::Could not publish report; check Actions log."
+          gh issue create --title "Fly teardown report: permanent resource deletion" --body-file /tmp/fly-cleanup-report.txt || true
