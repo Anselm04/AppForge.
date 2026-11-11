@@ -18,6 +18,17 @@ A restored revision is never deployed merely because it exists in backup. The ex
 - Operational RTO target: **30–60 minutes** to return a known-good revision to service when GitHub/replacement source control, Fly.io, Supabase/PostgreSQL, shared Redis, Stripe, DNS, required secrets, and the network are healthy.
 - These are targets, not guarantees, because external providers may be unavailable during a major incident.
 
+## Fly billing hold and independent runtime recovery (2026-11-11)
+
+The Fly app and Fly-managed Upstash Redis are **not** required to develop or run the same AppForge Node/Express+React code. Fly billing restrictions can prevent changes to Fly resources; replacing the runtime does not require deleting the customer database or claiming old Fly data is automatically available elsewhere.
+
+- During the billing hold the Fly deployment, Fly Redis provisioning and Fly capacity-guard workflows are manual-only. Do not restart them as a side effect of ordinary code merges.
+- `docker-compose.prod.yml` is a **local independent recovery environment** exposing AppForge on loopback port 3000, with private PostgreSQL and Redis services. It creates new named volumes and does **not** restore customer data from Fly.
+- Verify database backups, migration ledger, Stripe webhook idempotency records, credit balances and snapshots before moving existing customers to another database. Never silently point a new deployment at an empty database and describe that as recovery.
+- Keep SQL credentials and service secrets out of Git, preserve existing auth and financial safeguards, and verify isolated build execution before enabling user-created workloads.
+- AppForge liveness is not equivalent to customer readiness; verify the authenticated build/edit/export/deploy path on the recovered host before declaring service restored.
+- The RTO above assumes Fly availability; on an alternate host it is a nonbinding planning target until deployment, restore and acceptance tests are measured for that host.
+
 ## Backup layers
 
 Use a 3-2-1 model:
