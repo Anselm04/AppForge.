@@ -1,0 +1,48 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
+
+describe("full-stack Docker runtime", () => {
+  const compose = readFileSync("docker-compose.prod.yml", "utf8");
+  const image = readFileSync("Dockerfile", "utf8");
+  const launcher = readFileSync("scripts/start-local-fullstack.mjs", "utf8");
+  const server = readFileSync("src/server.ts", "utf8");
+
+  it("parses as a real Docker Compose services document", () => {
+    const services = parse(compose).services;
+    expect(Object.keys(services).sort()).toEqual(["appforge", "postgres", "redis"]);
+    expect(services.appforge.ports).toEqual(["127.0.0.1:3000:3000"]);
+  });
+
+  it("uses the real Node server port", () => {
+    expect(compose).toContain("127.0.0.1:3000:3000");
+    expect(compose).toContain("/api/health/live");
+    expect(compose).not.toContain("nginx-proxy:");
+  });
+
+  it("keeps durable dependencies private", () => {
+    expect(compose).toContain("postgres:");
+    expect(compose).toContain("redis:");
+    expect(compose).toContain("DATABASE_URL:");
+    expect(compose).toContain("REDIS_URL:");
+    expect(compose).toContain("condition: service_healthy");
+    expect(compose).toContain("/var/lib/postgresql/data");
+    expect(compose).toContain("/data");
+    const services = parse(compose).services;
+    expect(services.postgres.ports).toEqual(["127.0.0.1:55432:5432"]);
+    expect(services.redis.ports).toEqual(["127.0.0.1:56379:6379"]);
+  });
+
+  it("launches one full-stack app on loopback only", () => {
+    expect(launcher).toContain('BIND_HOST: "127.0.0.1"');
+    expect(launcher).toContain("dist/server.js");
+    expect(server).toContain("app.listen(Number(PORT), BIND_HOST");
+  });
+
+  it("does not download Fly tools", () => {
+    expect(image).toContain("EXPOSE 3000");
+    expect(image).toContain("dist/server.js");
+    expect(image).not.toContain("https://fly.io/install.sh");
+    expect(image).not.toContain("flyctl version");
+  });
+});

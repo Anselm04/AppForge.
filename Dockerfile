@@ -33,10 +33,9 @@ RUN npm run build \
   && test -f /app/dist/client/index.html
 
 FROM node:22-alpine AS production
+# The runtime image must not install Fly tooling or make network requests to
+# Fly during independent builds. Fly CLI belongs on a deployment operator host.
 RUN apk add --no-cache dumb-init curl bash chromium bubblewrap su-exec \
-  && curl -L https://fly.io/install.sh | sh \
-  && mv /root/.fly/bin/flyctl /usr/local/bin/flyctl \
-  && flyctl version \
   && chromium-browser --version
 ENV NODE_ENV=production
 ENV HUSKY=0
