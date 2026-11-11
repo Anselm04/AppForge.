@@ -40,16 +40,19 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
       requiredForProduction: canonicalRequired("vercel", false),
     },
     {
+      // Legacy key retained for existing admin UI consumers. Fly.io is
+      // not the mandatory production host.
       key: "fly",
-      role: "backend-workers-agent-runtime",
+      role: "provider-neutral-backend-workers-agent-runtime",
       configured:
-        has("FLY_APP_NAME") &&
-        has("FLY_API_TOKEN") &&
-        Boolean(
+        has("APP_URL", "PUBLIC_APP_URL") &&
+        (Boolean(
           isolatedRuntimeConfig("health") &&
-          isolatedRuntimeConfig("build") &&
-          isolatedRuntimeConfig("preview"),
-        ),
+            isolatedRuntimeConfig("build") &&
+            isolatedRuntimeConfig("preview"),
+        ) ||
+          process.env.EXISTING_HOST_SANDBOX_ENABLED === "true" ||
+          process.env.DOCKER_VALIDATION === "true"),
       requiredForProduction: canonicalRequired("sprites-fly", true),
     },
     {
