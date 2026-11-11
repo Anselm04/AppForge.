@@ -1,0 +1,64 @@
+name: Emergency Fly Compute Shutdown
+
+# Owner-authorized cost containment on 2026-11-12.
+# Runs on the addition of THIS file only, not on ordinary code pushes.
+# Does not delete persistent volumes, Redis, databases, IPs, or the Fly app.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/emergency-fly-compute-shutdown.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fly-production-runtime
+  cancel-in-progress: false
+
+jobs:
+  shutdown:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: production
+    steps:
+      - name: Install Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Destroy AppForge Fly Machines, preserving volumes
+        shell: bash
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          APP=appforge-unfurling-moon-9058
+          if [ -z "${FLY_API_TOKEN:-}" ]; then
+            echo "::error::FLY_API_TOKEN unavailable. No Fly resources were modified."
+            exit 1
+          fi
+          echo "Before shutdown: AppForge Machines"
+          flyctl machines list --app "$APP"
+          echo "Persistent volumes (preserved):"
+          flyctl volumes list --app "$APP" || true
+
+          # flyctl scale count 0 destroys Machines, unlike stop.
+          # Handle every detected process group so workers cannot keep billing.
+          machines="$(flyctl machines list --app "$APP" --json)"
+          groups="$(printf '%s' "$machines" | jq -r '.[].config.metadata.fly_process_group // "app"' | sort -u)"
+          if [ -z "$groups" ]; then
+            echo "No Machines found; already at zero."
+          else
+            counts=()
+            while IFS= read -r group; do
+              [ -n "$group" ] && counts+=("${group}=0")
+            done <<< "$groups"
+            flyctl scale count "${counts[@]}" --app "$APP" --yes
+          fi
+
+          echo "Verify remaining Machines:"
+          remaining="$(flyctl machines list --app "$APP" --json)"
+          count="$(printf '%s' "$remaining" | jq 'length')"
+          echo "Remaining Machines: $count"
+          test "$count" -eq 0 || { echo "::error::Fly still has Machines"; exit 1; }
+          echo "SUCCESS: No remaining AppForge Machines. Volumes and paid services require separate billing review."
