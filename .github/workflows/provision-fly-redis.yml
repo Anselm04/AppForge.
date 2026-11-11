@@ -1,10 +1,7 @@
 name: Provision Fly Redis
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/provision-fly-redis.yml'
+  # Fly billing hold: only an explicit manual run can provision billable Redis.
   workflow_dispatch:
 
 permissions:
