@@ -1,5 +1,7 @@
 # Vercel deployment (static client only)
 
+> **No-Fly operational note (2026-11-11):** Vercel may serve a static frontend, but the required persistent full-stack backend can run on **any qualified Linux Node/Docker host**, not only Fly.io. See [Fly-independent runtime](FLY_INDEPENDENT_RUNTIME.md). The Fly-specific examples below are historical and not a current hosting requirement.
+
 The AppForge **build engine** (Express API, tRPC, SSE `/api/build/:id`, live preview) requires a Node server. **Vercel in this repo deploys only the Vite client** (`vercel.json` → `dist/client`).
 
 ## What works on Vercel
