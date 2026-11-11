@@ -35,7 +35,7 @@ describe("full-stack Docker runtime", () => {
   it("launches one full-stack app on loopback only", () => {
     expect(launcher).toContain('BIND_HOST: "127.0.0.1"');
     expect(launcher).toContain("dist/server.js");
-    expect(server).toContain("app.listen(PORT, BIND_HOST");
+    expect(server).toContain("app.listen(Number(PORT), BIND_HOST");
   });
 
   it("does not download Fly tools", () => {
