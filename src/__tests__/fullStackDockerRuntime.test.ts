@@ -37,7 +37,7 @@ describe("full-stack Docker runtime", () => {
     expect(launcher).toContain('BIND_HOST: "127.0.0.1"');
     expect(launcher).toContain('value.protocol !== "https:"');
     expect(launcher).toContain("APP_URL: trustedOrigin");
-    expect(launcher).not.toContain('APP_URL: "http://127.0.0.1:3000"');
+    expect(launcher).not.toContain('APP_URL: "http://');
     expect(launcher).toContain("dist/server.js");
     expect(server).toContain("app.listen(Number(PORT), BIND_HOST");
   });
