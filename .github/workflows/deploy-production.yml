@@ -1,12 +1,8 @@
 name: Deploy Production
 
-# A green CI Pipeline run for a push to main deploys that exact commit to Fly.
+# Fly billing hold (2026-11-11): manual-only. CI must not auto-deploy to Fly.
 # Supabase owns identity/email authentication; Twilio Verify owns SMS.
 on:
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:

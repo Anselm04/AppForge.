@@ -1,5 +1,7 @@
 # AppForge Deployment Guide
 
+> **Current billing-safe path (2026-11-11):** Fly.io is optional and its automated deploy/Redis/capacity workflows are manual-only pending billing resolution. To run the **complete builder without Fly**, see [Fly-independent runtime](docs/FLY_INDEPENDENT_RUNTIME.md). The original Fly instructions below are legacy host-specific reference, not a mandatory launch path. A static Vercel frontend alone is not functional AppForge.
+
 AppForge is a **full-stack Node app** (Express API, tRPC, SSE builds, live preview). Production hosting should run the Docker image or `node dist/server.js` on a persistent VM.
 
 **Vercel in this repo deploys only the static Vite client** — see [docs/VERCEL.md](docs/VERCEL.md). Do not expect `vercel.json` to run SSE builds or the AI pipeline.
