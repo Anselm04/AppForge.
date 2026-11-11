@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  LIVE_APP_ORIGIN,
   allowedCorsOrigins,
   normalizeCorsOrigin,
 } from "./corsOrigin.js";
@@ -37,7 +36,9 @@ describe("allowedCorsOrigins", () => {
 
     expect(allowed.has("http://insecure.example.com")).toBe(false);
     expect(allowed.has("https://secure.example.com")).toBe(true);
-    expect(allowed.has(LIVE_APP_ORIGIN)).toBe(true);
+    expect(allowed.has("https://appforge-unfurling-moon-9058.fly.dev")).toBe(
+      false,
+    );
   });
 
   it("includes local development origins only outside production", () => {
@@ -46,5 +47,6 @@ describe("allowedCorsOrigins", () => {
 
     expect(production.has("http://localhost:5173")).toBe(false);
     expect(development.has("http://localhost:5173")).toBe(true);
+    expect(production.size).toBe(0);
   });
 });
