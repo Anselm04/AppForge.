@@ -1,9 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 describe("full-stack Docker runtime", () => {
   const compose = readFileSync("docker-compose.prod.yml", "utf8");
   const image = readFileSync("Dockerfile", "utf8");
+
+  it("parses as a real Docker Compose services document", () => {
+    const services = parse(compose).services;
+    expect(Object.keys(services).sort()).toEqual([
+      "appforge",
+      "postgres",
+      "redis",
+    ]);
+    expect(services.appforge.ports).toEqual(["127.0.0.1:3000:3000"]);
+  });
 
   it("uses the real Node server port", () => {
     expect(compose).toContain("127.0.0.1:3000:3000");
