@@ -4,10 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("quick edit shares factory validation policy", () => {
   const chat = readFileSync("src/routers/projectChat.ts", "utf8");
   const quick = readFileSync("src/services/quickEditAgent.ts", "utf8");
-  const validation = readFileSync(
-    "src/lib/buildValidationHelpers.ts",
-    "utf8",
-  );
+  const validation = readFileSync("src/lib/buildValidationHelpers.ts", "utf8");
 
   it("never overrides full-stack generated tests to nonblocking", () => {
     expect(quick).toContain("validateProjectFiles(files, techStack)");
@@ -20,7 +17,9 @@ describe("quick edit shares factory validation policy", () => {
   it("only reports verified chat edits from execution-grade native evidence", () => {
     expect(chat).toContain("hasExecutedBuildProof(edit.validation)");
     expect(chat).toContain('.generationMode === "runnable"');
-    expect(chat).not.toContain("validationPassed: edit.validation?.passed ?? null");
+    expect(chat).not.toContain(
+      "validationPassed: edit.validation?.passed ?? null",
+    );
   });
 
   it("does not present structural-only checks as runtime certification", () => {
