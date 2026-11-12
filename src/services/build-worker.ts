@@ -37,6 +37,10 @@ import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { buildDeploymentDecision } from "../lib/stackDeployment.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import {
+  assessFactoryExecution,
+  type FactoryExecutionEvidence,
+} from "../lib/factoryExecutionGate.js";
+import {
   scanProjectFiles,
   validateGeneratedSecurityPosture,
 } from "./projectSecurityScanner.js";
@@ -85,11 +89,9 @@ type ActiveBuild = {
 const activeJobs = new Map<number, ActiveBuild>();
 
 function validationPassed(value: unknown): boolean {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { passed?: unknown }).passed === true
-  );
+  return assessFactoryExecution(
+    value as FactoryExecutionEvidence | null | undefined,
+  ).verified;
 }
 
 function requirementsResolved(value: unknown): boolean {
@@ -559,9 +561,12 @@ async function runOwnedBuildJob(
       const behavioralTestsVerified = requirementBehaviorVerified(
         artifact.requirementManifest,
       );
+      const executionDecision = assessFactoryExecution(
+        artifact.validationResult,
+      );
       const runtimeVerified =
         stackAdapter.generationMode === "runnable" &&
-        validationPassed(artifact.validationResult);
+        executionDecision.verified;
       const snapshotSecurityVerified = securityAuditPassed(
         artifact.auditScores,
       );
@@ -644,6 +649,7 @@ async function runOwnedBuildJob(
               liveUrl,
               productionCertification,
               productionReady: finalProductFactoryFlow.productionReady,
+              factoryExecution: executionDecision,
               finalProductFactoryFlow,
               limitations: finalProductFactoryFlow.limitations,
               ...stackDelivery,
@@ -654,6 +660,7 @@ async function runOwnedBuildJob(
               liveUrl,
               productionCertification,
               productionReady: finalProductFactoryFlow.productionReady,
+              factoryExecution: executionDecision,
               finalProductFactoryFlow,
               limitations: finalProductFactoryFlow.limitations,
               ...stackDelivery,
