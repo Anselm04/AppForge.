@@ -174,10 +174,11 @@ Respond with JSON only.`,
   } else if (outcome.fixed) {
     summary = `${summary} Auto-fixed compile issues after edit.`;
   } else if (outcome.validation?.passed) {
-    summary =
-      outcome.validation.stage === "structure"
-        ? `${summary} Structural source checks passed; native runtime and build remain unverified.`
-        : `${summary} Sandbox validation passed at stage: ${outcome.validation.stage}.`;
+    if (outcome.validation.stage === "structure") {
+      summary = `${summary} Structural source checks passed; native runtime and build remain unverified.`;
+    } else {
+      summary = `${summary} Sandbox validation passed at stage: ${outcome.validation.stage}.`;
+    }
   }
 
   return {
