@@ -16,8 +16,10 @@ describe("isolated runtime health", () => {
   it("requires an independently verifiable isolated runtime bridge", () => {
     expect(catalog).toContain("SPRITES_HEALTH_URL");
     expect(catalog).toContain("SPRITES_API_TOKEN");
-    expect(health).toContain("approved isolated execution is not configured");
+    expect(health).toContain("no verified isolated build runtime");
     expect(health).toContain('isolatedRuntimeConfig("health")');
+    expect(health).toContain("/api/health/ready");
+    expect(health).not.toContain(".fly.dev");
     expect(health).toContain("assertRuntimeProviderAllowed");
   });
 

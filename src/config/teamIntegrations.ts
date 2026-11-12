@@ -19,6 +19,21 @@ function canonicalRequired(id: string, fallback: boolean) {
   return getIntegrationDefinition(id)?.requiredForProduction ?? fallback;
 }
 
+function providerIndependentRuntimeConfigured(): boolean {
+  if (!has("APP_URL", "PUBLIC_APP_URL")) return false;
+  if (
+    isolatedRuntimeConfig("health") &&
+    isolatedRuntimeConfig("build") &&
+    isolatedRuntimeConfig("preview")
+  ) {
+    return true;
+  }
+  return (
+    process.env.EXISTING_HOST_SANDBOX_ENABLED === "true" ||
+    process.env.DOCKER_VALIDATION === "true"
+  );
+}
+
 export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
   return [
     {
@@ -40,16 +55,11 @@ export function getTeamIntegrationStatus(): TeamIntegrationStatus[] {
       requiredForProduction: canonicalRequired("vercel", false),
     },
     {
+      // Legacy key retained for existing admin UI consumers. Fly.io is
+      // not the mandatory production host.
       key: "fly",
-      role: "backend-workers-agent-runtime",
-      configured:
-        has("FLY_APP_NAME") &&
-        has("FLY_API_TOKEN") &&
-        Boolean(
-          isolatedRuntimeConfig("health") &&
-          isolatedRuntimeConfig("build") &&
-          isolatedRuntimeConfig("preview"),
-        ),
+      role: "provider-neutral-backend-workers-agent-runtime",
+      configured: providerIndependentRuntimeConfigured(),
       requiredForProduction: canonicalRequired("sprites-fly", true),
     },
     {

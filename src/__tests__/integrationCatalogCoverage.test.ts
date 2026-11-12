@@ -75,8 +75,10 @@ describe("AppForge integration registry", () => {
     );
   });
 
-  it("includes Fly deployment credentials in the Sprites/Fly production entry", () => {
-    const fly = getIntegrationDefinition("sprites-fly");
-    expect(fly?.env).toContain("FLY_API_TOKEN");
+  it("requires real host and runner, not Fly", () => {
+    const runtime = getIntegrationDefinition("sprites-fly");
+    expect(runtime?.env).toContain("APP_URL");
+    expect(runtime?.env).toContain("ISOLATED_BUILD_URL");
+    expect(runtime?.env).not.toContain("FLY_API_TOKEN");
   });
 });

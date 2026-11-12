@@ -331,56 +331,70 @@ async function verifyRemote(
     }
 
     case "sprites-fly": {
-      const appName = value("FLY_APP_NAME");
-      const runtime = isolatedRuntimeConfig("health");
-
-      if (!appName) {
+      // Stable legacy integration ID; hosting and execution are provider-neutral.
+      // Never probe the old Fly hostname just because FLY_APP_NAME exists.
+      const configured = value("PUBLIC_APP_URL") || value("APP_URL");
+      let origin: URL;
+      try {
+        origin = new URL(configured);
+        if (
+          origin.protocol !== "https:" ||
+          origin.username ||
+          origin.password ||
+          origin.pathname !== "/" ||
+          origin.search ||
+          origin.hash
+        ) {
+          throw new Error("Invalid public HTTPS origin");
+        }
+      } catch {
         return result(
           definition,
-          "not_connected",
-          "FLY_APP_NAME is not configured",
+          "configuration_required",
+          "Configure the actual HTTPS PUBLIC_APP_URL or APP_URL for AppForge",
         );
       }
 
-      const flyCheck = await probe(
-        `https://${appName}.fly.dev/api/health/live`,
+      const readinessUrl = new URL("/api/health/ready", origin);
+      const appCheck = await probe(readinessUrl.toString());
+      if (appCheck.status !== 200) {
+        return fail(`AppForge host readiness: ${appCheck.message}`);
+      }
+
+      const healthRuntime = isolatedRuntimeConfig("health");
+      const buildRuntime = isolatedRuntimeConfig("build");
+      const previewRuntime = isolatedRuntimeConfig("preview");
+      if (healthRuntime && buildRuntime && previewRuntime) {
+        const runners = [healthRuntime, buildRuntime, previewRuntime];
+        for (const runtime of runners) {
+          assertRuntimeProviderAllowed(new URL(runtime.url));
+        }
+        const runtimeCheck = await probe(healthRuntime.url, {
+          headers: { Authorization: `Bearer ${healthRuntime.token}` },
+        });
+        if (runtimeCheck.status >= 200 && runtimeCheck.status < 300) {
+          return pass(`AppForge HTTPS ready; ${runtimeCheck.message}`);
+        }
+        return fail(`Isolated runtime: ${runtimeCheck.message}`);
+      }
+
+      const { existingHostBuildReady } = await import(
+        "../services/existingHostBuildRunner.js"
       );
-      if (!flyCheck.ok) {
-        return fail(`Fly.io runtime: ${flyCheck.message}`);
+      if (await existingHostBuildReady()) {
+        return pass("AppForge HTTPS ready; isolated existing-host runner ready");
       }
-
-      if (!runtime) {
-        return result(
-          definition,
-          "configuration_required",
-          "Fly.io runtime is healthy, but approved isolated execution is not configured",
-          true,
-          false,
-        );
+      const { dockerBuildAvailable } = await import("../lib/dockerValidator.js");
+      if (await dockerBuildAvailable()) {
+        return pass("AppForge HTTPS ready; local Docker validation available");
       }
-      assertRuntimeProviderAllowed(new URL(runtime.url));
-      if (
-        runtime.provider === "isolated" &&
-        (!isolatedRuntimeConfig("build") || !isolatedRuntimeConfig("preview"))
-      ) {
-        return result(
-          definition,
-          "configuration_required",
-          "Isolated execution requires configured build and preview endpoints",
-          true,
-          false,
-        );
-      }
-      const runtimeCheck = await probe(runtime.url, {
-        headers: { Authorization: `Bearer ${runtime.token}` },
-      });
-      return runtimeCheck.ok
-        ? pass(
-            `Fly.io runtime verified; isolated runtime ${runtimeCheck.message}`,
-          )
-        : fail(
-            `Fly.io runtime verified; isolated runtime ${runtimeCheck.message}`,
-          );
+      return result(
+        definition,
+        "configuration_required",
+        "AppForge HTTPS is reachable, but no verified isolated build runtime is available",
+        true,
+        false,
+      );
     }
 
     case "make": {
