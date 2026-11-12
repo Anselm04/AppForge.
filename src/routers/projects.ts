@@ -23,6 +23,7 @@ import {
   projectReadinessForApi,
 } from "../lib/stackPresentation.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import { evaluateFactoryHandoff } from "../lib/factoryHandoff.js";
 import {
   canRetryPlanning,
   isRecoverableBuildPause,
@@ -845,6 +846,22 @@ export const projectsRouter = router({
         input.destination === "netlify" ||
         input.destination === "fly" ||
         input.destination === "github-pages";
+
+      const factoryHandoff = evaluateFactoryHandoff({
+        stack: stackAdapter.id,
+        snapshotId: artifact.snapshotId,
+        artifactVersion: artifact.version,
+        artifactSha256: artifact.integrity.sha256,
+        files: artifact.files,
+        validationResult: artifact.validationResult,
+      });
+      if (productionDestination && !factoryHandoff.runtimeVerified) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "This saved application has not passed executable build/runtime verification. Open Evidence and repair or validate the current revision before deploying.",
+        });
+      }
 
       let requirementManifest = project.requirementManifest ?? null;
       if (productionDestination) {
