@@ -38,6 +38,14 @@ const resolverMock = vi.hoisted(() => ({
   resolveStackDependencyGraph: vi.fn(),
 }));
 
+// This suite isolates the dependency-admission contract. Its synthetic
+// one-file artifact cannot satisfy a real generated-project security scan;
+// scanner findings are tested separately against actual generated artifacts.
+vi.mock("../services/projectSecurityScanner.js", () => ({
+  scanProjectFiles: vi.fn(() => ({ findings: [] })),
+  validateGeneratedSecurityPosture: vi.fn(() => []),
+}));
+
 vi.mock("../db.js", () => db);
 vi.mock("../lib/owner.js", () => ({
   isOwnerEmail: (email?: string | null) => email === "owner@example.com",
