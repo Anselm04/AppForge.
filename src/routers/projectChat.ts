@@ -13,6 +13,8 @@ import { SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
 import { ensureUserCredits } from "../db.js";
 import { runQuickEdit } from "../services/quickEditAgent.js";
 import { resolveProjectStack } from "../lib/projectStack.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
+import { hasExecutedBuildProof } from "../lib/factoryHandoff.js";
 import { persistChangeContract } from "../services/productionOperationsService.js";
 
 export const projectChatRouter = router({
@@ -145,7 +147,12 @@ export const projectChatRouter = router({
             filesChanged: edit.filesChanged,
             rolledBack: edit.rolledBack ?? false,
             fixed: edit.fixed ?? false,
-            validationPassed: edit.validation?.passed ?? null,
+            validationPassed:
+              edit.validation == null
+                ? null
+                : getStackAdapter(resolveProjectStack(project).techStack)
+                    .generationMode === "runnable" &&
+                  hasExecutedBuildProof(edit.validation),
           },
         });
       }
