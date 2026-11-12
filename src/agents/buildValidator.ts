@@ -551,6 +551,25 @@ export async function validateGeneratedBuild(
     }
 
     if (files["pubspec.yaml"]) {
+      // Prefer actual Flutter compilation and runtime proof when an isolated
+      // runner is available. Source scaffolding alone is never executable
+      // evidence and must remain explicitly marked structural.
+      const nativeResult = await validateWithIsolatedBuildRunner(
+        files,
+        techStack,
+      );
+      if (nativeResult) {
+        return {
+          passed: nativeResult.passed,
+          stage: nativeResult.stage,
+          errors: nativeResult.errors,
+          durationMs: nativeResult.durationMs,
+          fileCount: Object.keys(files).length,
+          warning: nativeResult.passed
+            ? "Isolated native validation completed. Store signing and release remain separate."
+            : "Isolated native validation failed; inspect actual toolchain errors.",
+        };
+      }
       return {
         passed: true,
         stage: "structure",
@@ -558,7 +577,7 @@ export async function validateGeneratedBuild(
         durationMs: Date.now() - start,
         fileCount: Object.keys(files).length,
         warning:
-          "Flutter stack: structural checks only. Run flutter analyze locally.",
+          "Flutter stack: structural checks only. No native analyzer, compiler, or backend integration test was executed.",
       };
     }
 
