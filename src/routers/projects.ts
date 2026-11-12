@@ -843,13 +843,10 @@ export const projectsRouter = router({
       // Generated source may be downloaded independently, but an executable
       // preview/deployment requires proof from the same factory gate used by
       // worker certification and the customer Engineering Verification Record.
-      const { assessFactoryExecution } =
+      const { assessFactoryExecution, isExecutionReadyForDeployment } =
         await import("../lib/factoryExecutionGate.js");
       const execution = assessFactoryExecution(artifact.validationResult);
-      if (
-        !execution.verified ||
-        stackAdapter.generationMode !== "runnable"
-      ) {
+      if (!isExecutionReadyForDeployment(stackAdapter.generationMode, execution)) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
