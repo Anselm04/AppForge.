@@ -152,10 +152,19 @@ export function buildEngineeringVerificationRecord(input: {
     snapshot,
     sha,
   );
-  const nativeProof = object(nativeEvent?.payload);
+  // Execution proof is persisted inside the immutable snapshot validation
+  // result. Older per-event proof remains supported for historical projects.
+  const snapshotNativeProof = object(validator.nativeEvidence);
+  const nativeProof =
+    Object.keys(snapshotNativeProof).length > 0
+      ? snapshotNativeProof
+      : object(nativeEvent?.payload);
   const mobileRuntimeVerified =
-    nativeProof.nativeAnalysisPassed === true &&
-    nativeProof.nativeBuildPassed === true &&
+    (nativeProof.flutterAnalyzePassed === true ||
+      nativeProof.nativeAnalysisPassed === true) &&
+    (nativeProof.androidBuildPassed === true &&
+      nativeProof.iosSimulatorBuildPassed === true ||
+      nativeProof.nativeBuildPassed === true) &&
     nativeProof.backendIntegrationPassed === true;
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.
