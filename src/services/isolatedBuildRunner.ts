@@ -200,7 +200,7 @@ export async function validateWithIsolatedBuildRunner(
     );
     return {
       passed: proof.passed === true,
-      stage: proof.stage?.trim() || "isolated_runtime",
+      stage: proof.passed === true ? "isolated_runtime" : proof.stage?.trim() || "isolated_runtime",
       errors: Array.isArray(proof.errors)
         ? proof.errors.filter(
             (item): item is string => typeof item === "string",
