@@ -80,8 +80,11 @@ Sentry.init({
   beforeSend: (event) => sanitizeSentryEvent(event),
 });
 
+// Trust only explicitly identified ingress proxies. Trusting every X-Forwarded-For
+// hop lets an untrusted caller spoof rate-limit identity and client addresses.
+// Operators must supply the actual ingress addresses/CIDRs when applicable.
 if (ENV.isProduction) {
-  app.set("trust proxy", true);
+  app.set("trust proxy", process.env.APPFORGE_TRUSTED_PROXY_CIDRS || "loopback");
 }
 
 if (ENV.isProduction) {
