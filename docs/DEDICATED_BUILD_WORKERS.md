@@ -18,3 +18,7 @@ Both processes must have the same trusted database and Redis configuration, comp
 The dedicated entry has no HTTP listener and never calls Fly. AppForge's other manager, sync and self-healing background services currently remain on the API process and require separate scaling review. The existing in-process BullMQ concurrency is two **per worker process**; adding consumers increases simultaneous AI demand and spending exposure.
 
 Do not run generated code with direct host credentials. Sandbox isolation, per-user accounting, resource caps, and production readiness must be verified before enabling customer builds. No live hosting is required to create or review this source change. Verify with a local isolated environment and then use measured concurrency/load tests before release.
+
+## Trusted reverse-proxy boundary
+
+AppForge no longer trusts arbitrary `X-Forwarded-For` traffic in production. By default it trusts forwarding headers only from a loopback reverse proxy. When the HTTPS ingress or load balancer is on a different address, set `APPFORGE_TRUSTED_PROXY_CIDRS` to its **verified private/proxy IP or bounded CIDR** (comma-separated). Do not use `0.0.0.0/0`, `::/0`, `true`, or a blanket trust setting. Keep the application port inaccessible from untrusted clients except through the configured ingress; verify login, secure cookies, CSRF and rate-limit identity behind that actual proxy before any production cutover.
