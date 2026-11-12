@@ -563,23 +563,7 @@ export async function getProjectEvidenceBundle(projectId: number) {
           }
         : null,
       events,
-      checkpoints: checkpoints.map((checkpoint) => {
-        const payload =
-          checkpoint.payload && typeof checkpoint.payload === "object"
-            ? (checkpoint.payload as Record<string, unknown>)
-            : {};
-        return {
-          id: checkpoint.id,
-          source: checkpoint.source,
-          snapshotId: Number(payload.snapshotId ?? checkpoint.snapshotId ?? 0),
-          artifactVersion: Number(
-            payload.artifactVersion ?? checkpoint.artifactVersion ?? 0,
-          ),
-          artifactSha256: String(
-            payload.artifactSha256 ?? checkpoint.artifactSha256 ?? "",
-          ),
-        };
-      }),
+      checkpoints,
       isMobile: String(
         (contract as any)?.selectedTechnologyStack ?? project.techStack ?? "",
       ).includes("flutter") || String(
