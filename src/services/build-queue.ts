@@ -139,13 +139,16 @@ async function recoverAlreadyCompletedBuild(job: BuildJob): Promise<boolean> {
   return true;
 }
 
-async function initBullMQ(): Promise<boolean> {
-  if (bullQueue) return true;
+async function initBullMQ(startConsumer = false): Promise<boolean> {
+  if (bullQueue && (!startConsumer || bullWorker)) return true;
   if (!ENV.redisUrl) return false;
   try {
     const { Queue, Worker } = await import("bullmq");
     const connection = { url: ENV.redisUrl };
-    bullQueue = new Queue(BULL_QUEUE_NAME, { connection });
+    if (!bullQueue) bullQueue = new Queue(BULL_QUEUE_NAME, { connection });
+    // Producers only enqueue. Creating a Worker here would execute customer
+    // builds inside API request processes even in external-worker mode.
+    if (!startConsumer) return true;
     bullWorker = new Worker(
       BULL_QUEUE_NAME,
       async (job) => {
@@ -272,7 +275,7 @@ async function processRedisQueue(): Promise<void> {
 }
 
 export function startBuildQueueWorker(intervalMs = 2000): () => void {
-  void initBullMQ();
+  void initBullMQ(true);
   const timer = setInterval(() => {
     if (!bullWorker) {
       void processRedisQueue();
