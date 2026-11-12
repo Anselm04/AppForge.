@@ -431,7 +431,9 @@ export async function validateGeneratedBuild(
           errors: remoteIsolatedResult.errors,
           durationMs: remoteIsolatedResult.durationMs,
           fileCount: Object.keys(files).length,
-          ...( remoteIsolatedResult.nativeEvidence ? { nativeEvidence: remoteIsolatedResult.nativeEvidence } : {}),
+          ...(remoteIsolatedResult.nativeEvidence
+            ? { nativeEvidence: remoteIsolatedResult.nativeEvidence }
+            : {}),
           warning: remoteIsolatedResult.passed
             ? `Isolated production validation passed (${remoteIsolatedResult.isolationId}).`
             : "Isolated production validation failed.",
@@ -574,7 +576,9 @@ export async function validateGeneratedBuild(
           errors: nativeResult.errors,
           durationMs: nativeResult.durationMs,
           fileCount: Object.keys(files).length,
-          ...( nativeResult.nativeEvidence ? { nativeEvidence: nativeResult.nativeEvidence } : {}),
+          ...(nativeResult.nativeEvidence
+            ? { nativeEvidence: nativeResult.nativeEvidence }
+            : {}),
           warning: nativeResult.passed
             ? "Isolated native validation completed. Store signing and release remain separate."
             : "Isolated native validation failed; inspect actual toolchain errors.",
@@ -645,6 +649,9 @@ export async function validateGeneratedBuild(
         errors: remoteIsolatedResult.errors,
         durationMs: remoteIsolatedResult.durationMs,
         fileCount: Object.keys(files).length,
+        ...(remoteIsolatedResult.nativeEvidence
+          ? { nativeEvidence: remoteIsolatedResult.nativeEvidence }
+          : {}),
         warning: remoteIsolatedResult.passed
           ? `Isolated production validation passed (${remoteIsolatedResult.isolationId}).`
           : "Isolated production validation failed.",
