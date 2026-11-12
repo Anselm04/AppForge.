@@ -1,4 +1,5 @@
 import { createBuildExecutionDatabase } from "./services/buildExecutionLease.js";
+import { buildEngineeringVerificationRecord } from "./lib/engineeringVerification.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./db/schema.js";
@@ -551,6 +552,40 @@ export async function getProjectEvidenceBundle(projectId: number) {
       integrationsApproved: project.integrationsApproved === true,
     },
     deploymentEvidence: checkpoints,
+    engineeringVerification: buildEngineeringVerificationRecord({
+      currentSnapshot: currentSnapshot
+        ? {
+            id: currentSnapshot.id,
+            version: currentSnapshot.version,
+            fileCount: currentSnapshot.fileCount,
+            artifactIntegrity: currentSnapshot.artifactIntegrity,
+            validationResult: currentSnapshot.validationResult,
+          }
+        : null,
+      events,
+      checkpoints: checkpoints.map((checkpoint) => {
+        const payload =
+          checkpoint.payload && typeof checkpoint.payload === "object"
+            ? (checkpoint.payload as Record<string, unknown>)
+            : {};
+        return {
+          id: checkpoint.id,
+          source: checkpoint.source,
+          snapshotId: Number(payload.snapshotId ?? checkpoint.snapshotId ?? 0),
+          artifactVersion: Number(
+            payload.artifactVersion ?? checkpoint.artifactVersion ?? 0,
+          ),
+          artifactSha256: String(
+            payload.artifactSha256 ?? checkpoint.artifactSha256 ?? "",
+          ),
+        };
+      }),
+      isMobile: String(
+        (contract as any)?.selectedTechnologyStack ?? project.techStack ?? "",
+      ).includes("flutter") || String(
+        (contract as any)?.selectedTechnologyStack ?? project.techStack ?? "",
+      ).includes("react-native"),
+    }),
     unresolvedRisks,
     certification: {
       status: project.status,
