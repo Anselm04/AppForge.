@@ -82,6 +82,15 @@ afterEach(() => {
 });
 
 describe("build queue preserves and enforces the typed build context", () => {
+  it("bounds queue admission configuration without allowing unlimited jobs", async () => {
+    const queue = await loadQueue();
+    expect(queue.waitingBuildLimit()).toBe(1000);
+    expect(queue.waitingBuildLimit("25")).toBe(25);
+    expect(() => queue.waitingBuildLimit("0")).toThrow();
+    expect(() => queue.waitingBuildLimit("10001")).toThrow();
+    expect(() => queue.waitingBuildLimit("unlimited")).toThrow();
+  });
+
   it.each(["", "redis://test"])(
     "rejects production enqueue without BullMQ instead of losing paid work (%s)",
     async (redisUrl) => {
