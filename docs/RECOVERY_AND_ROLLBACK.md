@@ -323,3 +323,13 @@ This review covers the customer-facing preview route and post-build security evi
 7. Verify recovery by deliberately presenting a stale or mismatched artifact identity, a stopped preview runtime, and a blocking security scan, then confirm no false passing verification status or replacement of a known-good snapshot. Preserve those test results with the exact commit SHA.
 
 The customer Evidence tab shows derived verification from recorded snapshots and events. It cannot, by itself, prove native Flutter compilation, app-store acceptance, billing, or million-user capacity. These require their own executed evidence and are intentionally left unverified when absent.
+
+## Bounded factory admission and reserved-credit recovery (12 November 2026)
+
+The build admission path now checks the configured waiting-job capacity before adding a new durable job and reports temporary saturation as a retryable error. Admission and entitlement handling must remain one coordinated transaction-like workflow even when the queue cannot be contacted.
+
+1. When admission refuses an unstarted build due to capacity, release the project build claim and reverse its reserved credits using the existing idempotent refund key. The project remains available for a later explicit retry rather than fabricating a completed build.
+2. A failure to read queue-depth telemetry is not proof that a previously accepted durable job failed. A best-effort depth gauge must never cause a second charge, refund an in-flight job, or create a duplicate execution. Actual enqueue failures must still fail closed.
+3. The waiting-depth check is not atomic across concurrent API producers. Operators must not treat the configured maximum as a strict distributed upper bound; before high-concurrency qualification add an atomic admission budget or compare-and-set mechanism with expiry and recovery.
+4. When restarting a worker, reconcile queue state with the PostgreSQL build lease, project status and existing artifact checkpoint. Do not rerun a completed job or charge a customer a second time merely because queue retention expired.
+5. Test saturation, missing queue telemetry, enqueue failure, crash after reservation, restart after artifact persistence, duplicate job IDs and refund idempotency. Preserve expected load-shedding status and actionable customer text, with the exact tested commit recorded.
