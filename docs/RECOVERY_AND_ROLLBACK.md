@@ -308,3 +308,18 @@ invoice records. Never force-update existing Stripe subscriptions to new prices
 without explicit customer notice and contractual/legal justification.
 
 Billing qualification note: The new Stripe price IDs and optional Aftercare Plus item are not customer subscriptions until a real, authorised checkout has completed. CI cannot substitute for paid end-to-end confirmation. Existing subscriptions retain prior billing contracts unless the customer agrees to a migration.
+
+
+## Engineering Verification Record and preview identity recovery (12 November 2026)
+
+This review covers the customer-facing preview route and post-build security evidence changes in PR #327. The existing immutable snapshot and checkpoint mechanism remains authoritative; no new recovery database or remote deployment is introduced.
+
+1. Before accepting preview success, verify the served boundary identifies the currently persisted snapshot ID, artifact version and SHA-256, and that the runtime returns a successful non-empty response. An unreachable, redirected-to-login, mismatched, or otherwise invalid runtime **must not** be marked preview-verified.
+2. If verification fails, record a failed deployment/preview evidence event for that artifact, return an actionable error to the customer, and preserve all saved working files and the current immutable snapshot. Do not substitute a generic placeholder or synthetic screenshot to obtain passing evidence.
+3. Post-build security scans must inspect the final persisted artifact files and record findings bound to that immutable snapshot identity. A critical/high blocking finding stops certification. Preserve evidence and require a repaired, newly validated snapshot; never edit the original checkpoint in place to conceal the finding.
+4. A subsequent edit or repair creates a different artifact identity. Older security, preview, and production verification evidence must not authorize the new revision. Re-run the relevant tests and probes, with actual execution results.
+5. For rollback, select the newest appropriate validated-artifact or production-verified checkpoint, verify its saved SHA-256, and activate it only through the existing atomic `markSnapshotAsCurrent` path. Confirm ownership, authorization, runtime, and current identity before exposing a recovered preview or reopening customer traffic.
+6. During verification failure or recovery do not invoke Fly.io or reactivate retired hosting credentials. The source-level work proceeds on the local/provider-independent runtime; customer production deployment remains a separate, explicit, authorized operation.
+7. Verify recovery by deliberately presenting a stale or mismatched artifact identity, a stopped preview runtime, and a blocking security scan, then confirm no false passing verification status or replacement of a known-good snapshot. Preserve those test results with the exact commit SHA.
+
+The customer Evidence tab shows derived verification from recorded snapshots and events. It cannot, by itself, prove native Flutter compilation, app-store acceptance, billing, or million-user capacity. These require their own executed evidence and are intentionally left unverified when absent.
