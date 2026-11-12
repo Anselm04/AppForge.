@@ -1,9 +1,9 @@
 import { writeFileSync } from "node:fs";
 import { createTRPCUntypedClient, httpLink } from "@trpc/client";
 
-const baseUrl = (
-  process.env.APPFORGE_URL || "https://appforge-unfurling-moon-9058.fly.dev"
-).replace(/\/$/, "");
+// Live acceptance must opt into an explicit approved target; never silently
+// contact a historic application endpoint.
+const baseUrl = (process.env.APPFORGE_URL || "").replace(/\/$/, "");
 const email = process.env.APPFORGE_CANARY_EMAIL;
 const password = process.env.APPFORGE_CANARY_PASSWORD;
 const hcaptchaToken = process.env.APPFORGE_CANARY_HCAPTCHA_TOKEN;
@@ -314,6 +314,10 @@ function findChangedPaths(beforeFiles, afterFiles) {
  * validation, blocking tests, deployment, persistence, and authenticated editing succeed.
  */
 async function main() {
+  required("APPFORGE_URL", baseUrl);
+  if (!/^https:\/\//i.test(baseUrl) && !/^http:\/\/localhost(?::\d+)?$/i.test(baseUrl)) {
+    throw new Error("APPFORGE_URL must be a selected HTTPS host or local development origin");
+  }
   required("APPFORGE_CANARY_EMAIL", email);
   required("APPFORGE_CANARY_PASSWORD", password);
   required("APPFORGE_CANARY_HCAPTCHA_TOKEN", hcaptchaToken);
@@ -427,16 +431,16 @@ async function main() {
     );
   }
 
-  console.log("[canary] verifying persisted production certification");
+  console.log("[canary] verifying saved, independently validated source");
   const project = await trpc.query("projects.get", { id: projectId });
-  if (project?.status !== "production-certified") {
+  if (project?.status !== "validated" && project?.status !== "production-certified") {
     throw new Error(
-      `Project status is not production-certified after done event: ${JSON.stringify(project)}`,
+      `Build did not persist a validated project: ${JSON.stringify(project)}`,
     );
   }
-  if (done.productionReady !== true) {
+  if (done.factoryExecution?.verified !== true) {
     throw new Error(
-      `Production canary done event did not prove final product-factory readiness: ${JSON.stringify(done)}`,
+      `Build lacks execution-grade proof; source-only output is not certified: ${JSON.stringify(done.factoryExecution)}`,
     );
   }
   if (
@@ -444,15 +448,33 @@ async function main() {
     Object.keys(project.generatedFiles).length === 0
   ) {
     throw new Error(
-      "Production-certified canary project has no persisted generated files",
+      "Validated canary project has no persisted generated files",
     );
   }
 
   console.log("[canary] certifying persisted generated test contract");
   const generatedTests = verifyGeneratedTestContract(project.generatedFiles);
 
-  console.log(`[canary] opening real generated product ${done.liveUrl}`);
-  const live = await verifyDeployedProduct(done.liveUrl, {
+  const initialEvidence = await trpc.query("projects.evidence", { id: projectId });
+  if (
+    initialEvidence?.engineeringVerification?.checks?.find(
+      (check) => check.id === "validation",
+    )?.state !== "passed"
+  ) {
+    throw new Error("Saved artifact does not have a passing Engineering Verification Record");
+  }
+
+  console.log("[canary] customer explicitly requests a real project preview");
+  const firstPreview = await trpc.mutation("projects.deploy", {
+    id: projectId,
+    destination: "preview",
+  });
+  if (!firstPreview?.deployUrl || !/^https:\/\//i.test(firstPreview.deployUrl)) {
+    throw new Error(
+      `Customer preview returned no verifiable HTTPS URL: ${JSON.stringify(firstPreview)}`,
+    );
+  }
+  const live = await verifyDeployedProduct(firstPreview.deployUrl, {
     requiredTexts: ["AppForge Production Canary", "Increment Canary Counter"],
   });
 
