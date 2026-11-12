@@ -159,12 +159,13 @@ export function buildEngineeringVerificationRecord(input: {
     Object.keys(snapshotNativeProof).length > 0
       ? snapshotNativeProof
       : object(nativeEvent?.payload);
+  const platformBuildsVerified =
+    nativeProof.androidBuildPassed === true &&
+    nativeProof.iosSimulatorBuildPassed === true;
   const mobileRuntimeVerified =
     (nativeProof.flutterAnalyzePassed === true ||
       nativeProof.nativeAnalysisPassed === true) &&
-    (nativeProof.androidBuildPassed === true &&
-      nativeProof.iosSimulatorBuildPassed === true ||
-      nativeProof.nativeBuildPassed === true) &&
+    (platformBuildsVerified || nativeProof.nativeBuildPassed === true) &&
     nativeProof.backendIntegrationPassed === true;
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.
