@@ -1,5 +1,6 @@
 import { createBuildExecutionDatabase } from "./services/buildExecutionLease.js";
 import { buildEngineeringVerificationRecord } from "./lib/engineeringVerification.js";
+import { stackCapabilityContract } from "./lib/stackCapabilityContract.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./db/schema.js";
@@ -552,6 +553,16 @@ export async function getProjectEvidenceBundle(projectId: number) {
       integrationsApproved: project.integrationsApproved === true,
     },
     deploymentEvidence: checkpoints,
+    stackCapabilityContract: (() => {
+      const stack = String(
+        (contract as any)?.selectedTechnologyStack ?? project.techStack ?? "",
+      );
+      try {
+        return stack ? stackCapabilityContract(stack) : null;
+      } catch {
+        return null;
+      }
+    })(),
     engineeringVerification: buildEngineeringVerificationRecord({
       currentSnapshot: currentSnapshot
         ? {
