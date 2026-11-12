@@ -141,7 +141,28 @@ export function buildEngineeringVerificationRecord(input: {
   );
 
   const validator = object(snapshot.validationResult);
-  const validationPassed = validator.passed === true;
+  const validatorStage = typeof validator.stage === "string" ? validator.stage : "";
+  const runtimeExecuted =
+    validatorStage === "runtime" ||
+    validatorStage.startsWith("isolated_") ||
+    validatorStage.startsWith("docker_");
+  const nativeEvent = latestMatchingEvent(
+    input.events,
+    "validation",
+    snapshot,
+    sha,
+  );
+  const nativeProof = object(nativeEvent?.payload);
+  const mobileRuntimeVerified =
+    nativeProof.nativeAnalysisPassed === true &&
+    nativeProof.nativeBuildPassed === true &&
+    nativeProof.backendIntegrationPassed === true;
+  // Structural or Python syntax-only checks are useful preliminary evidence,
+  // not proof that an application compiled and executed.
+  const validationPassed =
+    validator.passed === true &&
+    runtimeExecuted &&
+    (!input.isMobile || mobileRuntimeVerified);
   const validationFailed = validator.passed === false;
   add(
     "validation",
@@ -150,7 +171,7 @@ export function buildEngineeringVerificationRecord(input: {
       ? "Artifact validation passed; see original validator evidence for individual executed checks."
       : validationFailed
         ? "Artifact validation failed; inspect recorded validator errors."
-        : "No completed validation result for the current artifact.",
+        : "No execution-grade validation proof for the current artifact; structural checks do not certify runtime behaviour.",
     validationPassed || validationFailed ? snapshot.id : null,
   );
 
@@ -171,7 +192,14 @@ export function buildEngineeringVerificationRecord(input: {
     security?.id ?? null,
   );
 
-  const preview = latestMatchingEvent(input.events, "deployment", snapshot, sha);
+  const preview = [...input.events]
+    .reverse()
+    .find(
+      (event) =>
+        event.kind === "deployment" &&
+        eventMatches(event, snapshot, sha) &&
+        object(event.payload).destination === "preview",
+    );
   const previewPayload = object(preview?.payload);
   const previewVerified =
     previewPayload.destination === "preview" &&
