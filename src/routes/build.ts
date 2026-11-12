@@ -58,17 +58,25 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   ) {
     // Reconnected clients must receive the same execution claim as the
     // authoritative worker, not a status-derived fabricated success.
-    const artifact = await getCurrentArtifact(projectId);
-    const handoff = artifact
-      ? evaluateFactoryHandoff({
-          stack: project.techStack ?? "",
+    let handoff: ReturnType<typeof evaluateFactoryHandoff> | null = null;
+    try {
+      const artifact = await getCurrentArtifact(projectId);
+      if (artifact && project.techStack) {
+        handoff = evaluateFactoryHandoff({
+          stack: project.techStack,
           snapshotId: artifact.snapshotId,
           artifactVersion: artifact.version,
           artifactSha256: artifact.integrity.sha256,
           files: artifact.files,
           validationResult: artifact.validationResult,
-        })
-      : null;
+        });
+      }
+    } catch (error) {
+      logger.warn(
+        { error, projectId },
+        "completed_build_handoff_unavailable",
+      );
+    }
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
