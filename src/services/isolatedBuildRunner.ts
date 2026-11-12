@@ -21,6 +21,13 @@ export type IsolatedBuildResult = {
   };
 };
 
+type RemoteStepProof = {
+  passed?: boolean;
+  command?: string;
+  exitCode?: number;
+  outputSha256?: string;
+};
+
 type RemoteProof = {
   passed?: boolean;
   stage?: string;
@@ -29,12 +36,7 @@ type RemoteProof = {
   isolationId?: string;
   artifactSha256?: string;
   techStack?: string;
-  steps?: Record<string, {
-    passed?: boolean;
-    command?: string;
-    exitCode?: number;
-    outputSha256?: string;
-  }>;
+  steps?: Record<string, RemoteStepProof>;
 };
 
 const REQUIRED_STEPS = [
@@ -198,9 +200,13 @@ export async function validateWithIsolatedBuildRunner(
       techStack,
       requiredSteps,
     );
+    const stage =
+      proof.passed === true
+        ? "isolated_runtime"
+        : proof.stage?.trim() || "isolated_runtime";
     return {
       passed: proof.passed === true,
-      stage: proof.passed === true ? "isolated_runtime" : proof.stage?.trim() || "isolated_runtime",
+      stage,
       errors: Array.isArray(proof.errors)
         ? proof.errors.filter(
             (item): item is string => typeof item === "string",
