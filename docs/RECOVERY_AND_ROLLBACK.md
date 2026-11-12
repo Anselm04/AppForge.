@@ -323,3 +323,10 @@ This review covers the customer-facing preview route and post-build security evi
 7. Verify recovery by deliberately presenting a stale or mismatched artifact identity, a stopped preview runtime, and a blocking security scan, then confirm no false passing verification status or replacement of a known-good snapshot. Preserve those test results with the exact commit SHA.
 
 The customer Evidence tab shows derived verification from recorded snapshots and events. It cannot, by itself, prove native Flutter compilation, app-store acceptance, billing, or million-user capacity. These require their own executed evidence and are intentionally left unverified when absent.
+
+
+## Native mobile build evidence in the unified factory (12 November 2026)
+
+Flutter source is not certified as runnable by a generic runner result. The isolated runner must prove analysis, generated tests, Android compilation, iOS simulator compilation and (for Flutter + Node) backend integration. Each native execution step must include a successful command and zero exit code; built binaries must include SHA-256 output digests, and the overall runner artifact identity must match the submitted source. The immutable snapshot stores validation evidence so later edits invalidate the earlier result. Without a qualified native runner the project remains source-only. Neither simulator compilation nor generated artifacts represent signing, app-store submission, or approval.
+
+On native failure retain the customer's last saved source and prior verified checkpoint, return the actual failed stage and compiler/test output through validation evidence, and retry only from a new validated artifact. Never promote partial native artifacts or synthesize a release certificate. No new external provider is enabled by this source change.

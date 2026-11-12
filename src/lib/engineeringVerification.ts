@@ -5,6 +5,8 @@
  * browser behaviour, a real provider deployment, or mobile-store submission.
  * Every verdict is derived from durable evidence for the CURRENT artifact.
  */
+import { runnerSourceSha256 } from "./runnerSourceDigest.js";
+
 export type VerificationState = "passed" | "failed" | "unverified";
 export type VerificationCheckId =
   | "saved_artifact"
@@ -36,6 +38,7 @@ type CurrentSnapshot = {
   fileCount?: number | null;
   artifactIntegrity?: unknown;
   validationResult?: unknown;
+  files?: unknown;
 };
 
 type Event = {
@@ -152,10 +155,29 @@ export function buildEngineeringVerificationRecord(input: {
     snapshot,
     sha,
   );
-  const nativeProof = object(nativeEvent?.payload);
+  // Execution proof is persisted inside the immutable snapshot validation
+  // result. Older per-event proof remains supported for historical projects.
+  const snapshotNativeProof = object(validator.nativeEvidence);
+  const snapshotFiles = object(snapshot.files);
+  const sourceProofMatches =
+    Object.keys(snapshotFiles).length > 0 &&
+    Object.values(snapshotFiles).every(
+      (value) => typeof value === "string",
+    ) &&
+    snapshotNativeProof.runnerArtifactSha256 ===
+      runnerSourceSha256(snapshotFiles as Record<string, string>);
+  const nativeProof = sourceProofMatches
+    ? snapshotNativeProof
+    : Object.keys(snapshotNativeProof).length > 0
+      ? {}
+      : object(nativeEvent?.payload);
+  const platformBuildsVerified =
+    nativeProof.androidBuildPassed === true &&
+    nativeProof.iosSimulatorBuildPassed === true;
   const mobileRuntimeVerified =
-    nativeProof.nativeAnalysisPassed === true &&
-    nativeProof.nativeBuildPassed === true &&
+    (nativeProof.flutterAnalyzePassed === true ||
+      nativeProof.nativeAnalysisPassed === true) &&
+    (platformBuildsVerified || nativeProof.nativeBuildPassed === true) &&
     nativeProof.backendIntegrationPassed === true;
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.

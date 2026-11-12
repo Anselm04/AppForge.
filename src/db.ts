@@ -571,6 +571,7 @@ export async function getProjectEvidenceBundle(projectId: number) {
             fileCount: currentSnapshot.fileCount,
             artifactIntegrity: currentSnapshot.artifactIntegrity,
             validationResult: currentSnapshot.validationResult,
+            files: currentSnapshot.files,
           }
         : null,
       events,
