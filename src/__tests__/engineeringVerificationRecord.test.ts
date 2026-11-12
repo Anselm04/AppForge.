@@ -113,14 +113,10 @@ describe("artifact-bound engineering verification", () => {
     expect(record.status).toBe("verified");
     expect(
       record.checks.find((check) => check.id === "production_deployment")?.state,
-    ).toBe(
-      "passed",
-    );
+    ).toBe("passed");
     expect(
       record.checks.find((check) => check.id === "mobile_distribution")?.state,
-    ).toBe(
-      "unverified",
-    );
+    ).toBe("unverified");
   });
 
   it("accepts persisted native toolchain evidence for the exact saved snapshot", () => {
