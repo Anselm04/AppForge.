@@ -640,7 +640,7 @@ async function runOwnedBuildJob(
 
       const stackDelivery = {
         stack: stackAdapter.id,
-        structuralOnly: stackAdapter.generationMode === "structural",
+        structuralOnly: !runtimeVerified,
         deployment: liveUrl
           ? "deployed"
           : deploymentDecision.action === "skip"
