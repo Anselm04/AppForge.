@@ -38,14 +38,21 @@ const BULL_QUEUE_NAME = "appforge-builds";
 const BUILD_QUEUE_MAX_ATTEMPTS = 3;
 const MAX_QUEUE_WAITING = 1000;
 export class BuildQueueSaturatedError extends Error {
-  constructor(public readonly queueDepth: number, public readonly limit: number) {
-    super("Build capacity is temporarily full. Please retry after current jobs finish.");
+  constructor(
+    public readonly queueDepth: number,
+    public readonly limit: number,
+  ) {
+    super(
+      "Build capacity is temporarily full. Please retry after current jobs finish.",
+    );
     this.name = "BuildQueueSaturatedError";
   }
 }
-export function waitingBuildLimit(raw = process.env.APPFORGE_MAX_WAITING_BUILDS): number {
+export function waitingBuildLimit(
+  raw = process.env.APPFORGE_MAX_WAITING_BUILDS,
+): number {
   if (!raw) return MAX_QUEUE_WAITING;
-  if (!/^[1-9]\\d*$/.test(raw)) {
+  if (!/^[1-9]\d*$/.test(raw)) {
     throw new Error("APPFORGE_MAX_WAITING_BUILDS must be a positive integer");
   }
   const limit = Number(raw);
