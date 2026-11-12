@@ -126,7 +126,7 @@ describe("Section 26 evidence and audit trail", () => {
     expect(projects).toContain('kind: "integration"');
     expect(projects).toContain("integrations: contract.integrations");
     expect(projects).toContain(
-      'kind: productionDestination ? "deployment" : "validation"',
+      'kind: input.destination === "preview" || productionDestination',
     );
     expect(projects).toContain(
       "liveUrl: productionDestination ? (result.url ?? null) : null",

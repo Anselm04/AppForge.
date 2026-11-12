@@ -27,8 +27,11 @@ describe("preview and actual deployment evidence are distinct", () => {
 
   it("does not label a preview as a verified live URL in evidence", () => {
     expect(deploy).toContain(
-      'kind: productionDestination ? "deployment" : "validation"',
+      'kind: input.destination === "preview" || productionDestination',
     );
+    expect(deploy).toContain("previewVerified: previewEvidence?.ok === true");
+    expect(deploy).toContain("await verifyGeneratedPreview({");
+    expect(deploy).toContain('kind: "deployment"');
     expect(deploy).toContain("productionVerified:");
     expect(deploy).toContain(
       "liveUrl: productionDestination ? (result.url ?? null) : null",
@@ -37,7 +40,7 @@ describe("preview and actual deployment evidence are distinct", () => {
       'input.destination === "preview" ? (result.url ?? null) : null',
     );
     expect(deploy).toContain(
-      'input.destination === "preview" ? "validation" : "deployment"',
+      'kind: "deployment"',
     );
   });
 

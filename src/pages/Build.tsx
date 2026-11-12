@@ -977,6 +977,86 @@ export function Build() {
                   />
                 </div>
 
+                <div
+                  className="rounded-lg border border-slate-700 bg-slate-950/60 p-4"
+                  data-testid="engineering-verification-record"
+                >
+                  <h3 className="font-semibold text-white">
+                    Engineering Verification Record
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Results are tied to the current artifact version and SHA-256.
+                    Source generation is not proof of a successful native build,
+                    deployment, or app-store approval.
+                  </p>
+                  <p className="mt-2 text-sm text-slate-200">
+                    Core verification:{" "}
+                    <strong>
+                      {evidence.engineeringVerification.status === "verified"
+                        ? "Verified from recorded checks"
+                        : "Incomplete — additional execution evidence required"}
+                    </strong>
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {evidence.engineeringVerification.checks.map((check) => (
+                      <li
+                        key={check.id}
+                        className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-2"
+                      >
+                        <div>
+                          <span className="font-medium text-slate-100">
+                            {check.id.replace(/_/g, " ")}
+                          </span>
+                          <p className="text-xs text-slate-400">{check.message}</p>
+                        </div>
+                        <span
+                          className={
+                            check.state === "passed"
+                              ? "text-emerald-300"
+                              : check.state === "failed"
+                                ? "text-red-300"
+                                : "text-amber-300"
+                          }
+                        >
+                          {check.state}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {evidence.stackCapabilityContract && (
+                  <details className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                    <summary className="cursor-pointer font-medium text-white">
+                      Required tests and distribution evidence for{" "}
+                      {evidence.stackCapabilityContract.stackId}
+                    </summary>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Registry status:{" "}
+                      {evidence.stackCapabilityContract.certificationLevel}.
+                      Requirements listed here are not claims that tests passed.
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+                      {evidence.stackCapabilityContract.requiredChecks.map(
+                        (check) => (
+                          <li key={check.id}>
+                            {check.description} — {check.requiredEvidence}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                    {evidence.stackCapabilityContract.releaseRequirements.length >
+                      0 && (
+                      <p className="mt-3 text-sm text-amber-300">
+                        Store release additionally requires:{" "}
+                        {evidence.stackCapabilityContract.releaseRequirements.join(
+                          "; ",
+                        )}
+                      </p>
+                    )}
+                  </details>
+                )}
+
                 <details className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
                   <summary className="cursor-pointer font-medium text-white">
                     Canonical build evidence

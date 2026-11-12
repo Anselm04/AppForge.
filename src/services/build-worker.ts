@@ -37,6 +37,10 @@ import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { buildDeploymentDecision } from "../lib/stackDeployment.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
 import {
+  scanProjectFiles,
+  validateGeneratedSecurityPosture,
+} from "./projectSecurityScanner.js";
+import {
   productContractSchema,
   renderProductContractForAgents,
   type ProductContract,
@@ -498,6 +502,42 @@ async function runOwnedBuildJob(
           "Validated build has no current snapshot available for recovery",
         );
       }
+      // Re-run trusted security scans against immutable final snapshot bytes.
+      // Record proof with the exact artifact identity; AI reviewer prose cannot
+      // approve a security gate or substitute for scanner execution.
+      const finalScan = scanProjectFiles(artifact.files);
+      const finalPosture = validateGeneratedSecurityPosture(
+        artifact.files,
+        techStack,
+        queuedContract,
+      );
+      const blockingFindings = [
+        ...finalScan.findings.filter(
+          (finding) =>
+            finding.severity === "critical" || finding.severity === "high",
+        ),
+        ...finalPosture,
+      ];
+      await recordProjectEvidence({
+        projectId,
+        kind: "security",
+        artifactVersion: artifact.version,
+        payload: {
+          phase: "post_build",
+          passed: blockingFindings.length === 0,
+          snapshotId: artifact.snapshotId,
+          artifactSha256: artifact.integrity.sha256,
+          scanFindings: finalScan.findings,
+          postureFindings: finalPosture,
+          blockingFindings,
+        },
+      });
+      if (blockingFindings.length > 0) {
+        throw new Error(
+          "Final artifact security verification failed; build cannot be certified.",
+        );
+      }
+
       await recordKnownGoodCheckpoint({
         projectId,
         snapshotId: artifact.snapshotId,
