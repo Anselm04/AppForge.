@@ -8,9 +8,9 @@ describe("generated application runtime evidence", () => {
     expect(validator).not.toContain("if (shouldRunVite || hasPackageJson)");
     expect(validator).toContain("if (!shouldRunVite) {");
     expect(validator).toContain('stage: "structure"');
+    expect(validator).toContain("no supported executable runtime was started");
     expect(validator).toContain(
-      "no supported executable runtime was started",
+      "const runtime = await verifyViteRuntime(tmpDir)",
     );
-    expect(validator).toContain("const runtime = await verifyViteRuntime(tmpDir)");
   });
 });
