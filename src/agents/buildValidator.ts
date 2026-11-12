@@ -19,6 +19,7 @@ import { tmpdir } from "os";
 import { spawn } from "child_process";
 import { createServer } from "net";
 import { npmCacheEnv } from "../services/buildCache.js";
+import { generatedChildEnvironment } from "../lib/generatedProcessEnv.js";
 import { validateWithDocker } from "../lib/dockerValidator.js";
 import {
   isolatedBuildConfigured,
@@ -131,7 +132,7 @@ function runCommand(
     const child = spawn(cmd, args, {
       cwd,
       shell: false,
-      env: { ...process.env, ...env },
+      env: generatedChildEnvironment(cwd, env),
     });
     let stdout = "";
     let stderr = "";
@@ -192,7 +193,7 @@ async function verifyViteRuntime(cwd: string): Promise<{
     {
       cwd,
       shell: false,
-      env: { ...process.env, NODE_ENV: "production" },
+      env: generatedChildEnvironment(cwd, { NODE_ENV: "production" }),
     },
   );
 
