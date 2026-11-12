@@ -23,7 +23,6 @@ import {
   projectReadinessForApi,
 } from "../lib/stackPresentation.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
-import { BuildQueueSaturatedError } from "../services/build-queue.js";
 import {
   canRetryPlanning,
   isRecoverableBuildPause,
@@ -295,7 +294,9 @@ export const projectsRouter = router({
 
       const { claimProjectBuildStart, releaseProjectBuildClaim } =
         await import("../services/build-claim.js");
-      const { enqueueBuild } = await import("../services/build-queue.js");
+      const { enqueueBuild, BuildQueueSaturatedError } = await import(
+        "../services/build-queue.js"
+      );
       const { deductCredits, addCredits } = await import("../db.js");
 
       // Project creation is the single build-start authority. The atomic claim
