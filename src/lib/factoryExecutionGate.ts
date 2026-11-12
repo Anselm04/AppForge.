@@ -19,8 +19,12 @@ export type FactoryExecutionDecision = {
 };
 
 export function assessFactoryExecution(
-  evidence: FactoryExecutionEvidence | null | undefined,
+  value: unknown,
 ): FactoryExecutionDecision {
+  const evidence =
+    value !== null && typeof value === "object"
+      ? (value as FactoryExecutionEvidence)
+      : null;
   const stage = typeof evidence?.stage === "string" ? evidence.stage : "";
   if (evidence?.passed === false) {
     const errors = Array.isArray(evidence.errors)
@@ -58,4 +62,12 @@ export function assessFactoryExecution(
     reason:
       "Source was generated, but independent compilation and runtime behavior have not been verified for this artifact.",
   };
+}
+
+/** Keep deployment admission consistent without narrowing the adapter's type. */
+export function isExecutionReadyForDeployment(
+  generationMode: "runnable" | "structural",
+  result: FactoryExecutionDecision,
+): boolean {
+  return generationMode === "runnable" && result.verified;
 }
