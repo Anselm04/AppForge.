@@ -8,8 +8,10 @@ describe("dedicated build worker runtime contract", () => {
   const tsconfig = JSON.parse(readFileSync("tsconfig.server.json", "utf8"));
 
   it("does not start BullMQ consumers in API-only mode", () => {
-    expect(api).toContain('process.env.APPFORGE_BUILD_WORKER_MODE !== "external"');
-    expect(api).toContain('startBuildQueueWorker(2000)');
+    expect(api).toContain(
+      'process.env.APPFORGE_BUILD_WORKER_MODE !== "external"',
+    );
+    expect(api).toContain("startBuildQueueWorker(2000)");
   });
 
   it("keeps a dedicated worker entry in the server build", () => {
