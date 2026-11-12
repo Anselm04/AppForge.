@@ -36,6 +36,24 @@ let bullQueue: Queue | null = null;
 const QUEUE_KEY = "appforge:build:queue";
 const BULL_QUEUE_NAME = "appforge-builds";
 const BUILD_QUEUE_MAX_ATTEMPTS = 3;
+const MAX_QUEUE_WAITING = 1000;
+export class BuildQueueSaturatedError extends Error {
+  constructor(public readonly queueDepth: number, public readonly limit: number) {
+    super("Build capacity is temporarily full. Please retry after current jobs finish.");
+    this.name = "BuildQueueSaturatedError";
+  }
+}
+export function waitingBuildLimit(raw = process.env.APPFORGE_MAX_WAITING_BUILDS): number {
+  if (!raw) return MAX_QUEUE_WAITING;
+  if (!/^[1-9]\\d*$/.test(raw)) {
+    throw new Error("APPFORGE_MAX_WAITING_BUILDS must be a positive integer");
+  }
+  const limit = Number(raw);
+  if (!Number.isSafeInteger(limit) || limit > 10000) {
+    throw new Error("APPFORGE_MAX_WAITING_BUILDS must not exceed 10000");
+  }
+  return limit;
+}
 const BUILD_QUEUE_RETRY_BASE_MS = 2_000;
 const queueClaimKey = (projectId: number) =>
   `appforge:build:queued:${projectId}`;
@@ -305,6 +323,13 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
           await previous.remove();
         }
       }
+      // Admission is bounded before any additional build is accepted.
+      // This is a queue-depth safety valve, not an atomic distributed quota.
+      const waitingCount = await bullQueue.getWaitingCount();
+      const waitingLimit = waitingBuildLimit();
+      if (waitingCount >= waitingLimit) {
+        throw new BuildQueueSaturatedError(waitingCount, waitingLimit);
+      }
       const queued = await bullQueue.add("build", job, {
         jobId: `build-${job.projectId}`,
         removeOnComplete: 100,
@@ -338,6 +363,7 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
         );
       return;
     } catch (err) {
+      if (err instanceof BuildQueueSaturatedError) throw err;
       logger.error(
         { err, projectId: job.projectId },
         "build_enqueue_bullmq_failed_fallback",
