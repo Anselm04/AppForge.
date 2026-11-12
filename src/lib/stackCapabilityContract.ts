@@ -47,17 +47,21 @@ export function stackCapabilityContract(
       {
         id: "flutter_or_native_analysis",
         description: "Run the platform's native static analysis and tests",
-        requiredEvidence: "Flutter analyze/test or equivalent platform-native output",
+        requiredEvidence:
+          "Flutter analyze/test or equivalent platform-native output",
       },
       {
         id: "native_build",
         description: "Create a runnable artifact for each supported target",
-        requiredEvidence: "Verified platform build exit codes and produced binaries",
+        requiredEvidence:
+          "Verified platform build exit codes and produced binaries",
       },
       {
         id: "api_integration",
-        description: "Execute real backend integration tests when a backend is required",
-        requiredEvidence: "Authenticated real HTTP and persistence test results",
+        description:
+          "Execute real backend integration tests when a backend is required",
+        requiredEvidence:
+          "Authenticated real HTTP and persistence test results",
       },
     );
     releaseRequirements.push(
@@ -65,7 +69,11 @@ export function stackCapabilityContract(
       "Apple/Google store metadata, privacy disclosures and compliance",
       "Actual submission and provider review/approval evidence",
     );
-  } else if (adapter.runtime === "browser" || adapter.previewMode === "vite" || adapter.previewMode === "next") {
+  } else if (
+    adapter.runtime === "browser" ||
+    adapter.previewMode === "vite" ||
+    adapter.previewMode === "next"
+  ) {
     requiredChecks.push({
       id: "browser_runtime",
       description: "Open the generated application in a real browser",
