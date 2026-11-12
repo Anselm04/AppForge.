@@ -85,14 +85,6 @@ type ActiveBuild = {
 };
 const activeJobs = new Map<number, ActiveBuild>();
 
-function validationPassed(value: unknown): boolean {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { passed?: unknown }).passed === true
-  );
-}
-
 function requirementsResolved(value: unknown): boolean {
   return (
     !!value &&
