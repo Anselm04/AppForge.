@@ -7,6 +7,8 @@ describe("trusted ingress proxy boundary", () => {
   it("never trusts arbitrary public X-Forwarded-For addresses", () => {
     expect(server).not.toContain('app.set("trust proxy", true)');
     expect(server).toContain("APPFORGE_TRUSTED_PROXY_CIDRS");
-    expect(server).toContain('"loopback"');
+    expect(server).toContain("trustedProxyPolicy(");
+    const policy = readFileSync("src/lib/trustedProxyPolicy.ts", "utf8");
+    expect(policy).toContain('["loopback"]');
   });
 });

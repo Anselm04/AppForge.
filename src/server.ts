@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.js";
 import { createContext } from "./_core/context.js";
 import { ENV } from "./_core/env.js";
+import { trustedProxyPolicy } from "./lib/trustedProxyPolicy.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import * as Sentry from "@sentry/node";
@@ -84,7 +85,7 @@ Sentry.init({
 // hop lets an untrusted caller spoof rate-limit identity and client addresses.
 // Operators must supply the actual ingress addresses/CIDRs when applicable.
 if (ENV.isProduction) {
-  app.set("trust proxy", process.env.APPFORGE_TRUSTED_PROXY_CIDRS || "loopback");
+  app.set("trust proxy", trustedProxyPolicy(process.env.APPFORGE_TRUSTED_PROXY_CIDRS));
 }
 
 if (ENV.isProduction) {
