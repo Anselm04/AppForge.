@@ -88,8 +88,7 @@ function latestMatchingEvent(
   return [...events]
     .reverse()
     .find(
-      (event) =>
-        event.kind === kind && eventMatches(event, snapshot, sha),
+      (event) => event.kind === kind && eventMatches(event, snapshot, sha),
     );
 }
 
@@ -155,12 +154,7 @@ export function buildEngineeringVerificationRecord(input: {
     validationPassed || validationFailed ? snapshot.id : null,
   );
 
-  const security = latestMatchingEvent(
-    input.events,
-    "security",
-    snapshot,
-    sha,
-  );
+  const security = latestMatchingEvent(input.events, "security", snapshot, sha);
   const securityPayload = object(security?.payload);
   add(
     "security",
@@ -177,12 +171,7 @@ export function buildEngineeringVerificationRecord(input: {
     security?.id ?? null,
   );
 
-  const preview = latestMatchingEvent(
-    input.events,
-    "deployment",
-    snapshot,
-    sha,
-  );
+  const preview = latestMatchingEvent(input.events, "deployment", snapshot, sha);
   const previewPayload = object(preview?.payload);
   const previewVerified =
     previewPayload.destination === "preview" &&
