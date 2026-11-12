@@ -1,3 +1,4 @@
+import { assessFactoryExecution } from "./factoryExecutionGate.js";
 import {
   productContractSchema,
   type ProductContract,
@@ -95,22 +96,15 @@ function nonEmpty(value: unknown): boolean {
 }
 
 function validationPassed(value: unknown): boolean {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { passed?: unknown }).passed === true
-  );
+  return assessFactoryExecution(value).verified;
 }
 
 function isIsolatedValidation(value: unknown): boolean {
-  if (!validationPassed(value)) return false;
-  const result = value as { warning?: unknown; stage?: unknown };
-  const warning = typeof result.warning === "string" ? result.warning : "";
-  const stage = typeof result.stage === "string" ? result.stage : "";
+  const execution = assessFactoryExecution(value);
   return (
-    /isolated production validation passed/i.test(warning) ||
-    /docker sandbox passed/i.test(warning) ||
-    /isolat/i.test(stage)
+    execution.verified &&
+    (execution.stage === "isolated_runtime" ||
+      execution.stage === "docker_node")
   );
 }
 
