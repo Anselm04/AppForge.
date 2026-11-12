@@ -25,22 +25,32 @@ async function main(): Promise<void> {
     throw new Error("Dedicated build workers require DATABASE_URL");
   }
   if (!ENV.redisUrl || !process.env.REDIS_URL?.trim()) {
-    throw new Error("Dedicated build workers require REDIS_URL; in-memory jobs cannot be shared across API instances");
+    throw new Error(
+      "Dedicated build workers require REDIS_URL; in-memory jobs cannot be shared across API instances",
+    );
   }
   const validation = validateEnv(process.env as any);
   if (ENV.isProduction && !validation.valid) {
-    throw new Error(`Invalid production worker environment: ${validation.errors.join("; ")}`);
+    throw new Error(
+      `Invalid production worker environment: ${validation.errors.join("; ")}`,
+    );
   }
   await ensureAppSchema();
   if (!(await checkSharedRedis())) {
-    throw new Error("Shared Redis is unavailable; refusing to start a disconnected worker");
+    throw new Error(
+      "Shared Redis is unavailable; refusing to start a disconnected worker",
+    );
   }
   stop = startBuildQueueWorker(2000);
   logger.info({}, "dedicated_build_worker_started");
 }
 
-process.on("SIGINT", () => { void shutdown("SIGINT"); });
-process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
 process.on("unhandledRejection", (error) => {
   logger.error({ error }, "build_worker_unhandled_rejection");
   void shutdown("unhandledRejection", 1);
