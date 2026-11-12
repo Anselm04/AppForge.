@@ -1,3 +1,5 @@
+import { hasExecutedBuildProof } from "./factoryHandoff.js";
+
 /**
  * Evidence-backed, version-locked engineering verification record.
  *
@@ -141,11 +143,6 @@ export function buildEngineeringVerificationRecord(input: {
   );
 
   const validator = object(snapshot.validationResult);
-  const validatorStage = typeof validator.stage === "string" ? validator.stage : "";
-  const runtimeExecuted =
-    validatorStage === "runtime" ||
-    validatorStage.startsWith("isolated_") ||
-    validatorStage.startsWith("docker_");
   const nativeEvent = latestMatchingEvent(
     input.events,
     "validation",
@@ -161,7 +158,7 @@ export function buildEngineeringVerificationRecord(input: {
   // not proof that an application compiled and executed.
   const validationPassed =
     validator.passed === true &&
-    runtimeExecuted &&
+    hasExecutedBuildProof(validator) &&
     (!input.isMobile || mobileRuntimeVerified);
   const validationFailed = validator.passed === false;
   add(
