@@ -422,6 +422,7 @@ async function createAutonomousFixTask(
       projectName: project.title ?? `appforge-${projectId}`,
       files: persistedArtifact.files,
       productContract,
+      validationResult: repairValidation,
       snapshot: {
         id: persistedArtifact.snapshotId,
         version: persistedArtifact.version,
