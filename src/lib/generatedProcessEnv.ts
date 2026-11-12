@@ -5,7 +5,14 @@ import { resolve } from "node:path";
  * the privileged AppForge environment. Filesystem/process isolation is still
  * required separately; this layer prevents accidental environment disclosure.
  */
-const HOST_KEYS = ["PATH", "LANG", "LC_ALL", "SYSTEMROOT", "WINDIR", "TERM"] as const;
+const HOST_KEYS = [
+  "PATH",
+  "LANG",
+  "LC_ALL",
+  "SYSTEMROOT",
+  "WINDIR",
+  "TERM",
+] as const;
 const ALLOWED_OVERRIDES = new Set([
   "NODE_ENV",
   "NODE_OPTIONS",
@@ -33,7 +40,9 @@ export function generatedChildEnvironment(
   }
   for (const [key, value] of Object.entries(overrides)) {
     if (!ALLOWED_OVERRIDES.has(key) || typeof value !== "string") {
-      throw new Error(`Unsupported generated-process environment override: ${key}`);
+      throw new Error(
+        `Unsupported generated-process environment override: ${key}`,
+      );
     }
     result[key] = value;
   }
