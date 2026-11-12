@@ -7,7 +7,7 @@ const snapshot = {
   version: 3,
   fileCount: 6,
   artifactIntegrity: { sha256: sha },
-  validationResult: { passed: true, errors: [] },
+  validationResult: { passed: true, stage: "runtime", errors: [] },
 };
 
 describe("artifact-bound engineering verification", () => {
@@ -69,6 +69,18 @@ describe("artifact-bound engineering verification", () => {
       currentSnapshot: snapshot,
       events: [
         {
+          id: 16,
+          kind: "validation",
+          artifactVersion: 3,
+          payload: {
+            snapshotId: 8,
+            artifactSha256: sha,
+            nativeAnalysisPassed: true,
+            nativeBuildPassed: true,
+            backendIntegrationPassed: true,
+          },
+        },
+        {
           id: 17,
           kind: "security",
           artifactVersion: 3,
@@ -109,6 +121,22 @@ describe("artifact-bound engineering verification", () => {
     ).toBe(
       "unverified",
     );
+  });
+
+  it("does not certify structural Flutter output as an executable app", () => {
+    const record = buildEngineeringVerificationRecord({
+      currentSnapshot: {
+        ...snapshot,
+        validationResult: { passed: true, stage: "structure" },
+      },
+      events: [],
+      checkpoints: [],
+      isMobile: true,
+    });
+    expect(record.status).toBe("incomplete");
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("unverified");
   });
 
   it("marks missing or tampered artifact identity as unverified", () => {
