@@ -15,7 +15,9 @@ export function trustedProxyPolicy(raw: string | undefined): string[] {
   const seen = new Set<string>();
   for (const value of values) {
     if (!value || seen.has(value)) {
-      throw new Error("Trusted reverse-proxy addresses must be nonempty and unique");
+      throw new Error(
+        "Trusted reverse-proxy addresses must be nonempty and unique",
+      );
     }
     seen.add(value);
     if (value === "loopback") continue;
@@ -26,8 +28,17 @@ export function trustedProxyPolicy(raw: string | undefined): string[] {
     if (!version) {
       throw new Error(`Invalid trusted reverse-proxy IP/CIDR: ${value}`);
     }
-    const prefix = match?.[2] === undefined ? (version === 4 ? 32 : 128) : Number(match[2]);
-    if (!Number.isInteger(prefix) || prefix < 1 || prefix > (version === 4 ? 32 : 128)) {
+    const prefix =
+      match?.[2] === undefined
+        ? version === 4
+          ? 32
+          : 128
+        : Number(match[2]);
+    if (
+      !Number.isInteger(prefix) ||
+      prefix < 1 ||
+      prefix > (version === 4 ? 32 : 128)
+    ) {
       throw new Error("Broad or invalid trusted proxy CIDR is not allowed");
     }
   }
