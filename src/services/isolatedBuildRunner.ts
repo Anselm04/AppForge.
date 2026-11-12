@@ -1,5 +1,5 @@
 import { validateWithExistingHost } from "./existingHostBuildRunner.js";
-import { createHash } from "node:crypto";
+import { runnerSourceSha256 } from "../lib/runnerSourceDigest.js";
 import {
   isolatedRuntimeConfig,
   assertRuntimeProviderAllowed,
@@ -153,9 +153,7 @@ export async function validateWithIsolatedBuildRunner(
     throw new Error("Generated project exceeds isolated build payload limit");
   }
   const requiredSteps = requiredStepsForStack(techStack);
-  const artifactSha256 = createHash("sha256")
-    .update(serializedFiles)
-    .digest("hex");
+  const artifactSha256 = runnerSourceSha256(files);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5 * 60_000);
   const startedAt = Date.now();
