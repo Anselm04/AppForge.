@@ -17,16 +17,21 @@ export type FactoryHandoff = {
  */
 export function hasExecutedBuildProof(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const result = value as { passed?: unknown; stage?: unknown; warning?: unknown };
-const stage = typeof result.stage === "string" ? result.stage : "";
-const warning = typeof result.warning === "string" ? result.warning : "";
-return
-  result.passed === true &&
-  (stage === "runtime" ||
-    (/^isolated[\w-]*$/i.test(stage) &&
-      /isolated production validation passed/i.test(warning)) ||
-    (/^docker[\w-]*$/i.test(stage) &&
-      /docker sandbox passed/i.test(warning)));
+  const result = value as {
+    passed?: unknown;
+    stage?: unknown;
+    warning?: unknown;
+  };
+  const stage = typeof result.stage === "string" ? result.stage : "";
+  const warning = typeof result.warning === "string" ? result.warning : "";
+  return (
+    result.passed === true &&
+    (stage === "runtime" ||
+      (/^isolated[\\w-]*$/i.test(stage) &&
+        /isolated production validation passed/i.test(warning)) ||
+      (/^docker[\\w-]*$/i.test(stage) &&
+        /docker sandbox passed/i.test(warning)))
+  );
 }
 
 export function evaluateFactoryHandoff(input: {
