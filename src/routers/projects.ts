@@ -840,6 +840,25 @@ export const projectsRouter = router({
         productContract.selectedTechnologyStack,
       );
 
+      // Generated source may be downloaded independently, but an executable
+      // preview/deployment requires proof from the same factory gate used by
+      // worker certification and the customer Engineering Verification Record.
+      const { assessFactoryExecution } =
+        await import("../lib/factoryExecutionGate.js");
+      const execution = assessFactoryExecution(artifact.validationResult);
+      if (
+        (input.destination === "preview" || input.destination !== "zip") &&
+        (!execution.verified || stackAdapter.generationMode !== "runnable")
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "A real project preview/deployment requires successful native execution validation. " +
+            execution.reason +
+            " Download the saved source, complete platform verification, and retry.",
+        });
+      }
+
       const productionDestination =
         input.destination === "vercel" ||
         input.destination === "netlify" ||
