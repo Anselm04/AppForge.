@@ -549,7 +549,10 @@ export function Build() {
     Object.keys(project?.generatedFiles ?? {}).length > 0;
 
   const stack = stackPresentation(project?.techStack);
-  const structuralOnly = structuralDone || stack?.structuralOnly === true;
+  const structuralOnly =
+    structuralDone ||
+    project?.outputMaturity === "structural" ||
+    stack?.structuralOnly === true;
 
   const destinationDisabled = (dest: DeployDestination): boolean => {
     if (structuralOnly) return true;
