@@ -904,9 +904,12 @@ export const projectsRouter = router({
             detectIncomeIntent(project.description ?? "") ||
             caps.includes("fintech"),
         });
-        const smoke = result.url
-          ? await runPostDeploySmokeTest(result.url)
-          : null;
+        // Preview verification has its own snapshot-aware runtime probe.
+        // A legitimate 307 sandbox redirect is not a failed production deploy.
+        const smoke =
+          result.url && input.destination !== "preview"
+            ? await runPostDeploySmokeTest(result.url)
+            : null;
         const previewEvidence =
           input.destination === "preview" && result.url
             ? await verifyGeneratedPreview({
