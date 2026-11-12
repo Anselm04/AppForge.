@@ -58,7 +58,9 @@ describe("artifact-bound engineering verification", () => {
     });
     expect(record.status).toBe("incomplete");
     expect(
-      record.checks.filter((check) => check.state === "passed").map((check) => check.id),
+      record.checks
+        .filter((check) => check.state === "passed")
+        .map((check) => check.id),
     ).toEqual(["saved_artifact", "validation"]);
   });
 
@@ -97,10 +99,14 @@ describe("artifact-bound engineering verification", () => {
       isMobile: true,
     });
     expect(record.status).toBe("verified");
-    expect(record.checks.find((check) => check.id === "production_deployment")?.state).toBe(
+    expect(
+      record.checks.find((check) => check.id === "production_deployment")?.state,
+    ).toBe(
       "passed",
     );
-    expect(record.checks.find((check) => check.id === "mobile_distribution")?.state).toBe(
+    expect(
+      record.checks.find((check) => check.id === "mobile_distribution")?.state,
+    ).toBe(
       "unverified",
     );
   });
