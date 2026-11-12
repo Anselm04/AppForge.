@@ -332,9 +332,16 @@ export async function enqueueBuild(input: BuildJob): Promise<void> {
       }
       // Admission is bounded before any additional build is accepted.
       // This is a queue-depth safety valve, not an atomic distributed quota.
-      const waitingCount = await bullQueue.getWaitingCount();
+      let waitingCount: number | null = null;
+      try {
+        waitingCount = await bullQueue.getWaitingCount();
+      } catch (error) {
+        // Queue telemetry must never lose or refund an otherwise accepted
+        // durable job. An atomic admission quota is required for a hard cap.
+        logger.warn({ error }, "build_queue_capacity_metrics_unavailable");
+      }
       const waitingLimit = waitingBuildLimit();
-      if (waitingCount >= waitingLimit) {
+      if (waitingCount !== null && waitingCount >= waitingLimit) {
         throw new BuildQueueSaturatedError(waitingCount, waitingLimit);
       }
       const queued = await bullQueue.add("build", job, {
