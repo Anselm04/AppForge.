@@ -6,6 +6,7 @@ describe("single factory handoff from build to preview, evidence and export", ()
   const worker = readFileSync("src/services/build-worker.ts", "utf8");
   const record = readFileSync("src/lib/engineeringVerification.ts", "utf8");
   const router = readFileSync("src/routers/projects.ts", "utf8");
+  const legacyDeploy = readFileSync("src/routes/build.ts", "utf8");
 
   it("uses one execution gate in worker certification and evidence projector", () => {
     expect(worker).toContain("const executionDecision = assessFactoryExecution(");
@@ -22,6 +23,10 @@ describe("single factory handoff from build to preview, evidence and export", ()
     expect(preflight).toBeGreaterThan(backup);
     expect(deploy).toBeGreaterThan(preflight);
     expect(router).toContain('code: "PRECONDITION_FAILED"');
+    expect(legacyDeploy).toContain(
+      "const execution = assessFactoryExecution(current.validationResult)",
+    );
+    expect(legacyDeploy).toContain('"execution_verification_required"');
     expect(assessFactoryExecution({ passed: true, stage: "structure" }).verified).toBe(false);
   });
 });
