@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isolatedBuildConfigured,
+  requiredStepsForStack,
   validateWithIsolatedBuildRunner,
 } from "../services/isolatedBuildRunner";
 
@@ -14,6 +15,54 @@ function artifactSha256(files: Record<string, string>): string {
 afterEach(() => {
   process.env = { ...originalEnv };
   vi.unstubAllGlobals();
+});
+
+describe("native Flutter execution proof contract", () => {
+  it("requires distinct Flutter analysis, platform builds and backend proof", () => {
+    expect(requiredStepsForStack("react-node")).not.toContain("flutter_analyze");
+    const required = requiredStepsForStack("flutter-node");
+    expect(required).toEqual(
+      expect.arrayContaining([
+        "flutter_analyze",
+        "flutter_test",
+        "android_build",
+        "ios_simulator_build",
+        "backend_integration",
+      ]),
+    );
+  });
+
+  it("rejects a generic green result lacking real native compilation", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.SPRITES_BUILD_URL = "https://sprites.example.test/build";
+    process.env.SPRITES_API_TOKEN = "secret";
+    const files = { "pubspec.yaml": "name: example" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            passed: true,
+            stage: "isolated_runtime",
+            isolationId: "native-sandbox",
+            artifactSha256: artifactSha256(files),
+            techStack: "flutter-node",
+            steps: {
+              install: { passed: true },
+              security: { passed: true },
+              tests: { passed: true },
+              build: { passed: true },
+              runtime: { passed: true },
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    await expect(
+      validateWithIsolatedBuildRunner(files, "flutter-node"),
+    ).rejects.toThrow("claimed success without passing: flutter_analyze");
+  });
 });
 
 describe("isolated production build runner", () => {
