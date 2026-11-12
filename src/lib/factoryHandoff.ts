@@ -15,6 +15,20 @@ export type FactoryHandoff = {
  * storage, validation, and the customer completion event.
  * A success-shaped status string is NEVER native/runtime execution evidence.
  */
+export function hasExecutedBuildProof(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const result = value as { passed?: unknown; stage?: unknown; warning?: unknown };
+const stage = typeof result.stage === "string" ? result.stage : "";
+const warning = typeof result.warning === "string" ? result.warning : "";
+return
+  result.passed === true &&
+  (stage === "runtime" ||
+    (/^isolated[\w-]*$/i.test(stage) &&
+      /isolated production validation passed/i.test(warning)) ||
+    (/^docker[\w-]*$/i.test(stage) &&
+      /docker sandbox passed/i.test(warning)));
+}
+
 export function evaluateFactoryHandoff(input: {
   stack: string;
   snapshotId?: number | null;
@@ -53,15 +67,7 @@ export function evaluateFactoryHandoff(input: {
           warning?: unknown;
         })
       : {};
-  const stage = typeof result.stage === "string" ? result.stage : "";
-  const warning = typeof result.warning === "string" ? result.warning : "";
-  const executionProof =
-    result.passed === true &&
-    (stage === "runtime" ||
-      (/^isolated[\w-]*$/i.test(stage) &&
-        /isolated production validation passed/i.test(warning)) ||
-      (/^docker[\w-]*$/i.test(stage) &&
-        /docker sandbox passed/i.test(warning)));
+  const executionProof = hasExecutedBuildProof(result);
   const runtimeVerified =
     validSnapshot &&
     adapter.generationMode === "runnable" &&
