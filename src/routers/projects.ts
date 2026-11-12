@@ -883,17 +883,13 @@ export const projectsRouter = router({
               : undefined,
         });
 
-        if (input.destination === "preview" && result.url) {
-          const { watchProject } = await import("../agents/selfHealing.js");
-          watchProject(input.id, ctx.user.id, result.url);
-        }
-
         const {
           detectRequiredEnvVars,
           runPostDeploySmokeTest,
           runBillingRouteSmokeTest,
           verifyDeployedBilling,
           assessProductionDeploymentEvidence,
+          verifyGeneratedPreview,
         } = await import("../services/deployHealth.js");
         const { scanProjectReadiness, revenueGoLiveSteps, detectIncomeIntent } =
           await import("../lib/revenueReadiness.js");
@@ -911,6 +907,24 @@ export const projectsRouter = router({
         const smoke = result.url
           ? await runPostDeploySmokeTest(result.url)
           : null;
+        const previewEvidence =
+          input.destination === "preview" && result.url
+            ? await verifyGeneratedPreview({
+                url: result.url,
+                snapshotId: artifact.snapshotId,
+                artifactVersion: artifact.version,
+                artifactSha256: artifact.integrity.sha256,
+              })
+            : null;
+        if (input.destination === "preview" && !previewEvidence?.ok) {
+          throw new Error(
+            `Preview identity/runtime verification failed: ${previewEvidence?.message ?? "No preview evidence"}`,
+          );
+        }
+        if (previewEvidence?.ok && result.url) {
+          const { watchProject } = await import("../agents/selfHealing.js");
+          watchProject(input.id, ctx.user.id, result.url);
+        }
         const productionDestination =
           input.destination === "vercel" ||
           input.destination === "netlify" ||
@@ -991,11 +1005,14 @@ export const projectsRouter = router({
         }
         await recordProjectEvidence({
           projectId: input.id,
-          kind: productionDestination ? "deployment" : "validation",
+          kind: input.destination === "preview" || productionDestination
+            ? "deployment"
+            : "validation",
           artifactVersion: artifact.version,
           payload: {
             success: true,
             destination: result.destination,
+            previewVerified: previewEvidence?.ok === true,
             productionVerified: verification.productionVerified,
             hostingVerified: verification.hostingVerified,
             billingVerified: verification.billingVerified,
