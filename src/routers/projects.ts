@@ -294,9 +294,7 @@ export const projectsRouter = router({
 
       const { claimProjectBuildStart, releaseProjectBuildClaim } =
         await import("../services/build-claim.js");
-      const { enqueueBuild, BuildQueueSaturatedError } = await import(
-        "../services/build-queue.js"
-      );
+      const { enqueueBuild } = await import("../services/build-queue.js");
       const { deductCredits, addCredits } = await import("../db.js");
 
       // Project creation is the single build-start authority. The atomic claim
@@ -353,7 +351,7 @@ export const projectsRouter = router({
           err instanceof Error ? err.message : "Unable to enqueue build";
         throw new TRPCError({
           code:
-            err instanceof BuildQueueSaturatedError
+            err instanceof Error && err.name === "BuildQueueSaturatedError"
               ? "TOO_MANY_REQUESTS"
               : "INTERNAL_SERVER_ERROR",
           message,
