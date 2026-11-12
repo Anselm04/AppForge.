@@ -465,6 +465,10 @@ function startRuntimeServices() {
       logger.error({ error }, "manager_repair_worker_start_failed"),
     );
 
+  // Dedicated worker mode keeps expensive builds off the customer-facing API.
+  // The default remains embedded for backwards compatibility until independently
+  // deployed worker instances are verified in the chosen environment.
+  if (process.env.APPFORGE_BUILD_WORKER_MODE !== "external") {
   import("./services/build-queue.js")
     .then(({ startBuildQueueWorker }) => {
       const stopQueue = startBuildQueueWorker(2000);
@@ -474,6 +478,7 @@ function startRuntimeServices() {
     .catch((error) =>
       logger.error({ error }, "build_queue_worker_start_failed"),
     );
+  }
   import("./services/vantaSync.js")
     .then(({ startVantaPoller }) => {
       const stopVanta = startVantaPoller();
