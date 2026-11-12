@@ -349,11 +349,10 @@ export const projectsRouter = router({
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
         const message =
           err instanceof Error ? err.message : "Unable to enqueue build";
+        const queueSaturated =
+          err instanceof Error && err.name === "BuildQueueSaturatedError";
         throw new TRPCError({
-          code:
-            err instanceof Error && err.name === "BuildQueueSaturatedError"
-              ? "TOO_MANY_REQUESTS"
-              : "INTERNAL_SERVER_ERROR",
+          code: queueSaturated ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR",
           message,
         });
       }
