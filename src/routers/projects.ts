@@ -847,8 +847,8 @@ export const projectsRouter = router({
         await import("../lib/factoryExecutionGate.js");
       const execution = assessFactoryExecution(artifact.validationResult);
       if (
-        (input.destination === "preview" || input.destination !== "zip") &&
-        (!execution.verified || stackAdapter.generationMode !== "runnable")
+        !execution.verified ||
+        stackAdapter.generationMode !== "runnable"
       ) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
