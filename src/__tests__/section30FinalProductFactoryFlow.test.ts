@@ -148,7 +148,8 @@ describe("#30 Final Product-Factory Flow", () => {
     const selfHealing = readFileSync("src/agents/selfHealing.ts", "utf8");
 
     expect(selfHealing).toContain("validateGeneratedBuild");
-    expect(selfHealing).toContain("repairValidation.passed");
+    expect(selfHealing).toContain("const repairExecution = assessFactoryExecution(repairValidation)");
+    expect(selfHealing).toContain("if (!repairExecution.verified)");
     expect(selfHealing).toContain("evaluateFinalProductFactoryFlow");
     expect(selfHealing).toContain("finalProductFactoryFlow.productionReady");
     expect(selfHealing).toContain(
