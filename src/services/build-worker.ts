@@ -572,8 +572,6 @@ async function runOwnedBuildJob(
         artifactVersion: artifact.version,
         payload: {
           source: "authoritative_factory_handoff",
-          snapshotId: artifact.snapshotId,
-          artifactSha256: artifact.integrity.sha256,
           ...factoryHandoff,
         },
       });
