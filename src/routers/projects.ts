@@ -23,6 +23,7 @@ import {
   projectReadinessForApi,
 } from "../lib/stackPresentation.js";
 import { BUILD_CREDIT_COST, SENIOR_DEV_CREDIT_COST } from "../lib/credits.js";
+import { BuildQueueSaturatedError } from "../services/build-queue.js";
 import {
   canRetryPlanning,
   isRecoverableBuildPause,
@@ -349,7 +350,13 @@ export const projectsRouter = router({
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
         const message =
           err instanceof Error ? err.message : "Unable to enqueue build";
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+        throw new TRPCError({
+          code:
+            err instanceof BuildQueueSaturatedError
+              ? "TOO_MANY_REQUESTS"
+              : "INTERNAL_SERVER_ERROR",
+          message,
+        });
       }
 
       return {
