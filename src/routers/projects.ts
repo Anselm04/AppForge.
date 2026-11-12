@@ -1089,7 +1089,7 @@ export const projectsRouter = router({
         const message = err instanceof Error ? err.message : "Deploy failed";
         await recordProjectEvidence({
           projectId: input.id,
-          kind: input.destination === "preview" ? "validation" : "deployment",
+          kind: "deployment",
           artifactVersion: artifact.version,
           payload: {
             success: false,
