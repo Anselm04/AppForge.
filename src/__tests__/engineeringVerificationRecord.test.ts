@@ -123,6 +123,36 @@ describe("artifact-bound engineering verification", () => {
     );
   });
 
+  it("accepts persisted native toolchain evidence for the exact saved snapshot", () => {
+    const record = buildEngineeringVerificationRecord({
+      currentSnapshot: {
+        ...snapshot,
+        validationResult: {
+          passed: true,
+          stage: "isolated_runtime",
+          nativeEvidence: {
+            runnerArtifactSha256: "b".repeat(64),
+            flutterAnalyzePassed: true,
+            flutterTestPassed: true,
+            androidBuildPassed: true,
+            iosSimulatorBuildPassed: true,
+            backendIntegrationPassed: true,
+          },
+        },
+      },
+      events: [],
+      checkpoints: [],
+      isMobile: true,
+    });
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("passed");
+    expect(record.status).toBe("incomplete");
+    expect(
+      record.checks.find((check) => check.id === "mobile_distribution")?.state,
+    ).toBe("unverified");
+  });
+
   it("does not certify structural Flutter output as an executable app", () => {
     const record = buildEngineeringVerificationRecord({
       currentSnapshot: {
