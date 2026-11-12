@@ -19,7 +19,8 @@ import {
 } from "../lib/buildRecovery.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
 import { subscribeBuildEvents } from "../services/build-queue.js";
-import { getProjectById } from "../db.js";
+import { getCurrentArtifact, getProjectById } from "../db.js";
+import { evaluateFactoryHandoff } from "../lib/factoryHandoff.js";
 import {
   parsePositiveIntParam,
   parsePositiveSafeInteger,
@@ -55,6 +56,19 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     ["validated", "production-certified"].includes(project.status ?? "") &&
     Object.keys(existingFiles).length > 0
   ) {
+    // Reconnected clients must receive the same execution claim as the
+    // authoritative worker, not a status-derived fabricated success.
+    const artifact = await getCurrentArtifact(projectId);
+    const handoff = artifact
+      ? evaluateFactoryHandoff({
+          stack: project.techStack ?? "",
+          snapshotId: artifact.snapshotId,
+          artifactVersion: artifact.version,
+          artifactSha256: artifact.integrity.sha256,
+          files: artifact.files,
+          validationResult: artifact.validationResult,
+        })
+      : null;
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -66,6 +80,9 @@ router.get("/:projectId", async (req: Request, res: Response) => {
         outputMaturity: project.outputMaturity,
         projectId,
         fileCount: Object.keys(existingFiles).length,
+        executionVerified: handoff?.runtimeVerified === true,
+        validationPassed: handoff?.runtimeVerified === true,
+        factoryHandoff: handoff,
         reused: true,
       })}\n\n`,
     );
