@@ -19,7 +19,8 @@ afterEach(() => {
 
 describe("native Flutter execution proof contract", () => {
   it("requires distinct Flutter analysis, platform builds and backend proof", () => {
-    expect(requiredStepsForStack("react-node")).not.toContain("flutter_analyze");
+    const webSteps = requiredStepsForStack("react-node");
+    expect(webSteps).not.toContain("flutter_analyze");
     const required = requiredStepsForStack("flutter-node");
     expect(required).toEqual(
       expect.arrayContaining([
