@@ -36,6 +36,7 @@ import { recordBuildOutcome } from "../db/buildStats.js";
 import type { BuildCapabilityId } from "../lib/buildCapabilities.js";
 import { buildDeploymentDecision } from "../lib/stackDeployment.js";
 import { getStackAdapter } from "../lib/stackAdapters.js";
+import { evaluateFactoryHandoff } from "../lib/factoryHandoff.js";
 import {
   scanProjectFiles,
   validateGeneratedSecurityPosture,
@@ -559,9 +560,32 @@ async function runOwnedBuildJob(
       const behavioralTestsVerified = requirementBehaviorVerified(
         artifact.requirementManifest,
       );
-      const runtimeVerified =
-        stackAdapter.generationMode === "runnable" &&
-        validationPassed(artifact.validationResult);
+      const factoryHandoff = evaluateFactoryHandoff({
+        stack: techStack,
+        snapshotId: artifact.snapshotId,
+        artifactVersion: artifact.version,
+        artifactSha256: artifact.integrity.sha256,
+        files: artifact.files,
+        validationResult: artifact.validationResult,
+      });
+      if (factoryHandoff.stage === "blocked") {
+        throw new Error(
+          "Saved build artifact is not deliverable: " +
+            factoryHandoff.problems.join("; "),
+        );
+      }
+      await recordProjectEvidence({
+        projectId,
+        kind: "validation",
+        artifactVersion: artifact.version,
+        payload: {
+          source: "authoritative_factory_handoff",
+          snapshotId: artifact.snapshotId,
+          artifactSha256: artifact.integrity.sha256,
+          ...factoryHandoff,
+        },
+      });
+      const runtimeVerified = factoryHandoff.runtimeVerified;
       const snapshotSecurityVerified = securityAuditPassed(
         artifact.auditScores,
       );
@@ -643,6 +667,9 @@ async function runOwnedBuildJob(
               ...(pendingDone as Record<string, unknown>),
               liveUrl,
               productionCertification,
+              executionVerified: runtimeVerified,
+              factoryHandoff,
+              validationPassed: runtimeVerified,
               productionReady: finalProductFactoryFlow.productionReady,
               finalProductFactoryFlow,
               limitations: finalProductFactoryFlow.limitations,
@@ -653,6 +680,9 @@ async function runOwnedBuildJob(
               creditsSpent: BUILD_CREDIT_COST,
               liveUrl,
               productionCertification,
+              executionVerified: runtimeVerified,
+              factoryHandoff,
+              validationPassed: runtimeVerified,
               productionReady: finalProductFactoryFlow.productionReady,
               finalProductFactoryFlow,
               limitations: finalProductFactoryFlow.limitations,
