@@ -28,7 +28,8 @@
     "prepare": "node scripts/assemble-pipeline.mjs && (husky || true)",
     "assemble:pipeline": "node scripts/assemble-pipeline.mjs",
     "test:offline-commercial": "node scripts/check-offline-commercial-readiness.mjs",
-    "audit:launch": "node scripts/audit-launch-blockers.mjs"
+    "audit:launch": "node scripts/audit-launch-blockers.mjs",
+    "start:build-worker": "node dist/services/build-worker-entry.js"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
