@@ -11,16 +11,19 @@ import { startBuildQueueWorker } from "./build-queue.js";
 let stop: (() => void) | undefined;
 let stopping = false;
 
-async function shutdown(signal: string): Promise<void> {
+async function shutdown(signal: string, exitCode = 0): Promise<void> {
   if (stopping) return;
   stopping = true;
   logger.info({ signal }, "build_worker_shutdown");
   stop?.();
   await closeDbConnection();
-  process.exit(0);
+  process.exit(exitCode);
 }
 
 async function main(): Promise<void> {
+  if (!ENV.databaseUrl || !process.env.DATABASE_URL?.trim()) {
+    throw new Error("Dedicated build workers require DATABASE_URL");
+  }
   if (!ENV.redisUrl || !process.env.REDIS_URL?.trim()) {
     throw new Error("Dedicated build workers require REDIS_URL; in-memory jobs cannot be shared across API instances");
   }
@@ -40,8 +43,7 @@ process.on("SIGINT", () => { void shutdown("SIGINT"); });
 process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
 process.on("unhandledRejection", (error) => {
   logger.error({ error }, "build_worker_unhandled_rejection");
-  process.exitCode = 1;
-  void shutdown("unhandledRejection");
+  void shutdown("unhandledRejection", 1);
 });
 
 void main().catch((error) => {
