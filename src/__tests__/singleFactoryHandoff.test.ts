@@ -8,6 +8,7 @@ describe("single factory handoff from build to preview, evidence and export", ()
   const router = readFileSync("src/routers/projects.ts", "utf8");
   const legacyDeploy = readFileSync("src/routes/build.ts", "utf8");
   const healing = readFileSync("src/agents/selfHealing.ts", "utf8");
+  const buildPage = readFileSync("src/pages/Build.tsx", "utf8");
 
   it("uses one execution gate in worker certification and evidence projector", () => {
     expect(worker).toContain("const executionDecision = assessFactoryExecution(");
@@ -30,6 +31,8 @@ describe("single factory handoff from build to preview, evidence and export", ()
     expect(legacyDeploy).toContain('"execution_verification_required"');
     expect(healing).toContain("const repairExecution = assessFactoryExecution(repairValidation)");
     expect(healing).toContain("runtimeVerified: repairExecution.verified");
+    expect(worker).toContain("structuralOnly: !runtimeVerified");
+    expect(buildPage).toContain('project?.outputMaturity === "structural"');
     expect(assessFactoryExecution({ passed: true, stage: "structure" }).verified).toBe(false);
   });
 });
