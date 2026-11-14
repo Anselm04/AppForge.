@@ -323,3 +323,42 @@ This review covers the customer-facing preview route and post-build security evi
 7. Verify recovery by deliberately presenting a stale or mismatched artifact identity, a stopped preview runtime, and a blocking security scan, then confirm no false passing verification status or replacement of a known-good snapshot. Preserve those test results with the exact commit SHA.
 
 The customer Evidence tab shows derived verification from recorded snapshots and events. It cannot, by itself, prove native Flutter compilation, app-store acceptance, billing, or million-user capacity. These require their own executed evidence and are intentionally left unverified when absent.
+
+## TrillionAI Audit service dependency recovery (15 November 2026)
+
+The optional TrillionAI Audit post-build integration is an independent static
+verification step. It does not replace AppForge's immutable artifact integrity,
+native runtime validation, security scanner, or production deployment checks.
+
+**Disabled-by-default boundary:** Without `TRILLION_AUDIT_API_URL`, the bridge
+does not make external requests. Existing verification requirements remain
+unchanged. This state must not be labelled as a TrillionAI Audit pass.
+
+**Enabled fail-closed boundary:** When an Audit endpoint is configured, a missing
+or expired scoped service token, timeout, failed HTTP response, mismatched
+artifact hash, incomplete evidence coverage, invalid source digest, or an Audit
+blocking finding must stop post-build acceptance. No known-good checkpoint
+may be created on the basis of a failed Audit call.
+
+**Incident procedure:**
+1. Preserve the exact project ID, final snapshot ID, version, original
+   `artifact_sha256`, and evidence event history. Do not copy generated source
+   into diagnostic logs.
+2. Check the Audit service's independently recorded evidence receipt and
+   tenant-scoped access log; compare the digest to the exact immutable source.
+3. When authentication expires, restore the audited, short-lived token issuance
+   mechanism. Never place tokens in recovery documentation.
+4. When the Audit service fails, retain the last validated artifact checkpoint.
+   Do not silently report a new Audit pass; record the dependency outage.
+5. Once restored, rerun the external static audit on the exact same artifact
+   identity, then the existing native/runtime/preview checks as applicable.
+6. If the integration introduces a confirmed regression before it is deployed,
+   roll back its exact AppForge application commit while preserving original
+   snapshot and project evidence. Do not weaken existing core security gates.
+
+An operator may disable **the optional external service dependency** during a
+recovery only with a documented incident decision, provided the original
+AppForge security, build and source-integrity gates remain fully enforced.
+The resulting release must disclose that the additional TrillionAI Audit
+assessment was not performed. This is not permission to mark any missing
+assessment complete.
