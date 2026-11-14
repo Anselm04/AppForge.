@@ -74,7 +74,7 @@ export async function submitToTrillionAudit(input: {
     path:file.path as string,sha256:file.sha256 as string,bytes:file.bytes as number
   })).sort((a,b)=>a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const expectedDigest=createHash("sha256").update(canonicalEvidence.map(e=>
-    `${e.path}\\0${e.sha256}\\0${e.bytes}\\n`).join("")).digest("hex");
+    `${e.path}\0${e.sha256}\0${e.bytes}\n`).join("")).digest("hex");
   if(report.rootDigest!==expectedDigest)throw new Error("Audit evidence root digest mismatch");
   const findings=report.findings as Array<{controlId?:unknown;status?:unknown}>;
   const failures=findings.filter(f=>f.status==="fail").map(f=>String(f.controlId));
