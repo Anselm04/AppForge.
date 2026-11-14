@@ -51,7 +51,10 @@ export async function submitToTrillionAudit(input: {
   if (Object.keys(input.files).length > 1000) {
     throw new Error("Audit source file count exceeds limit");
   }
-  if (Buffer.byteLength(JSON.stringify(input.files), "utf8") > 4 * 1024 * 1024) {
+  if (
+    Buffer.byteLength(JSON.stringify(input.files), "utf8") >
+    4 * 1024 * 1024
+  ) {
     throw new Error("Audit source exceeds current engine limit");
   }
 
@@ -138,10 +141,7 @@ export async function submitToTrillionAudit(input: {
   const expectedDigest = createHash("sha256")
     .update(
       canonicalEvidence
-        .map(
-          (item) =>
-            `${item.path}\0${item.sha256}\0${item.bytes}\n`,
-        )
+        .map((item) => `${item.path}\0${item.sha256}\0${item.bytes}\n`)
         .join(""),
     )
     .digest("hex");
