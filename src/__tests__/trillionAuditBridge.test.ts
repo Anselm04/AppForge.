@@ -15,9 +15,7 @@ const integrity = buildArtifactIntegrity({
   state: "final",
   files,
 });
-const digest = createHash("sha256")
-  .update(files["package.json"])
-  .digest("hex");
+const digest = createHash("sha256").update(files["package.json"]).digest("hex");
 
 const receipt = (decision: "incomplete" | "blocked" = "incomplete") => ({
   id: "123e4567-e89b-12d3-a456-426614174000",
