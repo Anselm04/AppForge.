@@ -39,6 +39,7 @@ export async function submitToTrillionAudit(input: {
     body:JSON.stringify({
       projectName:`project-${input.projectId}`,
       sourceRevision:input.integrity.sha256,
+      artifactIntegrity:input.integrity,
       files:input.files,
     }),
     signal:AbortSignal.timeout(15000),
