@@ -10,7 +10,7 @@ const receipt=(decision:"incomplete"|"blocked"="incomplete")=>({
   id:"123e4567-e89b-12d3-a456-426614174000",
   classification:"server_computed_static_review",
   sourceRevision:integrity.sha256,
-  report:{decision,rootDigest:"a".repeat(64),evidence:[{path:"package.json",sha256:digest,bytes:Buffer.byteLength(files["package.json"])}],findings:[{controlId:"TVBS-06",status:"not_assessed"}]}
+  report:{decision,rootDigest:createHash("sha256").update(`package.json\0${digest}\0${Buffer.byteLength(files["package.json"])}\n`).digest("hex"),evidence:[{path:"package.json",sha256:digest,bytes:Buffer.byteLength(files["package.json"])}],findings:[{controlId:"TVBS-06",status:"not_assessed"}]}
 });
 describe("TrillionAI Audit bridge",()=>{
  it("does not activate a paid or external dependency by default",async()=>{
