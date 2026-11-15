@@ -52,6 +52,25 @@ describe("editor file checks remain static and confined", () => {
     expect(result.ok).toBe(false);
     expect(processExecution).not.toHaveBeenCalled();
   });
+  it("rejects invalid generated JSX using the reference parser before a snapshot can be saved", async () => {
+    const result = await validateSingleFile(
+      "src/Generated.jsx",
+      "export const Widget = () => <div><span></div>;",
+      {},
+    );
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/syntax|not saved/i);
+    expect(processExecution).not.toHaveBeenCalled();
+  });
+
+  it("preserves generated source bytes and does not reformat a valid edit", async () => {
+    const input = "export const Widget=()=> <strong>Hi</strong>;\n";
+    const result = await validateSingleFile("src/Generated.tsx", input, {});
+    expect(result.ok).toBe(true);
+    expect(input).toBe("export const Widget=()=> <strong>Hi</strong>;\n");
+    expect(processExecution).not.toHaveBeenCalled();
+  });
+
   it("does not write unrelated generated files while checking JSON", async () => {
     const outside = await mkdtemp(join(tmpdir(), "appforge-unrelated-file-"));
     try {
