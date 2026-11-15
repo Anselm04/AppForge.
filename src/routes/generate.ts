@@ -14,6 +14,7 @@ import {
   deductCredits,
   addCredits,
   recordProjectEvidence,
+  updateProjectCreditsReserved,
 } from "../db.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
@@ -190,6 +191,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
           "Build reservation",
         );
         charged = true;
+        await updateProjectCreditsReserved(id, BUILD_CREDIT_COST);
       }
       await enqueueBuild({
         projectId: id,
@@ -214,6 +216,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
             `Build start refund for project ${id}`,
             `generate-build-refund-${id}-${createdAt}`,
           );
+          await updateProjectCreditsReserved(id, 0);
         } catch (refundErr: unknown) {
           reconciliationRequired = true;
           logger.error(
