@@ -37,3 +37,29 @@ Status vocabulary: **implemented** = code exists; **repair** = identified mismat
 - This register accompanies a formatting correction to `src/lib/__tests__/authEmailRedirect.test.ts` based on the PR #375 lint log.
 - Previously documented November 8 blanket checkout/compute environment restrictions were replaced in current source by capability/cost readiness checks; do not reintroduce unconditional production denials or bypass safety requirements.
 - Fly-specific legacy deployment files may remain as historical implementation, but they are **not** an authorized runtime or test target.
+
+
+## Source-diff audit — 2026-11-15 (main @ `1bd52d0804b4767e85141c97a27b8fdcc08df29f`)
+
+This is **source presence inspection only**, not runtime verification. The independent container cannot resolve github.com to clone or install the repository; the GitHub connector can fetch tracked files and commits but no complete local environment was available to execute the full test suite. **None** of the rows below qualifies as "verified complete". "Partial" means relevant existing source is in main but acceptance criteria have not all been demonstrated. "Broken" means a specifically identified mismatch is still in main. "Missing" means the required implementation is absent, not merely that proof is missing.
+
+| Item | Diff status versus main | Verified source evidence and remaining gate |
+| --- | --- | --- |
+| P0-01 Authentication | Partial | `src/lib/auth.ts` present; exact customer registration/verification/reset integration journey unverified. |
+| P0-02 Owner MFA | Broken | `src/routers/admin.ts` present; register identifies mandatory Twilio Verify still used, rather than owner Supabase TOTP. |
+| P0-03 Working generation | Broken | `src/lib/incompleteProduct.ts` and `src/services/multiFileCoder.ts` present; generator parser repairs #394–#401 are in main, but stack-dependent essential manifest mismatch remains (PR #402). No runnable exported-product test. |
+| P0-04 Durable jobs/edit/resume | Partial | `src/services/build-worker.ts` and `src/routers/projectChat.ts` present; retry/lease/idempotent settlement tests not executed on current main. |
+| P0-05 Provider spending | Partial | `src/services/providerSpendLedger.ts` present; all billable transport paths and atomic ledger behavior unverified. |
+| P0-06 Stripe lifecycle | Partial | `src/services/stripeCheckout.ts` and `src/services/appForgeCommercialCheckoutGate.ts` present; full signed-event fixture and customer journey unverified. |
+| P0-07 Isolated runtime | Partial | `src/services/existingHostBuildRunner.ts` present; no complete offline isolated runtime qualification or approved host. |
+| P0-08 Preview/export/deploy | Broken | `src/services/productionAutoDeploy.ts` and `src/services/deployer.ts` present; register identifies Fly assumption in generic path. |
+| P1-09 Flutter + Node | Partial | `src/services/flutterNodeScaffold.ts` present and BullMQ repair #401 in main; Flutter analyze/native build of generated export unverified. |
+| P1-10 Plugins/integrations | Partial | `src/integrations/runtime.ts` present; tenant isolation and real adapter qualification unverified. |
+| P1-11 Security/recovery | Partial | `src/routers/admin.ts` and auth source present; owner MFA issue remains and complete security/recovery scans unverified. |
+| P1-12 Operational evidence | Partial | `src/lib/operationsObservability.ts` present; delivery and incident-regression tests unverified. |
+| P0-13 Exact-SHA CI | Broken | `.github/workflows/ci.yml` in main explicitly set `APPFORGE_LIVE_RESEARCH_TESTS=1`; remediation committed in PR #403, pending CI and merge. Workflow-run lookup for exact PR head returned no runs during audit. |
+| P0-14 Production activation | Partial | `docs/FLY_INDEPENDENT_RUNTIME.md` present; deployment and live infrastructure deliberately not exercised. |
+
+**Branch repairs:** `repair/offline-ci-provider-isolation-20261115`, PR #403; switches research verification to offline fixtures while preserving CI coverage. PR #402 addresses the stack-specific essential-files defect and must be verified/merged separately. No live charge, Fly activation, or production deployment is authorized by either change.
+
+**Evidence limitation:** A file existing does not establish correctness. No specific main CI check set can be marked green based on the combined-status endpoint alone (latest main SHA reported a pending Vercel status, and the PR-triggered workflow-run lookup returned no runs). Do not merge PR #403 until exact-head required checks are green.
