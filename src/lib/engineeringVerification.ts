@@ -91,9 +91,7 @@ function latestMatchingEvent(
 ): Event | undefined {
   return [...events]
     .reverse()
-    .find(
-      (event) => event.kind === kind && eventMatches(event, snapshot, sha),
-    );
+    .find((event) => event.kind === kind && eventMatches(event, snapshot, sha));
 }
 
 export function buildEngineeringVerificationRecord(input: {
@@ -140,7 +138,9 @@ export function buildEngineeringVerificationRecord(input: {
   add(
     "saved_artifact",
     saved ? "passed" : "unverified",
-    saved ? "Final artifact snapshot persisted." : "No files in final artifact.",
+    saved
+      ? "Final artifact snapshot persisted."
+      : "No files in final artifact.",
     saved ? snapshot.id : null,
   );
 
@@ -176,8 +176,7 @@ export function buildEngineeringVerificationRecord(input: {
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.
   const validationPassed =
-    execution.verified &&
-    (!input.isMobile || mobileRuntimeVerified);
+    execution.verified && (!input.isMobile || mobileRuntimeVerified);
   const validationFailed = validator.passed === false;
   add(
     "validation",
@@ -226,7 +225,7 @@ export function buildEngineeringVerificationRecord(input: {
     previewVerified
       ? "Preview verification evidence matches the current artifact."
       : "Real preview execution has not been verified for this artifact.",
-    previewVerified ? preview?.id ?? null : null,
+    previewVerified ? (preview?.id ?? null) : null,
   );
 
   const production = input.checkpoints.find(

@@ -20,9 +20,9 @@ describe("artifact-bound engineering verification", () => {
       isMobile: false,
     });
     expect(record.status).toBe("incomplete");
-    expect(record.checks.find((check) => check.id === "validation")?.state).toBe(
-      "passed",
-    );
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("passed");
     expect(record.checks.find((check) => check.id === "security")?.state).toBe(
       "unverified",
     );
@@ -113,7 +113,8 @@ describe("artifact-bound engineering verification", () => {
     });
     expect(record.status).toBe("verified");
     expect(
-      record.checks.find((check) => check.id === "production_deployment")?.state,
+      record.checks.find((check) => check.id === "production_deployment")
+        ?.state,
     ).toBe("passed");
     expect(
       record.checks.find((check) => check.id === "mobile_distribution")?.state,
@@ -124,7 +125,10 @@ describe("artifact-bound engineering verification", () => {
     const record = buildEngineeringVerificationRecord({
       currentSnapshot: {
         ...snapshot,
-        files: { "pubspec.yaml": "name: appforge_test", "lib/main.dart": "void main() {}" },
+        files: {
+          "pubspec.yaml": "name: appforge_test",
+          "lib/main.dart": "void main() {}",
+        },
         validationResult: {
           passed: true,
           stage: "isolated_runtime",
