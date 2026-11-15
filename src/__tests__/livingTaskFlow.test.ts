@@ -3,13 +3,23 @@ import { appendTaskFlowEvent, buildTaskFlow } from "../lib/livingTaskFlow.js";
 
 describe("live specialist workflow projection", () => {
   it("preserves the state reference for unrelated token events", () => {
-    const previous = [{
-      agent: "Coder",
-      type: "task_complete",
-      payload: { taskId: "done", filename: "main.ts" },
-    }];
-    expect(appendTaskFlowEvent(previous, { agent: "System", type: "info" })).toBe(previous);
-    expect(appendTaskFlowEvent(previous, { agent: "Coder", type: "chunk", payload: { text: "unscoped" } })).toBe(previous);
+    const previous = [
+      {
+        agent: "Coder",
+        type: "task_complete",
+        payload: { taskId: "done", filename: "main.ts" },
+      },
+    ];
+    expect(
+      appendTaskFlowEvent(previous, { agent: "System", type: "info" }),
+    ).toBe(previous);
+    expect(
+      appendTaskFlowEvent(previous, {
+        agent: "Coder",
+        type: "chunk",
+        payload: { text: "unscoped" },
+      }),
+    ).toBe(previous);
   });
 
   it("keeps task milestones when code streams hundreds of chunks", () => {
