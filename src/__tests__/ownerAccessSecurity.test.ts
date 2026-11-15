@@ -220,7 +220,7 @@ describe("owner account and god-code authorization", () => {
     }
   });
 
-  it("allows the explicitly activated temporary production testing path", async () => {
+  it("rejects owner MFA fallback in production even with legacy trial flags", async () => {
     const production = ENV.isProduction;
     ENV.isProduction = true;
     vi.stubEnv("ADMIN_MFA_TRIAL_FALLBACK", "true");
@@ -228,23 +228,21 @@ describe("owner account and god-code authorization", () => {
       "ADMIN_MFA_TRIAL_FALLBACK_UNTIL",
       new Date(Date.now() + 3600000).toISOString(),
     );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       mocks.smsRequest.mockRejectedValue(
         new TwilioVerificationDeliveryError(403, 21608),
       );
       const ctx = context();
-      const caller = adminRouter.createCaller(ctx);
-      const result = await caller.requestMfa();
-      expect(result.fallback).toBe(true);
-      expect(result.testCode).toBe("654321");
-      expect(warn).not.toHaveBeenCalled();
-      await caller.verifyMfa({ code: "654321" });
-      expect(mocks.smsCheck).not.toHaveBeenCalled();
+      await expect(
+        adminRouter.createCaller(ctx).requestMfa(),
+      ).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+      expect(ctx.req.cookies.appforge_admin_challenge).toBeUndefined();
+      await expect(adminRouter.createCaller(ctx).me()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
     } finally {
       ENV.isProduction = production;
       vi.unstubAllEnvs();
-      warn.mockRestore();
     }
   });
 
