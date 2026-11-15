@@ -1,0 +1,32 @@
+name: One-shot REST credit formatter
+on:
+  push:
+    branches:
+      - repair/rest-generate-refund-on-main-20261115
+    paths:
+      - .github/workflows/repair-rest-credit-format.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/rest-generate-refund-on-main-20261115
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx prettier --write src/__tests__/restGenerateRefundReconciliation.test.ts
+      - name: Commit normalized test
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/__tests__/restGenerateRefundReconciliation.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(generate): format REST refund regression test"
+            git push origin HEAD:repair/rest-generate-refund-on-main-20261115
+          fi
