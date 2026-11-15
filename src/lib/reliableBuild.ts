@@ -92,13 +92,26 @@ function tryAdapter(techStack: string): StackAdapter | null {
   }
 }
 
-/** Remove `// filename:` / markdown fences the LLM leaves in file bodies. */
-export function stripFilenameHeaders(content: string): string {
+/**
+ * Adapted from bolt.diy app/lib/runtime/message-parser.ts:
+ * cleanoutMarkdownSyntax() and fileAction handling (MIT License).
+ * Original in Anselm04/Bolt-DIY-Source-Code-Reference.
+ * License: third_party/bolt/LICENSE.
+ * Modified for AppForge's // filename: protocol and Markdown file ownership.
+ */
+function cleanoutMarkdownSyntax(content: string, path?: string): string {
+  if (path?.endsWith(".md")) return content;
+  const codeBlockRegex = /^\s*```\w*\r?\n([\s\S]*?)\r?\n\s*```\s*$/;
+  const match = content.match(codeBlockRegex);
+  return match ? match[1] : content;
+}
+
+/** Remove file markers and complete outer code fences without altering indentation. */
+export function stripFilenameHeaders(content: string, path?: string): string {
   let out = content.replace(/^\/\/\s*filename:\s*.+\r?\n?/gim, "");
   out = out.replace(/^\/\/\s*file:\s*.+\r?\n?/gim, "");
-  out = out.replace(/^```[a-zA-Z0-9]*\r?\n/m, "");
-  out = out.replace(/\r?\n```\s*$/m, "");
-  return out.trimStart();
+  out = out.replace(/^\r?\n/, "");
+  return cleanoutMarkdownSyntax(out, path);
 }
 
 const BOGUS_PACKAGES = [

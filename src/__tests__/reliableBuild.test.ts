@@ -76,6 +76,31 @@ describe("P0 reliable builds", () => {
     expect(files["src/main.tsx"]).toContain("import");
   });
 
+  it("preserves generated Python indentation while cleaning file wrappers", () => {
+    const files = parseGeneratedFiles(
+      "// filename: server/src/worker.py\n    return preserved\n",
+    );
+    expect(files["server/src/worker.py"]).toBe("    return preserved\n");
+    expect(
+      stripFilenameHeaders(
+        "\n```tsx\n  const result = 42;\n```\n",
+        "src/App.tsx",
+      ),
+    ).toBe("  const result = 42;");
+  });
+
+  it("preserves intentional Markdown fences rather than deleting documentation", () => {
+    const files = parseGeneratedFiles(
+      "// filename: README.md\n```js\nconsole.log('real');\n```\n",
+    );
+    expect(files["README.md"]).toBe(
+      "```js\nconsole.log('real');\n```\n",
+    );
+    expect(
+      stripFilenameHeaders("  ```tsx\nconst live = true;", "src/App.tsx"),
+    ).toContain("```tsx");
+  });
+
   it("hardens incomplete LLM output into a coherent Vite React tree", () => {
     const hardened = hardenGeneratedProject(
       {

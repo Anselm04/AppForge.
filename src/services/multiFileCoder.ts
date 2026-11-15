@@ -42,7 +42,7 @@ function parseWithRegex(llmOutput: string, re: RegExp): Record<string, string> {
       i + 1 < matches.length
         ? (matches[i + 1].index ?? llmOutput.length)
         : llmOutput.length;
-    const content = stripFilenameHeaders(llmOutput.slice(start, end));
+    const content = stripFilenameHeaders(llmOutput.slice(start, end), filename);
     if (content.trim().length > 0) {
       files[filename] = content;
     }
@@ -63,7 +63,7 @@ function parseFencedPathBlocks(llmOutput: string): Record<string, string> {
   for (const match of llmOutput.matchAll(re)) {
     const filename = cleanPath(match[2] ?? "");
     if (!filename) continue;
-    const content = stripFilenameHeaders(match[3] ?? "");
+    const content = stripFilenameHeaders(match[3] ?? "", filename);
     if (content.trim().length > 0) files[filename] = content;
   }
   return files;
@@ -90,7 +90,7 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
   if (single) {
     const filename = cleanPath(single[1]);
     if (filename) {
-      files[filename] = stripFilenameHeaders(single[2]);
+      files[filename] = stripFilenameHeaders(single[2], filename);
     }
   }
   return files;
