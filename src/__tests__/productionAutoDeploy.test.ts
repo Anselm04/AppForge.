@@ -130,5 +130,18 @@ describe("production auto deploy packaging", () => {
     expect(() => requireVerifiedLiveUrl("not-a-url")).toThrow(
       "returned an invalid live URL",
     );
+    for (const unsafe of [
+      "https://localhost",
+      "https://service.local",
+      "https://private.internal",
+      "https://127.0.0.1",
+      "https://10.0.0.1",
+      "https://[::1]",
+      "https://user:password@app.example.test",
+    ]) {
+      expect(() => requireVerifiedLiveUrl(unsafe)).toThrow(
+        "returned an unsafe live URL",
+      );
+    }
   });
 });
