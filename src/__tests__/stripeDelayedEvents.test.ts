@@ -487,4 +487,41 @@ describe("delayed Stripe subscription events", () => {
     });
     expect(res.json).toHaveBeenCalledWith({ received: true });
   });
+  it("does not grant credits when payment fails before settlement", async () => {
+    mocks.retrieve.mockResolvedValue({
+      id: "sub_failed_fixture",
+      status: "past_due",
+      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+    });
+    const res = await deliver("invoice.payment_failed", {
+      id: "in_failed_fixture",
+      subscription: "sub_failed_fixture",
+    });
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "past_due" }),
+    );
+    expect(mocks.grant).not.toHaveBeenCalled();
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
+
+  it("removes only the canceled subscription entitlement and grants no credits", async () => {
+    const res = await deliver("customer.subscription.deleted", {
+      id: "sub_cancel_fixture",
+      customer: "cus_owner",
+      metadata: { product_line: "appforge", userId: "42" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+    });
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "canceled",
+        tier: "free",
+        aftercarePlus: false,
+      }),
+    );
+    expect(mocks.grant).not.toHaveBeenCalled();
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ received: true });
+  });
 });

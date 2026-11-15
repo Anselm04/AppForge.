@@ -15,6 +15,12 @@ if (!existsSync(vitest)) {
 }
 
 const tests = [
+  "src/__tests__/stripeEventLedgerOffline.test.ts",
+  "src/__tests__/stripeCheckoutHermetic.test.ts",
+  "src/__tests__/stripeWebhookSignatureOffline.test.ts",
+  "src/__tests__/stripeConcurrentReplayOffline.test.ts",
+  "src/__tests__/stripeCreditExhaustionOffline.test.ts",
+  "src/__tests__/stripeDelayedEvents.test.ts",
   "src/__tests__/appForgePricingGuard.test.ts",
   "src/__tests__/appForgeCommercialCutover.test.ts",
   "src/__tests__/appForgeTopUpEligibility.test.ts",

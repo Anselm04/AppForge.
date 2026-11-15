@@ -1156,3 +1156,12 @@ Verification: source and regression tests were committed; full exact-head CI rem
 - The historical SMS endpoints and old production SMS evidence workflows remain for compatibility and are **not** required for the new authenticator UI. Their replacement and removal from launch gates must be verified before certification; do not represent legacy Twilio evidence as TOTP certification.
 - Offline regression: `src/__tests__/ownerTotp.test.ts`, `src/pages/__tests__/Admin.test.tsx` and `src/lib/__tests__/adminMfaSecurityContract.test.ts`. Re-test the actual owner enrollment and sign-in after deployment is explicitly authorized. No live Supabase MFA requests are run by CI.
 - No Fly activation, production deployment, new secret, billable provider call, or owner account mutation was performed as part of this source repair.
+
+
+### Credit-exhaustion predicate regression — 2026-11-15
+
+The customer-credit deduction path in `src/db.ts` retains its user-scoped database transaction/advisory lock, the unlimited/lifetime entitlement branch, and pre-debit insufficient-credit rejection. The new pure `assertSufficientCreditBalance` guard refuses zero balance overdrafts, invalid amounts, and corrupted balance state before updating user credits or recording build usage. No schema changes, pricing changes or external payments were introduced.
+
+**Recovery and rollback:** The original pre-change SQL-based deduction flow remains recoverable by reverting `src/lib/creditDeductionPolicy.ts` and the corresponding import/call in `src/db.ts` together. Confirm a known-good balance and credit transaction ledger on a local database fixture before any rollback requiring balance reconciliation. Do **not** automatically compensate or mint credits during rollback: reconcile the existing credit transaction history by idempotency key, then unblock paused projects only after verified valid funding. Owner-only live repair requires separate authorization; no production/paid service touched.
+
+**Evidence boundary:** Unit tests exercise the pure exhaustion gate. Actual concurrent Drizzle/Postgres transaction safety and persisted credit balances remain unverified in this PR. This is a change to the recovery-sensitive `src/db.ts` path, hence explicit inventory review rather than silently treating the guard as risk-free.
