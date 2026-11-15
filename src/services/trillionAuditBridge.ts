@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { ArtifactIntegrity } from "../lib/artifactIntegrity.js";
+import {
+  assertArtifactIntegrity,
+  type ArtifactIntegrity,
+} from "../lib/artifactIntegrity.js";
 
 export type StaticAuditReceipt = {
   evidenceId: string;
@@ -48,6 +51,14 @@ export async function submitToTrillionAudit(input: {
   ) {
     throw new Error("Invalid artifact identity");
   }
+  // Verify the local source and its aggregate versioned integrity before
+  // sending bytes to an external audit endpoint.
+  assertArtifactIntegrity({
+    files: input.files,
+    integrity: input.integrity,
+    projectId: input.projectId,
+    artifactVersion: input.integrity.artifactVersion,
+  });
   if (Object.keys(input.files).length > 1000) {
     throw new Error("Audit source file count exceeds limit");
   }
