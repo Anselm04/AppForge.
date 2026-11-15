@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn, execFileSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { request as nodeHttpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { describe, it } from "vitest";
@@ -73,6 +74,32 @@ async function boot(cwd: string): Promise<{ child: ChildProcessWithoutNullStream
   });
 }
 
+async function requestGeneratedApp(
+  url: string,
+  method = "GET",
+  payload?: Record<string, string>,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const bytes = payload ? Buffer.from(JSON.stringify(payload)) : undefined;
+    const request = nodeHttpRequest(url, {
+      method,
+      headers: bytes ? { "content-type": "application/json", "content-length": bytes.length } : {},
+      timeout: 5000,
+    }, response => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+      response.on("end", () => resolve({
+        status: response.statusCode ?? 0,
+        body: Buffer.concat(chunks).toString("utf8"),
+      }));
+      response.on("error", reject);
+    });
+    request.on("timeout", () => request.destroy(new Error("HTTP timeout")));
+    request.on("error", reject);
+    request.end(bytes);
+  });
+}
+
 describe("real generated source -> edit -> export -> restart", () => {
   it("executes the generated Node product, saves a task, edits its UI, and reopens persistent data", async () => {
     const root = await mkdtemp(join(tmpdir(), "appforge-executable-export-"));
@@ -98,12 +125,12 @@ describe("real generated source -> edit -> export -> restart", () => {
       execFileSync(process.execPath, ["--test", "domain.test.mjs"], {cwd: root, stdio: "pipe"});
       let running = await boot(root);
       active = running.child;
-      const html = await (await fetch(running.base + "/")).text();
+      const html = (await requestGeneratedApp(running.base + "/")).body;
       assert.match(html, /<h1>Carving Tasks<\/h1>/);
-      let res = await fetch(running.base + "/api/tasks", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({title: "Carve a waka"})});
+      let res = await requestGeneratedApp(running.base + "/api/tasks", "POST", { title: "Carve a waka" });
       assert.equal(res.status, 201);
-      res = await fetch(running.base + "/api/tasks");
-      assert.deepEqual((await res.json()).map((x: {title: string}) => x.title), ["Carve a waka"]);
+      res = await requestGeneratedApp(running.base + "/api/tasks");
+      assert.deepEqual((JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title), ["Carve a waka"]);
       active.kill("SIGTERM");
       active = undefined;
       const edited = (await readFile(join(root, "index.html"), "utf8")).replace("<h1>Carving Tasks</h1>", "<h1>Carving Tasks Updated</h1>");
@@ -114,9 +141,9 @@ describe("real generated source -> edit -> export -> restart", () => {
       execFileSync(process.execPath, ["--check", "app.mjs"], {cwd: root, stdio: "pipe"});
       running = await boot(root);
       active = running.child;
-      assert.match(await (await fetch(running.base + "/")).text(), /Carving Tasks Updated/);
-      res = await fetch(running.base + "/api/tasks");
-      assert.deepEqual((await res.json()).map((x: {title: string}) => x.title), ["Carve a waka"]);
+      assert.match((await requestGeneratedApp(running.base + "/")).body, /Carving Tasks Updated/);
+      res = await requestGeneratedApp(running.base + "/api/tasks");
+      assert.deepEqual((JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title), ["Carve a waka"]);
     } finally {
       active?.kill("SIGTERM");
       await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
