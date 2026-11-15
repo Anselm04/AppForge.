@@ -246,10 +246,41 @@ export type BackgroundTaskHandler = (
   context: BackgroundExecutionContext,
 ) => Promise<void>;
 
-function redisConnection() {
-  const url = process.env.REDIS_URL?.trim();
-  if (!url) throw new Error('REDIS_URL is required for durable background jobs');
-  return { url };
+function redisConnection(worker = false) {
+  const raw = process.env.REDIS_URL?.trim();
+  if (!raw) throw new Error('REDIS_URL is required for durable background jobs');
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('REDIS_URL must be a valid Redis connection URL');
+  }
+  if (
+    !['redis:', 'rediss:'].includes(parsed.protocol) ||
+    !parsed.hostname ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error('REDIS_URL must use redis:// or rediss:// without query/fragment');
+  }
+  const port = parsed.port ? Number(parsed.port) : 6379;
+  const dbPath = parsed.pathname.replace(/^\\//, '');
+  const db = dbPath ? Number(dbPath) : 0;
+  if (
+    !Number.isInteger(port) || port < 1 || port > 65535 ||
+    !Number.isInteger(db) || db < 0
+  ) {
+    throw new Error('Invalid Redis port or database index');
+  }
+  return {
+    host: parsed.hostname,
+    port,
+    db,
+    username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+    maxRetriesPerRequest: worker ? null : 1,
+    ...(parsed.protocol === 'rediss:' ? { tls: {} } : {}),
+  };
 }
 
 function queueName(): string {
@@ -351,7 +382,7 @@ export function createBackgroundWorker(
       });
     },
     {
-      connection: redisConnection(),
+      connection: redisConnection(true),
       concurrency: workerConcurrency(),
       maxStalledCount: 2,
     },
