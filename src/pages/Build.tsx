@@ -98,6 +98,12 @@ export function Build() {
     null,
   );
   const [streamRevision, setStreamRevision] = useState(0);
+  // A route switch must never display another project's private event history.
+  useEffect(() => {
+    setLogs([]);
+    setTaskEvents([]);
+  }, [pid]);
+
 
   const {
     data: project,
