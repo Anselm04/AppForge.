@@ -323,3 +323,10 @@ This review covers the customer-facing preview route and post-build security evi
 7. Verify recovery by deliberately presenting a stale or mismatched artifact identity, a stopped preview runtime, and a blocking security scan, then confirm no false passing verification status or replacement of a known-good snapshot. Preserve those test results with the exact commit SHA.
 
 The customer Evidence tab shows derived verification from recorded snapshots and events. It cannot, by itself, prove native Flutter compilation, app-store acceptance, billing, or million-user capacity. These require their own executed evidence and are intentionally left unverified when absent.
+
+
+## Single factory execution-evidence handoff review (12 November 2026)
+
+The worker certification path, the customer Engineering Verification Record, and the live deployment/preview preflight now share `assessFactoryExecution`. A successful structural generation, syntax-only check, dependency install, or unit test does not certify that an application compiled and ran. Source-only artifacts remain available for editing and backup; failed or unverified runtime checks block executable deployment and preview until a later artifact has real executed evidence.
+
+On a rejected preview/deployment, retain the immutable current snapshot and any saved edits. Record the actionable validation or preflight error rather than promoting an unverified artifact. A subsequent successful native execution is a new evidence event or validated artifact version, not a retroactive approval of the previous snapshot. Recover by selecting the last verified snapshot/checkpoint and rechecking artifact identity, authorization, security findings, and runtime before reopening access. Production operations and source export remain separate authorizations. This change does not introduce a new schema, credential migration, or deployment provider dependency.

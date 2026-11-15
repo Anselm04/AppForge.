@@ -272,6 +272,20 @@ router.post("/deploy", async (req: Request, res: Response) => {
       return;
     }
 
+    // The legacy deployment route must obey the SAME execution gate as
+    // project deployment, customer verification and worker certification.
+    const { assessFactoryExecution } =
+      await import("../lib/factoryExecutionGate.js");
+    const execution = assessFactoryExecution(current.validationResult);
+    if (!execution.verified) {
+      res.status(412).json({
+        error: "execution_verification_required",
+        message: execution.reason,
+        stage: execution.stage,
+      });
+      return;
+    }
+
     const files = current.files as Record<string, string>;
     const { url: deployUrl } = await deployProject({
       destination: "vercel",

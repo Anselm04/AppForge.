@@ -5,6 +5,7 @@ import * as schema from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { runSeniorDevAgent } from "./seniorDevAgent.js";
 import { validateGeneratedBuild } from "./buildValidator.js";
+import { assessFactoryExecution } from "../lib/factoryExecutionGate.js";
 import type { SeniorDevTask } from "./seniorDevAgent.js";
 import { claimSeniorDevStart } from "../services/senior-dev-claim.js";
 import {
@@ -357,9 +358,10 @@ async function createAutonomousFixTask(
         researchDecisions: project.researchRecord?.decisions ?? [],
       },
     );
-    if (!repairValidation.passed) {
+    const repairExecution = assessFactoryExecution(repairValidation);
+    if (!repairExecution.verified) {
       throw new Error(
-        `Self-healing isolated production validation failed: ${repairValidation.errors.join("; ") || repairValidation.stage}`,
+        `Autonomous repair cannot deploy without execution-grade proof: ${repairExecution.reason}`,
       );
     }
 
@@ -420,6 +422,7 @@ async function createAutonomousFixTask(
       projectName: project.title ?? `appforge-${projectId}`,
       files: persistedArtifact.files,
       productContract,
+      validationResult: repairValidation,
       snapshot: {
         id: persistedArtifact.snapshotId,
         version: persistedArtifact.version,
@@ -467,7 +470,7 @@ async function createAutonomousFixTask(
           requirementManifest.unresolvedMustHaveIds.length === 0,
         behavioralTestsVerified:
           requirementBehaviorVerified(requirementManifest),
-        runtimeVerified: repairValidation.passed,
+        runtimeVerified: repairExecution.verified,
         securityVerified: deployment.securityVerified,
         deploymentVerified: deployment.httpVerified,
         browserVerified: deployment.browserVerified,

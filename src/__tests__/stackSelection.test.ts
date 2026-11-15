@@ -570,7 +570,7 @@ describe("section 4: structural-only stacks are never presented as deployed", ()
     const worker = readFileSync("src/services/build-worker.ts", "utf8");
     expect(worker).toContain("buildDeploymentDecision(");
     expect(worker).toContain(
-      'structuralOnly: stackAdapter.generationMode === "structural"',
+      "structuralOnly: !runtimeVerified",
     );
     const build = readFileSync("src/pages/Build.tsx", "utf8");
     expect(build).toContain("structural-stack-badge");

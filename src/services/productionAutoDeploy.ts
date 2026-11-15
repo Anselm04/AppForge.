@@ -127,6 +127,7 @@ export async function deployValidatedProject(opts: {
   projectName: string;
   files: Record<string, string>;
   productContract: ProductContract;
+  validationResult?: unknown;
   snapshot?: {
     id: number;
     version: number;
@@ -187,6 +188,18 @@ export async function deployValidatedProject(opts: {
             (finding) => `${finding.ruleId} at ${finding.path}:${finding.line}`,
           )
           .join(", "),
+    );
+  }
+
+  // Defense in depth: this low-level deployment service must also reject
+  // source-only or failed validation, irrespective of its caller.
+  const { assessFactoryExecution } =
+    await import("../lib/factoryExecutionGate.js");
+  const execution = assessFactoryExecution(opts.validationResult);
+  if (!execution.verified) {
+    throw new Error(
+      "Verified native execution is required before production deployment: " +
+        execution.reason,
     );
   }
 

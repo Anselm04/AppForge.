@@ -5,6 +5,8 @@
  * browser behaviour, a real provider deployment, or mobile-store submission.
  * Every verdict is derived from durable evidence for the CURRENT artifact.
  */
+import { assessFactoryExecution } from "./factoryExecutionGate.js";
+
 export type VerificationState = "passed" | "failed" | "unverified";
 export type VerificationCheckId =
   | "saved_artifact"
@@ -141,11 +143,7 @@ export function buildEngineeringVerificationRecord(input: {
   );
 
   const validator = object(snapshot.validationResult);
-  const validatorStage = typeof validator.stage === "string" ? validator.stage : "";
-  const runtimeExecuted =
-    validatorStage === "runtime" ||
-    validatorStage.startsWith("isolated_") ||
-    validatorStage.startsWith("docker_");
+  const execution = assessFactoryExecution(validator);
   const nativeEvent = latestMatchingEvent(
     input.events,
     "validation",
@@ -160,8 +158,7 @@ export function buildEngineeringVerificationRecord(input: {
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.
   const validationPassed =
-    validator.passed === true &&
-    runtimeExecuted &&
+    execution.verified &&
     (!input.isMobile || mobileRuntimeVerified);
   const validationFailed = validator.passed === false;
   add(
