@@ -149,8 +149,7 @@ Respond with JSON only.`,
     baseline,
     candidate,
     techStack,
-    validate: (files) =>
-      validateProjectFiles(files, techStack, { testsBlocking: false }),
+    validate: (files) => validateProjectFiles(files, techStack),
     surgicalFix: (files, errors) =>
       surgicalIterateFix(files, errors, techStack),
     maxFixAttempts: 2,
@@ -174,7 +173,11 @@ Respond with JSON only.`,
   } else if (outcome.fixed) {
     summary = `${summary} Auto-fixed compile issues after edit.`;
   } else if (outcome.validation?.passed) {
-    summary = `${summary} Sandbox validation passed.`;
+    if (outcome.validation.stage === "structure") {
+      summary = `${summary} Structural source checks passed; native runtime and build remain unverified.`;
+    } else {
+      summary = `${summary} Sandbox validation passed at stage: ${outcome.validation.stage}.`;
+    }
   }
 
   return {
