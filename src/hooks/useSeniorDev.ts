@@ -95,7 +95,24 @@ export function useSeniorDev() {
 
       if (event === "done") {
         try {
-          setResult(JSON.parse(raw) as DevResult);
+          const payload: unknown = JSON.parse(raw);
+          if (
+            !payload ||
+            typeof payload !== "object" ||
+            Array.isArray(payload) ||
+            !("summary" in payload) ||
+            typeof payload.summary !== "string" ||
+            !("filesChanged" in payload) ||
+            !Array.isArray(payload.filesChanged) ||
+            !payload.filesChanged.every((file) => typeof file === "string") ||
+            !("creditsSpent" in payload) ||
+            typeof payload.creditsSpent !== "number" ||
+            !Number.isFinite(payload.creditsSpent) ||
+            payload.creditsSpent < 0
+          ) {
+            throw new Error("Invalid build completion payload");
+          }
+          setResult(payload as DevResult);
           setStage("completed");
         } catch {
           setError("Build finished with an invalid completion response.");
