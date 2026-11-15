@@ -1115,3 +1115,12 @@ The previous unconditional production-only build and checkout rejection has been
 - A missing bundle or fallback is recorded as failed live verification. This prevents a host whose root page loads but app scripts/styles are broken from being classified as a working deployed customer application. It does not block development or create fake deployments.
 - Recovery verification: use the production health regression tests for valid MIME JS/CSS assets, missing 404 bundles, HTTP-200 HTML fallbacks, redirects and empty 200 CSS responses.
 - Rollback: revert the asset-specific MIME/body probe and its tests to restore status-only asset checks. No database, customer source, payment, or hosting-provider changes are involved.
+
+
+## Owner MFA development fallback hardening — 15 November 2026
+
+- `ADMIN_MFA_TRIAL_FALLBACK` and `ADMIN_MFA_TRIAL_FALLBACK_UNTIL` are deprecated and **must not** enable admin verification-code disclosure in production, even when present in an old restored environment.
+- The development-only SMS provider fallback is permitted solely when `ENV.isProduction` is false, for isolated offline test fixtures. It is not an owner recovery mechanism and is never an authorized production break-glass control.
+- In production, a failed owner MFA provider request must remain fail-closed. Owner recovery must use the independently provisioned provider/MFA recovery routes listed above; no test code may be issued to the browser.
+- Rehearse production fallback denial by setting the deprecated flags in a local test configuration with `ENV.isProduction=true` and asserting `admin.requestMfa` refuses and no admin cookie is granted. Never deploy, send real SMS, or charge a provider during this regression.
+- Separate work remains to migrate owner step-up to verified Supabase authenticator TOTP; this hardening does not certify that migration or eliminate the current Twilio service dependency.
