@@ -12,7 +12,14 @@ import {
   validateBuildJob,
   type BuildJob,
 } from "../lib/buildJob.js";
-import { addCredits, getCurrentArtifact, getProjectById } from "../db.js";
+import {
+  addCredits,
+  getCurrentArtifact,
+  getProjectById,
+  pauseProject,
+  recordProjectEvidence,
+  updateProjectCreditsSpent,
+} from "../db.js";
 import { pauseFailedQueueAttempt } from "./build-claim.js";
 import { publishRuntimeBuildEvent } from "./build-runtime.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
@@ -522,21 +529,61 @@ export async function recoverFailedQueuedBuild(
         "The queue attempt changed while checking. No build state was changed.",
     };
   }
-  if (job.reservationCharged) {
-    await addCredits(
-      userId,
-      BUILD_CREDIT_COST,
-      "build_refund",
-      `Interrupted build reservation refund for project ${projectId}`,
-      `build-refund-${projectId}-${job.createdAt}`,
-    );
-  }
+  // Claim the exact inspected attempt before moving customer credit. The
+  // resulting refund_pending state cannot be started again by another worker.
   const recovered = await pauseFailedQueueAttempt(
     projectId,
     userId,
     project.updatedAt,
     job.createdAt,
+    job.reservationCharged,
   );
+  if (!recovered) {
+    return {
+      recovered: false,
+      message: "The build changed while checking. No refund was attempted.",
+    };
+  }
+  if (job.reservationCharged) {
+    const refundKey = `build-refund-${projectId}-${job.createdAt}`;
+    try {
+      await addCredits(
+        userId,
+        BUILD_CREDIT_COST,
+        "build_refund",
+        `Interrupted build reservation refund for project ${projectId}`,
+        refundKey,
+      );
+      await updateProjectCreditsSpent(projectId, 0);
+      await pauseProject(projectId, "retry_after_error");
+    } catch (error) {
+      logger.error(
+        { projectId, refundKey, error },
+        "terminal_queue_refund_requires_reconciliation",
+      );
+      await recordProjectEvidence({
+        projectId,
+        kind: "failure",
+        payload: {
+          action: "terminal_queue_refund_requires_reconciliation",
+          reservationId: refundKey,
+        },
+      }).catch(() => undefined);
+      await pauseProject(projectId, "credit_refund_failure");
+      const message =
+        "The worker stopped, but its credit refund could not be confirmed. Do not retry until credits are reconciled.";
+      const payload = {
+        error: "credit_refund_failure",
+        message,
+        recoveredAfterWorkerFailure: false,
+        attemptCreatedAt: job.createdAt,
+      };
+      await appendBuildEvent(projectId, "error", payload);
+      publishRuntimeBuildEvent(projectId, "error", payload);
+      await publishBuildEvent(projectId, "error", payload);
+      return { recovered: false, message };
+    }
+  }
   const message = recovered
     ? "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue."
     : "The build changed while checking. No build state was changed.";
