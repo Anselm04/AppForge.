@@ -33,9 +33,7 @@ describe("email action link exchange", () => {
     });
   });
 
-  it(
-    "rejects unsafe callback destinations and preserves local return URLs",
-    async () => {
+  it("rejects unsafe callback return URLs", async () => {
     const { safeAuthDestination, loginPathWithReturn } = await import("../auth");
     expect(safeAuthDestination("/account")).toBe("/account");
     expect(loginPathWithReturn("/account")).toBe("/login?next=%2Faccount");
@@ -71,9 +69,7 @@ describe("email action link exchange", () => {
     },
   );
 
-  it(
-    "accepts a query-string OAuth token and scrubs credentials from history",
-    async () => {
+  it("accepts and scrubs query-string OAuth tokens", async () => {
     const payload = btoa(
       JSON.stringify({ sub: "identity-2", email: "customer@example.com" }),
     );
@@ -95,9 +91,7 @@ describe("email action link exchange", () => {
     expect(mocks.verify).not.toHaveBeenCalled();
   });
 
-  it(
-    "rejects a callback token whose authenticated user does not match its claims",
-    async () => {
+  it("rejects a callback with mismatched identity", async () => {
     const payload = btoa(JSON.stringify({ sub: "spoofed-identity" }));
     window.history.replaceState(
       {},
@@ -112,9 +106,7 @@ describe("email action link exchange", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it(
-    "rejects invalid or expired links without creating an authenticated session",
-    async () => {
+  it("rejects expired links without authenticating", async () => {
     mocks.verify.mockRejectedValue(new Error("This link is expired"));
     window.history.replaceState(
       {},
