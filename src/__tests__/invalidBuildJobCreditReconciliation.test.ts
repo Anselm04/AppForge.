@@ -19,13 +19,17 @@ describe("invalid queued build compensation", () => {
     const error = admission.indexOf(
       "invalid_build_job_refund_requires_reconciliation",
     );
-    const clear = admission.indexOf("await updateProjectCreditsSpent(projectId, 0)");
+    const clear = admission.indexOf(
+      "await updateProjectCreditsSpent(projectId, 0)",
+    );
     expect(error).toBeGreaterThan(0);
     expect(clear).toBeGreaterThan(error);
     expect(admission).toContain(
       'await updateProjectStatus(projectId, "failed", "credit_refund_failure")',
     );
-    expect(admission).toContain("Do not retry until the reservation is reconciled.");
+    expect(admission).toContain(
+      "Do not retry until the reservation is reconciled.",
+    );
     expect(admission).toContain("reservationId: refundKey");
     expect(admission).not.toContain("invalid_build_job_refund_failed");
   });
