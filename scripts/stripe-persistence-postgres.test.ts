@@ -87,7 +87,15 @@ before(async () => {
     await db.unsafe(`
       CREATE TABLE users (
         id integer PRIMARY KEY,
-        email varchar(255)
+        email varchar(255),
+        open_id varchar(255),
+        name varchar(255),
+        picture text,
+        is_banned boolean DEFAULT false,
+        banned_at timestamp,
+        ban_reason text,
+        created_at timestamp DEFAULT NOW(),
+        updated_at timestamp DEFAULT NOW()
       );
       CREATE TABLE user_credits (
         id serial PRIMARY KEY,
