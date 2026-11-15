@@ -6,8 +6,14 @@ import { APPROVED_MONTHLY_PRICE_IDS } from "../services/appForgePricePolicy.js";
 
 const fake = vi.hoisted(() => ({
   subscription: null as Record<string, unknown> | null,
-  retrieve: vi.fn(async (_id: string) => ({})),
-  lineItems: vi.fn(async (_id: string) => ({ data: [] })),
+  retrieve: vi.fn(async (_id: string): Promise<Record<string, unknown> | null> => null),
+  lineItems: vi.fn(
+    async (
+      _id: string,
+    ): Promise<{ data: Array<{ quantity: number; price: { id: string } }> }> => ({
+      data: [],
+    }),
+  ),
 }));
 
 // The original Stripe SDK still verifies the exact local webhook HMAC.
@@ -89,7 +95,7 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     return response;
   }
 
-  async function rows(query: string, params: unknown[] = []) {
+  async function rows(query: string, params: string[] = []) {
     return admin.unsafe(query, params);
   }
   async function balance() {
