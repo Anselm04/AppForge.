@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   getProject: vi.fn(),
   refund: vi.fn(),
   pause: vi.fn(),
+  pauseProject: vi.fn(),
+  clearReservation: vi.fn(),
+  recordEvidence: vi.fn(),
   active: vi.fn(() => false),
   event: vi.fn(),
   publish: vi.fn(),
@@ -21,6 +24,9 @@ vi.mock("../_core/env.js", () => ({
 vi.mock("../db.js", () => ({
   addCredits: mocks.refund,
   getProjectById: mocks.getProject,
+  pauseProject: mocks.pauseProject,
+  updateProjectCreditsSpent: mocks.clearReservation,
+  recordProjectEvidence: mocks.recordEvidence,
 }));
 vi.mock("../services/build-claim.js", () => ({
   pauseFailedQueueAttempt: mocks.pause,
@@ -85,6 +91,9 @@ beforeEach(() => {
   mocks.terminal.mockResolvedValue(null);
   mocks.active.mockReturnValue(false);
   mocks.pause.mockResolvedValue(true);
+  mocks.pauseProject.mockResolvedValue(undefined);
+  mocks.clearReservation.mockResolvedValue(undefined);
+  mocks.recordEvidence.mockResolvedValue(undefined);
   mocks.getProject.mockResolvedValue({
     id: 41,
     userId: 7,
@@ -106,7 +115,7 @@ describe("terminal queue interruption recovery", () => {
       { data: attempt() },
       new Error("job stalled more than allowable limit"),
     );
-    for (let i = 0; i < 30 && !mocks.pause.mock.calls.length; i++)
+    for (let i = 0; i < 30 && !mocks.event.mock.calls.length; i++)
       await new Promise((r) => setTimeout(r, 5));
     stop();
     expect(mocks.pause).toHaveBeenCalledWith(
@@ -114,6 +123,7 @@ describe("terminal queue interruption recovery", () => {
       7,
       new Date("2026-10-04T00:01:00Z"),
       "2026-10-04T00:00:00Z",
+      true,
     );
     expect(mocks.refund).toHaveBeenCalledWith(
       7,
@@ -207,18 +217,37 @@ it("refuses a queue attempt replaced during inspection", async () => {
   expect(mocks.refund).not.toHaveBeenCalled();
   expect(mocks.pause).not.toHaveBeenCalled();
 });
-it("keeps the project running if refund settlement fails", async () => {
+it("blocks retry and preserves reserved credits when refund settlement fails", async () => {
   mocks.refund.mockRejectedValueOnce(new Error("ledger unavailable"));
   const { queue, stop } = await recoveryQueue();
   try {
-    await expect(queue.recoverFailedQueuedBuild(41, 7)).rejects.toThrow(
-      "ledger unavailable",
-    );
+    expect((await queue.recoverFailedQueuedBuild(41, 7)).recovered).toBe(false);
   } finally {
     stop();
   }
-  expect(mocks.pause).not.toHaveBeenCalled();
-  expect(mocks.event).not.toHaveBeenCalled();
+  expect(mocks.pause).toHaveBeenCalledWith(
+    41,
+    7,
+    new Date("2026-10-04T00:01:00Z"),
+    "2026-10-04T00:00:00Z",
+    true,
+  );
+  expect(mocks.clearReservation).not.toHaveBeenCalled();
+  expect(mocks.pauseProject).toHaveBeenCalledWith(
+    41,
+    "credit_refund_failure",
+  );
+  expect(mocks.recordEvidence).toHaveBeenCalledWith(
+    expect.objectContaining({
+      projectId: 41,
+      kind: "failure",
+    }),
+  );
+  expect(mocks.event).toHaveBeenCalledWith(
+    41,
+    "error",
+    expect.objectContaining({ error: "credit_refund_failure" }),
+  );
 });
 it("does not publish a terminal event if the conditional state update loses a race", async () => {
   mocks.pause.mockResolvedValue(false);

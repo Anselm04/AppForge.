@@ -394,3 +394,15 @@ On conflict, retain the original ledger row and project state, record reconcilia
 The build worker must not refund a malformed job while a separate valid attempt is active on the same project. Record the malformed job as failure evidence and preserve the active attempt and its credit reservation. For a standalone malformed charged attempt, the worker uses the stable build-attempt refund key and requires the existing ledger refund to complete before clearing reservation fields or reporting customer credits refunded.
 
 If refund confirmation fails, retain reserved credit state, record reconciliation evidence, mark the affected build failed with an explicit credit-refund failure, and prohibit an automatic retry until the ledger, current build claim, durable queue and original charge have been reconciled. This follows the no-assumed-compensation principle in the Medusa reference payment step without introducing its framework. No paid service or Fly.io is activated.
+
+## Terminal queue failure two-phase credit recovery (15 November 2026)
+
+A terminal failed durable queue job must win a conditional project transition before refunding its reserved customer credits. The prior code could refund a job and then lose the project-status race to a newer attempt, resulting in a refund while the newer build remained running. The replacement first atomically pauses the inspected attempt in a non-startable `refund_pending` state, preserving its reserved-credit fields. Only the winner of that transition proceeds with the attempt-specific idempotent refund key.
+
+After the ledger confirms the credit grant, the project reservation is cleared and the project enters `retry_after_error`. If the ledger or reservation update fails, the project remains blocked as `credit_refund_failure` and recovery evidence is recorded. Manual reconciliation must compare queue terminal state, latest build claim, project revision, debit, credit balance and refund key before authorising retry. The design adapts the explicit compensation and idempotency rules of the Medusa and Trigger.dev GitHub source references without adding their runtime dependencies. No new paid infrastructure is activated.
+
+## REST build reservation ledger parity (15 November 2026)
+
+AppForge's REST generation path must follow the same proven source sequence already implemented in its tRPC project-create route: deduct the customer's authorized build credits, mark the debit immediately, persist the project-level reserved amount, and only then enqueue the job. The previous REST path could start a charged build with no corresponding project reservation, weakening failure recovery and customer-facing accounting.
+
+When reservation persistence or enqueue fails, the existing per-attempt idempotent refund must complete before clearing the project-level reserved amount. Any unconfirmed refund or release remains a reconciliation-required failure, not a safe customer retry. This is reused AppForge production source behavior and does not activate any live payment, Fly.io resource, or external provider.
