@@ -22,7 +22,10 @@ describe("email action link exchange", () => {
       JSON.stringify({ sub: "identity-1", email: "customer@example.com" }),
     );
     mocks.getUser.mockReset();
-    mocks.getUser.mockResolvedValue({ id: "identity-1", email: "customer@example.com" });
+    mocks.getUser.mockResolvedValue({
+      id: "identity-1",
+      email: "customer@example.com",
+    });
     mocks.verify.mockResolvedValue({
       access_token: `header.${payload}.signature`,
       refresh_token: "refresh-secret",
