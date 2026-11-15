@@ -4,6 +4,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { describe, it } from "vitest";
+import JSZip from "jszip";
+import { zipFiles } from "../services/deployer.js";
 import { parseGeneratedFiles, ensureEssentialFiles } from "../services/multiFileCoder.js";
 
 const domain = [
@@ -79,8 +81,14 @@ describe("real generated source -> edit -> export -> restart", () => {
       for (const name of ["package.json", "README.md", "index.html", "app.mjs", "domain.mjs", "domain.test.mjs"]) {
         assert.ok(files[name]?.trim(), "Missing actual generated source: " + name);
       }
-      for (const [path, source] of Object.entries(files)) {
+      const { base64, filename } = await zipFiles("carving-tasks", files);
+      assert.match(filename, /carving-tasks-appforge\\.zip$/);
+      const archive = await JSZip.loadAsync(Buffer.from(base64, "base64"));
+      for (const [path, entry] of Object.entries(archive.files)) {
+        if (entry.dir) continue;
         assert.ok(!path.startsWith("/") && !path.split("/").includes(".."), "Unsafe export path");
+        const source = await entry.async("string");
+        assert.equal(source, files[path], "Export must preserve source bytes: " + path);
         const output = join(root, path);
         await mkdir(dirname(output), {recursive: true});
         await writeFile(output, source);
@@ -99,6 +107,9 @@ describe("real generated source -> edit -> export -> restart", () => {
       active = undefined;
       const edited = (await readFile(join(root, "index.html"), "utf8")).replace("<h1>Carving Tasks</h1>", "<h1>Carving Tasks Updated</h1>");
       await writeFile(join(root, "index.html"), edited);
+      const editedArchive = await zipFiles("carving-tasks", { ...files, "index.html": edited });
+      const reopenedZip = await JSZip.loadAsync(Buffer.from(editedArchive.base64, "base64"));
+      assert.equal(await reopenedZip.file("index.html")?.async("string"), edited);
       execFileSync(process.execPath, ["--check", "app.mjs"], {cwd: root, stdio: "pipe"});
       running = await boot(root);
       active = running.child;
