@@ -44,6 +44,7 @@ import {
   scanProjectFiles,
   validateGeneratedSecurityPosture,
 } from "./projectSecurityScanner.js";
+import { submitToTrillionAudit } from "./trillionAuditBridge.js";
 import {
   productContractSchema,
   renderProductContractForAgents,
@@ -538,6 +539,30 @@ async function runOwnedBuildJob(
         throw new Error(
           "Final artifact security verification failed; build cannot be certified.",
         );
+      }
+
+      // Only a server-computed static receipt bound to the saved artifact is
+      // recorded; static checks never establish executable runtime proof.
+      const externalStaticAudit = await submitToTrillionAudit({
+        projectId,
+        files: artifact.files,
+        integrity: artifact.integrity,
+      });
+      if (externalStaticAudit) {
+        await recordProjectEvidence({
+          projectId,
+          kind: "integration",
+          artifactVersion: artifact.version,
+          payload: {
+            phase: "trillionai_audit_static",
+            snapshotId: artifact.snapshotId,
+            artifactSha256: artifact.integrity.sha256,
+            auditEvidenceId: externalStaticAudit.evidenceId,
+            auditEvidenceDigest: externalStaticAudit.evidenceDigest,
+            decision: externalStaticAudit.decision,
+            fullRuntimeAuditPassed: false,
+          },
+        });
       }
 
       await recordKnownGoodCheckpoint({
