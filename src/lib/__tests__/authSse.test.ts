@@ -174,10 +174,10 @@ describe("generate auth helpers", () => {
   });
 
   it("preserves source indentation in SSE data fields", () => {
-    const frame = "event: code\\ndata:   const value = 1;\\ndata:     return value;";
+    const frame = "event: code\ndata:   const value = 1;\ndata:     return value;";
     expect(parseSseFrame(frame)).toEqual({
       event: "code",
-      data: "  const value = 1;\\n    return value;",
+      data: "  const value = 1;\n    return value;",
     });
   });
 
