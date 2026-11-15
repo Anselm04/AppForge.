@@ -147,27 +147,38 @@ export function LivingWorkflowCanvas({
         projectStatus={project.status}
         plannedTasks={plannedTasks}
       />
-      <div className="mt-5 overflow-hidden rounded-2xl border border-sky-100 bg-white/85 p-4 md:p-5"
-        data-testid="living-workflow-preview">
+      <div
+        className="mt-5 overflow-hidden rounded-2xl border border-sky-100 bg-white/85 p-4 md:p-5"
+        data-testid="living-workflow-preview"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Product preview</h3>
+            <h3 className="text-base font-semibold text-slate-900">
+              Product preview
+            </h3>
             <p className="mt-1 text-sm text-slate-600">
               {previewReady
                 ? "The validated application is available for inspection."
                 : "The interactive product preview becomes available after build validation."}
             </p>
           </div>
-          <button type="button" disabled={!previewReady}
+          <button
+            type="button"
+            disabled={!previewReady}
             onClick={() => setShowPreview((value) => !value)}
-            className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 disabled:cursor-not-allowed disabled:opacity-50">
+            className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {showPreview && previewReady ? "Hide preview" : "Open live preview"}
           </button>
         </div>
         {showPreview && previewReady && (
           <div className="mt-4" data-testid="living-workflow-preview-content">
-            <BuildLivePreview projectId={projectId} deployUrl={deployUrl}
-              browserPreviewUrl={browserPreviewUrl} enabled={true} />
+            <BuildLivePreview
+              projectId={projectId}
+              deployUrl={deployUrl}
+              browserPreviewUrl={browserPreviewUrl}
+              enabled={true}
+            />
           </div>
         )}
       </div>
