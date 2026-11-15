@@ -8,6 +8,7 @@ export type TaskFlowNode = {
   module: string;
   state: TaskFlowState;
   filenames: string[];
+  dependencies: string[];
   detail: string;
   attempt: number | null;
 };
@@ -81,6 +82,7 @@ export function buildTaskFlow(
         module: safeText(payload?.module, "Application"),
         state: "running",
         filenames: [],
+        dependencies: [],
         detail: "Task activity recorded",
         attempt: null,
       };
@@ -91,6 +93,11 @@ export function buildTaskFlow(
       item.label = item.owner;
     }
     if (payload?.module) item.module = safeText(payload.module, item.module);
+    if (Array.isArray(payload.dependencies)) {
+      item.dependencies = [...new Set(payload.dependencies.filter(
+        (id): id is string => typeof id === "string" && id.trim().length > 0 && id !== taskId,
+      ).map((id) => id.slice(0, 160)))].slice(0, 32);
+    }
     if (
       typeof payload?.attempt === "number" &&
       Number.isFinite(payload.attempt)
