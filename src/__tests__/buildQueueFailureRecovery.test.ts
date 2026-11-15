@@ -91,6 +91,9 @@ beforeEach(() => {
   mocks.terminal.mockResolvedValue(null);
   mocks.active.mockReturnValue(false);
   mocks.pause.mockResolvedValue(true);
+  mocks.pauseProject.mockResolvedValue(undefined);
+  mocks.clearReservation.mockResolvedValue(undefined);
+  mocks.recordEvidence.mockResolvedValue(undefined);
   mocks.getProject.mockResolvedValue({
     id: 41,
     userId: 7,
