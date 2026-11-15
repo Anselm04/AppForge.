@@ -63,7 +63,11 @@ export function recoverBoltJsonToolCalls(
 
     const calls: RecoveredToolCall[] = [];
     for (const candidate of candidates) {
-      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      if (
+        !candidate ||
+        typeof candidate !== "object" ||
+        Array.isArray(candidate)
+      ) {
         return [];
       }
       const entry = candidate as Record<string, unknown>;
