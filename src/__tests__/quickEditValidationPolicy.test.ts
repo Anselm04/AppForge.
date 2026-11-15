@@ -15,7 +15,7 @@ describe("quick edit shares factory validation policy", () => {
   });
 
   it("only reports verified chat edits from execution-grade native evidence", () => {
-    expect(chat).toContain("hasExecutedBuildProof(edit.validation)");
+    expect(chat).toContain("assessFactoryExecution(edit.validation).verified");
     expect(chat).toContain('.generationMode === "runnable"');
     expect(chat).not.toContain(
       "validationPassed: edit.validation?.passed ?? null",
