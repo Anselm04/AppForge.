@@ -27,7 +27,9 @@ const ANY_FENCE_RE = /^\x60{3}[^\r\n]*\r?\n[\s\S]*?^\x60{3}[ \t]*\r?$/gm;
 const BOLT_ACTION_RE = /<boltAction\b([^>]*?)>([\s\S]*?)<\/boltAction\s*>/gi;
 
 function boltAttribute(attrs: string, name: string): string | null {
-  const matched = attrs.match(new RegExp("\\b" + name + "\\s*=\\s*([\\\"'])(.*?)\\1", "i"));
+  const matched = attrs.match(
+    new RegExp("\\b" + name + "\\s*=\\s*([\\\"'])(.*?)\\1", "i")),
+  );
   return matched?.[2] ?? null;
 }
 
