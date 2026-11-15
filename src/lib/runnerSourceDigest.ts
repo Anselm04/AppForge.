@@ -6,10 +6,6 @@ import { createHash } from "node:crypto";
  */
 export function runnerSourceSha256(files: Record<string, string>): string {
   const paths = Object.keys(files).sort();
-  const ordered = Object.fromEntries(
-    paths.map((path) => [path, files[path]]),
-  );
-  return createHash("sha256")
-    .update(JSON.stringify(ordered))
-    .digest("hex");
+  const ordered = Object.fromEntries(paths.map((path) => [path, files[path]]));
+  return createHash("sha256").update(JSON.stringify(ordered)).digest("hex");
 }
