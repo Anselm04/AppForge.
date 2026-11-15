@@ -110,12 +110,15 @@ describe("per-build provider telemetry is evidence, not fabricated billing", () 
     );
     const invoke = code.slice(code.indexOf("export async function invokeLLM("));
     const abort = invoke.slice(
-      invoke.indexOf("if (\n        signal?.aborted ||"),
+      invoke.indexOf("if (\n        requestSignal.aborted ||"),
     );
     const end = abort.indexOf("const msg = err instanceof Error");
     expect(end).toBeGreaterThan(0);
     const abortedRequest = abort.slice(0, end);
     expect(abortedRequest).toContain("Aborting a request does not prove");
+    expect(abortedRequest).toContain(
+      "LLM request exceeded its configured deadline",
+    );
     expect(abortedRequest).toContain("recordProviderUsageForCurrentBuild({");
     expect(abortedRequest).toContain("succeeded: false");
     expect(

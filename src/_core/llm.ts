@@ -2,6 +2,7 @@ import { ENV } from "./env.js";
 import { randomUUID } from "node:crypto";
 import { recoverBoltJsonToolCalls } from "../lib/boltToolCallRecovery.js";
 import { llmRetryWait } from "../lib/llmRetryPolicy.js";
+import { llmDeadlineSignal } from "../lib/llmRequestDeadline.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
 import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
 import { assertCustomerComputeLaunchCertified } from "../services/customerComputeLaunchGate.js";
@@ -539,6 +540,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     max_tokens,
     signal,
   } = params;
+  // One deadline spans retries and failovers, so a stalled provider cannot
+  // leave a generation job indefinitely in progress.
+  const requestSignal = llmDeadlineSignal(signal);
 
   const basePayload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
@@ -607,7 +611,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
             ...(provider.headers ?? {}),
           },
           body: JSON.stringify(payload),
-          signal,
+          signal: requestSignal,
         },
         async () => {
           // Each HTTP/network retry may incur a charge even if its result was
@@ -813,7 +817,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       if (err instanceof RetryUsageEvidenceError) throw err;
       if (err instanceof ProviderUsagePersistenceError) throw err;
       if (
-        signal?.aborted ||
+        requestSignal.aborted ||
         (err instanceof Error && err.name === "AbortError")
       ) {
         // Aborting a request does not prove that a provider did not receive or
@@ -830,6 +834,11 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
           } catch (meteringError) {
             throw new ProviderUsagePersistenceError(meteringError);
           }
+        }
+        if (!signal?.aborted && requestSignal.aborted) {
+          throw new Error(
+            "LLM request exceeded its configured deadline; provider usage may still require reconciliation",
+          );
         }
         throw err;
       }
