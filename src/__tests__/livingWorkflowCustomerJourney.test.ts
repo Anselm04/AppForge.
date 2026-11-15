@@ -9,9 +9,27 @@ import type { BuildLogEntry } from "../lib/buildLogView.js";
  * Real SSE frame parsing, task projection and status contracts under test.
  */
 const planned = [
-  { id: "plan-api", sequence: 1, agent: "backend", module: "Reservation API", dependencies: [] },
-  { id: "plan-ui", sequence: 2, agent: "frontend", module: "Flutter screens", dependencies: ["plan-api"] },
-  { id: "plan-db", sequence: 3, agent: "database", module: "Reservation storage", dependencies: ["plan-api"] },
+  {
+    id: "plan-api",
+    sequence: 1,
+    agent: "backend",
+    module: "Reservation API",
+    dependencies: [],
+  },
+  {
+    id: "plan-ui",
+    sequence: 2,
+    agent: "frontend",
+    module: "Flutter screens",
+    dependencies: ["plan-api"],
+  },
+  {
+    id: "plan-db",
+    sequence: 3,
+    agent: "database",
+    module: "Reservation storage",
+    dependencies: ["plan-api"],
+  },
 ];
 
 const taskEvent = (type: string, payload: Record<string, unknown>) =>
@@ -23,7 +41,8 @@ async function replayLocalMockSse(frames: string[]): Promise<BuildLogEntry[]> {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       // Split across frame boundaries to mimic network transport.
-      for (let i = 0; i < bytes.length; i += 31) controller.enqueue(bytes.slice(i, i + 31));
+      for (let i = 0; i < bytes.length; i += 31)
+        controller.enqueue(bytes.slice(i, i + 31));
       controller.close();
     },
   });
@@ -38,15 +57,39 @@ async function replayLocalMockSse(frames: string[]): Promise<BuildLogEntry[]> {
 
 describe("Living Workflow customer journey — local mocked provider, real transport/parser", () => {
   it("moves queued to active to completed across real dependency IDs", async () => {
-    expect(buildTaskFlow([], "running", planned).map((node) => node.state)).toEqual(["queued", "queued", "queued"]);
+    expect(
+      buildTaskFlow([], "running", planned).map((node) => node.state),
+    ).toEqual(["queued", "queued", "queued"]);
     const logs = await replayLocalMockSse([
-      taskEvent("coordination_status", { taskId: "plan-api", ownerAgent: "backend", dependencies: [], attempt: 1 }),
-      taskEvent("task_complete", { taskId: "plan-api", filename: "server/routes/bookings.ts" }),
-      taskEvent("coordination_status", { taskId: "plan-ui", ownerAgent: "frontend", dependencies: ["plan-api"], attempt: 1 }),
-      taskEvent("coordination_status", { taskId: "plan-db", ownerAgent: "database", dependencies: ["plan-api"], attempt: 1 }),
+      taskEvent("coordination_status", {
+        taskId: "plan-api",
+        ownerAgent: "backend",
+        dependencies: [],
+        attempt: 1,
+      }),
+      taskEvent("task_complete", {
+        taskId: "plan-api",
+        filename: "server/routes/bookings.ts",
+      }),
+      taskEvent("coordination_status", {
+        taskId: "plan-ui",
+        ownerAgent: "frontend",
+        dependencies: ["plan-api"],
+        attempt: 1,
+      }),
+      taskEvent("coordination_status", {
+        taskId: "plan-db",
+        ownerAgent: "database",
+        dependencies: ["plan-api"],
+        attempt: 1,
+      }),
     ]);
     const nodes = buildTaskFlow(logs, "running", planned);
-    expect(nodes.map((node) => node.state)).toEqual(["completed", "running", "running"]);
+    expect(nodes.map((node) => node.state)).toEqual([
+      "completed",
+      "running",
+      "running",
+    ]);
     expect(nodes[1].dependencies).toEqual(["plan-api"]);
     expect(nodes[2].dependencies).toEqual(["plan-api"]);
     expect(nodes[0].filenames).toEqual(["server/routes/bookings.ts"]);
@@ -60,12 +103,18 @@ describe("Living Workflow customer journey — local mocked provider, real trans
     const first = await replayLocalMockSse(chunks);
     const replay = await replayLocalMockSse([...chunks, ...chunks]);
     expect(replay).toEqual(first);
-    expect(buildTaskFlow(replay, "validated", planned)[0].state).toBe("completed");
+    expect(buildTaskFlow(replay, "validated", planned)[0].state).toBe(
+      "completed",
+    );
   });
 
   it("reports failure, pause and genuine retry without fabricated success", async () => {
     const events = await replayLocalMockSse([
-      taskEvent("coordination_status", { taskId: "plan-api", attempt: 1, error: "Invalid source" }),
+      taskEvent("coordination_status", {
+        taskId: "plan-api",
+        attempt: 1,
+        error: "Invalid source",
+      }),
     ]);
     expect(buildTaskFlow(events, "failed", planned)[0].state).toBe("failed");
     expect(buildTaskFlow(events, "paused", planned)[1].state).toBe("queued");
