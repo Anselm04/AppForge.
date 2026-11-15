@@ -80,9 +80,7 @@ export function recoverBoltJsonToolCalls(
         !input ||
         typeof input !== "object" ||
         Array.isArray(input) ||
-        Object.keys(entry).some(
-          (key) => key !== "name" && key !== "parameters",
-        )
+        Object.keys(entry).some((key) => key !== "name" && key !== "parameters")
       ) {
         return [];
       }
