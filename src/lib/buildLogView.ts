@@ -12,6 +12,7 @@ export interface BuildLogEntry {
     creditsSpent?: number;
     stage?: string;
     taskId?: string;
+    dependencies?: string[];
     ownerAgent?: string;
     module?: string;
     filename?: string;
