@@ -44,7 +44,11 @@ describe("Senior Dev authenticated task actions", () => {
   it("starts a task through the authenticated tRPC client", async () => {
     const { result } = renderHook(() => useSeniorDev());
     await act(async () => {
-      await result.current.startTask(7, "Build the customer application", "autonomous");
+      await result.current.startTask(
+        7,
+        "Build the customer application",
+        "autonomous",
+      );
     });
     expect(mocks.start).toHaveBeenCalledWith({
       projectId: 7,
@@ -58,7 +62,7 @@ describe("Senior Dev authenticated task actions", () => {
     );
   });
 
-  it("reports stream interruption instead of leaving the build loading", async () => {
+  it("reports interrupted build streams", async () => {
     let finish!: () => void;
     mocks.consume.mockImplementationOnce(
       () =>
@@ -83,23 +87,34 @@ describe("Senior Dev authenticated task actions", () => {
     expect(result.current.error).toMatch(/ended before the task/);
   });
 
-  it("marks a valid done event completed and rejects invalid completion payloads", async () => {
+  it("handles valid and invalid build completions", async () => {
     const { result } = renderHook(() => useSeniorDev());
     await act(async () => {
-      await result.current.startTask(7, "Build the customer application", "autonomous");
+      await result.current.startTask(
+        7,
+        "Build the customer application",
+        "autonomous",
+      );
     });
     const callback = mocks.consume.mock.calls[0][1] as (
       event: string,
       data: string,
     ) => void;
     act(() => {
-      callback("done", '{"summary":"Ready","filesChanged":[],"creditsSpent":0}');
+      callback(
+        "done",
+        '{"summary":"Ready","filesChanged":[],"creditsSpent":0}',
+      );
     });
     expect(result.current.stage).toBe("completed");
     expect(result.current.result?.summary).toBe("Ready");
 
     await act(async () => {
-      await result.current.startTask(7, "Build another application", "autonomous");
+      await result.current.startTask(
+        7,
+        "Build another application",
+        "autonomous",
+      );
     });
     const secondCallback = mocks.consume.mock.calls[1][1] as (
       event: string,
@@ -129,7 +144,7 @@ describe("Senior Dev authenticated task actions", () => {
 
   });
 
-  it("approves through tRPC and resumes using the cookie-backed session", async () => {
+  it("resumes approved tasks with the secure cookie session", async () => {
     const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("event: done\\ndata: {}\\n\\n", {
         status: 200,
@@ -138,7 +153,11 @@ describe("Senior Dev authenticated task actions", () => {
     );
     const { result } = renderHook(() => useSeniorDev());
     await act(async () => {
-      await result.current.startTask(7, "Build the customer application", "collaborative");
+      await result.current.startTask(
+        7,
+        "Build the customer application",
+        "collaborative",
+      );
     });
     await act(async () => {
       await result.current.approvePlan();
