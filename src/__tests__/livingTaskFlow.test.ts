@@ -86,6 +86,29 @@ describe("live specialist workflow projection", () => {
     expect(completed[1].state).toBe("running");
   });
 
+  it("keeps only canonical dependencies received in task-specific activity", () => {
+    const logs = [
+      {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: { taskId: "backend", ownerAgent: "API", dependencies: [] },
+      },
+      {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: {
+          taskId: "ui",
+          ownerAgent: "Frontend",
+          dependencies: ["backend", "backend", "ui", ""],
+        },
+      },
+    ];
+    const nodes = buildTaskFlow(logs, "running");
+    expect(nodes[0].dependencies).toEqual([]);
+    expect(nodes[1].dependencies).toEqual(["backend"]);
+    expect(nodes[1].state).toBe("running");
+  });
+
   it("turns interrupted activity into paused or failed rather than claiming work is still running", () => {
     const logs = [
       {
