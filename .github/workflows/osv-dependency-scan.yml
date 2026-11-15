@@ -3,11 +3,6 @@ name: OSV Dependency Vulnerability Scan
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/osv-dependency-scan.yml"
-      - "scripts/verify-offline-osv-report.mjs"
   workflow_dispatch:
 
 permissions:
