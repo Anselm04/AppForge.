@@ -63,6 +63,50 @@ describe("mixed generated-file boundaries", () => {
     expect(files["server/handler.py"]).toBe("    return result\n");
   });
 
+  it("keeps Flutter, Node, YAML, SQL and Python files in mixed generator output", () => {
+    const files = parseGeneratedFiles(
+      [
+        "// filename: server/src/server.ts",
+        "export const running = true;",
+        "### `lib/main.dart`",
+        "void main() { print('hello'); }",
+        "File: `pubspec.yaml`",
+        "name: sample_product",
+        "```sql database/migrations/001_init.sql",
+        "CREATE TABLE tasks(id integer PRIMARY KEY);",
+        "```",
+        "```python app/main.py",
+        "def main():",
+        "    return 'ready'",
+        "```",
+        "// file: ios/Runner/AppDelegate.swift",
+        "import Flutter",
+      ].join("\n"),
+    );
+    expect(Object.keys(files)).toEqual([
+      "server/src/server.ts",
+      "lib/main.dart",
+      "pubspec.yaml",
+      "database/migrations/001_init.sql",
+      "app/main.py",
+      "ios/Runner/AppDelegate.swift",
+    ]);
+    expect(files["lib/main.dart"]).toContain("void main()");
+    expect(files["pubspec.yaml"]).toContain("name: sample_product");
+    expect(files["database/migrations/001_init.sql"]).toContain("CREATE TABLE");
+    expect(files["app/main.py"]).toContain("    return 'ready'");
+    expect(files["ios/Runner/AppDelegate.swift"]).toContain("import Flutter");
+  });
+
+  it("rejects unsafe native file paths even when code fenced", () => {
+    const files = parseGeneratedFiles(
+      "```dart ../secrets.dart\nvoid main() {}\n```\n" +
+        "```yaml /etc/config.yaml\nsecret: true\n```\n" +
+        "```dart lib/main.dart\nvoid main() {}\n```",
+    );
+    expect(Object.keys(files)).toEqual(["lib/main.dart"]);
+  });
+
   it("handles invalid fenced paths without discarding later valid files", () => {
     const files = parseGeneratedFiles(
       "```ts ../unsafe.ts\nbad()\n```\n" +

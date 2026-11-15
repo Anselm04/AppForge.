@@ -13,9 +13,9 @@ import { stripFilenameHeaders } from "../lib/reliableBuild.js";
  * Modified for AppForge's legacy headers, fenced paths, and path validation.
  */
 const HEADER_RE =
-  /^(?:\/\/[ \t]*(?:filename|file):[ \t]*(.+)|#[ \t]*file:[ \t]*(.+)|###[ \t]*\x60?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))\x60?[ \t]*|File:[ \t]*[\x60"]?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))[\x60"]?[ \t]*)\r?$/gim;
+  /^(?:\/\/[ \t]*(?:filename|file):[ \t]*(.+)|#[ \t]*file:[ \t]*(.+)|###[ \t]*\x60?([\w./-]+\.[A-Za-z0-9]+)\x60?[ \t]*|File:[ \t]*[\x60"]?([\w./-]+\.[A-Za-z0-9]+)[\x60"]?[ \t]*)\r?$/gim;
 const FENCED_PATH_RE =
-  /^\x60{3}([a-zA-Z0-9]*)[ \t]+([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))[ \t]*\r?\n([\s\S]*?)^\x60{3}[ \t]*$/gm;
+  /^\x60{3}([a-zA-Z0-9]*)[ \t]+([\w./-]+\.[A-Za-z0-9]+)[ \t]*\r?\n([\s\S]*?)^\x60{3}[ \t]*$/gm;
 const ANY_FENCE_RE = /^\x60{3}[^\r\n]*\r?\n[\s\S]*?^\x60{3}[ \t]*$/gm;
 
 function cleanPath(raw: string): string | null {
