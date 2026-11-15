@@ -21,10 +21,14 @@ describe("REST generation admission credit recovery", () => {
     expect(admission).toContain("generate_build_refund_requires_reconciliation");
     expect(admission).toContain("generate_build_claim_release_failed");
     expect(admission).toContain("recordProjectEvidence({");
-    expect(admission).toContain('reconciliationRequired ? "credit_refund_failure" : null');
+    expect(admission).toContain(
+      'reconciliationRequired ? "credit_refund_failure" : null',
+    );
     expect(admission).toContain('res.status(409).json({');
     expect(admission).toContain('"build_credit_reconciliation_required"');
     expect(admission).toContain("Do not retry this project");
-    expect(admission).not.toContain("await releaseProjectBuildClaim(id, user.id, \"pending\", null);");
+    expect(admission).not.toContain(
+      'await releaseProjectBuildClaim(id, user.id, "pending", null);',
+    );
   });
 });
