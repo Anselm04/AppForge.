@@ -22,6 +22,25 @@ describe("live specialist workflow projection", () => {
     ).toBe(previous);
   });
 
+  it("deduplicates replayed completion events and preserves evidence under pressure", () => {
+    const completed = {
+      agent: "Coder",
+      type: "task_complete",
+      payload: { taskId: "task-0", filename: "lib/main.dart" },
+    };
+    let events = appendTaskFlowEvent([], completed);
+    expect(appendTaskFlowEvent(events, completed)).toBe(events);
+    for (let i = 1; i <= 560; i++) {
+      events = appendTaskFlowEvent(events, {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: { taskId: `task-${i}`, attempt: 1 },
+      });
+    }
+    expect(events.length).toBeLessThanOrEqual(512);
+    expect(events.some((event) => event.payload?.taskId === "task-0" && event.type === "task_complete")).toBe(true);
+  });
+
   it("keeps task milestones when code streams hundreds of chunks", () => {
     let events = appendTaskFlowEvent([], {
       agent: "Coder",
