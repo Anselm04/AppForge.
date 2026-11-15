@@ -869,7 +869,21 @@ export async function validateGeneratedBuild(
       !!files["vite.config.ts"] ||
       !!files["vite.config.js"] ||
       !!files["index.html"];
-    if (shouldRunVite || hasPackageJson) {
+    // A package.json only proves the presence of metadata. It does NOT mean
+    // the generated project has a Vite browser entry point, and it cannot
+    // authorize a successful runtime claim for a backend-only service.
+    if (!shouldRunVite) {
+      return {
+        passed: true,
+        stage: "structure",
+        errors: [],
+        durationMs: Date.now() - start,
+        fileCount: Object.keys(files).length,
+        warning:
+          "Source, dependencies and available static checks completed, but no supported executable runtime was started. Native service build, HTTP and persistence integration evidence are still required.",
+      };
+    }
+    if (shouldRunVite) {
       const buildResult = await runCommand(
         "npx",
         ["vite", "build"],
