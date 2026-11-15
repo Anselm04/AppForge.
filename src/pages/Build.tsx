@@ -12,6 +12,7 @@ import { DeployWizard } from "../components/DeployWizard.js";
 import { RevenueReadinessPanel } from "../components/RevenueReadinessPanel.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
 import { AgentTerminal } from "../components/AgentTerminal.js";
+import { LivingWorkflowCanvas } from "../components/LivingWorkflowCanvas.js";
 import {
   completedBuildUrl,
   stackPresentation,
@@ -619,6 +620,8 @@ export function Build() {
             )}
           </p>
         )}
+
+        {project && <LivingWorkflowCanvas project={project} logs={logs} />}
 
         {project && (
           <section
