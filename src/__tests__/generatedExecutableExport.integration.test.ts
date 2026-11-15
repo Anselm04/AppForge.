@@ -149,6 +149,20 @@ async function requestGeneratedApp(
 }
 
 describe("real generated source -> edit -> export -> restart", () => {
+  it("emit canonical formatting during CI diagnosis", async () => {
+    const prettier = await import("prettier");
+    const { readFileSync } = await import("node:fs");
+    const filename = "src/__tests__/generatedExecutableExport.integration.test.ts";
+    const source = readFileSync(filename, "utf8");
+    const options = (await prettier.resolveConfig(filename)) ?? {};
+    const formatted = await prettier.format(source, {
+      ...options,
+      filepath: filename,
+    });
+    console.log("APPFORGE_FORMAT_BASE64=" + Buffer.from(formatted).toString("base64"));
+  });
+
+
   it("executes the generated Node product, saves a task, edits its UI, and reopens persistent data", async () => {
     const root = await mkdtemp(join(tmpdir(), "appforge-executable-export-"));
     let active: ChildProcessWithoutNullStreams | undefined;
