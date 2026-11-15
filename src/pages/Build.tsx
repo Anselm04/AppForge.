@@ -639,6 +639,7 @@ export function Build() {
             projectId={pid}
             deployUrl={deployUrl}
             browserPreviewUrl={browserPreviewUrl}
+            canUseWorkspace={canUseWorkspace}
           />
         )}
 
