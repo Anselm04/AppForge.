@@ -52,7 +52,11 @@ function destinationForUser(
 ): string {
   // Customers sign in with their confirmed email; the owner may separately
   // enroll a privileged phone while admin step-up MFA stays server-enforced.
-  if (user?.isOwner && user.phoneVerified !== true) {
+  if (
+    user?.isOwner &&
+    user.phoneVerified !== true &&
+    isAdminDestination(next)
+  ) {
     return `/verify-phone?next=${encodeURIComponent(next)}`;
   }
   if (user?.isOwner && !user.ownerMfaVerified && isAdminDestination(next)) {
