@@ -376,3 +376,9 @@ If refund or build-claim release cannot be confirmed, record a recovery evidence
 The legacy REST generation entry point must apply the same customer-credit correctness standards as project creation. Once a charge has succeeded, failed queue admission triggers a refund with an idempotency key. An uncertain refund or failed claim release must not return a retryable ordinary build failure: it records recovery evidence where possible and responds with a reconciliation-required status so the customer does not initiate a second charge. The project must retain the unresolved state until the ledger, build attempt and queue admission can be inspected.
 
 When reconciliation is required, operators must compare the exact customer, project ID, original debit, refund idempotency key, reserved credits, build claim and durable queue job before issuing any correction or allowing a retry. Preserve saved source and prior checkpoints. This source-only change does not make any paid provider calls and does not reactivate Fly.io.
+
+## Credit-refund idempotency identity verification (15 November 2026)
+
+The Medusa payment refund workflow explicitly uses a caller-provided idempotency key so repeated attempts do not move funds twice. AppForge retains its own PostgreSQL ledger and transaction key, and additionally verifies that a previously recorded transaction for the key matches the same user, credit amount and transaction type. A collision with a different actor or value is a recovery conflict, not proof that a refund occurred.
+
+On conflict, retain the original ledger row and project state, record reconciliation evidence from the build admission caller, and refuse automatic retry or duplicate credit issuance. Investigate the debit, refund key, user and project before making corrective entries. No external payment is initiated by this offline source repair.
