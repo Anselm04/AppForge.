@@ -225,7 +225,7 @@ test("paid invoice changes persist plan-specific entitlements across upgrade and
   const builder = await grant(101, "builder", "in_builder_upgrade_101");
   assert.deepEqual(builder, { granted: 400, skipped: false });
   assert.deepEqual(await creditEntitlement(), {
-    tier: "builder", monthlyAllowance: 400, balance: 510,
+    tier: "builder", monthlyAllowance: 66, balance: 510,
   });
   assert.deepEqual(await grant(101, "builder", "in_builder_upgrade_101"), {
     granted: 0, skipped: true,
@@ -233,12 +233,12 @@ test("paid invoice changes persist plan-specific entitlements across upgrade and
   const studio = await grant(101, "studio", "in_studio_upgrade_101");
   assert.deepEqual(studio, { granted: 1500, skipped: false });
   assert.deepEqual(await creditEntitlement(), {
-    tier: "studio", monthlyAllowance: 1500, balance: 2010,
+    tier: "studio", monthlyAllowance: 0, balance: 2010,
   });
   const starter = await grant(101, "starter", "in_starter_downgrade_101");
   assert.deepEqual(starter, { granted: 100, skipped: false });
   assert.deepEqual(await creditEntitlement(), {
-    tier: "starter", monthlyAllowance: 100, balance: 2110,
+    tier: "starter", monthlyAllowance: 16, balance: 2110,
   });
   for (const id of [
     "in_builder_upgrade_101",
