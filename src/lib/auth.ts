@@ -514,8 +514,19 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
   }
   if (!accessToken) return null;
 
-  const user = jwtUser(accessToken);
-  if (!user) throw new Error("Unable to read confirmed Supabase session.");
+  const claims = jwtUser(accessToken);
+  if (!claims) throw new Error("Unable to read confirmed Supabase session.");
+  // JWT decoding establishes no trust. Supabase must validate the bearer
+  // token before the browser treats any callback as an authenticated session.
+  const verifiedUser = await supabaseClient.getVerifiedUser(accessToken);
+  if (!verifiedUser.id || verifiedUser.id !== claims.id) {
+    throw new Error("Supabase session identity verification failed.");
+  }
+  const user: AppForgeSession["user"] = {
+    id: verifiedUser.id,
+    email: verifiedUser.email,
+    phone: verifiedUser.phone,
+  };
 
   const session: AppForgeSession = {
     accessToken,
