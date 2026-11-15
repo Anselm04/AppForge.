@@ -18,10 +18,10 @@ import {
 } from "../services/multiFileCoder.js";
 
 const domain = [
-  'export function normalizeTitle(value) {',
+  "export function normalizeTitle(value) {",
   '  if (typeof value !== "string" || !value.trim() || value.length > 160) throw new Error("Invalid task title");',
-  '  return value.trim();',
-  '}',
+  "  return value.trim();",
+  "}",
 ].join("\n");
 
 const server = [
@@ -32,24 +32,25 @@ const server = [
   'const dataPath = join(process.cwd(), "data/tasks.json");',
   'async function load() { try { return JSON.parse(await readFile(dataPath, "utf8")); } catch (error) { if (error.code === "ENOENT") return []; throw error; } }',
   'function respond(res, status, value, type = "application/json") { res.writeHead(status, { "content-type": type }); res.end(type === "application/json" ? JSON.stringify(value) : value); }',
-  'const app = createServer(async (req, res) => {',
-  '  try {',
+  "const app = createServer(async (req, res) => {",
+  "  try {",
   '    if (req.method === "GET" && req.url === "/") return respond(res, 200, await readFile("index.html", "utf8"), "text/html");',
   '    if (req.method === "GET" && req.url === "/api/tasks") return respond(res, 200, await load());',
   '    if (req.method === "POST" && req.url === "/api/tasks") {',
   '      let body = ""; for await (const chunk of req) { body += chunk; if (body.length > 8192) return respond(res, 413, {error: "Too large"}); }',
   '      let title; try { title = normalizeTitle(JSON.parse(body).title); } catch { return respond(res, 400, {error: "Invalid task"}); }',
-  '      const tasks = await load(); const task = {id: tasks.length + 1, title, done: false};',
+  "      const tasks = await load(); const task = {id: tasks.length + 1, title, done: false};",
   '      tasks.push(task); await mkdir(join(process.cwd(), "data"), {recursive: true});',
-  '      await writeFile(dataPath, JSON.stringify(tasks)); return respond(res, 201, task);',
-  '    }',
+  "      await writeFile(dataPath, JSON.stringify(tasks)); return respond(res, 201, task);",
+  "    }",
   '    return respond(res, 404, {error: "Not found"});',
   '  } catch (error) { console.error(error); return respond(res, 500, {error: "Server error"}); }',
-  '});',
+  "});",
   'app.listen(0, "127.0.0.1", () => process.stdout.write("PORT=" + app.address().port + "\\n"));',
 ].join("\n");
 
-const client = '<!doctype html><html><head><title>Carving Tasks</title></head><body><h1>Carving Tasks</h1><form id="create"><input name="title" required maxlength="160"><button type="submit">Add task</button></form><ul id="tasks"></ul><script>const list=document.getElementById("tasks");async function refresh(){const tasks=await(await fetch("/api/tasks")).json();list.replaceChildren(...tasks.map(t=>{const li=document.createElement("li");li.textContent=t.title;return li;}));}document.getElementById("create").addEventListener("submit",async e=>{e.preventDefault();const title=new FormData(e.target).get("title");const res=await fetch("/api/tasks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({title})});if(!res.ok)throw new Error("Unable to save task");e.target.reset();await refresh();});refresh();</script></body></html>';
+const client =
+  '<!doctype html><html><head><title>Carving Tasks</title></head><body><h1>Carving Tasks</h1><form id="create"><input name="title" required maxlength="160"><button type="submit">Add task</button></form><ul id="tasks"></ul><script>const list=document.getElementById("tasks");async function refresh(){const tasks=await(await fetch("/api/tasks")).json();list.replaceChildren(...tasks.map(t=>{const li=document.createElement("li");li.textContent=t.title;return li;}));}document.getElementById("create").addEventListener("submit",async e=>{e.preventDefault();const title=new FormData(e.target).get("title");const res=await fetch("/api/tasks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({title})});if(!res.ok)throw new Error("Unable to save task");e.target.reset();await refresh();});refresh();</script></body></html>';
 
 const coderOutput = [
   "// filename: package.json",
@@ -152,16 +153,18 @@ describe("real generated source -> edit -> export -> restart", () => {
   it("emit canonical formatting during CI diagnosis", async () => {
     const prettier = await import("prettier");
     const { readFileSync } = await import("node:fs");
-    const filename = "src/__tests__/generatedExecutableExport.integration.test.ts";
+    const filename =
+      "src/__tests__/generatedExecutableExport.integration.test.ts";
     const source = readFileSync(filename, "utf8");
     const options = (await prettier.resolveConfig(filename)) ?? {};
     const formatted = await prettier.format(source, {
       ...options,
       filepath: filename,
     });
-    console.log("APPFORGE_FORMAT_BASE64=" + Buffer.from(formatted).toString("base64"));
+    console.log(
+      "APPFORGE_FORMAT_BASE64=" + Buffer.from(formatted).toString("base64"),
+    );
   });
-
 
   it("executes the generated Node product, saves a task, edits its UI, and reopens persistent data", async () => {
     const root = await mkdtemp(join(tmpdir(), "appforge-executable-export-"));
@@ -216,11 +219,9 @@ describe("real generated source -> edit -> export -> restart", () => {
       active = running.child;
       const html = (await requestGeneratedApp(running.base + "/")).body;
       assert.match(html, /<h1>Carving Tasks<\/h1>/);
-      let res = await requestGeneratedApp(
-        running.base + "/api/tasks",
-        "POST",
-        { title: "Carve a waka" },
-      );
+      let res = await requestGeneratedApp(running.base + "/api/tasks", "POST", {
+        title: "Carve a waka",
+      });
       assert.equal(res.status, 201);
       res = await requestGeneratedApp(running.base + "/api/tasks");
       assert.deepEqual(
