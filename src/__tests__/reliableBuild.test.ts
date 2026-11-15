@@ -11,7 +11,10 @@ import {
   maxFixRetriesForStack,
   stripFilenameHeaders,
 } from "../lib/reliableBuild.js";
-import { parseGeneratedFiles } from "../services/multiFileCoder.js";
+import {
+  ensureEssentialFiles,
+  parseGeneratedFiles,
+} from "../services/multiFileCoder.js";
 import {
   getStackScaffold,
   mergeScaffoldWithGenerated,
@@ -141,6 +144,32 @@ describe("P0 reliable builds", () => {
         ),
       ),
     ).toEqual(["src/v1..v2.ts"]);
+  });
+
+  it("requires the actual Node manifest even if Python files were generated", () => {
+    const generated = {
+      "requirements.txt": "requests==2.32.0",
+      "README.md": "# Customer product",
+      "index.html": "<main>Real UI</main>",
+      "src/App.tsx": "export function App() { return <main>Real UI</main> }",
+    };
+    const files = ensureEssentialFiles(generated, "react-node");
+    expect(JSON.parse(files["package.json"]).scripts.build).toBeTruthy();
+    expect(files["requirements.txt"]).toBe(generated["requirements.txt"]);
+    expect(files["src/App.tsx"]).toBe(generated["src/App.tsx"]);
+  });
+
+  it("requires Flutter and Node manifests for full-stack mobile products", () => {
+    const generated = {
+      "pubspec.yaml": "name: customer_mobile\\n",
+      "README.md": "# Mobile product",
+      "index.html": "<main>Documentation preview</main>",
+      "lib/main.dart": "void main() { print('customer app'); }",
+    };
+    const files = ensureEssentialFiles(generated, "flutter-node");
+    expect(files["package.json"]).toContain("appforge-mobile-backend");
+    expect(files["pubspec.yaml"]).toBe(generated["pubspec.yaml"]);
+    expect(files["lib/main.dart"]).toBe(generated["lib/main.dart"]);
   });
 
   it("hardens incomplete LLM output into a coherent Vite React tree", () => {
