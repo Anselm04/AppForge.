@@ -150,6 +150,37 @@ describe("placeholder and incomplete-product protection", () => {
     expect(codes).toContain("fake_form");
   });
 
+  it("blocks the empty Flutter infrastructure screen from passing as a customer product", () => {
+    const c = contract({
+      productType: "mobile_app",
+      selectedTechnologyStack: "flutter-node",
+      productFamilies: ["frontend", "backend"],
+      deploymentRequirements: [],
+      secondaryCapabilities: [],
+      runtimeRequirements: ["Flutter mobile runtime", "Node.js backend"],
+    });
+    const files = completeFiles(c);
+    files["lib/main.dart"] =
+      "import 'package:flutter/material.dart';\\n" +
+      "void main() => runApp(const MaterialApp(home: Scaffold(body: SizedBox.shrink())));";
+
+    const findings = inspectIncompleteProduct({ files, productContract: c }).findings;
+    expect(findings).toContainEqual(
+      expect.objectContaining({ code: "empty_page", path: "lib/main.dart" }),
+    );
+
+    files["lib/main.dart"] =
+      "import 'package:flutter/material.dart';\\n" +
+      "void main() => runApp(const MaterialApp(home: Scaffold(body: Text('Task dashboard'))));";
+    const implemented = inspectIncompleteProduct({
+      files,
+      productContract: c,
+    }).findings;
+    expect(implemented).not.toContainEqual(
+      expect.objectContaining({ code: "empty_page", path: "lib/main.dart" }),
+    );
+  });
+
   it("detects fake API success, empty services and empty database schemas", () => {
     const c = contract();
     const files = completeFiles(c);
