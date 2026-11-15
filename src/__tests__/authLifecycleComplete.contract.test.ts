@@ -23,6 +23,8 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(auth).not.toContain('    normalizePhone(phone),\n    password,');
     expect(delivery).toContain("signup_phone: input.phone");
     expect(delivery).toContain("signup_phone_verified: false");
+    expect(signup).not.toContain("navigate(`/verify-phone?next=");
+    expect(signup).toContain("navigate(next, { replace: true });");
   });
 
   it("permits confirmed customers without SMS and keeps owner privilege checks", () => {

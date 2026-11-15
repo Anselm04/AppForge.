@@ -114,9 +114,9 @@ export function Signup() {
       await signUp(email.trim(), normalizedPhone, password, next);
       if (getSession()) {
         await queryClient.invalidateQueries({ queryKey: ["auth"] });
-        navigate(`/verify-phone?next=${encodeURIComponent(next)}`, {
-          replace: true,
-        });
+        // A newly authenticated customer should enter the requested page;
+        // SMS enrolment is reserved for privileged owner flows.
+        navigate(next, { replace: true });
         return;
       }
       setCheckEmail(true);
