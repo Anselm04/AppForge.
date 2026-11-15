@@ -257,3 +257,46 @@ test("unrecognized or free invoice cannot mint a paid credit entitlement", async
   assert.equal(await transactionCount("in_free_no_paid_grant_101"), 1);
   // Real webhook ownership/tier validation is exercised separately.
 });
+
+test("different concurrent Stripe events for the same settled invoice cannot double-credit", async () => {
+  const initialBalance = await balance();
+  const results = await Promise.all([
+    receiveSignedInvoice("evt_parallel_a_101", "in_same_parallel_101"),
+    receiveSignedInvoice("evt_parallel_b_101", "in_same_parallel_101"),
+  ]);
+  // Both distinct event identities are processed, but the invoice ledger is unique.
+  assert.deepEqual(results, [true, true]);
+  assert.equal(await balance(), initialBalance + 100);
+  assert.equal(await transactionCount("in_same_parallel_101"), 1);
+});
+
+test("failed webhook handler is not marked processed and retry may succeed", async () => {
+  const eventId = "evt_retryable_handler_101";
+  const invoiceId = "in_retryable_handler_101";
+  const initialBalance = await balance();
+  await assert.rejects(
+    processOnce(eventId, "invoice.paid", async () => {
+      throw new Error("injected transient failure before fulfillment");
+    }),
+    /injected transient failure/,
+  );
+  assert.equal(await balance(), initialBalance);
+  assert.equal(await transactionCount(invoiceId), 0);
+  assert.equal(await receiveSignedInvoice(eventId, invoiceId), true);
+  assert.equal(await balance(), initialBalance + 100);
+  assert.equal(await transactionCount(invoiceId), 1);
+  assert.equal(await receiveSignedInvoice(eventId, invoiceId), false);
+  assert.equal(await balance(), initialBalance + 100);
+});
+
+test("concurrent credit exhaustion attempts cannot overspend persisted balance", async () => {
+  const initialBalance = await balance();
+  const amount = Math.floor(initialBalance / 2) + 1;
+  const results = await Promise.allSettled([
+    deductCredits(101, amount),
+    deductCredits(101, amount),
+  ]);
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(await balance(), initialBalance - amount);
+});
