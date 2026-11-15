@@ -149,8 +149,7 @@ Respond with JSON only.`,
     baseline,
     candidate,
     techStack,
-    validate: (files) =>
-      validateProjectFiles(files, techStack),
+    validate: (files) => validateProjectFiles(files, techStack),
     surgicalFix: (files, errors) =>
       surgicalIterateFix(files, errors, techStack),
     maxFixAttempts: 2,
