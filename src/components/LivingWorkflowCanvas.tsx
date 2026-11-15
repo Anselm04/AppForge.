@@ -41,7 +41,8 @@ export function LivingWorkflowCanvas({
   const nodes = useMemo(() => projectWorkflow(project, logs), [project, logs]);
   const [selected, setSelected] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const previewReady = canUseWorkspace && isProjectArtifactReady(project.status);
+  const previewReady =
+    canUseWorkspace && isProjectArtifactReady(project.status);
   const active =
     nodes.find((node) => node.id === selected) ??
     nodes.find((node) => node.state === "running") ??
