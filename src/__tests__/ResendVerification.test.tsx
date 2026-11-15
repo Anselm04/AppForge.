@@ -30,7 +30,9 @@ describe("confirmation recovery", () => {
       .mockRejectedValueOnce(new Error("Email delivery unavailable"))
       .mockResolvedValueOnce(undefined);
     render(
-      <MemoryRouter initialEntries={["/resend-verification?email=person%40example.com"]}>
+      <MemoryRouter
+        initialEntries={["/resend-verification?email=person%40example.com"]}
+      >
         <ResendVerification />
       </MemoryRouter>,
     );
