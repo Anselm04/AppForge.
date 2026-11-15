@@ -82,7 +82,7 @@ describe("real generated source -> edit -> export -> restart", () => {
         assert.ok(files[name]?.trim(), "Missing actual generated source: " + name);
       }
       const { base64, filename } = await zipFiles("carving-tasks", files);
-      assert.match(filename, /carving-tasks-appforge\\.zip$/);
+      assert.match(filename, /carving-tasks-appforge\.zip$/);
       const archive = await JSZip.loadAsync(Buffer.from(base64, "base64"));
       for (const [path, entry] of Object.entries(archive.files)) {
         if (entry.dir) continue;
