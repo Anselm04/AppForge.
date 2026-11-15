@@ -22,7 +22,16 @@ function cleanPath(raw: string): string | null {
     .trim()
     .replace(/^['"`]+|['"`]+$/g, "")
     .replace(/^\.\//, "");
-  if (!filename || filename.includes("..") || filename.startsWith("/")) {
+  // Generated paths eventually reach filesystem/export operations. Reject
+  // absolute, Windows and traversal paths before they become project files.
+  if (
+    !filename ||
+    filename.startsWith("/") ||
+    filename.includes("\\") ||
+    filename.includes(":") ||
+    /[\x00-\x1f\x7f]/.test(filename) ||
+    filename.split("/").some((part) => !part || part === "." || part === "..")
+  ) {
     return null;
   }
   return filename;

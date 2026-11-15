@@ -101,6 +101,48 @@ describe("P0 reliable builds", () => {
     ).toContain("```tsx");
   });
 
+  it("preserves filename-like comments inside generated source", () => {
+    const source = [
+      "// filename: src/App.tsx",
+      "export const code = 1;",
+      "// filename: comment-only metadata",
+      "export const value = 2;",
+      "",
+    ].join("\n");
+    expect(stripFilenameHeaders(source, "src/App.tsx")).toBe(
+      [
+        "export const code = 1;",
+        "// filename: comment-only metadata",
+        "export const value = 2;",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("rejects unsafe generated paths before filesystem export", () => {
+    for (const path of [
+      "../outside.ts",
+      "src/../outside.ts",
+      "src\\\\outside.ts",
+      "C:\\\\outside.ts",
+      "/absolute.ts",
+      "src//double.ts",
+      "src/./alias.ts",
+    ]) {
+      const files = parseGeneratedFiles(
+        `// filename: ${path}\nexport const unsafe = true;\n`,
+      );
+      expect(Object.keys(files)).toEqual([]);
+    }
+    expect(
+      Object.keys(
+        parseGeneratedFiles(
+          "// filename: src/v1..v2.ts\nexport const safe = true;\n",
+        ),
+      ),
+    ).toEqual(["src/v1..v2.ts"]);
+  });
+
   it("hardens incomplete LLM output into a coherent Vite React tree", () => {
     const hardened = hardenGeneratedProject(
       {
