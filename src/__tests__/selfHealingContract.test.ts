@@ -86,6 +86,11 @@ function contract() {
 beforeEach(() => {
   vi.clearAllMocks();
   state.updates = [];
+  // Existing deployment-success cases mock the network; explicitly opt in to
+  // the mocked old Fly path, never a real provider in CI.
+  vi.stubEnv("APPFORGE_FLY_OWNER_RECONNECTED", "true");
+  vi.stubEnv("APPFORGE_AUTONOMOUS_PRODUCTION_DEPLOY", "true");
+  vi.stubEnv("FLY_API_TOKEN", "offline-mock-fly-token");
   vi.stubEnv("SENTRY_API_TOKEN", "test-token");
   vi.stubEnv("SENTRY_ORG_SLUG", "org");
   vi.stubEnv("SENTRY_PROJECT_SLUG", "proj");
@@ -118,6 +123,29 @@ afterEach(() => {
 });
 
 describe("self-healing repair keeps the canonical contract", () => {
+  it("does not call an AI repair or Fly when the owner disconnected hosting", async () => {
+    vi.stubEnv("APPFORGE_FLY_OWNER_RECONNECTED", "false");
+    const productContract = contract();
+    state.project = {
+      id: 41,
+      status: "production-certified",
+      productContract,
+      requirementManifest: { requirements: [] },
+    };
+    state.snapshot = {
+      files: { "index.html": "<canvas></canvas>" },
+      techStack: productContract.selectedTechnologyStack,
+    };
+
+    await runSelfHealingCycle();
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(agent.runSeniorDevAgent).not.toHaveBeenCalled();
+    expect(deployment.deployValidatedProject).not.toHaveBeenCalled();
+    expect(dbMocks.createSeniorDevTask).not.toHaveBeenCalled();
+    expect(dbMocks.markSnapshotAsCurrent).not.toHaveBeenCalled();
+  });
+
   it("keeps a deployed repair recoverable without claiming restore proof", async () => {
     const productContract = contract();
     const markers = productContract.functionalRequirements

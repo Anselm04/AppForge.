@@ -13,6 +13,7 @@ import {
   releaseSelfHealingProject,
 } from "../services/self-healing-lock.js";
 import { deployValidatedProject } from "../services/productionAutoDeploy.js";
+import { flyAutonomousRecoveryAuthorized } from "../lib/flyAutonomousRecoveryGate.js";
 import { productContractSchema } from "../lib/productContract.js";
 import {
   evaluateCertification,
@@ -236,6 +237,15 @@ async function createAutonomousFixTask(
   });
   if (!project || project.status !== "production-certified") {
     logger.info({ projectId }, "self_healing_project_not_certified");
+    return false;
+  }
+  if (!flyAutonomousRecoveryAuthorized()) {
+    // Sentry issue stays retryable, but no paid agent or Fly deployment is
+    // dispatched while the owner has disconnected this provider.
+    logger.info(
+      { projectId },
+      "self_healing_disconnected_fly_no_paid_repair_or_deployment",
+    );
     return false;
   }
   if (!project.productContract) {
@@ -586,6 +596,7 @@ function topIssueTitle(issues: SentryIssue[]): string {
 
 /** One cycle is exported so tests/operations can verify the persisted watch path. */
 export async function runSelfHealingCycle(): Promise<void> {
+  if (!flyAutonomousRecoveryAuthorized()) return;
   await hydrateSelfHealingWatchlist();
   for (const state of watchedProjects.values()) {
     try {
@@ -601,6 +612,10 @@ export async function runSelfHealingCycle(): Promise<void> {
 
 /** Main watcher loop — call from server.ts on startup. */
 export function startSelfHealingWatcher(intervalMs = 300_000) {
+  if (!flyAutonomousRecoveryAuthorized()) {
+    logger.info("self_healing_watcher_disabled_disconnected_fly");
+    return () => {};
+  }
   const { token, org, project } = sentryApiConfig();
 
   if (!ENV.sentryDsn) {
