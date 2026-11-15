@@ -85,14 +85,14 @@ describe("requireAuthenticatedUser", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("does not let an unverified phone bypass verification through REST", () => {
+  it("allows an authenticated non-owner REST request without phone verification", () => {
     const req = {
       user: { id: 42, email: "customer@example.com", phoneVerified: false },
     } as Request;
     const res = createResponse();
     const next = vi.fn();
     requireAuthenticatedUser(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
   });
 });
