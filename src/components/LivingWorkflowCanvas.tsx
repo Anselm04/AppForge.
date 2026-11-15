@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { LiveSpecialistFlow } from "./LiveSpecialistFlow.js";
 import type { BuildLogEntry } from "../lib/buildLogView.js";
 import { projectWorkflow, type WorkflowState } from "../lib/livingWorkflow.js";
+import type { PlannedTask } from "../lib/livingTaskFlow.js";
 
 const statusStyles: Record<WorkflowState, string> = {
   queued: "border-slate-200 bg-white text-slate-500",
@@ -16,6 +17,7 @@ export function LivingWorkflowCanvas({
   project,
   logs,
   taskLogs,
+  plannedTasks,
 }: {
   project: {
     status?: string | null;
@@ -24,6 +26,7 @@ export function LivingWorkflowCanvas({
   };
   logs: BuildLogEntry[];
   taskLogs?: BuildLogEntry[];
+  plannedTasks?: readonly PlannedTask[];
 }) {
   const nodes = useMemo(() => projectWorkflow(project, logs), [project, logs]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -132,6 +135,7 @@ export function LivingWorkflowCanvas({
       <LiveSpecialistFlow
         logs={taskLogs ?? logs}
         projectStatus={project.status}
+        plannedTasks={plannedTasks}
       />
     </section>
   );

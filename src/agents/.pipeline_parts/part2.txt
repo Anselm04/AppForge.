@@ -152,6 +152,7 @@
               module: task.module,
               taskId: task.id,
               ownerAgent: task.agent,
+              dependencies: [...task.dependencies],
               message: "Skipping already completed task with persisted output.",
             });
             continue;
@@ -203,6 +204,7 @@
               taskId: task.id,
               module: task.module,
               ownerAgent: task.agent,
+              dependencies: [...task.dependencies],
               attempt: taskAttempt,
               provider: attemptProvider.id,
               status: coordinationStatusSummary(coordinationRecord),

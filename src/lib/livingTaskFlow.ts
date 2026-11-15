@@ -1,6 +1,7 @@
 import type { BuildLogEntry } from "./buildLogView.js";
 
-export type TaskFlowState = "running" | "completed" | "failed" | "paused";
+export type TaskFlowState =
+  "queued" | "running" | "completed" | "failed" | "paused";
 export type TaskFlowNode = {
   id: string;
   label: string;
@@ -8,13 +9,14 @@ export type TaskFlowNode = {
   module: string;
   state: TaskFlowState;
   filenames: string[];
+  dependencies: string[];
   detail: string;
   attempt: number | null;
 };
 
 /** Keep compact task evidence independent of the 200-row token display log. */
 export function appendTaskFlowEvent(
-  previous: readonly BuildLogEntry[],
+  previous: BuildLogEntry[],
   incoming: BuildLogEntry,
 ): BuildLogEntry[] {
   const taskId = incoming.payload?.taskId;
@@ -23,7 +25,7 @@ export function appendTaskFlowEvent(
     typeof taskId !== "string" ||
     !taskId.trim()
   )
-    return [...previous];
+    return previous;
   if (
     ![
       "coordination_status",
@@ -44,6 +46,14 @@ export function appendTaskFlowEvent(
   return [...previous, incoming].slice(-512);
 }
 
+export type PlannedTask = {
+  id: string;
+  agent: string;
+  module: string;
+  sequence: number;
+  dependencies: string[];
+};
+
 const MAX_TASKS = 24;
 const DISPLAY_LIMIT = 90;
 const safeText = (value: unknown, fallback: string): string =>
@@ -55,8 +65,32 @@ const safeText = (value: unknown, fallback: string): string =>
 export function buildTaskFlow(
   logs: readonly BuildLogEntry[],
   projectStatus: string | null | undefined,
+  plannedTasks: readonly PlannedTask[] = [],
 ): TaskFlowNode[] {
   const tasks = new Map<string, TaskFlowNode>();
+  for (const plan of [...plannedTasks].sort(
+    (a, b) => a.sequence - b.sequence,
+  )) {
+    if (typeof plan.id !== "string" || !plan.id.trim() || tasks.has(plan.id))
+      continue;
+    tasks.set(plan.id, {
+      id: plan.id,
+      label: safeText(plan.agent, "Engineering task"),
+      owner: safeText(plan.agent, "Coder"),
+      module: safeText(plan.module, "Application"),
+      state: "queued",
+      dependencies: [
+        ...new Set(
+          (plan.dependencies ?? []).filter(
+            (dep) => typeof dep === "string" && dep.trim() && dep !== plan.id,
+          ),
+        ),
+      ].slice(0, 32),
+      filenames: [],
+      detail: "Planned task — no execution event yet",
+      attempt: null,
+    });
+  }
   for (const log of logs) {
     if (log.agent !== "Coder") continue;
     const payload = log.payload;
@@ -81,6 +115,7 @@ export function buildTaskFlow(
         module: safeText(payload?.module, "Application"),
         state: "running",
         filenames: [],
+        dependencies: [],
         detail: "Task activity recorded",
         attempt: null,
       };
@@ -91,6 +126,18 @@ export function buildTaskFlow(
       item.label = item.owner;
     }
     if (payload?.module) item.module = safeText(payload.module, item.module);
+    if (Array.isArray(payload.dependencies)) {
+      item.dependencies = [
+        ...new Set(
+          payload.dependencies
+            .filter(
+              (id): id is string =>
+                typeof id === "string" && id.trim().length > 0 && id !== taskId,
+            )
+            .map((id) => id.slice(0, 160)),
+        ),
+      ].slice(0, 32);
+    }
     if (
       typeof payload?.attempt === "number" &&
       Number.isFinite(payload.attempt)
