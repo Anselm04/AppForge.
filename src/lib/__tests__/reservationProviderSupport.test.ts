@@ -116,6 +116,7 @@ describe("generated authorized reservation-provider support", () => {
     expect(provider).toContain("confirmedByUser");
     expect(provider).toContain("idempotencyKey");
     expect(sandbox).toContain("SandboxReservationProvider");
+    expect(sandbox).toContain("Sandbox reservations cannot run in production");
     expect(sandbox).toContain("assertConfirmedBooking(request)");
     expect(registry).toContain("RESERVATION_PROVIDER_MODE");
     expect(registry).toContain("|| 'unconfigured'");
