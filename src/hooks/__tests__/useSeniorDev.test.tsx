@@ -58,6 +58,35 @@ describe("Senior Dev authenticated task actions", () => {
     );
   });
 
+  it("marks a valid done event completed and rejects invalid completion payloads", async () => {
+    const { result } = renderHook(() => useSeniorDev());
+    await act(async () => {
+      await result.current.startTask(7, "Build the customer application", "autonomous");
+    });
+    const callback = mocks.consume.mock.calls[0][1] as (
+      event: string,
+      data: string,
+    ) => void;
+    act(() => {
+      callback("done", '{"summary":"Ready","filesChanged":[],"creditsSpent":0}');
+    });
+    expect(result.current.stage).toBe("completed");
+    expect(result.current.result?.summary).toBe("Ready");
+
+    await act(async () => {
+      await result.current.startTask(7, "Build another application", "autonomous");
+    });
+    const secondCallback = mocks.consume.mock.calls[1][1] as (
+      event: string,
+      data: string,
+    ) => void;
+    act(() => {
+      secondCallback("done", "not-json");
+    });
+    expect(result.current.stage).toBe("failed");
+    expect(result.current.error).toMatch(/invalid completion response/);
+  });
+
   it("approves through tRPC and resumes using the cookie-backed session", async () => {
     const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("event: done\\ndata: {}\\n\\n", {
