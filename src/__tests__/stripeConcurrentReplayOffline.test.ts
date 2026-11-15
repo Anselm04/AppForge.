@@ -30,7 +30,10 @@ vi.mock("postgres", () => ({
             const current = new Promise<void>((resolve) => {
               release = resolve;
             });
-            state.locks.set(eventId, prior.then(() => current));
+            state.locks.set(
+              eventId,
+              prior.then(() => current),
+            );
             await prior;
             unlock = release;
             return [];
