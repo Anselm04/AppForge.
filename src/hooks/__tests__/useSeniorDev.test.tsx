@@ -58,6 +58,31 @@ describe("Senior Dev authenticated task actions", () => {
     );
   });
 
+  it("reports stream interruption instead of leaving the build loading", async () => {
+    let finish!: () => void;
+    mocks.consume.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useSeniorDev());
+    await act(async () => {
+      await result.current.startTask(
+        7,
+        "Build a complete application",
+        "autonomous",
+      );
+    });
+    expect(result.current.isLoading).toBe(true);
+    await act(async () => {
+      finish();
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.stage).toBe("failed");
+    expect(result.current.error).toMatch(/ended before the task/);
+  });
+
   it("marks a valid done event completed and rejects invalid completion payloads", async () => {
     const { result } = renderHook(() => useSeniorDev());
     await act(async () => {
