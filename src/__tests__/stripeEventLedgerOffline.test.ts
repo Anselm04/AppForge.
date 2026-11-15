@@ -54,8 +54,20 @@ describe("Stripe event ledger: hermetic replay contract", () => {
     const grant = async () => {
       creditsGranted += 50;
     };
-    expect(await processStripeEventOnce("evt_paid_1", "checkout.session.completed", grant)).toBe(true);
-    expect(await processStripeEventOnce("evt_paid_1", "checkout.session.completed", grant)).toBe(false);
+    expect(
+      await processStripeEventOnce(
+        "evt_paid_1",
+        "checkout.session.completed",
+        grant,
+      ),
+    ).toBe(true);
+    expect(
+      await processStripeEventOnce(
+        "evt_paid_1",
+        "checkout.session.completed",
+        grant,
+      ),
+    ).toBe(false);
     expect(creditsGranted).toBe(50);
     expect(state.transactionCount).toBe(2);
     expect(state.closed).toBe(2);
@@ -63,14 +75,24 @@ describe("Stripe event ledger: hermetic replay contract", () => {
 
   it("retries a failed event instead of marking it processed", async () => {
     await expect(
-      processStripeEventOnce("evt_failed_1", "invoice.payment_failed", async () => {
-        throw new Error("database write failed");
-      }),
+      processStripeEventOnce(
+        "evt_failed_1",
+        "invoice.payment_failed",
+        async () => {
+          throw new Error("database write failed");
+        },
+      ),
     ).rejects.toThrow("database write failed");
     let deliveries = 0;
-    expect(await processStripeEventOnce("evt_failed_1", "invoice.payment_failed", async () => {
-      deliveries++;
-    })).toBe(true);
+    expect(
+      await processStripeEventOnce(
+        "evt_failed_1",
+        "invoice.payment_failed",
+        async () => {
+          deliveries++;
+        },
+      ),
+    ).toBe(true);
     expect(deliveries).toBe(1);
     expect(state.closed).toBe(2);
   });
