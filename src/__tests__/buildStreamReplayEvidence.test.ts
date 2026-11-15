@@ -6,9 +6,8 @@ describe("build SSE replay verification identity", () => {
 
   it("reads persisted current artifact before declaring runtime verification", () => {
     expect(route).toContain("getCurrentArtifact(projectId)");
-    expect(route).toContain(
-      "assessFactoryExecution(artifact.validationResult).verified",
-    );
+    expect(route).toContain("executionVerified = assessFactoryExecution(");
+    expect(route).toContain("artifact.validationResult,");
     expect(route).toContain("executionVerified,");
     expect(route).toContain("validationPassed: executionVerified,");
     expect(route).toContain("snapshotId: verificationSnapshotId,");
