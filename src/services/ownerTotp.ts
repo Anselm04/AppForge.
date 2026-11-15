@@ -30,7 +30,8 @@ function config(): { origin: string; key: string } {
     process.env.VITE_SUPABASE_ANON_KEY?.trim() ||
     process.env.SUPABASE_ANON_KEY?.trim() ||
     "";
-  if (!raw || !key) throw new Error("Owner TOTP requires configured Supabase Auth");
+  if (!raw || !key)
+    throw new Error("Owner TOTP requires configured Supabase Auth");
   const url = new URL(raw);
   if (
     !["http:", "https:"].includes(url.protocol) ||
@@ -75,7 +76,9 @@ async function requestGoTrue<T>(
   });
   if (!response.ok) {
     // Do not leak Supabase response bodies or authenticator secrets into logs.
-    throw new Error(`Supabase owner TOTP request refused (HTTP ${response.status})`);
+    throw new Error(
+      `Supabase owner TOTP request refused (HTTP ${response.status})`,
+    );
   }
   return (await response.json()) as T;
 }
@@ -111,7 +114,11 @@ export async function ownerTotpStatus(
   req: Request,
   ownerUid: string,
   fetcher: typeof fetch = fetch,
-): Promise<{ enrolled: boolean; factorCount: number; factorId: string | null }> {
+): Promise<{
+  enrolled: boolean;
+  factorCount: number;
+  factorId: string | null;
+}> {
   const verified = (await ownerFactors(req, ownerUid, fetcher)).filter(
     (factor) => factor.status === "verified",
   );
@@ -129,7 +136,9 @@ export async function enrollOwnerTotp(
 ): Promise<{ factorId: string; uri: string; secret: string }> {
   const present = await ownerFactors(req, ownerUid, fetcher);
   if (present.some((factor) => factor.status === "verified")) {
-    throw new Error("Owner TOTP is already enrolled; verify your existing factor");
+    throw new Error(
+      "Owner TOTP is already enrolled; verify your existing factor",
+    );
   }
   // Reuse an unverified factor only through its original private QR secret;
   // never expose an old factor's private seed from another session.
@@ -194,7 +203,9 @@ export async function verifyOwnerTotp(
       (factor) => factor.id === factorId && factor.status === "verified",
     )
   ) {
-    throw new Error("An existing verified factor must be used for owner step-up");
+    throw new Error(
+      "An existing verified factor must be used for owner step-up",
+    );
   }
 
   const token = validatedBearer(req);
