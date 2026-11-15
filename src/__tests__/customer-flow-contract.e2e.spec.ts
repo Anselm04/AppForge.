@@ -209,8 +209,9 @@ describe("critical customer flow contract", () => {
       'status: "running" as const,',
     ]);
     expect(projects).toContain("Build start refund for project ${id}");
+    expect(projects).toContain("await releaseProjectBuildClaim(");
     expect(projects).toContain(
-      'await releaseProjectBuildClaim(id, ctx.user.id, "pending", null)',
+      'refundReconciliationRequired ? "failed" : "pending"',
     );
   });
 
