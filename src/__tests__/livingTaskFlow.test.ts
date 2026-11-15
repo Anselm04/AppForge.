@@ -91,6 +91,29 @@ describe("live specialist workflow projection", () => {
     });
   });
 
+  it("returns to running when an actual retry event follows a task error", () => {
+    const nodes = buildTaskFlow(
+      [
+        {
+          agent: "Coder",
+          type: "coordination_status",
+          payload: { taskId: "retry-task", attempt: 1, error: "invalid output" },
+        },
+        {
+          agent: "Coder",
+          type: "coordination_status",
+          payload: { taskId: "retry-task", attempt: 2 },
+        },
+      ],
+      "running",
+    );
+    expect(nodes[0]).toMatchObject({
+      id: "retry-task",
+      attempt: 2,
+      state: "running",
+    });
+  });
+
   it("ignores unrelated agent activity and bounds the visible graph", () => {
     const logs = Array.from({ length: 30 }, (_, i) => ({
       agent: "Coder",
