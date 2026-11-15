@@ -23,27 +23,36 @@ export function appendTaskFlowEvent(
   if (
     incoming.agent !== "Coder" ||
     typeof taskId !== "string" ||
-    !taskId.trim()
-  )
+    !taskId.trim() ||
+    !["coordination_status", "chunk", "task_complete", "task_resume_skip"].includes(incoming.type)
+  ) return previous;
+
+  // Do not allow reconnect replay to generate duplicate milestones.
+  const signature = (event: BuildLogEntry): string =>
+    JSON.stringify([
+      event.agent, event.type, event.payload?.taskId, event.payload?.attempt,
+      event.payload?.filename, event.payload?.error, event.payload?.message,
+      event.payload?.dependencies,
+    ]);
+  if (incoming.type === "chunk") {
+    if (previous.some((event) => event.type === "chunk" && event.payload?.taskId === taskId)) {
+      return previous;
+    }
+  } else if (previous.some((event) => signature(event) === signature(incoming))) {
     return previous;
-  if (
-    ![
-      "coordination_status",
-      "chunk",
-      "task_complete",
-      "task_resume_skip",
-    ].includes(incoming.type)
-  )
-    return [...previous];
-  // One chunk indicates the task streamed code; actual text stays in Logs.
-  if (
-    incoming.type === "chunk" &&
-    previous.some(
-      (item) => item.type === "chunk" && item.payload?.taskId === taskId,
-    )
-  )
-    return [...previous];
-  return [...previous, incoming].slice(-512);
+  }
+
+  // Preserve final milestones for all tasks under streaming pressure: remove
+  // the oldest nonterminal events first. This is a bounded display cache,
+  // not a replacement for the persisted backend event history.
+  const next = [...previous, incoming];
+  if (next.length <= 512) return next;
+  const nonterminal = next.findIndex(
+    (event) => event.type === "chunk" || event.type === "coordination_status",
+  );
+  if (nonterminal >= 0) next.splice(nonterminal, 1);
+  else next.shift();
+  return next;
 }
 
 export type PlannedTask = {
@@ -159,7 +168,7 @@ export function buildTaskFlow(
     } else if (log.type === "coordination_status" && payload?.error) {
       item.state = "failed";
       item.detail = safeText(payload.error, "Task error recorded");
-    } else if (item.state !== "completed") {
+    } else if (item.state !== "completed" && item.state !== "failed") {
       item.state = "running";
       item.detail =
         log.type === "chunk"
