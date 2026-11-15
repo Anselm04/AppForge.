@@ -23,6 +23,7 @@ import {
  * Local GoTrue HTTP-contract mock; no real service, email, keys or login tokens.
  * The mock is deliberately not evidence of Supabase hosted delivery or RLS.
  */
+// prettier-ignore
 describe("customer GoTrue lifecycle over local in-memory HTTP mock", () => {
   let verified = false;
   let password = "InitialPassword123!";
