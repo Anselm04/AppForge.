@@ -11,6 +11,12 @@ export interface BuildLogEntry {
     spent?: number;
     creditsSpent?: number;
     stage?: string;
+    taskId?: string;
+    ownerAgent?: string;
+    module?: string;
+    filename?: string;
+    attempt?: number;
+    error?: string;
     passed?: boolean;
     errors?: string[];
   };
