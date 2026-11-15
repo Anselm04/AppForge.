@@ -28,7 +28,7 @@ function cleanPath(raw: string): string | null {
     filename.startsWith("/") ||
     filename.includes("\\") ||
     filename.includes(":") ||
-    /[\x00-\x1f\x7f]/.test(filename) ||
+    [...filename].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) ||
     filename.split("/").some((part) => !part || part === "." || part === "..")
   ) {
     return null;
