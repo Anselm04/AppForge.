@@ -351,10 +351,10 @@ export const projectsRouter = router({
           err instanceof Error ? err.message : "Unable to enqueue build";
         const queueSaturated =
           err instanceof Error && err.name === "BuildQueueSaturatedError";
-        throw new TRPCError({
-          code: queueSaturated ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR",
-          message,
-        });
+        if (queueSaturated) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message });
+        }
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
 
       return {
