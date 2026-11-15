@@ -25,6 +25,11 @@ export async function claimProjectBuildStart(
           eq(schema.projects.id, projectId),
           eq(schema.projects.userId, userId),
           inArray(schema.projects.status, STARTABLE_BUILD_STATUSES),
+          // A failed credit refund requires ledger reconciliation before retry.
+          or(
+            isNull(schema.projects.pauseReason),
+            ne(schema.projects.pauseReason, "credit_refund_failure"),
+          ),
           or(
             ne(schema.projects.status, "paused"),
             and(
