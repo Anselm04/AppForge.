@@ -1115,3 +1115,16 @@ The previous unconditional production-only build and checkout rejection has been
 - A missing bundle or fallback is recorded as failed live verification. This prevents a host whose root page loads but app scripts/styles are broken from being classified as a working deployed customer application. It does not block development or create fake deployments.
 - Recovery verification: use the production health regression tests for valid MIME JS/CSS assets, missing 404 bundles, HTTP-200 HTML fallbacks, redirects and empty 200 CSS responses.
 - Rollback: revert the asset-specific MIME/body probe and its tests to restore status-only asset checks. No database, customer source, payment, or hosting-provider changes are involved.
+
+
+## Offline CI provider isolation and deployment probe recovery — 15 November 2026
+
+Recovery-impact review for PR #403:
+
+- The normal `CI Pipeline` research verification must use fixture/offline tests with `APPFORGE_LIVE_RESEARCH_TESTS=0`. Restoration of a trusted source revision must not require a paid research provider or live API credential just to prove the offline test gate passes.
+- Keep live provider qualification as a separately authorized, explicitly recorded test. Never elevate a mocked research response into evidence of live provider correctness.
+- A recovered deployment-verification worker must reject credential-bearing live URLs, loopback hosts, internal DNS suffixes, and IP-literal hosts before attempting HTTP identity or health probes. These restrictions apply even when the URL purports to come from the deployment provider.
+- Recovery validation must run `src/__tests__/productionAutoDeploy.test.ts` and the offline research fixture tests from a clean trusted SHA before any production host is considered for reactivation.
+- No host, paid infrastructure, customer data, credential inventory or backup storage location changes in this repair. Existing independent owner recovery paths are unaffected.
+
+Verification: source and regression tests were committed; full exact-head CI remains mandatory before merge. Production activation and host selection require separate approval.
