@@ -75,6 +75,32 @@ export async function validateSingleFile(
           .slice(0, 400),
       };
     }
+    // Bolt-DIY's file-validation flow uses Prettier's syntax parser without
+    // writing the formatted result. Keep AppForge's TypeScript diagnostics and
+    // additionally reject parser-invalid edits before the DB snapshot changes.
+    // Reference: Bolt-DIY/app/lib/runtime/projectFileValidation.ts (MIT).
+    try {
+      const typescript = [".ts", ".tsx", ".mts", ".cts"].includes(ext);
+      const [{ format }, parser, estree] = await Promise.all([
+        import("prettier/standalone"),
+        typescript
+          ? import("prettier/plugins/typescript")
+          : import("prettier/plugins/babel"),
+        import("prettier/plugins/estree"),
+      ]);
+      await format(content, {
+        filepath: path,
+        parser: typescript ? "typescript" : "babel",
+        plugins: [parser.default, estree.default],
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Syntax check failed for ${path}: ${
+          error instanceof Error ? error.message.split("\\n")[0].slice(0, 260) : "Invalid syntax"
+        }. The generated file was not saved.`,
+      };
+    }
     return {
       ok: true,
       message:
