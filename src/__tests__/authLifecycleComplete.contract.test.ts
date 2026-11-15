@@ -20,7 +20,9 @@ describe("complete AppForge authentication lifecycle", () => {
       "await signUp(email.trim(), normalizedPhone, password, next);",
     );
     expect(auth).toContain('phone.trim() ? normalizePhone(phone) : ""');
-    expect(auth).not.toContain('    normalizePhone(phone),\n    password,');
+    expect(auth).not.toContain(
+      '    normalizePhone(phone),\n    password,',
+    );
     expect(delivery).toContain("signup_phone: input.phone");
     expect(delivery).toContain("signup_phone_verified: false");
     expect(signup).not.toContain("navigate(`/verify-phone?next=");
