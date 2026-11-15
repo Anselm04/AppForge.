@@ -1128,3 +1128,11 @@ Recovery-impact review for PR #403:
 - No host, paid infrastructure, customer data, credential inventory or backup storage location changes in this repair. Existing independent owner recovery paths are unaffected.
 
 Verification: source and regression tests were committed; full exact-head CI remains mandatory before merge. Production activation and host selection require separate approval.
+
+## Owner MFA development fallback hardening — 15 November 2026
+
+- `ADMIN_MFA_TRIAL_FALLBACK` and `ADMIN_MFA_TRIAL_FALLBACK_UNTIL` are deprecated and **must not** enable admin verification-code disclosure in production, even when present in an old restored environment.
+- The development-only SMS provider fallback is permitted solely when `ENV.isProduction` is false, for isolated offline test fixtures. It is not an owner recovery mechanism and is never an authorized production break-glass control.
+- In production, a failed owner MFA provider request must remain fail-closed. Owner recovery must use the independently provisioned provider/MFA recovery routes listed above; no test code may be issued to the browser.
+- Rehearse production fallback denial by setting the deprecated flags in a local test configuration with `ENV.isProduction=true` and asserting `admin.requestMfa` refuses and no admin cookie is granted. Never deploy, send real SMS, or charge a provider during this regression.
+- Separate work remains to migrate owner step-up to verified Supabase authenticator TOTP; this hardening does not certify that migration or eliminate the current Twilio service dependency.
