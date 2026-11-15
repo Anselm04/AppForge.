@@ -47,6 +47,8 @@ describe("complete AppForge authentication lifecycle", () => {
     expect(login).not.toContain("if (user?.isOwner && user.phoneVerified !== true)");
     expect(trpc).toContain("if (!user.phoneVerified)");
     expect(signupRoute).toContain("phoneVerificationRequired: false");
+    expect(signupRoute).toContain("email.length > 254");
+    expect(source("src/routes/authSignup.ts")).toContain("email.length > 254");
   });
 
   it("lets an authenticated account attach a phone without letting the browser choose the verification target later", () => {

@@ -197,8 +197,8 @@ router.post(
     const next = safeNext(req.body?.next);
 
     if (
-      !email ||
-      !email.includes("@") ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      email.length > 254 ||
       (req.body?.phone && !phone) ||
       password.length < 8
     ) {
