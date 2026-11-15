@@ -60,7 +60,7 @@ describe("critical customer flow contract", () => {
     );
   });
 
-  it("preserves signup destination through email and phone verification", () => {
+  it("preserves signup destination through email confirmation without customer SMS", () => {
     const auth = source("../lib/auth.ts");
     const signup = source("../pages/Signup.tsx");
     const app = source("../App.tsx");
@@ -75,7 +75,8 @@ describe("critical customer flow contract", () => {
       "await signUp(email.trim(), normalizedPhone, password, next);",
     );
     expect(signup).toContain('id="signup-phone"');
-    expect(signup).toContain("/verify-phone?next=");
+    expect(signup).toContain('label="Mobile number (optional)"');
+    expect(signup).toContain("navigate(next, { replace: true })");
     expect(app).toContain('path="/verify-phone"');
   });
 
