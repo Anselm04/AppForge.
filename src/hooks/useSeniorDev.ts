@@ -153,20 +153,36 @@ export function useSeniorDev() {
       const controller = new AbortController();
       streamControllerRef.current = controller;
 
+      let terminalReceived = false;
       void consumeAuthedSse(
         `/api/build/senior/${taskId}`,
-        handleStreamEvent,
+        (event, data) => {
+          if (["done", "error", "awaiting_approval"].includes(event)) {
+            terminalReceived = true;
+          }
+          handleStreamEvent(event, data);
+        },
         controller.signal,
-      ).catch((err: unknown) => {
-        if (controller.signal.aborted) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
-        setStage("failed");
-        setIsLoading(false);
-        if (streamControllerRef.current === controller) {
-          streamControllerRef.current = null;
-        }
-      });
+      )
+        .then(() => {
+          if (controller.signal.aborted || terminalReceived) return;
+          setError("Build stream ended before the task reported its status.");
+          setStage("failed");
+          setIsLoading(false);
+          if (streamControllerRef.current === controller) {
+            streamControllerRef.current = null;
+          }
+        })
+        .catch((err: unknown) => {
+          if (controller.signal.aborted) return;
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(msg);
+          setStage("failed");
+          setIsLoading(false);
+          if (streamControllerRef.current === controller) {
+            streamControllerRef.current = null;
+          }
+        });
     },
     [disconnect, handleStreamEvent],
   );
