@@ -14,6 +14,11 @@ import { grantStripeInvoicePlanCredits } from "../services/stripePlanCredits.js"
 import { logger } from "../_core/logger.js";
 import { incrementOperationalMetric } from "../lib/operationsObservability.js";
 import { resolveInvoiceCreditTier } from "../services/stripeInvoiceCredits.js";
+import {
+  invoiceSubscriptionId,
+  subscriptionInvoiceLine,
+  subscriptionBillingPeriod,
+} from "../services/stripeInvoiceCompatibility.js";
 import { grantStripeInvoiceProviderCredits } from "../services/providerCreditProvisioning.js";
 import {
   expireProviderCreditTopUp,
@@ -398,12 +403,8 @@ async function upsertSubscription(opts: {
     subscription.status === "trialing" && subscription.trial_end
       ? new Date(subscription.trial_end * 1000)
       : null;
-  const periodStart = subscription.current_period_start
-    ? new Date(subscription.current_period_start * 1000)
-    : null;
-  const periodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
+  const { start: periodStart, end: periodEnd } =
+    subscriptionBillingPeriod(subscription);
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${userId})`);
@@ -672,10 +673,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+      const subscriptionId = invoiceSubscriptionId(invoice);
       if (subscriptionId) {
         const existing = await db.query.subscriptions.findFirst({
           where: eq(subscriptions.stripeSubscriptionId, subscriptionId),
@@ -743,9 +741,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
               "stripe_invoice_plan_credits_granted",
             );
           }
-          const invoiceLine = invoice.lines.data.find(
-            (line) => line.type === "subscription" && !line.proration,
-          );
+          const invoiceLine = invoice.lines.data.find(subscriptionInvoiceLine);
           if (!invoiceLine?.period) {
             throw new Error(
               "Stripe subscription invoice billing period is missing",
@@ -787,10 +783,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+      const subscriptionId = invoiceSubscriptionId(invoice);
       if (subscriptionId) {
         // Stripe does not guarantee delivery order. A failure snapshot can arrive
         // after a successful retry, cancellation, or another status transition.
