@@ -22,7 +22,11 @@ const ownerUid = "123e4567-e89b-42d3-a456-426614174000";
 const factorId = "123e4567-e89b-42d3-a456-426614174001";
 const challengeId = "123e4567-e89b-42d3-a456-426614174002";
 
-function token(aal: string, sub = ownerUid, session_id = "owner-session"): string {
+function token(
+  aal: string,
+  sub = ownerUid,
+  session_id = "owner-session",
+): string {
   return [
     "header",
     Buffer.from(JSON.stringify({ sub, session_id, aal })).toString("base64url"),
@@ -70,7 +74,9 @@ describe("owner authenticator step-up, without Twilio", () => {
         ],
       }),
     );
-    await expect(ownerTotpStatus(ownerRequest(), ownerUid, fetcher)).resolves.toEqual({
+    await expect(
+      ownerTotpStatus(ownerRequest(), ownerUid, fetcher),
+    ).resolves.toEqual({
       enrolled: true,
       factorCount: 1,
       factorId,
@@ -84,49 +90,70 @@ describe("owner authenticator step-up, without Twilio", () => {
   });
 
   it("rejects a Supabase identity mismatch before enrollment", async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
-      response({ id: "another-user", factors: [] }),
-    );
-    await expect(enrollOwnerTotp(ownerRequest(), ownerUid, fetcher)).rejects.toThrow(
-      "owner identity mismatch",
-    );
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response({ id: "another-user", factors: [] }));
+    await expect(
+      enrollOwnerTotp(ownerRequest(), ownerUid, fetcher),
+    ).rejects.toThrow("owner identity mismatch");
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("creates a new unverified factor without storing its secret on the server", async () => {
-    const fetcher = vi.fn<typeof fetch>()
+    const fetcher = vi
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(response({ id: ownerUid, factors: [] }))
-      .mockResolvedValueOnce(response({
-        id: factorId,
-        type: "totp",
-        totp: { secret: "EXAMPLESECRET", uri: "otpauth://totp/AppForge:Owner?secret=EXAMPLESECRET" },
-      }));
-    await expect(enrollOwnerTotp(ownerRequest(), ownerUid, fetcher)).resolves.toEqual({
+      .mockResolvedValueOnce(
+        response({
+          id: factorId,
+          type: "totp",
+          totp: {
+            secret: "EXAMPLESECRET",
+            uri: "otpauth://totp/AppForge:Owner?secret=EXAMPLESECRET",
+          },
+        }),
+      );
+    await expect(
+      enrollOwnerTotp(ownerRequest(), ownerUid, fetcher),
+    ).resolves.toEqual({
       factorId,
       secret: "EXAMPLESECRET",
       uri: "otpauth://totp/AppForge:Owner?secret=EXAMPLESECRET",
     });
-    expect(fetcher.mock.calls[1][0]).toBe("https://local-auth.example/auth/v1/factors");
+    expect(fetcher.mock.calls[1][0]).toBe(
+      "https://local-auth.example/auth/v1/factors",
+    );
     const body = JSON.parse(String(fetcher.mock.calls[1][1]?.body));
     expect(body.factor_type).toBe("totp");
     expect(JSON.stringify(body)).not.toContain("EXAMPLESECRET");
   });
 
   it("verifies the actual Supabase challenge and signs the owner cookie only after AAL2", async () => {
-    const fetcher = vi.fn<typeof fetch>()
+    const fetcher = vi
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(response({ id: ownerUid, factors: [factor] }))
       .mockResolvedValueOnce(response({ id: challengeId }))
-      .mockResolvedValueOnce(response({ access_token: elevated, refresh_token: "new-refresh" }))
+      .mockResolvedValueOnce(
+        response({ access_token: elevated, refresh_token: "new-refresh" }),
+      )
       .mockResolvedValueOnce(response({ id: ownerUid }));
     const req = ownerRequest();
     const res = fakeResponse();
     const result = await verifyOwnerTotp(
-      req, res, 7, ownerUid, factorId, "123456", fetcher,
+      req,
+      res,
+      7,
+      ownerUid,
+      factorId,
+      "123456",
+      fetcher,
     );
     expect(result.access_token).toBe(elevated);
     expect(req.authAccessToken).toBe(elevated);
     expect(mocks.setSessionCookies).toHaveBeenCalledWith(
-      res, elevated, "new-refresh",
+      res,
+      elevated,
+      "new-refresh",
     );
     expect(mocks.setAdminMfaCookie).toHaveBeenCalledWith(req, res, 7);
     expect(fetcher).toHaveBeenCalledTimes(4);
@@ -143,12 +170,23 @@ describe("owner authenticator step-up, without Twilio", () => {
       token("aal2", ownerUid, "different-session"),
       token("aal2", "attacker-user"),
     ]) {
-      const fetcher = vi.fn<typeof fetch>()
+      const fetcher = vi
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(response({ id: ownerUid, factors: [factor] }))
         .mockResolvedValueOnce(response({ id: challengeId }))
-        .mockResolvedValueOnce(response({ access_token: rejectedToken, refresh_token: "refresh" }));
+        .mockResolvedValueOnce(
+          response({ access_token: rejectedToken, refresh_token: "refresh" }),
+        );
       await expect(
-        verifyOwnerTotp(ownerRequest(), fakeResponse(), 7, ownerUid, factorId, "123456", fetcher),
+        verifyOwnerTotp(
+          ownerRequest(),
+          fakeResponse(),
+          7,
+          ownerUid,
+          factorId,
+          "123456",
+          fetcher,
+        ),
       ).rejects.toThrow("session identity is inconsistent");
     }
     expect(mocks.setSessionCookies).not.toHaveBeenCalled();
@@ -156,14 +194,30 @@ describe("owner authenticator step-up, without Twilio", () => {
   });
 
   it("rejects unowned factors, invalid codes and failure responses without granting access", async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
-      response({ id: ownerUid, factors: [factor] }),
-    );
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response({ id: ownerUid, factors: [factor] }));
     await expect(
-      verifyOwnerTotp(ownerRequest(), fakeResponse(), 7, ownerUid, challengeId, "123456", fetcher),
+      verifyOwnerTotp(
+        ownerRequest(),
+        fakeResponse(),
+        7,
+        ownerUid,
+        challengeId,
+        "123456",
+        fetcher,
+      ),
     ).rejects.toThrow("not owned");
     await expect(
-      verifyOwnerTotp(ownerRequest(), fakeResponse(), 7, ownerUid, factorId, "abc456", fetcher),
+      verifyOwnerTotp(
+        ownerRequest(),
+        fakeResponse(),
+        7,
+        ownerUid,
+        factorId,
+        "abc456",
+        fetcher,
+      ),
     ).rejects.toThrow("Invalid authenticator");
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(mocks.setAdminMfaCookie).not.toHaveBeenCalled();
