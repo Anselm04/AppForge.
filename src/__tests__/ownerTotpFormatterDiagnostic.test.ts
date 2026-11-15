@@ -14,7 +14,7 @@ it("emits canonical source formatting for TOTP integration repair", async () => 
       parser: "typescript",
     });
     process.stdout.write(
-      "APPFORGE_PRETTIER_" + path.replaceAll("/", "_").replaceAll(".", "_") +
+      "APPFORGE_PRETTIER_" + path.replace(/\//g, "_").replace(/\./g, "_") +
         "_BEGIN" + Buffer.from(formatted).toString("base64") +
         "_END\n",
     );
