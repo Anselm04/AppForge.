@@ -72,7 +72,7 @@ describe("customer GoTrue lifecycle over local in-memory HTTP mock", () => {
         active.add(access_token);
         return json(200, { access_token, user: { id: uid, email } });
       }
-      if (url.endsWith("/auth/v1/user") && init.method === "GET") {
+      if (url.endsWith("/auth/v1/user") && (init.method ?? "GET") === "GET") {
         return authorized && active.has(authorized)
           ? json(200, { id: uid, email })
           : json(401, { message: "Invalid session" });
@@ -135,10 +135,11 @@ describe("customer GoTrue lifecycle over local in-memory HTTP mock", () => {
     await sendPasswordRecovery({ email, redirectTo: "http://127.0.0.1:3000/reset-password" });
     await expect(supabaseClient.updatePassword("forged", "ReplacementPassword123!"))
       .rejects.toThrow(/Invalid session/);
+    const originalPassword = password;
     const recovered = await supabaseClient.signIn(email, password);
     await supabaseClient.updatePassword(recovered.access_token!, "ReplacementPassword123!");
     await supabaseClient.signOut(recovered.access_token!);
-    await expect(supabaseClient.signIn(email, password)).rejects.toThrow(/Invalid login/);
+    await expect(supabaseClient.signIn(email, originalPassword)).rejects.toThrow(/Invalid login/);
     await expect(supabaseClient.signIn(email, "ReplacementPassword123!"))
       .resolves.toMatchObject({ user: { id: uid } });
   });
