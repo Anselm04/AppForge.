@@ -575,7 +575,7 @@ export async function signUp(
 ) {
   const result = await supabaseClient.signUp(
     email,
-    normalizePhone(phone),
+    phone.trim() ? normalizePhone(phone) : "",
     password,
     next,
   );
