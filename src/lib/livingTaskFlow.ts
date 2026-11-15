@@ -1,6 +1,7 @@
 import type { BuildLogEntry } from "./buildLogView.js";
 
-export type TaskFlowState = "queued" | "running" | "completed" | "failed" | "paused";
+export type TaskFlowState =
+  "queued" | "running" | "completed" | "failed" | "paused";
 export type TaskFlowNode = {
   id: string;
   label: string;
@@ -67,15 +68,24 @@ export function buildTaskFlow(
   plannedTasks: readonly PlannedTask[] = [],
 ): TaskFlowNode[] {
   const tasks = new Map<string, TaskFlowNode>();
-  for (const plan of [...plannedTasks].sort((a, b) => a.sequence - b.sequence)) {
-    if (typeof plan.id !== "string" || !plan.id.trim() || tasks.has(plan.id)) continue;
+  for (const plan of [...plannedTasks].sort(
+    (a, b) => a.sequence - b.sequence,
+  )) {
+    if (typeof plan.id !== "string" || !plan.id.trim() || tasks.has(plan.id))
+      continue;
     tasks.set(plan.id, {
       id: plan.id,
       label: safeText(plan.agent, "Engineering task"),
       owner: safeText(plan.agent, "Coder"),
       module: safeText(plan.module, "Application"),
       state: "queued",
-      dependencies: [...new Set((plan.dependencies ?? []).filter((dep) => typeof dep === "string" && dep.trim() && dep !== plan.id))].slice(0, 32),
+      dependencies: [
+        ...new Set(
+          (plan.dependencies ?? []).filter(
+            (dep) => typeof dep === "string" && dep.trim() && dep !== plan.id,
+          ),
+        ),
+      ].slice(0, 32),
       filenames: [],
       detail: "Planned task — no execution event yet",
       attempt: null,
@@ -117,9 +127,16 @@ export function buildTaskFlow(
     }
     if (payload?.module) item.module = safeText(payload.module, item.module);
     if (Array.isArray(payload.dependencies)) {
-      item.dependencies = [...new Set(payload.dependencies.filter(
-        (id): id is string => typeof id === "string" && id.trim().length > 0 && id !== taskId,
-      ).map((id) => id.slice(0, 160)))].slice(0, 32);
+      item.dependencies = [
+        ...new Set(
+          payload.dependencies
+            .filter(
+              (id): id is string =>
+                typeof id === "string" && id.trim().length > 0 && id !== taskId,
+            )
+            .map((id) => id.slice(0, 160)),
+        ),
+      ].slice(0, 32);
     }
     if (
       typeof payload?.attempt === "number" &&
