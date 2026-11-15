@@ -231,7 +231,7 @@ export function Admin() {
                   value={mfaCode}
                   onChange={(event) =>
                     setMfaCode(
-                      event.target.value.replace(/\\D/g, "").slice(0, 6),
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
                     )
                   }
                   className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 tracking-[0.35em] dark:border-slate-600 dark:bg-slate-700"
