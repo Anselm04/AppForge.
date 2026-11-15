@@ -32,7 +32,8 @@
     "start:build-worker": "node dist/services/build-worker-entry.js",
     "test:local-load-contract": "node --test scripts/__tests__/load-test-local.test.mjs",
     "load:local-http": "node scripts/load-test-local.mjs",
-    "test:real-generation": "node --import tsx scripts/real-generation-smoke.ts"
+    "test:real-generation": "node --import tsx scripts/real-generation-smoke.ts",
+    "typecheck:typescript7:experimental": "node node_modules/typescript-7/bin/tsc -p tsconfig.server.json --noEmit"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -124,6 +125,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.7.0",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "typescript-7": "npm:typescript@7.0.2"
   }
 }
