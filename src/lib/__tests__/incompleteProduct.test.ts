@@ -155,7 +155,7 @@ describe("placeholder and incomplete-product protection", () => {
       productType: "mobile_app",
       selectedTechnologyStack: "flutter-node",
       productFamilies: ["frontend", "backend"],
-      deploymentRequirements: [],
+      deploymentRequirements: ["Deliver a mobile build artifact"],
       secondaryCapabilities: [],
       runtimeRequirements: ["Flutter mobile runtime", "Node.js backend"],
     });
