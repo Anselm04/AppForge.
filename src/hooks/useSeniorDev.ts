@@ -256,7 +256,16 @@ export function useSeniorDev() {
         throw new Error("Failed to resume Senior Dev after approval");
       }
 
-      await readSseBody(resumeRes.body, handleStreamEvent);
+      let terminalReceived = false;
+      await readSseBody(resumeRes.body, (event, data) => {
+        if (["done", "error", "awaiting_approval"].includes(event)) {
+          terminalReceived = true;
+        }
+        handleStreamEvent(event, data);
+      });
+      if (!terminalReceived) {
+        throw new Error("Senior Dev resume stream ended before completion.");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);

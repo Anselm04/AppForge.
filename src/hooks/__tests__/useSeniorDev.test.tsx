@@ -141,10 +141,15 @@ describe("Senior Dev authenticated task actions", () => {
     });
     expect(result.current.stage).toBe("failed");
     expect(result.current.result).toBeNull();
-
   });
 
   it("resumes approved tasks with the secure cookie session", async () => {
+    mocks.read.mockImplementationOnce(async (_body, onEvent) => {
+      onEvent(
+        "done",
+        '{"summary":"Complete","filesChanged":[],"creditsSpent":0}',
+      );
+    });
     const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("event: done\\ndata: {}\\n\\n", {
         status: 200,
@@ -173,4 +178,29 @@ describe("Senior Dev authenticated task actions", () => {
     expect(headers.has("Authorization")).toBe(false);
     fetcher.mockRestore();
   });
+
+  it("fails visibly if an approved task resume stream ends early", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("event: progress\\ndata: {}\\n\\n", {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    const { result } = renderHook(() => useSeniorDev());
+    await act(async () => {
+      await result.current.startTask(
+        7,
+        "Build the customer application",
+        "collaborative",
+      );
+    });
+    await act(async () => {
+      await expect(result.current.approvePlan()).rejects.toThrow(
+        "Senior Dev resume stream ended before completion.",
+      );
+    });
+    expect(result.current.stage).toBe("failed");
+    expect(result.current.isLoading).toBe(false);
+  });
+
 });
