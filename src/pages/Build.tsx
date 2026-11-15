@@ -13,6 +13,7 @@ import { RevenueReadinessPanel } from "../components/RevenueReadinessPanel.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
 import { AgentTerminal } from "../components/AgentTerminal.js";
 import { LivingWorkflowCanvas } from "../components/LivingWorkflowCanvas.js";
+import { appendTaskFlowEvent } from "../lib/livingTaskFlow.js";
 import {
   completedBuildUrl,
   stackPresentation,
@@ -56,6 +57,7 @@ export function Build() {
   const pid = parseInt(projectId ?? "0", 10);
   const [tab, setTab] = useState<BuildTab>("logs");
   const [logs, setLogs] = useState<BuildLog[]>([]);
+  const [taskEvents, setTaskEvents] = useState<BuildLog[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,6 +182,7 @@ export function Build() {
         if (event === "agent") {
           const data = JSON.parse(raw) as BuildLog;
           setLogs((prev) => appendVisibleBuildLog(prev, data));
+          setTaskEvents((prev) => appendTaskFlowEvent(prev, data));
           if (
             data.agent === "Coder" &&
             (data.type === "task_complete" || data.type === "complete")
@@ -507,6 +510,7 @@ export function Build() {
       setIsPaused(false);
       await refreshApprovalState();
       setLogs([]);
+      setTaskEvents([]);
       setStreamRevision((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Build resume failed");
@@ -621,7 +625,7 @@ export function Build() {
           </p>
         )}
 
-        {project && <LivingWorkflowCanvas project={project} logs={logs} />}
+        {project && <LivingWorkflowCanvas project={project} logs={logs} taskLogs={taskEvents} />}
 
         {project && (
           <section
