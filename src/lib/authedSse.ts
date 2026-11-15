@@ -7,6 +7,8 @@ import {
 
 export type SseHandler = (event: string, data: string) => void;
 
+const MAX_SSE_FRAME_CHARS = 8 * 1024 * 1024;
+
 function applyAuthHeaders(headers: Headers) {
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -55,7 +57,14 @@ export async function readSseBody(
       buffer += decoder.decode(value, { stream: true });
       const frames = buffer.split(/\r?\n\r?\n/);
       buffer = frames.pop() ?? "";
+      // Malformed or hostile streams must not accumulate unbounded memory.
+      if (buffer.length > MAX_SSE_FRAME_CHARS) {
+        throw new Error("Build stream event exceeds the maximum size");
+      }
       for (const frame of frames) {
+        if (frame.length > MAX_SSE_FRAME_CHARS) {
+          throw new Error("Build stream event exceeds the maximum size");
+        }
         const parsed = parseSseFrame(frame);
         if (!parsed || parsed.event === "ping") continue;
         onEvent(parsed.event, parsed.data);
