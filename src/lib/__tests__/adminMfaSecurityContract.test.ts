@@ -80,15 +80,22 @@ describe("owner admin MFA security contract", () => {
     expect(proof).not.toContain("APPFORGE_ADMIN_MFA_CODE");
   });
 
-  it("does not load admin data before SMS MFA succeeds", () => {
+  it("uses owner-only Supabase TOTP without loading private data first", () => {
     const page = source("../../pages/Admin.tsx");
+    const admin = source("../../routers/admin.ts");
+    const totp = source("../../services/ownerTotp.ts");
 
-    expect(page).toContain("trpc.admin.mfaStatus.query()");
-    expect(page).toContain("trpc.admin.requestMfa.mutate()");
-    expect(page).toContain("trpc.admin.verifyMfa.mutate");
+    expect(page).toContain("trpc.admin.totpStatus.query()");
+    expect(page).toContain("trpc.admin.totpEnroll.mutate()");
+    expect(page).toContain("trpc.admin.totpVerify.mutate");
     expect(page).toContain("enabled: mfaStatus?.verified === true");
-    expect(page).toContain("Admin verification");
-    expect(page).toContain("Six-digit code");
-    expect(page).toContain('aria-label="Admin SMS code"');
+    expect(page).toContain("Owner authenticator required");
+    expect(page).toContain('aria-label="Owner authenticator code"');
+    expect(admin).toContain("totpStatus: ownerAuthenticatedProcedure");
+    expect(admin).toContain("totpEnroll: ownerAuthenticatedProcedure");
+    expect(admin).toContain("totpVerify: ownerAuthenticatedProcedure");
+    expect(totp).toContain('claims.aal !== "aal2"');
+    expect(totp).toContain("setAdminMfaCookie(req, res, userId)");
+    expect(totp).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
 });
