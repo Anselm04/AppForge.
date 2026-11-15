@@ -38,7 +38,12 @@ describe("live specialist workflow projection", () => {
       });
     }
     expect(events.length).toBeLessThanOrEqual(512);
-    expect(events.some((event) => event.payload?.taskId === "task-0" && event.type === "task_complete")).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.payload?.taskId === "task-0" && event.type === "task_complete",
+      ),
+    ).toBe(true);
   });
 
   it("keeps task milestones when code streams hundreds of chunks", () => {
