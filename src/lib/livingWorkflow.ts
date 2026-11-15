@@ -42,12 +42,13 @@ export function projectWorkflow(snapshot: Snapshot, logs: BuildLogEntry[]): Work
     const explicitComplete = evidence.some((log) => ["task_complete", "complete"].includes(log.type) || log.payload?.passed === true);
     const explicitFailure = last?.type === "error" || last?.payload?.passed === false;
     let state: WorkflowState = "queued";
-    if (explicitComplete || terminal && index < stages.length - 1) state = "completed";
+    if (explicitComplete) state = "completed";
     if (snapshot.status === "running" && current === index) state = "running";
     if (snapshot.status === "running" && current < 0 && last && !explicitComplete) state = "running";
     if (failed && (current === index || explicitFailure)) state = "failed";
     if (paused && current === index) state = "paused";
-    if (terminal && index === stages.length - 1) state = "completed";
+    if (terminal && stage.id === "verify") state = "completed";
+    if (snapshot.status === "production-certified" && stage.id === "deliver") state = "completed";
     if (explicitFailure && !explicitComplete) state = "failed";
     return {
       id: stage.id,
