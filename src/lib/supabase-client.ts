@@ -167,6 +167,12 @@ export const supabaseClient = {
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
   },
+  getVerifiedUser(accessToken: string) {
+    return request<{ id: string; email?: string; phone?: string }>(
+      "/auth/v1/user",
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  },
   signOut(accessToken: string) {
     return request<Record<string, never>>("/auth/v1/logout?scope=local", {
       method: "POST",
