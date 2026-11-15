@@ -382,3 +382,15 @@ When reconciliation is required, operators must compare the exact customer, proj
 The order-workflow compensation approach in the Medusa reference repository distinguishes completed operations from rollback actions, and refund steps require a stable idempotency key. AppForge uses its existing idempotent credit ledger, not the Medusa framework. Build-claim release now also requires proof that exactly one running project row belonging to the user was transitioned. An update affecting zero rows is an uncertain recovery, **not** confirmation that the claim was released.
 
 On an uncertain release, retain ledger evidence and prior saved source, avoid assuming build credits are safe to re-charge, and reconcile project status, active durable queue jobs, credit debit and refund key before any retry. The existing create and REST entry points record and surface reconciliation-required errors. This source-only repair does not call paid providers or reconnect Fly.io.
+
+## Credit-refund idempotency identity verification (15 November 2026)
+
+The Medusa payment refund workflow explicitly uses a caller-provided idempotency key so repeated attempts do not move funds twice. AppForge retains its own PostgreSQL ledger and transaction key, and additionally verifies that a previously recorded transaction for the key matches the same user, credit amount and transaction type. A collision with a different actor or value is a recovery conflict, not proof that a refund occurred.
+
+On conflict, retain the original ledger row and project state, record reconciliation evidence from the build admission caller, and refuse automatic retry or duplicate credit issuance. Investigate the debit, refund key, user and project before making corrective entries. No external payment is initiated by this offline source repair.
+
+## Malformed queue job refund and concurrent attempt recovery (15 November 2026)
+
+The build worker must not refund a malformed job while a separate valid attempt is active on the same project. Record the malformed job as failure evidence and preserve the active attempt and its credit reservation. For a standalone malformed charged attempt, the worker uses the stable build-attempt refund key and requires the existing ledger refund to complete before clearing reservation fields or reporting customer credits refunded.
+
+If refund confirmation fails, retain reserved credit state, record reconciliation evidence, mark the affected build failed with an explicit credit-refund failure, and prohibit an automatic retry until the ledger, current build claim, durable queue and original charge have been reconciled. This follows the no-assumed-compensation principle in the Medusa reference payment step without introducing its framework. No paid service or Fly.io is activated.
