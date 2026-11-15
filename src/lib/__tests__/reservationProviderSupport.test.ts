@@ -118,6 +118,13 @@ describe("generated authorized reservation-provider support", () => {
     expect(sandbox).toContain("SandboxReservationProvider");
     expect(sandbox).toContain("assertConfirmedBooking(request)");
     expect(registry).toContain("RESERVATION_PROVIDER_MODE");
+    expect(registry).toContain("|| 'unconfigured'");
+    expect(registry).toContain(
+      "mode === 'sandbox' && process.env.NODE_ENV !== 'production'",
+    );
+    expect(files["server/.env.example"]).toContain(
+      "RESERVATION_PROVIDER_MODE=unconfigured",
+    );
     expect(registry).toContain("sandbox");
     expect(registry).toContain(
       "Production reservation provider is not configured",
