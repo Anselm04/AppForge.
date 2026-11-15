@@ -55,12 +55,17 @@ describe("AppForge signup confirmation delivery", () => {
       error: null,
     });
 
-    await expect(createSignupConfirmation({
-      email: "email-only@example.com",
-      phone: "",
-      password: "StrongPassword123!",
-      redirectTo: "https://app.example.com/login?next=%2Fdashboard",
-    })).resolves.toEqual({ userId: "email-only-customer", confirmationSent: true });
+    await expect(
+      createSignupConfirmation({
+        email: "email-only@example.com",
+        phone: "",
+        password: "StrongPassword123!",
+        redirectTo: "https://app.example.com/login?next=%2Fdashboard",
+      }),
+    ).resolves.toEqual({
+      userId: "email-only-customer",
+      confirmationSent: true,
+    });
 
     expect(signUp).toHaveBeenCalledWith({
       email: "email-only@example.com",

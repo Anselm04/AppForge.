@@ -85,7 +85,9 @@ describe("critical customer flow contract", () => {
     const trpc = source("../utils/trpc.ts");
     const middleware = source("../middleware/supabaseAuth.ts");
 
-    expect(auth).toContain('const BROWSER_SESSION_KEY = "appforge.browser-session"');
+    expect(auth).toContain(
+      'const BROWSER_SESSION_KEY = "appforge.browser-session"',
+    );
     expect(auth).toContain("export function browserSessionHeaders");
     expect(auth).toContain("if (!hasBrowserSession()) return null;");
     expect(auth).toContain("export async function refreshSession");
@@ -101,7 +103,9 @@ describe("critical customer flow contract", () => {
     expect(middleware).toContain(
       'const BROWSER_SESSION_HEADER = "x-appforge-browser-session"',
     );
-    expect(middleware).toContain("if (!hasBrowserSessionProof(req)) return undefined;");
+    expect(middleware).toContain(
+      "if (!hasBrowserSessionProof(req)) return undefined;",
+    );
   });
 
   it("keeps Stripe checkout and owner God Code as authenticated entitlement paths", () => {

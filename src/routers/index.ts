@@ -73,7 +73,10 @@ export const appRouter = router({
         // Phone verification exists only for the privileged owner pathway.
         // Ordinary customers must never trigger billable SMS verification.
         if (!isOwnerEmail(ctx.user.email)) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Owner access only" });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Owner access only",
+          });
         }
         if (ctx.user.phoneVerified) {
           return {
@@ -106,7 +109,10 @@ export const appRouter = router({
       .input(z.object({ code: z.string().regex(/^\d{4,10}$/) }))
       .mutation(async ({ ctx, input }) => {
         if (!isOwnerEmail(ctx.user.email)) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Owner access only" });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Owner access only",
+          });
         }
         if (ctx.user.phoneVerified) {
           return { verified: true } as const;

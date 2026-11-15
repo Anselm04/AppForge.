@@ -96,7 +96,12 @@ authSignupRouter.post("/signup", signupAbuseLimiter, async (req, res) => {
     typeof req.body?.password === "string" ? req.body.password : "";
   const next = safeNext(req.body?.next);
 
-  if (!email || !email.includes("@") || (req.body?.phone && !phone) || password.length < 8) {
+  if (
+    !email ||
+    !email.includes("@") ||
+    (req.body?.phone && !phone) ||
+    password.length < 8
+  ) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(400).json({
       error:

@@ -196,7 +196,12 @@ router.post(
       typeof req.body?.password === "string" ? req.body.password : "";
     const next = safeNext(req.body?.next);
 
-    if (!email || !email.includes("@") || (req.body?.phone && !phone) || password.length < 8) {
+    if (
+      !email ||
+      !email.includes("@") ||
+      (req.body?.phone && !phone) ||
+      password.length < 8
+    ) {
       return res.status(400).json({
         error:
           "A valid email and password of at least 8 characters are required. If provided, the mobile number must use international format.",
