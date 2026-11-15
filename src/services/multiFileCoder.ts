@@ -28,7 +28,7 @@ const BOLT_ACTION_RE = /<boltAction\b([^>]*?)>([\s\S]*?)<\/boltAction\s*>/gi;
 
 function boltAttribute(attrs: string, name: string): string | null {
   const matched = attrs.match(
-    new RegExp("\\b" + name + "\\s*=\\s*([\\\"'])(.*?)\\1", "i")),
+    new RegExp("\\b" + name + "\\s*=\\s*([\\\"'])(.*?)\\1", "i"),
   );
   return matched?.[2] ?? null;
 }
