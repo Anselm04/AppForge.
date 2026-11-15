@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LiveSpecialistFlow } from "./LiveSpecialistFlow.js";
 import type { BuildLogEntry } from "../lib/buildLogView.js";
 import { projectWorkflow, type WorkflowState } from "../lib/livingWorkflow.js";
 
@@ -126,6 +127,7 @@ export function LivingWorkflowCanvas({
           </p>
         </aside>
       </div>
+      <LiveSpecialistFlow logs={logs} projectStatus={project.status} />
     </section>
   );
 }
