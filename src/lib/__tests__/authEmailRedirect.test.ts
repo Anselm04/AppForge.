@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getUser: vi.fn() }));
 vi.mock("../supabase-client", () => ({
-  supabaseClient: { verifyEmailTokenHash: mocks.verify },
+  supabaseClient: {
+    verifyEmailTokenHash: mocks.verify,
+    getVerifiedUser: mocks.getUser,
+  },
 }));
 vi.mock("../supabase", () => ({ supabase: { auth: {} } }));
 vi.mock("../csrf", () => ({
@@ -18,6 +21,11 @@ describe("email action link exchange", () => {
     const payload = btoa(
       JSON.stringify({ sub: "identity-1", email: "customer@example.com" }),
     );
+    mocks.getUser.mockReset();
+    mocks.getUser.mockResolvedValue({
+      id: "identity-1",
+      email: "customer@example.com",
+    });
     mocks.verify.mockResolvedValue({
       access_token: `header.${payload}.signature`,
       refresh_token: "refresh-secret",
@@ -57,11 +65,30 @@ describe("email action link exchange", () => {
       `/login?next=%2Fdashboard&access_token=${encodeURIComponent(accessToken)}&refresh_token=private-token&token_type=bearer`,
     );
     const { completeAuthRedirect } = await import("../auth");
+    mocks.getUser.mockResolvedValueOnce({
+      id: "identity-2",
+      email: "customer@example.com",
+    });
     const session = await completeAuthRedirect();
     expect(session?.user.id).toBe("identity-2");
     expect(window.location.search).toBe("?next=%2Fdashboard");
     expect(window.location.hash).toBe("");
     expect(mocks.verify).not.toHaveBeenCalled();
+  });
+
+  it("rejects a callback token whose authenticated user does not match its claims", async () => {
+    const payload = btoa(JSON.stringify({ sub: "spoofed-identity" }));
+    window.history.replaceState(
+      {},
+      "",
+      `/login#access_token=header.${payload}.signature`,
+    );
+    mocks.getUser.mockResolvedValueOnce({ id: "different-identity" });
+    const { completeAuthRedirect } = await import("../auth");
+    await expect(completeAuthRedirect()).rejects.toThrow(
+      /identity verification failed/,
+    );
+    expect(window.location.hash).toBe("");
   });
 
   it("rejects invalid or expired links without creating an authenticated session", async () => {
