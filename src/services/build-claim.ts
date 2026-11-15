@@ -28,7 +28,10 @@ export async function claimProjectBuildStart(
           // A failed credit refund requires ledger reconciliation before retry.
           or(
             isNull(schema.projects.pauseReason),
-            ne(schema.projects.pauseReason, "credit_refund_failure"),
+            and(
+              ne(schema.projects.pauseReason, "credit_refund_failure"),
+              ne(schema.projects.pauseReason, "refund_pending"),
+            ),
           ),
           or(
             ne(schema.projects.status, "paused"),
@@ -103,18 +106,19 @@ export async function pauseFailedQueueAttempt(
   userId: number,
   expectedUpdatedAt: Date,
   attemptCreatedAt: string,
+  reservationCharged = false,
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const paused = await tx
       .update(schema.projects)
       .set({
         status: "paused",
-        pauseReason: "retry_after_error",
-        errorMessage:
-          "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue.",
+        pauseReason: reservationCharged ? "refund_pending" : "retry_after_error",
+        errorMessage: reservationCharged
+          ? "The build stopped. Reserved credits are being reconciled before retry."
+          : "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue.",
         failureStage: "worker_interruption",
-        creditsSpent: 0,
-        creditsReserved: 0,
+        ...(reservationCharged ? {} : { creditsSpent: 0, creditsReserved: 0 }),
         updatedAt: new Date(),
       })
       .where(
