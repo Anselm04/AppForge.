@@ -49,6 +49,29 @@ describe("AppForge signup confirmation delivery", () => {
     expect(result).toEqual({ userId: "user-123", confirmationSent: true });
   });
 
+  it("allows an email-only account and does not require Twilio or phone metadata", async () => {
+    signUp.mockResolvedValue({
+      data: { user: { id: "email-only-customer" }, session: null },
+      error: null,
+    });
+
+    await expect(createSignupConfirmation({
+      email: "email-only@example.com",
+      phone: "",
+      password: "StrongPassword123!",
+      redirectTo: "https://app.example.com/login?next=%2Fdashboard",
+    })).resolves.toEqual({ userId: "email-only-customer", confirmationSent: true });
+
+    expect(signUp).toHaveBeenCalledWith({
+      email: "email-only@example.com",
+      password: "StrongPassword123!",
+      options: {
+        emailRedirectTo: "https://app.example.com/login?next=%2Fdashboard",
+        data: {},
+      },
+    });
+  });
+
   it("reports provider signup failures instead of claiming confirmation was sent", async () => {
     signUp.mockResolvedValue({
       data: { user: null, session: null },
