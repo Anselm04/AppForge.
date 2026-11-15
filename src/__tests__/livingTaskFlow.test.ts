@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { buildTaskFlow } from "../lib/livingTaskFlow.js";
+import { appendTaskFlowEvent, buildTaskFlow } from "../lib/livingTaskFlow.js";
 
 describe("live specialist workflow projection", () => {
+  it("keeps task milestones when code streams hundreds of chunks", () => {
+    let events = appendTaskFlowEvent([], {
+      agent: "Coder", type: "coordination_status",
+      payload: { taskId: "task-a", ownerAgent: "Frontend" },
+    });
+    for (let i = 0; i < 400; i++) {
+      events = appendTaskFlowEvent(events, {
+        agent: "Coder", type: "chunk", payload: { taskId: "task-a", text: "source" },
+      });
+    }
+    events = appendTaskFlowEvent(events, {
+      agent: "Coder", type: "task_complete",
+      payload: { taskId: "task-a", filename: "lib/main.dart" },
+    });
+    expect(events).toHaveLength(3);
+    expect(buildTaskFlow(events, "running")[0]).toMatchObject({
+      state: "completed", filenames: ["lib/main.dart"],
+    });
+  });
+
   it("does not invent task boxes without real task identifiers", () => {
     expect(
       buildTaskFlow(
