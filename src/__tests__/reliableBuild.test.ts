@@ -146,7 +146,7 @@ describe("P0 reliable builds", () => {
     ).toEqual(["src/v1..v2.ts"]);
   });
 
-  it("requires the actual Node manifest even if Python files were generated", () => {
+  it("requires the Node manifest despite Python files", () => {
     const generated = {
       "requirements.txt": "requests==2.32.0",
       "README.md": "# Customer product",
@@ -159,7 +159,7 @@ describe("P0 reliable builds", () => {
     expect(files["src/App.tsx"]).toBe(generated["src/App.tsx"]);
   });
 
-  it("requires Flutter and Node manifests for full-stack mobile products", () => {
+  it("requires both Flutter and Node manifests", () => {
     const generated = {
       "pubspec.yaml": "name: customer_mobile\\n",
       "README.md": "# Mobile product",
