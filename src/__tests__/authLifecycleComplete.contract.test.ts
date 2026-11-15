@@ -42,7 +42,9 @@ describe("complete AppForge authentication lifecycle", () => {
       ?.split("export const accountDeletionProcedure", 1)[0];
     expect(protectedBlock).not.toContain("if (!user.phoneVerified)");
     expect(restGate).not.toContain("PHONE_VERIFICATION_REQUIRED");
-    expect(login).toContain("user?.isOwner && user.phoneVerified !== true");
+    expect(login).toContain("user.phoneVerified !== true &&");
+    expect(login).toContain("isAdminDestination(next)");
+    expect(login).not.toContain("if (user?.isOwner && user.phoneVerified !== true)");
     expect(trpc).toContain("if (!user.phoneVerified)");
     expect(signupRoute).toContain("phoneVerificationRequired: false");
   });
