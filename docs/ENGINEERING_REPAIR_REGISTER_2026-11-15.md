@@ -252,3 +252,30 @@ This is **source presence inspection only**, not runtime verification. The indep
 
 - **Main CI gate follow-up (source repair):** Main Recovery Readiness Audit `43708381614` failed because GitHub Actions interpolated `\$\{\{ false \}\}` inside the audit shell script to `false`, causing its literal string grep to fail although Fly's deployment job remains disabled. The audit now uses a regex that matches the literal disabled-job expression in the target YAML without permitting a deployment trigger. No production workflow was enabled. **Pending exact-head audit qualification on main.**
 - **Merge-tree preservation:** Rebuilt this branch's tree from the latest merged main tree and layered ONLY the Bolt parser/test/register changes plus the recovery audit fix. This corrects an earlier merge-commit whose tree retained the old branch files despite listing merged main as a parent; PR diff must not resurrect old Flutter, checkout, local Auth, or Stripe files.
+
+## 2026-11-16 — Exact-main recovery verification and source-reference mapping
+
+**Verified GitHub state:** `Anselm04/AppForge.` main `328cb6dd6cc7cad9a454edb7bdc0dc99e2b6bec7`. PR #416 **merged** (`aef8d1ba39698476989f51c5a86f1d1a98bfe90a`), followed by #419. Current main CI Pipeline run `43709230895`, Security Scanning `43709230946`, and Recovery Readiness Audit `43709230956` all report **success**, as do backup, restore and full source inventory. No production deployment was made. Earlier Recovery Audit `43708381614` failed on `539cd270` at **Verify production deploy stays manually disabled during billing hold**, because the grep searched for `if: false` after GitHub had interpolated the disabled-job expression inside the shell. Main now uses a regex that checks the actual literal disabled-job expression in target YAML; audit succeeded without enabling Fly.
+
+**Mapping source:** `docs/REFERENCE_MAPPING.md` names each inspected upstream source file, root/per-directory licence, AppForge target, defect/evidence gap, and permitted action. All code added in this branch is original test code, not third-party source adaptation. Reference lanes remain separate.
+
+| Register ID | Status | Reference source consulted | Evidence still needed |
+| --- | --- | --- | --- |
+| P0-01 Auth lifecycle | Simulated | Appwrite `app/config/auth.php`; Keycloak `VerifyEmailActionTokenHandler.java`; OpenID-Client `src/index.ts` | Existing labelled GoTrue mock does not certify real local GoTrue, mail or real database RLS. |
+| P0-02 Owner TOTP MFA | Simulated | Keycloak `VerifyEmailActionTokenHandler.java` and prior OTP reference | AAL2 tests exist; real owner enrollment/recovery unverified. |
+| P0-03 Runnable generation | Simulated | Bolt-DIY `app/lib/.server/llm/agent-loop.ts`; OpenHands conversation service | Deterministic product-source fixtures exist; provider-backed generation unverified. |
+| P0-04 Worker/retry/edit/resume | Unverified | Trigger.dev `packages/trigger-sdk/src/v3/retry.ts`; Temporal `common/backoff/retry.go`; Dyad `src/ipc/handlers/chat_handlers.ts` | Full crash/restart and end-to-end edit/save/reopen evidence missing. |
+| P0-05 Provider spend ledger | Simulated | Medusa `packages/modules/payment/src/services/payment-module.ts` | Local Postgres checks; complete provider-spend transport accounting unverified. |
+| P0-06 Stripe + credits | Simulated | Medusa payment module; Cal.com `packages/app-store/stripepayment/api/paymentCallback.ts` | PR #416's disposable Postgres fixture demonstrates signed event/grant; new concurrent distinct-event, failure/retry, and exhaustion races added in this branch, **not yet CI-verified**. Real full checkout and webhook HTTP lifecycle unverified. |
+| P0-07 Isolated build runtime | Unverified | OpenHands conversation service; Coolify `app/Jobs/ApplicationDeploymentJob.php` | Real isolated generated-artifact execution across full pipeline needed. |
+| P0-08 Preview/export/deploy | Simulated | Coolify `app/Jobs/ApplicationDeploymentJob.php`; Playwright todo spec | Source export/preview fixtures; customer-owned deployment not exercised, Fly remains disconnected. |
+| P1-09 Flutter/Node | Unverified | Bolt-DIY file store; OpenHands conversation service | Confirm full latest macOS/iOS + Android exact-head workflow; arbitrary generated app not certified. |
+| P1-10 Plugins/OAuth | Unverified | OpenID-Client `src/index.ts` (additional Activepieces/MCP references in previous register) | Real tenant-scoped adapter execution needed. |
+| P1-11 Security/recovery | Verified | Playwright source examples; existing OSV/CodeQL security checks | **Only** exact-main GitHub Security Scanning and Recovery Readiness check are Verified, not all operational security, privacy, or recovery scenarios. |
+| P1-12 Diagnostics/aftercare | Unverified | OpenHands conversation service (prior OpenTelemetry/Chatwoot mapping) | Full alert/support/incident delivery evidence needed. |
+| P0-13 Exact-main CI | Verified | Playwright example fixture pattern | CI Pipeline green on `328cb6d`; new branch requires its **own** full exact-head green checks before merge. |
+| P0-14 Production activation | Unverified | Coolify `app/Jobs/ApplicationDeploymentJob.php` | Intentionally not deployed or paid; no live activation claims. |
+
+**Owner-invoked future smoke (not executed, requires separately configured provider secret and explicit consent):** `APPFORGE_REAL_GENERATION_SMOKE_CONFIRM=YES_I_AUTHORIZE_ONE_TEST_WITH_POSSIBLE_RETRIES npm run test:real-generation`. This test may incur provider costs when run; it checks minimal generated Flutter/Node source, not the entire customer journey. Do not run without a funded owner key and authorization.
+
+**Repair branch checkpoint:** `repair/reference-mapping-local-journey-20261116`; commit after each separate documentation/test change. Preserve default no-paid-services, no-new-keys, no billing changes, no production deployment, no Fly.
