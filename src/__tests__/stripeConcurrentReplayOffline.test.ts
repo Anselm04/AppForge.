@@ -10,14 +10,14 @@ vi.mock("../_core/env.js", () => ({
   ENV: { databaseUrl: "postgres://fixture:fixture@localhost/fixture" },
 }));
 
-const mockTransaction = async (
-  _fragments: TemplateStringsArray,
-  ..._args: unknown[]
-): Promise<unknown[]> => [];
+type MockTx = (
+  fragments: TemplateStringsArray,
+  ...args: unknown[]
+) => Promise<unknown[]>;
 
 vi.mock("postgres", () => ({
   default: () => ({
-    begin: async (handler: (tx: typeof mockTransaction) => Promise<boolean>) => {
+    begin: async (handler: (tx: MockTx) => Promise<boolean>) => {
       let pending: string | undefined;
       let unlock: (() => void) | undefined;
       try {
