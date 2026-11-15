@@ -336,3 +336,9 @@ On a rejected preview/deployment, retain the immutable current snapshot and any 
 Before emitting a terminal done event, the worker projects the canonical factory execution verdict for the persisted artifact. Both completion payload variants must include executionVerified and validationPassed derived from actual executed validation, together with the immutable snapshot ID and SHA-256 digest. The event must not equate a saved project or source-only scaffold with verified runtime execution.
 
 On interruption or redelivery, compare the durable current artifact, job identity, reservation and terminal event before replay. Never claim an older artifact's validation for an edited source revision. Preserve source downloads and known-good checkpoints, and avoid duplicate credit consumption or destructive rollback. This change does not deploy or reactivate providers.
+
+## Reconnected build-stream runtime evidence review (15 November 2026)
+
+A completed database status or a previously emitted SSE done message cannot independently certify executable output. Reconnected clients receive executionVerified only from the current persisted artifact's validation evidence assessed with the canonical factory execution gate. The response includes the source snapshot ID and SHA-256 so clients can distinguish a stale replay from the current project revision.
+
+When current artifact retrieval fails, replay must report unverified execution and retain source availability instead of fabricating success or deleting the last good revision. On a worker restart or an edited project, reconcile the database status, artifact version, source checksum, and validator result. Runtime verification for a new revision requires a new executed test. This source-level recovery update does not activate any provider, paid workload or Fly.io resource.
