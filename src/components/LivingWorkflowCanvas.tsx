@@ -129,7 +129,10 @@ export function LivingWorkflowCanvas({
           </p>
         </aside>
       </div>
-      <LiveSpecialistFlow logs={taskLogs ?? logs} projectStatus={project.status} />
+      <LiveSpecialistFlow
+        logs={taskLogs ?? logs}
+        projectStatus={project.status}
+      />
     </section>
   );
 }
