@@ -630,6 +630,7 @@ export function Build() {
             project={project}
             logs={logs}
             taskLogs={taskEvents}
+            plannedTasks={project.productPlan?.tasks}
           />
         )}
 
