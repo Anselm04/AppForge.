@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { getAccessToken } from "../lib/auth.js";
+import { browserSessionHeaders, getAccessToken, ensureFreshSession } from "../lib/auth.js";
+import { withCsrfHeaders } from "../lib/csrf.js";
+import { trpc } from "../utils/trpc.js";
 import { consumeAuthedSse, readSseBody } from "../lib/authedSse.js";
 
 export type DevMode = "collaborative" | "autonomous";
@@ -153,24 +155,13 @@ export function useSeniorDev() {
   const startTask = useCallback(
     async (projectId: number, request: string, mode: DevMode) => {
       try {
-        const res = await fetch("/api/trpc/projects.seniorDev", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAccessToken() ?? ""}`,
-          },
-          body: JSON.stringify({
-            json: { projectId, request, mode },
-          }),
+        // Reuse the established tRPC client: CSRF, token refresh and
+        // browser-cookie session support are handled in one place.
+        const { taskId } = await trpc.projects.seniorDev.mutate({
+          projectId,
+          request,
+          mode,
         });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err[0]?.error?.message ?? "Failed to create task");
-        }
-
-        const data = await res.json();
-        const taskId = data[0]?.result?.data?.json?.taskId;
         if (!taskId) throw new Error("No task ID returned");
 
         attachSeniorDevStream(taskId);
@@ -197,19 +188,7 @@ export function useSeniorDev() {
     const taskId = activeTaskId;
     if (!taskId) throw new Error("No active task to approve");
     try {
-      const res = await fetch("/api/trpc/projects.seniorDevApprove", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken() ?? ""}`,
-        },
-        body: JSON.stringify({ json: { taskId } }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err[0]?.error?.message ?? "Approval failed");
-      }
+      await trpc.projects.seniorDevApprove.mutate({ taskId });
 
       setStage("executing");
       setIsLoading(true);
@@ -218,17 +197,19 @@ export function useSeniorDev() {
         message: "Plan approved. Executing changes...",
       });
 
+      await ensureFreshSession();
       const token = getAccessToken();
-      if (!token) throw new Error("Not authenticated");
+      const headers = await withCsrfHeaders({
+        ...browserSessionHeaders(),
+        Accept: "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-No-Compression": "1",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      });
 
       const resumeRes = await fetch(`/api/build/senior/${taskId}/resume`, {
         method: "POST",
-        headers: {
-          Accept: "text/event-stream",
-          "Cache-Control": "no-cache",
-          "X-No-Compression": "1",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         credentials: "same-origin",
         cache: "no-store",
       });
