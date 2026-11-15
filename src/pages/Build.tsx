@@ -637,6 +637,9 @@ export function Build() {
             logs={logs}
             taskLogs={taskEvents}
             plannedTasks={project.productPlan?.tasks}
+            projectId={pid}
+            deployUrl={deployUrl}
+            browserPreviewUrl={browserPreviewUrl}
           />
         )}
 
