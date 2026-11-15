@@ -104,7 +104,6 @@ export function Build() {
     setTaskEvents([]);
   }, [pid]);
 
-
   const {
     data: project,
     refetch: refetchProject,
