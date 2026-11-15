@@ -40,7 +40,9 @@ describe("build reservation compensation protects customer credits", () => {
 
   it("offers a retryable queue error only after compensation succeeds", () => {
     const unresolved = admission.indexOf("if (refundReconciliationRequired) {");
-    const saturated = admission.indexOf('err.name === "BuildQueueSaturatedError"');
+    const saturated = admission.indexOf(
+      'err.name === "BuildQueueSaturatedError"',
+    );
     expect(unresolved).toBeGreaterThan(-1);
     expect(saturated).toBeGreaterThan(unresolved);
   });
