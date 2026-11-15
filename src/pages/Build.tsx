@@ -12,6 +12,7 @@ import { DeployWizard } from "../components/DeployWizard.js";
 import { RevenueReadinessPanel } from "../components/RevenueReadinessPanel.js";
 import { BuildLivePreview } from "../components/BuildLivePreview.js";
 import { AgentTerminal } from "../components/AgentTerminal.js";
+import { LivingWorkflowCanvas } from "../components/LivingWorkflowCanvas.js";
 import {
   completedBuildUrl,
   stackPresentation,
@@ -620,6 +621,8 @@ export function Build() {
           </p>
         )}
 
+        {project && <LivingWorkflowCanvas project={project} logs={logs} />}
+
         {project && (
           <section
             className="mb-6 rounded-xl border border-slate-700 bg-slate-800/70 p-4"
@@ -988,9 +991,9 @@ export function Build() {
                     Engineering Verification Record
                   </h3>
                   <p className="mt-1 text-xs text-slate-400">
-                    Results are tied to the current artifact version and SHA-256.
-                    Source generation is not proof of a successful native build,
-                    deployment, or app-store approval.
+                    Results are tied to the current artifact version and
+                    SHA-256. Source generation is not proof of a successful
+                    native build, deployment, or app-store approval.
                   </p>
                   <p className="mt-2 text-sm text-slate-200">
                     Core verification:{" "}
@@ -1010,7 +1013,9 @@ export function Build() {
                           <span className="font-medium text-slate-100">
                             {check.id.replace(/_/g, " ")}
                           </span>
-                          <p className="text-xs text-slate-400">{check.message}</p>
+                          <p className="text-xs text-slate-400">
+                            {check.message}
+                          </p>
                         </div>
                         <span
                           className={
@@ -1048,8 +1053,8 @@ export function Build() {
                         ),
                       )}
                     </ul>
-                    {evidence.stackCapabilityContract.releaseRequirements.length >
-                      0 && (
+                    {evidence.stackCapabilityContract.releaseRequirements
+                      .length > 0 && (
                       <p className="mt-3 text-sm text-amber-300">
                         Store release additionally requires:{" "}
                         {evidence.stackCapabilityContract.releaseRequirements.join(
