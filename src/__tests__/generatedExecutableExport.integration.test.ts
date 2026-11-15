@@ -60,7 +60,7 @@ const coderOutput = [
 ].join("\n");
 
 async function boot(cwd: string): Promise<{ child: ChildProcessWithoutNullStreams; base: string }> {
-  const child = spawn(process.execPath, ["app.mjs"], { cwd, stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, NODE_ENV: "test" } });
+  const child = spawn(process.execPath, ["app.mjs"], { cwd, stdio: ["pipe", "pipe", "pipe"], env: { NODE_ENV: "test" } });
   return new Promise((resolve, reject) => {
     let output = "";
     const timer = setTimeout(() => { child.kill(); reject(new Error("Generated application failed to start")); }, 10_000);
