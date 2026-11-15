@@ -37,7 +37,12 @@ describe("email action link exchange", () => {
     const { safeAuthDestination, loginPathWithReturn } = await import("../auth");
     expect(safeAuthDestination("/account")).toBe("/account");
     expect(loginPathWithReturn("/account")).toBe("/login?next=%2Faccount");
-    for (const unsafe of ["//outside.example", "/\\\\outside", "/account\\r\\nnext", "/account\\n"]) {
+    for (const unsafe of [
+      "//outside.example",
+      "/\\outside",
+      "/account\r\nnext",
+      "/account\n",
+    ]) {
       expect(safeAuthDestination(unsafe)).toBe("/");
       expect(loginPathWithReturn(unsafe)).toBe("/login?next=%2F");
     }
