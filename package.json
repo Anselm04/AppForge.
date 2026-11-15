@@ -77,7 +77,7 @@
     "posthog-js": "^1.444.0",
     "rate-limit-redis": "^4.2.0",
     "react": "^19.3.1",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.3.1",
     "react-router-dom": "7.18.3",
     "redis": "^5.0.0",
     "signal-exit": "^4.1.0",
