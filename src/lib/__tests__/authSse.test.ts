@@ -181,6 +181,20 @@ describe("generate auth helpers", () => {
     });
   });
 
+  it("rejects an excessively large build event instead of exhausting memory", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode("data: " + "x".repeat(8 * 1024 * 1024 + 1)),
+        );
+        controller.close();
+      },
+    });
+    await expect(readSseBody(body, () => {})).rejects.toThrow(
+      "Build stream event exceeds the maximum size",
+    );
+  });
+
   it("reads CRLF-delimited SSE frames", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({
