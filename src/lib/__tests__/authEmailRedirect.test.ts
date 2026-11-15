@@ -34,7 +34,8 @@ describe("email action link exchange", () => {
   });
 
   it("rejects unsafe callback return URLs", async () => {
-    const { safeAuthDestination, loginPathWithReturn } = await import("../auth");
+    const { safeAuthDestination, loginPathWithReturn } =
+      await import("../auth");
     expect(safeAuthDestination("/account")).toBe("/account");
     expect(loginPathWithReturn("/account")).toBe("/login?next=%2Faccount");
     for (const unsafe of [
@@ -120,7 +121,7 @@ describe("email action link exchange", () => {
     expect(window.location.search).toBe("");
   });
 
-  it("rejects unsupported verification types before contacting the provider", async () => {
+  it("rejects unsupported verification types", async () => {
     window.history.replaceState({}, "", "/login?token_hash=secret&type=admin");
     const { completeAuthRedirect } = await import("../auth");
     await expect(completeAuthRedirect()).rejects.toThrow(/invalid/);
