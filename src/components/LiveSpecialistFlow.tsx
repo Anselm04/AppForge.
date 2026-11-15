@@ -1,8 +1,9 @@
 import type { BuildLogEntry } from "../lib/buildLogView.js";
-import { buildTaskFlow, type TaskFlowState } from "../lib/livingTaskFlow.js";
+import { buildTaskFlow, type PlannedTask, type TaskFlowState } from "../lib/livingTaskFlow.js";
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 const classes: Record<TaskFlowState, string> = {
+  queued: "border-slate-200 bg-white text-slate-600",
   running: "border-sky-300 bg-sky-50 text-sky-900",
   completed: "border-emerald-200 bg-emerald-50 text-emerald-900",
   failed: "border-rose-200 bg-rose-50 text-rose-900",
@@ -77,13 +78,15 @@ function useTaskConnectors(
 export function LiveSpecialistFlow({
   logs,
   projectStatus,
+  plannedTasks = [],
 }: {
   logs: BuildLogEntry[];
   projectStatus?: string | null;
+  plannedTasks?: readonly PlannedTask[];
 }) {
   const tasks = useMemo(
-    () => buildTaskFlow(logs, projectStatus),
-    [logs, projectStatus],
+    () => buildTaskFlow(logs, projectStatus, plannedTasks),
+    [logs, projectStatus, plannedTasks],
   );
   const [selected, setSelected] = useState<string | null>(null);
   const focused = tasks.find((task) => task.id === selected);
@@ -114,8 +117,8 @@ export function LiveSpecialistFlow({
             Specialist engineering flow
           </h3>
           <p className="text-xs text-slate-600">
-            Every box represents a task ID received from AppForge's agent
-            pipeline.
+            Every box represents an actual planner task; status changes come from
+            the live agent pipeline.
           </p>
         </div>
         <span className="rounded-full bg-sky-50 px-3 py-1 text-xs text-sky-800">
@@ -184,7 +187,7 @@ export function LiveSpecialistFlow({
                   {task.label}
                 </span>
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${task.state === "running" ? "bg-sky-500 motion-safe:animate-pulse" : task.state === "completed" ? "bg-emerald-500" : task.state === "failed" ? "bg-rose-500" : "bg-amber-500"}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${task.state === "running" ? "bg-sky-500 motion-safe:animate-pulse" : task.state === "completed" ? "bg-emerald-500" : task.state === "failed" ? "bg-rose-500" : task.state === "queued" ? "bg-slate-400" : "bg-amber-500"}`}
                   aria-hidden="true"
                 />
               </span>
