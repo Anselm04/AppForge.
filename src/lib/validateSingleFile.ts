@@ -97,7 +97,9 @@ export async function validateSingleFile(
       return {
         ok: false,
         message: `Syntax check failed for ${path}: ${
-          error instanceof Error ? error.message.split("\\n")[0].slice(0, 260) : "Invalid syntax"
+          error instanceof Error
+            ? error.message.split("\\n")[0].slice(0, 260)
+            : "Invalid syntax"
         }. The generated file was not saved.`,
       };
     }
