@@ -218,7 +218,8 @@ function inspectPlaceholderAndEmptyFiles(
       findings.push({
         code: "empty_page",
         path,
-        message: "Flutter entrypoint renders the infrastructure-only empty screen.",
+        message:
+          "Flutter entrypoint renders the infrastructure-only empty screen.",
       });
     }
     const todoOnly =
