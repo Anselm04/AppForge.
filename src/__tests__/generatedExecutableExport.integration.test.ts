@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import assert from "node:assert/strict";
-import { spawn, execFileSync, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  spawn,
+  execFileSync,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { request as nodeHttpRequest } from "node:http";
 import { tmpdir } from "node:os";
@@ -8,7 +12,10 @@ import { join, dirname } from "node:path";
 import { describe, it } from "vitest";
 import JSZip from "jszip";
 import { zipFiles } from "../services/deployer.js";
-import { parseGeneratedFiles, ensureEssentialFiles } from "../services/multiFileCoder.js";
+import {
+  parseGeneratedFiles,
+  ensureEssentialFiles,
+} from "../services/multiFileCoder.js";
 
 const domain = [
   'export function normalizeTitle(value) {',
@@ -46,7 +53,16 @@ const client = '<!doctype html><html><head><title>Carving Tasks</title></head><b
 
 const coderOutput = [
   "// filename: package.json",
-  JSON.stringify({ name: "generated-carving-tasks", private: true, type: "module", scripts: { build: "node --check app.mjs", test: "node --test domain.test.mjs", start: "node app.mjs" } }),
+  JSON.stringify({
+    name: "generated-carving-tasks",
+    private: true,
+    type: "module",
+    scripts: {
+      build: "node --check app.mjs",
+      test: "node --test domain.test.mjs",
+      start: "node app.mjs",
+    },
+  }),
   "// filename: README.md",
   "# Carving Tasks\nRun npm run build, npm test, npm start.",
   "// filename: index.html",
@@ -59,18 +75,39 @@ const coderOutput = [
   'import test from "node:test"; import assert from "node:assert/strict"; import {normalizeTitle} from "./domain.mjs"; test("validates real task input", () => { assert.equal(normalizeTitle(" carving "), "carving"); assert.throws(() => normalizeTitle(""), /Invalid/); });',
 ].join("\n");
 
-async function boot(cwd: string): Promise<{ child: ChildProcessWithoutNullStreams; base: string }> {
-  const child = spawn(process.execPath, ["app.mjs"], { cwd, stdio: ["pipe", "pipe", "pipe"], env: { NODE_ENV: "test" } });
+type RunningApp = {
+  child: ChildProcessWithoutNullStreams;
+  base: string;
+};
+
+async function boot(cwd: string): Promise<RunningApp> {
+  const child = spawn(process.execPath, ["app.mjs"], {
+    cwd,
+    stdio: ["pipe", "pipe", "pipe"],
+    env: { NODE_ENV: "test" },
+  });
   return new Promise((resolve, reject) => {
     let output = "";
-    const timer = setTimeout(() => { child.kill(); reject(new Error("Generated application failed to start")); }, 10_000);
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("Generated application failed to start"));
+    }, 10_000);
     child.stdout.on("data", (part: Buffer) => {
       output += part.toString();
       const port = /PORT=(\d+)/.exec(output)?.[1];
-      if (port) { clearTimeout(timer); resolve({child, base: "http://127.0.0.1:" + port}); }
+      if (port) {
+        clearTimeout(timer);
+        resolve({ child, base: "http://127.0.0.1:" + port });
+      }
     });
-    child.once("error", error => { clearTimeout(timer); reject(error); });
-    child.once("exit", code => { clearTimeout(timer); reject(new Error("Generated application exited before startup: " + code)); });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error("Generated application exited before startup: " + code));
+    });
   });
 }
 
@@ -81,19 +118,30 @@ async function requestGeneratedApp(
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const bytes = payload ? Buffer.from(JSON.stringify(payload)) : undefined;
-    const request = nodeHttpRequest(url, {
-      method,
-      headers: bytes ? { "content-type": "application/json", "content-length": bytes.length } : {},
-      timeout: 5000,
-    }, response => {
-      const chunks: Buffer[] = [];
-      response.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-      response.on("end", () => resolve({
-        status: response.statusCode ?? 0,
-        body: Buffer.concat(chunks).toString("utf8"),
-      }));
-      response.on("error", reject);
-    });
+    const request = nodeHttpRequest(
+      url,
+      {
+        method,
+        headers: bytes
+          ? {
+              "content-type": "application/json",
+              "content-length": bytes.length,
+            }
+          : {},
+        timeout: 5000,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () =>
+          resolve({
+            status: response.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+        response.on("error", reject);
+      },
+    );
     request.on("timeout", () => request.destroy(new Error("HTTP timeout")));
     request.on("error", reject);
     request.end(bytes);
@@ -105,48 +153,108 @@ describe("real generated source -> edit -> export -> restart", () => {
     const root = await mkdtemp(join(tmpdir(), "appforge-executable-export-"));
     let active: ChildProcessWithoutNullStreams | undefined;
     try {
-      const files = ensureEssentialFiles(parseGeneratedFiles(coderOutput), "api-service");
-      for (const name of ["package.json", "README.md", "index.html", "app.mjs", "domain.mjs", "domain.test.mjs"]) {
-        assert.ok(files[name]?.trim(), "Missing actual generated source: " + name);
+      const files = ensureEssentialFiles(
+        parseGeneratedFiles(coderOutput),
+        "api-service",
+      );
+      for (const name of [
+        "package.json",
+        "README.md",
+        "index.html",
+        "app.mjs",
+        "domain.mjs",
+        "domain.test.mjs",
+      ]) {
+        assert.ok(
+          files[name]?.trim(),
+          "Missing actual generated source: " + name,
+        );
       }
       const { base64, filename } = await zipFiles("carving-tasks", files);
       assert.match(filename, /carving-tasks-appforge\.zip$/);
       const archive = await JSZip.loadAsync(Buffer.from(base64, "base64"));
       for (const [path, entry] of Object.entries(archive.files)) {
         if (entry.dir) continue;
-        assert.ok(!path.startsWith("/") && !path.split("/").includes(".."), "Unsafe export path");
+        assert.ok(
+          !path.startsWith("/") && !path.split("/").includes(".."),
+          "Unsafe export path",
+        );
         const source = await entry.async("string");
-        assert.equal(source, files[path], "Export must preserve source bytes: " + path);
+        assert.equal(
+          source,
+          files[path],
+          "Export must preserve source bytes: " + path,
+        );
         const output = join(root, path);
-        await mkdir(dirname(output), {recursive: true});
+        await mkdir(dirname(output), { recursive: true });
         await writeFile(output, source);
       }
-      execFileSync(process.execPath, ["--check", "app.mjs"], {cwd: root, stdio: "pipe"});
-      execFileSync(process.execPath, ["--test", "domain.test.mjs"], {cwd: root, stdio: "pipe"});
+      execFileSync(process.execPath, ["--check", "app.mjs"], {
+        cwd: root,
+        stdio: "pipe",
+      });
+      execFileSync(process.execPath, ["--test", "domain.test.mjs"], {
+        cwd: root,
+        stdio: "pipe",
+      });
+
       let running = await boot(root);
       active = running.child;
       const html = (await requestGeneratedApp(running.base + "/")).body;
       assert.match(html, /<h1>Carving Tasks<\/h1>/);
-      let res = await requestGeneratedApp(running.base + "/api/tasks", "POST", { title: "Carve a waka" });
+      let res = await requestGeneratedApp(
+        running.base + "/api/tasks",
+        "POST",
+        { title: "Carve a waka" },
+      );
       assert.equal(res.status, 201);
       res = await requestGeneratedApp(running.base + "/api/tasks");
-      assert.deepEqual((JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title), ["Carve a waka"]);
+      assert.deepEqual(
+        (JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title),
+        ["Carve a waka"],
+      );
+
       active.kill("SIGTERM");
       active = undefined;
-      const edited = (await readFile(join(root, "index.html"), "utf8")).replace("<h1>Carving Tasks</h1>", "<h1>Carving Tasks Updated</h1>");
+      const edited = (await readFile(join(root, "index.html"), "utf8")).replace(
+        "<h1>Carving Tasks</h1>",
+        "<h1>Carving Tasks Updated</h1>",
+      );
       await writeFile(join(root, "index.html"), edited);
-      const editedArchive = await zipFiles("carving-tasks", { ...files, "index.html": edited });
-      const reopenedZip = await JSZip.loadAsync(Buffer.from(editedArchive.base64, "base64"));
-      assert.equal(await reopenedZip.file("index.html")?.async("string"), edited);
-      execFileSync(process.execPath, ["--check", "app.mjs"], {cwd: root, stdio: "pipe"});
+      const editedArchive = await zipFiles("carving-tasks", {
+        ...files,
+        "index.html": edited,
+      });
+      const reopenedZip = await JSZip.loadAsync(
+        Buffer.from(editedArchive.base64, "base64"),
+      );
+      assert.equal(
+        await reopenedZip.file("index.html")?.async("string"),
+        edited,
+      );
+      execFileSync(process.execPath, ["--check", "app.mjs"], {
+        cwd: root,
+        stdio: "pipe",
+      });
       running = await boot(root);
       active = running.child;
-      assert.match((await requestGeneratedApp(running.base + "/")).body, /Carving Tasks Updated/);
+      assert.match(
+        (await requestGeneratedApp(running.base + "/")).body,
+        /Carving Tasks Updated/,
+      );
       res = await requestGeneratedApp(running.base + "/api/tasks");
-      assert.deepEqual((JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title), ["Carve a waka"]);
+      assert.deepEqual(
+        (JSON.parse(res.body) as Array<{ title: string }>).map((x) => x.title),
+        ["Carve a waka"],
+      );
     } finally {
       active?.kill("SIGTERM");
-      await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      await rm(root, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100,
+      });
     }
   }, 30_000);
 });
