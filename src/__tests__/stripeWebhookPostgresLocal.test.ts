@@ -70,7 +70,12 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     return { body, signature: `t=${timestamp},v1=${hmac}` };
   }
 
-  async function deliver(type: string, id: string, object: unknown, bad = false) {
+  async function deliver(
+    type: string,
+    id: string,
+    object: unknown,
+    bad = false,
+  ) {
     const fixture = signedPayload(type, id, object);
     const response = { status: vi.fn(), json: vi.fn() };
     response.status.mockReturnValue(response);
@@ -88,7 +93,9 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     return admin.unsafe(query, params);
   }
   async function balance() {
-    const data = await rows(`SELECT balance FROM "${schema}".user_credits WHERE user_id=101`);
+    const data = await rows(
+      `SELECT balance FROM "${schema}".user_credits WHERE user_id=101`,
+    );
     return Number(data[0].balance);
   }
   async function grants(reference: string) {
@@ -99,7 +106,9 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     return Number(data[0].count);
   }
   async function status() {
-    const data = await rows(`SELECT status,tier FROM "${schema}".subscriptions WHERE user_id=101`);
+    const data = await rows(
+      `SELECT status,tier FROM "${schema}".subscriptions WHERE user_id=101`,
+    );
     return data[0];
   }
 
@@ -119,7 +128,10 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     await admin.unsafe(`CREATE SCHEMA "${schema}"`);
     const isolatedUrl = new URL(databaseUrl!);
     isolatedUrl.searchParams.set("search_path", schema);
-    const fixture = postgres(isolatedUrl.toString(), { max: 1, prepare: false });
+    const fixture = postgres(isolatedUrl.toString(), {
+      max: 1,
+      prepare: false,
+    });
     try {
       await fixture.unsafe(`
         CREATE TABLE users (
@@ -188,7 +200,9 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
       status: "active",
       metadata: { product_line: "appforge", userId: "101", tier: "starter" },
       items: {
-        data: [{ price: { id: APPROVED_MONTHLY_PRICE_IDS.starter }, quantity: 1 }],
+        data: [
+          { price: { id: APPROVED_MONTHLY_PRICE_IDS.starter }, quantity: 1 },
+        ],
       },
       current_period_start: start,
       current_period_end: end,
@@ -225,11 +239,15 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
       billing_reason: "subscription_cycle",
       lines: {
         has_more: false,
-        data: [{
-          type: "subscription", proration: false, quantity: 1,
-          price: { id: APPROVED_MONTHLY_PRICE_IDS.starter },
-          period: { start, end },
-        }],
+        data: [
+          {
+            type: "subscription",
+            proration: false,
+            quantity: 1,
+            price: { id: APPROVED_MONTHLY_PRICE_IDS.starter },
+            period: { start, end },
+          },
+        ],
       },
     };
     const responses = await Promise.all([
@@ -241,7 +259,11 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     }
     expect(await balance()).toBe(100);
     expect(await grants(invoice.id)).toBe(1);
-    const replay = await deliver("invoice.paid", "evt_invoice_101_other", invoice);
+    const replay = await deliver(
+      "invoice.paid",
+      "evt_invoice_101_other",
+      invoice,
+    );
     expect(replay.json).toHaveBeenCalledWith({ received: true });
     expect(await balance()).toBe(100);
     expect(await grants(invoice.id)).toBe(1);
@@ -258,7 +280,11 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
     };
     const responses = await Promise.all([
       deliver("checkout.session.completed", "evt_topup_1", session),
-      deliver("checkout.session.async_payment_succeeded", "evt_topup_2", session),
+      deliver(
+        "checkout.session.async_payment_succeeded",
+        "evt_topup_2",
+        session,
+      ),
     ]);
     for (const res of responses) {
       expect(res.json).toHaveBeenCalledWith({ received: true });
@@ -280,12 +306,18 @@ suite("real HTTP Stripe webhook handler with isolated local PostgreSQL", () => {
   });
 
   it("cancels only the matching subscription and does not issue credits", async () => {
-    const res = await deliver("customer.subscription.deleted", "evt_canceled_101", {
-      id: "sub_fixture_101",
-      customer: "cus_fixture_101",
-      metadata: { product_line: "appforge", userId: "101" },
-      items: { data: [{ price: { id: APPROVED_MONTHLY_PRICE_IDS.starter } }] },
-    });
+    const res = await deliver(
+      "customer.subscription.deleted",
+      "evt_canceled_101",
+      {
+        id: "sub_fixture_101",
+        customer: "cus_fixture_101",
+        metadata: { product_line: "appforge", userId: "101" },
+        items: {
+          data: [{ price: { id: APPROVED_MONTHLY_PRICE_IDS.starter } }],
+        },
+      },
+    );
     expect(res.json).toHaveBeenCalledWith({ received: true });
     expect(await status()).toMatchObject({ status: "canceled", tier: "free" });
     expect(await balance()).toBe(150);
