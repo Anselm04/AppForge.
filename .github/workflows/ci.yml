@@ -55,7 +55,7 @@ jobs:
           if ! printf '%s\n' "$FILES" | xargs npx prettier --check --ignore-unknown; then
             echo "Formatting diff for reproducible source repair (CI workspace only):"
             printf '%s\n' "$FILES" | xargs npx prettier --write --ignore-unknown
-            git diff -- "$FILES"
+            printf '%s\n' "$FILES" | xargs git diff --
             exit 1
           fi
 
