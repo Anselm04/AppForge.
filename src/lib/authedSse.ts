@@ -28,7 +28,9 @@ export function parseSseFrame(
     const line = rawLine.replace(/\r$/, "");
     if (line.startsWith("event:")) event = line.slice(6).trim();
     else if (line.startsWith("data:"))
-      dataLines.push(line.slice(5).trimStart());
+      // SSE removes only one optional space after the colon. Stripping all
+      // indentation corrupts streamed code and multiline build output.
+      dataLines.push(line.slice(5).replace(/^ /, ""));
   }
   if (dataLines.length === 0) return null;
   return { event, data: dataLines.join("\n") };

@@ -173,6 +173,14 @@ describe("generate auth helpers", () => {
     expect(parsed?.data).toContain("Planner");
   });
 
+  it("preserves source indentation in SSE data fields", () => {
+    const frame = "event: code\ndata:   const value = 1;\ndata:     return value;";
+    expect(parseSseFrame(frame)).toEqual({
+      event: "code",
+      data: "  const value = 1;\n    return value;",
+    });
+  });
+
   it("reads CRLF-delimited SSE frames", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({
