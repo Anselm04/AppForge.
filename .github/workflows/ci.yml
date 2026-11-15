@@ -109,6 +109,8 @@ jobs:
         run: npx vitest run src/__tests__/researchSystem.test.ts src/__tests__/researchEvidence.test.ts
       - name: Verify provider reservations against PostgreSQL
         run: node --import tsx --test scripts/provider-spend-postgres.test.ts
+      - name: Verify signed Stripe events and persisted invoice credits in disposable PostgreSQL
+        run: node --import tsx --test scripts/stripe-persistence-postgres.test.ts
       - name: Verify existing-host isolation input, syscall and registry boundaries
         run: node --test scripts/runtime/*.test.mjs
       - name: Verify Fly capacity safety cases
