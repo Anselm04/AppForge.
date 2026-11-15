@@ -161,16 +161,19 @@ describe("placeholder and incomplete-product protection", () => {
     });
     const files = completeFiles(c);
     files["lib/main.dart"] =
-      "import 'package:flutter/material.dart';\\n" +
+      "import 'package:flutter/material.dart';\n" +
       "void main() => runApp(const MaterialApp(home: Scaffold(body: SizedBox.shrink())));";
 
-    const findings = inspectIncompleteProduct({ files, productContract: c }).findings;
+    const findings = inspectIncompleteProduct({
+      files,
+      productContract: c,
+    }).findings;
     expect(findings).toContainEqual(
       expect.objectContaining({ code: "empty_page", path: "lib/main.dart" }),
     );
 
     files["lib/main.dart"] =
-      "import 'package:flutter/material.dart';\\n" +
+      "import 'package:flutter/material.dart';\n" +
       "void main() => runApp(const MaterialApp(home: Scaffold(body: Text('Task dashboard'))));";
     const implemented = inspectIncompleteProduct({
       files,
