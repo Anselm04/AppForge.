@@ -174,8 +174,10 @@ function registrySource(): string {
 import { SandboxReservationProvider } from './sandboxProvider.js';
 
 export function reservationProviderFromEnvironment(): ReservationProvider {
-  const mode = process.env.RESERVATION_PROVIDER_MODE?.trim().toLowerCase() || 'sandbox';
-  if (mode === 'sandbox') {
+  const mode = process.env.RESERVATION_PROVIDER_MODE?.trim().toLowerCase() || 'unconfigured';
+  // Sandbox bookings are deliberately test-only. Never return invented slots
+  // or confirmation IDs to a real production customer.
+  if (mode === 'sandbox' && process.env.NODE_ENV !== 'production') {
     const provider = new SandboxReservationProvider();
     assertAuthorizedProvider(provider);
     return provider;
@@ -208,7 +210,7 @@ export function applyReservationProviderSupport(
   if (
     !serverEnv.some((line) => line.startsWith("RESERVATION_PROVIDER_MODE="))
   ) {
-    serverEnv.push("RESERVATION_PROVIDER_MODE=sandbox");
+    serverEnv.push("RESERVATION_PROVIDER_MODE=unconfigured");
   }
   files["server/.env.example"] = `${serverEnv.join("\n")}\n`;
 
