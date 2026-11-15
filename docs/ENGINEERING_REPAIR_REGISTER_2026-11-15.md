@@ -69,6 +69,49 @@ This is **source presence inspection only**, not runtime verification. The indep
 - **P0-08 / deployment SSRF hardening (source change, not yet complete):** `src/services/productionAutoDeploy.ts` now rejects credential-bearing URLs, IP-literal targets and local/internal hostnames before its post-deployment HTTP verification probe. `src/__tests__/productionAutoDeploy.test.ts` includes regression cases. This does **not** remove the historical Fly-specific automatic deployment dependency; the row remains **Broken**.
 - **Verification gate:** Changes are committed to the PR branch. The GitHub workflow-run lookup and combined status endpoint returned no CI checks for exact head `2974599b3c056a46049523f66d42040b04c0ba06`. No local repository clone was possible because the runner could not resolve github.com. Tests are **unverified**; do not merge yet.
 
+
+## Evidence-controlled status update — 2026-11-15
+
+**Status meanings:** Verified = exact source revision passes the relevant *actual* check; Simulated = tests/fixtures passed but live dependency or real AI behavior was mocked; Unverified = implementation exists or is reported, but required exact-revision or integration evidence is not established; Missing = required capability or evidence artifact is absent; Broken = observed defect unresolved. A status applies to the acceptance criterion, not merely file existence.
+
+**Repository access correction:** Actual repository identifier is `Anselm04/AppForge.` (trailing period). This avoids silently inspecting another repository. Baseline inspected: `main` @ `3f637a31c23bef8c3f850cad6ed97573c9204863`.
+
+| Item | Status | Reference repository / benchmark | Evidence boundary / next action |
+| --- | --- | --- | --- |
+| P0-01 Customer signup/login/recovery | Unverified | Appwrite; Keycloak; OpenID Client | Auth source exists; actual full account creation, verification, reset and customer browser path not proven at this exact revision. |
+| P0-02 Owner-only TOTP MFA | Simulated | Keycloak OTP; Appwrite | PR #411 merged; local GoTrue AAL2 and browser step-up reported passed; no real owner-provider production enrollment claimed. |
+| P0-03 Generated working products | Simulated | Bolt-DIY; Dyad; OpenHands | Six deterministic source fixtures reported passed build/browser/export checks. Real AI-provider generation has **not** been tested. Mock outputs must remain conspicuously labelled. |
+| P0-04 Durable jobs, retry/edit/resume | Unverified | LangGraph; Temporal; Trigger.dev | Targeted fixture and recovery paths exist; whole lifecycle on same main SHA not yet proven. |
+| P0-05 Provider spend ledger/credits | Simulated | Medusa; OpenTelemetry | Eight local Postgres concurrency/settlement checks reported passed; full transport-path coverage and real account-credit integration unverified. |
+| P0-06 Stripe checkout/webhooks/entitlements | Unverified | Medusa | Require entirely offline signed Stripe fixtures for checkout, duplicate/out-of-order event IDs, declined/failed payment, renewal, refund and credit issuance; no live Stripe requests. |
+| P0-07 Isolated generation/build runtime | Unverified | OpenHands; Coolify | Need runnable isolated worker integration and clean artifact build; no Fly or paid host. |
+| P0-08 Preview/export/customer-owned deployment | Simulated | Coolify; Playwright | Local exports and browser verification reported passed. Live/customer-owned deployment intentionally not attempted; historical Fly path remains separate. |
+| P1-09 Flutter + Node generated apps | Unverified | OpenHands; Bolt-DIY | Scaffold alone insufficient; generated Flutter analyze, target-native build and Node API runtime not evidenced. |
+| P1-10 Plugins/OAuth | Unverified | Activepieces; Node-RED; MCP TypeScript SDK | Integration source exists, but real adapter, tenant separation and permissions need test evidence. |
+| P1-11 Security/privacy/recovery | Unverified | OSV-Scanner; Semgrep; Trivy; OPA; Cosign | OSV lockfile read **is not a vulnerability scan**. Local offline advisory database was not demonstrated present; no justified zero-vulnerability claim. Run advisory-backed scan and resolve confirmed high/critical vulnerabilities. |
+| P1-12 Observability/support | Unverified | OpenTelemetry; PostHog; Chatwoot | Customer-safe traces, delivery and incident recovery require integration evidence. |
+| P0-13 Exact-head CI/quality gates | Unverified | Playwright; Semgrep; Trivy | Previous screenshot reports 2,118 local tests plus lint/typecheck/build passed, two live-network tests skipped. GitHub Actions on this commit/PR must be read independently; local results do not substitute for CI. |
+| P0-14 Production activation | Unverified | Coolify | Intentionally not exercised. No Fly.io reconnection, paid provider, API key, live checkout, billing change or external deployment authorized. |
+
+### Current OSV scan acceptance gate
+
+1. Use OSV-Scanner's free advisory data, with database content/refresh timestamp recorded and scan run **offline** against the exact lockfiles at the candidate commit. A missing cache must cause **unverified**, not `0 findings`.
+2. Record package, resolved version, ecosystem, advisory ID, CVSS/severity if available, fix version, and whether dependency is direct/transitive for all high/critical findings.
+3. Apply minimal compatible package updates with a regenerated lockfile, run the whole offline security/test suite, then rescan against the same advisory snapshot. Do not fabricate findings from a database that was not loaded.
+4. Store scan command, tool version, advisory snapshot, candidate SHA and sanitized scan report in the PR evidence. Only mark this gate Verified when both scan and regression evidence exist.
+
+### Next mocked commercial and factory test gates
+
+- **Stripe test-mode logic without keys:** use signed event fixture, inject clock and replayable in-memory/local Postgres transport; verify checkout session state transition, fulfilled-only-once credits, invoice payment failure, recovery, refunds and webhook-idempotency constraints. No hosted Stripe calls.
+- **Generation:** compare Bolt-DIY action parsing, Dyad file/edit workflow and OpenHands execution feedback against AppForge source. Keep deterministic mocked input labelled **SIMULATED AI GENERATION**, while validating actual exported code and persistence, never reporting mock as a real AI output.
+- **Persistence:** commit each small repair separately to a branch, push through GitHub, open PR, inspect exact-head required Actions checks; merge only if all relevant CI jobs succeed. CI must not auto-deploy or call a paid endpoint.
+
+### Provenance and limitations
+
+- PR #411 (owner TOTP) and PR #412 (source audit) were observed as merged; PR #413 (autonomous Fly safeguards) was observed as open at this inspection.
+- The screenshots reported 2,118 successful local tests, two network research tests skipped, typecheck/lint/build success and six deterministic product fixture successes. These reports are **not a GitHub CI result** and do not prove funded model generation.
+- This status documentation change is not itself a source-code defect repair, nor an OSV vulnerability report; its verification must be attached to its own exact GitHub commit.
+
 ## Continuation evidence — 2026-11-15, offline scan and commercial regression branch
 
 **PR #414:** `1ede9086aab229a75e52e677500c8b9f2bbad519` has CI Pipeline, Security Scanning, Source Launch Inventory, Deploy Preview and the latest PR Checklist run successful. The separate Vercel commit status was **pending**, so the user-imposed all-green rule prevents merge. Earlier PR Checklist attempt failed before a successful rerun. Deploy Preview was not modified.
@@ -113,3 +156,9 @@ This is **source presence inspection only**, not runtime verification. The indep
 - **Credit exhaustion:** Introduced original `src/lib/creditDeductionPolicy.ts` and integrated its `assertSufficientCreditBalance` check in `src/db.ts` under the existing user transaction lock. Tests cover zero balance, overdraft, malformed input, and invalid balance. No changes to plan pricing or credit amounts. **Simulated**; live database concurrency unverified.
 - **Reference implementation inspection:** Medusa `packages/modules/payment/src/services/payment-module.ts` records its payment/refund transaction model and pending-refund idempotency recovery interval; AppForge retains separate customer credit ledger and requires money-event deduplication. Cal.com `packages/app-store/stripepayment/README.md` and `LICENSE` confirm test-mode integration boundary and MIT for that component; no external Cal.com integration or source copying. Both are architectural benchmarks only, and AppForge source is original.
 - **Merge boundary:** PR #414 Vercel context is pending, legacy branch-protection API unavailable (403), and mergeability state `unstable`. Do not infer that pending check is optional. PR #415 requires fresh exact-head CI and OSV after every added change; no deployment or paid testing.
+
+## GitHub merge reconciliation — 2026-11-15
+
+- **PR #414 merged** to `main` as merge commit `008afdbc644757c51bbda2c86c21c8242d4dd8ea`. GitHub read-only branch detail verified `main.protected=false`, status-check enforcement off, no required contexts, and zero active rulesets; external Vercel pending status therefore is not required. Latest PR #414 GitHub CI/security/preview checks were successful. No Fly or Vercel production workflow launched by this documentation-only merge; production workflows are manual-only and Fly deploy job disabled.
+- **PR #415 conflict reconciliation:** branch history and original fixture/source changes retained. This merge commit carries BOTH parent `main` and PR branch histories and preserves all PR #414 register additions, rather than replacing either set of documentation. A new exact-head CI/OSV run is required after reconciliation.
+- **Latest before-reconciliation branch head `5c315cd33b847ef8ce4f522860725a6f2c074aec`:** Type Check, Lint & Format, Security Gate, Product Factory Validation, Test & Coverage, OSV, PR Checklist and Source Launch Inventory observed successful. Production Build remained in progress at that inspection. The new merge commit requires its own qualification.
