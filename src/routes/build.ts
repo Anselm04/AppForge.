@@ -19,7 +19,8 @@ import {
 } from "../lib/buildRecovery.js";
 import { subscribeRuntimeBuildEvents } from "../services/build-runtime.js";
 import { subscribeBuildEvents } from "../services/build-queue.js";
-import { getProjectById } from "../db.js";
+import { getCurrentArtifact, getProjectById } from "../db.js";
+import { assessFactoryExecution } from "../lib/factoryExecutionGate.js";
 import {
   parsePositiveIntParam,
   parsePositiveSafeInteger,
@@ -55,6 +56,21 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     ["validated", "production-certified"].includes(project.status ?? "") &&
     Object.keys(existingFiles).length > 0
   ) {
+    // A completed database status is not proof that this exact source ran.
+    let executionVerified = false;
+    let verificationSnapshotId: number | null = null;
+    let verificationArtifactSha256: string | null = null;
+    try {
+      const artifact = await getCurrentArtifact(projectId);
+      if (artifact) {
+        executionVerified =
+          assessFactoryExecution(artifact.validationResult).verified;
+        verificationSnapshotId = artifact.snapshotId;
+        verificationArtifactSha256 = artifact.integrity.sha256;
+      }
+    } catch (error) {
+      logger.warn({ error, projectId }, "completed_build_replay_unverified");
+    }
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -66,6 +82,10 @@ router.get("/:projectId", async (req: Request, res: Response) => {
         outputMaturity: project.outputMaturity,
         projectId,
         fileCount: Object.keys(existingFiles).length,
+        executionVerified,
+        validationPassed: executionVerified,
+        snapshotId: verificationSnapshotId,
+        artifactSha256: verificationArtifactSha256,
         reused: true,
       })}\n\n`,
     );
