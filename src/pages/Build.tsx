@@ -625,7 +625,13 @@ export function Build() {
           </p>
         )}
 
-        {project && <LivingWorkflowCanvas project={project} logs={logs} taskLogs={taskEvents} />}
+        {project && (
+          <LivingWorkflowCanvas
+            project={project}
+            logs={logs}
+            taskLogs={taskEvents}
+          />
+        )}
 
         {project && (
           <section
