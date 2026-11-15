@@ -41,6 +41,9 @@ export type IncompleteProductReport = {
   findings: IncompleteProductFinding[];
 };
 
+const EMPTY_FLUTTER_SCAFFOLD_RE =
+  /runApp\s*\(\s*const\s+MaterialApp\s*\(\s*home:\s*Scaffold\s*\(\s*body:\s*(?:const\s+)?SizedBox\.shrink\s*\(\s*\)/m;
+
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/Scaffold is ready/i, '"Scaffold is ready"'],
   [
@@ -207,9 +210,7 @@ function inspectPlaceholderAndEmptyFiles(
     // conditional SizedBox.shrink() UI remains valid.
     if (
       path === "lib/main.dart" &&
-      /runApp\s*\(\s*const\s+MaterialApp\s*\(\s*home:\s*Scaffold\s*\(\s*body:\s*(?:const\s+)?SizedBox\.shrink\s*\(\s*\)/m.test(
-        source,
-      )
+      EMPTY_FLUTTER_SCAFFOLD_RE.test(source)
     ) {
       findings.push({
         code: "empty_page",
