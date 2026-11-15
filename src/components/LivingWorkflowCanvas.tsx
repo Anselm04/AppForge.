@@ -3,6 +3,8 @@ import { LiveSpecialistFlow } from "./LiveSpecialistFlow.js";
 import type { BuildLogEntry } from "../lib/buildLogView.js";
 import { projectWorkflow, type WorkflowState } from "../lib/livingWorkflow.js";
 import type { PlannedTask } from "../lib/livingTaskFlow.js";
+import { BuildLivePreview } from "./BuildLivePreview.js";
+import { isProjectArtifactReady } from "../lib/buildStatus.js";
 
 const statusStyles: Record<WorkflowState, string> = {
   queued: "border-slate-200 bg-white text-slate-500",
@@ -18,6 +20,9 @@ export function LivingWorkflowCanvas({
   logs,
   taskLogs,
   plannedTasks,
+  projectId,
+  deployUrl,
+  browserPreviewUrl,
 }: {
   project: {
     status?: string | null;
@@ -27,9 +32,14 @@ export function LivingWorkflowCanvas({
   logs: BuildLogEntry[];
   taskLogs?: BuildLogEntry[];
   plannedTasks?: readonly PlannedTask[];
+  projectId: number;
+  deployUrl?: string | null;
+  browserPreviewUrl?: string | null;
 }) {
   const nodes = useMemo(() => projectWorkflow(project, logs), [project, logs]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const previewReady = isProjectArtifactReady(project.status);
   const active =
     nodes.find((node) => node.id === selected) ??
     nodes.find((node) => node.state === "running") ??
@@ -135,7 +145,32 @@ export function LivingWorkflowCanvas({
       <LiveSpecialistFlow
         logs={taskLogs ?? logs}
         projectStatus={project.status}
+        plannedTasks={plannedTasks}
       />
+      <div className="mt-5 overflow-hidden rounded-2xl border border-sky-100 bg-white/85 p-4 md:p-5"
+        data-testid="living-workflow-preview">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Product preview</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              {previewReady
+                ? "A validated artifact is available for inspection."
+                : "The interactive preview is available after the build is validated."}
+            </p>
+          </div>
+          <button type="button" disabled={!previewReady}
+            onClick={() => setShowPreview((value) => !value)}
+            className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 disabled:cursor-not-allowed disabled:opacity-50">
+            {showPreview && previewReady ? "Hide preview" : "Open live preview"}
+          </button>
+        </div>
+        {showPreview && previewReady && (
+          <div className="mt-4" data-testid="living-workflow-preview-content">
+            <BuildLivePreview projectId={projectId} deployUrl={deployUrl}
+              browserPreviewUrl={browserPreviewUrl} enabled={true} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }
