@@ -33,6 +33,21 @@ describe("email action link exchange", () => {
     });
   });
 
+  it("rejects unsafe callback destinations and preserves local return URLs", async () => {
+    const { safeAuthDestination, loginPathWithReturn } = await import("../auth");
+    expect(safeAuthDestination("/account")).toBe("/account");
+    expect(loginPathWithReturn("/account")).toBe("/login?next=%2Faccount");
+    for (const unsafe of [
+      "//outside.example",
+      "/\\outside",
+      "/account\r\nnext",
+      "/account\n",
+    ]) {
+      expect(safeAuthDestination(unsafe)).toBe("/");
+      expect(loginPathWithReturn(unsafe)).toBe("/login?next=%2F");
+    }
+  });
+
   it.each(["signup", "recovery"] as const)(
     "exchanges a %s hash and removes it from browser history",
     async (type) => {

@@ -279,11 +279,7 @@ export function authHeaders(): Record<string, string> {
 }
 
 export function loginPathWithReturn(next = "/"): string {
-  const path =
-    next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
-      ? next
-      : "/";
-  return `/login?next=${encodeURIComponent(path)}`;
+  return `/login?next=${encodeURIComponent(safeAuthDestination(next))}`;
 }
 
 export function useSession(): AppForgeSession | null {
@@ -551,7 +547,9 @@ export function safeAuthDestination(
     typeof value === "string" &&
     value.startsWith("/") &&
     !value.startsWith("//") &&
-    !value.includes("\\")
+    !value.includes("\\") &&
+    !value.includes("\n") &&
+    !value.includes("\r")
   ) {
     return value;
   }

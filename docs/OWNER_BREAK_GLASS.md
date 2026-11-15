@@ -180,3 +180,27 @@ A secure system must be difficult for an attacker to enter and predictable for t
 ### Admin trial testing recovery, 2 November 2026
 
 The owner authorized a temporary testing bypass specifically for Twilio 21608. The fixed Fly deadline is 3 November 2026 at 05:00 UTC. The signed-in owner sees a random six-digit code in the same form when Twilio rejects a trial recipient; this deliberately suspends SMS as a second factor for this testing window. Anonymous and non-owner users remain blocked. Five-minute session-bound signed challenges, normal input verification, and distinct trial_test_approved auditing remain enforced. No codes enter application or CI logs. Remove ADMIN_MFA_TRIAL_FALLBACK and ADMIN_MFA_TRIAL_FALLBACK_UNTIL after testing; verify the owner phone in Twilio for normal SMS. The live hotfix is built from deployed SHA 5f1063cb to avoid unrelated unreleased Cloudflare email configuration requirements. This main-branch forward port preserves the normal production deployment workflow.
+
+
+## Authentication callback and navigation recovery review (15 November 2026)
+
+This source change unifies the return-path sanitization used by login links and
+OAuth/email callback handling. Both paths now require a local absolute path and
+reject protocol-relative redirects, backslashes and embedded CR/LF characters.
+Provider identity verification via Supabase `/auth/v1/user` remains mandatory
+before accepting an OAuth/email callback session. Credentials are scrubbed from
+browser history before server-session synchronization.
+
+Recovery behavior:
+1. Restore the app's trusted Supabase URL, publishable key, verified-email
+   provider configuration and canonical app origin from secret storage. Never
+   copy bearer or refresh tokens into recovery logs or repositories.
+2. Confirm a valid authenticated callback is accepted only after provider token
+   validation and that invalid/mismatched identities are rejected.
+3. Verify return destinations remain on the AppForge origin and malformed or
+   CR/LF destinations fall back to the root; ordinary customers need no SMS.
+4. If an auth rollout fails, restore the previously signed source revision while
+   retaining provider-side session revocations and current owner-only MFA.
+   Do not disable email confirmation, CSRF, owner authorization, or MFA.
+5. This review does not authorise Fly.io access, infrastructure provisioning,
+   paid integration calls, or customer testing.
