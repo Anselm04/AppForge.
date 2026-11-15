@@ -1,5 +1,9 @@
 import { useState, useCallback, useRef } from "react";
-import { browserSessionHeaders, getAccessToken, ensureFreshSession } from "../lib/auth.js";
+import {
+  browserSessionHeaders,
+  getAccessToken,
+  ensureFreshSession,
+} from "../lib/auth.js";
 import { withCsrfHeaders } from "../lib/csrf.js";
 import { trpc } from "../utils/trpc.js";
 import { consumeAuthedSse, readSseBody } from "../lib/authedSse.js";

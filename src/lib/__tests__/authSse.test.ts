@@ -113,7 +113,7 @@ describe("generate auth helpers", () => {
     expect(window.localStorage.getItem("appforge.user")).toBeNull();
   });
 
-  it("allows cookie-authenticated SSE without a browser bearer token", async () => {
+  it("allows cookie-backed SSE without a browser bearer", async () => {
     window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
