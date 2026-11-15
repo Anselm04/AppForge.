@@ -6,6 +6,7 @@ import {
   mergeScaffoldWithGenerated,
 } from "./stackScaffolds.js";
 import { stripFilenameHeaders } from "../lib/reliableBuild.js";
+import { getStackAdapter } from "../lib/stackAdapters.js";
 
 /**
  * Source-order recovery adapted from Bolt.diy's streaming action boundaries.
@@ -99,14 +100,14 @@ export function ensureEssentialFiles(
   techStack: string,
 ): Record<string, string> {
   const out = { ...files };
-  const needsPkg =
-    !out["package.json"] &&
-    !out["requirements.txt"] &&
-    !out["pyproject.toml"] &&
-    !out["Cargo.toml"] &&
-    !out["pubspec.yaml"];
+  // A manifest for another language is not evidence the selected stack has
+  // its required build manifest (e.g. requirements.txt is not package.json).
+  const adapter = getStackAdapter(techStack);
+  const needsManifest =
+    !out[adapter.dependencyManifest] ||
+    (adapter.id === "flutter-node" && !out["package.json"]);
 
-  if (needsPkg || !out["README.md"] || !out["index.html"]) {
+  if (needsManifest || !out["README.md"] || !out["index.html"]) {
     return mergeScaffoldWithGenerated(getStackScaffold(techStack), out);
   }
   return out;
