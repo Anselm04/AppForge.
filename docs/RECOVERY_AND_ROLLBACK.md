@@ -382,3 +382,9 @@ When reconciliation is required, operators must compare the exact customer, proj
 The order-workflow compensation approach in the Medusa reference repository distinguishes completed operations from rollback actions, and refund steps require a stable idempotency key. AppForge uses its existing idempotent credit ledger, not the Medusa framework. Build-claim release now also requires proof that exactly one running project row belonging to the user was transitioned. An update affecting zero rows is an uncertain recovery, **not** confirmation that the claim was released.
 
 On an uncertain release, retain ledger evidence and prior saved source, avoid assuming build credits are safe to re-charge, and reconcile project status, active durable queue jobs, credit debit and refund key before any retry. The existing create and REST entry points record and surface reconciliation-required errors. This source-only repair does not call paid providers or reconnect Fly.io.
+
+## REST build reservation ledger parity (15 November 2026)
+
+AppForge's REST generation path must follow the same proven source sequence already implemented in its tRPC project-create route: deduct the customer's authorized build credits, mark the debit immediately, persist the project-level reserved amount, and only then enqueue the job. The previous REST path could start a charged build with no corresponding project reservation, weakening failure recovery and customer-facing accounting.
+
+When reservation persistence or enqueue fails, the existing per-attempt idempotent refund must complete before clearing the project-level reserved amount. Any unconfirmed refund or release remains a reconciliation-required failure, not a safe customer retry. This is reused AppForge production source behavior and does not activate any live payment, Fly.io resource, or external provider.
