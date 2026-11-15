@@ -56,7 +56,9 @@ function isNonEnumeratingAuthError(error: AuthErrorLike | null): boolean {
 /**
  * Create a pending Supabase identity and let Supabase Auth deliver the
  * confirmation message through its configured email transport. The signup
- * phone is deliberately untrusted metadata until Twilio Verify confirms it.
+ * phone is optional and remains untrusted metadata until the identity
+ * provider confirms possession. Customer accounts need email verification
+ * only; owner step-up authentication is enforced separately.
  */
 export async function createSignupConfirmation(
   input: SignupConfirmationInput,
@@ -67,10 +69,12 @@ export async function createSignupConfirmation(
     password: input.password,
     options: {
       emailRedirectTo: input.redirectTo,
-      data: {
-        signup_phone: input.phone,
-        signup_phone_verified: false,
-      },
+      data: input.phone
+        ? {
+            signup_phone: input.phone,
+            signup_phone_verified: false,
+          }
+        : {},
     },
   });
 
