@@ -9,5 +9,5 @@
 export const DYAD_IMPLEMENTATION_GUIDANCE: readonly string[] = [
   "- Prioritize creating small, focused files and components.",
   "- Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused.",
-  "- Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task—three similar lines of code is better than a premature abstraction."
+  "- Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task—three similar lines of code is better than a premature abstraction.",
 ];
