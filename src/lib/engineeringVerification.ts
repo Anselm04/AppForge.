@@ -6,6 +6,7 @@
  * Every verdict is derived from durable evidence for the CURRENT artifact.
  */
 import { assessFactoryExecution } from "./factoryExecutionGate.js";
+import { runnerSourceSha256 } from "./runnerSourceDigest.js";
 
 export type VerificationState = "passed" | "failed" | "unverified";
 export type VerificationCheckId =
@@ -38,6 +39,7 @@ type CurrentSnapshot = {
   fileCount?: number | null;
   artifactIntegrity?: unknown;
   validationResult?: unknown;
+  files?: unknown;
 };
 
 type Event = {
@@ -150,10 +152,26 @@ export function buildEngineeringVerificationRecord(input: {
     snapshot,
     sha,
   );
-  const nativeProof = object(nativeEvent?.payload);
+  // Native execution receipts must identify exactly the persisted source.
+  const snapshotNativeProof = object(validator.nativeEvidence);
+  const snapshotFiles = object(snapshot.files);
+  const sourceProofMatches =
+    Object.keys(snapshotFiles).length > 0 &&
+    Object.values(snapshotFiles).every((value) => typeof value === "string") &&
+    snapshotNativeProof.runnerArtifactSha256 ===
+      runnerSourceSha256(snapshotFiles as Record<string, string>);
+  const nativeProof = sourceProofMatches
+    ? snapshotNativeProof
+    : Object.keys(snapshotNativeProof).length > 0
+      ? {}
+      : object(nativeEvent?.payload);
+  const verifiedPlatformBuilds =
+    nativeProof.androidBuildPassed === true &&
+    nativeProof.iosSimulatorBuildPassed === true;
   const mobileRuntimeVerified =
-    nativeProof.nativeAnalysisPassed === true &&
-    nativeProof.nativeBuildPassed === true &&
+    (nativeProof.flutterAnalyzePassed === true ||
+      nativeProof.nativeAnalysisPassed === true) &&
+    (verifiedPlatformBuilds || nativeProof.nativeBuildPassed === true) &&
     nativeProof.backendIntegrationPassed === true;
   // Structural or Python syntax-only checks are useful preliminary evidence,
   // not proof that an application compiled and executed.
