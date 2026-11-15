@@ -123,6 +123,11 @@ const slots: AvailabilitySlot[] = [
 ];
 
 export class SandboxReservationProvider implements ReservationProvider {
+  constructor() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Sandbox reservations cannot run in production');
+    }
+  }
   readonly id = 'sandbox';
   readonly authorization: ProviderAuthorization = {
     mode: 'sandbox',
