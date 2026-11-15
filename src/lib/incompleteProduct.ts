@@ -41,6 +41,10 @@ export type IncompleteProductReport = {
   findings: IncompleteProductFinding[];
 };
 
+const FLUTTER_APP_RE = /runApp\s*\(\s*const\s+MaterialApp\s*\(/;
+const FLUTTER_HOME_RE = /home:\s*Scaffold\s*\(/;
+const FLUTTER_BODY_RE = /body:\s*(?:const\s+)?SizedBox\.shrink\s*\(\s*\)/;
+
 const PLACEHOLDER_PATTERNS: Array<[RegExp, string]> = [
   [/Scaffold is ready/i, '"Scaffold is ready"'],
   [
@@ -202,6 +206,22 @@ function inspectPlaceholderAndEmptyFiles(
 
     if (!isCodeSource(path)) continue;
     const stripped = stripComments(source);
+    // The infrastructure-only Flutter scaffold must never qualify as a
+    // finished customer screen. Keep this signature narrow so genuine
+    // conditional SizedBox.shrink() UI remains valid.
+    if (
+      path === "lib/main.dart" &&
+      FLUTTER_APP_RE.test(source) &&
+      FLUTTER_HOME_RE.test(source) &&
+      FLUTTER_BODY_RE.test(source)
+    ) {
+      findings.push({
+        code: "empty_page",
+        path,
+        message:
+          "Flutter entrypoint renders the infrastructure-only empty screen.",
+      });
+    }
     const todoOnly =
       /\b(?:TODO|FIXME)\b/i.test(source) &&
       stripped.replace(/(?:TODO|FIXME)/gi, "").replace(/\s+/g, "").length < 24;
