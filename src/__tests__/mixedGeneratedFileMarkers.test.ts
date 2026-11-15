@@ -1,6 +1,68 @@
 import { describe, expect, it } from "vitest";
 import { parseGeneratedFiles } from "../services/multiFileCoder.js";
 
+describe("Bolt.diy action recovery", () => {
+  it("recovers executable file actions in order with older marker formats", () => {
+    const output = [
+      '<boltArtifact id="project" title="Task app">',
+      '<boltAction type="file" filePath="src/App.tsx">',
+      "export const App = () => <main>Real task list</main>;",
+      "</boltAction>",
+      '<boltAction type="shell">npm install</boltAction>',
+      '<boltAction type="file" filePath="server/src/server.ts">',
+      "```typescript",
+      "export const handler = () => ({ ok: true });",
+      "```",
+      "</boltAction>",
+      "</boltArtifact>",
+      "// filename: README.md",
+      "# Real task list",
+    ].join("\n");
+    const files = parseGeneratedFiles(output);
+    expect(Object.keys(files)).toEqual([
+      "src/App.tsx",
+      "server/src/server.ts",
+      "README.md",
+    ]);
+    expect(files["src/App.tsx"]).toContain("<main>Real task list</main>");
+    expect(files["server/src/server.ts"]).toContain("handler");
+    expect(JSON.stringify(files)).not.toContain("npm install");
+  });
+
+  it("rejects dangerous action paths without leaking action source", () => {
+    const output = [
+      "// filename: src/safe.ts",
+      "export const safe = true;",
+      '<boltAction type="file" filePath="../private/secrets.ts">DO_NOT_LEAK</boltAction>',
+      '<boltAction type="file" filePath="C:\\\\secrets.ts">ALSO_SECRET</boltAction>',
+      '<boltAction type="file" filePath="src/valid.ts">export const valid = 1;</boltAction>',
+    ].join("\n");
+    const files = parseGeneratedFiles(output);
+    expect(Object.keys(files)).toEqual(["src/safe.ts", "src/valid.ts"]);
+    expect(files["src/safe.ts"]).not.toContain("DO_NOT_LEAK");
+    expect(JSON.stringify(files)).not.toContain("ALSO_SECRET");
+  });
+
+  it("preserves filename-looking comments inside a file action", () => {
+    const files = parseGeneratedFiles(
+      '<boltAction filePath="lib/main.dart" type="file">\n' +
+        "// filename: not-a-file.dart\n" +
+        "void main() { print('real'); }\n" +
+        "</boltAction>",
+    );
+    expect(Object.keys(files)).toEqual(["lib/main.dart"]);
+    expect(files["lib/main.dart"]).toContain("// filename: not-a-file.dart");
+  });
+
+  it("does not invent code from incomplete Bolt file actions", () => {
+    expect(
+      parseGeneratedFiles(
+        '<boltAction type="file" filePath="src/App.tsx">unfinished',
+      ),
+    ).toEqual({});
+  });
+});
+
 describe("mixed generated-file boundaries", () => {
   it("collects all supported marker styles in source order", () => {
     const output = [

@@ -18,6 +18,26 @@ const HEADER_RE =
 const FENCED_PATH_RE =
   /^\x60{3}([a-zA-Z0-9]*)[ \t]+([\w./-]+\.[A-Za-z0-9]+)[ \t]*\r?\n([\s\S]*?)^\x60{3}[ \t]*\r?$/gm;
 const ANY_FENCE_RE = /^\x60{3}[^\r\n]*\r?\n[\s\S]*?^\x60{3}[ \t]*\r?$/gm;
+/**
+ * Bolt.diy's artifact protocol emits <boltAction type="file" filePath="...">
+ * boundaries rather than filename comments. Recover only complete actions;
+ * shell actions are delimiters, never executable customer source.
+ * Source: app/lib/runtime/message-parser.ts (MIT; third_party/bolt/LICENSE).
+ */
+const BOLT_ACTION_RE = /<boltAction\b([^>]*?)>([\s\S]*?)<\/boltAction\s*>/gi;
+
+function boltAttribute(attrs: string, name: string): string | null {
+  const matched = attrs.match(
+    new RegExp("\\b" + name + "\\s*=\\s*([\\\"'])(.*?)\\1", "i"),
+  );
+  return matched?.[2] ?? null;
+}
+
+function boltFileContent(value: string): string {
+  const fenced = value.match(/^\s*`{3}[^\r\n]*\r?\n([\s\S]*?)\r?\n\s*`{3}\s*$/);
+  const source = fenced ? fenced[1] : value;
+  return source.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
 
 function cleanPath(raw: string): string | null {
   const filename = raw
@@ -56,10 +76,31 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
     end: (match.index ?? 0) + match[0].length,
   }));
   const boundaries: FileBoundary[] = [];
+  const boltActions = [...llmOutput.matchAll(BOLT_ACTION_RE)];
+  const actionRanges = boltActions.map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+
+  for (const match of boltActions) {
+    const index = match.index ?? 0;
+    const isFile = boltAttribute(match[1] ?? "", "type") === "file";
+    boundaries.push({
+      index,
+      end: index + match[0].length,
+      path: isFile
+        ? cleanPath(boltAttribute(match[1] ?? "", "filePath") ?? "")
+        : null,
+      fencedContent: isFile ? boltFileContent(match[2] ?? "") : undefined,
+    });
+  }
 
   for (const match of llmOutput.matchAll(HEADER_RE)) {
     const index = match.index ?? 0;
-    if (fences.some((fence) => index >= fence.start && index < fence.end))
+    if (
+      fences.some((fence) => index >= fence.start && index < fence.end) ||
+      actionRanges.some((action) => index >= action.start && index < action.end)
+    )
       continue;
     boundaries.push({
       index,
@@ -70,6 +111,10 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
 
   for (const match of llmOutput.matchAll(FENCED_PATH_RE)) {
     const index = match.index ?? 0;
+    if (
+      actionRanges.some((action) => index >= action.start && index < action.end)
+    )
+      continue;
     boundaries.push({
       index,
       end: index + match[0].length,
