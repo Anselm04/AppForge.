@@ -63,3 +63,8 @@ This is **source presence inspection only**, not runtime verification. The indep
 **Branch repairs:** `repair/offline-ci-provider-isolation-20261115`, PR #403; switches research verification to offline fixtures while preserving CI coverage. PR #402 addresses the stack-specific essential-files defect and must be verified/merged separately. No live charge, Fly activation, or production deployment is authorized by either change.
 
 **Evidence limitation:** A file existing does not establish correctness. No specific main CI check set can be marked green based on the combined-status endpoint alone (latest main SHA reported a pending Vercel status, and the PR-triggered workflow-run lookup returned no runs). Do not merge PR #403 until exact-head required checks are green.
+
+## Follow-up repair on PR #403
+
+- **P0-08 / deployment SSRF hardening (source change, not yet complete):** `src/services/productionAutoDeploy.ts` now rejects credential-bearing URLs, IP-literal targets and local/internal hostnames before its post-deployment HTTP verification probe. `src/__tests__/productionAutoDeploy.test.ts` includes regression cases. This does **not** remove the historical Fly-specific automatic deployment dependency; the row remains **Broken**.
+- **Verification gate:** Changes are committed to the PR branch. The GitHub workflow-run lookup and combined status endpoint returned no CI checks for exact head `2974599b3c056a46049523f66d42040b04c0ba06`. No local repository clone was possible because the runner could not resolve github.com. Tests are **unverified**; do not merge yet.
