@@ -6,11 +6,15 @@ import { APPROVED_MONTHLY_PRICE_IDS } from "../services/appForgePricePolicy.js";
 
 const fake = vi.hoisted(() => ({
   subscription: null as Record<string, unknown> | null,
-  retrieve: vi.fn(async (_id: string): Promise<Record<string, unknown> | null> => null),
+  retrieve: vi.fn(
+    async (_id: string): Promise<Record<string, unknown> | null> => null,
+  ),
   lineItems: vi.fn(
     async (
       _id: string,
-    ): Promise<{ data: Array<{ quantity: number; price: { id: string } }> }> => ({
+    ): Promise<{
+      data: Array<{ quantity: number; price: { id: string } }>;
+    }> => ({
       data: [],
     }),
   ),
