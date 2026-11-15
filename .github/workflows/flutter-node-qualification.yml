@@ -325,6 +325,12 @@ jobs:
           DEVICE=$(node -e 'const s=require(process.env.EVIDENCE+"/simulators.json"); const d=Object.values(s.devices).flat().find(d=>d.isAvailable && d.name.startsWith("iPhone")); if(!d)process.exit(1); process.stdout.write(d.udid)')
           printf '%s\n' "$DEVICE" > "$EVIDENCE/ios-simulator-udid.txt"
 
+          # Compile first so a cloud-hosted simulator boot failure cannot hide
+          # actual iOS compile results. Runtime interaction remains mandatory
+          # and a failed simulator cannot produce a passing qualification.
+          cd "$FIXTURE"
+          flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
+
           # Require successful readiness, not just a Booted listing. A missing
           # command, abnormal bootstatus, or expiration must fail qualification.
           xcrun simctl boot "$DEVICE" || test "$(xcrun simctl list devices | grep -c "$DEVICE.*Booted")" -gt 0
@@ -343,7 +349,6 @@ jobs:
           trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do curl --fail --silent http://127.0.0.1:3217/health/live > "$EVIDENCE/backend-health.json" && break; sleep 1; done
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
-          flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
           # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
           # not by burning the entire 60-minute job budget.
           "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test --verbose integration_test/qualification_test.dart \

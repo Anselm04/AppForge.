@@ -336,3 +336,25 @@ On a rejected preview/deployment, retain the immutable current snapshot and any 
 Before emitting a terminal done event, the worker projects the canonical factory execution verdict for the persisted artifact. Both completion payload variants must include executionVerified and validationPassed derived from actual executed validation, together with the immutable snapshot ID and SHA-256 digest. The event must not equate a saved project or source-only scaffold with verified runtime execution.
 
 On interruption or redelivery, compare the durable current artifact, job identity, reservation and terminal event before replay. Never claim an older artifact's validation for an edited source revision. Preserve source downloads and known-good checkpoints, and avoid duplicate credit consumption or destructive rollback. This change does not deploy or reactivate providers.
+
+## Bounded factory admission and reserved-credit recovery (15 November 2026)
+
+When the durable BullMQ build queue reaches its configured waiting-job limit, the producer rejects new jobs with a retryable saturation error. Existing project creation code must unwind the build claim and refund any reserved credits using its idempotency key before returning the retryable error. A customer may retry after capacity returns; saturation must never be presented as successful generation.
+
+A queue-depth query is best-effort telemetry, not an atomic multi-producer quota or evidence of whether a previously accepted job has completed. A failure to inspect the waiting count must not silently erase a durable job, charge credits twice, or produce a fake completed artifact. Production capacity qualification must assess concurrent producers and consider an atomic reservation mechanism before claiming a strict distributed cap.
+
+The recovery test matrix includes queue saturation; failed enqueue; missing queue telemetry; duplicate job IDs; a worker crash after reservation; restart after artifact persistence; and credit refund idempotency. Reconcile durable queue state, database build claim, current artifact snapshot and build-event history before retrying or refunding. This change neither activates external infrastructure nor replaces recovery checkpoints.
+
+## Native Flutter build verification and recovery review (15 November 2026)
+
+The isolated native validator now records executed Flutter analyzer and tests, Android and iOS simulator compilation evidence, and Flutter+Node backend integration with command names, exit codes and binary SHA-256 digests. The response is bound to the exact persisted source digest; mismatched or missing proof is not runtime verified. These checks do not imply app signing, store submission or distribution.
+
+If the native runner is unavailable or fails partway, preserve the saved source revision, previous known-good artifact and credit ledger. Show the actual failed stage; do not promote incomplete build output or reuse a different artifact's proof. Re-validate a changed revision from scratch, and reconcile the immutable snapshot, runner evidence and current build claim after a worker restart. No paid runtime, cloud provider, Fly.io resource, or new production secret is introduced by this protocol.
+
+Qualification requires falsified-proof rejection, cross-revision digest mismatch, platform build failures, missing backend integration, interrupted native execution, and verified replay only for the exact current source. Do not mark mobile distribution complete without independent store signing and approval evidence.
+
+## Reconnected build-stream runtime evidence review (15 November 2026)
+
+A completed database status or a previously emitted SSE done message cannot independently certify executable output. Reconnected clients receive executionVerified only from the current persisted artifact's validation evidence assessed with the canonical factory execution gate. The response includes the source snapshot ID and SHA-256 so clients can distinguish a stale replay from the current project revision.
+
+When current artifact retrieval fails, replay must report unverified execution and retain source availability instead of fabricating success or deleting the last good revision. On a worker restart or an edited project, reconcile the database status, artifact version, source checksum, and validator result. Runtime verification for a new revision requires a new executed test. This source-level recovery update does not activate any provider, paid workload or Fly.io resource.
