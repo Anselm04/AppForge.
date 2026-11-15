@@ -66,10 +66,8 @@ export function Signup() {
 
   useEffect(() => {
     if (me && !checkEmail) {
-      if (me.phone && !me.phoneVerified) {
-        navigate(`/verify-phone?next=${encodeURIComponent(next)}`, {
-          replace: true,
-        });
+      if (me.isOwner && !me.phoneVerified) {
+        navigate(next, { replace: true });
       } else {
         navigate(next, { replace: true });
       }
@@ -86,17 +84,19 @@ export function Signup() {
       return;
     }
 
-    let normalizedPhone: string;
-    try {
-      normalizedPhone = normalizePhone(phone);
-    } catch (err) {
-      setTouchedPhone(true);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Enter a valid mobile number in international format.",
-      );
-      return;
+    let normalizedPhone = "";
+    if (phone.trim()) {
+      try {
+        normalizedPhone = normalizePhone(phone);
+      } catch (err) {
+        setTouchedPhone(true);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Enter a valid mobile number in international format.",
+        );
+        return;
+      }
     }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -157,9 +157,8 @@ export function Signup() {
             data-testid="signup-verification-note"
             className="rounded-lg border border-forge-border bg-forge-surface/60 px-3 py-2 text-xs text-forge-text-muted"
           >
-            Confirm your email first. Then sign in and AppForge will send a
-            verification code to {phone.trim()} to finish setting up this same
-            account.
+            Confirm your email first, then sign in to your AppForge account.
+            Ordinary customers do not need SMS verification.
           </p>
           <Button
             className="w-full"
@@ -181,7 +180,7 @@ export function Signup() {
   return (
     <AuthShell
       title={t("signup.title")}
-      subtitle="Create one AppForge account with your email, mobile number and password. Both contact methods are verified before setup is complete."
+      subtitle="Create your AppForge account with an email and password. Mobile number is optional; email confirmation is required."
       footer={
         <>
           {t("signup.hasAccount")}{" "}
@@ -221,12 +220,11 @@ export function Signup() {
         />
         <Input
           id="signup-phone"
-          label="Mobile number"
+          label="Mobile number (optional)"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
           placeholder="+6421…"
-          required
           value={phone}
           error={phoneError}
           onChange={(e) => setPhone(e.target.value)}
@@ -271,7 +269,6 @@ export function Signup() {
           disabled={
             pending ||
             !email.trim() ||
-            !phone.trim() ||
             password.length < MIN_PASSWORD_LENGTH ||
             confirm.length < MIN_PASSWORD_LENGTH
           }
