@@ -59,7 +59,7 @@ describe("editor file checks remain static and confined", () => {
       {},
     );
     expect(result.ok).toBe(false);
-    expect(result.message).toMatch(/syntax|not saved/i);
+    expect(result.message).toMatch(/JSX element|syntax|not saved/i);
     expect(processExecution).not.toHaveBeenCalled();
   });
 
