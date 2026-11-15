@@ -111,11 +111,15 @@ export async function ownerTotpStatus(
   req: Request,
   ownerUid: string,
   fetcher: typeof fetch = fetch,
-): Promise<{ enrolled: boolean; factorCount: number }> {
+): Promise<{ enrolled: boolean; factorCount: number; factorId: string | null }> {
   const verified = (await ownerFactors(req, ownerUid, fetcher)).filter(
     (factor) => factor.status === "verified",
   );
-  return { enrolled: verified.length > 0, factorCount: verified.length };
+  return {
+    enrolled: verified.length > 0,
+    factorCount: verified.length,
+    factorId: verified[0]?.id ?? null,
+  };
 }
 
 export async function enrollOwnerTotp(
