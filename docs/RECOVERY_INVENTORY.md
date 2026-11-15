@@ -1191,3 +1191,8 @@ Both verified-secret history scanning workflows use immutable TruffleHog 3.99.8 
 ## CodeQL paired security update — PRs #296/#297
 
 CodeQL init and analyze are both pinned to verified v4.39.3 SHA `33d7b85da1a04171e211befe2c739303b9a4c066`. Their analysis scope and recovery invariants remain intact, with the Fly production deployment job and capacity guard still disabled.
+
+
+## Stripe SDK v23 compatibility repair (PR #293, 2026-11-16)
+
+Existing checkout prices, customer entitlements, secret locations and invoice-grant idempotency stay unchanged. Original compatibility adapters normalize Stripe legacy and current invoice line, price, subscription and subscription-period types. CI must pass at the exact candidate head using locally mocked payment events, and all real Stripe payment, funded API and production Fly actions remain disabled or unverified.
