@@ -8,6 +8,7 @@ import { ENV } from "./_core/env.js";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { isOwnerEmail } from "./lib/owner.js";
 import { balanceAfterMonthlyGrant } from "./lib/creditRollover.js";
+import { assertSufficientCreditBalance } from "./lib/creditDeductionPolicy.js";
 import {
   buildProductContract,
   validateProductContract,
@@ -982,11 +983,7 @@ export async function deductCredits(
       });
       return credits.balance;
     }
-    if (credits.balance < amount) {
-      throw new Error(
-        `Insufficient credits: need ${amount}, have ${credits.balance}`,
-      );
-    }
+    assertSufficientCreditBalance(credits.balance, amount);
 
     const newBalance = credits.balance - amount;
     await tx
