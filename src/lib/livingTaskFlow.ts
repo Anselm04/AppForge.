@@ -18,13 +18,28 @@ export function appendTaskFlowEvent(
   incoming: BuildLogEntry,
 ): BuildLogEntry[] {
   const taskId = incoming.payload?.taskId;
-  if (incoming.agent !== "Coder" || typeof taskId !== "string" || !taskId.trim())
+  if (
+    incoming.agent !== "Coder" ||
+    typeof taskId !== "string" ||
+    !taskId.trim()
+  )
     return [...previous];
-  if (!["coordination_status", "chunk", "task_complete", "task_resume_skip"].includes(incoming.type))
+  if (
+    ![
+      "coordination_status",
+      "chunk",
+      "task_complete",
+      "task_resume_skip",
+    ].includes(incoming.type)
+  )
     return [...previous];
   // One chunk indicates the task streamed code; actual text stays in Logs.
-  if (incoming.type === "chunk" &&
-      previous.some((item) => item.type === "chunk" && item.payload?.taskId === taskId))
+  if (
+    incoming.type === "chunk" &&
+    previous.some(
+      (item) => item.type === "chunk" && item.payload?.taskId === taskId,
+    )
+  )
     return [...previous];
   return [...previous, incoming].slice(-512);
 }
