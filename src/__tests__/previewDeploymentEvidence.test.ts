@@ -39,9 +39,7 @@ describe("preview and actual deployment evidence are distinct", () => {
     expect(deploy).toContain(
       'input.destination === "preview" ? (result.url ?? null) : null',
     );
-    expect(deploy).toContain(
-      'kind: "deployment"',
-    );
+    expect(deploy).toContain('kind: "deployment"');
   });
 
   it("shows the customer an explicit preview label", () => {
