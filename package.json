@@ -31,7 +31,8 @@
     "audit:launch": "node scripts/audit-launch-blockers.mjs",
     "start:build-worker": "node dist/services/build-worker-entry.js",
     "test:local-load-contract": "node --test scripts/__tests__/load-test-local.test.mjs",
-    "load:local-http": "node scripts/load-test-local.mjs"
+    "load:local-http": "node scripts/load-test-local.mjs",
+    "test:real-generation": "node --import tsx scripts/real-generation-smoke.ts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -329,7 +329,7 @@ jobs:
           # actual iOS compile results. Runtime interaction remains mandatory
           # and a failed simulator cannot produce a passing qualification.
           cd "$FIXTURE"
-          flutter build ios --simulator --debug 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
+          flutter build ios --simulator --debug --dart-define=API_BASE_URL=http://127.0.0.1:3217 2>&1 | tee "$EVIDENCE/ios-simulator-build.log"
 
           # Require successful readiness, not just a Booted listing. A missing
           # command, abnormal bootstatus, or expiration must fail qualification.
@@ -351,10 +351,21 @@ jobs:
           curl --fail --silent http://127.0.0.1:3217/health/ready > "$EVIDENCE/backend-ready.json"
           # Hard timeout so simulator attachment / test-runtime hangs fail in minutes,
           # not by burning the entire 60-minute job budget.
-          "$QUALIFICATION_TIMEOUT" --kill-after=10s 15m flutter test --verbose integration_test/qualification_test.dart \
+          # The first simulator compile already used the same API_BASE_URL. Avoid
+          # rebuilding with a changed Dart define; bound second-stage test and
+          # capture concise logs rather than verbose Xcode output. A timeout
+          # is still a failed qualification, never a simulated pass.
+          if "$QUALIFICATION_TIMEOUT" --kill-after=10s 25m flutter test --no-pub --reporter expanded integration_test/qualification_test.dart \
             -d "$DEVICE" \
             --dart-define=API_BASE_URL=http://127.0.0.1:3217 \
-            2>&1 | tee "$EVIDENCE/ios-interaction.log"
+            > "$EVIDENCE/ios-interaction.log" 2>&1; then
+            tail -n 80 "$EVIDENCE/ios-interaction.log"
+          else
+            status=$?
+            echo "iOS simulator integration qualification failed (exit $status)" >&2
+            tail -n 120 "$EVIDENCE/ios-interaction.log" >&2
+            exit "$status"
+          fi
           xcrun simctl io "$DEVICE" screenshot "$EVIDENCE/ios-harness.png"
           flutter build ios --release --no-codesign 2>&1 | tee "$EVIDENCE/ios-release-build.log"
           test -d "$FIXTURE/build/ios/iphoneos/Runner.app"

@@ -206,3 +206,54 @@ test("failed and cancelled entitlement states cannot initiate top-up", () => {
   // No synthetic payment-failed event was translated into a paid invoice.
   // Consequently these cases have not minted extra credit.
 });
+
+
+async function creditEntitlement() {
+  const rows = await admin.unsafe(
+    `SELECT tier, monthly_allowance, balance FROM "${schema}".user_credits WHERE user_id = 101`,
+  );
+  return {
+    tier: String(rows[0].tier),
+    monthlyAllowance: Number(rows[0].monthly_allowance),
+    balance: Number(rows[0].balance),
+  };
+}
+
+test("paid invoice changes persist plan-specific entitlements across upgrade and downgrade", async () => {
+  // Distinct locally simulated paid invoices; the settlement handler is real.
+  // This tests invoice grant + cached credit tier, not external plan mutation.
+  const builder = await grant(101, "builder", "in_builder_upgrade_101");
+  assert.deepEqual(builder, { granted: 400, skipped: false });
+  assert.deepEqual(await creditEntitlement(), {
+    tier: "builder", monthlyAllowance: 66, balance: 510,
+  });
+  assert.deepEqual(await grant(101, "builder", "in_builder_upgrade_101"), {
+    granted: 0, skipped: true,
+  });
+  const studio = await grant(101, "studio", "in_studio_upgrade_101");
+  assert.deepEqual(studio, { granted: 1500, skipped: false });
+  assert.deepEqual(await creditEntitlement(), {
+    tier: "studio", monthlyAllowance: 0, balance: 2010,
+  });
+  const starter = await grant(101, "starter", "in_starter_downgrade_101");
+  assert.deepEqual(starter, { granted: 100, skipped: false });
+  assert.deepEqual(await creditEntitlement(), {
+    tier: "starter", monthlyAllowance: 16, balance: 2110,
+  });
+  for (const id of [
+    "in_builder_upgrade_101",
+    "in_studio_upgrade_101",
+    "in_starter_downgrade_101",
+  ]) {
+    assert.equal(await transactionCount(id), 1);
+  }
+});
+
+test("unrecognized or free invoice cannot mint a paid credit entitlement", async () => {
+  const original = await creditEntitlement();
+  const unknown = await grant(101, "free", "in_free_no_paid_grant_101");
+  assert.deepEqual(unknown, { granted: 0, skipped: false });
+  assert.equal(await balance(), original.balance);
+  assert.equal(await transactionCount("in_free_no_paid_grant_101"), 1);
+  // Real webhook ownership/tier validation is exercised separately.
+});

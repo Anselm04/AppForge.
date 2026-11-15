@@ -77,6 +77,21 @@ describe("project readiness API", () => {
     expect(await caller.deployOptions()).toEqual(options);
   });
 
+  // prettier-ignore
+  it("rejects a second authenticated customer's read and build-log access", async () => {
+    database.getProjectById.mockResolvedValue({
+      id: 913,
+      userId: 8,
+      techStack: "react-node",
+      generatedFiles: { "server/private.ts": "private-data" },
+    });
+    await expect(caller.get({ id: 913 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.getLogs({ projectId: 913 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(database.getProjectById).toHaveBeenCalledWith(913);
+    // Prevent leaking logs, downloaded artifacts, or another tenant's files.
+    expect(database.getProjectsByUserId).not.toHaveBeenCalled();
+  });
+
   it("rejects other users and missing projects before disclosing scoped options", async () => {
     database.getProjectById.mockResolvedValue({
       id: 1,
