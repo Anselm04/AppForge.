@@ -64,6 +64,76 @@ describe("LLM invokeLLM", () => {
     }
   });
 
+  it("converts Bolt-compatible required JSON into a native tool call", async () => {
+    const tool = {
+      type: "function" as const,
+      function: {
+        name: "project_write_file",
+        parameters: { type: "object" },
+      },
+    };
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "bolt-recovery",
+        created: 1,
+        model: "test-model",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content:
+                '{"name":"project_write_file","parameters":{"path":"src/App.tsx"}}',
+            },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+    });
+    const result = await invokeLLM({
+      messages: [{ role: "user", content: "Write the source" }],
+      tools: [tool],
+      toolChoice: "required",
+    });
+    expect(result.choices[0].finish_reason).toBe("tool_calls");
+    expect(result.choices[0].message.content).toBe("");
+    expect(result.choices[0].message.tool_calls?.[0]).toMatchObject({
+      type: "function",
+      function: {
+        name: "project_write_file",
+        arguments: '{"path":"src/App.tsx"}',
+      },
+    });
+    expect(vi.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fabricate native calls for automatically selected tools", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "unforced",
+        model: "test-model",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: '{"name":"project_write_file","parameters":{}}',
+            },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+    });
+    const result = await invokeLLM({
+      messages: [{ role: "user", content: "Explain" }],
+      tools: [{ type: "function", function: { name: "project_write_file" } }],
+      toolChoice: "auto",
+    });
+    expect(result.choices[0].message.tool_calls).toBeUndefined();
+  });
+
   it("should handle array content parts", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
