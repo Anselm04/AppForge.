@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Request, Response } from "express";
+import type { Request, Response as ExpressResponse } from "express";
 
 const mocks = vi.hoisted(() => ({
   setSessionCookies: vi.fn(),
@@ -35,10 +35,10 @@ const elevated = token("aal2");
 function ownerRequest(): Request {
   return { authAccessToken: primary } as Request;
 }
-function fakeResponse(): Response {
-  return {} as Response;
+function fakeResponse(): ExpressResponse {
+  return {} as ExpressResponse;
 }
-function response(value: unknown, status = 200): Response {
+function response(value: unknown, status = 200): globalThis.Response {
   return new Response(JSON.stringify(value), {
     status,
     headers: { "content-type": "application/json" },
