@@ -153,6 +153,21 @@ export function rememberAuthenticatedUser(
   return session;
 }
 
+/**
+ * Adopt the provider-verified AAL2 bearer returned by the owner-only TOTP
+ * endpoint. The backend independently verified the upgraded Supabase token
+ * before signing the owner MFA cookie; this only updates the browser's
+ * existing primary session so subsequent API calls use the same session.
+ */
+export function adoptOwnerTotpSession(accessToken: string): void {
+  const previous = getSession();
+  const identity = jwtUser(accessToken);
+  if (!previous?.accessToken || !identity || identity.id !== previous.user.id) {
+    throw new Error("Owner authenticator returned a different login identity");
+  }
+  saveSession({ user: previous.user, accessToken });
+}
+
 function sessionFromAuth(result: {
   access_token?: string;
   refresh_token?: string;
