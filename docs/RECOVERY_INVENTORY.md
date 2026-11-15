@@ -1181,3 +1181,8 @@ Recovery: if a provider deadline produces unexpected retry behavior, revert the 
 - Disconnected incidents remain unacknowledged for future retry; no source snapshot is promoted, no deployment/certification claim is emitted and no cost-bearing autonomous fix is dispatched. Normal source-level software engineering, local CI and explicitly approved customer-owned deployment remain unaffected.
 - This does not reconnect or activate a Fly account. After all three products are engineered and the owner explicitly approves restoring Fly access, any new operating configuration must be reviewed, tested with safe mocks, and reconciled to the hosting cost authorization before enabling autonomous deployment.
 - Regression: `src/__tests__/flyAutonomousRecoveryGate.test.ts` and the disconnected-host case in `src/__tests__/selfHealingContract.test.ts`. No provider call or production deployment is made by these tests.
+
+
+## TruffleHog security action upgrade — PR #298
+
+Both verified-secret history scanning workflows use immutable TruffleHog 3.99.8 SHA `ea68ca03c865c5f324e86e849ced20ed3cf9dbbb`. All recovery, manually disabled Fly deployment and owner approvals remain in force. No host contact or deployment occurred.
