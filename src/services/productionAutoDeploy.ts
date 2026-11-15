@@ -119,6 +119,22 @@ export function requireVerifiedLiveUrl(value: string): string {
   if (parsed.protocol !== "https:") {
     throw new Error("Fly production deployment must return an HTTPS live URL");
   }
+  // This URL is subsequently contacted by the service. Never probe a URL
+  // carrying credentials or targeting loopback, internal DNS, or IP literals.
+  const hostname = parsed.hostname.toLowerCase().replace(/\\.$/, "");
+  if (
+    parsed.username ||
+    parsed.password ||
+    !hostname ||
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.includes(":") ||
+    /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(hostname)
+  ) {
+    throw new Error("Production deployment returned an unsafe live URL");
+  }
   return parsed.toString();
 }
 
