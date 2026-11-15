@@ -43,6 +43,11 @@ import {
 import { getBuildQueueDiagnostics } from "../services/build-queue.js";
 import { checkSharedRedis } from "../middleware/rateLimiter.js";
 import {
+  ownerTotpStatus,
+  enrollOwnerTotp,
+  verifyOwnerTotp,
+} from "../services/ownerTotp.js";
+import {
   evaluateOperationalAlerts,
   operationalSnapshot,
 } from "../lib/operationsObservability.js";
@@ -84,6 +89,80 @@ function genericRedeemFail(): never {
 }
 
 export const adminRouter = router({
+  /** TOTP is the primary, free owner MFA method. Customer accounts need no SMS. */
+  totpStatus: ownerAuthenticatedProcedure.query(async ({ ctx }) => {
+    try {
+      const status = await ownerTotpStatus(ctx.req, ctx.user.supabaseUid);
+      return {
+        ...status,
+        verified: hasValidAdminMfa(ctx.req, ctx.user.id),
+        expiresInSeconds: adminMfaExpiresInSeconds(),
+      };
+    } catch {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Supabase owner authenticator service is unavailable.",
+      });
+    }
+  }),
+
+  totpEnroll: ownerAuthenticatedProcedure.mutation(async ({ ctx }) => {
+    // Enrollment is owner-only and never uses the service-role key or Twilio.
+    const enrolled = await ownerTotpStatus(ctx.req, ctx.user.supabaseUid);
+    if (enrolled.enrolled) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Verify your enrolled authenticator instead.",
+      });
+    }
+    const result = await enrollOwnerTotp(ctx.req, ctx.user.supabaseUid);
+    await db.insert(schema.complianceRecords).values({
+      recordType: "security_incident",
+      userId: ctx.user.id,
+      details: { action: "owner_totp_enrollment_started" },
+      adminEmail: ctx.user.email,
+    });
+    return result;
+  }),
+
+  totpVerify: ownerAuthenticatedProcedure
+    .input(z.object({
+      factorId: z.string().uuid(),
+      code: adminMfaCodeSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const upgraded = await verifyOwnerTotp(
+          ctx.req,
+          ctx.res,
+          ctx.user.id,
+          ctx.user.supabaseUid,
+          input.factorId,
+          input.code,
+        );
+        await db.insert(schema.complianceRecords).values({
+          recordType: "security_incident",
+          userId: ctx.user.id,
+          details: { action: "owner_totp_verified", outcome: "approved" },
+          adminEmail: ctx.user.email,
+        });
+        return {
+          verified: true as const,
+          accessToken: upgraded.access_token,
+          expiresInSeconds: adminMfaExpiresInSeconds(),
+        };
+      } catch (error) {
+        logger.warn(
+          { userId: ctx.user.id, reason: error instanceof Error ? error.message : "verification_failed" },
+          "owner_totp_verification_rejected",
+        );
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Authenticator verification failed. Admin remains locked.",
+        });
+      }
+    }),
+
   mfaStatus: ownerAuthenticatedProcedure.query(async ({ ctx }) => {
     ensureAdminMfaConfigured();
     return {
