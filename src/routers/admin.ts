@@ -446,7 +446,7 @@ export const adminRouter = router({
       logger.error({ error }, "admin_database_diagnostic_failed");
     }
 
-    const safe = async <T,>(
+    const safe = async <T>(
       promise: PromiseLike<T>,
       fallback: T,
       diagnostic: string,
