@@ -108,8 +108,13 @@ function cleanoutMarkdownSyntax(content: string, path?: string): string {
 
 /** Remove file markers and complete outer code fences without altering indentation. */
 export function stripFilenameHeaders(content: string, path?: string): string {
-  let out = content.replace(/^\/\/\s*filename:\s*.+\r?\n?/gim, "");
-  out = out.replace(/^\/\/\s*file:\s*.+\r?\n?/gim, "");
+  // Only consume a leading transport header. Source files can legitimately
+  // contain their own filename comments; removing them changes source code.
+  let out = content.replace(
+    /^\/\/[ \t]*filename:[^\r\n]*(?:\r?\n|$)/i,
+    "",
+  );
+  out = out.replace(/^\/\/[ \t]*file:[^\r\n]*(?:\r?\n|$)/i, "");
   out = out.replace(/^\r?\n/, "");
   return cleanoutMarkdownSyntax(out, path);
 }
