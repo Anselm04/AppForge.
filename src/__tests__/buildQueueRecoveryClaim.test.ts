@@ -90,13 +90,7 @@ it("conditionally pauses the owner and inspected state while excluding every new
 it("holds charged queue failures pending refund instead of wiping reserved credit", async () => {
   const updated = new Date("2026-10-04T00:01:00Z");
   expect(
-    await pauseFailedQueueAttempt(
-      41,
-      7,
-      updated,
-      "2026-10-04T00:00:00Z",
-      true,
-    ),
+    await pauseFailedQueueAttempt(41, 7, updated, "2026-10-04T00:00:00Z", true),
   ).toBe(true);
   const written = io.set.mock.calls[0][0];
   expect(written.pauseReason).toBe("refund_pending");

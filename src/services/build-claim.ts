@@ -113,7 +113,9 @@ export async function pauseFailedQueueAttempt(
       .update(schema.projects)
       .set({
         status: "paused",
-        pauseReason: reservationCharged ? "refund_pending" : "retry_after_error",
+        pauseReason: reservationCharged
+          ? "refund_pending"
+          : "retry_after_error",
         errorMessage: reservationCharged
           ? "The build stopped. Reserved credits are being reconciled before retry."
           : "The build worker stopped. Your approved decisions and saved files are preserved; retry to continue.",
