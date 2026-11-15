@@ -1186,3 +1186,8 @@ Recovery: if a provider deadline produces unexpected retry behavior, revert the 
 ## TruffleHog security action upgrade — PR #298
 
 Both verified-secret history scanning workflows use immutable TruffleHog 3.99.8 SHA `ea68ca03c865c5f324e86e849ced20ed3cf9dbbb`. All recovery, manually disabled Fly deployment and owner approvals remain in force. No host contact or deployment occurred.
+
+
+## CodeQL paired security update — PRs #296/#297
+
+CodeQL init and analyze are both pinned to verified v4.39.3 SHA `33d7b85da1a04171e211befe2c739303b9a4c066`. Their analysis scope and recovery invariants remain intact, with the Fly production deployment job and capacity guard still disabled.
