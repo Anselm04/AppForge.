@@ -197,7 +197,7 @@ router.post(
     const next = safeNext(req.body?.next);
 
     if (
-      !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       email.length > 254 ||
       (req.body?.phone && !phone) ||
       password.length < 8
