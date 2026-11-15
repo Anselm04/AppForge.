@@ -36,7 +36,7 @@ describe("AppForge authentication provider roles", () => {
       ?.split("export const accountDeletionProcedure", 1)[0];
 
     expect(protectedBlock).toBeTruthy();
-    expect(protectedBlock).toContain("if (!user.phoneVerified)");
+    expect(protectedBlock).not.toContain("if (!user.phoneVerified)");
     expect(protectedBlock).not.toContain("hasValidAdminMfa");
   });
 });

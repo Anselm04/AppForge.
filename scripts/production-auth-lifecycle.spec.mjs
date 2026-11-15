@@ -107,7 +107,6 @@ test("requests a real production signup confirmation email", async ({
 
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
-  requireValue("APPFORGE_AUTH_GATE_PHONE", phone);
 
   await page.goto(`${baseUrl}/signup?next=%2Faccount`, {
     waitUntil: "networkidle",
@@ -116,7 +115,7 @@ test("requests a real production signup confirmation email", async ({
 
   const form = page.locator("form");
   await form.getByLabel(/email/i).fill(email);
-  await form.getByLabel("Mobile number").fill(phone);
+  if (phone) await form.getByLabel(/Mobile number/i).fill(phone);
   await form.getByLabel(/^password/i).fill(password);
   await form.getByLabel(/confirm/i).fill(password);
 
@@ -153,9 +152,7 @@ test("confirmed production account accepts normal login", async ({ page }) => {
   requireValue("APPFORGE_AUTH_GATE_EMAIL", email);
   requireValue("APPFORGE_CANARY_PASSWORD", password);
 
-  // Probe verification without opening the SMS screen. Repeated browser logins
-  // would automatically request a new SMS on every poll before the tester has
-  // completed the out-of-band confirmation journey.
+  // Verify email-only customer access without sending or awaiting SMS.
   await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle" });
   const config = await page.evaluate(() => window.__APPFORGE_CONFIG__);
   requireValue("Supabase runtime URL", config?.supabaseUrl);
@@ -180,10 +177,8 @@ test("confirmed production account accepts normal login", async ({ page }) => {
   });
   expect(meResponse.ok()).toBe(true);
   const me = await meResponse.json();
-  expect(
-    me.result?.data?.phoneVerified,
-    "Complete the SMS step in the browser opened from the confirmation email",
-  ).toBe(true);
+  expect(me.result?.data?.email).toBe(email.trim().toLowerCase());
+  // Customer onboarding must not depend on phoneConfirmed or Twilio.
 });
 
 test("logs in, recovers the session, logs out, and relogs into the confirmed real production account", async ({

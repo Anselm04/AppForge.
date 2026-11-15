@@ -51,6 +51,14 @@ Verification:
 - Git bundle verification.
 - Exact SHA recovery.
 
+## Customer authentication and owner step-up recovery
+
+Customer authentication uses Supabase-confirmed email accounts. A customer must **not** need a phone or Twilio SMS to recover a session, sign in, create projects, or use paid entitlements. A missing phone-verification record is not an authorization failure for ordinary customers. Maintain email verification, rate limiting, CSRF, session revocation, and account deletion controls.
+
+Privileged owner/admin operations remain subject to server-validated owner identity and separate step-up MFA. Owner phone enrollment/SMS and its recovery channels are distinct from the customer email-signup contract; replacing owner SMS with authenticator TOTP requires its own tested, fail-closed migration and recovery procedure.
+
+Disaster-recovery acceptance must independently prove both paths: (1) confirmed email-only customer logs in and uses authorized API resources without Twilio; (2) forged/unverified owner MFA cannot access privileged APIs. No production SMS or cloud provider call is necessary for the source-level qualification. Keep any real recovery codes and secret values outside GitHub. Do not enable Fly.io or paid provider testing as part of this repair.
+
 ## Owner identity and privileged access
 
 Must be recoverable:

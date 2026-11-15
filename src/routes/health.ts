@@ -196,10 +196,15 @@ router.post(
       typeof req.body?.password === "string" ? req.body.password : "";
     const next = safeNext(req.body?.next);
 
-    if (!email || !email.includes("@") || !phone || password.length < 8) {
+    if (
+      !email ||
+      !email.includes("@") ||
+      (req.body?.phone && !phone) ||
+      password.length < 8
+    ) {
       return res.status(400).json({
         error:
-          "A valid email, mobile number in international format, and password of at least 8 characters are required.",
+          "A valid email and password of at least 8 characters are required. If provided, the mobile number must use international format.",
         code: "INVALID_SIGNUP_INPUT",
       });
     }
@@ -215,7 +220,7 @@ router.post(
       return res.status(202).json({
         user: { id: result.userId, email, phone },
         confirmationSent: true,
-        phoneVerificationRequired: true,
+        phoneVerificationRequired: false,
       });
     } catch (error) {
       logger.error({ error }, "signup_confirmation_delivery_failed");

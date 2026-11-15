@@ -43,16 +43,10 @@ export const authenticatedProcedure = t.procedure.use(async (opts) => {
   });
 });
 
-export const protectedProcedure = authenticatedProcedure.use(async (opts) => {
-  const user = opts.ctx.user;
-  if (!user.phoneVerified) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Phone verification required",
-    });
-  }
-  return opts.next({ ctx: { ...opts.ctx, user } });
-});
+// Customer APIs require an authenticated, active account. Phone possession is
+// not a customer entitlement prerequisite; privileged owner operations retain
+// their own independent step-up MFA checks below.
+export const protectedProcedure = authenticatedProcedure;
 
 export const accountDeletionProcedure = t.procedure.use(async (opts) => {
   const user = await requireAuthenticatedUser(opts.ctx.user);

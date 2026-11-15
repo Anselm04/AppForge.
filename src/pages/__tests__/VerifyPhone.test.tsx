@@ -37,6 +37,7 @@ describe("phone verification recovery", () => {
   beforeEach(() => {
     mocks.me.mockResolvedValue({
       id: 7,
+      isOwner: true,
       phone: "+15551234567",
       maskedPhone: "••••4567",
       phoneVerified: false,

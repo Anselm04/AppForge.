@@ -88,7 +88,9 @@ export function VerifyPhone() {
       );
       return;
     }
-    if (me.phoneVerified) {
+    // Regular customers never need SMS. Only the owner can enroll a
+    // privileged phone; server-side router authorization is authoritative.
+    if (!me.isOwner || me.phoneVerified) {
       navigate(next, { replace: true });
       return;
     }

@@ -20,13 +20,8 @@ export function requireAuthenticatedUser(
     });
   }
 
-  if (!req.user.phoneVerified) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(403).json({
-      error: "Phone verification required",
-      code: "PHONE_VERIFICATION_REQUIRED",
-    });
-  }
+  // A confirmed customer identity is sufficient for ordinary REST access.
+  // Privileged owner operations are still guarded by step-up MFA below.
   if (isOwnerEmail(req.user.email) && !hasValidAdminMfa(req, req.user.id)) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(403).json({

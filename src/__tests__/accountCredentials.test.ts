@@ -73,14 +73,23 @@ describe("cookie-backed account credential changes", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { authenticated: false },
-    { token: "cookie-token", phoneVerified: false },
-  ])("blocks unauthenticated or unverified accounts", async (options) => {
+  it("blocks unauthenticated account credential changes", async () => {
     await expect(
-      caller(options).changeEmail({ email: "new@example.com" }),
-    ).rejects.toBeDefined();
-    expect(mocks.update).not.toHaveBeenCalled();
+      caller({ authenticated: false }).changeEmail({
+        email: "new@example.com",
+      }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("allows an authenticated customer to change email without SMS", async () => {
+    await expect(
+      caller({ token: "cookie-token", phoneVerified: false }).changeEmail({
+        email: "new@example.com",
+      }),
+    ).resolves.toEqual({ confirmationRequired: true });
+    expect(mocks.update).toHaveBeenCalledWith("cookie-token", {
+      email: "new@example.com",
+    });
   });
 
   it.each(["pending", "completed"])(
