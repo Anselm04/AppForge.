@@ -80,7 +80,7 @@ export function buildTaskFlow(
     } else if (log.type === "coordination_status" && payload?.error) {
       item.state = "failed";
       item.detail = safeText(payload.error, "Task error recorded");
-    } else if (item.state !== "completed" && item.state !== "failed") {
+    } else if (item.state !== "completed") {
       item.state = "running";
       item.detail =
         log.type === "chunk"
