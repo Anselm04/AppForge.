@@ -2,6 +2,8 @@ import type { BuildLogEntry } from "../lib/buildLogView.js";
 import { buildTaskFlow, type PlannedTask, type TaskFlowState } from "../lib/livingTaskFlow.js";
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
+const EMPTY_PLANNED_TASKS: readonly PlannedTask[] = [];
+
 const classes: Record<TaskFlowState, string> = {
   queued: "border-slate-200 bg-white text-slate-600",
   running: "border-sky-300 bg-sky-50 text-sky-900",
@@ -78,7 +80,7 @@ function useTaskConnectors(
 export function LiveSpecialistFlow({
   logs,
   projectStatus,
-  plannedTasks = [],
+  plannedTasks = EMPTY_PLANNED_TASKS,
 }: {
   logs: BuildLogEntry[];
   projectStatus?: string | null;
