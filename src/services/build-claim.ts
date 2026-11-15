@@ -72,7 +72,10 @@ export async function releaseProjectBuildClaim(
       ? previousStatus
       : "failed";
 
-  await db
+  // Following the explicit compensation-result pattern used by Medusa's
+  // order workflow, never report successful rollback unless the expected
+  // running project row was actually transitioned.
+  const released = await db
     .update(schema.projects)
     .set({
       status: rollbackStatus,
@@ -85,7 +88,13 @@ export async function releaseProjectBuildClaim(
         eq(schema.projects.userId, userId),
         eq(schema.projects.status, "running"),
       ),
+    )
+    .returning({ id: schema.projects.id });
+  if (released.length !== 1) {
+    throw new Error(
+      "Build claim release was not confirmed; reconcile project and queue before retry",
     );
+  }
 }
 
 /** Pause only the exact running state inspected after a terminal queue failure. */
