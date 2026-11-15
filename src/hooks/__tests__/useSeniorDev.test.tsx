@@ -85,6 +85,23 @@ describe("Senior Dev authenticated task actions", () => {
     });
     expect(result.current.stage).toBe("failed");
     expect(result.current.error).toMatch(/invalid completion response/);
+    await act(async () => {
+      await result.current.startTask(
+        7,
+        "Build a third application",
+        "autonomous",
+      );
+    });
+    const thirdCallback = mocks.consume.mock.calls[2][1] as (
+      event: string,
+      data: string,
+    ) => void;
+    act(() => {
+      thirdCallback("done", '{"summary":"Not actually complete"}');
+    });
+    expect(result.current.stage).toBe("failed");
+    expect(result.current.result).toBeNull();
+
   });
 
   it("approves through tRPC and resumes using the cookie-backed session", async () => {
