@@ -112,7 +112,7 @@ describe("terminal queue interruption recovery", () => {
       { data: attempt() },
       new Error("job stalled more than allowable limit"),
     );
-    for (let i = 0; i < 30 && !mocks.pause.mock.calls.length; i++)
+    for (let i = 0; i < 30 && !mocks.event.mock.calls.length; i++)
       await new Promise((r) => setTimeout(r, 5));
     stop();
     expect(mocks.pause).toHaveBeenCalledWith(
