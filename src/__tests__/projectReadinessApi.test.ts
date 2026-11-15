@@ -77,7 +77,7 @@ describe("project readiness API", () => {
     expect(await caller.deployOptions()).toEqual(options);
   });
 
-// prettier-ignore
+  // prettier-ignore
   it("rejects a second authenticated customer's read and build-log access", async () => {
     database.getProjectById.mockResolvedValue({
       id: 913,
