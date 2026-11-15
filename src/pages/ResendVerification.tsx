@@ -44,6 +44,10 @@ export function ResendVerification() {
         "If this address has an account awaiting confirmation, a verification email has been requested. Check your inbox and spam folder.",
       );
     } catch (error) {
+      // A delivery failure must not consume the successful-send cooldown.
+      // The API rate limiter still protects against excessive retries.
+      availableAt.current = 0;
+      setCooldown(0);
       setMessage(
         error instanceof Error
           ? error.message

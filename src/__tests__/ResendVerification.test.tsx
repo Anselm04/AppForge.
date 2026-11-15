@@ -25,6 +25,28 @@ afterEach(() => {
   resend.mockReset();
 });
 describe("confirmation recovery", () => {
+  it("allows immediate retry when email delivery fails", async () => {
+    resend
+      .mockRejectedValueOnce(new Error("Email delivery unavailable"))
+      .mockResolvedValueOnce(undefined);
+    render(
+      <MemoryRouter
+        initialEntries={["/resend-verification?email=person%40example.com"]}
+      >
+        <ResendVerification />
+      </MemoryRouter>,
+    );
+    const form = screen.getByLabelText("Email").closest("form")!;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(screen.getByText("Email delivery unavailable")).toBeTruthy();
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(resend).toHaveBeenCalledTimes(2);
+  });
+
   it("blocks simultaneous submits and enforces a 60 second cooldown", async () => {
     vi.useFakeTimers();
     let complete!: () => void;
