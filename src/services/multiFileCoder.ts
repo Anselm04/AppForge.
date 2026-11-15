@@ -37,7 +37,6 @@ function boltFileContent(value: string): string {
   return source.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 
-
 function cleanPath(raw: string): string | null {
   const filename = raw
     .trim()
@@ -87,7 +86,9 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
     boundaries.push({
       index,
       end: index + match[0].length,
-      path: isFile ? cleanPath(boltAttribute(match[1] ?? "", "filePath") ?? "") : null,
+      path: isFile
+        ? cleanPath(boltAttribute(match[1] ?? "", "filePath") ?? "")
+        : null,
       fencedContent: isFile ? boltFileContent(match[2] ?? "") : undefined,
     });
   }
@@ -108,7 +109,9 @@ export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
 
   for (const match of llmOutput.matchAll(FENCED_PATH_RE)) {
     const index = match.index ?? 0;
-    if (actionRanges.some((action) => index >= action.start && index < action.end))
+    if (
+      actionRanges.some((action) => index >= action.start && index < action.end)
+    )
       continue;
     boundaries.push({
       index,
