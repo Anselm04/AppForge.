@@ -76,7 +76,7 @@ describe("P0 reliable builds", () => {
     expect(files["src/main.tsx"]).toContain("import");
   });
 
-  it("preserves generated Python indentation while cleaning file wrappers", () => {
+  it("keeps Python indentation after parsing file headers", () => {
     const files = parseGeneratedFiles(
       "// filename: server/src/worker.py\n    return preserved\n",
     );
@@ -89,7 +89,7 @@ describe("P0 reliable builds", () => {
     ).toBe("  const result = 42;");
   });
 
-  it("preserves intentional Markdown fences rather than deleting documentation", () => {
+  it("preserves Markdown files and incomplete fences", () => {
     const files = parseGeneratedFiles(
       "// filename: README.md\n```js\nconsole.log('real');\n```\n",
     );
