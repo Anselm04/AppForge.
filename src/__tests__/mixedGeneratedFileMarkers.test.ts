@@ -17,7 +17,7 @@ describe("mixed generated-file boundaries", () => {
       "```ts src/extra.ts",
       "export const extra = 1;",
       "```",
-    ].join("\n").replaceAll("\`", "`");
+    ].join("\n");
     const files = parseGeneratedFiles(output);
     expect(Object.keys(files)).toEqual([
       "src/App.tsx",
