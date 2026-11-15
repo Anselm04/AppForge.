@@ -1021,7 +1021,12 @@ export async function addCredits(
 
     if (stripePaymentIntentId) {
       const prior = await tx
-        .select({ id: schema.creditTransactions.id })
+        .select({
+          id: schema.creditTransactions.id,
+          userId: schema.creditTransactions.userId,
+          amount: schema.creditTransactions.amount,
+          type: schema.creditTransactions.type,
+        })
         .from(schema.creditTransactions)
         .where(
           eq(
@@ -1031,6 +1036,16 @@ export async function addCredits(
         )
         .limit(1);
       if (prior[0]) {
+        // Refund idempotency is scoped to the *same* actor, amount and type.
+        // A reused key with different money movement is not a confirmed
+        // compensation, even when a ledger row already exists.
+        if (
+          prior[0].userId !== userId ||
+          prior[0].amount !== amount ||
+          prior[0].type !== type
+        ) {
+          throw new Error("Conflicting credit transaction idempotency key");
+        }
         const current = await tx
           .select({ balance: schema.userCredits.balance })
           .from(schema.userCredits)
