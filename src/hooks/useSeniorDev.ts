@@ -96,8 +96,10 @@ export function useSeniorDev() {
       if (event === "done") {
         try {
           setResult(JSON.parse(raw) as DevResult);
+          setStage("completed");
         } catch {
-          /* noop */
+          setError("Build finished with an invalid completion response.");
+          setStage("failed");
         }
         setIsLoading(false);
         disconnect();
