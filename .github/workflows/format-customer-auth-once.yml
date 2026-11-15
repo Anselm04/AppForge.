@@ -1,0 +1,38 @@
+name: One-time fix for AppForge customer authentication source formatting
+on:
+  push:
+    paths:
+      - '.github/workflows/format-customer-auth-once.yml'
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22"
+      - name: Install locked format tooling without running install hooks
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Format only actual affected source and test files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/prettier --write \
+            src/__tests__/authEmailDelivery.test.ts \
+            src/__tests__/authLifecycleComplete.contract.test.ts \
+            src/__tests__/customer-flow-contract.e2e.spec.ts \
+            src/_core/trpc.ts \
+            src/routers/index.ts \
+            src/routes/authSignup.ts \
+            src/routes/health.ts
+          rm .github/workflows/format-customer-auth-once.yml
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(auth): format verified customer email-only login repair'
+          git push origin HEAD:fix/customer-email-only-auth-20261115
