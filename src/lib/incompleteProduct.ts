@@ -207,7 +207,7 @@ function inspectPlaceholderAndEmptyFiles(
     // conditional SizedBox.shrink() UI remains valid.
     if (
       path === "lib/main.dart" &&
-      /runApp\\s*\\(\\s*const\\s+MaterialApp\\s*\\(\\s*home:\\s*Scaffold\\s*\\(\\s*body:\\s*(?:const\\s+)?SizedBox\\.shrink\\s*\\(\\s*\\)/m.test(
+      /runApp\s*\(\s*const\s+MaterialApp\s*\(\s*home:\s*Scaffold\s*\(\s*body:\s*(?:const\s+)?SizedBox\.shrink\s*\(\s*\)/m.test(
         source,
       )
     ) {
