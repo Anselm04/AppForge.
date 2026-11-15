@@ -336,3 +336,11 @@ On a rejected preview/deployment, retain the immutable current snapshot and any 
 Before emitting a terminal done event, the worker projects the canonical factory execution verdict for the persisted artifact. Both completion payload variants must include executionVerified and validationPassed derived from actual executed validation, together with the immutable snapshot ID and SHA-256 digest. The event must not equate a saved project or source-only scaffold with verified runtime execution.
 
 On interruption or redelivery, compare the durable current artifact, job identity, reservation and terminal event before replay. Never claim an older artifact's validation for an edited source revision. Preserve source downloads and known-good checkpoints, and avoid duplicate credit consumption or destructive rollback. This change does not deploy or reactivate providers.
+
+## Bounded factory admission and reserved-credit recovery (15 November 2026)
+
+When the durable BullMQ build queue reaches its configured waiting-job limit, the producer rejects new jobs with a retryable saturation error. Existing project creation code must unwind the build claim and refund any reserved credits using its idempotency key before returning the retryable error. A customer may retry after capacity returns; saturation must never be presented as successful generation.
+
+A queue-depth query is best-effort telemetry, not an atomic multi-producer quota or evidence of whether a previously accepted job has completed. A failure to inspect the waiting count must not silently erase a durable job, charge credits twice, or produce a fake completed artifact. Production capacity qualification must assess concurrent producers and consider an atomic reservation mechanism before claiming a strict distributed cap.
+
+The recovery test matrix includes queue saturation; failed enqueue; missing queue telemetry; duplicate job IDs; a worker crash after reservation; restart after artifact persistence; and credit refund idempotency. Reconcile durable queue state, database build claim, current artifact snapshot and build-event history before retrying or refunding. This change neither activates external infrastructure nor replaces recovery checkpoints.
