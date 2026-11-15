@@ -61,6 +61,21 @@ describe("TrillionAI Audit bridge", () => {
     expect(result?.decision).toBe("incomplete");
   });
 
+  it("rejects mismatched local saved source before sending any audit request", async () => {
+    process.env.TRILLION_AUDIT_API_URL = "http://127.0.0.1:8788";
+    process.env.TRILLION_AUDIT_API_TOKEN = "test";
+    const fetcher = vi.fn() as unknown as typeof fetch;
+    await expect(
+      submitToTrillionAudit({
+        projectId: 7,
+        files: { "package.json": '{"name":"modified"}' },
+        integrity,
+        fetcher,
+      }),
+    ).rejects.toThrow("Artifact integrity verification failed");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("rejects tampered evidence and blocked results", async () => {
     process.env.TRILLION_AUDIT_API_URL = "http://127.0.0.1:8788";
     process.env.TRILLION_AUDIT_API_TOKEN = "test";
