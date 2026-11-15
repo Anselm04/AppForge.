@@ -180,7 +180,8 @@ jobs:
             echo 'Production deployment must remain manual-only during owner billing hold.'
             exit 1
           fi
-          grep -Fq 'if: ${{ false }}' "$file"
+          # Workflow expressions are evaluated inside run blocks. Match the literal disabled-job expression without constructing a GitHub expression token.
+          grep -Eq '^[[:space:]]+if:[[:space:]]+\$\{\{[[:space:]]*false[[:space:]]*\}\}' "$file"
           grep -Fq 'Verify exact release SHA' "$file"
           grep -Fq 'Refuse stale release SHA' "$file"
           grep -Fq 'Reconfirm release freshness immediately before deploy' "$file"
