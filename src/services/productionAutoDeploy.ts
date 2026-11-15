@@ -121,7 +121,7 @@ export function requireVerifiedLiveUrl(value: string): string {
   }
   // This URL is subsequently contacted by the service. Never probe a URL
   // carrying credentials or targeting loopback, internal DNS, or IP literals.
-  const hostname = parsed.hostname.toLowerCase().replace(/\\.$/, "");
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
   if (
     parsed.username ||
     parsed.password ||
@@ -131,7 +131,7 @@ export function requireVerifiedLiveUrl(value: string): string {
     hostname.endsWith(".local") ||
     hostname.endsWith(".internal") ||
     hostname.includes(":") ||
-    /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(hostname)
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostname)
   ) {
     throw new Error("Production deployment returned an unsafe live URL");
   }
