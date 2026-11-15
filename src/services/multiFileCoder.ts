@@ -7,29 +7,30 @@ import {
 } from "./stackScaffolds.js";
 import { stripFilenameHeaders } from "../lib/reliableBuild.js";
 
-/** Primary marker used by AppForge coder prompts. */
-const FILENAME_RE = /^\/\/\s*filename:\s*(.+)$/gim;
-/** Common alternate markers models emit. */
-const ALT_MARKERS: RegExp[] = [
-  /^\/\/\s*file:\s*(.+)$/gim,
-  /^#\s*file:\s*(.+)$/gim,
-  /^###\s*`?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))`?\s*$/gim,
-  /^File:\s*[`"]?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))[`"]?\s*$/gim,
-];
+/**
+ * Source-order recovery adapted from Bolt.diy's streaming action boundaries.
+ * Original: app/lib/runtime/message-parser.ts (MIT; third_party/bolt/LICENSE).
+ * Modified for AppForge's legacy headers, fenced paths, and path validation.
+ */
+const HEADER_RE =
+  /^(?:\/\/[ \t]*(?:filename|file):[ \t]*(.+)|#[ \t]*file:[ \t]*(.+)|###[ \t]*\x60?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))\x60?[ \t]*|File:[ \t]*[\x60"]?([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))[\x60"]?[ \t]*)\r?$/gim;
+const FENCED_PATH_RE =
+  /^\x60{3}([a-zA-Z0-9]*)[ \t]+([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))[ \t]*\r?\n([\s\S]*?)^\x60{3}[ \t]*$/gm;
+const ANY_FENCE_RE = /^\x60{3}[^\r\n]*\r?\n[\s\S]*?^\x60{3}[ \t]*$/gm;
 
 function cleanPath(raw: string): string | null {
   const filename = raw
     .trim()
-    .replace(/^['"`]+|['"`]+$/g, "")
+    .replace(/^['"\x60]+|['"\x60]+$/g, "")
     .replace(/^\.\//, "");
-  // Generated paths eventually reach filesystem/export operations. Reject
-  // absolute, Windows and traversal paths before they become project files.
   if (
     !filename ||
     filename.startsWith("/") ||
     filename.includes("\\") ||
     filename.includes(":") ||
-    /[\x00-\x1f\x7f]/.test(filename) ||
+    [...filename].some(
+      (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
+    ) ||
     filename.split("/").some((part) => !part || part === "." || part === "..")
   ) {
     return null;
@@ -37,70 +38,57 @@ function cleanPath(raw: string): string | null {
   return filename;
 }
 
-function parseWithRegex(llmOutput: string, re: RegExp): Record<string, string> {
-  const files: Record<string, string> = {};
-  const matches = [...llmOutput.matchAll(re)];
-  if (matches.length === 0) return files;
-
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const filename = cleanPath(match[1] ?? "");
-    if (!filename) continue;
-    const start = (match.index ?? 0) + match[0].length;
-    const end =
-      i + 1 < matches.length
-        ? (matches[i + 1].index ?? llmOutput.length)
-        : llmOutput.length;
-    const content = stripFilenameHeaders(llmOutput.slice(start, end), filename);
-    if (content.trim().length > 0) {
-      files[filename] = content;
-    }
-  }
-  return files;
+interface FileBoundary {
+  index: number;
+  end: number;
+  path: string | null;
+  fencedContent?: string;
 }
 
-/**
- * Recover files from fenced blocks labeled like:
- * ```tsx src/App.tsx
- * ...
- * ```
- */
-function parseFencedPathBlocks(llmOutput: string): Record<string, string> {
-  const files: Record<string, string> = {};
-  const re =
-    /```([a-zA-Z0-9]*)\s+([\w./-]+\.(?:tsx?|jsx?|css|json|html|md|mjs|cjs))\s*\n([\s\S]*?)```/g;
-  for (const match of llmOutput.matchAll(re)) {
-    const filename = cleanPath(match[2] ?? "");
-    if (!filename) continue;
-    const content = stripFilenameHeaders(match[3] ?? "", filename);
-    if (content.trim().length > 0) files[filename] = content;
-  }
-  return files;
-}
-
-/** Split an LLM response that may contain multiple file blocks. */
+/** Recover every supported file type in its original source order. */
 export function parseGeneratedFiles(llmOutput: string): Record<string, string> {
   if (!llmOutput || typeof llmOutput !== "string") return {};
 
-  // Prefer explicit // filename: markers
-  let files = parseWithRegex(llmOutput, FILENAME_RE);
-  if (Object.keys(files).length > 0) return files;
+  // Filename-like comments inside fenced code are genuine source, not headers.
+  const fences = [...llmOutput.matchAll(ANY_FENCE_RE)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+  const boundaries: FileBoundary[] = [];
 
-  for (const re of ALT_MARKERS) {
-    files = parseWithRegex(llmOutput, re);
-    if (Object.keys(files).length > 0) return files;
+  for (const match of llmOutput.matchAll(HEADER_RE)) {
+    const index = match.index ?? 0;
+    if (fences.some((fence) => index >= fence.start && index < fence.end))
+      continue;
+    boundaries.push({
+      index,
+      end: index + match[0].length,
+      path: cleanPath(match[1] ?? match[2] ?? match[3] ?? match[4] ?? ""),
+    });
   }
 
-  files = parseFencedPathBlocks(llmOutput);
-  if (Object.keys(files).length > 0) return files;
+  for (const match of llmOutput.matchAll(FENCED_PATH_RE)) {
+    const index = match.index ?? 0;
+    boundaries.push({
+      index,
+      end: index + match[0].length,
+      path: cleanPath(match[2] ?? ""),
+      fencedContent: match[3] ?? "",
+    });
+  }
 
-  // Single-file fallback: // filename: at top
-  const single = llmOutput.match(/^\/\/\s*filename:\s*(.+)\r?\n([\s\S]*)$/m);
-  if (single) {
-    const filename = cleanPath(single[1]);
-    if (filename) {
-      files[filename] = stripFilenameHeaders(single[2], filename);
-    }
+  boundaries.sort((a, b) => a.index - b.index);
+  const files: Record<string, string> = {};
+  for (let i = 0; i < boundaries.length; i++) {
+    const boundary = boundaries[i];
+    // Even rejected headers delimit earlier content: never append unsafe
+    // file bodies to another customer's generated artifact.
+    if (!boundary.path) continue;
+    const next = boundaries[i + 1]?.index ?? llmOutput.length;
+    const content =
+      boundary.fencedContent ??
+      stripFilenameHeaders(llmOutput.slice(boundary.end, next), boundary.path);
+    if (content.trim()) files[boundary.path] = content;
   }
   return files;
 }
