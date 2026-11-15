@@ -1128,3 +1128,11 @@ Recovery-impact review for PR #403:
 - No host, paid infrastructure, customer data, credential inventory or backup storage location changes in this repair. Existing independent owner recovery paths are unaffected.
 
 Verification: source and regression tests were committed; full exact-head CI remains mandatory before merge. Production activation and host selection require separate approval.
+
+
+## Exact-ancestry CI formatting verification — 15 November 2026
+
+- PR lint and formatting must compare the proposed changes against a real Git merge base. A shallow checkout that lacks a common ancestor is an **invalid verification result**, not evidence of no changed files.
+- The CI lint checkout uses full fetch history and explicitly validates the base commit and merge ancestry before calculating changed TypeScript/TSX files. The diff command must return an error if Git cannot calculate the comparison.
+- Never restore the previous `git diff ... || true` escape, as it falsely converts unavailable ancestry into a passing formatter gate and could admit an unformatted source repair.
+- Recovery procedure: on a clean trusted clone, verify `git merge-base BASE HEAD`, list changed source files, and run Prettier check against that exact set. Missing base or failed formatting blocks promotion. This is offline and does not need Fly, live provider keys, or paid cloud infrastructure.

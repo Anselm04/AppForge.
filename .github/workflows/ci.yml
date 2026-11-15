@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -37,13 +37,15 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
             BASE="${{ github.event.pull_request.base.sha }}"
           else
             BASE="HEAD~1"
           fi
 
-          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- 'src/**/*.ts' 'src/**/*.tsx' || true)
+          # Missing ancestry must fail CI, never silently skip formatting.
+          git cat-file -e "$BASE^{commit}"
+          git merge-base "$BASE" HEAD >/dev/null
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- 'src/**/*.ts' 'src/**/*.tsx')
           if [ -z "$FILES" ]; then
             echo "No changed TypeScript source files to format-check."
             exit 0
