@@ -202,6 +202,21 @@ function inspectPlaceholderAndEmptyFiles(
 
     if (!isCodeSource(path)) continue;
     const stripped = stripComments(source);
+    // The infrastructure-only Flutter scaffold must never qualify as a
+    // finished customer screen. Keep this signature narrow so genuine
+    // conditional SizedBox.shrink() UI remains valid.
+    if (
+      path === "lib/main.dart" &&
+      /runApp\\s*\\(\\s*const\\s+MaterialApp\\s*\\(\\s*home:\\s*Scaffold\\s*\\(\\s*body:\\s*(?:const\\s+)?SizedBox\\.shrink\\s*\\(\\s*\\)/m.test(
+        source,
+      )
+    ) {
+      findings.push({
+        code: "empty_page",
+        path,
+        message: "Flutter entrypoint renders the infrastructure-only empty screen.",
+      });
+    }
     const todoOnly =
       /\b(?:TODO|FIXME)\b/i.test(source) &&
       stripped.replace(/(?:TODO|FIXME)/gi, "").replace(/\s+/g, "").length < 24;
