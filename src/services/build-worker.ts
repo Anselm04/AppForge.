@@ -222,8 +222,24 @@ async function rejectInvalidBuildJob(
     return;
   }
 
+  // An independent valid build attempt may already own this project.
+  // Do not issue a refund or mutate its credit reservation from a malformed
+  // job belonging to a different execution attempt.
+  if (activeJobs.has(projectId)) {
+    await recordProjectEvidence({
+      projectId,
+      kind: "failure",
+      payload: {
+        action: "invalid_build_job_while_attempt_active",
+        attemptedAt: createdAt,
+      },
+    }).catch(() => undefined);
+    return;
+  }
+
   if (reservationCharged) {
-    // Same attempt key as a normal failed build, so this can never refund twice.
+    // As in Medusa's idempotent payment-refund step, completion is not
+    // assumed unless the stable-key compensating credit operation resolves.
     const refundKey = `build-refund-${projectId}-${createdAt}`;
     try {
       await addCredits(
@@ -236,13 +252,25 @@ async function rejectInvalidBuildJob(
     } catch (error: unknown) {
       logger.error(
         { projectId, refundKey, error },
-        "invalid_build_job_refund_failed",
+        "invalid_build_job_refund_requires_reconciliation",
       );
+      await recordProjectEvidence({
+        projectId,
+        kind: "failure",
+        payload: {
+          action: "invalid_build_job_refund_requires_reconciliation",
+          reservationId: refundKey,
+        },
+      }).catch(() => undefined);
+      await updateProjectStatus(projectId, "failed", "credit_refund_failure");
+      await emit(projectId, "error", {
+        error: "credit_refund_failure",
+        message:
+          "The invalid build stopped, but its credit refund could not be confirmed. Do not retry until the reservation is reconciled.",
+      });
+      return;
     }
   }
-
-  // A different, valid attempt may be running for this project; leave it alone.
-  if (activeJobs.has(projectId)) return;
 
   await updateProjectCreditsSpent(projectId, 0);
   await recordBuildOutcome(userId, false, 0);
