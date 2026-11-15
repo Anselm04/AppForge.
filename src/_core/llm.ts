@@ -1,4 +1,6 @@
 import { ENV } from "./env.js";
+import { randomUUID } from "node:crypto";
+import { recoverBoltJsonToolCalls } from "../lib/boltToolCallRecovery.js";
 import { llmRetryWait } from "../lib/llmRetryPolicy.js";
 import { recordModelUsage } from "../lib/operationsObservability.js";
 import { currentBuildExecutionLease } from "../services/buildExecutionLease.js";
@@ -695,6 +697,41 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
             });
           } catch (meteringError) {
             throw new ProviderUsagePersistenceError(meteringError);
+          }
+        }
+        // Bolt.diy source adaptation: some OpenAI-compatible models print a
+        // required tool invocation as JSON rather than invoking the tool.
+        // Recover only explicitly requested, allowlisted tools. No extra API
+        // request is issued and the billable completion was already metered.
+        const requiredName =
+          normalizedToolChoice &&
+          typeof normalizedToolChoice === "object"
+            ? normalizedToolChoice.function.name
+            : "";
+        const firstChoice = result.choices?.[0];
+        if (
+          requiredName &&
+          firstChoice &&
+          !firstChoice.message.tool_calls?.length &&
+          typeof firstChoice.message.content === "string" &&
+          firstChoice.finish_reason === "stop"
+        ) {
+          const recovered = recoverBoltJsonToolCalls(
+            firstChoice.message.content,
+            (tools ?? []).map((tool) => tool.function.name),
+            requiredName,
+          );
+          if (recovered.length > 0) {
+            firstChoice.message.tool_calls = recovered.map((call) => ({
+              id: `call_${randomUUID().replace(/-/g, "")}`,
+              type: "function" as const,
+              function: {
+                name: call.name,
+                arguments: JSON.stringify(call.input),
+              },
+            }));
+            firstChoice.message.content = "";
+            firstChoice.finish_reason = "tool_calls";
           }
         }
         return result;
