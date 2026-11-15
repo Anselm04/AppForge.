@@ -1,0 +1,33 @@
+name: Temporary replay formatter
+on:
+  push:
+    branches:
+      - repair/replay-verified-evidence-20261115
+    paths:
+      - .github/workflows/repair-format-replay.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.repository == 'Anselm04/AppForge.'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/replay-verified-evidence-20261115
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx prettier --write src/routes/build.ts
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/build.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(replay): enforce project source formatter"
+            git push origin HEAD:repair/replay-verified-evidence-20261115
+          fi
