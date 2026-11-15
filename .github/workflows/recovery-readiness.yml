@@ -168,23 +168,19 @@ jobs:
             exit 1
           fi
 
-      - name: Verify production deploys only green main CI and exact SHA
+      - name: Verify production deploy stays manually disabled during billing hold
         shell: bash
         run: |
           set -euo pipefail
           file=.github/workflows/deploy-production.yml
-          grep -Fq 'workflow_run:' "$file"
-          grep -Fq 'workflows: ["CI Pipeline"]' "$file"
+          # This is the actual release contract while the owner has disconnected Fly.
+          # Never restore workflow_run triggers or enable deployment merely to pass audit.
           grep -Eq '^[[:space:]]+workflow_dispatch:' "$file"
-          if grep -Eq '^[[:space:]]+(push|pull_request|pull_request_target|schedule):' "$file"; then
-            echo 'Deploy Production may only be triggered by a completed CI Pipeline run or a manual dispatch.'
+          if grep -Eq '^[[:space:]]+(workflow_run|push|pull_request|pull_request_target|schedule):' "$file"; then
+            echo 'Production deployment must remain manual-only during owner billing hold.'
             exit 1
           fi
-          grep -Fq "github.event.workflow_run.conclusion == 'success'" "$file"
-          grep -Fq "github.event.workflow_run.event == 'push'" "$file"
-          grep -Fq "github.event.workflow_run.head_branch == 'main'" "$file"
-          grep -Fq 'github.event.workflow_run.head_sha' "$file"
-          grep -Fq "github.ref == 'refs/heads/main'" "$file"
+          grep -Fq 'if: ${{ false }}' "$file"
           grep -Fq 'Verify exact release SHA' "$file"
           grep -Fq 'Refuse stale release SHA' "$file"
           grep -Fq 'Reconfirm release freshness immediately before deploy' "$file"
