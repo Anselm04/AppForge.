@@ -135,6 +135,7 @@ export function LivingWorkflowCanvas({
       <LiveSpecialistFlow
         logs={taskLogs ?? logs}
         projectStatus={project.status}
+        plannedTasks={plannedTasks}
       />
     </section>
   );
