@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const projects = readFileSync("src/routers/projects.ts", "utf8");
+const claimSource = readFileSync("src/services/build-claim.ts", "utf8");
 const begin = projects.indexOf("let charged = false;");
 const end = projects.indexOf('status: "running" as const', begin);
 const admission = projects.slice(begin, end);
@@ -28,6 +29,12 @@ describe("build reservation compensation protects customer credits", () => {
     );
     expect(admission).toContain(
       "Do not retry this project until the reservation is resolved.",
+    );
+  });
+
+  it("forbids a new build claim while a refund remains unreconciled", () => {
+    expect(claimSource).toContain(
+      'ne(schema.projects.pauseReason, "credit_refund_failure")',
     );
   });
 
