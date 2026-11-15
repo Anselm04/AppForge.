@@ -61,7 +61,7 @@ describe("generate auth helpers", () => {
     expect(loginPathWithReturn("/")).toBe("/login?next=%2F");
   });
 
-  it("restores only a non-secret user marker after the server proves the cookie session", async () => {
+  it("restores a user marker after server cookie verification", async () => {
     window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
@@ -87,7 +87,7 @@ describe("generate auth helpers", () => {
     ).toBe(true);
   });
 
-  it("clears a stale user marker when the server cannot prove the cookie session", async () => {
+  it("clears a stale user marker after cookie session rejection", async () => {
     window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
@@ -113,7 +113,7 @@ describe("generate auth helpers", () => {
     expect(window.localStorage.getItem("appforge.user")).toBeNull();
   });
 
-  it("allows cookie-authenticated SSE when no browser bearer token is available", async () => {
+  it("allows cookie-authenticated SSE without a browser bearer token", async () => {
     window.sessionStorage.setItem("appforge.browser-session", "active");
     window.localStorage.setItem(
       "appforge.user",
@@ -174,14 +174,15 @@ describe("generate auth helpers", () => {
   });
 
   it("preserves source indentation in SSE data fields", () => {
-    const frame = "event: code\ndata:   const value = 1;\ndata:     return value;";
+    const frame =
+      "event: code\ndata:   const value = 1;\ndata:     return value;";
     expect(parseSseFrame(frame)).toEqual({
       event: "code",
       data: "  const value = 1;\n    return value;",
     });
   });
 
-  it("rejects an excessively large build event instead of exhausting memory", async () => {
+  it("rejects oversized build events to bound memory", async () => {
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(
