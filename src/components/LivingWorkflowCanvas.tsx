@@ -23,6 +23,7 @@ export function LivingWorkflowCanvas({
   projectId,
   deployUrl,
   browserPreviewUrl,
+  canUseWorkspace,
 }: {
   project: {
     status?: string | null;
@@ -35,11 +36,12 @@ export function LivingWorkflowCanvas({
   projectId: number;
   deployUrl?: string | null;
   browserPreviewUrl?: string | null;
+  canUseWorkspace: boolean;
 }) {
   const nodes = useMemo(() => projectWorkflow(project, logs), [project, logs]);
   const [selected, setSelected] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const previewReady = isProjectArtifactReady(project.status);
+  const previewReady = canUseWorkspace && isProjectArtifactReady(project.status);
   const active =
     nodes.find((node) => node.id === selected) ??
     nodes.find((node) => node.state === "running") ??
@@ -177,7 +179,7 @@ export function LivingWorkflowCanvas({
               projectId={projectId}
               deployUrl={deployUrl}
               browserPreviewUrl={browserPreviewUrl}
-              enabled={true}
+              enabled={canUseWorkspace}
             />
           </div>
         )}
