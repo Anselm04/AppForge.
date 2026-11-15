@@ -40,7 +40,7 @@ export function EmailSignupForm({ disabled = false }: FormProps) {
         "/account",
       );
       setMessage(
-        "Check your email to confirm your AppForge account, then verify your mobile number.",
+        "Check your email to confirm your AppForge account. SMS is not required for customer access.",
       );
     } catch (error) {
       setMessage(authMessage(error));
@@ -63,14 +63,13 @@ export function EmailSignupForm({ disabled = false }: FormProps) {
         />
       </label>
       <label>
-        Mobile number
+        Mobile number (optional)
         <input
           type="tel"
           name="phone"
           autoComplete="tel"
           inputMode="tel"
           placeholder="+64221234567"
-          required
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
         />
