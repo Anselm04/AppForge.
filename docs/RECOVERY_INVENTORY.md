@@ -1145,3 +1145,14 @@ Verification: source and regression tests were committed; full exact-head CI rem
 - In production, a failed owner MFA provider request must remain fail-closed. Owner recovery must use the independently provisioned provider/MFA recovery routes listed above; no test code may be issued to the browser.
 - Rehearse production fallback denial by setting the deprecated flags in a local test configuration with `ENV.isProduction=true` and asserting `admin.requestMfa` refuses and no admin cookie is granted. Never deploy, send real SMS, or charge a provider during this regression.
 - Separate work remains to migrate owner step-up to verified Supabase authenticator TOTP; this hardening does not certify that migration or eliminate the current Twilio service dependency.
+
+
+## Owner-only Supabase authenticator MFA migration — 15 November 2026
+
+- AppForge's owner dashboard now uses Supabase Auth TOTP enrollment/challenge/verification. Ordinary customer login is unchanged and does not require SMS or an authenticator.
+- The second factor belongs to the owner's existing verified Supabase identity. No TOTP seed is persisted by AppForge; enrollment secret/URI is shown solely to that authenticated owner in the setup UI. Do not log the secret, URI, one-time code, returned access token, or refresh token.
+- The backend `admin.totpVerify` accepts only an existing owner-associated factor, rejects a second unverified factor when a verified factor exists, verifies the six-digit code with Supabase Auth, checks upgraded token AAL2 and the same Supabase user and session IDs, confirms user identity again with the provider, rotates the primary HttpOnly cookies, and only then signs the short-lived, session-bound owner MFA cookie.
+- Recovery from a lost authenticator cannot bypass the owner-only gate. Enroll a second authenticator while the primary factor is accessible. If all factors are lost, use Supabase's authorized account-recovery process; do not enable a production test-code fallback or hard-coded bypass.
+- The historical SMS endpoints and old production SMS evidence workflows remain for compatibility and are **not** required for the new authenticator UI. Their replacement and removal from launch gates must be verified before certification; do not represent legacy Twilio evidence as TOTP certification.
+- Offline regression: `src/__tests__/ownerTotp.test.ts`, `src/pages/__tests__/Admin.test.tsx` and `src/lib/__tests__/adminMfaSecurityContract.test.ts`. Re-test the actual owner enrollment and sign-in after deployment is explicitly authorized. No live Supabase MFA requests are run by CI.
+- No Fly activation, production deployment, new secret, billable provider call, or owner account mutation was performed as part of this source repair.

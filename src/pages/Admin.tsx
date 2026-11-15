@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { safeAuthDestination } from "../lib/auth.js";
+import { adoptOwnerTotpSession, safeAuthDestination } from "../lib/auth.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../utils/trpc.js";
 
@@ -17,7 +17,11 @@ export function Admin() {
   const [copied, setCopied] = useState(false);
   const [evidenceProjectId, setEvidenceProjectId] = useState("");
   const [mfaCode, setMfaCode] = useState("");
-  const [challengeSent, setChallengeSent] = useState(false);
+  const [enrollment, setEnrollment] = useState<{
+    factorId: string;
+    uri: string;
+    secret: string;
+  } | null>(null);
 
   const {
     data: mfaStatus,
@@ -27,27 +31,29 @@ export function Admin() {
     refetch: refetchMfaStatus,
   } = useQuery({
     queryKey: ["admin", "mfaStatus"],
-    queryFn: () => trpc.admin.mfaStatus.query(),
+    queryFn: () => trpc.admin.totpStatus.query(),
     retry: false,
     staleTime: 0,
     refetchInterval: 15_000,
   });
 
   const requestMfa = useMutation({
-    mutationFn: () => trpc.admin.requestMfa.mutate(),
-    onMutate: () => {
-      setChallengeSent(false);
-      setMfaCode("");
-    },
-    onSuccess: () => {
-      setChallengeSent(true);
+    mutationFn: () => trpc.admin.totpEnroll.mutate(),
+    onSuccess: (result) => {
+      setEnrollment(result);
       setMfaCode("");
     },
   });
 
   const verifyMfa = useMutation({
-    mutationFn: () => trpc.admin.verifyMfa.mutate({ code: mfaCode.trim() }),
-    onSuccess: async () => {
+    mutationFn: () =>
+      trpc.admin.totpVerify.mutate({
+        factorId: enrollment?.factorId ?? mfaStatus?.factorId ?? "",
+        code: mfaCode.trim(),
+      }),
+    onSuccess: async (result) => {
+      adoptOwnerTotpSession(result.accessToken);
+      setEnrollment(null);
       setMfaCode("");
       await refetchMfaStatus();
       await queryClient.invalidateQueries({ queryKey: ["admin"] });
@@ -165,78 +171,89 @@ export function Admin() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white p-8">
         <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-800">
           <h1 className="text-2xl font-bold mb-2">
-            Admin verification required
+            Owner authenticator required
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
-            A one-time SMS code must be verified before any admin data or
-            controls are available.
+            Use your authenticator app to unlock the owner dashboard. No SMS or
+            Twilio account is required.
           </p>
 
-          <button
-            type="button"
-            onClick={() => requestMfa.mutate()}
-            disabled={requestMfa.isPending}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
-          >
-            {requestMfa.isPending
-              ? "Sending…"
-              : challengeSent
-                ? `Send another code to ${
-                    mfaStatus?.phoneHint || "your registered phone"
-                  }`
-                : `Send SMS code to ${
-                    mfaStatus?.phoneHint || "your registered phone"
-                  }`}
-          </button>
-
-          {requestMfa.data?.testCode && (
-            <p className="mt-3 text-sm text-amber-700" role="status">
-              Temporary owner testing mode: Twilio trial SMS was blocked. Use
-              code <strong>{requestMfa.data.testCode}</strong> below within five
-              minutes.
-            </p>
+          {!mfaStatus?.enrolled && !enrollment && (
+            <button
+              type="button"
+              onClick={() => requestMfa.mutate()}
+              disabled={requestMfa.isPending}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+            >
+              {requestMfa.isPending
+                ? "Preparing authenticator…"
+                : "Set up owner authenticator"}
+            </button>
           )}
+
+          {enrollment && (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm">
+                Add this account to your authenticator app using the setup link
+                or secret. The secret is only displayed for enrollment.
+              </p>
+              <a
+                href={enrollment.uri}
+                className="block break-all text-sm text-blue-600 underline"
+              >
+                Open authenticator setup link
+              </a>
+              <p className="break-all rounded bg-slate-100 p-3 font-mono text-sm text-slate-900">
+                {enrollment.secret}
+              </p>
+              <p className="text-xs text-slate-500">
+                Do not share the enrollment secret. Enter the six-digit code
+                from the newly added account to activate it.
+              </p>
+            </div>
+          )}
+
           {requestMfa.isError && (
-            <p className="mt-3 text-sm text-red-600">
+            <p className="mt-3 text-sm text-red-600" role="alert">
               {requestMfa.error.message}
             </p>
           )}
 
-          <label className="mt-5 block text-sm font-semibold">
-            Six-digit code
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              value={mfaCode}
-              onChange={(event) =>
-                setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 tracking-[0.35em] dark:border-slate-600 dark:bg-slate-700"
-              aria-label="Admin SMS code"
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={() => verifyMfa.mutate()}
-            disabled={mfaCode.length !== 6 || verifyMfa.isPending}
-            className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
-          >
-            {verifyMfa.isPending ? "Verifying…" : "Verify and enter admin"}
-          </button>
-
-          {verifyMfa.isError && (
-            <p className="mt-3 text-sm text-red-600">
-              That code was not accepted. Admin access remains locked.
-            </p>
+          {(mfaStatus?.enrolled || enrollment) && (
+            <>
+              <label className="mt-5 block text-sm font-semibold">
+                Six-digit authenticator code
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(event) =>
+                    setMfaCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
+                    )
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 tracking-[0.35em] dark:border-slate-600 dark:bg-slate-700"
+                  aria-label="Owner authenticator code"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => verifyMfa.mutate()}
+                disabled={mfaCode.length !== 6 || verifyMfa.isPending}
+                className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+              >
+                {verifyMfa.isPending ? "Verifying…" : "Verify and enter admin"}
+              </button>
+            </>
           )}
 
-          <p className="mt-5 text-xs text-slate-500">
-            If you receive an AppForge admin code you did not request, treat it
-            as a security warning and secure your account.
-          </p>
+          {verifyMfa.isError && (
+            <p className="mt-3 text-sm text-red-600" role="alert">
+              Authenticator verification failed. Admin remains locked.
+            </p>
+          )}
         </div>
       </div>
     );
