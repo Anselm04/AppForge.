@@ -119,15 +119,10 @@ export function setAdminMfaChallengeCookie(
   setMfaCookie(req, res, userId, "challenge");
 }
 
-// Owner-authorized testing bypass is explicitly activated and time bounded.
+// Development-only fallback. Production must never reveal a working owner
+// step-up code to a caller, regardless of environment flags or trial status.
 export function adminMfaTrialFallbackEnabled(): boolean {
-  if (!ENV.isProduction) return true;
-  const until = Date.parse(process.env.ADMIN_MFA_TRIAL_FALLBACK_UNTIL || "");
-  return (
-    process.env.ADMIN_MFA_TRIAL_FALLBACK === "true" &&
-    Number.isFinite(until) &&
-    until > Date.now()
-  );
+  return !ENV.isProduction;
 }
 
 export function setAdminMfaFallbackChallenge(
