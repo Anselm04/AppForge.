@@ -1,6 +1,6 @@
 import type { BuildLogEntry } from "../lib/buildLogView.js";
 import { buildTaskFlow, type TaskFlowState } from "../lib/livingTaskFlow.js";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 const classes: Record<TaskFlowState, string> = {
   running: "border-sky-300 bg-sky-50 text-sky-900",
@@ -14,7 +14,7 @@ type Layout = { width: number; height: number; connectors: Connector[] };
 
 /** Measure actual rendered cards so dependency arrows remain correct on mobile. */
 function useTaskConnectors(
-  graph: React.RefObject<HTMLDivElement>,
+  graph: RefObject<HTMLDivElement>,
   keys: string,
   dependencies: readonly { id: string; dependencies: string[] }[],
 ): Layout {
@@ -66,9 +66,7 @@ function useTaskConnectors(
     root.querySelectorAll("[data-task-node]").forEach((node) => observer?.observe(node));
     window.addEventListener("resize", measure);
     return () => { observer?.disconnect(); window.removeEventListener("resize", measure); };
-  // Dependency list is represented by keys, so we reconnect only when actual
-  // graph membership/dependencies change, not on each streamed token.
-  }, [graph, keys]);
+  }, [graph, keys, dependencies]);
   return layout;
 }
 
