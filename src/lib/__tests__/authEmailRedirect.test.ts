@@ -46,6 +46,24 @@ describe("email action link exchange", () => {
     },
   );
 
+  it("accepts a query-string OAuth token and scrubs credentials from history", async () => {
+    const payload = btoa(
+      JSON.stringify({ sub: "identity-2", email: "customer@example.com" }),
+    );
+    const accessToken = `header.${payload}.signature`;
+    window.history.replaceState(
+      {},
+      "",
+      `/login?next=%2Fdashboard&access_token=${encodeURIComponent(accessToken)}&refresh_token=private-token&token_type=bearer`,
+    );
+    const { completeAuthRedirect } = await import("../auth");
+    const session = await completeAuthRedirect();
+    expect(session?.user.id).toBe("identity-2");
+    expect(window.location.search).toBe("?next=%2Fdashboard");
+    expect(window.location.hash).toBe("");
+    expect(mocks.verify).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid or expired links without creating an authenticated session", async () => {
     mocks.verify.mockRejectedValue(new Error("This link is expired"));
     window.history.replaceState(
