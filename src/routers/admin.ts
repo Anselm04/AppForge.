@@ -126,10 +126,12 @@ export const adminRouter = router({
   }),
 
   totpVerify: ownerAuthenticatedProcedure
-    .input(z.object({
-      factorId: z.string().uuid(),
-      code: adminMfaCodeSchema,
-    }))
+    .input(
+      z.object({
+        factorId: z.string().uuid(),
+        code: adminMfaCodeSchema,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       try {
         const upgraded = await verifyOwnerTotp(
@@ -153,7 +155,11 @@ export const adminRouter = router({
         };
       } catch (error) {
         logger.warn(
-          { userId: ctx.user.id, reason: error instanceof Error ? error.message : "verification_failed" },
+          {
+            userId: ctx.user.id,
+            reason:
+              error instanceof Error ? error.message : "verification_failed",
+          },
           "owner_totp_verification_rejected",
         );
         throw new TRPCError({
@@ -440,7 +446,7 @@ export const adminRouter = router({
       logger.error({ error }, "admin_database_diagnostic_failed");
     }
 
-    const safe = async <T>(
+    const safe = async <T,>(
       promise: PromiseLike<T>,
       fallback: T,
       diagnostic: string,
