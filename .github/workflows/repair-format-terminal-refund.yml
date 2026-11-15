@@ -1,0 +1,32 @@
+name: One-shot terminal refund source formatter
+on:
+  push:
+    branches:
+      - repair/atomic-terminal-refund-recovery-20261115
+    paths:
+      - .github/workflows/repair-format-terminal-refund.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/atomic-terminal-refund-recovery-20261115
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx prettier --write src/services/build-claim.ts src/__tests__/buildQueueRecoveryClaim.test.ts src/__tests__/terminalQueueRefundOrder.test.ts
+      - name: Commit source formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/build-claim.ts src/__tests__/buildQueueRecoveryClaim.test.ts src/__tests__/terminalQueueRefundOrder.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(queue): normalize compensating recovery source"
+            git push origin HEAD:repair/atomic-terminal-refund-recovery-20261115
+          fi
