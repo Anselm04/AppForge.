@@ -77,9 +77,9 @@ describe("AppForge Stripe checkout: locally mocked payment transport", () => {
 
   it("rejects a price mismatch before payment session creation", async () => {
     mocks.price.unit_amount = 1;
-    await expect(
-      createPlanCheckout({ id: 42 }, "starter"),
-    ).rejects.toThrow(/does not match/);
+    await expect(createPlanCheckout({ id: 42 }, "starter")).rejects.toThrow(
+      /does not match/,
+    );
     expect(mocks.calls).toHaveLength(0);
   });
 
@@ -89,9 +89,9 @@ describe("AppForge Stripe checkout: locally mocked payment transport", () => {
       tier: "starter",
       stripeSubscriptionId: "sub_existing",
     };
-    await expect(
-      createPlanCheckout({ id: 42 }, "starter"),
-    ).rejects.toThrow(/existing Stripe subscription/);
+    await expect(createPlanCheckout({ id: 42 }, "starter")).rejects.toThrow(
+      /existing Stripe subscription/,
+    );
     expect(mocks.calls).toHaveLength(0);
   });
 
