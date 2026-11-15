@@ -319,8 +319,8 @@ export const projectsRouter = router({
             id,
             "Build reservation",
           );
-          await updateProjectCreditsReserved(id, BUILD_CREDIT_COST);
           charged = true;
+          await updateProjectCreditsReserved(id, BUILD_CREDIT_COST);
         }
 
         await enqueueBuild({
@@ -336,17 +336,61 @@ export const projectsRouter = router({
           reservationCharged,
         });
       } catch (err: unknown) {
+        let refundReconciliationRequired = false;
         if (charged) {
-          await addCredits(
-            ctx.user.id,
-            BUILD_CREDIT_COST,
-            "build_refund",
-            `Build start refund for project ${id}`,
-            `projects-create-refund-${id}-${createdAt}`,
-          ).catch(() => undefined);
-          await updateProjectCreditsReserved(id, 0).catch(() => undefined);
+          try {
+            await addCredits(
+              ctx.user.id,
+              BUILD_CREDIT_COST,
+              "build_refund",
+              `Build start refund for project ${id}`,
+              `projects-create-refund-${id}-${createdAt}`,
+            );
+            await updateProjectCreditsReserved(id, 0);
+          } catch (refundError) {
+            refundReconciliationRequired = true;
+            await recordProjectEvidence({
+              projectId: id,
+              kind: "failure",
+              payload: {
+                action: "build_start_refund_requires_reconciliation",
+                reservationId: `projects-create-refund-${id}-${createdAt}`,
+                message:
+                  refundError instanceof Error
+                    ? refundError.message
+                    : "Credit refund status could not be confirmed",
+              },
+            }).catch(() => undefined);
+          }
         }
-        await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
+        try {
+          await releaseProjectBuildClaim(
+            id,
+            ctx.user.id,
+            refundReconciliationRequired ? "failed" : "pending",
+            refundReconciliationRequired ? "credit_refund_failure" : null,
+          );
+        } catch (claimError) {
+          refundReconciliationRequired = true;
+          await recordProjectEvidence({
+            projectId: id,
+            kind: "failure",
+            payload: {
+              action: "build_start_claim_release_failed",
+              message:
+                claimError instanceof Error
+                  ? claimError.message
+                  : "Build claim release could not be confirmed",
+            },
+          }).catch(() => undefined);
+        }
+        if (refundReconciliationRequired) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "Build admission failed and credit or build-claim recovery must be reconciled. Do not retry this project until the reservation is resolved.",
+          });
+        }
         const message =
           err instanceof Error ? err.message : "Unable to enqueue build";
         const queueSaturated =
