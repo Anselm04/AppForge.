@@ -1136,3 +1136,11 @@ Verification: source and regression tests were committed; full exact-head CI rem
 - The CI lint checkout uses full fetch history and explicitly validates the base commit and merge ancestry before calculating changed TypeScript/TSX files. The diff command must return an error if Git cannot calculate the comparison.
 - Never restore the previous `git diff ... || true` escape, as it falsely converts unavailable ancestry into a passing formatter gate and could admit an unformatted source repair.
 - Recovery procedure: on a clean trusted clone, verify `git merge-base BASE HEAD`, list changed source files, and run Prettier check against that exact set. Missing base or failed formatting blocks promotion. This is offline and does not need Fly, live provider keys, or paid cloud infrastructure.
+
+## Owner MFA development fallback hardening — 15 November 2026
+
+- `ADMIN_MFA_TRIAL_FALLBACK` and `ADMIN_MFA_TRIAL_FALLBACK_UNTIL` are deprecated and **must not** enable admin verification-code disclosure in production, even when present in an old restored environment.
+- The development-only SMS provider fallback is permitted solely when `ENV.isProduction` is false, for isolated offline test fixtures. It is not an owner recovery mechanism and is never an authorized production break-glass control.
+- In production, a failed owner MFA provider request must remain fail-closed. Owner recovery must use the independently provisioned provider/MFA recovery routes listed above; no test code may be issued to the browser.
+- Rehearse production fallback denial by setting the deprecated flags in a local test configuration with `ENV.isProduction=true` and asserting `admin.requestMfa` refuses and no admin cookie is granted. Never deploy, send real SMS, or charge a provider during this regression.
+- Separate work remains to migrate owner step-up to verified Supabase authenticator TOTP; this hardening does not certify that migration or eliminate the current Twilio service dependency.
