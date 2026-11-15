@@ -7,7 +7,7 @@ const end = route.indexOf("res.json({\n      id,", start);
 const admission = route.slice(start, end);
 
 describe("REST generation reservation accounting parity", () => {
-  it("reserves project credits after the actual debit and before enqueue", () => {
+  it("reserves project credits after debit and before enqueue", () => {
     const debit = admission.indexOf("await deductCredits(");
     const charged = admission.indexOf("charged = true;");
     const reserve = admission.indexOf(
@@ -22,7 +22,9 @@ describe("REST generation reservation accounting parity", () => {
 
   it("only releases the reservation after the idempotent credit refund", () => {
     const refund = admission.indexOf("await addCredits(");
-    const clear = admission.indexOf("await updateProjectCreditsReserved(id, 0)");
+    const clear = admission.indexOf(
+      "await updateProjectCreditsReserved(id, 0)",
+    );
     const failed = admission.indexOf("reconciliationRequired = true;");
     expect(refund).toBeGreaterThan(-1);
     expect(clear).toBeGreaterThan(refund);
