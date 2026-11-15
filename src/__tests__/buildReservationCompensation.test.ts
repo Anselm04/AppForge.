@@ -24,7 +24,9 @@ describe("build reservation compensation protects customer credits", () => {
     expect(admission).toContain("build_start_claim_release_failed");
     expect(admission).not.toContain("await addCredits(" + "\n" + "          ctx.user.id");
     expect(admission).not.toContain(").catch(() => undefined);\n          await updateProjectCreditsReserved(id, 0)");
-    expect(admission).toContain("Do not retry this project until the reservation is resolved.");
+    expect(admission).toContain(
+      "Do not retry this project until the reservation is resolved.",
+    );
   });
 
   it("preserves the retryable capacity error only after successful recovery", () => {
