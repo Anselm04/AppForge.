@@ -16,7 +16,7 @@ export type TaskFlowNode = {
 
 /** Keep compact task evidence independent of the 200-row token display log. */
 export function appendTaskFlowEvent(
-  previous: readonly BuildLogEntry[],
+  previous: BuildLogEntry[],
   incoming: BuildLogEntry,
 ): BuildLogEntry[] {
   const taskId = incoming.payload?.taskId;
@@ -25,7 +25,7 @@ export function appendTaskFlowEvent(
     typeof taskId !== "string" ||
     !taskId.trim()
   )
-    return [...previous];
+    return previous;
   if (
     ![
       "coordination_status",
