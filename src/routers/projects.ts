@@ -349,7 +349,12 @@ export const projectsRouter = router({
         await releaseProjectBuildClaim(id, ctx.user.id, "pending", null);
         const message =
           err instanceof Error ? err.message : "Unable to enqueue build";
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+        const queueSaturated =
+          err instanceof Error && err.name === "BuildQueueSaturatedError";
+        throw new TRPCError({
+          code: queueSaturated ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR",
+          message,
+        });
       }
 
       return {
@@ -846,7 +851,9 @@ export const projectsRouter = router({
       const { assessFactoryExecution, isExecutionReadyForDeployment } =
         await import("../lib/factoryExecutionGate.js");
       const execution = assessFactoryExecution(artifact.validationResult);
-      if (!isExecutionReadyForDeployment(stackAdapter.generationMode, execution)) {
+      if (
+        !isExecutionReadyForDeployment(stackAdapter.generationMode, execution)
+      ) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
@@ -1024,9 +1031,10 @@ export const projectsRouter = router({
         }
         await recordProjectEvidence({
           projectId: input.id,
-          kind: input.destination === "preview" || productionDestination
-            ? "deployment"
-            : "validation",
+          kind:
+            input.destination === "preview" || productionDestination
+              ? "deployment"
+              : "validation",
           artifactVersion: artifact.version,
           payload: {
             success: true,

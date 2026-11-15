@@ -26,8 +26,8 @@ describe("preview and actual deployment evidence are distinct", () => {
   });
 
   it("does not label a preview as a verified live URL in evidence", () => {
-    expect(deploy).toContain(
-      'kind: input.destination === "preview" || productionDestination',
+    expect(deploy).toMatch(
+      /kind:\s*input\.destination\s*===\s*"preview"\s*\|\|\s*productionDestination/,
     );
     expect(deploy).toContain("previewVerified: previewEvidence?.ok === true");
     expect(deploy).toContain("await verifyGeneratedPreview({");
@@ -39,9 +39,7 @@ describe("preview and actual deployment evidence are distinct", () => {
     expect(deploy).toContain(
       'input.destination === "preview" ? (result.url ?? null) : null',
     );
-    expect(deploy).toContain(
-      'kind: "deployment"',
-    );
+    expect(deploy).toContain('kind: "deployment"');
   });
 
   it("shows the customer an explicit preview label", () => {

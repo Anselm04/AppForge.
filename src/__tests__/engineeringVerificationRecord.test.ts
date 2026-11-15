@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildEngineeringVerificationRecord } from "../lib/engineeringVerification.js";
+import { runnerSourceSha256 } from "../lib/runnerSourceDigest.js";
 
 const sha = "a".repeat(64);
 const snapshot = {
@@ -19,9 +20,9 @@ describe("artifact-bound engineering verification", () => {
       isMobile: false,
     });
     expect(record.status).toBe("incomplete");
-    expect(record.checks.find((check) => check.id === "validation")?.state).toBe(
-      "passed",
-    );
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("passed");
     expect(record.checks.find((check) => check.id === "security")?.state).toBe(
       "unverified",
     );
@@ -112,15 +113,78 @@ describe("artifact-bound engineering verification", () => {
     });
     expect(record.status).toBe("verified");
     expect(
-      record.checks.find((check) => check.id === "production_deployment")?.state,
-    ).toBe(
-      "passed",
-    );
+      record.checks.find((check) => check.id === "production_deployment")
+        ?.state,
+    ).toBe("passed");
     expect(
       record.checks.find((check) => check.id === "mobile_distribution")?.state,
-    ).toBe(
-      "unverified",
-    );
+    ).toBe("unverified");
+  });
+
+  it("accepts persisted native toolchain evidence for the exact saved snapshot", () => {
+    const record = buildEngineeringVerificationRecord({
+      currentSnapshot: {
+        ...snapshot,
+        files: {
+          "pubspec.yaml": "name: appforge_test",
+          "lib/main.dart": "void main() {}",
+        },
+        validationResult: {
+          passed: true,
+          stage: "isolated_runtime",
+          nativeEvidence: {
+            runnerArtifactSha256: runnerSourceSha256({
+              "pubspec.yaml": "name: appforge_test",
+              "lib/main.dart": "void main() {}",
+            }),
+            flutterAnalyzePassed: true,
+            flutterTestPassed: true,
+            androidBuildPassed: true,
+            iosSimulatorBuildPassed: true,
+            backendIntegrationPassed: true,
+          },
+        },
+      },
+      events: [],
+      checkpoints: [],
+      isMobile: true,
+    });
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("passed");
+    expect(record.status).toBe("incomplete");
+    expect(
+      record.checks.find((check) => check.id === "mobile_distribution")?.state,
+    ).toBe("unverified");
+  });
+
+  it("rejects native evidence from a different generated source revision", () => {
+    const record = buildEngineeringVerificationRecord({
+      currentSnapshot: {
+        ...snapshot,
+        files: { "lib/main.dart": "void main() { print('edited'); }" },
+        validationResult: {
+          passed: true,
+          stage: "isolated_runtime",
+          nativeEvidence: {
+            runnerArtifactSha256: runnerSourceSha256({
+              "lib/main.dart": "void main() {}",
+            }),
+            flutterAnalyzePassed: true,
+            flutterTestPassed: true,
+            androidBuildPassed: true,
+            iosSimulatorBuildPassed: true,
+            backendIntegrationPassed: true,
+          },
+        },
+      },
+      events: [],
+      checkpoints: [],
+      isMobile: true,
+    });
+    expect(
+      record.checks.find((check) => check.id === "validation")?.state,
+    ).toBe("unverified");
   });
 
   it("does not certify structural Flutter output as an executable app", () => {

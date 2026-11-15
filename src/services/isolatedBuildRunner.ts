@@ -1,5 +1,5 @@
 import { validateWithExistingHost } from "./existingHostBuildRunner.js";
-import { createHash } from "node:crypto";
+import { runnerSourceSha256 } from "../lib/runnerSourceDigest.js";
 import {
   isolatedRuntimeConfig,
   assertRuntimeProviderAllowed,
@@ -11,6 +11,21 @@ export type IsolatedBuildResult = {
   errors: string[];
   durationMs: number;
   isolationId: string;
+  nativeEvidence?: {
+    runnerArtifactSha256: string;
+    flutterAnalyzePassed: boolean;
+    flutterTestPassed: boolean;
+    androidBuildPassed: boolean;
+    iosSimulatorBuildPassed: boolean;
+    backendIntegrationPassed: boolean;
+  };
+};
+
+type RemoteStepProof = {
+  passed?: boolean;
+  command?: string;
+  exitCode?: number;
+  outputSha256?: string;
 };
 
 type RemoteProof = {
@@ -21,7 +36,7 @@ type RemoteProof = {
   isolationId?: string;
   artifactSha256?: string;
   techStack?: string;
-  steps?: Record<string, { passed?: boolean }>;
+  steps?: Record<string, RemoteStepProof>;
 };
 
 const REQUIRED_STEPS = [
@@ -32,6 +47,22 @@ const REQUIRED_STEPS = [
   "runtime",
 ] as const;
 
+const NATIVE_FLUTTER_STEPS = [
+  "flutter_analyze",
+  "flutter_test",
+  "android_build",
+  "ios_simulator_build",
+] as const;
+
+export function requiredStepsForStack(stack: string): string[] {
+  if (!stack.startsWith("flutter-")) return [...REQUIRED_STEPS];
+  return [
+    ...REQUIRED_STEPS,
+    ...NATIVE_FLUTTER_STEPS,
+    ...(stack === "flutter-node" ? ["backend_integration"] : []),
+  ];
+}
+
 export function isolatedBuildConfigured(): boolean {
   return Boolean(isolatedRuntimeConfig("build"));
 }
@@ -40,6 +71,7 @@ function validateProof(
   value: unknown,
   expectedArtifactSha256: string,
   expectedTechStack: string,
+  requiredSteps: readonly string[],
 ): RemoteProof {
   if (!value || typeof value !== "object") {
     throw new Error("Isolated build runner returned no validation proof");
@@ -52,13 +84,42 @@ function validateProof(
   if (!proof.steps || typeof proof.steps !== "object") {
     throw new Error("Isolated build runner returned no step evidence");
   }
-  const missing = REQUIRED_STEPS.filter(
+  const missing = requiredSteps.filter(
     (step) => proof.steps?.[step]?.passed !== true,
   );
   if (proof.passed === true && missing.length > 0) {
     throw new Error(
       `Isolated build runner claimed success without passing: ${missing.join(", ")}`,
     );
+  }
+  // For native builds the isolated runner must provide tool invocation
+  // results and binary digests; a bare boolean is not compilation proof.
+  if (proof.passed === true && expectedTechStack.startsWith("flutter-")) {
+    for (const step of NATIVE_FLUTTER_STEPS) {
+      const item = proof.steps[step];
+      if (
+        item?.passed !== true ||
+        item.exitCode !== 0 ||
+        !item.command?.trim()
+      ) {
+        throw new Error(`Native Flutter proof incomplete for ${step}`);
+      }
+    }
+    for (const step of ["android_build", "ios_simulator_build"]) {
+      if (!/^[a-f0-9]{64}$/i.test(proof.steps[step]?.outputSha256 ?? "")) {
+        throw new Error(`Native Flutter binary digest missing for ${step}`);
+      }
+    }
+    if (expectedTechStack === "flutter-node") {
+      const backend = proof.steps.backend_integration;
+      if (
+        backend?.passed !== true ||
+        backend.exitCode !== 0 ||
+        !backend.command?.trim()
+      ) {
+        throw new Error("Native Flutter backend integration proof is missing");
+      }
+    }
   }
   if (
     proof.passed === true &&
@@ -91,9 +152,8 @@ export async function validateWithIsolatedBuildRunner(
   if (Buffer.byteLength(serializedFiles, "utf8") > 5_000_000) {
     throw new Error("Generated project exceeds isolated build payload limit");
   }
-  const artifactSha256 = createHash("sha256")
-    .update(serializedFiles)
-    .digest("hex");
+  const requiredSteps = requiredStepsForStack(techStack);
+  const artifactSha256 = runnerSourceSha256(files);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5 * 60_000);
   const startedAt = Date.now();
@@ -113,7 +173,7 @@ export async function validateWithIsolatedBuildRunner(
         techStack,
         artifactSha256,
         files,
-        requiredSteps: REQUIRED_STEPS,
+        requiredSteps,
         policy: {
           cleanWorkspace: true,
           disposable: true,
@@ -136,10 +196,15 @@ export async function validateWithIsolatedBuildRunner(
       await response.json(),
       artifactSha256,
       techStack,
+      requiredSteps,
     );
+    const stage =
+      proof.passed === true
+        ? "isolated_runtime"
+        : proof.stage?.trim() || "isolated_runtime";
     return {
       passed: proof.passed === true,
-      stage: proof.stage?.trim() || "isolated_runtime",
+      stage,
       errors: Array.isArray(proof.errors)
         ? proof.errors.filter(
             (item): item is string => typeof item === "string",
@@ -147,6 +212,20 @@ export async function validateWithIsolatedBuildRunner(
         : [],
       durationMs: proof.durationMs ?? Date.now() - startedAt,
       isolationId: proof.isolationId!,
+      ...(techStack.startsWith("flutter-") && proof.passed === true
+        ? {
+            nativeEvidence: {
+              runnerArtifactSha256: artifactSha256,
+              flutterAnalyzePassed: true,
+              flutterTestPassed: true,
+              androidBuildPassed: true,
+              iosSimulatorBuildPassed: true,
+              backendIntegrationPassed:
+                techStack !== "flutter-node" ||
+                proof.steps?.backend_integration?.passed === true,
+            },
+          }
+        : {}),
     };
   } finally {
     clearTimeout(timeout);
