@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { DYAD_IMPLEMENTATION_GUIDANCE } from "./vendorDyadGenerationGuidance.js";
 import { getStackAdapter } from "./stackAdapters.js";
 import {
   getRuntimeArchitecture,
@@ -280,6 +281,7 @@ export function coderTaskInstruction(input: {
         )
       : ["- none"]),
     "Mandatory implementation rules:",
+    ...DYAD_IMPLEMENTATION_GUIDANCE,
     "- Return EVERY planned task file in full, even when modifying an existing file.",
     "- Output only // filename: <path> blocks for the files owned by this task.",
     "- Stack recipes describe the whole product, not this task's file ownership. Do not return additional build/configuration files or files assigned to another task. Keep imports and configuration references consistent with the approved plan.",

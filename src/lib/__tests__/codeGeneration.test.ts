@@ -270,6 +270,9 @@ describe("code generation guard", () => {
         "Task T1 returned unplanned file(s): tsconfig.node.json, tsconfig.server.json",
     });
     expect(instruction).toContain("PREVIOUS ATTEMPT REJECTED");
+    expect(instruction).toContain("Prioritize creating small, focused files");
+    expect(instruction).toContain("Avoid over-engineering");
+    expect(instruction).toContain("Return EVERY planned task file in full");
     expect(instruction).toContain("unplanned file(s): tsconfig.node.json");
     expect(instruction).toContain(
       "Return exactly these complete file paths and no others: src/main.tsx, src/App.tsx",
