@@ -18,13 +18,15 @@ describe("REST generation admission credit recovery", () => {
 
   it("does not silently accept an unconfirmed refund or claim release", () => {
     expect(admission).toContain("reconciliationRequired = true;");
-    expect(admission).toContain("generate_build_refund_requires_reconciliation");
+    expect(admission).toContain(
+      "generate_build_refund_requires_reconciliation",
+    );
     expect(admission).toContain("generate_build_claim_release_failed");
     expect(admission).toContain("recordProjectEvidence({");
     expect(admission).toContain(
       'reconciliationRequired ? "credit_refund_failure" : null',
     );
-    expect(admission).toContain('res.status(409).json({');
+    expect(admission).toContain("res.status(409).json({");
     expect(admission).toContain('"build_credit_reconciliation_required"');
     expect(admission).toContain("Do not retry this project");
     expect(admission).not.toContain(
