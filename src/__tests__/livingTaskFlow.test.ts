@@ -86,6 +86,24 @@ describe("live specialist workflow projection", () => {
     expect(completed[1].state).toBe("running");
   });
 
+  it("renders the actual task plan before execution, without faking activity", () => {
+    const planned = [
+      { id: "front", agent: "frontend", module: "Mobile screens", sequence: 2, dependencies: ["back"] },
+      { id: "back", agent: "backend", module: "Reservation API", sequence: 1, dependencies: [] },
+    ];
+    const queued = buildTaskFlow([], "running", planned);
+    expect(queued.map((node) => node.id)).toEqual(["back", "front"]);
+    expect(queued.map((node) => node.state)).toEqual(["queued", "queued"]);
+    expect(queued[1].dependencies).toEqual(["back"]);
+    const active = buildTaskFlow(
+      [{ agent: "Coder", type: "coordination_status", payload: { taskId: "back", ownerAgent: "backend", dependencies: [] } }],
+      "running",
+      planned,
+    );
+    expect(active[0].state).toBe("running");
+    expect(active[1].state).toBe("queued");
+  });
+
   it("keeps only canonical dependencies received in task-specific activity", () => {
     const logs = [
       {
