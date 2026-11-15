@@ -3,44 +3,99 @@ import { buildTaskFlow } from "../lib/livingTaskFlow.js";
 
 describe("live specialist workflow projection", () => {
   it("does not invent task boxes without real task identifiers", () => {
-    expect(buildTaskFlow([{ agent: "Coder", type: "chunk", payload: { text: "unscoped" } }], "running")).toEqual([]);
+    expect(
+      buildTaskFlow(
+        [{ agent: "Coder", type: "chunk", payload: { text: "unscoped" } }],
+        "running",
+      ),
+    ).toEqual([]);
   });
 
   it("creates real task nodes and only completes after an explicit task event", () => {
     const activity = [
-      { agent: "Coder", type: "coordination_status", payload: { taskId: "task-a", ownerAgent: "Flutter", module: "ui", attempt: 1 } },
-      { agent: "Coder", type: "chunk", payload: { taskId: "task-a", text: "source" } },
-      { agent: "Coder", type: "coordination_status", payload: { taskId: "task-b", ownerAgent: "Backend", module: "api" } },
+      {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: {
+          taskId: "task-a",
+          ownerAgent: "Flutter",
+          module: "ui",
+          attempt: 1,
+        },
+      },
+      {
+        agent: "Coder",
+        type: "chunk",
+        payload: { taskId: "task-a", text: "source" },
+      },
+      {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: { taskId: "task-b", ownerAgent: "Backend", module: "api" },
+      },
     ];
     const first = buildTaskFlow(activity, "running");
     expect(first).toHaveLength(2);
-    expect(first[0]).toMatchObject({ id: "task-a", owner: "Flutter", module: "ui", state: "running" });
+    expect(first[0]).toMatchObject({
+      id: "task-a",
+      owner: "Flutter",
+      module: "ui",
+      state: "running",
+    });
     expect(first[1]).toMatchObject({ id: "task-b", state: "running" });
-    const completed = buildTaskFlow([
-      ...activity,
-      { agent: "Coder", type: "task_complete", payload: { taskId: "task-a", filename: "lib/main.dart" } },
-    ], "running");
-    expect(completed[0]).toMatchObject({ state: "completed", filenames: ["lib/main.dart"] });
+    const completed = buildTaskFlow(
+      [
+        ...activity,
+        {
+          agent: "Coder",
+          type: "task_complete",
+          payload: { taskId: "task-a", filename: "lib/main.dart" },
+        },
+      ],
+      "running",
+    );
+    expect(completed[0]).toMatchObject({
+      state: "completed",
+      filenames: ["lib/main.dart"],
+    });
     expect(completed[1].state).toBe("running");
   });
 
   it("turns interrupted activity into paused or failed rather than claiming work is still running", () => {
-    const logs = [{ agent: "Coder", type: "coordination_status", payload: { taskId: "one" } }];
+    const logs = [
+      {
+        agent: "Coder",
+        type: "coordination_status",
+        payload: { taskId: "one" },
+      },
+    ];
     expect(buildTaskFlow(logs, "paused")[0].state).toBe("paused");
     expect(buildTaskFlow(logs, "failed")[0].state).toBe("failed");
     expect(buildTaskFlow(logs, "validated")[0].state).toBe("paused");
   });
 
   it("shows recorded errors and does not mark a failed task completed", () => {
-    const tasks = buildTaskFlow([
-      { agent: "Coder", type: "coordination_status", payload: { taskId: "bad", error: "output malformed" } },
-    ], "failed");
-    expect(tasks[0]).toMatchObject({ state: "failed", detail: "output malformed" });
+    const tasks = buildTaskFlow(
+      [
+        {
+          agent: "Coder",
+          type: "coordination_status",
+          payload: { taskId: "bad", error: "output malformed" },
+        },
+      ],
+      "failed",
+    );
+    expect(tasks[0]).toMatchObject({
+      state: "failed",
+      detail: "output malformed",
+    });
   });
 
   it("ignores unrelated agent activity and bounds the visible graph", () => {
     const logs = Array.from({ length: 30 }, (_, i) => ({
-      agent: "Coder", type: "task_complete", payload: { taskId: `task-${i}`, filename: `file-${i}.ts` },
+      agent: "Coder",
+      type: "task_complete",
+      payload: { taskId: `task-${i}`, filename: `file-${i}.ts` },
     }));
     expect(buildTaskFlow(logs, "running")).toHaveLength(24);
     expect(buildTaskFlow(logs, "running")[0].id).toBe("task-6");
