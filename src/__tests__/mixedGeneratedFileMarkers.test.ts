@@ -107,6 +107,32 @@ describe("mixed generated-file boundaries", () => {
     expect(Object.keys(files)).toEqual(["lib/main.dart"]);
   });
 
+  it("recovers CRLF fenced source files without losing subsequent markers", () => {
+    const files = parseGeneratedFiles(
+      [
+        "```dart lib/main.dart",
+        "void main() {",
+        "  print('CRLF retained');",
+        "}",
+        "```",
+        "// file: server/src/server.ts",
+        "export const running = true;",
+        "```yaml pubspec.yaml",
+        "name: example",
+        "```",
+        "",
+      ].join("\r\n"),
+    );
+    expect(Object.keys(files)).toEqual([
+      "lib/main.dart",
+      "server/src/server.ts",
+      "pubspec.yaml",
+    ]);
+    expect(files["lib/main.dart"]).toContain("  print('CRLF retained');");
+    expect(files["server/src/server.ts"]).toContain("running = true");
+    expect(files["pubspec.yaml"]).toBe("name: example\r\n");
+  });
+
   it("handles invalid fenced paths without discarding later valid files", () => {
     const files = parseGeneratedFiles(
       "```ts ../unsafe.ts\nbad()\n```\n" +
