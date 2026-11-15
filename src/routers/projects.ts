@@ -851,7 +851,9 @@ export const projectsRouter = router({
       const { assessFactoryExecution, isExecutionReadyForDeployment } =
         await import("../lib/factoryExecutionGate.js");
       const execution = assessFactoryExecution(artifact.validationResult);
-      if (!isExecutionReadyForDeployment(stackAdapter.generationMode, execution)) {
+      if (
+        !isExecutionReadyForDeployment(stackAdapter.generationMode, execution)
+      ) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
@@ -1029,9 +1031,10 @@ export const projectsRouter = router({
         }
         await recordProjectEvidence({
           projectId: input.id,
-          kind: input.destination === "preview" || productionDestination
-            ? "deployment"
-            : "validation",
+          kind:
+            input.destination === "preview" || productionDestination
+              ? "deployment"
+              : "validation",
           artifactVersion: artifact.version,
           payload: {
             success: true,
