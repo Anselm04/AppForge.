@@ -12,6 +12,23 @@ export type TaskFlowNode = {
   attempt: number | null;
 };
 
+/** Keep compact task evidence independent of the 200-row token display log. */
+export function appendTaskFlowEvent(
+  previous: readonly BuildLogEntry[],
+  incoming: BuildLogEntry,
+): BuildLogEntry[] {
+  const taskId = incoming.payload?.taskId;
+  if (incoming.agent !== "Coder" || typeof taskId !== "string" || !taskId.trim())
+    return [...previous];
+  if (!["coordination_status", "chunk", "task_complete", "task_resume_skip"].includes(incoming.type))
+    return [...previous];
+  // One chunk indicates the task streamed code; actual text stays in Logs.
+  if (incoming.type === "chunk" &&
+      previous.some((item) => item.type === "chunk" && item.payload?.taskId === taskId))
+    return [...previous];
+  return [...previous, incoming].slice(-512);
+}
+
 const MAX_TASKS = 24;
 const DISPLAY_LIMIT = 90;
 const safeText = (value: unknown, fallback: string): string =>
