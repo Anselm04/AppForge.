@@ -194,8 +194,8 @@ export function Admin() {
           {enrollment && (
             <div className="mt-4 space-y-3">
               <p className="text-sm">
-                Add this account to your authenticator app using the setup
-                link or secret. The secret is only displayed for enrollment.
+                Add this account to your authenticator app using the setup link
+                or secret. The secret is only displayed for enrollment.
               </p>
               <a
                 href={enrollment.uri}
