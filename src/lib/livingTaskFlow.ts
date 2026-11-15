@@ -1,6 +1,6 @@
 import type { BuildLogEntry } from "./buildLogView.js";
 
-export type TaskFlowState = "running" | "completed" | "failed" | "paused";
+export type TaskFlowState = "queued" | "running" | "completed" | "failed" | "paused";
 export type TaskFlowNode = {
   id: string;
   label: string;
@@ -45,6 +45,14 @@ export function appendTaskFlowEvent(
   return [...previous, incoming].slice(-512);
 }
 
+export type PlannedTask = {
+  id: string;
+  agent: string;
+  module: string;
+  sequence: number;
+  dependencies: string[];
+};
+
 const MAX_TASKS = 24;
 const DISPLAY_LIMIT = 90;
 const safeText = (value: unknown, fallback: string): string =>
@@ -56,8 +64,23 @@ const safeText = (value: unknown, fallback: string): string =>
 export function buildTaskFlow(
   logs: readonly BuildLogEntry[],
   projectStatus: string | null | undefined,
+  plannedTasks: readonly PlannedTask[] = [],
 ): TaskFlowNode[] {
   const tasks = new Map<string, TaskFlowNode>();
+  for (const plan of [...plannedTasks].sort((a, b) => a.sequence - b.sequence)) {
+    if (typeof plan.id !== "string" || !plan.id.trim() || tasks.has(plan.id)) continue;
+    tasks.set(plan.id, {
+      id: plan.id,
+      label: safeText(plan.agent, "Engineering task"),
+      owner: safeText(plan.agent, "Coder"),
+      module: safeText(plan.module, "Application"),
+      state: "queued",
+      dependencies: [...new Set((plan.dependencies ?? []).filter((dep) => typeof dep === "string" && dep.trim() && dep !== plan.id))].slice(0, 32),
+      filenames: [],
+      detail: "Planned task — no execution event yet",
+      attempt: null,
+    });
+  }
   for (const log of logs) {
     if (log.agent !== "Coder") continue;
     const payload = log.payload;
