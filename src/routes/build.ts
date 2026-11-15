@@ -63,8 +63,9 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     try {
       const artifact = await getCurrentArtifact(projectId);
       if (artifact) {
-        executionVerified =
-          assessFactoryExecution(artifact.validationResult).verified;
+        executionVerified = assessFactoryExecution(
+          artifact.validationResult,
+        ).verified;
         verificationSnapshotId = artifact.snapshotId;
         verificationArtifactSha256 = artifact.integrity.sha256;
       }
