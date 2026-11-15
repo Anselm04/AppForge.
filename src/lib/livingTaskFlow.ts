@@ -24,21 +24,38 @@ export function appendTaskFlowEvent(
     incoming.agent !== "Coder" ||
     typeof taskId !== "string" ||
     !taskId.trim() ||
-    !["coordination_status", "chunk", "task_complete", "task_resume_skip"].includes(incoming.type)
-  ) return previous;
+    ![
+      "coordination_status",
+      "chunk",
+      "task_complete",
+      "task_resume_skip",
+    ].includes(incoming.type)
+  )
+    return previous;
 
   // Do not allow reconnect replay to generate duplicate milestones.
   const signature = (event: BuildLogEntry): string =>
     JSON.stringify([
-      event.agent, event.type, event.payload?.taskId, event.payload?.attempt,
-      event.payload?.filename, event.payload?.error, event.payload?.message,
+      event.agent,
+      event.type,
+      event.payload?.taskId,
+      event.payload?.attempt,
+      event.payload?.filename,
+      event.payload?.error,
+      event.payload?.message,
       event.payload?.dependencies,
     ]);
   if (incoming.type === "chunk") {
-    if (previous.some((event) => event.type === "chunk" && event.payload?.taskId === taskId)) {
+    if (
+      previous.some(
+        (event) => event.type === "chunk" && event.payload?.taskId === taskId,
+      )
+    ) {
       return previous;
     }
-  } else if (previous.some((event) => signature(event) === signature(incoming))) {
+  } else if (
+    previous.some((event) => signature(event) === signature(incoming))
+  ) {
     return previous;
   }
 
