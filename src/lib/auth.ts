@@ -449,8 +449,10 @@ export async function completeAuthRedirect(): Promise<AppForgeSession | null> {
     throw new Error(errorDescription);
   }
 
-  let accessToken = hash.get("access_token");
-  let refreshToken = hash.get("refresh_token");
+  // OAuth providers can return tokens in a fragment or query string.
+  // Scrub either form from browser history before establishing a session.
+  let accessToken = hash.get("access_token") || search.get("access_token");
+  let refreshToken = hash.get("refresh_token") || search.get("refresh_token");
   const tokenHash = search.get("token_hash");
   const verificationType = search.get("type");
   if (!accessToken && !tokenHash) return null;
