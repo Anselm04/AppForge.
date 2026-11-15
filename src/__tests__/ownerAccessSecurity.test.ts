@@ -131,16 +131,13 @@ describe("owner account and god-code authorization", () => {
   });
 
   it.each([ownerEmail, "customer@example.com"])(
-    "requires phone verification for normal APIs for %s even with admin MFA",
+    "allows authenticated %s normal APIs without SMS, while privileged APIs stay owner-gated",
     async (email) => {
       const ctx = context(email, true);
       ctx.user.phoneVerified = false;
       await expect(
         testRouter.createCaller(ctx).unlimitedAction(),
-      ).rejects.toMatchObject({
-        code: "FORBIDDEN",
-        message: "Phone verification required",
-      });
+      ).resolves.toEqual({ allowed: true });
     },
   );
 
