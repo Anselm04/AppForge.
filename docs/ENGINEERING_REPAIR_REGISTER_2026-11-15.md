@@ -90,3 +90,9 @@ This is **source presence inspection only**, not runtime verification. The indep
 **Important implementation risk for follow-up:** `processStripeEventOnce` holds a postgres transaction for the event receipt, but the supplied handler can call separate Drizzle transactions. Event-receipt rollback may not roll back those side effects. Durable credit-delivery idempotency must therefore be enforced at each *business object* (invoice/payment intent/session) within the same transaction as the credit balance change. Do not treat event-ID dedupe alone as proof that replay can never double-credit.
 
 **Boundary:** No Fly reconnection, deployment, live checkout, API keys, new charges, or billing-plan changes. Existing Deploy Preview left untouched.
+
+### Additional checkout fixture coverage
+
+- `src/__tests__/stripeCheckoutHermetic.test.ts` invokes the existing checkout service with a mocked Stripe transport and no credentials. Assertions cover plan-session request metadata and automatic tax, rejected mismatched price, rejection of a duplicate subscription, and rejection of top-ups after cancellation.
+- Checkout fixtures do not process actual signed Stripe webhooks or prove that invoice settlement changes persisted credit balances. Failed-payment entitlement transitions, exhausted-credit behavior, invoices, refund/cancellation races, and real Postgres uniqueness remain **Unverified** until corresponding integrated offline tests pass.
+- CI initially reported `Lint & Format` failure for the webhook ledger fixture. A subsequent formatting-only commit corrected the file; successful requalification must be read on its new exact SHA rather than inferred from earlier runs.
