@@ -351,7 +351,7 @@ export const projectsRouter = router({
             refundReconciliationRequired = true;
             await recordProjectEvidence({
               projectId: id,
-              kind: "credit_refund",
+              kind: "failure",
               payload: {
                 action: "build_start_refund_requires_reconciliation",
                 reservationId: `projects-create-refund-${id}-${createdAt}`,
@@ -374,7 +374,7 @@ export const projectsRouter = router({
           refundReconciliationRequired = true;
           await recordProjectEvidence({
             projectId: id,
-            kind: "build_recovery",
+            kind: "failure",
             payload: {
               action: "build_start_claim_release_failed",
               message:
