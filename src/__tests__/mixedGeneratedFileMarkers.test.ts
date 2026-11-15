@@ -56,7 +56,9 @@ describe("Bolt.diy action recovery", () => {
 
   it("does not invent code from incomplete Bolt file actions", () => {
     expect(
-      parseGeneratedFiles(\n        '<boltAction type="file" filePath="src/App.tsx">unfinished',\n      ),
+      parseGeneratedFiles(
+        '<boltAction type="file" filePath="src/App.tsx">unfinished',
+      ),
     ).toEqual({});
   });
 });
