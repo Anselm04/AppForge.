@@ -13,6 +13,7 @@ import {
   getTierBuildLimit,
   deductCredits,
   addCredits,
+  recordProjectEvidence,
 } from "../db.js";
 import { BUILD_CREDIT_COST } from "../lib/credits.js";
 import { PROMPT_MAX_CHARS } from "../lib/prompt.js";
@@ -203,6 +204,7 @@ generateRouter.post("/", async (req: Request, res: Response) => {
         reservationCharged,
       });
     } catch (err: unknown) {
+      let reconciliationRequired = false;
       if (charged) {
         try {
           await addCredits(
@@ -213,13 +215,50 @@ generateRouter.post("/", async (req: Request, res: Response) => {
             `generate-build-refund-${id}-${createdAt}`,
           );
         } catch (refundErr: unknown) {
+          reconciliationRequired = true;
           logger.error(
             { projectId: id, error: refundErr },
-            "generate_build_refund_failed",
+            "generate_build_refund_requires_reconciliation",
           );
+          await recordProjectEvidence({
+            projectId: id,
+            kind: "failure",
+            payload: {
+              action: "generate_build_refund_requires_reconciliation",
+              reservationId: `generate-build-refund-${id}-${createdAt}`,
+            },
+          }).catch(() => undefined);
         }
       }
-      await releaseProjectBuildClaim(id, user.id, "pending", null);
+
+      try {
+        await releaseProjectBuildClaim(
+          id,
+          user.id,
+          reconciliationRequired ? "failed" : "pending",
+          reconciliationRequired ? "credit_refund_failure" : null,
+        );
+      } catch (claimErr: unknown) {
+        reconciliationRequired = true;
+        logger.error(
+          { projectId: id, error: claimErr },
+          "generate_build_claim_release_failed",
+        );
+        await recordProjectEvidence({
+          projectId: id,
+          kind: "failure",
+          payload: { action: "generate_build_claim_release_failed" },
+        }).catch(() => undefined);
+      }
+
+      if (reconciliationRequired) {
+        res.status(409).json({
+          error: "build_credit_reconciliation_required",
+          message:
+            "Build admission failed and credit recovery could not be confirmed. Do not retry this project until its reservation is reconciled.",
+        });
+        return;
+      }
       throw err;
     }
 
