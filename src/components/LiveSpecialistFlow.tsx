@@ -1,4 +1,5 @@
 import type { BuildLogEntry } from "../lib/buildLogView.js";
+import { layoutTaskLayers } from "../lib/livingTaskLayout.js";
 import {
   buildTaskFlow,
   type PlannedTask,
@@ -120,6 +121,8 @@ export function LiveSpecialistFlow({
     [logs, projectStatus, plannedTasks],
   );
   const [selected, setSelected] = useState<string | null>(null);
+  const [compact, setCompact] = useState(false);
+  const layers = useMemo(() => layoutTaskLayers(tasks), [tasks]);
   const focused = tasks.find((task) => task.id === selected);
   const graphRef = useRef<HTMLDivElement>(null);
   const marker = useId().replace(/:/g, "");
@@ -154,7 +157,7 @@ export function LiveSpecialistFlow({
           </p>
         </div>
         <span className="rounded-full bg-sky-50 px-3 py-1 text-xs text-sky-800">
-          {tasks.length} recorded task{tasks.length === 1 ? "" : "s"}
+          {tasks.length} actual task{tasks.length === 1 ? "" : "s"}
         </span>
       </div>
       <div className="flex flex-col items-center" aria-hidden="true">
@@ -164,97 +167,126 @@ export function LiveSpecialistFlow({
         <span className="h-5 w-px bg-sky-200" />
         <span className="text-sky-500">↓</span>
       </div>
-      <div ref={graphRef} className="relative">
-        {layout.width > 0 && layout.connectors.length > 0 && (
-          <svg
-            className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible"
-            viewBox={`0 0 ${layout.width} ${layout.height}`}
-            aria-hidden="true"
-          >
-            <defs>
-              <marker
-                id={marker}
-                markerWidth="7"
-                markerHeight="7"
-                refX="6"
-                refY="3.5"
-                orient="auto"
-                markerUnits="userSpaceOnUse"
-              >
-                <path d="M0 0 L7 3.5 L0 7 Z" fill="#7dd3fc" />
-              </marker>
-            </defs>
-            {layout.connectors.map((edge) => {
-              const destination = taskIndex.get(edge.to);
-              const origin = taskIndex.get(edge.from);
-              const active =
-                origin?.state === "completed" &&
-                destination?.state === "running";
-              return (
-                <g key={`${edge.from}:${edge.to}`}>
-                  <path
-                    d={edge.path}
-                    stroke={active ? "#38bdf8" : "#cbd5e1"}
-                    strokeWidth={active ? 2.5 : 1.5}
-                    fill="none"
-                    markerEnd={`url(#${marker})`}
-                    className={active ? "motion-safe:animate-pulse" : ""}
-                  />
-                  {active && (
-                    <circle
-                      r="3"
-                      fill="#0ea5e9"
-                      className="motion-reduce:hidden"
-                    >
-                      <animateMotion
-                        dur="1.7s"
-                        repeatCount="indefinite"
-                        path={edge.path}
-                      />
-                    </circle>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-        )}
-        <div
-          className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2 xl:grid-cols-3"
-          role="list"
-          aria-label="Recorded engineering tasks"
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-600">
+          Tasks flow from left to right by recorded dependencies. Swipe to
+          explore.
+        </p>
+        <button
+          type="button"
+          onClick={() => setCompact((value) => !value)}
+          aria-label={
+            compact ? "Expand workflow nodes" : "Compact workflow nodes"
+          }
+          className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-800"
         >
-          {tasks.map((task) => (
-            <div key={task.id} role="listitem" className="min-w-0">
-              <div className="flex justify-center" aria-hidden="true">
-                <span
-                  className={`mb-1 h-4 w-1 rounded-full ${task.state === "running" ? "bg-sky-400 motion-safe:animate-pulse" : "bg-slate-200"}`}
-                />
-              </div>
-              <button
-                type="button"
-                data-task-node={task.id}
-                onClick={() => setSelected(task.id)}
-                aria-pressed={selected === task.id}
-                className={`relative z-10 w-full rounded-xl border p-3 text-left shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${classes[task.state]} ${selected === task.id ? "ring-2 ring-sky-300" : ""}`}
+          {compact ? "Expand" : "Compact"} layout
+        </button>
+      </div>
+      <div
+        className="overflow-x-auto overscroll-x-contain rounded-xl p-2"
+        tabIndex={0}
+        role="region"
+        aria-label="Scrollable engineering dependency graph"
+      >
+        <div ref={graphRef} className="relative min-w-max pb-3">
+          {layout.width > 0 && layout.connectors.length > 0 && (
+            <svg
+              className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible"
+              viewBox={`0 0 ${layout.width} ${layout.height}`}
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id={marker}
+                  markerWidth="7"
+                  markerHeight="7"
+                  refX="6"
+                  refY="3.5"
+                  orient="auto"
+                  markerUnits="userSpaceOnUse"
+                >
+                  <path d="M0 0 L7 3.5 L0 7 Z" fill="#7dd3fc" />
+                </marker>
+              </defs>
+              {layout.connectors.map((edge) => {
+                const destination = taskIndex.get(edge.to);
+                const origin = taskIndex.get(edge.from);
+                const active =
+                  origin?.state === "completed" &&
+                  destination?.state === "running";
+                return (
+                  <g key={`${edge.from}:${edge.to}`}>
+                    <path
+                      d={edge.path}
+                      stroke={active ? "#38bdf8" : "#cbd5e1"}
+                      strokeWidth={active ? 2.5 : 1.5}
+                      fill="none"
+                      markerEnd={`url(#${marker})`}
+                      className={active ? "motion-safe:animate-pulse" : ""}
+                    />
+                    {active && (
+                      <circle
+                        r="3"
+                        fill="#0ea5e9"
+                        className="motion-reduce:hidden"
+                      >
+                        <animateMotion
+                          dur="1.7s"
+                          repeatCount="indefinite"
+                          path={edge.path}
+                        />
+                      </circle>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+          <div
+            className="relative z-10 flex items-start gap-10"
+            role="list"
+            aria-label="Recorded engineering tasks"
+          >
+            {layers.map((layer, layerIndex) => (
+              <div
+                key={layerIndex}
+                className={`flex shrink-0 flex-col gap-3 ${compact ? "w-40" : "w-56"}`}
+                aria-label={`Dependency stage ${layerIndex + 1}`}
               >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold">
-                    {task.label}
-                  </span>
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${task.state === "running" ? "bg-sky-500 motion-safe:animate-pulse" : task.state === "completed" ? "bg-emerald-500" : task.state === "failed" ? "bg-rose-500" : task.state === "queued" ? "bg-slate-400" : "bg-amber-500"}`}
-                    aria-hidden="true"
-                  />
+                <span className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Stage {layerIndex + 1}
                 </span>
-                <span className="mt-1 block truncate text-xs opacity-80">
-                  {task.module}
-                </span>
-                <span className="mt-2 block text-xs capitalize">
-                  {task.state}
-                </span>
-              </button>
-            </div>
-          ))}
+                {layer.map((task) => (
+                  <div key={task.id} role="listitem">
+                    <button
+                      type="button"
+                      data-task-node={task.id}
+                      onClick={() => setSelected(task.id)}
+                      aria-pressed={selected === task.id}
+                      className={`w-full rounded-xl border p-3 text-left shadow-sm transition-all duration-300 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${classes[task.state]} ${selected === task.id ? "ring-2 ring-sky-300" : ""}`}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold">
+                          {task.label}
+                        </span>
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${task.state === "running" ? "bg-sky-500 motion-safe:animate-pulse" : task.state === "completed" ? "bg-emerald-500" : task.state === "failed" ? "bg-rose-500" : task.state === "queued" ? "bg-slate-400" : "bg-amber-500"}`}
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="mt-1 block truncate text-xs opacity-80">
+                        {task.module}
+                      </span>
+                      <span className="mt-2 block text-xs capitalize">
+                        {task.state}
+                      </span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       {focused && (

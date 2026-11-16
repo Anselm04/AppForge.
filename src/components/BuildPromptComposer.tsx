@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createSpeechRecognition,
   speechRecognitionSupported,
@@ -41,25 +41,63 @@ export function BuildPromptComposer({
   children,
 }: Props) {
   const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const activeRecognition =
+    useRef<ReturnType<typeof createSpeechRecognition>>(null);
+  const latestPrompt = useRef(value);
+  latestPrompt.current = value;
+  useEffect(
+    () => () => {
+      const recognition = activeRecognition.current;
+      if (recognition) {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        recognition.stop();
+      }
+    },
+    [],
+  );
   const voiceSupported = useMemo(() => speechRecognitionSupported(), []);
 
   const startVoiceInput = () => {
     const recognition = createSpeechRecognition();
     if (!recognition) return;
 
+    setVoiceError(null);
+    activeRecognition.current?.stop();
+    activeRecognition.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = document.documentElement.lang || "en";
     recognition.onresult = (event) => {
       const transcript = transcriptFromSpeechResult(event);
       if (!transcript) return;
-      onChange(`${value.trim()}${value.trim() ? " " : ""}${transcript}`);
+      const current = latestPrompt.current.trim();
+      onChange(`${current}${current ? " " : ""}${transcript}`);
     };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onend = () => {
+      activeRecognition.current = null;
+      setListening(false);
+    };
+    recognition.onerror = () => {
+      activeRecognition.current = null;
+      setListening(false);
+      setVoiceError(
+        "Voice recognition failed. You can still type your request.",
+      );
+    };
 
-    setListening(true);
-    recognition.start();
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      activeRecognition.current = null;
+      setListening(false);
+      setVoiceError(
+        "Microphone could not start. Check your browser permissions.",
+      );
+    }
   };
 
   return (
@@ -163,6 +201,11 @@ export function BuildPromptComposer({
         </div>
       )}
 
+      {voiceError && (
+        <p role="alert" className="text-sm text-rose-700">
+          {voiceError}
+        </p>
+      )}
       {helperText && (
         <p className="text-xs leading-5 text-forge-text-muted">{helperText}</p>
       )}
