@@ -12,6 +12,7 @@ import { watchProject } from "../agents/selfHealing.js";
 import {
   getBuildEventsSince,
   getLatestBuildClaimAt,
+  getBuildTaskMilestones,
 } from "../services/build-event-store.js";
 import {
   currentBuildAttemptEvents,
@@ -76,6 +77,16 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
+    // Reopen an existing build without restarting generation: replay genuine
+    // recorded specialist milestones before the final terminal event.
+    try {
+      const milestones = await getBuildTaskMilestones(projectId);
+      for (const milestone of milestones) {
+        res.write(`event: agent\ndata: ${JSON.stringify(milestone.payload)}\n\n`);
+      }
+    } catch (error) {
+      logger.warn({ error, projectId }, "completed_build_milestones_unavailable");
+    }
     res.write(
       `event: done\ndata: ${JSON.stringify({
         status: project.status,
