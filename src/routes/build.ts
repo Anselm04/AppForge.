@@ -82,10 +82,15 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     try {
       const milestones = await getBuildTaskMilestones(projectId);
       for (const milestone of milestones) {
-        res.write(`event: agent\ndata: ${JSON.stringify(milestone.payload)}\n\n`);
+        res.write(
+          `event: agent\ndata: ${JSON.stringify(milestone.payload)}\n\n`,
+        );
       }
     } catch (error) {
-      logger.warn({ error, projectId }, "completed_build_milestones_unavailable");
+      logger.warn(
+        { error, projectId },
+        "completed_build_milestones_unavailable",
+      );
     }
     res.write(
       `event: done\ndata: ${JSON.stringify({
