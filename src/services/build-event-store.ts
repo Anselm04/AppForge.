@@ -71,3 +71,30 @@ export async function getLatestBuildClaimAt(
   const result = rows as unknown as { claimedAt: string }[];
   return result[0]?.claimedAt ?? null;
 }
+
+/**
+ * Read a bounded, durable history of task milestones for completed-build
+ * visualisation. The customer has already passed ownership checks at route
+ * level. Tokens/chunks are intentionally excluded from this read.
+ */
+export async function getBuildTaskMilestones(
+  projectId: number,
+): Promise<StoredBuildEvent[]> {
+  const rows = await db.execute<StoredBuildEvent>(sql`
+    SELECT id, event, payload FROM (
+      SELECT id, event, payload
+      FROM build_events
+      WHERE project_id = ${projectId}
+        AND id > COALESCE((
+          SELECT MAX(id) FROM build_events
+          WHERE project_id = ${projectId} AND event = 'build_claim'
+        ), 0)
+        AND event = 'agent'
+        AND payload->>'agent' = 'Coder'
+        AND payload->>'type' IN ('coordination_status', 'task_complete', 'task_resume_skip')
+      ORDER BY id DESC LIMIT 1024
+    ) milestones
+    ORDER BY id ASC
+  `);
+  return rows as unknown as StoredBuildEvent[];
+}
