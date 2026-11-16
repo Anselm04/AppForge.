@@ -59,6 +59,39 @@ describe("BuildPromptComposer", () => {
     ).toBeDisabled();
   });
 
+  it("handles a browser microphone start failure without submitting a build", () => {
+    class BrokenRecognition {
+      start = () => {
+        throw new Error("not permitted");
+      };
+      stop = vi.fn();
+      onresult = null;
+      onend = null;
+      onerror = null;
+      continuous = false;
+      interimResults = false;
+      lang = "";
+    }
+    (
+      window as unknown as { SpeechRecognition: typeof BrokenRecognition }
+    ).SpeechRecognition = BrokenRecognition;
+    const onSubmit = vi.fn();
+    render(
+      <BuildPromptComposer
+        value=""
+        onChange={vi.fn()}
+        onSubmit={onSubmit}
+        submitLabel="Build"
+        placeholder="Describe your app"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start voice input" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Microphone could not start",
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("passes recognized speech back through the controlled value callback", () => {
     class FakeRecognition {
       start = vi.fn();
@@ -88,7 +121,7 @@ describe("BuildPromptComposer", () => {
     ).SpeechRecognition = FakeRecognitionConstructor;
 
     const onChange = vi.fn();
-    render(
+    const page = render(
       <BuildPromptComposer
         value="Existing idea"
         onChange={onChange}
@@ -110,5 +143,24 @@ describe("BuildPromptComposer", () => {
     expect(onChange).toHaveBeenCalledWith(
       "Existing idea with customer notifications",
     );
+
+    // A customer may revise the typed request while recognition is active.
+    page.rerender(
+      <BuildPromptComposer
+        value="Updated idea"
+        onChange={onChange}
+        onSubmit={vi.fn()}
+        submitLabel="Build"
+        placeholder="Describe your product"
+      />,
+    );
+    recognition?.onresult?.({
+      results: [[{ transcript: "with secure accounts" }]],
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      "Updated idea with secure accounts",
+    );
+    page.unmount();
+    expect(recognition?.stop).toHaveBeenCalled();
   });
 });
